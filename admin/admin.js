@@ -5,7 +5,15 @@
 
   var KEY = 'm13-admin-draft-v1';
   var MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  var TYPE_NAMES = { route: 'Маршрут', container: 'Список (встречи, услуги)', offer: 'Продукт', text: 'Текст' };
+  // Оборот карточки собирается из блоков. У каждого блока — переключатель «видно/скрыто» и стрелки ↑↓.
+  var BLOCKS = [
+    ['heading', 'Заголовок на обороте'], ['desc', 'Описание'], ['images', 'Картинки'], ['price', 'Цена'],
+    ['day', '«Сегодня день N из M»'], ['routeButton', 'Большая кнопка-ссылка («Пройти маршрут»)'], ['formats', 'Форматы участия'],
+    ['items', 'Плашки (встречи, варианты, виды работы)'], ['dates', 'Даты с подписью'], ['info', 'Дополнительно (состав, пояснение)'],
+    ['examples', 'Кнопка «Примеры»'], ['actions', 'Кнопки «Написать» / ссылка'], ['sandbox', 'Кнопка «Как устроены маршруты»']
+  ];
+  var BLOCK_NAMES = {}; BLOCKS.forEach(function (x) { BLOCK_NAMES[x[0]] = x[1]; });
+  var PRESETS = [['route', 'Маршрут'], ['list', 'Встречи или услуги (плашки)'], ['product', 'Продукт'], ['simple', 'Текст и кнопка']];
 
   var DATA = null, ORIGINAL = null, dirty = false, savedAt = null;
   var ST = { section: 'showcases', showcase: null, card: 0, mobileForm: false, sbTab: 'days', openRoute: null };
@@ -341,6 +349,7 @@
         box.appendChild(row);
       });
       var can = !o.max || arr.length < o.max;
+      if (o.addBox) { box.appendChild(o.addBox(function (n) { arr.push(n); renumber(); OPENED.add(n); changed(); render(); if (o.onChange) o.onChange(); })); return; }
       box.appendChild(el('button', { type: 'button', class: 'a-btn a-add', disabled: !can,
         text: can ? (o.addLabel || '+ Добавить') : 'Больше добавить нельзя: предел ' + o.max,
         onclick: function () { var n = o.make(); arr.push(n); renumber(); OPENED.add(n); changed(); render(); if (o.onChange) o.onChange(); } }));
@@ -433,11 +442,14 @@
     if (baseId && DATA.showcases[baseId]) {
       sc = clone(DATA.showcases[baseId]);
       sc.cards.forEach(function (c) {
-        var b = c.back || {};
-        if (b.items) {
-          if (b.copyItems === false) b.items = [];
-          b.items.forEach(function (it) { it.id = uid('i'); });
-        }
+        if (!c.back || c.back.type === 'static') return;
+        c.back = window.M13.toBlocks(c.back);
+        (c.back.blocks || []).forEach(function (x) {
+          x.id = uid('b');
+          if (x.kind !== 'items') return;
+          if (x.copyItems === false) x.items = [];
+          (x.items || []).forEach(function (it) { it.id = uid('i'); });
+        });
       });
     } else {
       sc = { background: { color: '#f2f2f2', image: null }, intro: { value: '', show: false }, cards: [] };
@@ -470,7 +482,7 @@
           var tags = [];
           if (c.visible === false) tags.push(['скрыта', 1]);
           else if (isStatic) tags.push(['без оборота', 0]);
-          else tags.push([TYPE_NAMES[b.type] || '', 0]);
+          else tags.push([b.routeId && routeById(b.routeId) ? 'маршрут' : 'оборот', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
           var font = fs.font || d.font, tc = fs.textColor || d.textColor, bg = fs.bg || d.bg;
           function pk(k, def) { return fs[k] && fs[k] !== 'inherit' ? fs[k] : (d[k] || def); }
@@ -626,18 +638,6 @@
   window.M13_ADMIN = { pageHTML: pageHTML };
 
   /* ---------- Форма карточки ---------- */
-  function defaultBack(type) {
-    var f = DATA.formats.formats;
-    if (type === 'route') return { type: 'route', routeId: (routes()[0] || {}).id || '', description: { value: '', show: true },
-      dayCounter: { show: true }, routeButton: { show: false, label: 'Пройти маршрут' }, closedFormats: 'dim',
-      formats: f.map(function (x) { return { formatId: x.id, visible: true, availability: 'open' }; }),
-      sandboxButton: { show: true, label: 'Как устроены маршруты 13 MIRRORS' } };
-    if (type === 'container') return { type: 'container', description: { value: '', show: true }, max: 10, copyItems: true, items: [], note: { value: '', show: false } };
-    if (type === 'offer') return { type: 'offer', description: { value: '', show: true }, images: [], price: { value: '', show: false }, priceLabel: '',
-      max: 10, items: [], datesLabel: { value: '', show: false }, dates: { value: '', show: false }, datesNote: { value: '', show: false },
-      composition: { value: '', show: false }, examples: { show: false, label: 'Примеры' }, actions: [{ kind: 'contact', label: 'Написать' }] };
-    return { type: 'text', title: { value: '', show: true }, text: { value: '', show: true }, action: { kind: 'contact', label: 'Написать' } };
-  }
   function newItem() {
     return { id: uid('i'), visible: true, order: 0, date: { value: '', show: false }, title: 'Новый элемент', text: { value: '', show: false },
       duration: { value: '', show: false }, price: { value: '', show: false }, status: { value: '', show: false },
@@ -654,9 +654,179 @@
     ];
   }
 
+  /* ---------- Блоки оборота ---------- */
+  function newBlock(kind) {
+    var b = { id: uid('b'), kind: kind, visible: true };
+    if (kind === 'desc' || kind === 'info' || kind === 'heading') b.text = '';
+    if (kind === 'images') b.images = [];
+    if (kind === 'price') { b.label = ''; b.value = ''; }
+    if (kind === 'routeButton') { b.label = 'Пройти маршрут'; b.url = ''; }
+    if (kind === 'formats') { b.closed = 'dim'; b.formats = DATA.formats.formats.map(function (x) { return { formatId: x.id, visible: true, availability: 'open' }; }); }
+    if (kind === 'items') { b.items = []; b.max = 10; b.copyItems = true; b.tpl = 'container'; }
+    if (kind === 'dates') { b.label = ''; b.dates = ''; b.note = ''; }
+    if (kind === 'examples') b.label = 'Примеры';
+    if (kind === 'actions') b.actions = [{ kind: 'contact', label: 'Написать', visible: true }];
+    if (kind === 'sandbox') b.label = 'Как устроены маршруты 13 MIRRORS';
+    return b;
+  }
+  // Заготовка: набор блоков, с которого удобно начать. Дальше всё можно менять.
+  function presetBack(name, routeId) {
+    var kinds = { route: ['desc', 'day', 'routeButton', 'formats', 'sandbox'], list: ['desc', 'items', 'info'],
+      product: ['images', 'desc', 'price', 'items', 'dates', 'info', 'examples', 'actions'], simple: ['desc', 'actions'] }[name] || ['desc'];
+    var off = { route: { routeButton: 1 }, list: { info: 1 }, product: { images: 1, price: 1, dates: 1, info: 1, examples: 1 } }[name] || {};
+    return { type: 'blocks', routeId: name === 'route' ? (routeId || (routes()[0] || {}).id || '') : '', blocks: kinds.map(function (k) {
+      var b = newBlock(k); if (off[k]) b.visible = false;
+      if (k === 'items' && name === 'product') b.tpl = 'offerItem';
+      return b; }) };
+  }
+  function blockTitle(x) {
+    var n = BLOCK_NAMES[x.kind] || x.kind, t = '';
+    if (x.kind === 'desc' || x.kind === 'info' || x.kind === 'heading') t = String(x.text || '').split('\n')[0];
+    if (x.kind === 'price') t = x.value;
+    if (x.kind === 'items') t = (x.items || []).length + ' шт.';
+    if (x.kind === 'images') t = (x.images || []).length + ' шт.';
+    if (x.kind === 'dates') t = x.dates;
+    if (x.kind === 'routeButton' || x.kind === 'examples' || x.kind === 'sandbox') t = '«' + (x.label || '') + '»';
+    if (x.kind === 'actions') t = (x.actions || []).map(function (a) { return '«' + (a.label || '') + '»'; }).join(', ');
+    t = String(t || '').trim();
+    return n + (t ? ' · ' + (t.length > 40 ? t.slice(0, 40) + '…' : t) : '');
+  }
+  function blockBody(x, back, cb) {
+    var r = back.routeId ? routeById(back.routeId) : null;
+    function needRoute(what) {
+      return r ? null : el('p', { class: 'a-hint a-hint--warn', text: what + ' Выберите маршрут выше, в поле «Маршрут карточки».' });
+    }
+    if (x.kind === 'desc') return [textIn(x, 'text', '', { multi: true, rows: 4, ph: r ? r.description : '',
+      hint: r ? 'Если оставить пустым — возьмётся описание маршрута из библиотеки.' : null })];
+    if (x.kind === 'heading') return [textIn(x, 'text', '', { ph: 'Короткий заголовок' })];
+    if (x.kind === 'info') return [textIn(x, 'text', '', { multi: true, rows: 3, ph: 'Состав, пояснение, важная деталь' })];
+    if (x.kind === 'images') return [collection(x.images = x.images || [], { visible: true, max: 6, title: function (m, k) { return 'Картинка ' + (k + 1); },
+      body: function (m) { return [imageIn(m, 'src', '')]; }, make: function () { return { id: uid('img'), src: null, visible: true }; },
+      addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' })];
+    if (x.kind === 'price') return [el('div', { class: 'a-row' }, [textIn(x, 'value', 'Цена', { ph: '3 000 ₽' }),
+      textIn(x, 'label', 'Подпись к цене', { ph: 'Пусто — название карточки' })])];
+    if (x.kind === 'day') return [el('p', { class: 'a-hint', text: 'Появляется только в дни маршрута и считается по его датам.' }), needRoute('Счётчику нужны даты маршрута.')];
+    if (x.kind === 'routeButton') return [textIn(x, 'label', 'Текст на кнопке'),
+      textIn(x, 'url', 'Куда ведёт', { ph: r && r.routeUrl ? r.routeUrl : 'https://…', hint: r ? 'Пусто — страница маршрута из библиотеки.' : 'Полный адрес, начиная с https://' }),
+      !String(x.url || '').trim() && !(r && r.routeUrl) ? el('p', { class: 'a-hint a-hint--warn', text: 'Пока нет адреса — кнопка не появится.' }) : null];
+    if (x.kind === 'formats') {
+      var fmts = DATA.formats.formats;
+      x.formats = x.formats || [];
+      fmts.forEach(function (fm) { if (!x.formats.some(function (q) { return q.formatId === fm.id; })) x.formats.push({ formatId: fm.id, visible: true, availability: 'open' }); });
+      var out = [selectIn(x, 'closed', 'Форматы с закрытым набором', [['dim', 'Показывать бледными с подписью «набор закрыт»'], ['hide', 'Не показывать']])];
+      x.formats.forEach(function (q) {
+        var fm = fmts.filter(function (z) { return z.id === q.formatId; })[0];
+        if (!fm) return;
+        q.price = q.price && typeof q.price === 'object' ? q.price : { value: '', show: true };
+        q.price.show = true;
+        out.push(el('div', { class: 'a-action', style: 'background:#fff' }, [
+          el('div', { class: 'a-action-title', text: fm.title }),
+          switchIn(q, 'visible', 'Показывать этот формат', { defTrue: true }),
+          el('div', { class: 'a-row' }, [
+            selectIn(q, 'availability', 'Набор', [['open', 'Открыт'], ['closed', 'Закрыт']]),
+            textIn(q.price, 'value', 'Цена для этой карточки', { ph: fm.price, hint: 'Пусто — цена по умолчанию: ' + fm.price })]),
+          actionIn(q, 'action', 'Нажатие на плашку', { noLabel: true,
+            msgPh: 'Пусто — «Здравствуйте! Хочу на маршрут «…», формат «' + fm.title + '»»',
+            linkHint: 'Пусто — откроется страница маршрута из библиотеки.' })]));
+      });
+      return out;
+    }
+    if (x.kind === 'items') return [
+      collection(x.items = x.items || [], { visible: true, max: x.max || 10, title: itemTitle, body: itemBody, make: newItem,
+        addLabel: '+ Добавить плашку', empty: 'Пока нет ни одной плашки.' }),
+      selectIn(x, 'tpl', 'Готовый текст обращения для плашек', [['container', 'Как для встреч и услуг'], ['offerItem', 'Как для вариантов продукта']],
+        { hint: 'Сами тексты — в «Настройках». У любой плашки можно написать свой.' }),
+      switchIn(x, 'copyItems', 'Переносить эти плашки в новый месяц', { defTrue: true, hint: 'Для встреч обычно выключено: каждый месяц встречи новые.' })];
+    if (x.kind === 'dates') return [textIn(x, 'label', 'Заголовок над датами', { ph: 'Портальные дни октября' }),
+      textIn(x, 'dates', 'Даты', { ph: '04 · 08 · 15 · 16 · 23 · 29', hint: 'Просто строка текста, не кнопки.' }),
+      textIn(x, 'note', 'Пояснение под датами', { multi: true, rows: 2 })];
+    if (x.kind === 'examples') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт на страницу примеров Карт-Отражений.' })];
+    if (x.kind === 'sandbox') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт в Песочницу — «Как устроены маршруты».' })];
+    if (x.kind === 'actions') return [collection(x.actions = x.actions || [], { visible: true, max: 2, ordered: false, title: function (a) { return a.label; },
+      body: function (a) { return [actionIn({ a: a }, 'a', '')]; },
+      make: function () { return { kind: 'contact', label: 'Написать', visible: true }; }, addLabel: '+ Добавить кнопку' })];
+    return [];
+  }
+  function backBlocksForm(c, cb) {
+    var b = c.back = window.M13.toBlocks(c.back);
+    b.blocks = b.blocks || [];
+    var addSel = { k: 'desc' };
+    var preset = { p: 'route', armed: false }, presetBox = el('div');
+    function drawPreset() {
+      presetBox.replaceChildren();
+      add(presetBox, el('div', { class: 'a-row a-row--end' }, [
+        selectIn(preset, 'p', 'Начать с заготовки', PRESETS, { hint: 'Заменит блоки оборота готовым набором. Лицевая сторона не меняется.' }),
+        preset.armed
+          ? el('div', { class: 'a-confirm' }, ['Текущие блоки оборота пропадут. Точно?',
+              el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Да', onclick: function () {
+                c.back = presetBack(preset.p, b.routeId); changed(); cb.redrawAll(); } }),
+              el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Нет', onclick: function () { preset.armed = false; drawPreset(); } })])
+          : el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Применить', onclick: function () {
+              if (!b.blocks.length) { c.back = presetBack(preset.p, b.routeId); changed(); cb.redrawAll(); } else { preset.armed = true; drawPreset(); } } })]));
+    }
+    drawPreset();
+    return [
+      el('div', { class: 'a-row a-row--end' }, [
+        selectIn(b, 'routeId', 'Маршрут карточки', [['', '— не связана с маршрутом —']].concat(routes().map(function (x) {
+          return [x.id, x.title + (x.dates && x.dates.from ? ' · ' + fmtDates(x.dates) : '')]; })), {
+          hint: 'Нужен для счётчика дней, кнопки «Пройти маршрут», описания и текста обращения по умолчанию.',
+          onChange: function () { cb.redrawAll(); } }),
+        b.routeId ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Маршрут в библиотеке →', onclick: function () {
+          ST.section = 'routes'; ST.openRoute = b.routeId; renderShell(); } }) : null]),
+      sub('Блоки оборота — сверху вниз'),
+      el('p', { class: 'a-hint', text: 'Стрелками ↑↓ меняется порядок, «видно / скрыто» — показывать ли блок. Кнопки в самом конце прижимаются к низу карточки.' }),
+      collection(b.blocks, { visible: true, ordered: false, title: blockTitle,
+        body: function (x) { return blockBody(x, b, cb); },
+        empty: 'Оборот пока пустой — добавьте блоки или начните с заготовки.',
+        addBox: function (push) {
+          return el('div', { class: 'a-row a-row--end' }, [
+            selectIn(addSel, 'k', 'Добавить блок', BLOCKS, {}),
+            el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ Добавить', onclick: function () { push(newBlock(addSel.k)); } })]);
+        }, onChange: cb.redrawGrid }),
+      b.blocks.filter(function (x) { return x.visible !== false; }).length > 6
+        ? el('p', { class: 'a-hint a-hint--warn', text: 'Включено много блоков — на телефоне оборот может не поместиться без прокрутки. Проверьте в «Посмотреть» → «Как на телефоне».' }) : null,
+      presetBox
+    ];
+  }
+
+  /* ---------- Копирование карточки из любого месяца ---------- */
+  function copyCardBox(sc, i, cb) {
+    var st = { month: sc.id, card: '', armed: false }, box = el('div', { class: 'a-copy' });
+    function cardsOf(id) {
+      return (DATA.showcases[id].cards || []).map(function (c, k) { return [String(k), (k + 1) + '. ' + ((c.front || {}).title || 'Без названия')]; })
+        .filter(function (x) { return !(st.month === sc.id && +x[0] === i); });
+    }
+    function draw() {
+      box.replaceChildren();
+      var opts = cardsOf(st.month);
+      if (!opts.some(function (x) { return x[0] === st.card; })) st.card = opts.length ? opts[0][0] : '';
+      var src = DATA.showcases[st.month].cards[+st.card];
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Заменить эту карточку копией другой — из этого или любого другого месяца. Копируется всё: лицо, оформление и оборот.' }),
+        el('div', { class: 'a-row' }, [
+          selectIn(st, 'month', 'Месяц', Object.keys(DATA.showcases).sort().map(function (id) { return [id, DATA.showcases[id].title]; }), { onChange: function () { st.armed = false; draw(); } }),
+          selectIn(st, 'card', 'Карточка', opts.length ? opts : [['', 'нет карточек']], { onChange: function () { st.armed = false; draw(); } })]),
+        st.armed
+          ? el('div', { class: 'a-confirm' }, ['Карточка ' + (i + 1) + ' заменится копией «' + ((src.front || {}).title || '') + '». Точно?',
+              el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Да, заменить', onclick: function () {
+                var n = clone(src); n.id = sc.cards[i].id; delete n._backs;
+                if (n.back && n.back.type !== 'static') {
+                  n.back = window.M13.toBlocks(n.back);
+                  (n.back.blocks || []).forEach(function (x) { x.id = uid('b'); (x.items || []).forEach(function (it) { it.id = uid('i'); }); });
+                }
+                sc.cards[i] = n; changed(); cb.redrawAll(); toast('Готово: карточка скопирована. Не забудьте нажать «Сохранить».'); } }),
+              el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Отмена', onclick: function () { st.armed = false; draw(); } })])
+          : el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Скопировать сюда', disabled: !src,
+              onclick: function () { st.armed = true; draw(); } })]);
+    }
+    draw();
+    return box;
+  }
+
   function cardForm(sc, i, cb) {
     var c = sc.cards[i];
     c.front = c.front || {};
+    delete c._backs;
     var f = c.front;
     var interactive = c.interactive !== false && c.back && c.back.type && c.back.type !== 'static';
     var out = [
@@ -670,11 +840,12 @@
       el('div', { class: 'a-card', style: 'display:flex;flex-direction:column;gap:12px' }, [
         switchIn(c, 'visible', 'Показывать на витрине', { defTrue: true, hint: 'Если выключить, на этом месте будет пустая аккуратная клетка — сетка не сдвинется.', onChange: cb.redrawGrid }),
         switchIn({ v: interactive }, 'v', 'Карточка открывается и переворачивается', {
-          hint: 'Если выключить — карточка просто показывает текст, как центральная «13 MIRRORS».',
+          hint: 'Если выключить — карточка просто показывает текст, как центральная «13 MIRRORS». Оборот при этом сохраняется.',
           onChange: function (on) {
             c.interactive = on;
-            if (on && (!c.back || !c.back.type || c.back.type === 'static')) c.back = restoreBack(c, 'text');
-            if (!on) { stash(c); c.back = { type: 'static' }; }
+            if (on && (!c.back || !c.back.type || c.back.type === 'static')) c.back = c._back || presetBack('simple');
+            if (!on && c.back && c.back.type !== 'static') { c._back = c.back; c.back = { type: 'static' }; }
+            if (on) delete c._back;
             changed(); cb.redrawAll();
           } })
       ]),
@@ -689,125 +860,14 @@
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid)), { open: false })
     ];
-    if (interactive) {
-      var b = c.back, oldType = b.type;
-      out.push(block('Оборот', [
-        selectIn(b, 'type', 'Что на обороте', Object.keys(TYPE_NAMES).map(function (k) { return [k, TYPE_NAMES[k]]; }), {
-          hint: 'При смене типа прежнее содержимое оборота не теряется — к нему можно вернуться.',
-          onChange: function (t) { b.type = oldType; stash(c); c.back = restoreBack(c, t); changed(); cb.redrawAll(); } })
-      ].concat(backForm(c, cb))));
-    }
+    if (interactive) out.push(block('Оборот', backBlocksForm(c, cb)));
+    out.push(block('Скопировать карточку', [copyCardBox(sc, i, cb)], { open: false, note: 'из этого или другого месяца' }));
     return out;
 
     function move(d) {
       var j = i + d; var t = sc.cards[j]; sc.cards[j] = c; sc.cards[i] = t;
       ST.card = j; changed(); cb.redrawAll();
     }
-  }
-  // Храним обороты других типов, чтобы при переключении ничего не терялось (служебное поле, на сайт не попадёт).
-  function stash(c) {
-    if (!c.back || !c.back.type || c.back.type === 'static') return;
-    c._backs = c._backs || {};
-    c._backs[c.back.type] = c.back;
-  }
-  function restoreBack(c, type) {
-    var b = (c._backs && c._backs[type]) || defaultBack(type);
-    if (c._backs) delete c._backs[type];
-    return b;
-  }
-
-  function backForm(c, cb) {
-    var b = c.back;
-    if (b.type === 'route') return routeBackForm(c, cb);
-    if (b.type === 'container') return [
-      optIn(b, 'description', 'Описание', { multi: true }),
-      sub('Плашки (до ' + (b.max || 10) + ')'),
-      collection(b.items = b.items || [], { visible: true, max: b.max || 10, title: itemTitle, body: itemBody, make: newItem,
-        addLabel: '+ Добавить плашку', empty: 'Пока нет ни одной плашки.' }),
-      optIn(b, 'note', 'Пояснение под плашками', { multi: true, rows: 2 }),
-      switchIn(b, 'copyItems', 'Переносить эти плашки в новый месяц', { defTrue: true, hint: 'Для встреч обычно выключено: каждый месяц встречи новые.' })
-    ];
-    if (b.type === 'offer') return [
-      sub('Картинки'),
-      collection(b.images = (b.images || []).map(function (x) { return typeof x === 'string' ? { id: uid('img'), src: x, visible: true } : x; }), {
-        visible: true, max: 6, title: function (x, k) { return 'Картинка ' + (k + 1); },
-        body: function (x) { return [imageIn(x, 'src', '')]; }, make: function () { return { id: uid('img'), src: null, visible: true }; },
-        addLabel: '+ Добавить картинку', empty: 'Без картинок.' }),
-      optIn(b, 'description', 'Описание', { multi: true }),
-      el('div', { class: 'a-row' }, [optIn(b, 'price', 'Цена', { ph: '3 000 ₽' }), textIn(b, 'priceLabel', 'Подпись к цене', { ph: 'например, «Набор свечей»' })]),
-      sub('Варианты (плашки)'),
-      collection(b.items = b.items || [], { visible: true, max: b.max || 10, title: itemTitle, body: itemBody,
-        make: function () { var n = newItem(); n.title = 'Новый вариант'; n.action.label = 'Заказать'; return n; },
-        addLabel: '+ Добавить вариант', empty: 'Вариантов нет — будет только описание и кнопки.' }),
-      sub('Даты'),
-      optIn(b, 'datesLabel', 'Заголовок над датами', { ph: 'Портальные дни октября' }),
-      optIn(b, 'dates', 'Даты', { ph: '04 · 08 · 15 · 16 · 23 · 29', hint: 'Просто строка текста, не кнопки.' }),
-      optIn(b, 'datesNote', 'Пояснение под датами', { multi: true, rows: 2 }),
-      optIn(b, 'composition', 'Состав', { multi: true, rows: 2 }),
-      sub('Кнопки внизу'),
-      switchIn(b.examples = b.examples || { show: false, label: 'Примеры' }, 'show', 'Кнопка «Примеры» (ведёт на страницу примеров Карт-Отражений)'),
-      textIn(b.examples, 'label', 'Текст кнопки примеров'),
-      collection(b.actions = b.actions || [], { visible: true, max: 2, ordered: false, title: function (a) { return a.label; },
-        body: function (a) { return [textIn(a, 'label', 'Текст на кнопке'),
-          selectIn(a, 'kind', 'Что происходит при нажатии', [['contact', 'Окно «Куда написать?» → Telegram или VK'], ['link', 'Сразу открывается ссылка']]),
-          textIn(a, 'message', 'Текст обращения (для Telegram/VK)', { multi: true, rows: 2, ph: 'Можно оставить пустым' }),
-          textIn(a, 'url', 'Ссылка (если выбрано «открывается ссылка»)', { ph: 'https://…' })]; },
-        make: function () { return { kind: 'contact', label: 'Написать', visible: true }; }, addLabel: '+ Добавить кнопку' })
-    ];
-    return [
-      optIn(b, 'title', 'Заголовок'),
-      optIn(b, 'text', 'Текст', { multi: true, rows: 4 }),
-      actionIn(b, 'action', 'Кнопка')
-    ];
-  }
-
-  function routeBackForm(c, cb) {
-    var b = c.back;
-    var r = routeById(b.routeId);
-    var fmts = DATA.formats.formats;
-    b.formats = b.formats || [];
-    fmts.forEach(function (fm) { if (!b.formats.some(function (x) { return x.formatId === fm.id; })) b.formats.push({ formatId: fm.id, visible: true, availability: 'open' }); });
-    b.description = b.description && typeof b.description === 'object' ? b.description : { value: b.description || '', show: true };
-    b.description.show = true;
-    b.dayCounter = b.dayCounter || { show: false };
-    b.routeButton = b.routeButton || { show: false, label: 'Пройти маршрут' };
-    b.sandboxButton = b.sandboxButton || { show: true, label: 'Как устроены маршруты 13 MIRRORS' };
-
-    var out = [
-      selectIn(b, 'routeId', 'Маршрут', routes().map(function (x) { return [x.id, x.title + (x.dates && x.dates.from ? ' · ' + fmtDates(x.dates) : '')]; }), {
-        onChange: function () { cb.redrawAll(); } }),
-      el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Изменить маршрут в библиотеке →', onclick: function () {
-        ST.section = 'routes'; ST.openRoute = b.routeId; renderShell(); } }),
-      textIn(b.description, 'value', 'Описание на обороте', { multi: true, ph: r ? r.description : '',
-        hint: 'Если оставить пустым — возьмётся описание из библиотеки маршрутов.' }),
-      switchIn(b.dayCounter, 'show', 'Показывать «Сегодня день N из 13»', { hint: 'Появляется только в дни маршрута, считается по датам.' }),
-      switchIn(b.routeButton, 'show', 'Большая кнопка «Пройти маршрут»'),
-      textIn(b.routeButton, 'label', 'Текст этой кнопки'),
-      r && !r.routeUrl ? el('p', { class: 'a-hint a-hint--warn', text: 'У маршрута «' + r.title + '» пока нет ссылки на страницу — кнопка не появится. Ссылку можно добавить в разделе «Маршруты».' }) : null,
-      sub('Форматы участия'),
-      selectIn(b, 'closedFormats', 'Форматы с закрытым набором', [['dim', 'Показывать бледными с подписью «набор закрыт»'], ['hide', 'Не показывать']])
-    ];
-    b.formats.forEach(function (x) {
-      var fm = fmts.filter(function (q) { return q.id === x.formatId; })[0];
-      if (!fm) return;
-      x.price = x.price && typeof x.price === 'object' ? x.price : { value: '', show: true };
-      x.price.show = true;
-      out.push(el('div', { class: 'a-action', style: 'background:#fff' }, [
-        el('div', { class: 'a-action-title', text: fm.title }),
-        switchIn(x, 'visible', 'Показывать этот формат', { defTrue: true }),
-        el('div', { class: 'a-row' }, [
-          selectIn(x, 'availability', 'Набор', [['open', 'Открыт'], ['closed', 'Закрыт']]),
-          textIn(x.price, 'value', 'Цена для этой карточки', { ph: fm.price, hint: 'Пусто — цена по умолчанию: ' + fm.price })
-        ]),
-        actionIn(x, 'action', 'Нажатие на плашку', { noLabel: true,
-          msgPh: 'Пусто — «Здравствуйте! Хочу на маршрут «…», формат «' + fm.title + '»»',
-          linkHint: 'Пусто — откроется страница маршрута из библиотеки.' })
-      ]));
-    });
-    out.push(sub('Нижняя кнопка'));
-    out.push(switchIn(b.sandboxButton, 'show', 'Кнопка «Как устроены маршруты 13 MIRRORS» (ведёт в Песочницу)'));
-    out.push(textIn(b.sandboxButton, 'label', 'Текст кнопки'));
-    return out;
   }
 
   /* ================= МАРШРУТЫ ================= */
@@ -1089,6 +1149,12 @@
       try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
       if (saved && saved.data) { DATA = saved.data; savedAt = saved.savedAt; } else DATA = clone(src);
       DATA.showcases = DATA.showcases || {};
+      Object.keys(DATA.showcases).forEach(function (k) {
+        (DATA.showcases[k].cards || []).forEach(function (c) {
+          if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
+          if (c._backs) delete c._backs;
+        });
+      });
       renderShell();
     }).catch(function (e) {
       console.error(e);

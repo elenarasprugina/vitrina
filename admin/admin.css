@@ -212,3 +212,10 @@ select.a-input{padding-right:28px}
   .a-topbtns{width:100%;margin-left:0}
   .a-topbtns .a-btn{flex:1;padding:8px 6px;min-width:0}
 }
+
+/* Блоки оборота и копирование карточки */
+.a-row--end{align-items:end}
+.a-row--end > .a-btn{justify-self:start;margin-bottom:2px}
+.a-row--end .a-confirm{flex-wrap:wrap}
+.a-copy{display:flex;flex-direction:column;gap:10px}
+.a-copy .a-confirm{flex-wrap:wrap}

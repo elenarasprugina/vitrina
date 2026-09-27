@@ -339,14 +339,6 @@
   }
   function descHTML(s) { return s ? '<div class="m13-desc">' + txt(s) + '</div>' : ''; }
 
-  function backHTML(c) {
-    var b = c.back || {};
-    if (b.type === 'route') return backRoute(c);
-    if (b.type === 'container') return backContainer(c);
-    if (b.type === 'offer') return backOffer(c);
-    return backText(c);
-  }
-
   /* ---------- Оборот: маршрут ---------- */
   function dayCounter(r) {
     if (!r || !r.dates || !r.dates.from || !r.dates.to) return '';
@@ -356,50 +348,6 @@
     var n = Math.round((now - from) / DAY) + 1, total = Math.round((to - from) / DAY) + 1;
     if (n < 1 || n > total) return '';
     return fill(T('dayCounter') || 'Сегодня день {n} из {total}', { n: n, total: total });
-  }
-
-  function backRoute(c) {
-    var b = c.back, r = routeById(b.routeId) || { title: (c.front || {}).title, routeUrl: '' };
-    var desc = opt(b.description) || r.description || '';
-    var kin = opt(r.kin);
-    var h = headHTML(c, kin ? [kin] : []) + descHTML(desc);
-
-    if (b.dayCounter && b.dayCounter.show) {
-      var dc = dayCounter(r);
-      if (dc) h += '<div class="m13-day">' + esc(dc) + '</div>';
-    }
-    if (b.routeButton && b.routeButton.show && r.routeUrl) {
-      h += '<a class="m13-go" href="' + esc(r.routeUrl) + '" target="_blank" rel="noopener"><span>' +
-        esc(b.routeButton.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
-    }
-
-    var list = (b.formats || []).filter(function (x) {
-      return x.visible !== false && !(x.availability === 'closed' && b.closedFormats === 'hide');
-    });
-    if (list.length) {
-      h += '<div class="m13-formats" style="--n:' + Math.min(list.length, 3) + '">' + list.map(function (x) {
-        var fm = formatById(x.formatId) || {};
-        var name = x.title || fm.title || '';
-        var price = (x.price && opt(x.price)) || fm.price || '';
-        var note = (x.note && opt(x.note)) || opt(fm.note);
-        var closed = x.availability === 'closed';
-        if (closed) note = T('formatClosed') || 'набор закрыт';
-        var inner = '<div class="m13-format-name">' + esc(name) + '</div>' +
-          (price ? '<div class="m13-format-price">' + esc(price) + '</div>' : '') +
-          (note ? '<div class="m13-format-note">' + esc(note) + '</div>' : '');
-        if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
-        var ctx = { card: (c.front || {}).title, route: r.title, format: name, price: price, routeUrl: r.routeUrl, tplKey: 'route' };
-        var a = x.action || { kind: 'contact' };
-        return '<button type="button" class="m13-format"' + act(a, ctx) + '>' + inner + '</button>';
-      }).join('') + '</div>';
-    }
-
-    var sb = b.sandboxButton || { show: true };
-    if (sb.show !== false) {
-      h += '<button type="button" class="m13-soft"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
-        esc(sb.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
-    }
-    return h;
   }
 
   /* ---------- Оборот: контейнер (встречи, индивидуальная работа) ---------- */
@@ -422,63 +370,136 @@
     }).join('') + '</div>';
   }
 
-  function backContainer(c) {
-    var b = c.back;
-    var h = headHTML(c) + descHTML(opt(b.description)) + itemsHTML(c, b.items, b.max, 'container');
-    var note = opt(b.note);
-    if (note) h += '<div class="m13-info">' + txt(note) + '</div>';
+  /* ---------- Оборот из блоков ----------
+     back = {type:'blocks', routeId?, blocks:[{id, kind, visible, …}]}. Порядок блоков = порядок в массиве.
+     Старые типы (route, container, offer, text) переводятся в блоки функцией M13.toBlocks. */
+  function oid() { return 'b-' + Math.random().toString(36).slice(2, 8); }
+  function ov(f) { return f == null ? '' : (typeof f === 'object' ? (f.show === false ? '' : f.value || '') : f); }
+  function blk(kind, props, visible) {
+    var o = { id: oid(), kind: kind, visible: visible !== false };
+    for (var k in props) o[k] = props[k];
+    return o;
+  }
+  M13.toBlocks = function (b) {
+    if (!b || !b.type || b.type === 'static' || b.type === 'blocks') return b;
+    var out = { type: 'blocks', routeId: b.routeId || '', blocks: [] }, L = out.blocks;
+    if (b.type === 'route') {
+      L.push(blk('desc', { text: ov(b.description) }));
+      L.push(blk('day', {}, !!(b.dayCounter && b.dayCounter.show)));
+      L.push(blk('routeButton', { label: (b.routeButton || {}).label || 'Пройти маршрут', url: '' }, !!(b.routeButton && b.routeButton.show)));
+      L.push(blk('formats', { formats: b.formats || [], closed: b.closedFormats || 'dim' }));
+      var sb = b.sandboxButton || {};
+      L.push(blk('sandbox', { label: sb.label || 'Как устроены маршруты 13 MIRRORS' }, sb.show !== false));
+    } else if (b.type === 'container') {
+      L.push(blk('desc', { text: ov(b.description) }, shown(b.description)));
+      L.push(blk('items', { items: b.items || [], max: b.max || 10, copyItems: b.copyItems !== false, tpl: 'container' }));
+      L.push(blk('info', { text: ov(b.note) }, !!opt(b.note)));
+    } else if (b.type === 'offer') {
+      L.push(blk('images', { images: (b.images || []).map(function (x) { return typeof x === 'string' ? { id: oid(), src: x, visible: true } : x; }) }, (b.images || []).length > 0));
+      L.push(blk('desc', { text: ov(b.description) }, shown(b.description)));
+      L.push(blk('price', { label: b.priceLabel || '', value: ov(b.price) }, !!opt(b.price)));
+      L.push(blk('items', { items: b.items || [], max: b.max || 10, copyItems: b.copyItems !== false, tpl: 'offerItem' }, (b.items || []).length > 0));
+      L.push(blk('dates', { label: ov(b.datesLabel), dates: ov(b.dates), note: ov(b.datesNote) }, !!opt(b.dates)));
+      L.push(blk('info', { text: ov(b.composition) }, !!opt(b.composition)));
+      var ex = b.examples || {};
+      L.push(blk('examples', { label: ex.label || 'Примеры' }, !!ex.show));
+      L.push(blk('actions', { actions: (b.actions || []).slice(0, 2) }, (b.actions || []).length > 0));
+    } else {
+      L.push(blk('heading', { text: ov(b.title) }, !!opt(b.title)));
+      L.push(blk('desc', { text: ov(b.text) }));
+      L.push(blk('actions', { actions: b.action && b.action.label ? [b.action] : [] }, !!(b.action && b.action.label && b.action.visible !== false)));
+    }
+    return out;
+  };
+
+  var BUTTON_KINDS = { examples: 1, actions: 1, sandbox: 1 };
+  function backHTML(c) {
+    var b = M13.toBlocks(c.back || {}) || {}, f = c.front || {}, title = f.title;
+    var r = b.routeId ? routeById(b.routeId) : null;
+    var kin = r ? opt(r.kin) : '';
+    var list = (b.blocks || []).filter(function (x) { return x && x.visible !== false; });
+    // Кнопки в самом конце оборота прижимаются книзу — как было в прототипе.
+    var push = list.length;
+    while (push > 0 && BUTTON_KINDS[list[push - 1].kind]) push--;
+    if (push === list.length) push = -1; // номер первого блока нижней группы кнопок (или -1)
+    var price = '';
+    list.forEach(function (x) { if (x.kind === 'price' && !price) price = String(x.value || '').trim(); });
+
+    var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
+    function flushBtns() {
+      if (!btnRun.length) return '';
+      var out = '<div class="m13-actions' + (runPush ? ' m13-push' : '') + '">' + btnRun.join('') + '</div>';
+      btnRun = []; runPush = false; return out;
+    }
+    list.forEach(function (x, i) {
+      var html = '';
+      if (x.kind === 'examples' || x.kind === 'actions') {
+        if (i === push) runPush = true;
+        if (x.kind === 'examples') btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
+          act({ kind: 'internal', target: 'reflection' }) + '>' + esc(x.label || 'Примеры') + '</button>');
+        else (x.actions || []).slice(0, 2).forEach(function (a) {
+          if (!a || a.visible === false) return;
+          btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
+            act(a, { card: title, action: a.label, price: price, tplKey: 'offer' }) + '>' + esc(a.label || 'Написать') + '</button>');
+        });
+        return;
+      }
+      h += flushBtns();
+      if (x.kind === 'desc') html = descHTML(String(x.text || '').trim() || (r && r.description) || '');
+      else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + esc(t) + '</div>'; }
+      else if (x.kind === 'images') {
+        var imgs = (x.images || []).filter(function (m) { return m && m.visible !== false && m.src; });
+        if (imgs.length) html = '<div class="m13-gallery">' + imgs.map(function (m) {
+          return '<img src="' + esc(media(m.src)) + '" alt="" loading="lazy">'; }).join('') + '</div>';
+      }
+      else if (x.kind === 'price') {
+        var pv = String(x.value || '').trim();
+        if (pv) html = '<div class="m13-price-line"><span>' + esc(x.label || title) + '</span><strong>' + esc(pv) + '</strong></div>';
+      }
+      else if (x.kind === 'day') { var dc = dayCounter(r); if (dc) html = '<div class="m13-day">' + esc(dc) + '</div>'; }
+      else if (x.kind === 'routeButton') {
+        var url = String(x.url || '').trim() || (r && r.routeUrl) || '';
+        if (url) html = '<a class="m13-go" href="' + esc(url) + '" target="_blank" rel="noopener"><span>' +
+          esc(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
+      }
+      else if (x.kind === 'formats') html = formatsHTML(c, x, r);
+      else if (x.kind === 'items') html = itemsHTML(c, x.items, x.max, x.tpl || 'container');
+      else if (x.kind === 'dates') {
+        var ds = String(x.dates || '').trim();
+        if (ds) html = '<div class="m13-dates">' + (x.label ? '<div class="m13-dates-label">' + esc(x.label) + '</div>' : '') +
+          '<div class="m13-dates-list">' + esc(ds) + '</div>' + (x.note ? '<div class="m13-dates-note">' + txt(x.note) + '</div>' : '') + '</div>';
+      }
+      else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
+      else if (x.kind === 'sandbox') {
+        html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
+          esc(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
+      }
+      h += html;
+    });
+    h += flushBtns();
     return h;
   }
 
-  /* ---------- Оборот: предложение (Карта-Отражение, Свечи) ---------- */
-  function backOffer(c) {
-    var b = c.back, title = (c.front || {}).title;
-    var h = headHTML(c);
-    var imgs = (b.images || []).filter(function (x) { return x && (typeof x === 'string' || (x.visible !== false && x.src)); });
-    if (imgs.length) {
-      h += '<div class="m13-gallery">' + imgs.map(function (x) {
-        var src = typeof x === 'string' ? x : x.src;
-        return '<img src="' + esc(media(src)) + '" alt="" loading="lazy">';
-      }).join('') + '</div>';
-    }
-    h += descHTML(opt(b.description));
-    var price = opt(b.price);
-    if (price) h += '<div class="m13-price-line"><span>' + esc(b.priceLabel || title) + '</span><strong>' + esc(price) + '</strong></div>';
-    h += itemsHTML(c, b.items, b.max, 'offerItem');
-    var dates = opt(b.dates);
-    if (dates) {
-      var dl = opt(b.datesLabel), dn = opt(b.datesNote);
-      h += '<div class="m13-dates">' + (dl ? '<div class="m13-dates-label">' + esc(dl) + '</div>' : '') +
-        '<div class="m13-dates-list">' + esc(dates) + '</div>' +
-        (dn ? '<div class="m13-dates-note">' + txt(dn) + '</div>' : '') + '</div>';
-    }
-    var comp = opt(b.composition);
-    if (comp) h += '<div class="m13-info">' + txt(comp) + '</div>';
-
-    var btns = [];
-    if (b.examples && b.examples.show) btns.push({ a: { kind: 'internal', target: 'reflection', label: b.examples.label || 'Примеры' } });
-    (b.actions || []).slice(0, 2).forEach(function (a) { if (a && a.visible !== false) btns.push({ a: a }); });
-    if (btns.length) {
-      h += '<div class="m13-actions">' + btns.map(function (x, i) {
-        var ctx = { card: title, action: x.a.label, price: price, tplKey: 'offer' };
-        return '<button type="button" class="m13-action' + (i === 0 ? ' m13-action--primary' : '') + '"' + act(x.a, ctx) + '>' +
-          esc(x.a.label || 'Написать') + '</button>';
-      }).join('') + '</div>';
-    }
-    return h;
-  }
-
-  /* ---------- Оборот: текст (запасной тип) ---------- */
-  function backText(c) {
-    var b = c.back || {}, title = (c.front || {}).title;
-    var h = headHTML(c);
-    var t = opt(b.title); if (t) h += '<div class="m13-block-title">' + esc(t) + '</div>';
-    h += descHTML(opt(b.text));
-    if (b.action && b.action.visible !== false && b.action.label) {
-      h += '<div class="m13-actions"><button type="button" class="m13-action m13-action--primary"' +
-        act(b.action, { card: title, tplKey: 'text' }) + '>' + esc(b.action.label) + '</button></div>';
-    }
-    return h;
+  function formatsHTML(c, x, r) {
+    var rt = r || { title: (c.front || {}).title, routeUrl: '' };
+    var list = (x.formats || []).filter(function (f) {
+      return f.visible !== false && !(f.availability === 'closed' && x.closed === 'hide');
+    });
+    if (!list.length) return '';
+    return '<div class="m13-formats" style="--n:' + Math.min(list.length, 3) + '">' + list.map(function (f) {
+      var fm = formatById(f.formatId) || {};
+      var name = f.title || fm.title || '';
+      var price = (f.price && opt(f.price)) || fm.price || '';
+      var note = (f.note && opt(f.note)) || opt(fm.note);
+      var closed = f.availability === 'closed';
+      if (closed) note = T('formatClosed') || 'набор закрыт';
+      var inner = '<div class="m13-format-name">' + esc(name) + '</div>' +
+        (price ? '<div class="m13-format-price">' + esc(price) + '</div>' : '') +
+        (note ? '<div class="m13-format-note">' + esc(note) + '</div>' : '');
+      if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
+      var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
+      return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
+    }).join('') + '</div>';
   }
 
   /* ================= ОКНО «КУДА НАПИСАТЬ?» ================= */
