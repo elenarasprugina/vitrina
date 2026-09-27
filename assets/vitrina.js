@@ -172,14 +172,27 @@
     document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + sc.title;
     S.acts = [];
 
-    var bg = sc.background || {};
-    var root = '<div class="m13-root" style="' +
-      (bg.color ? 'background-color:' + esc(bg.color) + ';' : '') +
-      (bg.image ? "background-image:url('" + esc(media(bg.image)) + "');" : '') + '">';
+    // Фон: цвет + картинка (отдельная для телефона), затемнение и размытие — слоями под страницей.
+    var bg = sc.background || {}, rs = [];
+    if (bg.color) rs.push('--m13-bgc:' + bg.color);
+    if (bg.image) {
+      rs.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')");
+      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px');
+    }
+    // Шапка: цвет надписей, положение, логотип вместо текста
+    var hd = sc.head || {}, hcls = 'm13-header' + (hd.align === 'center' ? ' m13-header--center' : '') + (hd.color ? ' m13-header--tinted' : '');
+    // Заголовок месяца — тем же шрифтом, что и карточки (если он задан для всего месяца)
+    var hf = (sc.cardStyle || {}).font, hs = [];
+    if (hd.color) hs.push('--m13-head:' + hd.color);
+    if (hf) { ensureFont(hf); hs.push("--m13-hfont:'" + hf + "',Georgia,serif"); }
+    var kicker = hd.logo
+      ? '<h2 class="m13-logo-wrap"><span class="m13-logo" role="img" aria-label="' + esc(st.siteTitle || '13 MIRRORS') + '" style="-webkit-mask-image:url(\'' + S.base + 'assets/logo.png\');mask-image:url(\'' + S.base + 'assets/logo.png\')"></span></h2>'
+      : '<div class="m13-kicker">' + esc([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</div>';
+    var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' : '') + '" style="' + esc(rs.join(';')) + '">';
 
     var intro = opt(sc.intro);
     var html = root + '<main class="m13-page">' +
-      '<header class="m13-header"><div class="m13-kicker">' + esc([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</div>' +
+      '<header class="' + hcls + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker +
       '<h1>' + esc(sc.title) + (sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '') + '</h1>' +
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
@@ -255,6 +268,11 @@
     var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
     return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#1f1f1f' : '#fff';
   }
+  function hexRgb(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return [255, 255, 255];
+    var n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  }
+  function lum(rgb) { return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]; }
   function accentVars(st) { return st.accent ? '--m13-ac:' + st.accent + ';--m13-ac-ink:' + inkFor(st.accent) : ''; }
 
   function cardStyle(c) {
@@ -269,6 +287,8 @@
       accent: f.accent || d.accent || '',
       glow: glow, glowColor: f.glowColor || f.accent || d.glowColor || d.accent || '#e8c77a',
       glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around'),
+      glass: Math.max(0, Math.min(90, +(f.glass != null && f.glass !== '' ? f.glass : d.glass) || 0)),
+      backBg: f.backBg || d.backBg || '',
       // Положение и выравнивание текста. У неоткрывающихся карточек (как центральная) — только своё, без общего месячного.
       textPos: isStaticCard(c) ? (f.textPos && f.textPos !== 'inherit' ? f.textPos : '') : pick('textPos', ''),
       textAlign: isStaticCard(c) ? (f.textAlign && f.textAlign !== 'inherit' ? f.textAlign : '') : pick('textAlign', '')
@@ -288,7 +308,12 @@
     var st = cardStyle(c), cls = [], css = [];
     if (st.font) { ensureFont(st.font); css.push("font-family:'" + st.font + "',Georgia,serif"); }
     if (st.textColor) { cls.push('m13-styled'); css.push('--m13-tc:' + st.textColor); }
-    if (st.bg) css.push('background-color:' + st.bg);
+    if (st.glass && !hasImg) {
+      // «Зеркало»: цвет карточки полупрозрачный, сквозь него чуть видна картинка фона
+      var rgb = hexRgb(st.bg || '#ffffff');
+      css.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - st.glass / 100).toFixed(2) + ')');
+      cls.push('m13-glass', lum(rgb) < 128 ? 'm13-glass--dark' : 'm13-glass--light');
+    } else if (st.bg) css.push('background-color:' + st.bg);
     if (hasImg) cls.push('m13-ov-' + st.overlay);
     if (st.accent) { cls.push('m13-accent'); css.push(accentVars(st)); }
     if (st.textPos) cls.push('m13-pos-' + st.textPos);
@@ -354,7 +379,10 @@
     front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+|m13-accent/g, '') : '');
     var big = S.root.querySelector('#m13-bigcard');
     big.classList.toggle('m13-accent', !!sty.st.accent);
-    big.setAttribute('style', accentVars(sty.st));
+    // Оборот: свой цвет; если он тёмный — весь текст и плашки на обороте становятся светлыми
+    var bb = sty.st.backBg, dark = bb && lum(hexRgb(bb)) < 128;
+    big.classList.toggle('m13-back-dark', !!dark);
+    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : ''].filter(Boolean).join(';'));
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');

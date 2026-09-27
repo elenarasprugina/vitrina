@@ -248,7 +248,7 @@ body.m13-locked{overflow:hidden}
 .m13-big-card:not(.is-flipped) .m13-back{pointer-events:none}
 
 /* Свой цвет текста на карточке */
-.m13-styled{color:var(--m13-tc)}
+.m13-styled,.m13 .m13-thumb.m13-styled,.m13-styled .m13-mini-title,.m13-styled .m13-hero-title{color:var(--m13-tc)}
 .m13-styled .m13-mini-type,.m13-styled .m13-mini-date,.m13-styled .m13-mini-status,.m13-styled .m13-mini-foot,
 .m13-styled .m13-hero-type,.m13-styled .m13-hero-date,.m13-styled .m13-hero-status{color:inherit;opacity:.85}
 .m13-styled .m13-mini-cta,.m13-styled .m13-flip-hint{border-color:currentColor;background:transparent;color:inherit}
@@ -378,3 +378,45 @@ body.m13-locked{overflow:hidden}
 .m13-lb-nav[hidden]{display:none}
 .m13-lb-count{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);color:#fff;font-size:13px;letter-spacing:.05em;opacity:.85}
 @media (max-width:680px){.m13-lb-nav{width:38px;height:38px;font-size:24px;background:rgba(255,255,255,.75)}}
+
+/* ================= Оформление страницы месяца ================= */
+/* Фон: цвет, картинка (для телефона — своя), затемнение и размытие — слоями под страницей */
+.m13-root{position:relative;isolation:isolate;background-color:var(--m13-bgc,var(--m13-bg))}
+.m13-root--img::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:var(--m13-bgimg) center/cover no-repeat;filter:blur(var(--m13-blur,0px));transform:scale(1.06)}
+.m13-root--img::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:rgba(6,4,2,var(--m13-dim,0))}
+@media (max-aspect-ratio:4/5){ .m13-root--img::before{background-image:var(--m13-bgimg-t,var(--m13-bgimg))} }
+
+/* Шапка: свой цвет, по центру, логотип вместо надписи */
+.m13-header--tinted,.m13-header--tinted h1{color:var(--m13-head)}
+.m13-header--tinted .m13-kicker,.m13-header--tinted .m13-intro{color:var(--m13-head);opacity:.78}
+.m13-header--tinted .m13-draft{color:var(--m13-head);border-color:currentColor;background:transparent;opacity:.8}
+.m13-header--center{text-align:center}
+.m13-header--center .m13-intro{margin-left:auto;margin-right:auto}
+.m13-logo-wrap{margin:0 0 8px;font-size:0;line-height:0}
+.m13-logo{display:inline-block;width:clamp(170px,22vw,280px);aspect-ratio:2454/545;background:var(--m13-head,var(--m13-ink));
+  -webkit-mask:center/contain no-repeat;mask:center/contain no-repeat}
+@media (max-width:680px){ .m13-logo{width:min(56vw,210px)} .m13-logo-wrap{margin-bottom:5px} }
+
+/* Карточки-«зеркала»: полупрозрачное стекло с лёгким размытием того, что за ним */
+.m13-glass{-webkit-backdrop-filter:blur(10px) saturate(1.15);backdrop-filter:blur(10px) saturate(1.15)}
+.m13-thumb.m13-glass--dark{border-color:rgba(255,255,255,.16)}
+.m13-thumb.m13-glass--light{border-color:rgba(0,0,0,.1)}
+.m13-face.m13-glass--dark{border-color:rgba(255,255,255,.2)}
+.m13-thumb--empty{background:transparent}
+.m13-root--img .m13-thumb--empty{border-color:rgba(255,255,255,.18)}
+
+/* Тёмный оборот: текст и плашки светлые */
+.m13-back-dark .m13-back{color:#efe4d2}
+.m13-back-dark .m13-head{border-bottom-color:rgba(255,255,255,.14)}
+.m13-back-dark .m13-eyebrow,.m13-back-dark .m13-meta,.m13-back-dark .m13-dates-label,.m13-back-dark .m13-format-note,
+.m13-back-dark .m13-item-meta{color:rgba(239,228,210,.62)}
+.m13-back-dark .m13-desc,.m13-back-dark .m13-item-text,.m13-back-dark .m13-dates-note,.m13-back-dark .m13-info,
+.m13-back-dark .m13-more-text{color:rgba(239,228,210,.84)}
+.m13-back-dark :is(.m13-day,.m13-format,.m13-item,.m13-info,.m13-price-line,.m13-dates,.m13-soft,.m13-action:not(.m13-action--primary),.m13-fact,.m13-item-cal){
+  background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16);color:inherit}
+.m13-back-dark .m13-format.is-closed{background:rgba(255,255,255,.02)}
+.m13-back-dark .m13-gallery img{border-color:rgba(255,255,255,.16)}
+.m13-back-dark:not(.m13-accent) :is(.m13-go,.m13-action--primary){background:#efe4d2;border-color:#efe4d2;color:#1c150c !important}
+.m13-back-dark.m13-accent :is(.m13-format,.m13-item,.m13-action):hover{border-color:var(--m13-ac)}
+.m13-header[style*="--m13-hfont"] h1{font-family:var(--m13-hfont);font-weight:500;letter-spacing:0;font-size:clamp(26px,3.4vw,40px)}
