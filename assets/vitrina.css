@@ -345,3 +345,21 @@ body.m13-locked{overflow:hidden}
 .m13-more-text{margin-top:6px;font-size:12px;line-height:1.35;color:#444}
 .m13-accent .m13-more > summary{color:var(--m13-ac)}
 @media (max-width:680px){.m13-more > summary{font-size:10.8px}.m13-more-text{font-size:10.8px;line-height:1.28}}
+
+/* Положение текста на лицевой стороне: сверху (обычно) / по центру / снизу; выравнивание: слева / по центру */
+.m13-thumb.m13-pos-top{justify-content:space-between}
+.m13-thumb.m13-pos-center{justify-content:flex-start}
+.m13-thumb.m13-pos-center .m13-thumb-text{margin:auto 0}
+.m13-thumb.m13-pos-bottom{justify-content:flex-end;gap:8px}
+.m13-thumb--static.m13-pos-center .m13-thumb-text{margin:0}
+.m13-thumb--static.m13-pos-center{justify-content:center}
+.m13-thumb.m13-align-left{align-items:flex-start;text-align:left}
+.m13-thumb.m13-align-center{align-items:center;text-align:center}
+.m13-front.m13-pos-center > div:first-child{margin:auto 0}
+.m13-front.m13-pos-bottom{justify-content:flex-end;gap:16px}
+.m13-front.m13-align-center{text-align:center}
+.m13-front.m13-align-center .m13-flip-hint{align-self:center}
+@media (max-width:680px){.m13-thumb.m13-pos-bottom{gap:5px}}
+/* Текст по центру картинки — дымка ровная, чтобы середина не оставалась светлой/тёмной */
+.m13-thumb--img.m13-pos-center.m13-ov-dark::after,.m13-front--img.m13-pos-center.m13-ov-dark::after{background:rgba(0,0,0,.42)}
+.m13-thumb--img.m13-pos-center.m13-ov-light::after,.m13-front--img.m13-pos-center.m13-ov-light::after{background:rgba(255,255,255,.66)}

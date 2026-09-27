@@ -206,6 +206,11 @@
           { def: forCard ? 'inherit' : 'light' }),
         colorOptIn(stl, 'bg', 'Цвет карточки (когда нет картинки)', { none: forCard ? 'как у всей витрины' : 'белый', onChange: onChange })]),
       el('div', { class: 'a-row' }, [
+        selectIn(stl, 'textPos', 'Где текст на лицевой стороне', inh.concat([['top', 'Сверху'], ['center', 'По центру'], ['bottom', 'Снизу']]),
+          { def: forCard ? 'inherit' : 'top', onChange: onChange, hint: 'Выбирайте по картинке: чтобы текст не закрывал главное.' }),
+        selectIn(stl, 'textAlign', 'Выравнивание текста', inh.concat([['left', 'По левому краю'], ['center', 'По центру']]),
+          { def: forCard ? 'inherit' : 'left', onChange: onChange })]),
+      el('div', { class: 'a-row' }, [
         colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины' : 'без акцента', pick: '#8a6bb8', onChange: onChange }),
         el('p', { class: 'a-hint', style: 'align-self:end', text: 'Красит рамку карточки, главную кнопку, счётчик дня и статус-плашку. Если цвет свечения не выбран — светится этим цветом.' })]),
       el('div', { class: 'a-row' }, [

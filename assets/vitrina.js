@@ -267,8 +267,13 @@
       overlay: f.overlay && f.overlay !== 'inherit' ? f.overlay : (d.overlay || 'light'),
       accent: f.accent || d.accent || '',
       glow: glow, glowColor: f.glowColor || f.accent || d.glowColor || d.accent || '#e8c77a',
-      glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around')
+      glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around'),
+      // Положение и выравнивание текста. У неоткрывающихся карточек (как центральная) — только своё, без общего месячного.
+      textPos: isStaticCard(c) ? (f.textPos && f.textPos !== 'inherit' ? f.textPos : '') : pick('textPos', ''),
+      textAlign: isStaticCard(c) ? (f.textAlign && f.textAlign !== 'inherit' ? f.textAlign : '') : pick('textAlign', '')
     };
+  }
+  function isStaticCard(c) { return !c || c.interactive === false || !c.back || c.back.type === 'static';
   }
   // Сила и направление свечения — через CSS-переменные: --m13-gk (множитель размера),
   // --m13-gy (сдвиг: 0 вокруг, 1 вниз, -1 вверх), --m13-gsp (1 — свет со всех сторон, -1 — только с одной).
@@ -285,6 +290,8 @@
     if (st.bg) css.push('background-color:' + st.bg);
     if (hasImg) cls.push('m13-ov-' + st.overlay);
     if (st.accent) { cls.push('m13-accent'); css.push(accentVars(st)); }
+    if (st.textPos) cls.push('m13-pos-' + st.textPos);
+    if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     return { cls: cls.join(' '), css: css.join(';'), st: st };
   }
