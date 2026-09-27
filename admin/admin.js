@@ -7,7 +7,8 @@
   var MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
   // Оборот карточки собирается из блоков. У каждого блока — переключатель «видно/скрыто» и стрелки ↑↓.
   var BLOCKS = [
-    ['heading', 'Заголовок на обороте'], ['desc', 'Описание'], ['images', 'Картинки'], ['price', 'Цена'],
+    ['heading', 'Заголовок на обороте'], ['desc', 'Описание'], ['more', 'Подробнее ↓ (раскрывающийся текст)'], ['facts', 'Факты (маленькие плашки: 90 минут · онлайн…)'],
+    ['images', 'Картинки'], ['price', 'Цена'],
     ['day', '«Сегодня день N из M»'], ['routeButton', 'Большая кнопка-ссылка («Пройти маршрут»)'], ['formats', 'Форматы участия'],
     ['items', 'Плашки (встречи, варианты, виды работы)'], ['dates', 'Даты с подписью'], ['info', 'Дополнительно (состав, пояснение)'],
     ['examples', 'Кнопка «Примеры»'], ['actions', 'Кнопки (до 4): написать, ссылка, календарь, поделиться…'], ['sandbox', 'Кнопка «Как устроены маршруты»']
@@ -358,7 +359,7 @@
       box.replaceChildren();
       if (!arr.length && o.empty) box.appendChild(el('p', { class: 'a-empty', text: o.empty }));
       arr.forEach(function (it, i) {
-        var open = OPENED.has(it);
+        var open = o.alwaysOpen || OPENED.has(it);
         var hidden = o.visible && it.visible === false;
         var name = el('span', { class: 'a-ci-name', text: o.title(it, i) || 'Без названия' });
         var handle = el('span', { class: 'a-drag', title: 'Перетащить мышкой', 'aria-hidden': 'true', text: '⋮⋮' });
@@ -734,6 +735,8 @@
     var b = { id: uid('b'), kind: kind, visible: true };
     if (kind === 'desc' || kind === 'info' || kind === 'heading') b.text = '';
     if (kind === 'images') b.images = [];
+    if (kind === 'facts') b.facts = [{ id: uid('f'), text: '', visible: true }];
+    if (kind === 'more') { b.label = 'Подробнее'; b.labelClose = 'Свернуть'; b.text = ''; }
     if (kind === 'price') { b.label = ''; b.value = ''; }
     if (kind === 'routeButton') { b.label = 'Пройти маршрут'; b.url = ''; }
     if (kind === 'formats') { b.closed = 'dim'; b.formats = DATA.formats.formats.map(function (x) { return { formatId: x.id, visible: true, availability: 'open' }; }); }
@@ -755,7 +758,9 @@
       return b; }) };
   }
   function blockTitle(x) {
-    var n = x.kind === 'actions' ? 'Кнопки' : (BLOCK_NAMES[x.kind] || x.kind), t = '';
+    var n = { actions: 'Кнопки', facts: 'Факты', more: 'Подробнее ↓' }[x.kind] || BLOCK_NAMES[x.kind] || x.kind, t = '';
+    if (x.kind === 'facts') t = (x.facts || []).filter(function (q) { return q.visible !== false && q.text; }).map(function (q) { return q.text; }).join(' · ');
+    if (x.kind === 'more') t = String(x.text || '').split('\n')[0];
     if (x.kind === 'desc' || x.kind === 'info' || x.kind === 'heading') t = String(x.text || '').split('\n')[0];
     if (x.kind === 'price') t = x.value;
     if (x.kind === 'items') t = (x.items || []).length + ' шт.';
@@ -775,6 +780,13 @@
       hint: r ? 'Если оставить пустым — возьмётся описание маршрута из библиотеки.' : null })];
     if (x.kind === 'heading') return [textIn(x, 'text', '', { ph: 'Короткий заголовок' })];
     if (x.kind === 'info') return [textIn(x, 'text', '', { multi: true, rows: 3, ph: 'Состав, пояснение, важная деталь' })];
+    if (x.kind === 'facts') return [el('p', { class: 'a-hint', text: 'Короткие плашки в одну строку: «90 минут», «7 000 ₽», «онлайн», «3 места». Каждую можно скрыть.' }),
+      collection(x.facts = x.facts || [], { visible: true, max: 8, ordered: false, alwaysOpen: true, title: function (q) { return q.text || 'Пустой факт'; },
+        body: function (q) { return [textIn(q, 'text', '', { ph: '90 минут' })]; },
+        make: function () { return { id: uid('f'), text: '', visible: true }; }, addLabel: '+ Добавить факт' })];
+    if (x.kind === 'more') return [el('p', { class: 'a-hint', text: 'Сначала видна только кнопка, по нажатию раскрывается текст. Короткое описание — в блоке «Описание» над этим.' }),
+      el('div', { class: 'a-row' }, [textIn(x, 'label', 'Кнопка', { ph: 'Подробнее' }), textIn(x, 'labelClose', 'Кнопка, когда открыто', { ph: 'Свернуть' })]),
+      textIn(x, 'text', 'Текст, который раскрывается', { multi: true, rows: 5 })];
     if (x.kind === 'images') return [collection(x.images = x.images || [], { visible: true, max: 6, title: function (m, k) { return 'Картинка ' + (k + 1); },
       body: function (m) { return [imageIn(m, 'src', '')]; }, make: function () { return { id: uid('img'), src: null, visible: true }; },
       addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' })];

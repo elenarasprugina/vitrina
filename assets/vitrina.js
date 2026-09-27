@@ -535,6 +535,15 @@
         if (ds) html = '<div class="m13-dates">' + (x.label ? '<div class="m13-dates-label">' + esc(x.label) + '</div>' : '') +
           '<div class="m13-dates-list">' + esc(ds) + '</div>' + (x.note ? '<div class="m13-dates-note">' + txt(x.note) + '</div>' : '') + '</div>';
       }
+      else if (x.kind === 'facts') {
+        var fl = (x.facts || []).filter(function (q) { return q && q.visible !== false && String(q.text || '').trim(); });
+        if (fl.length) html = '<div class="m13-facts">' + fl.map(function (q) { return '<span class="m13-fact">' + esc(String(q.text).trim()) + '</span>'; }).join('') + '</div>';
+      }
+      else if (x.kind === 'more') {
+        var mt = String(x.text || '').trim();
+        if (mt) html = '<details class="m13-more"><summary><span class="m13-more-open">' + esc(x.label || 'Подробнее') + ' ↓</span>' +
+          '<span class="m13-more-close">' + esc(x.labelClose || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(mt) + '</div></details>';
+      }
       else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
       else if (x.kind === 'sandbox') {
         html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
