@@ -74,7 +74,9 @@
     if (dirty) { s.textContent = 'Есть несохранённые изменения'; s.classList.add('is-dirty'); }
     else {
       s.classList.remove('is-dirty');
-      s.textContent = savedAt ? 'Сохранено в этом браузере · ' + new Date(savedAt).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'Изменений нет';
+      var fmt = function (d) { return new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }); };
+      s.textContent = GHS.user && GHS.contentTime ? 'Сохранено в GitHub · ' + fmt(GHS.contentTime)
+        : savedAt ? 'Сохранено в этом браузере · ' + fmt(savedAt) : 'Изменений нет';
     }
     b.disabled = !dirty;
   }
@@ -95,7 +97,8 @@
       return;
     }
     savedAt = t; dirty = false; updateState();
-    toast('Сохранено. Сайт пока не изменился — это черновик в этом браузере.');
+    if (GHS.token) saveToGitHub();
+    else toast('Сохранено в этом браузере. Чтобы черновик был доступен с других устройств и его можно было опубликовать — войдите в GitHub.');
   }
 
   /* ---------- Загрузка ---------- */
@@ -446,9 +449,12 @@
         el('div', { class: 'a-topbtns' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--dark', id: 'a-save', text: 'Сохранить', onclick: save }),
           el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть', onclick: function () { openPreview(); } }),
-          el('button', { type: 'button', class: 'a-btn', text: 'Опубликовать', onclick: function () {
-            toast('Публикация на сайт подключится на следующем этапе, вместе с GitHub. Пока всё сохраняется в этом браузере.'); } })
-        ])
+          el('button', { type: 'button', class: 'a-btn', text: 'Опубликовать', onclick: publish })
+        ]),
+        GHS.token && GHS.user
+          ? el('div', { class: 'a-gh is-on' }, [el('span', { text: 'GitHub: ' + GHS.user }),
+              el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти', onclick: logout })])
+          : el('div', { class: 'a-gh' }, [el('button', { type: 'button', class: 'a-gh-btn', text: 'Войти в GitHub', onclick: openLogin })])
       ]),
       el('div', { class: 'a-layout' }, [
         el('nav', { class: 'a-nav', 'aria-label': 'Разделы' }, SECTIONS.map(function (s) {
@@ -630,13 +636,13 @@
   // Мессенджеры не запускают скрипты страницы: они читают только теги <meta> в самом HTML-файле.
   // Поэтому данные хранятся в JSON (share), а при публикации из них заново собираются HTML-файлы страниц.
   var SHARE_SIZE = [1200, 630];
-  function siteUrl() {
-    var u = String(DATA.settings.siteUrl || 'https://13mirrors.ru/vitrina/').trim();
+  function siteUrl(D) {
+    var u = String((D || DATA).settings.siteUrl || 'https://13mirrors.ru/vitrina/').trim();
     return u.slice(-1) === '/' ? u : u + '/';
   }
   // Итоговые картинка и подписи: своё у месяца, иначе — общее из «Настроек».
-  function shareOf(sc) {
-    var st = DATA.settings, def = st.share || {}, own = (sc && sc.share) || {};
+  function shareOf(sc, D) {
+    var st = (D || DATA).settings, def = st.share || {}, own = (sc && sc.share) || {};
     return {
       title: String(own.title || '').trim() || (sc ? (st.siteTitle || '13 MIRRORS') + ' · ' + sc.title : String(def.title || '').trim() || st.siteTitle || '13 MIRRORS'),
       description: String(own.description || '').trim() || String(def.description || '').trim(),
@@ -682,40 +688,61 @@
     ], { open: false, note: 'картинка и подпись, когда ссылкой делятся' });
   }
 
-  // HTML-файл страницы с тегами превью. Вызывается при публикации (этап 3) для уже очищенных данных:
+  // HTML-файл страницы с тегами превью. Вызывается при публикации для уже очищенных данных D:
   // картинки к этому моменту — файлы media/…, а не data:.
-  // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'sandbox', 'reflection'.
+  // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'card' (…/2026-10/sun/ — превью одной карточки
+  // и сразу переход на витрину с открытой карточкой), 'sandbox', 'reflection'.
   var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение' };
   function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
-  function pageHTML(kind, id) {
-    var st = DATA.settings, site = st.siteTitle || '13 MIRRORS';
-    var isMonth = kind === 'main' || kind === 'month';
-    var sc = isMonth ? DATA.showcases[kind === 'main' ? st.currentShowcase : id] : null;
-    var sh = shareOf(sc), base = kind === 'main' ? './' : '../';
-    var url = siteUrl() + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
+  function absImg(src, D) { return src && !/^(data:|blob:)/.test(src) ? (/^https?:/.test(src) ? src : siteUrl(D) + src) : ''; }
+  function metaTags(o, D) {
+    var site = D.settings.siteTitle || '13 MIRRORS';
+    var m = ['<meta property="og:type" content="website">', '<meta property="og:site_name" content="' + escAttr(site) + '">',
+      '<meta property="og:url" content="' + escAttr(o.url) + '">', '<meta property="og:title" content="' + escAttr(o.title) + '">'];
+    if (o.description) {
+      m.unshift('<meta name="description" content="' + escAttr(o.description) + '">');
+      m.push('<meta property="og:description" content="' + escAttr(o.description) + '">');
+    }
+    if (o.image) {
+      m.push('<meta property="og:image" content="' + escAttr(o.image) + '">');
+      if (o.sized) m.push('<meta property="og:image:width" content="' + SHARE_SIZE[0] + '">', '<meta property="og:image:height" content="' + SHARE_SIZE[1] + '">');
+      m.push('<meta property="vk:image" content="' + escAttr(o.image) + '">', '<meta name="twitter:card" content="summary_large_image">');
+    }
+    return m.join('\n');
+  }
+  function pageHTML(kind, id, D, cardId) {
+    D = D || DATA;
+    var st = D.settings, site = st.siteTitle || '13 MIRRORS';
+    var isMonth = kind === 'main' || kind === 'month' || kind === 'card';
+    var sc = isMonth ? D.showcases[kind === 'main' ? st.currentShowcase : id] : null;
+    var sh = shareOf(sc, D);
+    if (kind === 'card') {
+      var c = (sc.cards || []).filter(function (x) { return x.id === cardId; })[0] || { front: {} }, f = c.front || {};
+      var ctitle = (f.title || '') + ' · ' + site;
+      var cdesc = [optVal(f.subtitle), optVal(f.status)].filter(Boolean).join(' · ') || sh.description;
+      var cimg = absImg(f.image, D), sized = false;
+      if (!cimg) { cimg = absImg(sh.image, D); sized = !!cimg; }
+      var target = '../#' + encodeURIComponent(cardId);
+      return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ctitle) + '</title>\n' +
+        metaTags({ url: siteUrl(D) + sc.id + '/' + encodeURIComponent(cardId) + '/', title: ctitle, description: cdesc, image: cimg, sized: sized }, D) + '\n' +
+        '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
+        '<a href="' + target + '">' + escAttr(f.title || 'Открыть карточку') + '</a>\n</body>\n</html>\n';
+    }
+    var base = kind === 'main' ? './' : '../';
+    var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
     var title = site + ' · ' + (sc ? sc.title : PAGE_TITLES[kind] || '');
     if (!sc && !String((st.share || {}).title || '').trim()) sh.title = title;
-    var img = sh.image && !/^(data:|blob:)/.test(sh.image) ? (/^https?:/.test(sh.image) ? sh.image : siteUrl() + sh.image) : '';
-    var m = ['<meta property="og:type" content="website">',
-      '<meta property="og:site_name" content="' + escAttr(site) + '">',
-      '<meta property="og:url" content="' + escAttr(url) + '">',
-      '<meta property="og:title" content="' + escAttr(sh.title) + '">'];
-    if (sh.description) {
-      m.unshift('<meta name="description" content="' + escAttr(sh.description) + '">');
-      m.push('<meta property="og:description" content="' + escAttr(sh.description) + '">');
-    }
-    if (img) m.push('<meta property="og:image" content="' + escAttr(img) + '">',
-      '<meta property="og:image:width" content="' + SHARE_SIZE[0] + '">', '<meta property="og:image:height" content="' + SHARE_SIZE[1] + '">',
-      '<meta property="vk:image" content="' + escAttr(img) + '">',
-      '<meta name="twitter:card" content="summary_large_image">');
+    var img = absImg(sh.image, D);
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
-      '<title>' + escAttr(title) + '</title>\n' + m.join('\n') + '\n' +
+      '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
       '<link rel="stylesheet" href="' + base + 'assets/vitrina.css">\n</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
       '<script src="' + base + 'assets/vitrina.js"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
-  window.M13_ADMIN = { pageHTML: pageHTML };
+
 
   /* ---------- Форма карточки ---------- */
   function newItem() {
@@ -1216,7 +1243,7 @@
       block('Надписи на витрине', [el('div', { class: 'a-row' }, TEXT_LABELS.map(function (x) { return textIn(st.texts, x[0], x[1]); }))], { open: false }),
       block('Резервная копия', [backupBox()], { note: 'скачать весь черновик файлом или вернуть из файла' }),
       block('Черновик в этом браузере', [
-        el('p', { class: 'a-hint', text: 'Пока панель не подключена к GitHub, изменения хранятся только в этом браузере на этом устройстве.' }),
+        el('p', { class: 'a-hint', text: GHS.token ? 'Кроме GitHub, черновик всегда запоминается и в этом браузере — на случай, если пропадёт связь.' : 'Пока вы не вошли в GitHub, изменения хранятся только в этом браузере на этом устройстве.' }),
         resetBox
       ], { open: false })
     ];
@@ -1315,6 +1342,396 @@
     return D;
   }
 
+  /* ================= GITHUB: вход, сохранение, публикация =================
+     Черновик — в приватном репозитории 13mirrors-content (та же структура data/…, картинки внутри JSON).
+     Сайт — в публичном vitrina: очищенные JSON, картинки файлами media/…, HTML-страницы с превью.
+     Запись — одним коммитом через Git Data API (blobs → tree → commit → ref). Ключ — только в sessionStorage. */
+  var GH = { owner: 'elenarasprugina', content: '13mirrors-content', site: 'vitrina', api: 'https://api.github.com' };
+  var TOKEN_KEY = 'm13-gh-token';
+  var GHS = { token: null, user: '', branch: {}, contentHead: null, contentTime: null, busy: false };
+  try { GHS.token = sessionStorage.getItem(TOKEN_KEY) || null; } catch (e) {}
+
+  function ghErr(status, what) {
+    var e = new Error(status === 401 ? 'GitHub не принял ключ: возможно, он скопирован не полностью или срок его действия закончился. Создайте новый ключ и войдите снова.'
+      : status === 403 ? 'У ключа нет нужных прав' + (what ? ' к репозиторию «' + what + '»' : '') + '. При создании ключа нужно выбрать оба репозитория и разрешить Contents: «Read and write».'
+      : status === 404 ? 'Не найден репозиторий' + (what ? ' «' + what + '»' : '') + ' — или ключу не дали к нему доступ. Проверьте, что при создании ключа выбраны 13mirrors-content и vitrina.'
+      : status === 409 || status === 422 ? 'GitHub отказался записать изменения: пока мы работали, данные там изменились. Попробуйте ещё раз.'
+      : status === 0 ? 'Нет связи с GitHub. Проверьте интернет и попробуйте ещё раз.'
+      : 'GitHub ответил ошибкой (' + status + '). Попробуйте ещё раз через минуту.');
+    e.status = status; return e;
+  }
+  function api(method, path, body, what) {
+    return fetch(GH.api + path, {
+      method: method, cache: 'no-store',
+      headers: { 'Authorization': 'Bearer ' + GHS.token, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) {
+      if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { var e = ghErr(r.status, what); e.gh = j; throw e; });
+      return r.status === 204 ? null : r.json();
+    }, function () { throw ghErr(0); });
+  }
+  function repoPath(repo) { return '/repos/' + GH.owner + '/' + repo; }
+  function b64utf8(str) {
+    var bytes = new TextEncoder().encode(str), bin = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  function unb64utf8(b64) {
+    var bin = atob(String(b64).replace(/\s/g, '')), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  // Ветка по умолчанию и последний коммит. Пустой репозиторий → null.
+  function repoInfo(repo) {
+    return api('GET', repoPath(repo), null, repo).then(function (r) {
+      if (!r.permissions || !r.permissions.push) throw ghErr(403, repo);
+      GHS.branch[repo] = r.default_branch || 'main';
+      return r;
+    });
+  }
+  function headOf(repo) {
+    return api('GET', repoPath(repo) + '/git/ref/heads/' + GHS.branch[repo], null, repo)
+      .then(function (r) { return r.object.sha; }, function (e) { if (e.status === 409 || e.status === 404) return null; throw e; });
+  }
+  // Первый файл в пустой репозиторий (Git Data API с пустым репозиторием не работает).
+  function initRepo(repo) {
+    return api('PUT', repoPath(repo) + '/contents/README.md', { message: 'Начало', content: b64utf8('# ' + repo + '\n\nЗаполняется из панели управления витриной 13 MIRRORS.\n') }, repo)
+      .then(function (r) { return r.commit.sha; });
+  }
+  function treeOf(repo, commitSha) {
+    return api('GET', repoPath(repo) + '/git/commits/' + commitSha, null, repo).then(function (c) {
+      return api('GET', repoPath(repo) + '/git/trees/' + c.tree.sha + '?recursive=1', null, repo).then(function (t) {
+        var map = {};
+        (t.tree || []).forEach(function (x) { if (x.type === 'blob') map[x.path] = x.sha; });
+        return { treeSha: c.tree.sha, files: map, date: (c.committer || c.author || {}).date || null };
+      });
+    });
+  }
+  function readText(repo, sha) {
+    return api('GET', repoPath(repo) + '/git/blobs/' + sha, null, repo).then(function (b) {
+      return b.encoding === 'base64' ? unb64utf8(b.content) : b.content;
+    });
+  }
+  // files: { путь: {text} | {b64} | null (удалить) }. Возвращает sha нового коммита (или прежний, если ничего не изменилось).
+  function commitFiles(repo, baseSha, baseTree, files, message, progress) {
+    var paths = Object.keys(files), entries = [], done = 0;
+    function next(i) {
+      if (i >= paths.length) return Promise.resolve();
+      var path = paths[i], f = files[path];
+      if (f === null) { entries.push({ path: path, mode: '100644', type: 'blob', sha: null }); return next(i + 1); }
+      var body = f.b64 != null ? { content: f.b64, encoding: 'base64' } : { content: f.text, encoding: 'utf-8' };
+      return api('POST', repoPath(repo) + '/git/blobs', body, repo).then(function (b) {
+        entries.push({ path: path, mode: '100644', type: 'blob', sha: b.sha });
+        done++; if (progress) progress(done, paths.length);
+        return next(i + 1);
+      });
+    }
+    return next(0).then(function () {
+      return api('POST', repoPath(repo) + '/git/trees', { base_tree: baseTree, tree: entries }, repo);
+    }).then(function (t) {
+      if (t.sha === baseTree) return baseSha;
+      return api('POST', repoPath(repo) + '/git/commits', { message: message, tree: t.sha, parents: [baseSha] }, repo).then(function (c) {
+        return api('PATCH', repoPath(repo) + '/git/refs/heads/' + GHS.branch[repo], { sha: c.sha, force: false }, repo).then(function () { return c.sha; });
+      });
+    });
+  }
+
+  /* ---------- Данные ↔ файлы ---------- */
+  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection'];
+  function jsonText(o) { return JSON.stringify(o, null, 2) + '\n'; }
+  function draftFiles(D) {
+    var out = {};
+    DATA_FILES.forEach(function (n) { out['data/' + n + '.json'] = { text: jsonText(D[n]) }; });
+    out['data/showcases/index.json'] = { text: jsonText(D.index) };
+    Object.keys(D.showcases).forEach(function (id) { out['data/showcases/' + id + '.json'] = { text: jsonText(D.showcases[id]) }; });
+    return out;
+  }
+  function loadDraftFrom(repo, head) {
+    return treeOf(repo, head).then(function (t) {
+      if (!t.files['data/settings.json']) return { empty: true, date: t.date };
+      var D = { showcases: {} }, jobs = [];
+      DATA_FILES.forEach(function (n) {
+        var sha = t.files['data/' + n + '.json'];
+        jobs.push(sha ? readText(repo, sha).then(function (x) { D[n] = JSON.parse(x); }) : Promise.resolve());
+      });
+      Object.keys(t.files).forEach(function (p) {
+        var m = /^data\/showcases\/(\d{4}-\d{2})\.json$/.exec(p);
+        if (m) jobs.push(readText(repo, t.files[p]).then(function (x) { D.showcases[m[1]] = JSON.parse(x); }));
+      });
+      if (t.files['data/showcases/index.json']) jobs.push(readText(repo, t.files['data/showcases/index.json']).then(function (x) { D.index = JSON.parse(x); }));
+      return Promise.all(jobs).then(function () {
+        DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n]); });
+        return { data: D, date: t.date };
+      });
+    });
+  }
+
+  /* ---------- Окно-вопрос и окно «идёт работа» ---------- */
+  function dialog(o) {
+    return new Promise(function (resolve) {
+      var ov = el('div', { class: 'a-dialog' });
+      function close(v) { ov.remove(); resolve(v); }
+      add(ov, el('div', { class: 'a-dialog-box', role: 'dialog', 'aria-modal': 'true' }, [
+        el('h3', { text: o.title }),
+        o.body ? (typeof o.body === 'string' ? el('p', { text: o.body }) : o.body) : null,
+        el('div', { class: 'a-dialog-btns' }, (o.buttons || [['ok', 'Понятно', 'dark']]).map(function (b) {
+          return el('button', { type: 'button', class: 'a-btn' + (b[2] ? ' a-btn--' + b[2] : ''), text: b[1], onclick: function () { close(b[0]); } });
+        }))]));
+      document.body.appendChild(ov);
+      var first = ov.querySelector('.a-dialog-btns .a-btn--dark') || ov.querySelector('.a-dialog-btns .a-btn');
+      if (first) first.focus();
+    });
+  }
+  var busyBox = null;
+  function busy(text) {
+    if (text == null) { if (busyBox) busyBox.remove(); busyBox = null; GHS.busy = false; updateState(); return; }
+    GHS.busy = true;
+    if (!busyBox) { busyBox = el('div', { class: 'a-dialog' }, el('div', { class: 'a-dialog-box a-busy' }, [el('div', { class: 'a-spinner' }), el('p')])); document.body.appendChild(busyBox); }
+    busyBox.querySelector('p').textContent = text;
+  }
+  function fail(e) {
+    busy(null); console.error(e);
+    return dialog({ title: 'Не получилось', body: (e && e.message) || 'Что-то пошло не так. Попробуйте ещё раз.' });
+  }
+
+  /* ---------- Вход ---------- */
+  function openLogin() {
+    var st = { token: '' };
+    var input = el('input', { class: 'a-input', type: 'password', autocomplete: 'off', placeholder: 'github_pat_…' });
+    input.addEventListener('input', function () { st.token = input.value.trim(); });
+    var body = el('div', { class: 'a-login' }, [
+      el('p', { text: 'Вставьте ключ доступа GitHub (он начинается с github_pat_). Ключ хранится только в этой вкладке и забывается, когда вы её закрываете.' }),
+      input,
+      el('p', { class: 'a-hint', text: 'Как получить ключ — в инструкции «Первый вход и публикация». Никому не пересылайте ключ, даже помощникам.' })]);
+    dialog({ title: 'Вход в GitHub', body: body, buttons: [['go', 'Войти', 'dark'], ['cancel', 'Отмена']] }).then(function (v) {
+      if (v !== 'go') return;
+      if (!/^(github_pat_|ghp_)\w{20,}/.test(st.token)) { dialog({ title: 'Ключ не похож на настоящий', body: 'Ключ GitHub начинается с «github_pat_» и довольно длинный. Скопируйте его целиком и попробуйте снова.' }); return; }
+      GHS.token = st.token;
+      connect(true);
+    });
+    setTimeout(function () { input.focus(); }, 50);
+  }
+  function logout() {
+    GHS.token = null; GHS.user = ''; GHS.contentHead = null;
+    try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+    renderShell(); toast('Вы вышли из GitHub. Черновик остался в этом браузере.');
+  }
+  // Проверить ключ и оба репозитория, загрузить черновик из GitHub.
+  function connect(fresh) {
+    busy('Подключаемся к GitHub…');
+    return api('GET', '/user').then(function (u) {
+      GHS.user = u.login || '';
+      return repoInfo(GH.content);
+    }).then(function () { return repoInfo(GH.site); }).then(function () {
+      try { sessionStorage.setItem(TOKEN_KEY, GHS.token); } catch (e) {}
+      busy('Загружаем черновик из GitHub…');
+      return headOf(GH.content);
+    }).then(function (head) {
+      GHS.contentHead = head;
+      if (!head) return { empty: true };
+      return loadDraftFrom(GH.content, head);
+    }).then(function (res) {
+      busy(null);
+      if (res.empty) {
+        renderShell();
+        dialog({ title: 'Вы вошли в GitHub', body: 'В репозитории черновиков пока пусто. Нажмите «Сохранить» — текущий черновик из этого браузера запишется туда.' });
+        dirty = true; updateState();
+        return;
+      }
+      GHS.contentTime = res.date;
+      var gh = migrate(res.data), same = JSON.stringify(gh) === JSON.stringify(DATA);
+      var hasLocal = false;
+      try { hasLocal = !!localStorage.getItem(KEY); } catch (e) {}
+      if (same || !hasLocal) { useData(gh); if (fresh) toast('Вы вошли в GitHub. Черновик загружен.'); return; }
+      var fmt = function (d) { return d ? new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'неизвестно когда'; };
+      return dialog({ title: 'Какой черновик открыть?',
+        body: 'Черновик в GitHub (сохранён ' + fmt(res.date) + ') отличается от черновика в этом браузере (' + (savedAt ? 'сохранён ' + fmt(savedAt) : 'не сохранён') + ').',
+        buttons: [['gh', 'Из GitHub', 'dark'], ['local', 'Из этого браузера']] }).then(function (v) {
+        if (v === 'gh') { useData(gh); toast('Открыт черновик из GitHub.'); }
+        else { dirty = true; renderShell(); toast('Открыт черновик из этого браузера. Нажмите «Сохранить», чтобы записать его в GitHub.'); }
+      });
+    }).catch(function (e) {
+      if (e.status === 401 || e.status === 403 || e.status === 404) { GHS.token = null; try { sessionStorage.removeItem(TOKEN_KEY); } catch (x) {} }
+      renderShell(); return fail(e);
+    });
+  }
+  function useData(D) {
+    DATA = D; dirty = false;
+    try { localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), data: DATA })); savedAt = Date.now(); } catch (e) {}
+    renderShell();
+  }
+
+  /* ---------- Сохранение в GitHub ---------- */
+  function saveToGitHub(quiet) {
+    if (!GHS.token) return Promise.resolve(false);
+    syncIndex();
+    busy('Сохраняем черновик в GitHub…');
+    return headOf(GH.content).then(function (head) {
+      if (head && GHS.contentHead && head !== GHS.contentHead) {
+        busy(null);
+        return dialog({ title: 'Черновик в GitHub изменился', body: 'Пока вы работали, черновик в GitHub сохранили с другого устройства или вкладки. Если сохранить сейчас — те изменения заменятся этими.',
+          buttons: [['over', 'Сохранить мои изменения', 'dark'], ['load', 'Открыть версию из GitHub'], ['cancel', 'Отмена']] }).then(function (v) {
+          if (v === 'load') { GHS.contentHead = head; return connect(false).then(function () { return false; }); }
+          if (v !== 'over') return false;
+          busy('Сохраняем черновик в GitHub…');
+          return head;
+        });
+      }
+      return head || initRepo(GH.content);
+    }).then(function (head) {
+      if (!head) return false;
+      return treeOf(GH.content, head).then(function (t) {
+        var files = draftFiles(DATA);
+        Object.keys(t.files).forEach(function (p) { if (/^data\/showcases\/\d{4}-\d{2}\.json$/.test(p) && !files[p]) files[p] = null; });
+        return commitFiles(GH.content, head, t.treeSha, files, 'Черновик: ' + new Date().toLocaleString('ru-RU'));
+      }).then(function (sha) {
+        GHS.contentHead = sha; GHS.contentTime = new Date().toISOString();
+        busy(null); updateState();
+        if (!quiet) toast('Сохранено в GitHub. На сайте пока ничего не изменилось — для этого есть «Опубликовать».');
+        return true;
+      });
+    }).catch(function (e) { fail(e); return false; });
+  }
+
+  /* ---------- Публикация ---------- */
+  // Очистка для сайта: без скрытого (show:false, visible:false, выключенные этапы и календари), без служебных полей «_…».
+  function cleanDeep(o) {
+    if (Array.isArray(o)) return o.filter(function (x) { return !(x && typeof x === 'object' && x.visible === false); }).map(cleanDeep);
+    if (!o || typeof o !== 'object') return o;
+    var out = {};
+    Object.keys(o).forEach(function (k) {
+      var v = o[k];
+      if (k.charAt(0) === '_') return;
+      if (v && typeof v === 'object' && !Array.isArray(v) && v.show === false) return;
+      if ((k === 'phase' || k === 'calendar') && v && typeof v === 'object' && !v.on) return;
+      out[k] = cleanDeep(v);
+    });
+    return out;
+  }
+  function cleanShowcase(sc) {
+    var cards = (sc.cards || []).map(function (c) { return c && c.visible === false ? { id: c.id, visible: false } : c; });
+    var out = cleanDeep(Object.assign({}, sc, { cards: [] }));
+    out.cards = cards.map(function (c) { return c.visible === false ? c : cleanDeep(c); });
+    return out;
+  }
+  function publishedIds(D) { return Object.keys(D.showcases).filter(function (id) { return D.showcases[id].status === 'published'; }).sort(); }
+  function buildSite(D) {
+    var P = { showcases: {} }, ids = publishedIds(D);
+    DATA_FILES.forEach(function (n) { P[n] = cleanDeep(D[n]); });
+    ids.forEach(function (id) { P.showcases[id] = cleanShowcase(D.showcases[id]); });
+    P.index = { showcases: ids.map(function (id) { var s = D.showcases[id]; return { id: id, title: s.title, status: 'published' }; }) };
+    return P;
+  }
+  // Картинки data:… → файлы media/<отпечаток>.<расширение>. Одинаковые картинки — один файл.
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+  function extractImages(P) {
+    var found = {}, list = [];
+    (function walk(o) {
+      if (Array.isArray(o)) { o.forEach(walk); return; }
+      if (!o || typeof o !== 'object') return;
+      Object.keys(o).forEach(function (k) {
+        var v = o[k];
+        if (typeof v === 'string' && /^data:image\//.test(v)) { if (!found[v]) { found[v] = true; list.push(v); } }
+        else walk(v);
+      });
+    })(P);
+    var map = {}, media = {};
+    return Promise.all(list.map(function (uri) {
+      var m = /^data:image\/([a-z+]+);base64,(.*)$/i.exec(uri);
+      if (!m) return null;
+      var ext = { jpeg: 'jpg', 'svg+xml': 'svg' }[m[1].toLowerCase()] || m[1].toLowerCase();
+      var bin = atob(m[2]), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return crypto.subtle.digest('SHA-1', bytes).then(function (h) {
+        var path = 'media/' + hex(h).slice(0, 20) + '.' + ext;
+        map[uri] = path; media[path] = m[2];
+      });
+    })).then(function () {
+      (function walk(o) {
+        if (Array.isArray(o)) { o.forEach(walk); return; }
+        if (!o || typeof o !== 'object') return;
+        Object.keys(o).forEach(function (k) { var v = o[k]; if (typeof v === 'string' && map[v]) o[k] = map[v]; else walk(v); });
+      })(P);
+      return media;
+    });
+  }
+  function siteFiles(P, media, existing) {
+    var files = {};
+    DATA_FILES.forEach(function (n) { files['data/' + n + '.json'] = { text: jsonText(P[n]) }; });
+    files['data/showcases/index.json'] = { text: jsonText(P.index) };
+    files['index.html'] = { text: pageHTML('main', null, P) };
+    files['sandbox/index.html'] = { text: pageHTML('sandbox', null, P) };
+    files['reflection/index.html'] = { text: pageHTML('reflection', null, P) };
+    Object.keys(P.showcases).forEach(function (id) {
+      var sc = P.showcases[id];
+      files['data/showcases/' + id + '.json'] = { text: jsonText(sc) };
+      files[id + '/index.html'] = { text: pageHTML('month', id, P) };
+      (sc.cards || []).forEach(function (c) {
+        if (c.visible === false || c.interactive === false || !c.back || c.back.type === 'static' || !/^[\w-]+$/.test(c.id)) return;
+        files[id + '/' + c.id + '/index.html'] = { text: pageHTML('card', id, P, c.id) };
+      });
+    });
+    Object.keys(media).forEach(function (p) { if (!existing[p]) files[p] = { b64: media[p] }; });
+    // Снять с сайта месяцы, которые больше не опубликованы, и страницы удалённых карточек.
+    var removed = [];
+    Object.keys(existing).forEach(function (p) {
+      var m = /^data\/showcases\/(\d{4}-\d{2})\.json$/.exec(p) || /^(\d{4}-\d{2})\//.exec(p);
+      if (m && !files[p]) { files[p] = null; if (!P.showcases[m[1]] && removed.indexOf(m[1]) < 0) removed.push(m[1]); }
+    });
+    return { files: files, removed: removed };
+  }
+  function publish() {
+    if (GHS.busy) return;
+    if (!GHS.token) {
+      dialog({ title: 'Сначала войдите в GitHub', body: 'Чтобы опубликовать витрину, нужен вход в GitHub — кнопка «Войти в GitHub» вверху.', buttons: [['login', 'Войти', 'dark'], ['cancel', 'Отмена']] })
+        .then(function (v) { if (v === 'login') openLogin(); });
+      return;
+    }
+    syncIndex();
+    var ids = publishedIds(DATA), st = DATA.settings;
+    if (!ids.length) {
+      dialog({ title: 'Нечего публиковать', body: 'Ни одна витрина не отмечена как опубликованная. Откройте нужный месяц (раздел «Витрины» → «Страница месяца») и поставьте статус «Опубликована».' });
+      return;
+    }
+    if (ids.indexOf(st.currentShowcase) < 0) {
+      var cur = DATA.showcases[st.currentShowcase];
+      dialog({ title: 'Основной адрес ведёт на черновик', body: 'По адресу 13mirrors.ru/vitrina/ открывается «' + (cur ? cur.title : st.currentShowcase) + '», но эта витрина — черновик. Поставьте ей статус «Опубликована» или включите «Открывать по основному адресу» у опубликованного месяца.' });
+      return;
+    }
+    var drafts = Object.keys(DATA.showcases).filter(function (id) { return ids.indexOf(id) < 0; });
+    var body = el('div', {}, [
+      el('p', { text: 'На сайт попадут: ' + ids.map(function (id) { return DATA.showcases[id].title; }).join(', ') + '. По основному адресу — «' + DATA.showcases[st.currentShowcase].title + '».' }),
+      drafts.length ? el('p', { text: 'Останутся черновиками (на сайт не попадут): ' + drafts.map(function (id) { return DATA.showcases[id].title; }).join(', ') + '.' }) : null,
+      el('p', { class: 'a-hint', text: 'Скрытые карточки, выключенные поля и служебные пометки на сайт не попадают. Черновик перед публикацией сохранится в GitHub.' })]);
+    dialog({ title: 'Опубликовать витрину?', body: body, buttons: [['go', 'Опубликовать', 'dark'], ['cancel', 'Отмена']] }).then(function (v) {
+      if (v !== 'go') return;
+      if (dirty) try { localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), data: DATA })); savedAt = Date.now(); dirty = false; updateState(); } catch (e) {}
+      saveToGitHub(true).then(function (ok) {
+        if (!ok) return;
+        var P = buildSite(DATA), media, removed = [];
+        busy('Готовим картинки…');
+        return extractImages(P).then(function (m) {
+          media = m;
+          busy('Смотрим, что сейчас на сайте…');
+          return headOf(GH.site);
+        }).then(function (head) { return head || initRepo(GH.site); }).then(function (head) {
+          return treeOf(GH.site, head).then(function (t) {
+            var sf = siteFiles(P, media, t.files); removed = sf.removed;
+            busy('Публикуем…');
+            return commitFiles(GH.site, head, t.treeSha, sf.files, 'Публикация: ' + ids.map(function (id) { return DATA.showcases[id].title; }).join(', '),
+              function (d, n) { busy('Публикуем… ' + Math.round(d / n * 100) + '%'); });
+          });
+        }).then(function () {
+          busy(null);
+          dialog({ title: 'Опубликовано', body: 'Сайт обновится в течение пары минут: 13mirrors.ru/vitrina/' +
+            (removed.length ? '\n\nСняты с сайта: ' + removed.map(function (id) { return (DATA.showcases[id] || {}).title || id; }).join(', ') + '.' : '') +
+            '\n\nЕсли ссылкой уже делились в Telegram или VK, старое превью может держаться ещё какое-то время.' });
+        });
+      }).catch(fail);
+    });
+  }
+
   /* ---------- Резервная копия: весь черновик одним файлом ---------- */
   var BACKUP_APP = '13mirrors-vitrina';
   function downloadBackup() {
@@ -1382,6 +1799,7 @@
       if (saved && saved.data) { DATA = saved.data; savedAt = saved.savedAt; } else DATA = clone(src);
       migrate(DATA);
       renderShell();
+      if (GHS.token) connect(false);
     }).catch(function (e) {
       console.error(e);
       APP.innerHTML = '<p style="padding:40px">Не получилось загрузить данные витрины. Обновите страницу; если не поможет — напишите, что видите.</p>';

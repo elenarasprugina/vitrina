@@ -801,11 +801,13 @@
   }
 
   /* ================= «ПОДЕЛИТЬСЯ» ================= */
-  // Ссылка ведёт прямо на карточку: постоянный адрес месяца + #id карточки.
+  // Ссылка ведёт прямо на карточку: постоянный адрес месяца + страница карточки.
   function cardUrl() {
     var sc = S.D.showcase || {}, id = S.card ? S.card.id : '';
     var u = new URL(S.base + (sc.id ? sc.id + '/' : ''), location.href);
-    return u.origin + u.pathname + (id ? '#' + encodeURIComponent(id) : '');
+    // У каждой карточки на сайте есть своя страница-превью (…/2026-10/sun/) — её и отправляем:
+    // Telegram и VK покажут картинку и название именно этой карточки, а человек попадёт сразу в неё.
+    return u.origin + u.pathname + (id && /^[\w-]+$/.test(id) ? id + '/' : id ? '#' + encodeURIComponent(id) : '');
   }
   function toast(msg) {
     var t = S.root.querySelector('#m13-toast'); if (!t) return;
