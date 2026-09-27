@@ -301,3 +301,32 @@ body.m13-locked{overflow:hidden}
 .m13-accent .m13-format:not(.is-closed):hover,.m13-accent .m13-item:hover,.m13-accent .m13-action:hover{border-color:var(--m13-ac)}
 .m13-accent .m13-status-pill > span{border-color:var(--m13-ac);background:color-mix(in srgb,var(--m13-ac) 14%,transparent)}
 .m13-accent .m13-head{border-bottom-color:color-mix(in srgb,var(--m13-ac) 45%,#e0e0e0)}
+
+/* Кнопки: три-четыре — сеткой 2×2 */
+.m13-actions--grid{display:grid;grid-template-columns:1fr 1fr}
+.m13-actions--grid .m13-action{padding-left:8px;padding-right:8px}
+.m13-actions--grid .m13-action--primary:nth-child(1):nth-last-child(odd){grid-column:1 / -1}
+
+/* Плашка с кнопкой «в календарь» */
+.m13-item--cal{display:flex;flex-direction:column}
+.m13-item--cal:focus-visible{outline:2px solid #232323;outline-offset:2px}
+.m13-item-acts{margin-top:auto;padding-top:7px;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.m13-item-acts .m13-item-action{margin:0;padding:0}
+.m13-item-cal{border:1px solid #cfcfcf;border-radius:999px;background:#fff;padding:3px 8px;font-size:10px;cursor:pointer;white-space:nowrap}
+.m13-item-cal:hover{border-color:#232323}
+.m13-accent .m13-item-cal{border-color:var(--m13-ac)}
+.m13-items--one .m13-item--cal{display:grid}
+.m13-items--one .m13-item--cal .m13-item-acts{grid-column:1 / -1}
+
+/* Окно «Добавить в календарь» */
+.m13-channels--col{grid-template-columns:1fr}
+.m13-channels a.m13-channel{display:block;text-align:center;text-decoration:none}
+.m13-channels--col a.m13-channel + a.m13-channel{background:#fff;color:#232323 !important}
+.m13-cal-when{font-size:14px;color:#444;margin-top:-4px}
+
+/* Короткое сообщение внизу экрана («ссылка скопирована») */
+.m13-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);z-index:700;max-width:calc(100% - 32px);
+  background:#232323;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.35;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.m13-toast.is-on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:680px){ .m13-item-cal{font-size:8.5px;padding:2px 6px} }

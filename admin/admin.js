@@ -10,7 +10,7 @@
     ['heading', 'Заголовок на обороте'], ['desc', 'Описание'], ['images', 'Картинки'], ['price', 'Цена'],
     ['day', '«Сегодня день N из M»'], ['routeButton', 'Большая кнопка-ссылка («Пройти маршрут»)'], ['formats', 'Форматы участия'],
     ['items', 'Плашки (встречи, варианты, виды работы)'], ['dates', 'Даты с подписью'], ['info', 'Дополнительно (состав, пояснение)'],
-    ['examples', 'Кнопка «Примеры»'], ['actions', 'Кнопки «Написать» / ссылка'], ['sandbox', 'Кнопка «Как устроены маршруты»']
+    ['examples', 'Кнопка «Примеры»'], ['actions', 'Кнопки (до 4): написать, ссылка, календарь, поделиться…'], ['sandbox', 'Кнопка «Как устроены маршруты»']
   ];
   var BLOCK_NAMES = {}; BLOCKS.forEach(function (x) { BLOCK_NAMES[x[0]] = x[1]; });
   var PRESETS = [['route', 'Маршрут'], ['list', 'Встречи или услуги (плашки)'], ['product', 'Продукт'], ['simple', 'Текст и кнопка']];
@@ -273,26 +273,63 @@
     draw();
     return box;
   }
-  // Действие кнопки: написать в Telegram/VK или открыть ссылку.
+  // Действие кнопки. o.kinds — какие типы можно выбрать (по умолчанию «написать» и «ссылка»).
+  var ACTION_KINDS = [
+    ['contact', 'Написать — окно «Telegram или VK»', 'Написать'], ['link', 'Открыть страницу (ссылку)', 'Подробнее'],
+    ['examples', 'Примеры — страница Карт-Отражений', 'Примеры'], ['sandbox', 'Как устроено — Песочница', 'Как устроены маршруты'],
+    ['calendar', 'Добавить в календарь', 'Добавить в календарь'], ['share', 'Поделиться ссылкой на карточку', 'Поделиться'],
+    ['download', 'Скачать файл', 'Скачать']
+  ];
+  function kindOf(a) { return a.kind === 'internal' ? (a.target === 'sandbox' ? 'sandbox' : 'examples') : (a.kind || 'contact'); }
+  function defLabel(k) { return (ACTION_KINDS.filter(function (x) { return x[0] === k; })[0] || [])[2] || 'Написать'; }
+  function calFields(cal, o) {
+    o = o || {};
+    var warn = el('p', { class: 'a-hint a-hint--warn', text: 'Укажите дату — без неё кнопка не появится. После окончания события кнопка пропадёт сама.' });
+    function upd() { warn.style.display = cal.date ? 'none' : ''; }
+    upd();
+    return [
+      el('div', { class: 'a-row3', oninput: upd, onchange: upd }, [
+        textIn(cal, 'date', 'Дата', { type: 'date' }),
+        textIn(cal, 'time', 'Время (по Москве)', { type: 'time', hint: 'Пусто — событие на весь день.' }),
+        textIn(cal, 'duration', 'Длится, минут', { type: 'number', ph: '60' })]),
+      textIn(cal, 'title', 'Название события', { ph: o.titlePh || 'Пусто — название карточки или плашки' }),
+      textIn(cal, 'place', 'Где', { ph: 'Онлайн, Zoom, адрес…', hint: 'Без ссылок на конференцию — их лучше прислать лично.' }),
+      textIn(cal, 'details', 'Описание в календаре', { multi: true, rows: 2, ph: 'Необязательно' }),
+      warn
+    ];
+  }
   function actionIn(obj, key, title, o) {
     o = o || {};
     if (!obj[key]) obj[key] = { kind: 'contact', label: o.defLabel || 'Написать' };
     var a = obj[key];
+    var kinds = ACTION_KINDS.filter(function (x) { return (o.kinds || ['contact', 'link']).indexOf(x[0]) >= 0; });
     var box = el('div', { class: 'a-action' });
+    var ui = { k: kindOf(a) };
     function draw() {
+      var k = ui.k;
       box.replaceChildren();
       add(box, [
         title ? el('div', { class: 'a-action-title', text: title }) : null,
-        o.noLabel ? null : textIn(a, 'label', 'Текст на кнопке', { ph: o.defLabel || 'Написать' }),
-        selectIn(a, 'kind', 'Что происходит при нажатии', [['contact', 'Окно «Куда написать?» → Telegram или VK'], ['link', 'Сразу открывается ссылка']],
-          { onChange: draw }),
-        a.kind === 'link'
-          ? textIn(a, 'url', 'Ссылка', { ph: 'https://…', hint: o.linkHint || 'Полный адрес страницы, начиная с https://' })
-          : [textIn(a, 'message', 'Текст обращения', { multi: true, rows: 2, ph: o.msgPh || 'Можно оставить пустым — текст соберётся сам', hint: 'Этот текст человек увидит в окне и сможет вставить в чат.' }),
+        o.noLabel ? null : textIn(a, 'label', 'Текст на кнопке', { ph: defLabel(k) }),
+        kinds.length > 1 ? selectIn(ui, 'k', 'Что происходит при нажатии', kinds.map(function (x) { return [x[0], x[1]]; }), { onChange: function (v) {
+          var old = kindOf(a);
+          if (!a.label || a.label === defLabel(old)) a.label = defLabel(v);
+          delete a.target;
+          if (v === 'examples' || v === 'sandbox') { a.kind = 'internal'; a.target = v === 'sandbox' ? 'sandbox' : 'reflection'; }
+          else a.kind = v;
+          if (v === 'calendar' && !a.cal) a.cal = { date: '', time: '', duration: 60, title: '', place: '', details: '' };
+          draw(); } }) : null,
+        k === 'link' ? textIn(a, 'url', 'Ссылка', { ph: 'https://…', hint: o.linkHint || 'Полный адрес страницы, начиная с https://' }) : null,
+        k === 'download' ? textIn(a, 'url', 'Ссылка на файл', { ph: 'https://…', hint: 'Пока — ссылкой (например, на Яндекс Диск). Загрузка файлов прямо из панели появится вместе с публикацией.' }) : null,
+        k === 'calendar' ? calFields(a.cal = a.cal || { duration: 60 }) : null,
+        k === 'share' ? el('p', { class: 'a-hint', text: 'На телефоне откроется меню «Поделиться» (Telegram, VK…), на компьютере ссылка на эту карточку скопируется.' }) : null,
+        k === 'examples' || k === 'sandbox' ? el('p', { class: 'a-hint', text: k === 'sandbox' ? 'Откроется Песочница — «Как устроены маршруты».' : 'Откроется страница примеров Карт-Отражений.' }) : null,
+        k === 'contact'
+          ? [textIn(a, 'message', 'Текст обращения', { multi: true, rows: 2, ph: o.msgPh || 'Можно оставить пустым — текст соберётся сам', hint: 'Этот текст человек увидит в окне и сможет вставить в чат.' }),
             el('details', {}, [el('summary', { class: 'a-hint', style: 'cursor:pointer', text: 'Свои контакты для этой кнопки (необязательно)' }),
               el('div', { class: 'a-row', style: 'margin-top:8px' }, [
                 textIn(a, 'telegram', 'Telegram', { ph: 'как в Настройках' }),
-                textIn(a, 'vk', 'VK', { ph: 'как в Настройках' })])])]
+                textIn(a, 'vk', 'VK', { ph: 'как в Настройках' })])])] : null
       ]);
     }
     draw();
@@ -687,7 +724,8 @@
       el('div', { class: 'a-row' }, [optIn(it, 'date', 'Дата', { ph: '08 октября' }), optIn(it, 'price', 'Цена', { ph: '2 500 ₽ или «Свободный вход»' })]),
       optIn(it, 'text', 'Короткое описание', { multi: true, rows: 2 }),
       el('div', { class: 'a-row' }, [optIn(it, 'duration', 'Длительность', { ph: 'до 90 минут' }), optIn(it, 'status', 'Статус', { ph: 'осталось 2 места' })]),
-      actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться' })
+      actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться' }),
+      itemCalendar(it)
     ];
   }
 
@@ -717,7 +755,7 @@
       return b; }) };
   }
   function blockTitle(x) {
-    var n = BLOCK_NAMES[x.kind] || x.kind, t = '';
+    var n = x.kind === 'actions' ? 'Кнопки' : (BLOCK_NAMES[x.kind] || x.kind), t = '';
     if (x.kind === 'desc' || x.kind === 'info' || x.kind === 'heading') t = String(x.text || '').split('\n')[0];
     if (x.kind === 'price') t = x.value;
     if (x.kind === 'items') t = (x.items || []).length + ' шт.';
@@ -779,8 +817,9 @@
       textIn(x, 'note', 'Пояснение под датами', { multi: true, rows: 2 })];
     if (x.kind === 'examples') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт на страницу примеров Карт-Отражений.' })];
     if (x.kind === 'sandbox') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт в Песочницу — «Как устроены маршруты».' })];
-    if (x.kind === 'actions') return [collection(x.actions = x.actions || [], { visible: true, max: 2, ordered: false, title: function (a) { return a.label; },
-      body: function (a) { return [actionIn({ a: a }, 'a', '')]; },
+    if (x.kind === 'actions') return [el('p', { class: 'a-hint', text: 'До 4 кнопок. Три-четыре встают сеткой 2×2; первая — главная, в акцентном цвете.' }),
+      collection(x.actions = x.actions || [], { visible: true, max: 4, ordered: false, title: function (a) { return (a.label || defLabel(kindOf(a))) + ' · ' + (ACTION_KINDS.filter(function (k) { return k[0] === kindOf(a); })[0] || [, ''])[1].split(' — ')[0]; },
+      body: function (a) { return [actionIn({ a: a }, 'a', '', { kinds: ACTION_KINDS.map(function (k) { return k[0]; }) })]; },
       make: function () { return { kind: 'contact', label: 'Написать', visible: true }; }, addLabel: '+ Добавить кнопку' })];
     return [];
   }
@@ -905,6 +944,19 @@
               el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Отмена', onclick: function () { st.armed = false; draw(); } })])
           : el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Скопировать сюда', disabled: !src,
               onclick: function () { st.armed = true; draw(); } })]);
+    }
+    draw();
+    return box;
+  }
+
+  function itemCalendar(it) {
+    var box = el('div', { class: 'a-action' });
+    function draw() {
+      it.calendar = it.calendar || { on: false, label: 'В календарь', date: '', time: '', duration: 90 };
+      box.replaceChildren();
+      add(box, [switchIn(it.calendar, 'on', 'Кнопка «Добавить в календарь» на плашке', { onChange: draw,
+          hint: 'Человек сохранит встречу в свой календарь — мы ничего о нём не узнаём и не храним.' }),
+        it.calendar.on ? [textIn(it.calendar, 'label', 'Текст кнопки', { ph: 'В календарь' })].concat(calFields(it.calendar, { titlePh: 'Пусто — «' + (it.title || '') + '»' })) : null]);
     }
     draw();
     return box;
@@ -1096,6 +1148,9 @@
     ['flipHint', 'Подсказка на лицевой стороне'], ['formatClosed', 'Подпись закрытого формата'], ['dayCounter', 'Счётчик дней ({n} и {total})'],
     ['contactTitle', 'Заголовок окна контакта'], ['contactMessageLabel', 'Подпись над текстом обращения'], ['contactHint', 'Подсказка в окне контакта'],
     ['contactCopied', 'Сообщение «текст скопирован»'], ['contactMissing', 'Если контакт не задан ({channel})'], ['close', 'Кнопка «Закрыть»'],
+    ['calendarTitle', 'Заголовок окна календаря'], ['calendarGoogle', 'Кнопка Google Календаря'], ['calendarOther', 'Кнопка другого календаря'],
+    ['calendarNote', 'Пояснение про время'], ['calendarMsk', 'Подпись «по Москве»'], ['calendarButton', 'Кнопка «в календарь» на плашке'],
+    ['shareCopied', 'Сообщение «ссылка скопирована»'],
     ['backToCard', 'Кнопка «Назад к карте»'], ['backToShowcase', 'Кнопка «К витрине»'], ['backToList', 'Кнопка «К списку»'], ['loadError', 'Сообщение об ошибке загрузки']
   ];
   function viewSettings() {

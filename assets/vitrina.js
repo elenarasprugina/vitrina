@@ -123,13 +123,21 @@
       if (url) window.open(url, '_blank', 'noopener');
     } else if (action.kind === 'internal') {
       openInternal(action.target, action.tab);
+    } else if (action.kind === 'calendar') {
+      openCalendar(action.cal || action, ctx);
+    } else if (action.kind === 'share') {
+      shareCard(ctx);
+    } else if (action.kind === 'download') {
+      if (action.url) { var a = document.createElement('a'); a.href = action.url; a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('download', ''); document.body.appendChild(a); a.click(); a.remove(); }
     } else {
       openContact(action, ctx);
     }
   }
   function bindActs(scope) {
     scope.querySelectorAll('[data-m13-act]').forEach(function (b) {
-      b.addEventListener('click', function (e) { e.preventDefault(); runAct(+b.getAttribute('data-m13-act')); });
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); runAct(+b.getAttribute('data-m13-act')); });
+      if (b.getAttribute('role') === 'button') b.addEventListener('keydown', function (e) {
+        if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); runAct(+b.getAttribute('data-m13-act')); } });
     });
   }
 
@@ -176,7 +184,7 @@
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
       '</section></div></main>' +
-      overlayHTML() + internalHTML() + modalHTML() + '</div>';
+      overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
 
     S.root.querySelectorAll('.m13-thumb[data-card]').forEach(function (b) {
@@ -408,6 +416,15 @@
       var meta = [dur, status].filter(Boolean).join(' · ');
       var a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
+      var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
+      if (cal) return '<div class="m13-item m13-item--cal" role="button" tabindex="0"' + act(a, ctx) + '>' +
+        (date ? '<div class="m13-item-date">' + esc(date) + '</div>' : '') +
+        '<div class="m13-item-title">' + esc(it.title) + '</div>' +
+        (text ? '<div class="m13-item-text">' + txt(text) + '</div>' : '') +
+        (meta ? '<div class="m13-item-meta">' + esc(meta) + '</div>' : '') +
+        (price ? '<div class="m13-item-price">' + esc(price) + '</div>' : '') +
+        '<div class="m13-item-acts"><span class="m13-item-action">' + esc(a.label || 'Написать') + ' →</span>' +
+        '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + esc(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
       return '<button type="button" class="m13-item"' + act(a, ctx) + '>' +
         (date ? '<div class="m13-item-date">' + esc(date) + '</div>' : '') +
         '<div class="m13-item-title">' + esc(it.title) + '</div>' +
@@ -476,7 +493,7 @@
     var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
     function flushBtns() {
       if (!btnRun.length) return '';
-      var out = '<div class="m13-actions' + (runPush ? ' m13-push' : '') + '">' + btnRun.join('') + '</div>';
+      var out = '<div class="m13-actions' + (runPush ? ' m13-push' : '') + (btnRun.length > 2 ? ' m13-actions--grid' : '') + '">' + btnRun.join('') + '</div>';
       btnRun = []; runPush = false; return out;
     }
     list.forEach(function (x, i) {
@@ -485,8 +502,9 @@
         if (i === push) runPush = true;
         if (x.kind === 'examples') btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
           act({ kind: 'internal', target: 'reflection' }) + '>' + esc(x.label || 'Примеры') + '</button>');
-        else (x.actions || []).slice(0, 2).forEach(function (a) {
+        else (x.actions || []).slice(0, 4).forEach(function (a) {
           if (!a || a.visible === false) return;
+          if (a.kind === 'calendar' && !calActive(a.cal || {})) return;
           btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
             act(a, { card: title, action: a.label, price: price, tplKey: 'offer' }) + '>' + esc(a.label || 'Написать') + '</button>');
         });
@@ -633,6 +651,104 @@
       hint.textContent = fill(T('contactMissing') || 'Ссылка на {channel} ещё не задана.', { channel: name });
     }
     hint.classList.add('is-done');
+  }
+
+  /* ================= «ДОБАВИТЬ В КАЛЕНДАРЬ» =================
+     cal = {date:'ГГГГ-ММ-ДД', time:'ЧЧ:ММ'?, duration: минут, title?, place?, details?}.
+     Время — московское (UTC+3, без перехода на летнее). Календарь человека сам пересчитает в его пояс.
+     Ничего никуда не отправляется: Google открывает готовое событие, файл .ics собирается прямо в браузере. */
+  var MSK = 3;
+  function calRange(cal) {
+    var d = String(cal.date || '').split('-'); if (d.length !== 3) return null;
+    var t = /^(\d{1,2}):(\d{2})$/.exec(String(cal.time || '').trim());
+    if (!t) { // весь день
+      var a = new Date(Date.UTC(+d[0], +d[1] - 1, +d[2])), b = new Date(a.getTime() + 86400000);
+      return { allDay: true, start: a, end: b };
+    }
+    var st = new Date(Date.UTC(+d[0], +d[1] - 1, +d[2], +t[1] - MSK, +t[2]));
+    return { allDay: false, start: st, end: new Date(st.getTime() + (+cal.duration || 60) * 60000) };
+  }
+  // После окончания события кнопка «в календарь» сама пропадает.
+  function calActive(cal) { var r = calRange(cal || {}); return !!r && r.end.getTime() > (window.M13_TODAY ? today().getTime() : Date.now()); }
+  function z(n) { return (n < 10 ? '0' : '') + n; }
+  function utcStamp(dt, allDay) {
+    var s = dt.getUTCFullYear() + z(dt.getUTCMonth() + 1) + z(dt.getUTCDate());
+    return allDay ? s : s + 'T' + z(dt.getUTCHours()) + z(dt.getUTCMinutes()) + '00Z';
+  }
+  function calInfo(cal, ctx) {
+    return { title: String(cal.title || '').trim() || [ctx.item, ctx.card].filter(Boolean).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' · '),
+      place: String(cal.place || '').trim(), details: String(cal.details || '').trim() };
+  }
+  function googleUrl(cal, ctx) {
+    var r = calRange(cal), inf = calInfo(cal, ctx);
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(inf.title) +
+      '&dates=' + utcStamp(r.start, r.allDay) + '/' + utcStamp(r.end, r.allDay) +
+      (inf.details ? '&details=' + encodeURIComponent(inf.details) : '') + (inf.place ? '&location=' + encodeURIComponent(inf.place) : '');
+  }
+  function icsText(cal, ctx) {
+    var r = calRange(cal), inf = calInfo(cal, ctx);
+    function e(v) { return String(v).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//13 MIRRORS//Vitrina//RU', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+      'UID:' + utcStamp(r.start) + '-' + Math.random().toString(36).slice(2, 10) + '@13mirrors.ru', 'DTSTAMP:' + utcStamp(new Date()),
+      r.allDay ? 'DTSTART;VALUE=DATE:' + utcStamp(r.start, true) : 'DTSTART:' + utcStamp(r.start),
+      r.allDay ? 'DTEND;VALUE=DATE:' + utcStamp(r.end, true) : 'DTEND:' + utcStamp(r.end),
+      'SUMMARY:' + e(inf.title)];
+    if (inf.place) L.push('LOCATION:' + e(inf.place));
+    if (inf.details) L.push('DESCRIPTION:' + e(inf.details));
+    L.push('BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', 'DESCRIPTION:' + e(inf.title), 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR');
+    return L.join('\r\n');
+  }
+  var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  function calHuman(cal) {
+    var d = String(cal.date || '').split('-'), t = String(cal.time || '').trim();
+    return (+d[2]) + ' ' + MONTHS_GEN[+d[1] - 1] + (t ? ', ' + t + ' ' + (T('calendarMsk') || 'по Москве') : '');
+  }
+  function calModalHTML() {
+    return '<div class="m13-modal" id="m13-cal" role="dialog" aria-modal="true" aria-labelledby="m13-cal-t"><div class="m13-modal-box">' +
+      '<div class="m13-eyebrow" id="m13-cal-e"></div><h3 id="m13-cal-t"></h3><div class="m13-cal-when" id="m13-cal-w"></div>' +
+      '<div class="m13-channels m13-channels--col"><a class="m13-channel" id="m13-cal-g" target="_blank" rel="noopener"></a>' +
+      '<a class="m13-channel" id="m13-cal-i" download="13mirrors.ics"></a></div>' +
+      '<p class="m13-hint" id="m13-cal-h"></p><button type="button" class="m13-modal-close" id="m13-cal-x"></button></div></div>';
+  }
+  function openCalendar(cal, ctx) {
+    if (!calRange(cal)) return;
+    var q = function (id) { return S.root.querySelector(id); }, m = q('#m13-cal'), inf = calInfo(cal, ctx);
+    q('#m13-cal-e').textContent = T('calendarTitle') || 'Добавить в календарь';
+    q('#m13-cal-t').textContent = inf.title;
+    q('#m13-cal-w').textContent = calHuman(cal) + (inf.place ? ' · ' + inf.place : '');
+    var g = q('#m13-cal-g'); g.href = googleUrl(cal, ctx); g.textContent = T('calendarGoogle') || 'Google Календарь';
+    var i = q('#m13-cal-i'); i.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsText(cal, ctx));
+    i.textContent = T('calendarOther') || 'Apple или другой календарь';
+    q('#m13-cal-h').textContent = cal.time ? (T('calendarNote') || 'Время указано московское — календарь сам покажет его в вашем часовом поясе.') : '';
+    q('#m13-cal-x').textContent = T('close') || 'Закрыть';
+    if (!m._bound) {
+      m._bound = true;
+      m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
+      q('#m13-cal-x').addEventListener('click', closeTop);
+    }
+    m.classList.add('is-open');
+    pushLayer('calendar', function () { m.classList.remove('is-open'); });
+  }
+
+  /* ================= «ПОДЕЛИТЬСЯ» ================= */
+  // Ссылка ведёт прямо на карточку: постоянный адрес месяца + #id карточки.
+  function cardUrl() {
+    var sc = S.D.showcase || {}, id = S.card ? S.card.id : '';
+    var u = new URL(S.base + (sc.id ? sc.id + '/' : ''), location.href);
+    return u.origin + u.pathname + (id ? '#' + encodeURIComponent(id) : '');
+  }
+  function toast(msg) {
+    var t = S.root.querySelector('#m13-toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('is-on');
+    clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove('is-on'); }, 3200);
+  }
+  function shareCard(ctx) {
+    var url = cardUrl(), title = [(S.D.settings || {}).siteTitle || '13 MIRRORS', ctx.card].filter(Boolean).join(' · ');
+    if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      navigator.share({ title: title, url: url }).catch(function () {});
+      return;
+    }
+    toast(copyText(url) ? (T('shareCopied') || 'Ссылка на карточку скопирована — её можно отправить в чат.') : url);
   }
 
   /* ================= ВНУТРЕННИЕ СТРАНИЦЫ ================= */
