@@ -279,3 +279,9 @@ body.m13-locked{overflow:hidden}
   .m13-thumb.m13-glow-live{animation:none;box-shadow:0 calc(var(--m13-gy)*10px*var(--m13-gk)) calc(16px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
   .m13-big-stage.m13-glow-live .m13-face{animation:none;box-shadow:0 calc(var(--m13-gy)*24px*var(--m13-gk)) calc(40px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
 }
+
+/* Метка «идёт сейчас» по датам — с маленькой мерцающей точкой */
+.m13-phase--during::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px;animation:m13-dot 1.8s ease-in-out infinite}
+@keyframes m13-dot{50%{opacity:.25}}
+@media (max-width:680px){.m13-phase--during::before{width:4px;height:4px;margin-right:3px}}
+@media (prefers-reduced-motion:reduce){.m13-phase--during::before{animation:none}}

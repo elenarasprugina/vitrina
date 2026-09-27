@@ -40,6 +40,11 @@
     return new Date(+p[0], +p[1] - 1, +p[2]);
   }
 
+  function today() {
+    if (window.M13_TODAY) return parseDate(window.M13_TODAY);
+    var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+
   /* ---------- Состояние ---------- */
   var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null };
 
@@ -211,10 +216,26 @@
     document.head.appendChild(l);
   }
   M13.ensureFont = ensureFont;
+  /* ---------- Метка по датам: «до / идёт / после» ----------
+     front.phase = {on, from?, to?, before{value,show}, during{…}, after{…}, glow}.
+     Даты — свои (from/to) или, если пусто, даты маршрута карточки. */
+  function phaseOf(c) {
+    var ph = (c && c.front && c.front.phase) || null;
+    if (!ph || !ph.on) return null;
+    var r = c.back && c.back.routeId ? routeById(c.back.routeId) : null, rd = (r && r.dates) || {};
+    var from = parseDate(ph.from || rd.from), to = parseDate(ph.to || rd.to);
+    if (!from || !to) return null;
+    var now = today(), key = now < from ? 'before' : now > to ? 'after' : 'during';
+    return { key: key, label: opt(ph[key]), glow: key === 'during' && !!ph.glow };
+  }
+  M13.phaseOf = function (c, data) { var keep = S.D; if (data) S.D = data; try { return phaseOf(c); } finally { S.D = keep; } };
+
   function cardStyle(c) {
     var d = (S.D.showcase && S.D.showcase.cardStyle) || {}, f = ((c && c.front) || {}).style || {};
     function pick(k, def) { return f[k] && f[k] !== 'inherit' ? f[k] : (d[k] || def); }
     var glow = pick('glow', 'off');
+    var ph = phaseOf(c);
+    if (ph && ph.glow && glow !== 'soft' && glow !== 'live') glow = 'live';
     return {
       font: f.font || d.font || '', textColor: f.textColor || d.textColor || '', bg: f.bg || d.bg || '',
       overlay: f.overlay && f.overlay !== 'inherit' ? f.overlay : (d.overlay || 'light'),
@@ -250,6 +271,8 @@
     var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '');
     var isStatic = c.interactive === false || !c.back || c.back.type === 'static';
     var sub = opt(f.subtitle), status = opt(f.status), foot = opt(f.foot);
+    var ph = phaseOf(c), phCls = '';
+    if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
     var text = '<div class="m13-thumb-text">' +
       (f.eyebrow ? '<div class="m13-mini-type">' + esc(f.eyebrow) + '</div>' : '') +
       (f.title ? '<div class="m13-mini-title">' + esc(f.title) + '</div>' : '') +
@@ -257,7 +280,7 @@
       (status ? '<div class="m13-mini-status">' + esc(status) + '</div>' : '') + '</div>';
     if (isStatic) return '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + '</div>';
     return '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
-      '<div class="m13-mini-foot">' + (foot ? '<span>' + esc(foot) + '</span>' : '') +
+      '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + esc(foot) + '</span>' : '') +
       '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div></button>';
   }
 
@@ -343,7 +366,7 @@
   function dayCounter(r) {
     if (!r || !r.dates || !r.dates.from || !r.dates.to) return '';
     var from = parseDate(r.dates.from), to = parseDate(r.dates.to);
-    var now = new Date(); now = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var now = today();
     var DAY = 86400000;
     var n = Math.round((now - from) / DAY) + 1, total = Math.round((to - from) / DAY) + 1;
     if (n < 1 || n > total) return '';

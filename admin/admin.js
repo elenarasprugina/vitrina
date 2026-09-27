@@ -487,6 +487,8 @@
           var font = fs.font || d.font, tc = fs.textColor || d.textColor, bg = fs.bg || d.bg;
           function pk(k, def) { return fs[k] && fs[k] !== 'inherit' ? fs[k] : (d[k] || def); }
           var glow = pk('glow', 'off'), gc = fs.glowColor || d.glowColor || '#e8c77a';
+          var ph = window.M13.phaseOf(c, { routes: DATA.routes, settings: DATA.settings });
+          if (ph && ph.glow && glow !== 'soft' && glow !== 'live') glow = 'live';
           var gk = { weak: 0.55, medium: 1, strong: 1.7 }[pk('glowStrength', 'medium')] || 1;
           var gdir = pk('glowDir', 'around'), gy = gdir === 'bottom' ? 1 : gdir === 'top' ? -1 : 0;
           var ov = fs.overlay && fs.overlay !== 'inherit' ? fs.overlay : (d.overlay || 'light');
@@ -789,6 +791,46 @@
     ];
   }
 
+  /* ---------- Метка по датам «до / идёт / после» ---------- */
+  var PHASE_NAMES = { before: 'до начала', during: 'идёт', after: 'закончилось' };
+  function phaseFields(c, cb) {
+    var box = el('div', { class: 'a-phase' });
+    function draw() {
+      var ph = c.front.phase = c.front.phase || { on: false, from: '', to: '',
+        before: { value: 'скоро', show: true }, during: { value: 'идёт сейчас', show: true }, after: { value: 'завершён', show: true }, glow: false };
+      var r = c.back && c.back.routeId ? routeById(c.back.routeId) : null, rd = (r && r.dates) || {};
+      box.replaceChildren();
+      add(box, [
+        switchIn(ph, 'on', 'Менять подпись внизу по датам', { onChange: function () { draw(); cb.redrawGrid(); },
+          hint: 'Вместо обычной подписи на маленькой карточке сама появится нужная надпись: до начала, во время, после окончания.' }),
+        ph.on ? [
+          el('div', { class: 'a-row' }, [
+            textIn(ph, 'from', 'С', { type: 'date' }),
+            textIn(ph, 'to', 'по', { type: 'date' })]),
+          el('p', { class: 'a-hint', text: r && rd.from ? 'Пусто — даты маршрута «' + r.title + '»: ' + fmtDates(rd) + '.' : 'Укажите даты: у карточки не выбран маршрут с датами (раздел «Оборот»).' }),
+          optIn(ph, 'before', 'До начала', { ph: 'скоро' }),
+          optIn(ph, 'during', 'Пока идёт', { ph: 'идёт сейчас' }),
+          optIn(ph, 'after', 'После окончания', { ph: 'завершён' }),
+          el('p', { class: 'a-hint', text: 'Если у этапа выключено «показывать» — в это время стоит обычная подпись (поле выше).' }),
+          switchIn(ph, 'glow', 'Светиться, пока идёт', { onChange: cb.redrawGrid,
+            hint: 'Цвет, сила и направление — из раздела «Оформление». Если там свечение выключено, будет «живое». После окончания погаснет само.' }),
+          nowP
+        ] : null
+      ]);
+      updNow();
+    }
+    var nowP = el('p', { class: 'a-phase-now' });
+    // Строка «Сегодня: …» обновляется на ходу, без перерисовки полей (иначе сбивался бы курсор).
+    function updNow() {
+      var now = window.M13.phaseOf(c, { routes: DATA.routes, settings: DATA.settings });
+      nowP.textContent = now ? 'Сегодня: ' + PHASE_NAMES[now.key] + (now.label ? ' — на карточке «' + now.label + '»' : ' — на карточке обычная подпись') + (now.glow ? ', карточка светится.' : '.')
+        : 'Пока нет дат — метка не работает, стоит обычная подпись.';
+    }
+    draw();
+    box.addEventListener('input', updNow); box.addEventListener('change', updNow);
+    return box;
+  }
+
   /* ---------- Копирование карточки из любого месяца ---------- */
   function copyCardBox(sc, i, cb) {
     var st = { month: sc.id, card: '', armed: false }, box = el('div', { class: 'a-copy' });
@@ -855,7 +897,8 @@
         textIn(f, 'title', 'Название'),
         optIn(f, 'subtitle', 'Подзаголовок', { ph: 'даты или короткая фраза' }),
         optIn(f, 'status', 'Статус', { ph: 'Вход открыт, цена…' }),
-        optIn(f, 'foot', 'Подпись внизу маленькой карточки', { ph: '3 формата, 4 встречи…' })
+        optIn(f, 'foot', 'Подпись внизу маленькой карточки', { ph: '3 формата, 4 встречи…' }),
+        phaseFields(c, cb)
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid)), { open: false })

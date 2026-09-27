@@ -38,8 +38,26 @@
           "show": true
         },
         "foot": {
-          "value": "идёт сейчас",
+          "value": "3 формата",
           "show": true
+        },
+        "phase": {
+          "on": true,
+          "from": "",
+          "to": "",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": false
         }
       },
       "back": {
@@ -125,6 +143,24 @@
           "glow": "soft",
           "glowStrength": "medium",
           "glowDir": "bottom"
+        },
+        "phase": {
+          "on": true,
+          "from": "",
+          "to": "",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": false
         }
       },
       "back": {
@@ -200,6 +236,24 @@
         "foot": {
           "value": "3 формата",
           "show": true
+        },
+        "phase": {
+          "on": true,
+          "from": "",
+          "to": "",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": false
         }
       },
       "back": {
@@ -275,6 +329,24 @@
         "foot": {
           "value": "3 формата",
           "show": true
+        },
+        "phase": {
+          "on": true,
+          "from": "",
+          "to": "",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": false
         }
       },
       "back": {
