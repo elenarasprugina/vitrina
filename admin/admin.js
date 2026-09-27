@@ -267,7 +267,7 @@
       var file = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
-        compressImage(f, null, o.crop).then(function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); })
+        compressImage(f, o.max, o.crop).then(function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); })
           .catch(function () { toast('Не получилось открыть эту картинку. Попробуйте файл JPG или PNG.', true); });
       });
       box.replaceChildren();
@@ -438,7 +438,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['routes', 'Маршруты'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['routes', 'Маршруты'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -474,6 +474,7 @@
     m.replaceChildren();
     var s = ST.section;
     if (s === 'showcases') add(m, ST.showcase ? viewShowcase() : viewShowcaseList());
+    else if (s === 'home') add(m, viewHome());
     else if (s === 'routes') add(m, viewRoutes());
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
@@ -1249,6 +1250,78 @@
     ];
   }
 
+  /* ================= ГЛАВНАЯ СТРАНИЦА 13mirrors.ru =================
+     Тексты, картинки, цвет и шрифт главной хранятся в settings.home и публикуются вместе с витриной.
+     Главная страница сама читает их из /vitrina/data/settings.json. Пустое поле — остаётся то, что в самой странице. */
+  var HOME_DEFAULT = {
+    imageWide: null, imageTall: null,
+    lead1: 'Авторские психологические маршруты.', lead2: 'Created with you. For you.',
+    promise: '13 MIRRORS не создаёт твоих миров.\nОн помогает их открыть.',
+    story: 'Помнишь калейдоскоп? С каждым поворотом в нём рождается новый узор, но сам он ничего не создаёт — лишь меняет угол зрения.\n\nПереступая этот порог, ты не найдёшь готовых ответов, но здесь всегда есть вопрос. Здесь открываются твои миры и продолжается Путь к Себе.',
+    scheduleWord: 'Расписание', ask: 'Задать вопрос',
+    footer: '© 13 MIRRORS. Все материалы являются частью авторской разработки 13 MIRRORS.\n\nИспользование и воспроизведение — только с указанием авторства и по согласованию с автором.',
+    accent: '#ecd3a3', font: 'Cormorant Garamond'
+  };
+  var HOME_FONTS = ['Cormorant Garamond', 'Lora', 'Playfair Display', 'Philosopher'];
+  var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  function viewHome() {
+    var st = DATA.settings, h = st.home = st.home || clone(HOME_DEFAULT);
+    Object.keys(HOME_DEFAULT).forEach(function (k) { if (h[k] === undefined) h[k] = HOME_DEFAULT[k]; });
+    var resetBox = el('div'), armed = false;
+    function drawReset() {
+      resetBox.replaceChildren();
+      add(resetBox, armed
+        ? el('div', { class: 'a-confirm' }, ['Тексты, картинки, цвет и шрифт главной вернутся к исходным. Точно?',
+            el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Да', onclick: function () { st.home = clone(HOME_DEFAULT); changed(); renderMain(); } }),
+            el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Нет', onclick: function () { armed = false; drawReset(); } })])
+        : el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть как было при запуске…', onclick: function () { armed = true; drawReset(); } }));
+    }
+    drawReset();
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'Главная страница' }),
+        el('p', { class: 'a-lead', text: 'То, что видно по адресу 13mirrors.ru. Изменения появятся на сайте после «Опубликовать». Логотип и расположение блоков остаются как есть.' })]),
+      el('div', { class: 'a-tabs' }, [
+        el('button', { type: 'button', text: 'Посмотреть главную', onclick: function () { openHomePreview(false); } }),
+        el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openHomePreview(true); } })]),
+      block('Картинки', [
+        el('div', { class: 'a-row' }, [
+          imageIn(h, 'imageWide', 'Для компьютера — горизонтальная', { max: 2400, hint: 'Пусто — дверь, как сейчас. Логотип и текст стоят слева, поэтому левая часть картинки должна быть тёмной и спокойной.' }),
+          imageIn(h, 'imageTall', 'Для телефона — вертикальная', { max: 2000, hint: 'Пусто — вертикальная дверь. Показывается верхняя часть, ниже — тёмный фон с текстом.' })])
+      ]),
+      block('Тексты', [
+        el('div', { class: 'a-row' }, [textIn(h, 'lead1', 'Фраза под логотипом'), textIn(h, 'lead2', 'Вторая строка (курсивом)')]),
+        textIn(h, 'promise', 'Строка с чертой слева', { multi: true, rows: 2, hint: 'Перенос строки — там, где нажмёте Enter.' }),
+        textIn(h, 'story', 'Текст ниже', { multi: true, rows: 7, hint: 'Пустая строка между абзацами — новый абзац.' }),
+        el('div', { class: 'a-row' }, [
+          textIn(h, 'scheduleWord', 'Слово на кнопке', { hint: 'Название месяца добавится само: «' + (h.scheduleWord || 'Расписание') + ' ' + monthGenNow() + '».' }),
+          textIn(h, 'ask', 'Ссылка в конце', { hint: 'Открывает окошко с Telegram и VK из «Настройки → Контакты».' })]),
+        textIn(h, 'footer', 'Пометка внизу страницы', { multi: true, rows: 3 })
+      ]),
+      block('Цвет и шрифт', [
+        el('div', { class: 'a-row' }, [
+          colorIn(h, 'accent', 'Акцентный цвет — кнопка, курсив, ссылки'),
+          selectIn(h, 'font', 'Шрифт текстов', HOME_FONTS.map(function (f) { return [f, f]; }), { hint: 'Логотип — картинка, он не меняется.' })])
+      ], { open: false }),
+      resetBox
+    ];
+  }
+  function monthGenNow() { var m = /^\d{4}-(\d{2})$/.exec(DATA.settings.currentShowcase || ''); return m ? MONTHS_GEN[+m[1] - 1] : 'месяца'; }
+  function openHomePreview(phone) {
+    var pv = document.getElementById('a-preview');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Главная страница', src: '/?preview=1' });
+    if (phone) fr.style.width = '375px';
+    function send() { try { fr.contentWindow.postMessage({ m13home: DATA.settings.home || {}, contacts: DATA.settings.contacts || {}, monthGen: monthGenNow() }, location.origin); } catch (e) {} }
+    fr.addEventListener('load', function () { send(); setTimeout(send, 400); });
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13homeReady) send(); }
+    window.addEventListener('message', onMsg);
+    var bar = el('div', { class: 'a-pbar' }, [
+      el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openHomePreview(!phone); } })]);
+    pv.classList.toggle('is-phone', phone);
+    pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  }
+
   /* ================= ПРЕДПРОСМОТР ================= */
   // Два режима: во всё окно и «Как на телефоне». Для телефона витрина рисуется во встроенном окне (iframe)
   // шириной 375 px: у него своя ширина экрана, поэтому включается настоящая мобильная раскладка.
@@ -1690,13 +1763,13 @@
     }
     syncIndex();
     var ids = publishedIds(DATA), st = DATA.settings;
-    if (!ids.length) {
-      dialog({ title: 'Нечего публиковать', body: 'Ни одна витрина не отмечена как опубликованная. Откройте нужный месяц (раздел «Витрины» → «Страница месяца») и поставьте статус «Опубликована».' });
-      return;
-    }
-    if (ids.indexOf(st.currentShowcase) < 0) {
+    if (!ids.length || ids.indexOf(st.currentShowcase) < 0) {
       var cur = DATA.showcases[st.currentShowcase];
-      dialog({ title: 'Основной адрес ведёт на черновик', body: 'По адресу 13mirrors.ru/vitrina/ открывается «' + (cur ? cur.title : st.currentShowcase) + '», но эта витрина — черновик. Поставьте ей статус «Опубликована» или включите «Открывать по основному адресу» у опубликованного месяца.' });
+      var why = !ids.length
+        ? 'Ни одна витрина не отмечена как опубликованная, поэтому месяцы на сайт не попадут. Когда месяц будет готов — поставьте ему статус «Опубликована» (раздел «Витрины» → «Страница месяца»).'
+        : 'По адресу 13mirrors.ru/vitrina/ открывается «' + (cur ? cur.title : st.currentShowcase) + '», но эта витрина — черновик. Поставьте ей статус «Опубликована» или включите «Открывать по основному адресу» у опубликованного месяца.';
+      dialog({ title: 'Витрину пока не публикуем', body: why + '\n\nМожно опубликовать только главную страницу и настройки — контакты, надписи. Черновики месяцев при этом на сайт не попадут.',
+        buttons: [['home', 'Опубликовать главную и контакты', 'dark'], ['cancel', 'Отмена']] }).then(function (v) { if (v === 'home') publishSettingsOnly(); });
       return;
     }
     var drafts = Object.keys(DATA.showcases).filter(function (id) { return ids.indexOf(id) < 0; });
@@ -1730,6 +1803,29 @@
         });
       }).catch(fail);
     });
+  }
+
+  // Публикация только настроек (главная страница, контакты, надписи) — без месяцев.
+  function publishSettingsOnly() {
+    if (dirty) try { localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), data: DATA })); savedAt = Date.now(); dirty = false; updateState(); } catch (e) {}
+    saveToGitHub(true).then(function (ok) {
+      if (!ok) return;
+      var P = { settings: cleanDeep(DATA.settings) }, media;
+      busy('Готовим картинки…');
+      return extractImages(P).then(function (m) { media = m; busy('Смотрим, что сейчас на сайте…'); return headOf(GH.site); })
+        .then(function (head) { return head || initRepo(GH.site); })
+        .then(function (head) {
+          return treeOf(GH.site, head).then(function (t) {
+            var files = { 'data/settings.json': { text: jsonText(P.settings) } };
+            Object.keys(media).forEach(function (p) { if (!t.files[p]) files[p] = { b64: media[p] }; });
+            busy('Публикуем…');
+            return commitFiles(GH.site, head, t.treeSha, files, 'Публикация: главная страница и настройки');
+          });
+        }).then(function () {
+          busy(null);
+          dialog({ title: 'Опубликовано', body: 'Главная страница и контакты обновятся в течение пары минут: 13mirrors.ru\n\nМесяцы витрины остались как были.' });
+        });
+    }).catch(fail);
   }
 
   /* ---------- Резервная копия: весь черновик одним файлом ---------- */
