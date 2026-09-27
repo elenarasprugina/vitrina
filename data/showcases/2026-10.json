@@ -1,0 +1,713 @@
+{
+  "id": "2026-10",
+  "title": "Октябрь 2026",
+  "period": {
+    "from": "2026-10-01",
+    "to": "2026-10-31"
+  },
+  "status": "draft",
+  "basedOn": null,
+  "background": {
+    "color": "#f2f2f2",
+    "image": null
+  },
+  "intro": {
+    "value": "",
+    "show": false
+  },
+  "cards": [
+    {
+      "id": "blue",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Синяя Рука",
+        "subtitle": {
+          "value": "22.09–04.10",
+          "show": true
+        },
+        "status": {
+          "value": "Маршрут идёт · можно наблюдать",
+          "show": true
+        },
+        "foot": {
+          "value": "идёт сейчас",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "route",
+        "routeId": "blue-hand",
+        "description": {
+          "value": "",
+          "show": true
+        },
+        "dayCounter": {
+          "show": true
+        },
+        "routeButton": {
+          "show": true,
+          "label": "Пройти маршрут"
+        },
+        "closedFormats": "dim",
+        "formats": [
+          {
+            "formatId": "observe",
+            "visible": true,
+            "availability": "open",
+            "action": {
+              "kind": "link",
+              "label": "Смотреть",
+              "url": ""
+            }
+          },
+          {
+            "formatId": "journey",
+            "visible": true,
+            "availability": "closed"
+          },
+          {
+            "formatId": "immersion",
+            "visible": true,
+            "availability": "closed"
+          }
+        ],
+        "sandboxButton": {
+          "show": true,
+          "label": "Как устроены маршруты 13 MIRRORS"
+        }
+      }
+    },
+    {
+      "id": "sun",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Жёлтое Солнце",
+        "subtitle": {
+          "value": "05–17.10",
+          "show": true
+        },
+        "status": {
+          "value": "Вход открыт",
+          "show": true
+        },
+        "foot": {
+          "value": "3 формата",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "route",
+        "routeId": "yellow-sun",
+        "description": {
+          "value": "",
+          "show": true
+        },
+        "dayCounter": {
+          "show": true
+        },
+        "routeButton": {
+          "show": false,
+          "label": "Пройти маршрут"
+        },
+        "closedFormats": "dim",
+        "formats": [
+          {
+            "formatId": "observe",
+            "visible": true,
+            "availability": "open"
+          },
+          {
+            "formatId": "journey",
+            "visible": true,
+            "availability": "open"
+          },
+          {
+            "formatId": "immersion",
+            "visible": true,
+            "availability": "open"
+          }
+        ],
+        "sandboxButton": {
+          "show": true,
+          "label": "Как устроены маршруты 13 MIRRORS"
+        }
+      }
+    },
+    {
+      "id": "sky",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Красный Небесный Странник",
+        "subtitle": {
+          "value": "18–30.10",
+          "show": true
+        },
+        "status": {
+          "value": "Вход открыт",
+          "show": true
+        },
+        "foot": {
+          "value": "3 формата",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "route",
+        "routeId": "red-skywalker",
+        "description": {
+          "value": "",
+          "show": true
+        },
+        "dayCounter": {
+          "show": true
+        },
+        "routeButton": {
+          "show": false,
+          "label": "Пройти маршрут"
+        },
+        "closedFormats": "dim",
+        "formats": [
+          {
+            "formatId": "observe",
+            "visible": true,
+            "availability": "open"
+          },
+          {
+            "formatId": "journey",
+            "visible": true,
+            "availability": "open"
+          },
+          {
+            "formatId": "immersion",
+            "visible": true,
+            "availability": "open"
+          }
+        ],
+        "sandboxButton": {
+          "show": true,
+          "label": "Как устроены маршруты 13 MIRRORS"
+        }
+      }
+    },
+    {
+      "id": "bridge",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Белый Мост Миров",
+        "subtitle": {
+          "value": "31.10–12.11",
+          "show": true
+        },
+        "status": {
+          "value": "Вход открыт",
+          "show": true
+        },
+        "foot": {
+          "value": "3 формата",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "route",
+        "routeId": "white-worldbridger",
+        "description": {
+          "value": "",
+          "show": true
+        },
+        "dayCounter": {
+          "show": true
+        },
+        "routeButton": {
+          "show": false,
+          "label": "Пройти маршрут"
+        },
+        "closedFormats": "dim",
+        "formats": [
+          {
+            "formatId": "observe",
+            "visible": true,
+            "availability": "open"
+          },
+          {
+            "formatId": "journey",
+            "visible": true,
+            "availability": "open"
+          },
+          {
+            "formatId": "immersion",
+            "visible": true,
+            "availability": "open"
+          }
+        ],
+        "sandboxButton": {
+          "show": true,
+          "label": "Как устроены маршруты 13 MIRRORS"
+        }
+      }
+    },
+    {
+      "id": "center",
+      "visible": true,
+      "interactive": false,
+      "front": {
+        "image": null,
+        "eyebrow": "",
+        "title": "13 MIRRORS",
+        "subtitle": {
+          "value": "",
+          "show": false
+        },
+        "status": {
+          "value": "Калейдоскоп твоих миров · Октябрь 2026",
+          "show": true
+        },
+        "foot": {
+          "value": "",
+          "show": false
+        }
+      },
+      "back": {
+        "type": "static"
+      }
+    },
+    {
+      "id": "other",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Живые встречи",
+        "title": "Другой мир",
+        "subtitle": {
+          "value": "Октябрь 2026",
+          "show": true
+        },
+        "status": {
+          "value": "Встречи месяца",
+          "show": true
+        },
+        "foot": {
+          "value": "4 встречи",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "container",
+        "description": {
+          "value": "Отдельные встречи месяца. Каждая плашка — самостоятельная запись.",
+          "show": true
+        },
+        "max": 10,
+        "items": [
+          {
+            "id": "m-01",
+            "visible": true,
+            "order": 1,
+            "date": {
+              "value": "08 октября",
+              "show": true
+            },
+            "title": "МАК-карты",
+            "text": {
+              "value": "",
+              "show": false
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "Свободный вход",
+              "show": true
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Пришлите ссылку",
+              "message": "Здравствуйте! Пришлите, пожалуйста, ссылку на встречу «МАК-карты» 8 октября."
+            }
+          },
+          {
+            "id": "m-02",
+            "visible": true,
+            "order": 2,
+            "date": {
+              "value": "10 октября",
+              "show": true
+            },
+            "title": "Тестовая встреча №2",
+            "text": {
+              "value": "",
+              "show": false
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "1 500 ₽",
+              "show": true
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Записаться"
+            }
+          },
+          {
+            "id": "m-03",
+            "visible": true,
+            "order": 3,
+            "date": {
+              "value": "15 октября",
+              "show": true
+            },
+            "title": "Тестовая встреча №3",
+            "text": {
+              "value": "",
+              "show": false
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "Свободный вход",
+              "show": true
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Напомните мне"
+            }
+          },
+          {
+            "id": "m-04",
+            "visible": true,
+            "order": 4,
+            "date": {
+              "value": "17 октября",
+              "show": true
+            },
+            "title": "Тестовая встреча №4",
+            "text": {
+              "value": "",
+              "show": false
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "2 500 ₽",
+              "show": true
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Узнать подробности"
+            }
+          }
+        ],
+        "copyItems": false
+      }
+    },
+    {
+      "id": "reflection",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Продукт",
+        "title": "Карта-Отражение",
+        "subtitle": {
+          "value": "Какой твой архетип?",
+          "show": true
+        },
+        "status": {
+          "value": "от 3 000 ₽",
+          "show": true
+        },
+        "foot": {
+          "value": "варианты",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "offer",
+        "description": {
+          "value": "Черновое описание Карты-Отражения. Выберите вариант — нажмите на плашку, чтобы заказать.",
+          "show": true
+        },
+        "images": [],
+        "price": {
+          "value": "3 000 ₽",
+          "show": false
+        },
+        "priceLabel": "Карта-Отражение",
+        "dates": {
+          "value": "",
+          "show": false
+        },
+        "composition": {
+          "value": "",
+          "show": false
+        },
+        "examples": {
+          "show": true,
+          "label": "Примеры"
+        },
+        "actions": [
+          {
+            "kind": "contact",
+            "label": "Заказать Карту-Отражение",
+            "message": "Здравствуйте! Хочу заказать Карту-Отражение."
+          }
+        ],
+        "max": 10,
+        "items": [
+          {
+            "id": "v-01",
+            "visible": true,
+            "order": 1,
+            "date": {
+              "value": "",
+              "show": false
+            },
+            "title": "Расчёт архетипа",
+            "text": {
+              "value": "Черновое описание варианта.",
+              "show": true
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "3 000 ₽",
+              "show": true
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Заказать"
+            }
+          },
+          {
+            "id": "v-02",
+            "visible": true,
+            "order": 2,
+            "date": {
+              "value": "",
+              "show": false
+            },
+            "title": "С расчётом Кин",
+            "text": {
+              "value": "Черновое описание варианта.",
+              "show": true
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "",
+              "show": false
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Заказать"
+            }
+          }
+        ],
+        "copyItems": true
+      }
+    },
+    {
+      "id": "candles",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Предзаказ",
+        "title": "Свечи 13 MIRRORS",
+        "subtitle": {
+          "value": "Портальные дни октября",
+          "show": true
+        },
+        "status": {
+          "value": "Предзаказ · 04 · 08 · 15 · 16 · 23 · 29",
+          "show": true
+        },
+        "foot": {
+          "value": "предзаказ",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "offer",
+        "description": {
+          "value": "Черновое описание свечей. Здесь позже появится окончательный состав и стоимость набора.",
+          "show": true
+        },
+        "images": [],
+        "price": {
+          "value": "",
+          "show": false
+        },
+        "priceLabel": "Набор свечей",
+        "dates": {
+          "value": "04 · 08 · 15 · 16 · 23 · 29",
+          "show": true
+        },
+        "composition": {
+          "value": "",
+          "show": false
+        },
+        "examples": {
+          "show": false,
+          "label": "Примеры"
+        },
+        "actions": [
+          {
+            "kind": "contact",
+            "label": "Оставить предзаказ",
+            "message": "Здравствуйте! Хочу оставить предзаказ на свечи 13 MIRRORS (портальные дни октября)."
+          }
+        ],
+        "datesLabel": {
+          "value": "Портальные дни октября",
+          "show": true
+        },
+        "datesNote": {
+          "value": "В эти даты изготавливаются свечи. Чтобы получить свою, нужен предзаказ.",
+          "show": true
+        }
+      }
+    },
+    {
+      "id": "individual",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Индивидуально",
+        "title": "Индивидуальная работа",
+        "subtitle": {
+          "value": "До 90 минут",
+          "show": true
+        },
+        "status": {
+          "value": "от 7 000 ₽",
+          "show": true
+        },
+        "foot": {
+          "value": "запись",
+          "show": true
+        }
+      },
+      "back": {
+        "type": "container",
+        "description": {
+          "value": "Черновое описание индивидуальной работы. Финальный текст будет добавлен позже.",
+          "show": true
+        },
+        "max": 10,
+        "items": [
+          {
+            "id": "i-01",
+            "visible": true,
+            "order": 1,
+            "date": {
+              "value": "",
+              "show": false
+            },
+            "title": "Индивидуальная встреча",
+            "text": {
+              "value": "",
+              "show": false
+            },
+            "duration": {
+              "value": "до 90 минут",
+              "show": true
+            },
+            "price": {
+              "value": "7 000 ₽",
+              "show": true
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Записаться"
+            }
+          },
+          {
+            "id": "i-02",
+            "visible": true,
+            "order": 2,
+            "date": {
+              "value": "",
+              "show": false
+            },
+            "title": "Шаманская работа на колесе",
+            "text": {
+              "value": "Черновое описание. Финальный текст будет добавлен позже.",
+              "show": true
+            },
+            "duration": {
+              "value": "",
+              "show": false
+            },
+            "price": {
+              "value": "",
+              "show": false
+            },
+            "status": {
+              "value": "",
+              "show": false
+            },
+            "action": {
+              "kind": "contact",
+              "label": "Узнать подробности"
+            }
+          }
+        ],
+        "copyItems": true
+      }
+    }
+  ]
+}

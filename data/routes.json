@@ -1,0 +1,58 @@
+{
+  "routes": [
+    {
+      "id": "blue-hand",
+      "title": "Синяя Рука",
+      "dates": { "from": "2026-09-22", "to": "2026-10-04" },
+      "kin": { "value": "", "show": false },
+      "description": "Маршрут о действии, опыте и завершении начатого. Октябрь встречает нас последними днями волны, которая началась ещё в сентябре.",
+      "image": null,
+      "routeUrl": "https://elenarasprugina.github.io/13mirrors-blue-hand/"
+    },
+    {
+      "id": "yellow-sun",
+      "title": "Жёлтое Солнце",
+      "dates": { "from": "2026-10-05", "to": "2026-10-17" },
+      "kin": { "value": "", "show": false },
+      "description": "Черновое описание маршрута. Финальный текст будет редактироваться позднее.",
+      "image": null,
+      "routeUrl": ""
+    },
+    {
+      "id": "red-skywalker",
+      "title": "Красный Небесный Странник",
+      "dates": { "from": "2026-10-18", "to": "2026-10-30" },
+      "kin": { "value": "", "show": false },
+      "description": "Черновое описание маршрута. Финальный текст будет редактироваться позднее.",
+      "image": null,
+      "routeUrl": ""
+    },
+    {
+      "id": "white-worldbridger",
+      "title": "Белый Мост Миров",
+      "dates": { "from": "2026-10-31", "to": "2026-11-12" },
+      "kin": { "value": "", "show": false },
+      "description": "Черновое описание маршрута. Финальный текст будет редактироваться позднее.",
+      "image": null,
+      "routeUrl": ""
+    },
+    {
+      "id": "white-wizard",
+      "title": "Белый Волшебник",
+      "dates": null,
+      "kin": { "value": "", "show": false },
+      "description": "Прошедший маршрут. Используется в примерах Песочницы.",
+      "image": null,
+      "routeUrl": ""
+    },
+    {
+      "id": "red-dragon",
+      "title": "Красный Дракон",
+      "dates": null,
+      "kin": { "value": "", "show": false },
+      "description": "Прошедший маршрут. Используется в примерах Песочницы.",
+      "image": null,
+      "routeUrl": ""
+    }
+  ]
+}

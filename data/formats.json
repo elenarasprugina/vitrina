@@ -1,0 +1,7 @@
+{
+  "formats": [
+    { "id": "observe",   "title": "Наблюдение",  "price": "Свободный вход", "note": { "value": "", "show": false } },
+    { "id": "journey",   "title": "Путешествие", "price": "7 000 ₽",        "note": { "value": "Закрытая группа", "show": true } },
+    { "id": "immersion", "title": "Погружение",  "price": "18 000 ₽",       "note": { "value": "Индивидуальное сопровождение", "show": true } }
+  ]
+}
