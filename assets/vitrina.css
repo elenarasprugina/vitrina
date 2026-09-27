@@ -252,18 +252,29 @@ body.m13-locked{overflow:hidden}
 .m13-styled .m13-hero-type,.m13-styled .m13-hero-date,.m13-styled .m13-hero-status{color:inherit;opacity:.85}
 .m13-styled .m13-mini-cta,.m13-styled .m13-flip-hint{border-color:currentColor;background:transparent;color:inherit}
 
-/* Свечение вокруг карточки */
-.m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 0 18px 3px var(--m13-glow)}
+/* Свечение вокруг карточки.
+   Размер умножается на --m13-gk (сила), сдвиг по вертикали — --m13-gy (направление),
+   при направленном свечении свет «поджимается» (--m13-gsp:-1), чтобы он шёл только с одной стороны. */
+.m13-thumb,.m13-big-stage{--m13-gk:1;--m13-gy:0;--m13-gsp:1}
+/* Светящаяся карточка — поверх соседей, иначе свет уходит под те, что стоят после неё */
+.m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-live{z-index:1}
+.m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 calc(var(--m13-gy)*11px*var(--m13-gk)) calc(18px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
 .m13-thumb.m13-glow-live{animation:m13-glow 3.6s ease-in-out infinite alternate}
-.m13-big-stage.m13-glow-soft .m13-face{box-shadow:0 0 44px 8px var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
+.m13-big-stage.m13-glow-soft .m13-face{box-shadow:0 calc(var(--m13-gy)*26px*var(--m13-gk)) calc(44px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
 .m13-big-stage.m13-glow-live .m13-face{animation:m13-glow-big 3.6s ease-in-out infinite alternate}
-@keyframes m13-glow{from{box-shadow:0 0 6px 0 var(--m13-glow)}to{box-shadow:0 0 24px 6px var(--m13-glow)}}
-@keyframes m13-glow-big{from{box-shadow:0 0 14px 2px var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}to{box-shadow:0 0 56px 12px var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}}
+@keyframes m13-glow{
+  from{box-shadow:0 calc(var(--m13-gy)*5px*var(--m13-gk)) calc(6px*var(--m13-gk)) calc(0px - var(--m13-gy)*var(--m13-gy)*2px) var(--m13-glow)}
+  to{box-shadow:0 calc(var(--m13-gy)*14px*var(--m13-gk)) calc(24px*var(--m13-gk)) calc(6px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}}
+@keyframes m13-glow-big{
+  from{box-shadow:0 calc(var(--m13-gy)*10px*var(--m13-gk)) calc(14px*var(--m13-gk)) calc(2px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
+  to{box-shadow:0 calc(var(--m13-gy)*32px*var(--m13-gk)) calc(56px*var(--m13-gk)) calc(12px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}}
 @media (max-width:680px){
-  .m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 0 11px 2px var(--m13-glow)}
-  @keyframes m13-glow{from{box-shadow:0 0 3px 0 var(--m13-glow)}to{box-shadow:0 0 14px 3px var(--m13-glow)}}
+  .m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 calc(var(--m13-gy)*7px*var(--m13-gk)) calc(11px*var(--m13-gk)) calc(2px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
+  @keyframes m13-glow{
+    from{box-shadow:0 calc(var(--m13-gy)*3px*var(--m13-gk)) calc(3px*var(--m13-gk)) calc(0px - var(--m13-gy)*var(--m13-gy)*1px) var(--m13-glow)}
+    to{box-shadow:0 calc(var(--m13-gy)*8px*var(--m13-gk)) calc(14px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}}
 }
 @media (prefers-reduced-motion:reduce){
-  .m13-thumb.m13-glow-live{animation:none;box-shadow:0 0 16px 3px var(--m13-glow)}
-  .m13-big-stage.m13-glow-live .m13-face{animation:none;box-shadow:0 0 40px 8px var(--m13-glow)}
+  .m13-thumb.m13-glow-live{animation:none;box-shadow:0 calc(var(--m13-gy)*10px*var(--m13-gk)) calc(16px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
+  .m13-big-stage.m13-glow-live .m13-face{animation:none;box-shadow:0 calc(var(--m13-gy)*24px*var(--m13-gk)) calc(40px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
 }

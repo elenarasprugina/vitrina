@@ -197,9 +197,17 @@
           { def: forCard ? 'inherit' : 'light' }),
         colorOptIn(stl, 'bg', 'Цвет карточки (когда нет картинки)', { none: forCard ? 'как у всей витрины' : 'белый', onChange: onChange })]),
       el('div', { class: 'a-row' }, [
-        selectIn(stl, 'glow', 'Свечение вокруг карточки', inh.concat([['off', 'Без свечения'], ['soft', 'Ровное свечение'], ['live', 'Живое (мягко пульсирует)']]),
+        selectIn(stl, 'glow', 'Свечение', inh.concat([['off', 'Без свечения'], ['soft', 'Ровное свечение'], ['live', 'Живое (мягко пульсирует)']]),
           { def: forCard ? 'inherit' : 'off', onChange: onChange }),
-        colorOptIn(stl, 'glowColor', 'Цвет свечения', { none: forCard ? 'как у всей витрины' : 'золотистый', pick: '#e8c77a', onChange: onChange })])
+        colorOptIn(stl, 'glowColor', 'Цвет свечения', { none: forCard ? 'как у всей витрины' : 'золотистый', pick: '#e8c77a', onChange: onChange })]),
+      el('div', { class: 'a-row' }, [
+        selectIn(stl, 'glowStrength', 'Сила свечения', inh.concat([['weak', 'Слабое'], ['medium', 'Среднее'], ['strong', 'Сильное']]),
+          { def: forCard ? 'inherit' : 'medium', onChange: onChange }),
+        selectIn(stl, 'glowDir', 'Откуда идёт свет', inh.concat([['around', 'Вокруг всей карточки'], ['bottom', 'Снизу'], ['top', 'Сверху']]),
+          { def: forCard ? 'inherit' : 'around', onChange: onChange })]),
+      el('p', { class: 'a-hint', text: forCard
+        ? 'Совет: свечение лучше всего работает, когда светятся одна-две карточки — например, центральная и ещё одна, на которую хочется обратить внимание.'
+        : 'Совет: обычно для всей витрины свечение лучше выключить, а включить только у центральной карточки и одной акцентной — в их формах, раздел «Оформление».' })
     ];
   }
 
@@ -465,12 +473,15 @@
           else tags.push([TYPE_NAMES[b.type] || '', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
           var font = fs.font || d.font, tc = fs.textColor || d.textColor, bg = fs.bg || d.bg;
-          var glow = fs.glow && fs.glow !== 'inherit' ? fs.glow : d.glow, gc = fs.glowColor || d.glowColor || '#e8c77a';
+          function pk(k, def) { return fs[k] && fs[k] !== 'inherit' ? fs[k] : (d[k] || def); }
+          var glow = pk('glow', 'off'), gc = fs.glowColor || d.glowColor || '#e8c77a';
+          var gk = { weak: 0.55, medium: 1, strong: 1.7 }[pk('glowStrength', 'medium')] || 1;
+          var gdir = pk('glowDir', 'around'), gy = gdir === 'bottom' ? 1 : gdir === 'top' ? -1 : 0;
           var ov = fs.overlay && fs.overlay !== 'inherit' ? fs.overlay : (d.overlay || 'light');
           if (font) window.M13.ensureFont(font);
           var css = [f.image ? "background-image:url('" + imgSrc(f.image) + "')" : '', font ? "font-family:'" + font + "',Georgia,serif" : '',
             tc ? 'color:' + tc : '', bg && !f.image && c.visible !== false ? 'background-color:' + bg : '',
-            glow === 'soft' || glow === 'live' ? 'box-shadow:0 0 12px 2px ' + gc : ''].filter(Boolean).join(';');
+            glow === 'soft' || glow === 'live' ? 'box-shadow:0 ' + Math.round(gy * 7 * gk) + 'px ' + Math.round(12 * gk) + 'px ' + (gy ? -2 : Math.round(2 * gk)) + 'px ' + gc : ''].filter(Boolean).join(';');
           return el('button', { type: 'button', class: 'a-mcard' + (i === ST.card ? ' is-sel' : '') + (c.visible === false ? ' is-hidden' : '') +
               (isStatic && c.visible !== false ? ' is-static' : '') + (f.image ? ' has-img ov-' + ov : '') + (tc ? ' has-tc' : ''),
             style: css || null,

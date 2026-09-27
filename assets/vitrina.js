@@ -213,12 +213,21 @@
   M13.ensureFont = ensureFont;
   function cardStyle(c) {
     var d = (S.D.showcase && S.D.showcase.cardStyle) || {}, f = ((c && c.front) || {}).style || {};
-    var glow = f.glow && f.glow !== 'inherit' ? f.glow : (d.glow || 'off');
+    function pick(k, def) { return f[k] && f[k] !== 'inherit' ? f[k] : (d[k] || def); }
+    var glow = pick('glow', 'off');
     return {
       font: f.font || d.font || '', textColor: f.textColor || d.textColor || '', bg: f.bg || d.bg || '',
       overlay: f.overlay && f.overlay !== 'inherit' ? f.overlay : (d.overlay || 'light'),
-      glow: glow, glowColor: f.glowColor || d.glowColor || '#e8c77a'
+      glow: glow, glowColor: f.glowColor || d.glowColor || '#e8c77a',
+      glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around')
     };
+  }
+  // Сила и направление свечения — через CSS-переменные: --m13-gk (множитель размера),
+  // --m13-gy (сдвиг: 0 вокруг, 1 вниз, -1 вверх), --m13-gsp (1 — свет со всех сторон, -1 — только с одной).
+  var GLOW_K = { weak: 0.55, medium: 1, strong: 1.7 };
+  function glowVars(st) {
+    var y = st.glowDir === 'bottom' ? 1 : st.glowDir === 'top' ? -1 : 0;
+    return '--m13-glow:' + st.glowColor + ';--m13-gk:' + (GLOW_K[st.glowStrength] || 1) + ';--m13-gy:' + y + ';--m13-gsp:' + (y ? -1 : 1);
   }
   // Возвращает {cls, css} для карточки: классы и inline-стиль.
   function styleOf(c, hasImg) {
@@ -227,7 +236,7 @@
     if (st.textColor) { cls.push('m13-styled'); css.push('--m13-tc:' + st.textColor); }
     if (st.bg) css.push('background-color:' + st.bg);
     if (hasImg) cls.push('m13-ov-' + st.overlay);
-    if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push('--m13-glow:' + st.glowColor); }
+    if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     return { cls: cls.join(' '), css: css.join(';'), st: st };
   }
 
@@ -288,7 +297,8 @@
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
     stage.classList.remove('m13-glow-soft', 'm13-glow-live');
-    if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.style.setProperty('--m13-glow', sty.st.glowColor); }
+    stage.setAttribute('style', '');
+    if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
     var sub = opt(f.subtitle), status = opt(f.status);
     front.innerHTML = '<div>' +
       (f.eyebrow ? '<div class="m13-hero-type">' + esc(f.eyebrow) + '</div>' : '') +

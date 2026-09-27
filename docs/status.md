@@ -4,12 +4,11 @@
 - **Этап 1 — рендерер + данные октября.** `assets/vitrina.js`, `assets/vitrina.css`; страницы `/`, `/2026-10/`, `/sandbox/`, `/reflection/`. Все надписи в данных (settings.texts, sandbox.labels, reflection.placeholder).
   - Карта-Отражение — оборот `offer` с плашками-вариантами (`back.items`, шаблон `messages.offerItem`); у свечей `datesLabel` / `dates` / `datesNote`.
 - **Этап 2 — панель** `/admin/` (`admin/admin.js`, `admin/admin.css`): разделы, сохранение черновика в localStorage (`m13-admin-draft-v1`), предпросмотр тем же рендерером (`M13.mount(el,{data, view, noHistory, onBack})`, `M13.openCard`), новый месяц на основе предыдущего, служебное поле `_backs` в карточке (удалять при публикации).
-- **Оформление карточек:** `showcase.cardStyle` (для всего месяца) и `card.front.style` (для одной карточки): font (7 Google-шрифтов с кириллицей, `M13.FONTS`), textColor, bg, overlay light/dark/none, glow off/soft/live, glowColor.
+- **Оформление карточек:** `showcase.cardStyle` (для всего месяца) и `card.front.style` (для одной карточки): font (7 Google-шрифтов с кириллицей, `M13.FONTS`), textColor, bg, overlay light/dark/none, glow off/soft/live, glowColor, glowStrength weak/medium/strong, glowDir around/bottom/top (CSS-переменные --m13-gk/--m13-gy/--m13-gsp; светящаяся карточка поднята z-index над соседями). В панели — совет: светится центральная + одна акцентная.
 - **Превью ссылки в Telegram/VK.** `showcase.share` {title, description, image} у каждого месяца, `settings.share` — по умолчанию (Песочница, примеры, месяцы без своего), `settings.siteUrl` — для абсолютных адресов. В панели: блок «Превью ссылки» в странице месяца и в «Настройках», картинка обрезается до 1200×630 JPEG, живой макет «как в Telegram». Мессенджеры не запускают JS, поэтому теги `og:*`/`vk:image` стоят прямо в HTML: `pageHTML(kind, id)` в `admin.js` (доступна как `M13_ADMIN.pageHTML`) собирает файлы `index.html`, `2026-10/index.html`, `sandbox/`, `reflection/` — на этапе 3 при публикации их нужно пересобирать и класть в тот же коммит (картинка превью к этому моменту уже файл `media/…`).
 - Проверено в браузере на 375×667 и 1366×820: обороты на телефоне без прокрутки, ошибок в консоли нет.
 
 ## Согласовано, ещё не сделано (пользователь: «берём всё»)
-1. Свечение: сила (слабое/среднее/сильное) и направление (вокруг / снизу / сверху). Совет пользователю: светится центральная + одна акцентная карточка.
 3. Кнопка «Как на телефоне» в предпросмотре панели.
 4. Положение текста на карточке: сверху / по центру / снизу.
 5. Метка «Идёт сейчас» у маршрута по датам + по желанию автоподсветка текущего маршрута.
