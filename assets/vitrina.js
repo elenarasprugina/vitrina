@@ -46,7 +46,7 @@
   }
 
   /* ---------- Состояние ---------- */
-  var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null };
+  var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null, lb: [] };
 
   function T(key) { return (S.D.settings.texts || {})[key] || ''; }
   function routeById(id) { return (S.D.routes.routes || []).filter(function (r) { return r.id === id; })[0] || null; }
@@ -160,6 +160,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && S.layers.length) closeTop();
+    if (LB.open && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) lbGo(e.key === 'ArrowRight' ? 1 : -1);
   });
   function lock(on) { document.body.classList.toggle('m13-locked', on); }
 
@@ -184,7 +185,7 @@
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
       '</section></div></main>' +
-      overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
+      overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
 
     S.root.querySelectorAll('.m13-thumb[data-card]').forEach(function (b) {
@@ -372,6 +373,11 @@
     var backc = S.root.querySelector('#m13-backc');
     backc.innerHTML = backHTML(c);
     bindActs(backc);
+    backc.querySelectorAll('[data-m13-lb]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); var p = b.getAttribute('data-m13-lb').split(':'); openLightbox(+p[0], +p[1]);
+      });
+    });
 
     S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     S.root.querySelector('#m13-overlay').classList.add('is-open');
@@ -497,6 +503,7 @@
     var price = '';
     list.forEach(function (x) { if (x.kind === 'price' && !price) price = String(x.value || '').trim(); });
 
+    S.lb = [];
     var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
     function flushBtns() {
       if (!btnRun.length) return '';
@@ -522,8 +529,12 @@
       else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + esc(t) + '</div>'; }
       else if (x.kind === 'images') {
         var imgs = (x.images || []).filter(function (m) { return m && m.visible !== false && m.src; });
-        if (imgs.length) html = '<div class="m13-gallery">' + imgs.map(function (m) {
-          return '<img src="' + esc(media(m.src)) + '" alt="" loading="lazy">'; }).join('') + '</div>';
+        if (imgs.length) {
+          var g = S.lb.push(imgs.map(function (m) { return media(m.src); })) - 1;
+          html = '<div class="m13-gallery">' + imgs.map(function (m, k) {
+            return '<button type="button" class="m13-gallery-item" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
+              '<img src="' + esc(media(m.src)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>';
+        }
       }
       else if (x.kind === 'price') {
         var pv = String(x.value || '').trim();
@@ -744,6 +755,49 @@
     }
     m.classList.add('is-open');
     pushLayer('calendar', function () { m.classList.remove('is-open'); });
+  }
+
+  /* ================= КАРТИНКА КРУПНО =================
+     Нажатие на картинку из галереи открывает её на весь экран; несколько — листаются пальцем или стрелками. */
+  var LB = { open: false, list: [], i: 0 };
+  function lightboxHTML() {
+    return '<div class="m13-lb" id="m13-lb" role="dialog" aria-modal="true" aria-label="Картинка">' +
+      '<img class="m13-lb-img" id="m13-lb-img" alt="">' +
+      '<button type="button" class="m13-lb-nav m13-lb-prev" id="m13-lb-prev" aria-label="Предыдущая">‹</button>' +
+      '<button type="button" class="m13-lb-nav m13-lb-next" id="m13-lb-next" aria-label="Следующая">›</button>' +
+      '<div class="m13-lb-count" id="m13-lb-count"></div>' +
+      '<button type="button" class="m13-lb-close" id="m13-lb-x" aria-label="Закрыть">×</button></div>';
+  }
+  function lbDraw() {
+    var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length;
+    q('#m13-lb-img').src = LB.list[LB.i];
+    q('#m13-lb-count').textContent = n > 1 ? (LB.i + 1) + ' / ' + n : '';
+    q('#m13-lb-prev').hidden = q('#m13-lb-next').hidden = n < 2;
+  }
+  function lbGo(d) {
+    var n = LB.list.length; if (n < 2) return;
+    LB.i = (LB.i + d + n) % n; lbDraw();
+  }
+  function openLightbox(g, i) {
+    var m = S.root.querySelector('#m13-lb'); if (!m || !S.lb || !S.lb[g]) return;
+    LB.list = S.lb[g]; LB.i = i || 0; LB.open = true;
+    if (!m._bound) {
+      m._bound = true;
+      m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
+      S.root.querySelector('#m13-lb-x').addEventListener('click', closeTop);
+      S.root.querySelector('#m13-lb-prev').addEventListener('click', function () { lbGo(-1); });
+      S.root.querySelector('#m13-lb-next').addEventListener('click', function () { lbGo(1); });
+      var x0 = null, y0 = null;
+      m.addEventListener('touchstart', function (e) { var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+      m.addEventListener('touchend', function (e) {
+        if (x0 == null) return;
+        var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) lbGo(dx < 0 ? 1 : -1);
+      });
+    }
+    lbDraw();
+    m.classList.add('is-open');
+    pushLayer('image', function () { m.classList.remove('is-open'); LB.open = false; });
   }
 
   /* ================= «ПОДЕЛИТЬСЯ» ================= */
