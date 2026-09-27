@@ -228,3 +228,7 @@ select.a-input{padding-right:28px}
 .a-ci.is-dragging{opacity:.45}
 .a-ci.drop-before{box-shadow:0 -3px 0 0 var(--a-dark)}
 .a-ci.drop-after{box-shadow:0 3px 0 0 var(--a-dark)}
+
+/* Резервная копия */
+.a-backup{display:flex;flex-direction:column;gap:10px}
+.a-backup-btns{display:flex;gap:8px;flex-wrap:wrap}

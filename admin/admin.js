@@ -1214,6 +1214,7 @@
         textIn(st.messages, 'text', 'Для текстовых карточек', { multi: true, rows: 2 })
       ], { open: false }),
       block('Надписи на витрине', [el('div', { class: 'a-row' }, TEXT_LABELS.map(function (x) { return textIn(st.texts, x[0], x[1]); }))], { open: false }),
+      block('Резервная копия', [backupBox()], { note: 'скачать весь черновик файлом или вернуть из файла' }),
       block('Черновик в этом браузере', [
         el('p', { class: 'a-hint', text: 'Пока панель не подключена к GitHub, изменения хранятся только в этом браузере на этом устройстве.' }),
         resetBox
@@ -1302,6 +1303,75 @@
     }
   });
 
+  // Приводит данные к нынешнему виду (старые обороты → блоки).
+  function migrate(D) {
+    D.showcases = D.showcases || {};
+    Object.keys(D.showcases).forEach(function (k) {
+      (D.showcases[k].cards || []).forEach(function (c) {
+        if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
+        if (c._backs) delete c._backs;
+      });
+    });
+    return D;
+  }
+
+  /* ---------- Резервная копия: весь черновик одним файлом ---------- */
+  var BACKUP_APP = '13mirrors-vitrina';
+  function downloadBackup() {
+    syncIndex();
+    var now = new Date();
+    var stamp = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + '_' + pad(now.getHours()) + '-' + pad(now.getMinutes());
+    var text = JSON.stringify({ app: BACKUP_APP, version: 1, createdAt: now.toISOString(), data: DATA });
+    var url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    var a = el('a', { href: url, download: '13mirrors-kopiya-' + stamp + '.json' });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    toast('Копия скачана: файл «13mirrors-kopiya-' + stamp + '.json». Сохраните его в надёжное место.');
+  }
+  function readBackup(file, done) {
+    var r = new FileReader();
+    r.onload = function () {
+      var obj = null;
+      try { obj = JSON.parse(String(r.result)); } catch (e) {}
+      var d = obj && obj.app === BACKUP_APP ? obj.data : obj;
+      if (!d || typeof d !== 'object' || !d.settings || !d.showcases || !d.routes) {
+        toast('Это не копия витрины. Выберите файл, который скачивали кнопкой «Скачать копию» (он называется 13mirrors-kopiya-….json).', true);
+        return;
+      }
+      done(d, obj && obj.createdAt ? new Date(obj.createdAt) : null);
+    };
+    r.onerror = function () { toast('Не получилось прочитать файл. Попробуйте ещё раз.', true); };
+    r.readAsText(file);
+  }
+  function backupBox() {
+    var box = el('div', { class: 'a-backup' }), pending = null;
+    var file = el('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0]; file.value = '';
+      if (f) readBackup(f, function (d, when) { pending = { data: d, when: when, name: f.name }; draw(); });
+    });
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Весь черновик — все месяцы, маршруты, Песочница, примеры, настройки и картинки — одним файлом. Скачивайте копию после больших изменений: если браузер очистится или вы перейдёте на другое устройство, всё можно будет вернуть.' }),
+        el('div', { class: 'a-backup-btns' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '↓ Скачать копию', onclick: downloadBackup }),
+          el('button', { type: 'button', class: 'a-btn', text: '↑ Загрузить копию…', onclick: function () { file.click(); } }), file]),
+        pending ? el('div', { class: 'a-note' }, [
+          el('p', { text: 'Файл «' + pending.name + '»' + (pending.when ? ' от ' + pending.when.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : '') +
+            ': месяцев — ' + Object.keys(pending.data.showcases).length + ', маршрутов — ' + ((pending.data.routes || {}).routes || []).length + '.' }),
+          el('p', { style: 'margin-top:6px', text: 'Текущий черновик в этом браузере заменится содержимым файла. Если в нём есть что-то нужное — сначала скачайте его копию.' }),
+          el('div', { class: 'a-backup-btns', style: 'margin-top:10px' }, [
+            el('button', { type: 'button', class: 'a-btn a-btn--danger', text: 'Да, заменить черновик', onclick: function () {
+              DATA = migrate(pending.data); pending = null; dirty = true; save(); renderShell();
+              toast('Готово: черновик восстановлен из копии и сохранён в этом браузере.'); } }),
+            el('button', { type: 'button', class: 'a-btn', text: 'Отмена', onclick: function () { pending = null; draw(); } })])]) : null
+      ]);
+    }
+    draw();
+    return box;
+  }
+
   function boot() {
     APP = document.getElementById('adm');
     APP.innerHTML = '<p style="padding:40px;color:#6b6b68">Загружаем данные…</p>';
@@ -1310,13 +1380,7 @@
       var saved = null;
       try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
       if (saved && saved.data) { DATA = saved.data; savedAt = saved.savedAt; } else DATA = clone(src);
-      DATA.showcases = DATA.showcases || {};
-      Object.keys(DATA.showcases).forEach(function (k) {
-        (DATA.showcases[k].cards || []).forEach(function (c) {
-          if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
-          if (c._backs) delete c._backs;
-        });
-      });
+      migrate(DATA);
       renderShell();
     }).catch(function (e) {
       console.error(e);
