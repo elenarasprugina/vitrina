@@ -158,6 +158,15 @@
     return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }),
       el('span', { class: 'a-switch-text' }, [label, o.hint ? el('small', { text: o.hint }) : null])]);
   }
+  // Ползунок с подписью значения: o.min, o.max, o.step, o.unit
+  function rangeIn(obj, key, label, o) {
+    o = o || {};
+    var v = obj[key] == null || obj[key] === '' ? (o.def || 0) : +obj[key];
+    var out = el('span', { class: 'a-range-val', text: v + (o.unit || '') });
+    var r = el('input', { type: 'range', class: 'a-range', min: o.min || 0, max: o.max || 100, step: o.step || 1, value: v });
+    r.addEventListener('input', function () { obj[key] = +r.value; out.textContent = r.value + (o.unit || ''); changed(); if (o.onChange) o.onChange(+r.value); });
+    return field(label, el('div', { class: 'a-range-row' }, [r, out]), o.hint);
+  }
   function selectIn(obj, key, label, options, o) {
     o = o || {};
     var s = el('select', { class: 'a-input' }, options.map(function (op) { return el('option', { value: op[0], text: op[1] }); }));
@@ -225,6 +234,10 @@
           { def: forCard ? 'inherit' : 'medium', onChange: onChange }),
         selectIn(stl, 'glowDir', 'Откуда идёт свет', inh.concat([['around', 'Вокруг всей карточки'], ['bottom', 'Снизу'], ['top', 'Сверху']]),
           { def: forCard ? 'inherit' : 'around', onChange: onChange })]),
+      forCard ? null : el('div', { class: 'a-row' }, [
+        rangeIn(stl, 'glass', 'Прозрачность карточек («зеркала»)', { max: 90, step: 5, unit: '%', onChange: onChange,
+          hint: '0% — сплошной цвет. 20–50% — сквозь карточку мягко видна картинка фона. Работает у карточек без своей картинки.' }),
+        colorOptIn(stl, 'backBg', 'Цвет оборота карточки', { none: 'светлый', pick: '#15110c', onChange: onChange })]),
       el('p', { class: 'a-hint', text: forCard
         ? 'Совет: свечение лучше всего работает, когда светятся одна-две карточки — например, центральная и ещё одна, на которую хочется обратить внимание.'
         : 'Совет: обычно для всей витрины свечение лучше выключить, а включить только у центральной карточки и одной акцентной — в их формах, раздел «Оформление».' })
@@ -622,12 +635,25 @@
             if (on) st.currentShowcase = sc.id;
             else if (st.currentShowcase === sc.id) { monthMeta.main = true; toast('Основной адрес всегда ведёт на одну из витрин. Чтобы сменить её — включите это у другого месяца.'); renderMain(); }
           } }),
-        el('div', { class: 'a-row' }, [colorIn(sc.background, 'color', 'Цвет фона'), imageIn(sc.background, 'image', 'Фоновая картинка', { hint: 'Необязательно. Растягивается на весь экран.' })]),
+        themeButtons(sc),
+        sub('Фон страницы'),
+        el('div', { class: 'a-row' }, [
+          imageIn(sc.background, 'image', 'Фоновая картинка', { max: 2400, hint: 'Растягивается на весь экран. Лучше горизонтальная.' }),
+          imageIn(sc.background, 'imageTall', 'Картинка для телефона', { max: 2000, hint: 'Необязательно. Вертикальная; пусто — на телефоне та же, что выше.' })]),
+        el('div', { class: 'a-row3' }, [
+          colorIn(sc.background, 'color', 'Цвет фона'),
+          rangeIn(sc.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Чтобы карточки читались лучше.' }),
+          rangeIn(sc.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px', hint: '0 — чёткая; 4–8 — мягкий фон.' })]),
+        sub('Надписи над сеткой'),
+        el('div', { class: 'a-row3' }, [
+          colorOptIn(sc.head = sc.head || {}, 'color', 'Цвет надписей', { none: 'обычный тёмный', pick: '#ecd3a3' }),
+          selectIn(sc.head, 'align', 'Положение', [['left', 'Слева'], ['center', 'По центру']]),
+          el('div', { class: 'a-field', style: 'align-self:end' }, switchIn(sc.head, 'logo', 'Логотип вместо надписи «13 MIRRORS · Витрина»'))]),
         optIn(sc, 'intro', 'Общий текст на странице (под заголовком)', { multi: true, rows: 2 }),
         sub('Оформление всех карточек'),
         el('p', { class: 'a-hint', text: 'Задаётся один раз для всего месяца. У любой карточки можно поменять отдельно — в её форме, раздел «Оформление».' })
       ].concat(styleFields(sc.cardStyle = sc.cardStyle || {}, false, function () { drawGrid(); })),
-        { open: false, note: 'фон, общий текст, шрифт, свечение' }),
+        { open: !!ST.pageOpen, note: 'фон, надписи, оформление карточек, темы' }),
       shareBlock(sc),
       wrap
     ];
@@ -744,6 +770,42 @@
       '<script src="' + base + 'assets/vitrina.js"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
 
+
+  /* ---------- Готовые темы месяца: одно нажатие — согласованные цвета, дальше можно подправить ---------- */
+  var DARK_THEME = {
+    background: { color: '#0d0a07', dim: 55, blur: 6 },
+    head: { color: '#ecd3a3', logo: true },
+    cardStyle: { font: 'Cormorant Garamond', textColor: '#efe4d2', bg: '#17120c', glass: 35, accent: '#ecd3a3', overlay: 'dark', backBg: '#15110c' }
+  };
+  function themeButtons(sc) {
+    function apply(dark) {
+      sc.background = sc.background || {}; sc.head = sc.head || {}; sc.cardStyle = sc.cardStyle || {};
+      if (dark) {
+        Object.assign(sc.background, DARK_THEME.background);
+        Object.assign(sc.head, DARK_THEME.head);
+        Object.assign(sc.cardStyle, DARK_THEME.cardStyle);
+      } else {
+        sc.background.color = '#f2f2f2'; delete sc.background.dim; delete sc.background.blur;
+        sc.head = { align: sc.head.align };
+        ['font', 'textColor', 'bg', 'glass', 'accent', 'overlay', 'backBg'].forEach(function (k) { delete sc.cardStyle[k]; });
+      }
+      ST.pageOpen = true; changed(); renderMain();
+      toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
+    }
+    return el('div', { class: 'a-theme' }, [
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '✨ Тёмная тема, как на главной', onclick: function () { apply(true); } }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Светлая тема', onclick: function () {
+        var bg = sc.background || {};
+        if (!bg.image && !bg.imageTall) return apply(false);
+        // На светлом фоне тёмная картинка мешает читать — предлагаем убрать и её
+        dialog({ title: 'Светлая тема', body: 'Фоновую картинку тоже убрать? На светлом оформлении тёмная картинка мешает читать надписи. Картинку всегда можно загрузить снова.',
+          buttons: [['all', 'Убрать и картинку', 'dark'], ['keep', 'Картинку оставить'], ['cancel', 'Отмена']] }).then(function (v) {
+          if (v === 'all') { delete sc.background.image; delete sc.background.imageTall; apply(false); }
+          else if (v === 'keep') apply(false);
+        });
+      } }),
+      el('span', { class: 'a-hint', text: 'Меняет фон, надписи и оформление карточек этого месяца. Тексты и картинки карточек не трогает. Свечение отдельных карточек остаётся как было.' })]);
+  }
 
   /* ---------- Форма карточки ---------- */
   function newItem() {
@@ -1398,10 +1460,11 @@
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) save(); }
     if (e.key === 'Escape') {
+      // Проверяем до того, как витрина закроет свою карточку (фаза перехвата): Esc закрывает только верхний слой
       var pv = document.getElementById('a-preview');
-      if (pv && pv.classList.contains('is-open') && !document.querySelector('.a-preview .m13-overlay.is-open, .a-preview .m13-modal.is-open, .a-preview .m13-internal.is-open')) closePreview();
+      if (pv && pv.classList.contains('is-open') && !document.querySelector('.a-preview .m13-overlay.is-open, .a-preview .m13-modal.is-open, .a-preview .m13-internal.is-open, .a-preview .m13-lb.is-open')) closePreview();
     }
-  });
+  }, true);
 
   // Приводит данные к нынешнему виду (старые обороты → блоки).
   function migrate(D) {
