@@ -57,7 +57,20 @@
             "value": "завершён",
             "show": true
           },
-          "glow": false
+          "glow": false,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
         }
       },
       "back": {
@@ -160,7 +173,20 @@
             "value": "завершён",
             "show": true
           },
-          "glow": false
+          "glow": false,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
         }
       },
       "back": {
@@ -253,7 +279,20 @@
             "value": "завершён",
             "show": true
           },
-          "glow": false
+          "glow": false,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
         }
       },
       "back": {
@@ -346,7 +385,20 @@
             "value": "завершён",
             "show": true
           },
-          "glow": false
+          "glow": false,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
         }
       },
       "back": {

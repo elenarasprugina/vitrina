@@ -285,3 +285,19 @@ body.m13-locked{overflow:hidden}
 @keyframes m13-dot{50%{opacity:.25}}
 @media (max-width:680px){.m13-phase--during::before{width:4px;height:4px;margin-right:3px}}
 @media (prefers-reduced-motion:reduce){.m13-phase--during::before{animation:none}}
+
+/* Статус-плашка */
+.m13-status-pill > span{display:inline-block;border:1px solid currentColor;border-radius:999px;padding:2px 8px;line-height:1.3}
+.m13-mini-status.m13-status-pill{margin-top:6px}
+.m13-hero-status.m13-status-pill > span{padding:3px 11px}
+.m13-meta .m13-status-pill > span{padding:1px 7px}
+@media (max-width:680px){.m13-mini-status.m13-status-pill > span{padding:1px 5px}}
+
+/* Акцентный цвет карточки: рамка, главные кнопки, счётчик дня, статус-плашка, подсветка плашек */
+.m13-thumb.m13-accent{border-color:color-mix(in srgb,var(--m13-ac) 60%,#d8d8d8)}
+.m13-accent .m13-mini-cta,.m13-accent .m13-flip-hint,.m13-accent .m13-day{border-color:var(--m13-ac)}
+.m13-big-card.m13-accent .m13-face{border-color:color-mix(in srgb,var(--m13-ac) 65%,#bdbdbd)}
+.m13-accent .m13-go,.m13-accent .m13-action--primary{background:var(--m13-ac);border-color:var(--m13-ac);color:var(--m13-ac-ink) !important}
+.m13-accent .m13-format:not(.is-closed):hover,.m13-accent .m13-item:hover,.m13-accent .m13-action:hover{border-color:var(--m13-ac)}
+.m13-accent .m13-status-pill > span{border-color:var(--m13-ac);background:color-mix(in srgb,var(--m13-ac) 14%,transparent)}
+.m13-accent .m13-head{border-bottom-color:color-mix(in srgb,var(--m13-ac) 45%,#e0e0e0)}

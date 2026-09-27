@@ -226,9 +226,27 @@
     var from = parseDate(ph.from || rd.from), to = parseDate(ph.to || rd.to);
     if (!from || !to) return null;
     var now = today(), key = now < from ? 'before' : now > to ? 'after' : 'during';
-    return { key: key, label: opt(ph[key]), glow: key === 'during' && !!ph.glow };
+    var sk = 'status' + key.charAt(0).toUpperCase() + key.slice(1);
+    return { key: key, label: opt(ph[key]), glow: key === 'during' && !!ph.glow, status: ph.statusAuto ? opt(ph[sk]) : '' };
   }
   M13.phaseOf = function (c, data) { var keep = S.D; if (data) S.D = data; try { return phaseOf(c); } finally { S.D = keep; } };
+
+  function statusOf(c) {
+    var f = (c && c.front) || {}, ph = phaseOf(c);
+    return (ph && ph.status) || opt(f.status);
+  }
+  function statusHTML(c, cls) {
+    var st = statusOf(c); if (!st) return '';
+    var pill = ((c.front || {}).statusStyle === 'pill');
+    return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + esc(st) + '</span>' : esc(st)) + '</div>';
+  }
+  // Цвет текста на акцентной кнопке: белый на тёмном акценте, почти чёрный на светлом.
+  function inkFor(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return '#fff';
+    var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#1f1f1f' : '#fff';
+  }
+  function accentVars(st) { return st.accent ? '--m13-ac:' + st.accent + ';--m13-ac-ink:' + inkFor(st.accent) : ''; }
 
   function cardStyle(c) {
     var d = (S.D.showcase && S.D.showcase.cardStyle) || {}, f = ((c && c.front) || {}).style || {};
@@ -239,7 +257,8 @@
     return {
       font: f.font || d.font || '', textColor: f.textColor || d.textColor || '', bg: f.bg || d.bg || '',
       overlay: f.overlay && f.overlay !== 'inherit' ? f.overlay : (d.overlay || 'light'),
-      glow: glow, glowColor: f.glowColor || d.glowColor || '#e8c77a',
+      accent: f.accent || d.accent || '',
+      glow: glow, glowColor: f.glowColor || f.accent || d.glowColor || d.accent || '#e8c77a',
       glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around')
     };
   }
@@ -257,6 +276,7 @@
     if (st.textColor) { cls.push('m13-styled'); css.push('--m13-tc:' + st.textColor); }
     if (st.bg) css.push('background-color:' + st.bg);
     if (hasImg) cls.push('m13-ov-' + st.overlay);
+    if (st.accent) { cls.push('m13-accent'); css.push(accentVars(st)); }
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     return { cls: cls.join(' '), css: css.join(';'), st: st };
   }
@@ -270,14 +290,14 @@
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
     var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '');
     var isStatic = c.interactive === false || !c.back || c.back.type === 'static';
-    var sub = opt(f.subtitle), status = opt(f.status), foot = opt(f.foot);
+    var sub = opt(f.subtitle), foot = opt(f.foot);
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
     var text = '<div class="m13-thumb-text">' +
       (f.eyebrow ? '<div class="m13-mini-type">' + esc(f.eyebrow) + '</div>' : '') +
       (f.title ? '<div class="m13-mini-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + esc(sub) + '</div>' : '') +
-      (status ? '<div class="m13-mini-status">' + esc(status) + '</div>' : '') + '</div>';
+      statusHTML(c, 'm13-mini-status') + '</div>';
     if (isStatic) return '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + '</div>';
     return '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
       '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + esc(foot) + '</span>' : '') +
@@ -315,19 +335,22 @@
     var f = c.front || {};
     var front = S.root.querySelector('#m13-front');
     var sty = styleOf(c, !!f.image);
-    front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+/g, '') : '');
+    front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+|m13-accent/g, '') : '');
+    var big = S.root.querySelector('#m13-bigcard');
+    big.classList.toggle('m13-accent', !!sty.st.accent);
+    big.setAttribute('style', accentVars(sty.st));
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
     stage.classList.remove('m13-glow-soft', 'm13-glow-live');
     stage.setAttribute('style', '');
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
-    var sub = opt(f.subtitle), status = opt(f.status);
+    var sub = opt(f.subtitle);
     front.innerHTML = '<div>' +
       (f.eyebrow ? '<div class="m13-hero-type">' + esc(f.eyebrow) + '</div>' : '') +
       (f.title ? '<div class="m13-hero-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-hero-date">' + esc(sub) + '</div>' : '') +
-      (status ? '<div class="m13-hero-status">' + esc(status) + '</div>' : '') +
+      statusHTML(c, 'm13-hero-status') +
       '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
 
     S.acts = [];
@@ -354,10 +377,12 @@
   /* ---------- Оборот: общее ---------- */
   function headHTML(c, extraMeta) {
     var f = c.front || {};
-    var meta = [opt(f.subtitle), opt(f.status)].concat(extraMeta || []).filter(Boolean);
+    var st = statusOf(c), pill = f.statusStyle === 'pill';
+    var meta = [opt(f.subtitle), pill ? '' : st].concat(extraMeta || []).filter(Boolean);
+    var mh = meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + (pill && st ? '<span class="m13-status-pill"><span>' + esc(st) + '</span></span>' : '');
     return '<div class="m13-head">' + (f.eyebrow ? '<div class="m13-eyebrow">' + esc(f.eyebrow) + '</div>' : '') +
       '<h2>' + esc(f.title) + '</h2>' +
-      (meta.length ? '<div class="m13-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      (mh ? '<div class="m13-meta">' + mh + '</div>' : '') +
       '</div>';
   }
   function descHTML(s) { return s ? '<div class="m13-desc">' + txt(s) + '</div>' : ''; }

@@ -205,6 +205,9 @@
           { def: forCard ? 'inherit' : 'light' }),
         colorOptIn(stl, 'bg', 'Цвет карточки (когда нет картинки)', { none: forCard ? 'как у всей витрины' : 'белый', onChange: onChange })]),
       el('div', { class: 'a-row' }, [
+        colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины' : 'без акцента', pick: '#8a6bb8', onChange: onChange }),
+        el('p', { class: 'a-hint', style: 'align-self:end', text: 'Красит рамку карточки, главную кнопку, счётчик дня и статус-плашку. Если цвет свечения не выбран — светится этим цветом.' })]),
+      el('div', { class: 'a-row' }, [
         selectIn(stl, 'glow', 'Свечение', inh.concat([['off', 'Без свечения'], ['soft', 'Ровное свечение'], ['live', 'Живое (мягко пульсирует)']]),
           { def: forCard ? 'inherit' : 'off', onChange: onChange }),
         colorOptIn(stl, 'glowColor', 'Цвет свечения', { none: forCard ? 'как у всей витрины' : 'золотистый', pick: '#e8c77a', onChange: onChange })]),
@@ -304,8 +307,15 @@
   function sub(t) { return el('div', { class: 'a-sub', text: t }); }
 
   /* ---------- Коллекция: список элементов с порядком, видимостью, удалением ---------- */
+  // Перетаскивание мышкой (на компьютере): тянем за «⋮⋮» слева. На телефоне ручка скрыта — там стрелки.
+  var DRAG = null;
   function collection(arr, o) {
     var box = el('div', { class: 'a-coll' });
+    function moveTo(from, to) {
+      if (to > from) to--;
+      if (to === from) return;
+      arr.splice(to, 0, arr.splice(from, 1)[0]); renumber(); changed(); render(); if (o.onChange) o.onChange();
+    }
     function renumber() { if (o.ordered !== false) arr.forEach(function (x, i) { if (x && typeof x === 'object') x.order = i + 1; }); }
     function render() {
       box.replaceChildren();
@@ -314,7 +324,8 @@
         var open = OPENED.has(it);
         var hidden = o.visible && it.visible === false;
         var name = el('span', { class: 'a-ci-name', text: o.title(it, i) || 'Без названия' });
-        var head = el('div', { class: 'a-ci-head' }, [
+        var handle = el('span', { class: 'a-drag', title: 'Перетащить мышкой', 'aria-hidden': 'true', text: '⋮⋮' });
+        var head = el('div', { class: 'a-ci-head' }, [handle,
           el('button', { type: 'button', class: 'a-ci-title', 'aria-expanded': open ? 'true' : 'false', onclick: function () {
             if (open) OPENED.delete(it); else OPENED.add(it); render(); } },
             [el('span', { class: 'a-caret', text: open ? '▾' : '▸' }), name])
@@ -340,6 +351,28 @@
           ]);
         }
         var row = el('div', { class: 'a-ci' + (hidden ? ' is-hidden' : '') }, head);
+        // Тянуть можно за строку-заголовок (в ней нет полей ввода, поэтому выделение текста не ломается).
+        head.draggable = true;
+        head.addEventListener('dragstart', function (e) {
+          e.stopPropagation(); DRAG = { arr: arr, i: i };
+          try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch (x) {}
+          setTimeout(function () { row.classList.add('is-dragging'); }, 0);
+        });
+        head.addEventListener('dragend', function () { DRAG = null; box.querySelectorAll('.a-ci').forEach(function (r) { r.classList.remove('is-dragging', 'drop-before', 'drop-after'); }); });
+        function where(e) { var r = row.getBoundingClientRect(); return e.clientY < r.top + Math.min(r.height, 44) / 2 ? 'before' : 'after'; }
+        row.addEventListener('dragover', function (e) {
+          if (!DRAG || DRAG.arr !== arr) return;
+          e.preventDefault(); e.stopPropagation();
+          var w = where(e);
+          row.classList.toggle('drop-before', w === 'before'); row.classList.toggle('drop-after', w === 'after');
+        });
+        row.addEventListener('dragleave', function (e) { if (!row.contains(e.relatedTarget)) row.classList.remove('drop-before', 'drop-after'); });
+        row.addEventListener('drop', function (e) {
+          if (!DRAG || DRAG.arr !== arr) return;
+          e.preventDefault(); e.stopPropagation();
+          var from = DRAG.i; DRAG = null;
+          moveTo(from, where(e) === 'before' ? i : i + 1);
+        });
         if (open) {
           var body = el('div', { class: 'a-ci-body' }, o.body(it, render));
           var upd = function () { name.textContent = o.title(it, i) || 'Без названия'; if (o.onChange) o.onChange(); };
@@ -492,9 +525,11 @@
           var gk = { weak: 0.55, medium: 1, strong: 1.7 }[pk('glowStrength', 'medium')] || 1;
           var gdir = pk('glowDir', 'around'), gy = gdir === 'bottom' ? 1 : gdir === 'top' ? -1 : 0;
           var ov = fs.overlay && fs.overlay !== 'inherit' ? fs.overlay : (d.overlay || 'light');
+          var ac = fs.accent || d.accent;
+          if (!fs.glowColor && fs.accent) gc = fs.accent; else if (!fs.glowColor && !d.glowColor && d.accent) gc = d.accent;
           if (font) window.M13.ensureFont(font);
           var css = [f.image ? "background-image:url('" + imgSrc(f.image) + "')" : '', font ? "font-family:'" + font + "',Georgia,serif" : '',
-            tc ? 'color:' + tc : '', bg && !f.image && c.visible !== false ? 'background-color:' + bg : '',
+            tc ? 'color:' + tc : '', bg && !f.image && c.visible !== false ? 'background-color:' + bg : '', ac && c.visible !== false ? 'border-color:' + ac : '',
             glow === 'soft' || glow === 'live' ? 'box-shadow:0 ' + Math.round(gy * 7 * gk) + 'px ' + Math.round(12 * gk) + 'px ' + (gy ? -2 : Math.round(2 * gk)) + 'px ' + gc : ''].filter(Boolean).join(';');
           return el('button', { type: 'button', class: 'a-mcard' + (i === ST.card ? ' is-sel' : '') + (c.visible === false ? ' is-hidden' : '') +
               (isStatic && c.visible !== false ? ' is-static' : '') + (f.image ? ' has-img ov-' + ov : '') + (tc ? ' has-tc' : ''),
@@ -798,20 +833,29 @@
     function draw() {
       var ph = c.front.phase = c.front.phase || { on: false, from: '', to: '',
         before: { value: 'скоро', show: true }, during: { value: 'идёт сейчас', show: true }, after: { value: 'завершён', show: true }, glow: false };
+      if (ph.statusBefore == null) { ph.statusAuto = ph.statusAuto || false;
+        ph.statusBefore = { value: 'Вход открыт', show: true }; ph.statusDuring = { value: 'Идёт сейчас', show: true }; ph.statusAfter = { value: 'Завершён', show: true }; }
       var r = c.back && c.back.routeId ? routeById(c.back.routeId) : null, rd = (r && r.dates) || {};
       box.replaceChildren();
       add(box, [
-        switchIn(ph, 'on', 'Менять подпись внизу по датам', { onChange: function () { draw(); cb.redrawGrid(); },
-          hint: 'Вместо обычной подписи на маленькой карточке сама появится нужная надпись: до начала, во время, после окончания.' }),
+        switchIn(ph, 'on', 'Менять надписи по датам', { onChange: function () { draw(); cb.redrawGrid(); },
+          hint: 'Подпись внизу маленькой карточки (и, если хотите, статус) сама меняется: до начала, во время, после окончания.' }),
         ph.on ? [
           el('div', { class: 'a-row' }, [
             textIn(ph, 'from', 'С', { type: 'date' }),
             textIn(ph, 'to', 'по', { type: 'date' })]),
           el('p', { class: 'a-hint', text: r && rd.from ? 'Пусто — даты маршрута «' + r.title + '»: ' + fmtDates(rd) + '.' : 'Укажите даты: у карточки не выбран маршрут с датами (раздел «Оборот»).' }),
+          sub('Подпись внизу'),
           optIn(ph, 'before', 'До начала', { ph: 'скоро' }),
           optIn(ph, 'during', 'Пока идёт', { ph: 'идёт сейчас' }),
           optIn(ph, 'after', 'После окончания', { ph: 'завершён' }),
           el('p', { class: 'a-hint', text: 'Если у этапа выключено «показывать» — в это время стоит обычная подпись (поле выше).' }),
+          switchIn(ph, 'statusAuto', 'Статус тоже по датам', { onChange: function () { draw(); cb.redrawGrid(); },
+            hint: 'Если выключить или снять «показывать» у этапа — стоит статус, написанный вручную (поле «Статус» выше).' }),
+          ph.statusAuto ? [
+            optIn(ph, 'statusBefore', 'Статус до начала', { ph: 'Вход открыт' }),
+            optIn(ph, 'statusDuring', 'Статус, пока идёт', { ph: 'Маршрут идёт · можно наблюдать' }),
+            optIn(ph, 'statusAfter', 'Статус после окончания', { ph: 'Завершён' })] : null,
           switchIn(ph, 'glow', 'Светиться, пока идёт', { onChange: cb.redrawGrid,
             hint: 'Цвет, сила и направление — из раздела «Оформление». Если там свечение выключено, будет «живое». После окончания погаснет само.' }),
           nowP
@@ -823,7 +867,8 @@
     // Строка «Сегодня: …» обновляется на ходу, без перерисовки полей (иначе сбивался бы курсор).
     function updNow() {
       var now = window.M13.phaseOf(c, { routes: DATA.routes, settings: DATA.settings });
-      nowP.textContent = now ? 'Сегодня: ' + PHASE_NAMES[now.key] + (now.label ? ' — на карточке «' + now.label + '»' : ' — на карточке обычная подпись') + (now.glow ? ', карточка светится.' : '.')
+      nowP.textContent = now ? 'Сегодня: ' + PHASE_NAMES[now.key] + (now.label ? ' — внизу «' + now.label + '»' : ' — внизу обычная подпись') +
+          (c.front.phase.statusAuto ? (now.status ? ', статус «' + now.status + '»' : ', статус ручной') : '') + (now.glow ? ', карточка светится.' : '.')
         : 'Пока нет дат — метка не работает, стоит обычная подпись.';
     }
     draw();
@@ -896,7 +941,9 @@
         textIn(f, 'eyebrow', 'Надпись сверху (мелко)', { ph: 'Маршрут, Продукт, Живые встречи…' }),
         textIn(f, 'title', 'Название'),
         optIn(f, 'subtitle', 'Подзаголовок', { ph: 'даты или короткая фраза' }),
-        optIn(f, 'status', 'Статус', { ph: 'Вход открыт, цена…' }),
+        el('div', { class: 'a-row' }, [
+          optIn(f, 'status', 'Статус', { ph: 'Вход открыт, Предзаказ, Осталось 3 места…' }),
+          selectIn(f, 'statusStyle', 'Как показывать статус', [['line', 'Строкой текста'], ['pill', 'Плашкой (в рамке)']], { onChange: cb.redrawGrid })]),
         optIn(f, 'foot', 'Подпись внизу маленькой карточки', { ph: '3 формата, 4 встречи…' }),
         phaseFields(c, cb)
       ]),
