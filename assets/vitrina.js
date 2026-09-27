@@ -40,8 +40,13 @@
     return new Date(+p[0], +p[1] - 1, +p[2]);
   }
 
+  function today() {
+    if (window.M13_TODAY) return parseDate(window.M13_TODAY);
+    var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+
   /* ---------- Состояние ---------- */
-  var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null };
+  var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null, lb: [] };
 
   function T(key) { return (S.D.settings.texts || {})[key] || ''; }
   function routeById(id) { return (S.D.routes.routes || []).filter(function (r) { return r.id === id; })[0] || null; }
@@ -118,13 +123,21 @@
       if (url) window.open(url, '_blank', 'noopener');
     } else if (action.kind === 'internal') {
       openInternal(action.target, action.tab);
+    } else if (action.kind === 'calendar') {
+      openCalendar(action.cal || action, ctx);
+    } else if (action.kind === 'share') {
+      shareCard(ctx);
+    } else if (action.kind === 'download') {
+      if (action.url) { var a = document.createElement('a'); a.href = action.url; a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('download', ''); document.body.appendChild(a); a.click(); a.remove(); }
     } else {
       openContact(action, ctx);
     }
   }
   function bindActs(scope) {
     scope.querySelectorAll('[data-m13-act]').forEach(function (b) {
-      b.addEventListener('click', function (e) { e.preventDefault(); runAct(+b.getAttribute('data-m13-act')); });
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); runAct(+b.getAttribute('data-m13-act')); });
+      if (b.getAttribute('role') === 'button') b.addEventListener('keydown', function (e) {
+        if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); runAct(+b.getAttribute('data-m13-act')); } });
     });
   }
 
@@ -147,6 +160,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && S.layers.length) closeTop();
+    if (LB.open && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) lbGo(e.key === 'ArrowRight' ? 1 : -1);
   });
   function lock(on) { document.body.classList.toggle('m13-locked', on); }
 
@@ -171,7 +185,7 @@
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
       '</section></div></main>' +
-      overlayHTML() + internalHTML() + modalHTML() + '</div>';
+      overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
 
     S.root.querySelectorAll('.m13-thumb[data-card]').forEach(function (b) {
@@ -211,14 +225,63 @@
     document.head.appendChild(l);
   }
   M13.ensureFont = ensureFont;
+  /* ---------- Метка по датам: «до / идёт / после» ----------
+     front.phase = {on, from?, to?, before{value,show}, during{…}, after{…}, glow}.
+     Даты — свои (from/to) или, если пусто, даты маршрута карточки. */
+  function phaseOf(c) {
+    var ph = (c && c.front && c.front.phase) || null;
+    if (!ph || !ph.on) return null;
+    var r = c.back && c.back.routeId ? routeById(c.back.routeId) : null, rd = (r && r.dates) || {};
+    var from = parseDate(ph.from || rd.from), to = parseDate(ph.to || rd.to);
+    if (!from || !to) return null;
+    var now = today(), key = now < from ? 'before' : now > to ? 'after' : 'during';
+    var sk = 'status' + key.charAt(0).toUpperCase() + key.slice(1);
+    return { key: key, label: opt(ph[key]), glow: key === 'during' && !!ph.glow, status: ph.statusAuto ? opt(ph[sk]) : '' };
+  }
+  M13.phaseOf = function (c, data) { var keep = S.D; if (data) S.D = data; try { return phaseOf(c); } finally { S.D = keep; } };
+
+  function statusOf(c) {
+    var f = (c && c.front) || {}, ph = phaseOf(c);
+    return (ph && ph.status) || opt(f.status);
+  }
+  function statusHTML(c, cls) {
+    var st = statusOf(c); if (!st) return '';
+    var pill = ((c.front || {}).statusStyle === 'pill');
+    return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + esc(st) + '</span>' : esc(st)) + '</div>';
+  }
+  // Цвет текста на акцентной кнопке: белый на тёмном акценте, почти чёрный на светлом.
+  function inkFor(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return '#fff';
+    var n = parseInt(m[1], 16), r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255;
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#1f1f1f' : '#fff';
+  }
+  function accentVars(st) { return st.accent ? '--m13-ac:' + st.accent + ';--m13-ac-ink:' + inkFor(st.accent) : ''; }
+
   function cardStyle(c) {
     var d = (S.D.showcase && S.D.showcase.cardStyle) || {}, f = ((c && c.front) || {}).style || {};
-    var glow = f.glow && f.glow !== 'inherit' ? f.glow : (d.glow || 'off');
+    function pick(k, def) { return f[k] && f[k] !== 'inherit' ? f[k] : (d[k] || def); }
+    var glow = pick('glow', 'off');
+    var ph = phaseOf(c);
+    if (ph && ph.glow && glow !== 'soft' && glow !== 'live') glow = 'live';
     return {
       font: f.font || d.font || '', textColor: f.textColor || d.textColor || '', bg: f.bg || d.bg || '',
       overlay: f.overlay && f.overlay !== 'inherit' ? f.overlay : (d.overlay || 'light'),
-      glow: glow, glowColor: f.glowColor || d.glowColor || '#e8c77a'
+      accent: f.accent || d.accent || '',
+      glow: glow, glowColor: f.glowColor || f.accent || d.glowColor || d.accent || '#e8c77a',
+      glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around'),
+      // Положение и выравнивание текста. У неоткрывающихся карточек (как центральная) — только своё, без общего месячного.
+      textPos: isStaticCard(c) ? (f.textPos && f.textPos !== 'inherit' ? f.textPos : '') : pick('textPos', ''),
+      textAlign: isStaticCard(c) ? (f.textAlign && f.textAlign !== 'inherit' ? f.textAlign : '') : pick('textAlign', '')
     };
+  }
+  function isStaticCard(c) { return !c || c.interactive === false || !c.back || c.back.type === 'static';
+  }
+  // Сила и направление свечения — через CSS-переменные: --m13-gk (множитель размера),
+  // --m13-gy (сдвиг: 0 вокруг, 1 вниз, -1 вверх), --m13-gsp (1 — свет со всех сторон, -1 — только с одной).
+  var GLOW_K = { weak: 0.55, medium: 1, strong: 1.7 };
+  function glowVars(st) {
+    var y = st.glowDir === 'bottom' ? 1 : st.glowDir === 'top' ? -1 : 0;
+    return '--m13-glow:' + st.glowColor + ';--m13-gk:' + (GLOW_K[st.glowStrength] || 1) + ';--m13-gy:' + y + ';--m13-gsp:' + (y ? -1 : 1);
   }
   // Возвращает {cls, css} для карточки: классы и inline-стиль.
   function styleOf(c, hasImg) {
@@ -227,7 +290,10 @@
     if (st.textColor) { cls.push('m13-styled'); css.push('--m13-tc:' + st.textColor); }
     if (st.bg) css.push('background-color:' + st.bg);
     if (hasImg) cls.push('m13-ov-' + st.overlay);
-    if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push('--m13-glow:' + st.glowColor); }
+    if (st.accent) { cls.push('m13-accent'); css.push(accentVars(st)); }
+    if (st.textPos) cls.push('m13-pos-' + st.textPos);
+    if (st.textAlign) cls.push('m13-align-' + st.textAlign);
+    if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     return { cls: cls.join(' '), css: css.join(';'), st: st };
   }
 
@@ -240,15 +306,17 @@
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
     var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '');
     var isStatic = c.interactive === false || !c.back || c.back.type === 'static';
-    var sub = opt(f.subtitle), status = opt(f.status), foot = opt(f.foot);
+    var sub = opt(f.subtitle), foot = opt(f.foot);
+    var ph = phaseOf(c), phCls = '';
+    if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
     var text = '<div class="m13-thumb-text">' +
       (f.eyebrow ? '<div class="m13-mini-type">' + esc(f.eyebrow) + '</div>' : '') +
       (f.title ? '<div class="m13-mini-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + esc(sub) + '</div>' : '') +
-      (status ? '<div class="m13-mini-status">' + esc(status) + '</div>' : '') + '</div>';
+      statusHTML(c, 'm13-mini-status') + '</div>';
     if (isStatic) return '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + '</div>';
     return '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
-      '<div class="m13-mini-foot">' + (foot ? '<span>' + esc(foot) + '</span>' : '') +
+      '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + esc(foot) + '</span>' : '') +
       '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div></button>';
   }
 
@@ -283,24 +351,33 @@
     var f = c.front || {};
     var front = S.root.querySelector('#m13-front');
     var sty = styleOf(c, !!f.image);
-    front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+/g, '') : '');
+    front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+|m13-accent/g, '') : '');
+    var big = S.root.querySelector('#m13-bigcard');
+    big.classList.toggle('m13-accent', !!sty.st.accent);
+    big.setAttribute('style', accentVars(sty.st));
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
     stage.classList.remove('m13-glow-soft', 'm13-glow-live');
-    if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.style.setProperty('--m13-glow', sty.st.glowColor); }
-    var sub = opt(f.subtitle), status = opt(f.status);
+    stage.setAttribute('style', '');
+    if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
+    var sub = opt(f.subtitle);
     front.innerHTML = '<div>' +
       (f.eyebrow ? '<div class="m13-hero-type">' + esc(f.eyebrow) + '</div>' : '') +
       (f.title ? '<div class="m13-hero-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-hero-date">' + esc(sub) + '</div>' : '') +
-      (status ? '<div class="m13-hero-status">' + esc(status) + '</div>' : '') +
+      statusHTML(c, 'm13-hero-status') +
       '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
 
     S.acts = [];
     var backc = S.root.querySelector('#m13-backc');
     backc.innerHTML = backHTML(c);
     bindActs(backc);
+    backc.querySelectorAll('[data-m13-lb]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); var p = b.getAttribute('data-m13-lb').split(':'); openLightbox(+p[0], +p[1]);
+      });
+    });
 
     S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     S.root.querySelector('#m13-overlay').classList.add('is-open');
@@ -321,75 +398,25 @@
   /* ---------- Оборот: общее ---------- */
   function headHTML(c, extraMeta) {
     var f = c.front || {};
-    var meta = [opt(f.subtitle), opt(f.status)].concat(extraMeta || []).filter(Boolean);
+    var st = statusOf(c), pill = f.statusStyle === 'pill';
+    var meta = [opt(f.subtitle), pill ? '' : st].concat(extraMeta || []).filter(Boolean);
+    var mh = meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + (pill && st ? '<span class="m13-status-pill"><span>' + esc(st) + '</span></span>' : '');
     return '<div class="m13-head">' + (f.eyebrow ? '<div class="m13-eyebrow">' + esc(f.eyebrow) + '</div>' : '') +
       '<h2>' + esc(f.title) + '</h2>' +
-      (meta.length ? '<div class="m13-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      (mh ? '<div class="m13-meta">' + mh + '</div>' : '') +
       '</div>';
   }
   function descHTML(s) { return s ? '<div class="m13-desc">' + txt(s) + '</div>' : ''; }
-
-  function backHTML(c) {
-    var b = c.back || {};
-    if (b.type === 'route') return backRoute(c);
-    if (b.type === 'container') return backContainer(c);
-    if (b.type === 'offer') return backOffer(c);
-    return backText(c);
-  }
 
   /* ---------- Оборот: маршрут ---------- */
   function dayCounter(r) {
     if (!r || !r.dates || !r.dates.from || !r.dates.to) return '';
     var from = parseDate(r.dates.from), to = parseDate(r.dates.to);
-    var now = new Date(); now = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var now = today();
     var DAY = 86400000;
     var n = Math.round((now - from) / DAY) + 1, total = Math.round((to - from) / DAY) + 1;
     if (n < 1 || n > total) return '';
     return fill(T('dayCounter') || 'Сегодня день {n} из {total}', { n: n, total: total });
-  }
-
-  function backRoute(c) {
-    var b = c.back, r = routeById(b.routeId) || { title: (c.front || {}).title, routeUrl: '' };
-    var desc = opt(b.description) || r.description || '';
-    var kin = opt(r.kin);
-    var h = headHTML(c, kin ? [kin] : []) + descHTML(desc);
-
-    if (b.dayCounter && b.dayCounter.show) {
-      var dc = dayCounter(r);
-      if (dc) h += '<div class="m13-day">' + esc(dc) + '</div>';
-    }
-    if (b.routeButton && b.routeButton.show && r.routeUrl) {
-      h += '<a class="m13-go" href="' + esc(r.routeUrl) + '" target="_blank" rel="noopener"><span>' +
-        esc(b.routeButton.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
-    }
-
-    var list = (b.formats || []).filter(function (x) {
-      return x.visible !== false && !(x.availability === 'closed' && b.closedFormats === 'hide');
-    });
-    if (list.length) {
-      h += '<div class="m13-formats" style="--n:' + Math.min(list.length, 3) + '">' + list.map(function (x) {
-        var fm = formatById(x.formatId) || {};
-        var name = x.title || fm.title || '';
-        var price = (x.price && opt(x.price)) || fm.price || '';
-        var note = (x.note && opt(x.note)) || opt(fm.note);
-        var closed = x.availability === 'closed';
-        if (closed) note = T('formatClosed') || 'набор закрыт';
-        var inner = '<div class="m13-format-name">' + esc(name) + '</div>' +
-          (price ? '<div class="m13-format-price">' + esc(price) + '</div>' : '') +
-          (note ? '<div class="m13-format-note">' + esc(note) + '</div>' : '');
-        if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
-        var ctx = { card: (c.front || {}).title, route: r.title, format: name, price: price, routeUrl: r.routeUrl, tplKey: 'route' };
-        var a = x.action || { kind: 'contact' };
-        return '<button type="button" class="m13-format"' + act(a, ctx) + '>' + inner + '</button>';
-      }).join('') + '</div>';
-    }
-
-    var sb = b.sandboxButton || { show: true };
-    if (sb.show !== false) {
-      h += '<button type="button" class="m13-soft"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
-        esc(sb.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
-    }
-    return h;
   }
 
   /* ---------- Оборот: контейнер (встречи, индивидуальная работа) ---------- */
@@ -402,6 +429,15 @@
       var meta = [dur, status].filter(Boolean).join(' · ');
       var a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
+      var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
+      if (cal) return '<div class="m13-item m13-item--cal" role="button" tabindex="0"' + act(a, ctx) + '>' +
+        (date ? '<div class="m13-item-date">' + esc(date) + '</div>' : '') +
+        '<div class="m13-item-title">' + esc(it.title) + '</div>' +
+        (text ? '<div class="m13-item-text">' + txt(text) + '</div>' : '') +
+        (meta ? '<div class="m13-item-meta">' + esc(meta) + '</div>' : '') +
+        (price ? '<div class="m13-item-price">' + esc(price) + '</div>' : '') +
+        '<div class="m13-item-acts"><span class="m13-item-action">' + esc(a.label || 'Написать') + ' →</span>' +
+        '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + esc(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
       return '<button type="button" class="m13-item"' + act(a, ctx) + '>' +
         (date ? '<div class="m13-item-date">' + esc(date) + '</div>' : '') +
         '<div class="m13-item-title">' + esc(it.title) + '</div>' +
@@ -412,63 +448,151 @@
     }).join('') + '</div>';
   }
 
-  function backContainer(c) {
-    var b = c.back;
-    var h = headHTML(c) + descHTML(opt(b.description)) + itemsHTML(c, b.items, b.max, 'container');
-    var note = opt(b.note);
-    if (note) h += '<div class="m13-info">' + txt(note) + '</div>';
+  /* ---------- Оборот из блоков ----------
+     back = {type:'blocks', routeId?, blocks:[{id, kind, visible, …}]}. Порядок блоков = порядок в массиве.
+     Старые типы (route, container, offer, text) переводятся в блоки функцией M13.toBlocks. */
+  function oid() { return 'b-' + Math.random().toString(36).slice(2, 8); }
+  function ov(f) { return f == null ? '' : (typeof f === 'object' ? (f.show === false ? '' : f.value || '') : f); }
+  function blk(kind, props, visible) {
+    var o = { id: oid(), kind: kind, visible: visible !== false };
+    for (var k in props) o[k] = props[k];
+    return o;
+  }
+  M13.toBlocks = function (b) {
+    if (!b || !b.type || b.type === 'static' || b.type === 'blocks') return b;
+    var out = { type: 'blocks', routeId: b.routeId || '', blocks: [] }, L = out.blocks;
+    if (b.type === 'route') {
+      L.push(blk('desc', { text: ov(b.description) }));
+      L.push(blk('day', {}, !!(b.dayCounter && b.dayCounter.show)));
+      L.push(blk('routeButton', { label: (b.routeButton || {}).label || 'Пройти маршрут', url: '' }, !!(b.routeButton && b.routeButton.show)));
+      L.push(blk('formats', { formats: b.formats || [], closed: b.closedFormats || 'dim' }));
+      var sb = b.sandboxButton || {};
+      L.push(blk('sandbox', { label: sb.label || 'Как устроены маршруты 13 MIRRORS' }, sb.show !== false));
+    } else if (b.type === 'container') {
+      L.push(blk('desc', { text: ov(b.description) }, shown(b.description)));
+      L.push(blk('items', { items: b.items || [], max: b.max || 10, copyItems: b.copyItems !== false, tpl: 'container' }));
+      L.push(blk('info', { text: ov(b.note) }, !!opt(b.note)));
+    } else if (b.type === 'offer') {
+      L.push(blk('images', { images: (b.images || []).map(function (x) { return typeof x === 'string' ? { id: oid(), src: x, visible: true } : x; }) }, (b.images || []).length > 0));
+      L.push(blk('desc', { text: ov(b.description) }, shown(b.description)));
+      L.push(blk('price', { label: b.priceLabel || '', value: ov(b.price) }, !!opt(b.price)));
+      L.push(blk('items', { items: b.items || [], max: b.max || 10, copyItems: b.copyItems !== false, tpl: 'offerItem' }, (b.items || []).length > 0));
+      L.push(blk('dates', { label: ov(b.datesLabel), dates: ov(b.dates), note: ov(b.datesNote) }, !!opt(b.dates)));
+      L.push(blk('info', { text: ov(b.composition) }, !!opt(b.composition)));
+      var ex = b.examples || {};
+      L.push(blk('examples', { label: ex.label || 'Примеры' }, !!ex.show));
+      L.push(blk('actions', { actions: (b.actions || []).slice(0, 2) }, (b.actions || []).length > 0));
+    } else {
+      L.push(blk('heading', { text: ov(b.title) }, !!opt(b.title)));
+      L.push(blk('desc', { text: ov(b.text) }));
+      L.push(blk('actions', { actions: b.action && b.action.label ? [b.action] : [] }, !!(b.action && b.action.label && b.action.visible !== false)));
+    }
+    return out;
+  };
+
+  var BUTTON_KINDS = { examples: 1, actions: 1, sandbox: 1 };
+  function backHTML(c) {
+    var b = M13.toBlocks(c.back || {}) || {}, f = c.front || {}, title = f.title;
+    var r = b.routeId ? routeById(b.routeId) : null;
+    var kin = r ? opt(r.kin) : '';
+    var list = (b.blocks || []).filter(function (x) { return x && x.visible !== false; });
+    // Кнопки в самом конце оборота прижимаются книзу — как было в прототипе.
+    var push = list.length;
+    while (push > 0 && BUTTON_KINDS[list[push - 1].kind]) push--;
+    if (push === list.length) push = -1; // номер первого блока нижней группы кнопок (или -1)
+    var price = '';
+    list.forEach(function (x) { if (x.kind === 'price' && !price) price = String(x.value || '').trim(); });
+
+    S.lb = [];
+    var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
+    function flushBtns() {
+      if (!btnRun.length) return '';
+      var out = '<div class="m13-actions' + (runPush ? ' m13-push' : '') + (btnRun.length > 2 ? ' m13-actions--grid' : '') + '">' + btnRun.join('') + '</div>';
+      btnRun = []; runPush = false; return out;
+    }
+    list.forEach(function (x, i) {
+      var html = '';
+      if (x.kind === 'examples' || x.kind === 'actions') {
+        if (i === push) runPush = true;
+        if (x.kind === 'examples') btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
+          act({ kind: 'internal', target: 'reflection' }) + '>' + esc(x.label || 'Примеры') + '</button>');
+        else (x.actions || []).slice(0, 4).forEach(function (a) {
+          if (!a || a.visible === false) return;
+          if (a.kind === 'calendar' && !calActive(a.cal || {})) return;
+          btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
+            act(a, { card: title, action: a.label, price: price, tplKey: 'offer' }) + '>' + esc(a.label || 'Написать') + '</button>');
+        });
+        return;
+      }
+      h += flushBtns();
+      if (x.kind === 'desc') html = descHTML(String(x.text || '').trim() || (r && r.description) || '');
+      else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + esc(t) + '</div>'; }
+      else if (x.kind === 'images') {
+        var imgs = (x.images || []).filter(function (m) { return m && m.visible !== false && m.src; });
+        if (imgs.length) {
+          var g = S.lb.push(imgs.map(function (m) { return media(m.src); })) - 1;
+          html = '<div class="m13-gallery">' + imgs.map(function (m, k) {
+            return '<button type="button" class="m13-gallery-item" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
+              '<img src="' + esc(media(m.src)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>';
+        }
+      }
+      else if (x.kind === 'price') {
+        var pv = String(x.value || '').trim();
+        if (pv) html = '<div class="m13-price-line"><span>' + esc(x.label || title) + '</span><strong>' + esc(pv) + '</strong></div>';
+      }
+      else if (x.kind === 'day') { var dc = dayCounter(r); if (dc) html = '<div class="m13-day">' + esc(dc) + '</div>'; }
+      else if (x.kind === 'routeButton') {
+        var url = String(x.url || '').trim() || (r && r.routeUrl) || '';
+        if (url) html = '<a class="m13-go" href="' + esc(url) + '" target="_blank" rel="noopener"><span>' +
+          esc(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
+      }
+      else if (x.kind === 'formats') html = formatsHTML(c, x, r);
+      else if (x.kind === 'items') html = itemsHTML(c, x.items, x.max, x.tpl || 'container');
+      else if (x.kind === 'dates') {
+        var ds = String(x.dates || '').trim();
+        if (ds) html = '<div class="m13-dates">' + (x.label ? '<div class="m13-dates-label">' + esc(x.label) + '</div>' : '') +
+          '<div class="m13-dates-list">' + esc(ds) + '</div>' + (x.note ? '<div class="m13-dates-note">' + txt(x.note) + '</div>' : '') + '</div>';
+      }
+      else if (x.kind === 'facts') {
+        var fl = (x.facts || []).filter(function (q) { return q && q.visible !== false && String(q.text || '').trim(); });
+        if (fl.length) html = '<div class="m13-facts">' + fl.map(function (q) { return '<span class="m13-fact">' + esc(String(q.text).trim()) + '</span>'; }).join('') + '</div>';
+      }
+      else if (x.kind === 'more') {
+        var mt = String(x.text || '').trim();
+        if (mt) html = '<details class="m13-more"><summary><span class="m13-more-open">' + esc(x.label || 'Подробнее') + ' ↓</span>' +
+          '<span class="m13-more-close">' + esc(x.labelClose || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(mt) + '</div></details>';
+      }
+      else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
+      else if (x.kind === 'sandbox') {
+        html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
+          esc(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
+      }
+      h += html;
+    });
+    h += flushBtns();
     return h;
   }
 
-  /* ---------- Оборот: предложение (Карта-Отражение, Свечи) ---------- */
-  function backOffer(c) {
-    var b = c.back, title = (c.front || {}).title;
-    var h = headHTML(c);
-    var imgs = (b.images || []).filter(function (x) { return x && (typeof x === 'string' || (x.visible !== false && x.src)); });
-    if (imgs.length) {
-      h += '<div class="m13-gallery">' + imgs.map(function (x) {
-        var src = typeof x === 'string' ? x : x.src;
-        return '<img src="' + esc(media(src)) + '" alt="" loading="lazy">';
-      }).join('') + '</div>';
-    }
-    h += descHTML(opt(b.description));
-    var price = opt(b.price);
-    if (price) h += '<div class="m13-price-line"><span>' + esc(b.priceLabel || title) + '</span><strong>' + esc(price) + '</strong></div>';
-    h += itemsHTML(c, b.items, b.max, 'offerItem');
-    var dates = opt(b.dates);
-    if (dates) {
-      var dl = opt(b.datesLabel), dn = opt(b.datesNote);
-      h += '<div class="m13-dates">' + (dl ? '<div class="m13-dates-label">' + esc(dl) + '</div>' : '') +
-        '<div class="m13-dates-list">' + esc(dates) + '</div>' +
-        (dn ? '<div class="m13-dates-note">' + txt(dn) + '</div>' : '') + '</div>';
-    }
-    var comp = opt(b.composition);
-    if (comp) h += '<div class="m13-info">' + txt(comp) + '</div>';
-
-    var btns = [];
-    if (b.examples && b.examples.show) btns.push({ a: { kind: 'internal', target: 'reflection', label: b.examples.label || 'Примеры' } });
-    (b.actions || []).slice(0, 2).forEach(function (a) { if (a && a.visible !== false) btns.push({ a: a }); });
-    if (btns.length) {
-      h += '<div class="m13-actions">' + btns.map(function (x, i) {
-        var ctx = { card: title, action: x.a.label, price: price, tplKey: 'offer' };
-        return '<button type="button" class="m13-action' + (i === 0 ? ' m13-action--primary' : '') + '"' + act(x.a, ctx) + '>' +
-          esc(x.a.label || 'Написать') + '</button>';
-      }).join('') + '</div>';
-    }
-    return h;
-  }
-
-  /* ---------- Оборот: текст (запасной тип) ---------- */
-  function backText(c) {
-    var b = c.back || {}, title = (c.front || {}).title;
-    var h = headHTML(c);
-    var t = opt(b.title); if (t) h += '<div class="m13-block-title">' + esc(t) + '</div>';
-    h += descHTML(opt(b.text));
-    if (b.action && b.action.visible !== false && b.action.label) {
-      h += '<div class="m13-actions"><button type="button" class="m13-action m13-action--primary"' +
-        act(b.action, { card: title, tplKey: 'text' }) + '>' + esc(b.action.label) + '</button></div>';
-    }
-    return h;
+  function formatsHTML(c, x, r) {
+    var rt = r || { title: (c.front || {}).title, routeUrl: '' };
+    var list = (x.formats || []).filter(function (f) {
+      return f.visible !== false && !(f.availability === 'closed' && x.closed === 'hide');
+    });
+    if (!list.length) return '';
+    return '<div class="m13-formats" style="--n:' + Math.min(list.length, 3) + '">' + list.map(function (f) {
+      var fm = formatById(f.formatId) || {};
+      var name = f.title || fm.title || '';
+      var price = (f.price && opt(f.price)) || fm.price || '';
+      var note = (f.note && opt(f.note)) || opt(fm.note);
+      var closed = f.availability === 'closed';
+      if (closed) note = T('formatClosed') || 'набор закрыт';
+      var inner = '<div class="m13-format-name">' + esc(name) + '</div>' +
+        (price ? '<div class="m13-format-price">' + esc(price) + '</div>' : '') +
+        (note ? '<div class="m13-format-note">' + esc(note) + '</div>' : '');
+      if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
+      var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
+      return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
+    }).join('') + '</div>';
   }
 
   /* ================= ОКНО «КУДА НАПИСАТЬ?» ================= */
@@ -554,6 +678,149 @@
       hint.textContent = fill(T('contactMissing') || 'Ссылка на {channel} ещё не задана.', { channel: name });
     }
     hint.classList.add('is-done');
+  }
+
+  /* ================= «ДОБАВИТЬ В КАЛЕНДАРЬ» =================
+     cal = {date:'ГГГГ-ММ-ДД', time:'ЧЧ:ММ'?, duration: минут, title?, place?, details?}.
+     Время — московское (UTC+3, без перехода на летнее). Календарь человека сам пересчитает в его пояс.
+     Ничего никуда не отправляется: Google открывает готовое событие, файл .ics собирается прямо в браузере. */
+  var MSK = 3;
+  function calRange(cal) {
+    var d = String(cal.date || '').split('-'); if (d.length !== 3) return null;
+    var t = /^(\d{1,2}):(\d{2})$/.exec(String(cal.time || '').trim());
+    if (!t) { // весь день
+      var a = new Date(Date.UTC(+d[0], +d[1] - 1, +d[2])), b = new Date(a.getTime() + 86400000);
+      return { allDay: true, start: a, end: b };
+    }
+    var st = new Date(Date.UTC(+d[0], +d[1] - 1, +d[2], +t[1] - MSK, +t[2]));
+    return { allDay: false, start: st, end: new Date(st.getTime() + (+cal.duration || 60) * 60000) };
+  }
+  // После окончания события кнопка «в календарь» сама пропадает.
+  function calActive(cal) { var r = calRange(cal || {}); return !!r && r.end.getTime() > (window.M13_TODAY ? today().getTime() : Date.now()); }
+  function z(n) { return (n < 10 ? '0' : '') + n; }
+  function utcStamp(dt, allDay) {
+    var s = dt.getUTCFullYear() + z(dt.getUTCMonth() + 1) + z(dt.getUTCDate());
+    return allDay ? s : s + 'T' + z(dt.getUTCHours()) + z(dt.getUTCMinutes()) + '00Z';
+  }
+  function calInfo(cal, ctx) {
+    return { title: String(cal.title || '').trim() || [ctx.item, ctx.card].filter(Boolean).filter(function (v, i, a) { return a.indexOf(v) === i; }).join(' · '),
+      place: String(cal.place || '').trim(), details: String(cal.details || '').trim() };
+  }
+  function googleUrl(cal, ctx) {
+    var r = calRange(cal), inf = calInfo(cal, ctx);
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(inf.title) +
+      '&dates=' + utcStamp(r.start, r.allDay) + '/' + utcStamp(r.end, r.allDay) +
+      (inf.details ? '&details=' + encodeURIComponent(inf.details) : '') + (inf.place ? '&location=' + encodeURIComponent(inf.place) : '');
+  }
+  function icsText(cal, ctx) {
+    var r = calRange(cal), inf = calInfo(cal, ctx);
+    function e(v) { return String(v).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//13 MIRRORS//Vitrina//RU', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+      'UID:' + utcStamp(r.start) + '-' + Math.random().toString(36).slice(2, 10) + '@13mirrors.ru', 'DTSTAMP:' + utcStamp(new Date()),
+      r.allDay ? 'DTSTART;VALUE=DATE:' + utcStamp(r.start, true) : 'DTSTART:' + utcStamp(r.start),
+      r.allDay ? 'DTEND;VALUE=DATE:' + utcStamp(r.end, true) : 'DTEND:' + utcStamp(r.end),
+      'SUMMARY:' + e(inf.title)];
+    if (inf.place) L.push('LOCATION:' + e(inf.place));
+    if (inf.details) L.push('DESCRIPTION:' + e(inf.details));
+    L.push('BEGIN:VALARM', 'TRIGGER:-PT1H', 'ACTION:DISPLAY', 'DESCRIPTION:' + e(inf.title), 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR');
+    return L.join('\r\n');
+  }
+  var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  function calHuman(cal) {
+    var d = String(cal.date || '').split('-'), t = String(cal.time || '').trim();
+    return (+d[2]) + ' ' + MONTHS_GEN[+d[1] - 1] + (t ? ', ' + t + ' ' + (T('calendarMsk') || 'по Москве') : '');
+  }
+  function calModalHTML() {
+    return '<div class="m13-modal" id="m13-cal" role="dialog" aria-modal="true" aria-labelledby="m13-cal-t"><div class="m13-modal-box">' +
+      '<div class="m13-eyebrow" id="m13-cal-e"></div><h3 id="m13-cal-t"></h3><div class="m13-cal-when" id="m13-cal-w"></div>' +
+      '<div class="m13-channels m13-channels--col"><a class="m13-channel" id="m13-cal-g" target="_blank" rel="noopener"></a>' +
+      '<a class="m13-channel" id="m13-cal-i" download="13mirrors.ics"></a></div>' +
+      '<p class="m13-hint" id="m13-cal-h"></p><button type="button" class="m13-modal-close" id="m13-cal-x"></button></div></div>';
+  }
+  function openCalendar(cal, ctx) {
+    if (!calRange(cal)) return;
+    var q = function (id) { return S.root.querySelector(id); }, m = q('#m13-cal'), inf = calInfo(cal, ctx);
+    q('#m13-cal-e').textContent = T('calendarTitle') || 'Добавить в календарь';
+    q('#m13-cal-t').textContent = inf.title;
+    q('#m13-cal-w').textContent = calHuman(cal) + (inf.place ? ' · ' + inf.place : '');
+    var g = q('#m13-cal-g'); g.href = googleUrl(cal, ctx); g.textContent = T('calendarGoogle') || 'Google Календарь';
+    var i = q('#m13-cal-i'); i.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsText(cal, ctx));
+    i.textContent = T('calendarOther') || 'Apple или другой календарь';
+    q('#m13-cal-h').textContent = cal.time ? (T('calendarNote') || 'Время указано московское — календарь сам покажет его в вашем часовом поясе.') : '';
+    q('#m13-cal-x').textContent = T('close') || 'Закрыть';
+    if (!m._bound) {
+      m._bound = true;
+      m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
+      q('#m13-cal-x').addEventListener('click', closeTop);
+    }
+    m.classList.add('is-open');
+    pushLayer('calendar', function () { m.classList.remove('is-open'); });
+  }
+
+  /* ================= КАРТИНКА КРУПНО =================
+     Нажатие на картинку из галереи открывает её на весь экран; несколько — листаются пальцем или стрелками. */
+  var LB = { open: false, list: [], i: 0 };
+  function lightboxHTML() {
+    return '<div class="m13-lb" id="m13-lb" role="dialog" aria-modal="true" aria-label="Картинка">' +
+      '<img class="m13-lb-img" id="m13-lb-img" alt="">' +
+      '<button type="button" class="m13-lb-nav m13-lb-prev" id="m13-lb-prev" aria-label="Предыдущая">‹</button>' +
+      '<button type="button" class="m13-lb-nav m13-lb-next" id="m13-lb-next" aria-label="Следующая">›</button>' +
+      '<div class="m13-lb-count" id="m13-lb-count"></div>' +
+      '<button type="button" class="m13-lb-close" id="m13-lb-x" aria-label="Закрыть">×</button></div>';
+  }
+  function lbDraw() {
+    var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length;
+    q('#m13-lb-img').src = LB.list[LB.i];
+    q('#m13-lb-count').textContent = n > 1 ? (LB.i + 1) + ' / ' + n : '';
+    q('#m13-lb-prev').hidden = q('#m13-lb-next').hidden = n < 2;
+  }
+  function lbGo(d) {
+    var n = LB.list.length; if (n < 2) return;
+    LB.i = (LB.i + d + n) % n; lbDraw();
+  }
+  function openLightbox(g, i) {
+    var m = S.root.querySelector('#m13-lb'); if (!m || !S.lb || !S.lb[g]) return;
+    LB.list = S.lb[g]; LB.i = i || 0; LB.open = true;
+    if (!m._bound) {
+      m._bound = true;
+      m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
+      S.root.querySelector('#m13-lb-x').addEventListener('click', closeTop);
+      S.root.querySelector('#m13-lb-prev').addEventListener('click', function () { lbGo(-1); });
+      S.root.querySelector('#m13-lb-next').addEventListener('click', function () { lbGo(1); });
+      var x0 = null, y0 = null;
+      m.addEventListener('touchstart', function (e) { var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+      m.addEventListener('touchend', function (e) {
+        if (x0 == null) return;
+        var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) lbGo(dx < 0 ? 1 : -1);
+      });
+    }
+    lbDraw();
+    m.classList.add('is-open');
+    pushLayer('image', function () { m.classList.remove('is-open'); LB.open = false; });
+  }
+
+  /* ================= «ПОДЕЛИТЬСЯ» ================= */
+  // Ссылка ведёт прямо на карточку: постоянный адрес месяца + страница карточки.
+  function cardUrl() {
+    var sc = S.D.showcase || {}, id = S.card ? S.card.id : '';
+    var u = new URL(S.base + (sc.id ? sc.id + '/' : ''), location.href);
+    // У каждой карточки на сайте есть своя страница-превью (…/2026-10/sun/) — её и отправляем:
+    // Telegram и VK покажут картинку и название именно этой карточки, а человек попадёт сразу в неё.
+    return u.origin + u.pathname + (id && /^[\w-]+$/.test(id) ? id + '/' : id ? '#' + encodeURIComponent(id) : '');
+  }
+  function toast(msg) {
+    var t = S.root.querySelector('#m13-toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('is-on');
+    clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove('is-on'); }, 3200);
+  }
+  function shareCard(ctx) {
+    var url = cardUrl(), title = [(S.D.settings || {}).siteTitle || '13 MIRRORS', ctx.card].filter(Boolean).join(' · ');
+    if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      navigator.share({ title: title, url: url }).catch(function () {});
+      return;
+    }
+    toast(copyText(url) ? (T('shareCopied') || 'Ссылка на карточку скопирована — её можно отправить в чат.') : url);
   }
 
   /* ================= ВНУТРЕННИЕ СТРАНИЦЫ ================= */

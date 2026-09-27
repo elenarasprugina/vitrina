@@ -77,6 +77,7 @@ body.m13-locked{overflow:hidden}
 .m13-hero-status{margin-top:7px;color:#666;font-size:clamp(14px,2vw,17px)}
 .m13-flip-hint{align-self:flex-start;border:1px solid #d1d1d1;border-radius:999px;padding:7px 10px;color:#555;font-size:12px;background:#fff}
 .m13-back{transform:rotateY(180deg);padding:16px;background:var(--m13-back)}
+.m13-push{margin-top:auto}
 .m13-content{height:100%;display:flex;flex-direction:column;gap:8px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .m13-head{padding-bottom:6px;border-bottom:1px solid #ddd;padding-right:34px}
 .m13-eyebrow{margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#6e6e6e}
@@ -103,7 +104,7 @@ body.m13-locked{overflow:hidden}
 .m13-format-name{font-size:12px;font-weight:750;line-height:1.05}
 .m13-format-price{margin-top:6px;font-size:14px;font-weight:750;line-height:1.05}
 .m13-format-note{margin-top:5px;font-size:9px;line-height:1.12;color:#686868}
-.m13-soft{margin-top:auto;width:100%;border:1px solid #cfcfcf;border-radius:999px;padding:13px 12px;background:#fff;
+.m13-soft{width:100%;border:1px solid #cfcfcf;border-radius:999px;padding:13px 12px;background:#fff;
   text-align:center;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0}
 
 /* Контейнер (встречи, индивидуальная работа) */
@@ -135,7 +136,7 @@ body.m13-locked{overflow:hidden}
 .m13-dates-note{margin-top:6px;font-size:11.5px;line-height:1.35;color:#555}
 .m13-gallery{display:flex;gap:6px;overflow-x:auto;flex-shrink:0}
 .m13-gallery img{height:84px;width:auto;border-radius:10px;border:1px solid #ddd;display:block}
-.m13-actions{margin-top:auto;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.m13-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
 .m13-action{width:100%;border:1px solid #ccc;border-radius:999px;padding:13px 12px;background:#fff;text-align:center;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:block}
 .m13-action--primary{border-color:#232323;background:#232323;color:#fff !important}
 
@@ -252,18 +253,128 @@ body.m13-locked{overflow:hidden}
 .m13-styled .m13-hero-type,.m13-styled .m13-hero-date,.m13-styled .m13-hero-status{color:inherit;opacity:.85}
 .m13-styled .m13-mini-cta,.m13-styled .m13-flip-hint{border-color:currentColor;background:transparent;color:inherit}
 
-/* Свечение вокруг карточки */
-.m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 0 18px 3px var(--m13-glow)}
+/* Свечение вокруг карточки.
+   Размер умножается на --m13-gk (сила), сдвиг по вертикали — --m13-gy (направление),
+   при направленном свечении свет «поджимается» (--m13-gsp:-1), чтобы он шёл только с одной стороны. */
+.m13-thumb,.m13-big-stage{--m13-gk:1;--m13-gy:0;--m13-gsp:1}
+/* Светящаяся карточка — поверх соседей, иначе свет уходит под те, что стоят после неё */
+.m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-live{z-index:1}
+.m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 calc(var(--m13-gy)*11px*var(--m13-gk)) calc(18px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
 .m13-thumb.m13-glow-live{animation:m13-glow 3.6s ease-in-out infinite alternate}
-.m13-big-stage.m13-glow-soft .m13-face{box-shadow:0 0 44px 8px var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
+.m13-big-stage.m13-glow-soft .m13-face{box-shadow:0 calc(var(--m13-gy)*26px*var(--m13-gk)) calc(44px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
 .m13-big-stage.m13-glow-live .m13-face{animation:m13-glow-big 3.6s ease-in-out infinite alternate}
-@keyframes m13-glow{from{box-shadow:0 0 6px 0 var(--m13-glow)}to{box-shadow:0 0 24px 6px var(--m13-glow)}}
-@keyframes m13-glow-big{from{box-shadow:0 0 14px 2px var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}to{box-shadow:0 0 56px 12px var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}}
+@keyframes m13-glow{
+  from{box-shadow:0 calc(var(--m13-gy)*5px*var(--m13-gk)) calc(6px*var(--m13-gk)) calc(0px - var(--m13-gy)*var(--m13-gy)*2px) var(--m13-glow)}
+  to{box-shadow:0 calc(var(--m13-gy)*14px*var(--m13-gk)) calc(24px*var(--m13-gk)) calc(6px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}}
+@keyframes m13-glow-big{
+  from{box-shadow:0 calc(var(--m13-gy)*10px*var(--m13-gk)) calc(14px*var(--m13-gk)) calc(2px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
+  to{box-shadow:0 calc(var(--m13-gy)*32px*var(--m13-gk)) calc(56px*var(--m13-gk)) calc(12px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}}
 @media (max-width:680px){
-  .m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 0 11px 2px var(--m13-glow)}
-  @keyframes m13-glow{from{box-shadow:0 0 3px 0 var(--m13-glow)}to{box-shadow:0 0 14px 3px var(--m13-glow)}}
+  .m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 calc(var(--m13-gy)*7px*var(--m13-gk)) calc(11px*var(--m13-gk)) calc(2px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
+  @keyframes m13-glow{
+    from{box-shadow:0 calc(var(--m13-gy)*3px*var(--m13-gk)) calc(3px*var(--m13-gk)) calc(0px - var(--m13-gy)*var(--m13-gy)*1px) var(--m13-glow)}
+    to{box-shadow:0 calc(var(--m13-gy)*8px*var(--m13-gk)) calc(14px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}}
 }
 @media (prefers-reduced-motion:reduce){
-  .m13-thumb.m13-glow-live{animation:none;box-shadow:0 0 16px 3px var(--m13-glow)}
-  .m13-big-stage.m13-glow-live .m13-face{animation:none;box-shadow:0 0 40px 8px var(--m13-glow)}
+  .m13-thumb.m13-glow-live{animation:none;box-shadow:0 calc(var(--m13-gy)*10px*var(--m13-gk)) calc(16px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
+  .m13-big-stage.m13-glow-live .m13-face{animation:none;box-shadow:0 calc(var(--m13-gy)*24px*var(--m13-gk)) calc(40px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
 }
+
+/* Метка «идёт сейчас» по датам — с маленькой мерцающей точкой */
+.m13-phase--during::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px;animation:m13-dot 1.8s ease-in-out infinite}
+@keyframes m13-dot{50%{opacity:.25}}
+@media (max-width:680px){.m13-phase--during::before{width:4px;height:4px;margin-right:3px}}
+@media (prefers-reduced-motion:reduce){.m13-phase--during::before{animation:none}}
+
+/* Статус-плашка */
+.m13-status-pill > span{display:inline-block;border:1px solid currentColor;border-radius:999px;padding:2px 8px;line-height:1.3}
+.m13-mini-status.m13-status-pill{margin-top:6px}
+.m13-hero-status.m13-status-pill > span{padding:3px 11px}
+.m13-meta .m13-status-pill > span{padding:1px 7px}
+@media (max-width:680px){.m13-mini-status.m13-status-pill > span{padding:1px 5px}}
+
+/* Акцентный цвет карточки: рамка, главные кнопки, счётчик дня, статус-плашка, подсветка плашек */
+.m13-thumb.m13-accent{border-color:color-mix(in srgb,var(--m13-ac) 60%,#d8d8d8)}
+.m13-accent .m13-mini-cta,.m13-accent .m13-flip-hint,.m13-accent .m13-day{border-color:var(--m13-ac)}
+.m13-big-card.m13-accent .m13-face{border-color:color-mix(in srgb,var(--m13-ac) 65%,#bdbdbd)}
+.m13-accent .m13-go,.m13-accent .m13-action--primary{background:var(--m13-ac);border-color:var(--m13-ac);color:var(--m13-ac-ink) !important}
+.m13-accent .m13-format:not(.is-closed):hover,.m13-accent .m13-item:hover,.m13-accent .m13-action:hover{border-color:var(--m13-ac)}
+.m13-accent .m13-status-pill > span{border-color:var(--m13-ac);background:color-mix(in srgb,var(--m13-ac) 14%,transparent)}
+.m13-accent .m13-head{border-bottom-color:color-mix(in srgb,var(--m13-ac) 45%,#e0e0e0)}
+
+/* Кнопки: три-четыре — сеткой 2×2 */
+.m13-actions--grid{display:grid;grid-template-columns:1fr 1fr}
+.m13-actions--grid .m13-action{padding-left:8px;padding-right:8px}
+.m13-actions--grid .m13-action--primary:nth-child(1):nth-last-child(odd){grid-column:1 / -1}
+
+/* Плашка с кнопкой «в календарь» */
+.m13-item--cal{display:flex;flex-direction:column}
+.m13-item--cal:focus-visible{outline:2px solid #232323;outline-offset:2px}
+.m13-item-acts{margin-top:auto;padding-top:7px;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.m13-item-acts .m13-item-action{margin:0;padding:0}
+.m13-item-cal{border:1px solid #cfcfcf;border-radius:999px;background:#fff;padding:3px 8px;font-size:10px;cursor:pointer;white-space:nowrap}
+.m13-item-cal:hover{border-color:#232323}
+.m13-accent .m13-item-cal{border-color:var(--m13-ac)}
+.m13-items--one .m13-item--cal{display:grid}
+.m13-items--one .m13-item--cal .m13-item-acts{grid-column:1 / -1}
+
+/* Окно «Добавить в календарь» */
+.m13-channels--col{grid-template-columns:1fr}
+.m13-channels a.m13-channel{display:block;text-align:center;text-decoration:none}
+.m13-channels--col a.m13-channel + a.m13-channel{background:#fff;color:#232323 !important}
+.m13-cal-when{font-size:14px;color:#444;margin-top:-4px}
+
+/* Короткое сообщение внизу экрана («ссылка скопирована») */
+.m13-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);z-index:700;max-width:calc(100% - 32px);
+  background:#232323;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.35;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.m13-toast.is-on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:680px){ .m13-item-cal{font-size:8.5px;padding:2px 6px} }
+
+/* Факты — маленькие плашки в строку */
+.m13-facts{display:flex;flex-wrap:wrap;gap:5px}
+.m13-fact{border:1px solid #d2d2d2;border-radius:999px;background:#fff;padding:4px 10px;font-size:12px;line-height:1.25;color:#333}
+.m13-accent .m13-fact{border-color:color-mix(in srgb,var(--m13-ac) 55%,#d2d2d2)}
+@media (max-width:680px){.m13-fact{font-size:10px;padding:3px 8px}}
+
+/* Подробнее ↓ */
+.m13-more > summary{list-style:none;cursor:pointer;display:inline-block;font-size:12px;font-weight:600;border-bottom:1px solid currentColor;padding-bottom:1px}
+.m13-more > summary::-webkit-details-marker{display:none}
+.m13-more .m13-more-close,.m13-more[open] .m13-more-open{display:none}
+.m13-more[open] .m13-more-close{display:inline}
+.m13-more-text{margin-top:6px;font-size:12px;line-height:1.35;color:#444}
+.m13-accent .m13-more > summary{color:var(--m13-ac)}
+@media (max-width:680px){.m13-more > summary{font-size:10.8px}.m13-more-text{font-size:10.8px;line-height:1.28}}
+
+/* Положение текста на лицевой стороне: сверху (обычно) / по центру / снизу; выравнивание: слева / по центру */
+.m13-thumb.m13-pos-top{justify-content:space-between}
+.m13-thumb.m13-pos-center{justify-content:flex-start}
+.m13-thumb.m13-pos-center .m13-thumb-text{margin:auto 0}
+.m13-thumb.m13-pos-bottom{justify-content:flex-end;gap:8px}
+.m13-thumb--static.m13-pos-center .m13-thumb-text{margin:0}
+.m13-thumb--static.m13-pos-center{justify-content:center}
+.m13-thumb.m13-align-left{align-items:flex-start;text-align:left}
+.m13-thumb.m13-align-center{align-items:center;text-align:center}
+.m13-front.m13-pos-center > div:first-child{margin:auto 0}
+.m13-front.m13-pos-bottom{justify-content:flex-end;gap:16px}
+.m13-front.m13-align-center{text-align:center}
+.m13-front.m13-align-center .m13-flip-hint{align-self:center}
+@media (max-width:680px){.m13-thumb.m13-pos-bottom{gap:5px}}
+/* Текст по центру картинки — дымка ровная, чтобы середина не оставалась светлой/тёмной */
+.m13-thumb--img.m13-pos-center.m13-ov-dark::after,.m13-front--img.m13-pos-center.m13-ov-dark::after{background:rgba(0,0,0,.42)}
+.m13-thumb--img.m13-pos-center.m13-ov-light::after,.m13-front--img.m13-pos-center.m13-ov-light::after{background:rgba(255,255,255,.66)}
+
+/* Картинка из галереи — крупно */
+.m13-gallery-item{padding:0;border:0;background:none;cursor:zoom-in;flex-shrink:0;border-radius:10px}
+.m13-lb{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;background:rgba(12,12,12,.92);
+  padding:max(16px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom))}
+.m13-lb.is-open{display:flex}
+.m13-lb-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5);user-select:none;-webkit-user-drag:none}
+.m13-lb-close,.m13-lb-nav{position:absolute;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#222;cursor:pointer;
+  width:44px;height:44px;display:grid;place-items:center;font-size:28px;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.m13-lb-close{top:max(14px,env(safe-area-inset-top));right:14px;font-size:26px}
+.m13-lb-prev{left:10px;top:50%;transform:translateY(-50%)}
+.m13-lb-next{right:10px;top:50%;transform:translateY(-50%)}
+.m13-lb-nav[hidden]{display:none}
+.m13-lb-count{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);color:#fff;font-size:13px;letter-spacing:.05em;opacity:.85}
+@media (max-width:680px){.m13-lb-nav{width:38px;height:38px;font-size:24px;background:rgba(255,255,255,.75)}}
