@@ -1000,34 +1000,73 @@
   }
 
   /* ================= ПРЕДПРОСМОТР ================= */
+  // Два режима: во всё окно и «Как на телефоне». Для телефона витрина рисуется во встроенном окне (iframe)
+  // шириной 375 px: у него своя ширина экрана, поэтому включается настоящая мобильная раскладка.
+  var PHONE = { w: 375 }, pvPhone = false;
+  function canPhone() { return window.innerWidth >= 600; }
+  function previewData(showcaseId) {
+    return { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection,
+      index: DATA.index, showcase: DATA.showcases[showcaseId] };
+  }
+  // Окно-«телефон»: пишем в пустой iframe страницу с тем же рендерером и ждём, пока он загрузится.
+  // Вызывать, когда iframe уже вставлен в страницу.
+  function fillPhone(fr, onReady) {
+    var d = fr.contentDocument, base = location.href.replace(/[#?].*$/, '');
+    d.open();
+    d.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><base href="' + base + '">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="../assets/vitrina.css"></head>' +
+      '<body class="m13-body"><div id="m13"></div><script src="../assets/vitrina.js"><\/script></body></html>');
+    d.close();
+    var w = fr.contentWindow, tries = 0;
+    (function wait() {
+      if (w.M13 && w.M13.mount) onReady(w, w.document.getElementById('m13'));
+      else if (++tries < 300) setTimeout(wait, 30);
+      else toast('Не получилось показать витрину в режиме телефона. Обновите страницу.', true);
+    })();
+  }
   function openPreview(view, showcaseId, cardId) {
     if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
-    var mount = el('div');
+    var cur = view, M = null, mount = null;
     function go(v) {
+      cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
-      window.M13.mount(mount, {
-        base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); },
-        data: { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection,
-          index: DATA.index, showcase: DATA.showcases[showcaseId] }
-      }).then(function () { if (cardId && v === 'showcase') { window.M13.openCard(cardId, true); cardId = null; } });
+      M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId) })
+        .then(function () { if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; } });
       pv.scrollTop = 0;
     }
+    function build() {
+      var usePhone = pvPhone && canPhone();
+      pv.classList.toggle('is-phone', usePhone);
+      phoneBtn.textContent = usePhone ? '🖥 Как на компьютере' : '📱 Как на телефоне';
+      if (usePhone) {
+        var fr = el('iframe', { class: 'a-phone-screen', title: 'Витрина на экране телефона', style: 'width:' + PHONE.w + 'px' });
+        pv.replaceChildren(el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr),
+          el('p', { class: 'a-phone-note', text: 'Экран ' + PHONE.w + ' px — как у обычного телефона. Внутри можно нажимать и листать.' })]), bar);
+        fillPhone(fr, function (w, m) { M = w.M13; mount = m; go(cur); });
+      } else {
+        mount = el('div'); M = window.M13;
+        pv.replaceChildren(mount, bar);
+        go(cur);
+      }
+    }
+    var phoneBtn = el('button', { type: 'button', class: 'a-pphone', onclick: function () {
+      pvPhone = !pvPhone; document.body.classList.remove('m13-locked'); build(); } });
     var bar = el('div', { class: 'a-pbar' }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: closePreview }),
       el('button', { type: 'button', 'data-v': 'showcase', text: 'Витрина', onclick: function () { go('showcase'); } }),
       el('button', { type: 'button', 'data-v': 'sandbox', text: 'Песочница', onclick: function () { go('sandbox'); } }),
-      el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } })
+      el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
+      canPhone() ? phoneBtn : null
     ]);
-    pv.replaceChildren(mount, bar);
     pv.classList.add('is-open');
     document.body.style.overflow = 'hidden';
-    go(view);
+    build();
   }
   function closePreview() {
     var pv = document.getElementById('a-preview');
-    pv.classList.remove('is-open'); pv.replaceChildren();
+    pv.classList.remove('is-open', 'is-phone'); pv.replaceChildren();
     document.body.style.overflow = ''; document.body.classList.remove('m13-locked');
   }
 

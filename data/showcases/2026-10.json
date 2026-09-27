@@ -104,6 +104,11 @@
         "foot": {
           "value": "3 формата",
           "show": true
+        },
+        "style": {
+          "glow": "soft",
+          "glowStrength": "medium",
+          "glowDir": "bottom"
         }
       },
       "back": {
@@ -281,6 +286,11 @@
         "foot": {
           "value": "",
           "show": false
+        },
+        "style": {
+          "glow": "live",
+          "glowStrength": "strong",
+          "glowDir": "around"
         }
       },
       "back": {
