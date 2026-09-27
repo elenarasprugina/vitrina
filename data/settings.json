@@ -1,6 +1,12 @@
 {
   "siteTitle": "13 MIRRORS",
   "currentShowcase": "2026-10",
+  "siteUrl": "https://13mirrors.ru/vitrina/",
+  "share": {
+    "title": "",
+    "description": "Маршруты, встречи и продукты проекта 13 MIRRORS — каждый месяц на одной странице.",
+    "image": null
+  },
   "contacts": {
     "telegram": "",
     "vk": ""

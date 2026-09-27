@@ -203,14 +203,24 @@
     ];
   }
 
-  function compressImage(file, max) {
+  // crop: [ширина, высота] — обрезать по центру ровно под этот размер и сохранить в JPEG
+  // (так нужно для превью ссылок: Telegram и VK надёжно понимают только JPEG/PNG).
+  function compressImage(file, max, crop) {
     max = max || 1600;
     return new Promise(function (res, rej) {
       var url = URL.createObjectURL(file), img = new Image();
       img.onload = function () {
-        var w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+        var iw = img.naturalWidth, ih = img.naturalHeight, c = document.createElement('canvas');
+        if (crop) {
+          var k2 = Math.max(crop[0] / iw, crop[1] / ih), sw = crop[0] / k2, sh = crop[1] / k2;
+          c.width = crop[0]; c.height = crop[1];
+          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, crop[0], crop[1]);
+          g.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, crop[0], crop[1]);
+          URL.revokeObjectURL(url); return res(c.toDataURL('image/jpeg', 0.86));
+        }
+        var w = iw, h = ih, k = Math.min(1, max / Math.max(w, h));
         w = Math.round(w * k); h = Math.round(h * k);
-        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
         var d = c.toDataURL('image/webp', 0.82);
         if (d.indexOf('data:image/webp') !== 0) d = c.toDataURL('image/jpeg', 0.85);
@@ -229,13 +239,13 @@
       var file = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
-        compressImage(f).then(function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); })
+        compressImage(f, null, o.crop).then(function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); })
           .catch(function () { toast('Не получилось открыть эту картинку. Попробуйте файл JPG или PNG.', true); });
       });
       box.replaceChildren();
       add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
         el('div', { class: 'a-img' }, [
-          el('div', { class: 'a-img-thumb', style: v ? "background-image:url('" + imgSrc(v) + "')" : null, text: v ? '' : 'нет' }),
+          el('div', { class: 'a-img-thumb' + (o.crop ? ' a-img-thumb--wide' : ''), style: v ? "background-image:url('" + imgSrc(v) + "')" : null, text: v ? '' : 'нет' }),
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить картинку' : 'Загрузить картинку', onclick: function () { file.click(); } }),
           v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать', onclick: function () { obj[key] = null; changed(); draw(); if (o.onChange) o.onChange(); } }) : null,
           file]),
@@ -508,9 +518,101 @@
         el('p', { class: 'a-hint', text: 'Задаётся один раз для всего месяца. У любой карточки можно поменять отдельно — в её форме, раздел «Оформление».' })
       ].concat(styleFields(sc.cardStyle = sc.cardStyle || {}, false, function () { drawGrid(); })),
         { open: false, note: 'фон, общий текст, шрифт, свечение' }),
+      shareBlock(sc),
       wrap
     ];
   }
+
+  /* ---------- Превью ссылки в Telegram и VK ---------- */
+  // Мессенджеры не запускают скрипты страницы: они читают только теги <meta> в самом HTML-файле.
+  // Поэтому данные хранятся в JSON (share), а при публикации из них заново собираются HTML-файлы страниц.
+  var SHARE_SIZE = [1200, 630];
+  function siteUrl() {
+    var u = String(DATA.settings.siteUrl || 'https://13mirrors.ru/vitrina/').trim();
+    return u.slice(-1) === '/' ? u : u + '/';
+  }
+  // Итоговые картинка и подписи: своё у месяца, иначе — общее из «Настроек».
+  function shareOf(sc) {
+    var st = DATA.settings, def = st.share || {}, own = (sc && sc.share) || {};
+    return {
+      title: String(own.title || '').trim() || (sc ? (st.siteTitle || '13 MIRRORS') + ' · ' + sc.title : String(def.title || '').trim() || st.siteTitle || '13 MIRRORS'),
+      description: String(own.description || '').trim() || String(def.description || '').trim(),
+      image: own.image || def.image || null
+    };
+  }
+  function shareMock(sh) {
+    return el('div', { class: 'a-share-mock' }, [
+      el('div', { class: 'a-share-bubble' }, [
+        el('div', { class: 'a-share-link', text: siteUrl().replace(/^https?:\/\//, '') }),
+        el('div', { class: 'a-share-site', text: DATA.settings.siteTitle || '13 MIRRORS' }),
+        el('div', { class: 'a-share-title', text: sh.title }),
+        sh.description ? el('div', { class: 'a-share-desc', text: sh.description }) : null,
+        sh.image ? el('div', { class: 'a-share-img', style: "background-image:url('" + imgSrc(sh.image) + "')" })
+          : el('div', { class: 'a-share-noimg', text: 'Без картинки превью будет только текстовым.' })
+      ])
+    ]);
+  }
+  function shareFields(obj, o) {
+    var mockBox = el('div');
+    function drawMock() { mockBox.replaceChildren(shareMock(o.resolve())); }
+    var fields = el('div', { class: 'a-share-fields' }, [
+      imageIn(obj, 'image', 'Картинка', { crop: SHARE_SIZE, onChange: drawMock,
+        hint: 'Лучше горизонтальная. Обрежется по центру до размера 1200×630 — так её показывают Telegram и VK.' }),
+      textIn(obj, 'title', 'Заголовок', { ph: o.titlePh, hint: 'Коротко, до 60 знаков. ' + (o.titleHint || '') }),
+      textIn(obj, 'description', 'Подпись', { multi: true, rows: 3, ph: o.descPh, hint: 'Одно-два предложения, до 160 знаков — длиннее обрежется.' })
+    ]);
+    fields.addEventListener('input', drawMock);
+    drawMock();
+    return el('div', { class: 'a-share' }, [fields, el('div', {}, [el('span', { class: 'a-label', text: 'Так примерно будет выглядеть в Telegram' }), mockBox])]);
+  }
+  function shareBlock(sc) {
+    var def = DATA.settings.share || {};
+    return block('Превью ссылки в Telegram и VK', [
+      el('p', { class: 'a-hint', text: 'Когда кто-то отправляет ссылку на эту витрину, мессенджер показывает под ней картинку, заголовок и подпись. Пустые поля берутся из раздела «Настройки».' }),
+      shareFields(sc.share = sc.share || { title: '', description: '', image: null }, {
+        resolve: function () { return shareOf(sc); },
+        titlePh: (DATA.settings.siteTitle || '13 MIRRORS') + ' · ' + sc.title,
+        titleHint: 'Если оставить пустым — будет «' + (DATA.settings.siteTitle || '13 MIRRORS') + ' · ' + sc.title + '».',
+        descPh: def.description || ''
+      }),
+      el('p', { class: 'a-hint', text: 'Изменения появятся в мессенджерах после публикации. Telegram и VK запоминают превью на несколько дней: если ссылку уже кто-то отправлял, старое превью может держаться какое-то время.' })
+    ], { open: false, note: 'картинка и подпись, когда ссылкой делятся' });
+  }
+
+  // HTML-файл страницы с тегами превью. Вызывается при публикации (этап 3) для уже очищенных данных:
+  // картинки к этому моменту — файлы media/…, а не data:.
+  // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'sandbox', 'reflection'.
+  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение' };
+  function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
+  function pageHTML(kind, id) {
+    var st = DATA.settings, site = st.siteTitle || '13 MIRRORS';
+    var isMonth = kind === 'main' || kind === 'month';
+    var sc = isMonth ? DATA.showcases[kind === 'main' ? st.currentShowcase : id] : null;
+    var sh = shareOf(sc), base = kind === 'main' ? './' : '../';
+    var url = siteUrl() + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
+    var title = site + ' · ' + (sc ? sc.title : PAGE_TITLES[kind] || '');
+    if (!sc && !String((st.share || {}).title || '').trim()) sh.title = title;
+    var img = sh.image && !/^(data:|blob:)/.test(sh.image) ? (/^https?:/.test(sh.image) ? sh.image : siteUrl() + sh.image) : '';
+    var m = ['<meta property="og:type" content="website">',
+      '<meta property="og:site_name" content="' + escAttr(site) + '">',
+      '<meta property="og:url" content="' + escAttr(url) + '">',
+      '<meta property="og:title" content="' + escAttr(sh.title) + '">'];
+    if (sh.description) {
+      m.unshift('<meta name="description" content="' + escAttr(sh.description) + '">');
+      m.push('<meta property="og:description" content="' + escAttr(sh.description) + '">');
+    }
+    if (img) m.push('<meta property="og:image" content="' + escAttr(img) + '">',
+      '<meta property="og:image:width" content="' + SHARE_SIZE[0] + '">', '<meta property="og:image:height" content="' + SHARE_SIZE[1] + '">',
+      '<meta property="vk:image" content="' + escAttr(img) + '">',
+      '<meta name="twitter:card" content="summary_large_image">');
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+      '<title>' + escAttr(title) + '</title>\n' + m.join('\n') + '\n' +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css">\n</head>\n<body class="m13-body">\n' +
+      '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
+      '<script src="' + base + 'assets/vitrina.js"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+  }
+  window.M13_ADMIN = { pageHTML: pageHTML };
 
   /* ---------- Форма карточки ---------- */
   function defaultBack(type) {
@@ -859,6 +961,14 @@
           textIn(st.contacts, 'telegram', 'Telegram', { ph: 'имя пользователя без @', hint: 'Например: elena_13mirrors или ссылка t.me/…' }),
           textIn(st.contacts, 'vk', 'VK', { ph: 'короткий адрес страницы', hint: 'Например: id12345678 или имя из адреса vk.com/…' })])
       ]),
+      block('Превью ссылки по умолчанию', [
+        el('p', { class: 'a-hint', text: 'Картинка и подпись, которые Telegram и VK показывают под ссылкой. Используются для Песочницы, страницы примеров и для месяцев, у которых не задано своё превью.' }),
+        shareFields(st.share = st.share || { title: '', description: '', image: null }, {
+          resolve: function () { return shareOf(null); }, titlePh: st.siteTitle || '13 MIRRORS',
+          titleHint: 'Если оставить пустым — будет название страницы.'
+        }),
+        textIn(st, 'siteUrl', 'Адрес витрины в интернете', { ph: 'https://13mirrors.ru/vitrina/', hint: 'Нужен мессенджерам, чтобы найти картинку. Менять не нужно.' })
+      ], { open: false, note: 'для Песочницы, примеров и месяцев без своего превью' }),
       block('Форматы участия в маршрутах', DATA.formats.formats.map(function (fm) {
         return el('div', { class: 'a-row3' }, [textIn(fm, 'title', 'Название'), textIn(fm, 'price', 'Цена по умолчанию'), optIn(fm, 'note', 'Подпись')]);
       }).concat([el('p', { class: 'a-hint', text: 'В каждой маршрутной карточке цену можно переопределить.' })]), { open: false }),
