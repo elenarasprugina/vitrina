@@ -605,3 +605,24 @@ body.m13-locked{overflow:hidden}
 
 /* Градиент на кнопке тянется и под рамку — иначе у края видна тонкая полоска другого конца градиента */
 .m13 .m13-big-card[class*="m13-btn-"] :is(.m13-go,.m13-action){background-origin:border-box}
+
+/* ================= Песочница: текст с разметкой, «Мысль дня», вводный текст вкладки ================= */
+.m13 .m13-rich p{margin:0 0 .7em}
+.m13 .m13-rich p:last-child,.m13 .m13-rich ul:last-child{margin-bottom:0}
+.m13 .m13-rich ul{margin:.2em 0 .7em;padding-left:1.25em}
+.m13-rich li{margin:.15em 0}
+.m13-standalone .m13-block .m13-rich :is(p,ul){font-size:calc(16px * var(--m13-tk,1));line-height:1.6}
+.m13-standalone .m13-practice .m13-rich :is(p,ul){font-size:inherit;line-height:inherit}
+.m13-thought .m13-rich{font-style:italic}
+.m13-standalone .m13-thought .m13-rich p{font-size:calc(18px * var(--m13-tk,1))}
+.m13-practices--one{grid-template-columns:1fr}
+.m13-sb-intro{grid-column:1 / -1;padding:16px 18px;border:1px solid var(--m13-line);border-radius:16px;background:#fff;color:#4e4e4e}
+.m13-standalone .m13-sb-intro p{font-size:calc(15.5px * var(--m13-tk,1));line-height:1.6}
+.m13-look .m13-sb-intro{background:var(--lk-pan);border-color:var(--lk-line);color:var(--lk-soft);-webkit-backdrop-filter:blur(var(--m13-gb,8px));backdrop-filter:blur(var(--m13-gb,8px))}
+.m13-look .m13-rich li{color:var(--lk-soft)}
+.m13-look .m13-rich strong{color:var(--lk-tx)}
+@media (max-width:680px){ .m13-sb.is-detail .m13-sb-intro{display:none} .m13-sb-intro{padding:13px 14px} }
+/* Заголовок страницы стоит на картинке — у него может быть свой цвет (как надписи над сеткой витрины) */
+.m13-look .m13-ihead{color:var(--lk-hd,var(--lk-tx))}
+.m13-look .m13-ihead :is(p,.m13-eyebrow,.m13-notice){color:color-mix(in srgb,var(--lk-hd,var(--lk-tx)) 82%,transparent)}
+.m13-look .m13-ihead .m13-notice{border-color:color-mix(in srgb,var(--lk-hd,var(--lk-tx)) 35%,transparent)}

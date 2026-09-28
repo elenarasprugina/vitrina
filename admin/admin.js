@@ -1374,8 +1374,11 @@
       var cs = sc.cardStyle || {}, bg = clone(sc.background || {});
       // Здесь много текста: фон чуть темнее, панели плотнее, чем карточки витрины
       if (bg.image) bg.dim = Math.max(+bg.dim || 0, 50);
-      sb.look = { background: bg, font: cs.font || '', textColor: cs.textColor || '', accent: cs.accent || (sc.head || {}).color || '',
-        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8, textSize: cs.font === 'Cormorant Garamond' ? 'lg' : 'md' };
+      // Панели — цветом оборота карточек, текст в них — цветом текста оборота (пусто — подберётся по панели);
+      // заголовок стоит на картинке — цветом надписей над сеткой витрины
+      sb.look = { background: bg, font: cs.font || '', textColor: cs.backText || '', headColor: (sc.head || {}).color || cs.textColor || '',
+        accent: cs.accent || (sc.head || {}).color || '', panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8,
+        textSize: cs.font === 'Cormorant Garamond' ? 'lg' : 'md' };
       toast('Оформление взято у витрины «' + (sc.title || id) + '». Можно подправить ниже.');
       redraw();
     }
@@ -1400,7 +1403,8 @@
         selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
           hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
       el('div', { class: 'a-row' }, [
-        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' }), el('span')]),
+        colorOptIn(lk, 'textColor', 'Цвет текста в панелях', { none: 'подберётся сам', pick: '#efe4d2' }),
+        colorOptIn(lk, 'headColor', 'Цвет заголовка страницы', { none: 'как текст', pick: '#ecd3a3', hint: 'Заголовок и вступление стоят прямо на фоне.' })]),
       el('div', { class: 'a-row' }, [
         colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
         colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
@@ -1410,8 +1414,11 @@
     ];
   }
 
+  var SB_LABELS = { meaning: 'Смысл дня', thought: 'Мысль дня', question: 'Вопрос дня', trace: 'Твой след' };
+  function sbLabel(k) { var l = ((DATA.sandbox || {}).labels || {})[k]; return (l && String(l).trim()) || SB_LABELS[k]; }
   function viewSandbox() {
     var sb = DATA.sandbox;
+    sb.intros = sb.intros || {};
     sb.tabs = sb.tabs || { days: 'Примеры дней', chronicles: 'Что остаётся', reviews: 'Отзывы' };
     sb.labels = sb.labels || {};
     var t = ST.sbTab;
@@ -1427,10 +1434,13 @@
           el('div', { class: 'a-row' }, [selectIn(x, 'routeId', 'Маршрут', routeOptions()), textIn(x, 'day', 'Номер дня', { type: 'number' })]),
           el('div', { class: 'a-row3' }, [optIn(x, 'kin', 'Кин'), optIn(x, 'tone', 'Тон'), optIn(x, 'seal', 'Печать')]),
           textIn(x, 'title', 'Заголовок'),
-          textIn(x, 'meaning', 'Смысл дня', { multi: true, rows: 4 }),
-          textIn(x, 'question', 'Вопрос дня', { multi: true, rows: 2 }),
-          el('div', { class: 'a-row' }, [textIn(x.practices, 0, 'Практика 1', { multi: true }), textIn(x.practices, 1, 'Практика 2', { multi: true })]),
-          textIn(x, 'trace', '«Твой след»', { multi: true, rows: 2 }),
+          el('p', { class: 'a-hint', text: 'В текстах: пустая строка — новый абзац, **жирный**, *курсив*, строка с «- » в начале — пункт списка. Пустые поля на странице не показываются.' }),
+          textIn(x, 'meaning', sbLabel('meaning'), { multi: true, rows: 5 }),
+          textIn(x, 'thought', sbLabel('thought'), { multi: true, rows: 2 }),
+          textIn(x, 'question', sbLabel('question'), { multi: true, rows: 2 }),
+          el('div', { class: 'a-row' }, [textIn(x.practices, 0, 'Практика 1', { multi: true, rows: 6 }), textIn(x.practices, 1, 'Практика 2', { multi: true, rows: 6 })]),
+          textIn(x.practices, 2, 'Практика 3 (необязательно)', { multi: true, rows: 4 }),
+          textIn(x, 'trace', sbLabel('trace'), { multi: true, rows: 2 }),
           imageIn(x, 'image', 'Картинка (необязательно)')
         ];
       } });
@@ -1440,7 +1450,7 @@
       addLabel: '+ Добавить Летопись',
       body: function (x) { return [
         el('div', { class: 'a-row' }, [textIn(x, 'name', 'Название или номер'), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
-        textIn(x, 'note', 'Краткое пояснение', { multi: true, rows: 2 }),
+        textIn(x, 'note', 'Краткое пояснение', { multi: true, rows: 2, hint: 'Необязательно. Пусто — в списке слева покажется начало фрагмента.' }),
         textIn(x, 'fragment', 'Фрагмент Летописи', { multi: true, rows: 5 }),
         textIn(x, 'lens', '«Линза 13 MIRRORS»', { multi: true, rows: 3 }),
         imageIn(x, 'image', 'Картинка (необязательно)')]; } });
@@ -1472,10 +1482,15 @@
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),
         sub('Названия вкладок'),
         el('div', { class: 'a-row3' }, [textIn(sb.tabs, 'days', 'Дни'), textIn(sb.tabs, 'chronicles', 'Летописи'), textIn(sb.tabs, 'reviews', 'Отзывы')]),
+        sub('Вводный текст вкладки (над списком; пусто — без него)'),
+        el('div', { class: 'a-row3' }, [textIn(sb.intros, 'days', 'Дни', { multi: true, rows: 3 }), textIn(sb.intros, 'chronicles', 'Летописи', { multi: true, rows: 3 }), textIn(sb.intros, 'reviews', 'Отзывы', { multi: true, rows: 3 })]),
+        el('p', { class: 'a-hint', text: 'Вкладка пропадает со страницы сама, если в ней нет ни одного видимого примера.' }),
         sub('Подписи разделов внутри примеров'),
         el('div', { class: 'a-row' }, [
           textIn(sb.labels, 'day', 'День', { ph: 'День {n}', hint: '{n} заменится на номер дня' }), textIn(sb.labels, 'meaning', 'Смысл дня'),
+          textIn(sb.labels, 'thought', 'Мысль дня'),
           textIn(sb.labels, 'question', 'Вопрос дня'), textIn(sb.labels, 'practice', 'Практика', { ph: 'Практика {n}' }),
+          textIn(sb.labels, 'practiceOne', 'Практика (если одна)', { ph: 'Практика' }),
           textIn(sb.labels, 'trace', 'Твой след'), textIn(sb.labels, 'fragment', 'Фрагмент Летописи'),
           textIn(sb.labels, 'lens', 'Линза 13 MIRRORS'), textIn(sb.labels, 'review', 'Отзыв')]),
         textIn(sb, 'signatureText', 'Текст подписи под отзывом', { multi: true, rows: 2 })
