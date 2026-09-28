@@ -395,6 +395,8 @@
     } catch (e) {}
     return false;
   }
+  // Метка версии для ссылок на vitrina.js/css (опубликованные страницы, предпросмотр телефона): браузер не возьмёт старые из памяти
+  var ASSET_V = window.M13V || Date.now();
   function imgSrc(v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : '../' + v; }
   function imageIn(obj, key, label, o) {
     o = o || {};
@@ -891,9 +893,9 @@
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css">\n</head>\n<body class="m13-body">\n' +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
-      '<script src="' + base + 'assets/vitrina.js"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+      '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
 
 
@@ -1599,8 +1601,8 @@
     var d = fr.contentDocument, base = location.href.replace(/[#?].*$/, '');
     d.open();
     d.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><base href="' + base + '">' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="../assets/vitrina.css"></head>' +
-      '<body class="m13-body"><div id="m13"></div><script src="../assets/vitrina.js"><\/script></body></html>');
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="../assets/vitrina.css?v=' + ASSET_V + '"></head>' +
+      '<body class="m13-body"><div id="m13"></div><script src="../assets/vitrina.js?v=' + ASSET_V + '"><\/script></body></html>');
     d.close();
     var w = fr.contentWindow, tries = 0;
     (function wait() {
