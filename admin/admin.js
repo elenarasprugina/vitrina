@@ -701,6 +701,7 @@
           var isStatic = c.interactive === false || !b.type || b.type === 'static';
           var tags = [];
           if (c.visible === false) tags.push(['скрыта', 1]);
+          if (c.back && c.back.stub && c.back.stub.on) tags.push(['заглушка', 1]);
           else if (isStatic) tags.push(['без оборота', 0]);
           else tags.push([b.routeId && routeById(b.routeId) ? 'маршрут' : 'оборот', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
@@ -1055,6 +1056,31 @@
       make: function () { return { kind: 'contact', label: 'Написать', visible: true }; }, addLabel: '+ Добавить кнопку' })];
     return [];
   }
+  // Оборот-заглушка: вместо блоков оборота — текст «скоро» и «Задать вопрос». Блоки не удаляются.
+  function stubFields(c, cb) {
+    var box = el('div');
+    function draw() {
+      var st = (c.back = c.back || { type: 'blocks', blocks: [] }).stub = c.back.stub || { on: false };
+      box.replaceChildren();
+      add(box, [
+        switchIn(st, 'on', 'Показывать на обороте заглушку «скоро»', {
+          hint: 'Вместо описания, форматов и цен — короткий текст и кнопка «Задать вопрос». Всё, что уже заполнено в обороте, сохраняется; выключите — и оно вернётся.',
+          onChange: function (v) {
+            if (v && !String(st.text || '').trim()) st.text = window.M13.stubText(c, DATA);
+            changed(); draw(); if (cb.redrawGrid) cb.redrawGrid();
+          } }),
+        st.on ? textIn(st, 'text', 'Текст на обороте', { multi: true, rows: 5, hint: 'Пустая строка — новый абзац. Дата старта маршрута подставилась сама — поправьте, если нужно.' }) : null,
+        st.on ? el('div', { class: 'a-row' }, [
+          textIn(st, 'ask', 'Надпись на кнопке', { ph: 'Задать вопрос', hint: 'Откроет окно «Telegram или VK» с готовым текстом «Хочу узнать подробнее про …».' }),
+          c.back.routeId ? switchIn(st, 'sandbox', 'Кнопка «Как устроены маршруты 13 MIRRORS»', { defTrue: true }) : el('span')]) : null,
+        st.on ? el('div', { class: 'a-theme' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть текст по умолчанию', onclick: function () { st.text = window.M13.stubText(c, DATA); changed(); draw(); } })]) : null
+      ]);
+    }
+    draw();
+    return [box];
+  }
+
   function backBlocksForm(c, cb) {
     var b = c.back = window.M13.toBlocks(c.back);
     b.blocks = b.blocks || [];
@@ -1234,6 +1260,7 @@
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid)), { open: false })
     ];
+    if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
     if (interactive) out.push(block('Оборот', backBlocksForm(c, cb)));
     out.push(block('Скопировать карточку', [copyCardBox(sc, i, cb)], { open: false, note: 'из этого или другого месяца' }));
     return out;
@@ -1919,7 +1946,15 @@
     return out;
   }
   function cleanShowcase(sc) {
-    var cards = (sc.cards || []).map(function (c) { return c && c.visible === false ? { id: c.id, visible: false } : c; });
+    var cards = (sc.cards || []).map(function (c) {
+      if (c && c.visible === false) return { id: c.id, visible: false };
+      var st = c && c.back && c.back.stub;
+      if (!st) return c;
+      // Заглушка включена — недописанные блоки оборота на сайт не уходят вовсе; выключена — убираем её из данных
+      var back = Object.assign({}, c.back);
+      if (st.on) { back.blocks = []; back.type = 'blocks'; } else delete back.stub;
+      return Object.assign({}, c, { back: back });
+    });
     var out = cleanDeep(Object.assign({}, sc, { cards: [] }));
     out.cards = cards.map(function (c) { return c.visible === false ? c : cleanDeep(c); });
     return out;

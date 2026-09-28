@@ -597,6 +597,33 @@
   };
 
   var BUTTON_KINDS = { examples: 1, actions: 1, sandbox: 1 };
+  // Оборот-заглушка: пока подробностей нет. Блоки оборота не трогаются — показывается только шапка,
+  // текст «скоро» и кнопка «Задать вопрос» (у маршрутов — ещё «Как устроены маршруты»).
+  var GEN_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  M13.stubText = function (c, data) {
+    var D = data || S.D, rs = (D && D.routes && D.routes.routes) || [];
+    var rid = c && c.back && c.back.routeId, r = null;
+    rs.forEach(function (x) { if (x.id === rid) r = x; });
+    var from = r && r.dates && r.dates.from, m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(from || '');
+    var when = m ? +m[3] + ' ' + GEN_MONTHS[+m[2] - 1] : '';
+    if (r) return (when ? 'Маршрут начнётся ' + when + '. ' : '') + 'Подробное описание, форматы участия и запись появятся здесь совсем скоро.\n\n' +
+      'Если хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.';
+    return 'Подробности появятся здесь совсем скоро.\n\nЕсли хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.';
+  };
+  function stubHTML(c, r, kin, stub) {
+    var title = (c.front || {}).title || '';
+    var text = String(stub.text || '').trim() || M13.stubText(c);
+    var label = String(stub.ask || '').trim() || 'Задать вопрос';
+    return headHTML(c, kin ? [kin] : []) +
+      '<div class="m13-info m13-stub">' + txt(text) + '</div>' +
+      '<div class="m13-actions m13-push">' +
+      '<button type="button" class="m13-action m13-action--primary"' +
+      act({ kind: 'contact', label: label, message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
+      (r && stub.sandbox !== false ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
+        esc(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
+      '</div>';
+  }
+
   function backHTML(c) {
     var b = M13.toBlocks(c.back || {}) || {}, f = c.front || {}, title = f.title;
     var r = b.routeId ? routeById(b.routeId) : null;
@@ -610,6 +637,8 @@
     list.forEach(function (x) { if (x.kind === 'price' && !price) price = String(x.value || '').trim(); });
 
     S.lb = [];
+    var stub = (c.back || {}).stub;
+    if (stub && stub.on) return stubHTML(c, r, kin, stub);
     var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
     function flushBtns() {
       if (!btnRun.length) return '';

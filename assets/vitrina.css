@@ -539,3 +539,6 @@ body.m13-locked{overflow:hidden}
 .m13-look .m13-example span{color:var(--lk-soft)}
 .m13-look .m13-placeholder{border-color:var(--lk-line);color:var(--lk-mut)}
 .m13-look .m13-examples-cta .m13-action--primary{background:var(--lk-ac);border-color:var(--lk-ac);color:var(--lk-ac-ink) !important}
+/* Оборот-заглушка «скоро» */
+.m13-stub{margin-top:4px;padding:16px 18px;font-size:14px;line-height:1.55}
+@media (max-width:680px){ .m13-stub{padding:12px 13px;font-size:12.5px} }
