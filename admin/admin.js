@@ -234,14 +234,69 @@
           { def: forCard ? 'inherit' : 'medium', onChange: onChange }),
         selectIn(stl, 'glowDir', 'Откуда идёт свет', inh.concat([['around', 'Вокруг всей карточки'], ['bottom', 'Снизу'], ['top', 'Сверху']]),
           { def: forCard ? 'inherit' : 'around', onChange: onChange })]),
-      forCard ? null : el('div', { class: 'a-row' }, [
-        rangeIn(stl, 'glass', 'Прозрачность карточек («зеркала»)', { max: 90, step: 5, unit: '%', onChange: onChange,
-          hint: '0% — сплошной цвет. 20–50% — сквозь карточку мягко видна картинка фона. Работает у карточек без своей картинки.' }),
-        colorOptIn(stl, 'backBg', 'Цвет оборота карточки', { none: 'светлый', pick: '#15110c', onChange: onChange })]),
+      glassFields(stl, forCard, onChange),
       el('p', { class: 'a-hint', text: forCard
         ? 'Совет: свечение лучше всего работает, когда светятся одна-две карточки — например, центральная и ещё одна, на которую хочется обратить внимание.'
         : 'Совет: обычно для всей витрины свечение лучше выключить, а включить только у центральной карточки и одной акцентной — в их формах, раздел «Оформление».' })
     ];
+  }
+
+  // Ползунок у отдельной карточки: «как у всей витрины» или своё значение
+  function rangeOptIn(obj, key, label, o, forCard) {
+    if (!forCard) return rangeIn(obj, key, label, o);
+    var box = el('div', { class: 'a-field' });
+    function draw() {
+      var own = obj[key] != null && obj[key] !== '';
+      var cb = el('input', { type: 'checkbox', checked: own });
+      cb.addEventListener('change', function () {
+        if (cb.checked) obj[key] = o.def || 0; else delete obj[key];
+        changed(); if (o.onChange) o.onChange(); draw();
+      });
+      box.replaceChildren();
+      add(box, [el('div', { class: 'a-opt-head' }, [el('span', { class: 'a-label', text: label }), el('label', { class: 'a-mini-switch' }, [cb, el('span', { text: 'своё' })])]),
+        own ? rangeIn(obj, key, '', o) : el('span', { class: 'a-hint', text: 'Как у всей витрины.' })]);
+    }
+    draw();
+    return box;
+  }
+  // «Стекло и узор»: прозрачность, размытие, кромка, узор, помощь тексту, цвет оборота
+  function glassFields(stl, forCard, onChange) {
+    var inh = forCard ? [['inherit', 'Как у всей витрины']] : [];
+    var box = el('div', { class: 'a-glass' });
+    function redraw() { if (onChange) onChange(); draw(); }
+    function draw() {
+      var pat = stl.pattern && stl.pattern !== 'inherit' ? stl.pattern : '';
+      box.replaceChildren();
+      add(box, [
+        sub('Стекло и узор'),
+        el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'glass', 'Прозрачность карточек («зеркала»)', { max: 100, step: 5, unit: '%', def: 60, onChange: onChange,
+            hint: '0% — сплошной цвет. 60–90% — сквозь карточку видна картинка фона. 100% — только стекло. Работает у карточек без своей картинки.' }, forCard),
+          rangeOptIn(stl, 'glassBlur', 'Размытие за карточкой', { max: 20, step: 1, unit: ' px', def: 10, onChange: onChange,
+            hint: '0 — картинка за карточкой чёткая. 2–4 — матовое стекло. 10 — сильно размыто.' }, forCard)]),
+        el('div', { class: 'a-row' }, [
+          selectIn(stl, 'rim', 'Кромка стекла', inh.concat([['none', 'Без кромки'], ['light', 'Светлая'], ['cold', 'Холодная (зимняя)'], ['gold', 'Золотая — акцентным цветом']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Тонкая линия с бликом по краю карточки.' }),
+          selectIn(stl, 'textHelp', 'Чтобы текст читался', inh.concat([['none', 'Ничего не добавлять'], ['shadow', 'Тень у букв'], ['shade', 'Мягкое затемнение там, где текст']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Пригодится, когда за прозрачной карточкой яркая картинка.' })]),
+        el('div', { class: 'a-row' }, [
+          selectIn(stl, 'pattern', 'Узор на стекле', inh.concat([['none', 'Без узора'], ['frost', 'Иней'], ['sparks', 'Искры'], ['kaleido', 'Калейдоскоп'], ['custom', 'Свой узор (загрузить картинку)']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw }),
+          selectIn(stl, 'patternPlace', 'Где узор', inh.concat([['corners', 'В уголках'], ['edge', 'По краю — во всех углах'], ['full', 'По всей карточке']]),
+            { def: forCard ? 'inherit' : 'corners', onChange: onChange })]),
+        pat === 'custom' ? imageIn(stl, 'patternImage', 'Картинка узора', { max: 1200, onChange: onChange,
+          hint: 'Лучше PNG с прозрачным фоном. Для «В уголках» и «По краю» — уголок для левого верхнего угла (для остальных углов он отразится сам). Для «По всей карточке» — узор или рамка на всю карточку.' }) : null,
+        pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'patternOpacity', 'Заметность узора', { min: 5, max: 100, step: 5, unit: '%', def: 80, onChange: onChange }, forCard),
+          pat === 'custom' ? el('p', { class: 'a-hint', style: 'align-self:end', text: 'Свой узор показывается в своих цветах.' })
+            : colorOptIn(stl, 'patternColor', 'Цвет узора', { none: 'иней — белый, остальные — акцентный', pick: '#eef6ff', onChange: onChange })]) : null,
+        el('div', { class: 'a-row' }, [
+          colorOptIn(stl, 'backBg', 'Цвет оборота карточки', { none: forCard ? 'как у всей витрины' : 'светлый', pick: '#15110c', onChange: onChange }),
+          el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и кромка появляются и на обороте открытой карточки.' })])
+      ]);
+    }
+    draw();
+    return box;
   }
 
   // crop: [ширина, высота] — обрезать по центру ровно под этот размер и сохранить в JPEG
@@ -775,7 +830,7 @@
   var DARK_THEME = {
     background: { color: '#0d0a07', dim: 55, blur: 6 },
     head: { color: '#ecd3a3', logo: true },
-    cardStyle: { font: 'Cormorant Garamond', textColor: '#efe4d2', bg: '#17120c', glass: 35, accent: '#ecd3a3', overlay: 'dark', backBg: '#15110c' }
+    cardStyle: { font: 'Cormorant Garamond', textColor: '#efe4d2', bg: '#17120c', glass: 75, glassBlur: 3, rim: 'gold', textHelp: 'shadow', accent: '#ecd3a3', overlay: 'dark', backBg: '#15110c' }
   };
   function themeButtons(sc) {
     function apply(dark) {
@@ -787,7 +842,7 @@
       } else {
         sc.background.color = '#f2f2f2'; delete sc.background.dim; delete sc.background.blur;
         sc.head = { align: sc.head.align };
-        ['font', 'textColor', 'bg', 'glass', 'accent', 'overlay', 'backBg'].forEach(function (k) { delete sc.cardStyle[k]; });
+        ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg'].forEach(function (k) { delete sc.cardStyle[k]; });
       }
       ST.pageOpen = true; changed(); renderMain();
       toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
