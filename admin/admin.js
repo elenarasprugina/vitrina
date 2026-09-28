@@ -1273,11 +1273,12 @@
 
   /* ================= ПЕСОЧНИЦА ================= */
   function routeOptions() { return [['', '— не указан —']].concat(routes().map(function (r) { return [r.id, r.title]; })); }
-  // Оформление Песочницы: фон, шрифт, цвета, стеклянные панели. Кнопка — взять всё у витрины месяца.
-  function lookFields(sb) {
+  // Оформление отдельной страницы (Песочница, Примеры): фон, шрифт, цвета, стеклянные панели.
+  // Кнопка — взять всё у витрины месяца. which — 'sandbox' или 'reflection' (для предпросмотра).
+  function lookFields(sb, which) {
     var lk = sb.look = sb.look || {};
     lk.background = lk.background || {};
-    function redraw() { ST.sbLookOpen = true; changed(); renderMain(); }
+    function redraw() { ST[which + 'LookOpen'] = true; changed(); renderMain(); }
     function fromMonth() {
       var ids = Object.keys(DATA.showcases).sort();
       var id = DATA.settings.currentShowcase && DATA.showcases[DATA.settings.currentShowcase] ? DATA.settings.currentShowcase : ids[ids.length - 1];
@@ -1291,11 +1292,11 @@
       redraw();
     }
     return [
-      el('p', { class: 'a-hint', text: 'Как выглядит страница «Как устроены маршруты»: фон, шрифт, цвета, панели. Тексты не меняются.' }),
+      el('p', { class: 'a-hint', text: 'Как выглядит эта страница: фон, шрифт, цвета, панели. Тексты не меняются.' }),
       el('div', { class: 'a-theme' }, [
         el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '✨ Как у витрины месяца', onclick: fromMonth }),
         el('button', { type: 'button', class: 'a-btn', text: 'Светлая, как было', onclick: function () { sb.look = {}; redraw(); } }),
-        el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть', onclick: function () { openPreview('sandbox'); } })]),
+        el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть', onclick: function () { openPreview(which); } })]),
       sub('Фон страницы'),
       el('div', { class: 'a-row' }, [
         imageIn(lk.background, 'image', 'Фоновая картинка', { max: 2400, hint: 'Растягивается на весь экран.' }),
@@ -1309,7 +1310,7 @@
         selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
         colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' })]),
       el('div', { class: 'a-row' }, [
-        colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка, выбранный пример, линия у отзыва.' }),
+        colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
         colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
@@ -1373,7 +1374,7 @@
         return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () { ST.sbTab = x[0]; renderMain(); } });
       }).concat([el('button', { type: 'button', text: 'Посмотреть', onclick: function () { openPreview('sandbox'); } })])),
       body,
-      block('Оформление страницы', lookFields(sb), { open: !!ST.sbLookOpen }),
+      block('Оформление страницы', lookFields(sb, 'sandbox'), { open: !!ST.sandboxLookOpen }),
       block('Шапка страницы и надписи', [
         textIn(sb, 'eyebrow', 'Надпись сверху'), textIn(sb, 'title', 'Заголовок'), textIn(sb, 'intro', 'Вступление', { multi: true, rows: 2 }),
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),
@@ -1401,6 +1402,7 @@
       collection(rf.items = rf.items || [], { visible: true, title: function (x) { return x.title; },
         make: function () { return { id: uid('e'), visible: true, image: null, title: 'Новый пример', text: '' }; }, addLabel: '+ Добавить пример',
         body: function (x) { return [imageIn(x, 'image', 'Изображение'), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 })]; } }),
+      block('Оформление страницы', lookFields(rf, 'reflection'), { open: !!ST.reflectionLookOpen }),
       block('Шапка страницы и кнопка', [
         textIn(rf, 'eyebrow', 'Надпись сверху'), textIn(rf, 'title', 'Заголовок'), textIn(rf, 'intro', 'Вступление', { multi: true, rows: 2 }),
         textIn(rf, 'placeholder', 'Надпись на примере без картинки'),

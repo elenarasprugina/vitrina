@@ -954,7 +954,7 @@
       : '<a class="m13-iback" href="' + esc(backHref) + '">' + esc(T('backToShowcase') || '← К витрине') + '</a>';
     S.acts = [];
     var inner = which === 'sandbox' ? sandboxHTML(back) : reflectionHTML(back);
-    var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : null);
+    var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : (S.D.reflection || {}).look);
     S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' + modalHTML();
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
@@ -969,7 +969,7 @@
     }
   }
 
-  // Оформление отдельной страницы (Песочница): фон как у месяца, шрифт, цвета, стеклянные панели.
+  // Оформление отдельной страницы (Песочница, Примеры Карт-Отражений): фон как у месяца, шрифт, цвета, стеклянные панели.
   // look = {background:{image,imageTall,color,dim,blur}, font, textColor, accent, panelBg, glass, glassBlur}
   function pageLook(lk) {
     if (!lk) return { cls: '', css: '' };
