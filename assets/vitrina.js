@@ -301,6 +301,12 @@
       patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
       patternColor: f.patternColor || d.patternColor || '', patternOpacity: num('patternOpacity', 80, 5, 100),
       textHelp: none(pick('textHelp', '')),
+      // Размер текста: название и мелкие надписи
+      titleSize: pick('titleSize', 'md'), smallSize: pick('smallSize', 'md'),
+      // Кнопки на обороте: вид главной, цвета, остальные кнопки, «живость»
+      btnStyle: none(pick('btnStyle', '')), btnColor: f.btnColor || d.btnColor || '', btnColor2: f.btnColor2 || d.btnColor2 || '',
+      btnDir: pick('btnDir', 'diag'), btnInk: f.btnInk || d.btnInk || '', btnOther: pick('btnOther', 'outline'),
+      btnOtherColor: f.btnOtherColor || d.btnOtherColor || '', btnLive: none(pick('btnLive', '')),
       // Положение и выравнивание текста. У неоткрывающихся карточек (как центральная) — только своё, без общего месячного.
       textPos: isStaticCard(c) ? (f.textPos && f.textPos !== 'inherit' ? f.textPos : '') : pick('textPos', ''),
       textAlign: isStaticCard(c) ? (f.textAlign && f.textAlign !== 'inherit' ? f.textAlign : '') : pick('textAlign', '')
@@ -330,6 +336,8 @@
     if (hasImg) cls.push('m13-ov-' + st.overlay);
     if (st.accent) { cls.push('m13-accent'); css.push(accentVars(st)); }
     if (st.textPos) cls.push('m13-pos-' + st.textPos);
+    if (st.titleSize !== 'md') cls.push('m13-tt-' + st.titleSize);
+    if (st.smallSize !== 'md') cls.push('m13-ts-' + st.smallSize);
     if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     var lay = decoHTML(st, true);
@@ -341,6 +349,29 @@
       cls.push('m13-th-' + st.textHelp + (dark ? ' m13-th--light' : ''));
     }
     return { cls: cls.join(' '), css: css.join(';'), st: st, lay: lay };
+  }
+
+  // Кнопки оборота: классы и переменные для большой карточки. Пусто — как раньше (по акцентному цвету).
+  var BTN_DIR = { h: '90deg', diag: '135deg', v: '180deg' };
+  function buttonLook(st, backDark) {
+    var cls = [], css = [];
+    if (st.btnStyle) {
+      var c1 = st.btnColor || st.accent || '#ecd3a3', c2 = st.btnColor2 || c1;
+      cls.push('m13-btn-' + st.btnStyle);
+      var ink = st.btnInk, l1 = lum(hexRgb(c1));
+      if (!ink && (st.btnStyle === 'fill' || st.btnStyle === 'gradient')) {
+        var a = hexRgb(c1), b = hexRgb(st.btnStyle === 'gradient' ? c2 : c1);
+        ink = lum([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]) > 150 ? '#1c150c' : '#ffffff';
+      }
+      // Стекло и контур прозрачные: надпись цветом кнопки, если он читается на обороте, иначе — цветом текста оборота
+      if (!ink) ink = backDark ? (l1 > 110 ? c1 : '#efe4d2') : (l1 < 150 ? c1 : '#232323');
+      css.push('--m13-b1:' + c1, '--m13-b2:' + c2, '--m13-bdir:' + (BTN_DIR[st.btnDir] || '135deg'));
+      if (ink) css.push('--m13-bink:' + ink);
+      if (st.btnLive) cls.push('m13-btn-live-' + st.btnLive);
+      if (st.btnOther === 'same') cls.push('m13-btn-same');
+    }
+    if (st.btnOtherColor && st.btnOther !== 'same') { cls.push('m13-btn-other'); css.push('--m13-bo:' + st.btnOtherColor); }
+    return { cls: cls, css: css };
   }
 
   // Слои поверх карточки: затемнение под текстом, узор, кромка. Добавляются последними,
@@ -421,7 +452,10 @@
     // Оборот: свой цвет; если он тёмный — весь текст и плашки на обороте становятся светлыми
     var bb = sty.st.backBg, dark = bb && lum(hexRgb(bb)) < 128;
     big.classList.toggle('m13-back-dark', !!dark);
-    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : ''].filter(Boolean).join(';'));
+    var bl = buttonLook(sty.st, !!dark);
+    big.className = big.className.replace(/\s*m13-btn-[\w-]+/g, '');
+    bl.cls.forEach(function (k) { big.classList.add(k); });
+    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : ''].concat(bl.css).filter(Boolean).join(';'));
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
