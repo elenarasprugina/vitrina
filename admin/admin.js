@@ -1513,6 +1513,8 @@
       block('Шапка страницы и кнопка', [
         textIn(rf, 'eyebrow', 'Надпись сверху'), textIn(rf, 'title', 'Заголовок'), textIn(rf, 'intro', 'Вступление', { multi: true, rows: 2 }),
         textIn(rf, 'placeholder', 'Надпись на примере без картинки'),
+        switchIn(rf, 'textOpen', 'Показывать описание сразу (без кнопки «Подробнее»)', { hint: 'Выключено — описание раскрывается кнопкой, и картинки в ряду стоят ровно при любой длине текста.' }),
+        el('div', { class: 'a-row' }, [textIn(rf, 'moreLabel', 'Кнопка «Подробнее»', { ph: 'Подробнее' }), textIn(rf, 'lessLabel', 'Кнопка «Свернуть»', { ph: 'Свернуть' })]),
         switchIn(rf.orderAction, 'show', 'Кнопка заказа внизу страницы', { defTrue: true }),
         actionIn(rf, 'orderAction', '', { defLabel: 'Заказать Карту-Отражение' })
       ], { open: false })

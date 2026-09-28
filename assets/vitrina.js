@@ -1185,7 +1185,11 @@
           (it.image ? '<img src="' + esc(media(it.image)) + '" alt="' + esc(it.title) + '" loading="lazy">'
             : '<div class="m13-placeholder">' + esc(rf.placeholder || '') + '</div>') +
           (it.meta ? '<em class="m13-example-meta">' + esc(it.meta) + '</em>' : '') +
-          '<strong>' + esc(it.title) + '</strong>' + (it.text ? '<span>' + txt(it.text) + '</span>' : '') + '</div>';
+          '<strong>' + esc(it.title) + '</strong>' +
+          // Описание — под кнопкой «Подробнее»: текст любой длины, картинки в ряду стоят ровно
+          (it.text ? (rf.textOpen ? '<span>' + txt(it.text) + '</span>'
+            : '<details class="m13-more m13-ex-more"><summary><span class="m13-more-open">' + esc(rf.moreLabel || 'Подробнее') + ' ↓</span>' +
+              '<span class="m13-more-close">' + esc(rf.lessLabel || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(it.text) + '</div></details>') : '') + '</div>';
       }).join('') + '</div>' +
       (oa && oa.show !== false && oa.label ? '<div class="m13-examples-cta"><button type="button" class="m13-action m13-action--primary"' +
         act(oa, { card: rf.eyebrow || 'Карта-Отражение', action: oa.label, tplKey: 'offer' }) + '>' + esc(oa.label) + '</button></div>' : '') +
