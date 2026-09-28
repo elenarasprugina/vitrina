@@ -399,7 +399,8 @@ body.m13-locked{overflow:hidden}
 @media (max-width:680px){ .m13-logo{width:min(56vw,210px)} .m13-logo-wrap{margin-bottom:5px} }
 
 /* Карточки-«зеркала»: полупрозрачное стекло с лёгким размытием того, что за ним */
-.m13-glass{-webkit-backdrop-filter:blur(10px) saturate(1.15);backdrop-filter:blur(10px) saturate(1.15)}
+.m13-glass{-webkit-backdrop-filter:blur(var(--m13-gb,10px)) saturate(1.15);backdrop-filter:blur(var(--m13-gb,10px)) saturate(1.15)}
+.m13-glass--clear{-webkit-backdrop-filter:none;backdrop-filter:none}
 .m13-thumb.m13-glass--dark{border-color:rgba(255,255,255,.16)}
 .m13-thumb.m13-glass--light{border-color:rgba(0,0,0,.1)}
 .m13-face.m13-glass--dark{border-color:rgba(255,255,255,.2)}
@@ -420,3 +421,50 @@ body.m13-locked{overflow:hidden}
 .m13-back-dark:not(.m13-accent) :is(.m13-go,.m13-action--primary){background:#efe4d2;border-color:#efe4d2;color:#1c150c !important}
 .m13-back-dark.m13-accent :is(.m13-format,.m13-item,.m13-action):hover{border-color:var(--m13-ac)}
 .m13-header[style*="--m13-hfont"] h1{font-family:var(--m13-hfont);font-weight:500;letter-spacing:0;font-size:clamp(26px,3.4vw,40px)}
+
+/* ================= Стекло и узор на карточках ================= */
+/* Слои поверх карточки (затемнение под текстом, узор, кромка) — под текстом, над фоном и картинкой */
+.m13-lay{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:1}
+.m13-deco > :not(.m13-lay){position:relative;z-index:2}
+.m13-back.m13-deco > .m13-content{position:relative;z-index:2}
+
+/* Узор: 4 уголка (левый верхний — как нарисован, остальные — отражения) или один слой на всю карточку */
+.m13-pat{opacity:var(--m13-pop,.8)}
+.m13-pat > i{position:absolute;display:none;width:62%;aspect-ratio:1;background:var(--m13-pcol,#fff);
+  -webkit-mask:var(--m13-pimg) 0 0/100% 100% no-repeat;mask:var(--m13-pimg) 0 0/100% 100% no-repeat}
+.m13-pat--img > i{background:var(--m13-pimg) 0 0/100% 100% no-repeat;-webkit-mask:none;mask:none}
+.m13-pat > i:nth-child(1){top:0;left:0}
+.m13-pat > i:nth-child(2){top:0;right:0;transform:scaleX(-1)}
+.m13-pat > i:nth-child(3){bottom:0;left:0;transform:scaleY(-1)}
+.m13-pat > i:nth-child(4){bottom:0;right:0;transform:scale(-1,-1)}
+.m13-pat--corners > i:nth-child(1),.m13-pat--corners > i:nth-child(4){display:block}
+.m13-pat--corners > i:nth-child(2){display:block;width:38%}
+.m13-pat--edge > i{display:block;width:54%}
+.m13-pat--full > i:nth-child(1){display:block;inset:0;width:auto;aspect-ratio:auto;-webkit-mask-size:cover;mask-size:cover;-webkit-mask-position:center;mask-position:center}
+.m13-pat--full.m13-pat--img > i:nth-child(1){background-size:100% 100%}
+/* На большой карточке уголки меньше, на обороте узор тише — там много текста */
+.m13-face .m13-pat--corners > i:nth-child(1),.m13-face .m13-pat--corners > i:nth-child(4){width:40%}
+.m13-face .m13-pat--corners > i:nth-child(2){width:24%}
+.m13-face .m13-pat--edge > i{width:36%}
+.m13-back .m13-pat{opacity:calc(var(--m13-pop,.8) * .7)}
+.m13-back .m13-pat--full{opacity:calc(var(--m13-pop,.8) * .3)}
+
+/* Кромка стекла: тонкая линия с бликом */
+.m13-rim{z-index:3;padding:1.3px;
+  background:linear-gradient(145deg,var(--m13-rc),color-mix(in srgb,var(--m13-rc) 18%,transparent) 35%,color-mix(in srgb,var(--m13-rc) 8%,transparent) 62%,color-mix(in srgb,var(--m13-rc) 62%,transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.m13-rim--light{--m13-rc:rgba(255,255,255,.85)}
+.m13-rim--cold{--m13-rc:rgba(214,234,255,.95)}
+.m13-rim--gold{--m13-rc:var(--m13-ac,#ecd3a3)}
+.m13-thumb.m13-has-rim,.m13 .m13-face.m13-has-rim{border-color:transparent}
+
+/* Помощь тексту: тень у букв или мягкое затемнение там, где текст */
+.m13-th-shadow{--m13-tsh:0 1px 2px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
+.m13-th-shadow.m13-th--light{--m13-tsh:0 1px 2px rgba(255,255,255,.8),0 0 12px rgba(255,255,255,.6)}
+.m13-th-shadow > :not(.m13-lay){text-shadow:var(--m13-tsh)}
+.m13-th-shadow .m13-mini-cta,.m13-th-shadow .m13-flip-hint{box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.m13-th-shade{--m13-shc:10,7,4}
+.m13-th-shade.m13-th--light{--m13-shc:255,255,255}
+.m13-shade{background:linear-gradient(180deg,rgba(var(--m13-shc),.62) 0%,rgba(var(--m13-shc),.3) 40%,rgba(var(--m13-shc),0) 62%,rgba(var(--m13-shc),0) 78%,rgba(var(--m13-shc),.42) 100%)}
+.m13-pos-bottom > .m13-shade{transform:scaleY(-1)}
+.m13-pos-center > .m13-shade{background:rgba(var(--m13-shc),.36)}

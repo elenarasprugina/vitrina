@@ -264,3 +264,4 @@ select.a-input{padding-right:28px}
 .a-range-val{min-width:44px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px;color:var(--a-muted)}
 .a-theme{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .a-theme .a-hint{flex-basis:100%}
+.a-glass{display:grid;gap:12px}

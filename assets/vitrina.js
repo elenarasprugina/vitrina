@@ -278,6 +278,12 @@
   function cardStyle(c) {
     var d = (S.D.showcase && S.D.showcase.cardStyle) || {}, f = ((c && c.front) || {}).style || {};
     function pick(k, def) { return f[k] && f[k] !== 'inherit' ? f[k] : (d[k] || def); }
+    function none(v) { return v === 'none' ? '' : v; }
+    function num(k, def, lo, hi) {
+      var v = f[k] != null && f[k] !== '' ? f[k] : d[k];
+      v = v == null || v === '' || isNaN(+v) ? def : +v;
+      return Math.max(lo, Math.min(hi, v));
+    }
     var glow = pick('glow', 'off');
     var ph = phaseOf(c);
     if (ph && ph.glow && glow !== 'soft' && glow !== 'live') glow = 'live';
@@ -287,8 +293,14 @@
       accent: f.accent || d.accent || '',
       glow: glow, glowColor: f.glowColor || f.accent || d.glowColor || d.accent || '#e8c77a',
       glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around'),
-      glass: Math.max(0, Math.min(90, +(f.glass != null && f.glass !== '' ? f.glass : d.glass) || 0)),
+      glass: num('glass', 0, 0, 100),
+      glassBlur: num('glassBlur', 10, 0, 20),
       backBg: f.backBg || d.backBg || '',
+      // Стекло и узор: кромка, узор (готовый или своя картинка), где он лежит, цвет, заметность; помощь тексту
+      rim: none(pick('rim', '')), pattern: none(pick('pattern', '')),
+      patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
+      patternColor: f.patternColor || d.patternColor || '', patternOpacity: num('patternOpacity', 80, 5, 100),
+      textHelp: none(pick('textHelp', '')),
       // Положение и выравнивание текста. У неоткрывающихся карточек (как центральная) — только своё, без общего месячного.
       textPos: isStaticCard(c) ? (f.textPos && f.textPos !== 'inherit' ? f.textPos : '') : pick('textPos', ''),
       textAlign: isStaticCard(c) ? (f.textAlign && f.textAlign !== 'inherit' ? f.textAlign : '') : pick('textAlign', '')
@@ -311,7 +323,8 @@
     if (st.glass && !hasImg) {
       // «Зеркало»: цвет карточки полупрозрачный, сквозь него чуть видна картинка фона
       var rgb = hexRgb(st.bg || '#ffffff');
-      css.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - st.glass / 100).toFixed(2) + ')');
+      css.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - st.glass / 100).toFixed(2) + ')', '--m13-gb:' + st.glassBlur + 'px');
+      if (!st.glassBlur) cls.push('m13-glass--clear');
       cls.push('m13-glass', lum(rgb) < 128 ? 'm13-glass--dark' : 'm13-glass--light');
     } else if (st.bg) css.push('background-color:' + st.bg);
     if (hasImg) cls.push('m13-ov-' + st.overlay);
@@ -319,7 +332,33 @@
     if (st.textPos) cls.push('m13-pos-' + st.textPos);
     if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
-    return { cls: cls.join(' '), css: css.join(';'), st: st };
+    var lay = decoHTML(st, true);
+    if (lay) cls.push('m13-deco');
+    if (st.rim) cls.push('m13-has-rim');
+    if (st.textHelp) {
+      // Тень/затемнение под светлым текстом — тёмные, под тёмным — светлые
+      var dark = st.textColor && lum(hexRgb(st.textColor)) < 128;
+      cls.push('m13-th-' + st.textHelp + (dark ? ' m13-th--light' : ''));
+    }
+    return { cls: cls.join(' '), css: css.join(';'), st: st, lay: lay };
+  }
+
+  // Слои поверх карточки: затемнение под текстом, узор, кромка. Добавляются последними,
+  // текст карточки стоит над ними (.m13-deco > * — z-index 2).
+  function decoHTML(st, front) {
+    var h = '';
+    if (front && st.textHelp === 'shade') h += '<i class="m13-lay m13-shade" aria-hidden="true"></i>';
+    var p = st.pattern, img = '';
+    if (p === 'custom') img = st.patternImage ? media(st.patternImage) : '';
+    else if (p === 'frost' || p === 'sparks' || p === 'kaleido') img = S.base + 'assets/patterns/' + p + '-' + (st.patternPlace === 'full' ? 'full' : 'corner') + '.webp';
+    if (img) {
+      var col = st.patternColor || (p === 'frost' ? '#eef6ff' : st.accent || '#ecd3a3');
+      var place = st.patternPlace === 'full' || st.patternPlace === 'edge' ? st.patternPlace : 'corners';
+      h += '<i class="m13-lay m13-pat m13-pat--' + place + (p === 'custom' ? ' m13-pat--img' : '') + '" aria-hidden="true" style="' +
+        esc("--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100)) + '"><i></i><i></i><i></i><i></i></i>';
+    }
+    if (st.rim) h += '<i class="m13-lay m13-rim m13-rim--' + esc(st.rim) + '" aria-hidden="true"></i>';
+    return h;
   }
 
   function thumbHTML(c) {
@@ -339,10 +378,10 @@
       (f.title ? '<div class="m13-mini-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + esc(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
-    if (isStatic) return '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + '</div>';
+    if (isStatic) return '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + sty.lay + '</div>';
     return '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
       '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + esc(foot) + '</span>' : '') +
-      '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div></button>';
+      '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div>' + sty.lay + '</button>';
   }
 
   /* ---------- Увеличенная карточка ---------- */
@@ -395,7 +434,12 @@
       (f.title ? '<div class="m13-hero-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-hero-date">' + esc(sub) + '</div>' : '') +
       statusHTML(c, 'm13-hero-status') +
-      '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
+      '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + sty.lay;
+    // Оборот: тот же узор и кромка (без затемнения под текстом — там свои плашки)
+    var back = S.root.querySelector('.m13-back'), blay = decoHTML(sty.st, false);
+    back.querySelectorAll(':scope > .m13-lay').forEach(function (n) { n.remove(); });
+    back.classList.toggle('m13-deco', !!blay); back.classList.toggle('m13-has-rim', !!sty.st.rim);
+    if (blay) back.insertAdjacentHTML('beforeend', blay);
 
     S.acts = [];
     var backc = S.root.querySelector('#m13-backc');
