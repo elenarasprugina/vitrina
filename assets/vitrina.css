@@ -626,3 +626,8 @@ body.m13-locked{overflow:hidden}
 .m13-look .m13-ihead{color:var(--lk-hd,var(--lk-tx))}
 .m13-look .m13-ihead :is(p,.m13-eyebrow,.m13-notice){color:color-mix(in srgb,var(--lk-hd,var(--lk-tx)) 82%,transparent)}
 .m13-look .m13-ihead .m13-notice{border-color:color-mix(in srgb,var(--lk-hd,var(--lk-tx)) 35%,transparent)}
+/* Примеры Карт-Отражений: Kin и название карты над архетипом */
+.m13-example-meta{display:block;margin-bottom:3px;font-style:normal;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#777}
+.m13-standalone .m13-example-meta{font-size:calc(11.5px * var(--m13-tk,1))}
+.m13-look .m13-example-meta{color:var(--lk-mut)}
+.m13-example img{aspect-ratio:auto;max-height:520px;object-fit:contain;background:transparent}
