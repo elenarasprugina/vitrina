@@ -1080,7 +1080,8 @@
         st.on ? textIn(st, 'text', 'Текст на обороте', { multi: true, rows: 5, hint: 'Пустая строка — новый абзац. Дата старта маршрута подставилась сама — поправьте, если нужно.' }) : null,
         st.on ? el('div', { class: 'a-row' }, [
           textIn(st, 'ask', 'Надпись на кнопке', { ph: 'Задать вопрос', hint: 'Откроет окно «Telegram или VK» с готовым текстом «Хочу узнать подробнее про …».' }),
-          c.back.routeId ? switchIn(st, 'sandbox', 'Кнопка «Как устроены маршруты 13 MIRRORS»', { defTrue: true }) : el('span')]) : null,
+          c.back.routeId ? switchIn(st, 'sandbox', 'Кнопка «Как устроены маршруты 13 MIRRORS»', { defTrue: window.M13.stubSandbox(c, {}),
+            hint: 'Если не трогать — как на обычном обороте.' }) : el('span')]) : null,
         st.on ? el('div', { class: 'a-theme' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть текст по умолчанию', onclick: function () { st.text = window.M13.stubText(c, DATA); changed(); draw(); } })]) : null
       ]);

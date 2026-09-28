@@ -616,6 +616,12 @@
       'Если хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.';
     return 'Подробности появятся здесь совсем скоро.\n\nЕсли хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.';
   };
+  // Кнопка «Как устроены маршруты» на заглушке: своя настройка, а если её не трогали — как на обычном обороте
+  function stubSandbox(c, stub) {
+    if (stub.sandbox != null) return stub.sandbox !== false;
+    return ((M13.toBlocks(c.back || {}) || {}).blocks || []).some(function (x) { return x && x.kind === 'sandbox' && x.visible !== false; });
+  }
+  M13.stubSandbox = stubSandbox;
   function stubHTML(c, r, kin, stub) {
     var title = (c.front || {}).title || '';
     var text = String(stub.text || '').trim() || M13.stubText(c);
@@ -625,7 +631,7 @@
       '<div class="m13-actions m13-push">' +
       '<button type="button" class="m13-action m13-action--primary"' +
       act({ kind: 'contact', label: label, message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
-      (r && stub.sandbox !== false ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
+      (r && stubSandbox(c, stub) ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
         esc(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
       '</div>';
   }
