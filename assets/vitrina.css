@@ -493,10 +493,10 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-big-card.m13-btn-fill.m13-btn-same .m13-action{background:var(--m13-b1);border-color:var(--m13-b1);color:var(--m13-bink) !important}
 .m13 .m13-big-card.m13-btn-gradient :is(.m13-go,.m13-action--primary),
 .m13 .m13-big-card.m13-btn-gradient.m13-btn-same .m13-action{background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2));border-color:transparent;color:var(--m13-bink) !important;
-  box-shadow:0 6px 18px color-mix(in srgb,var(--m13-b2) 30%,transparent)}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 40%,transparent)}
 .m13 .m13-big-card.m13-btn-glass :is(.m13-go,.m13-action--primary),
 .m13 .m13-big-card.m13-btn-glass.m13-btn-same .m13-action{background:color-mix(in srgb,var(--m13-b1) 16%,transparent);border:1px solid var(--m13-b1);color:var(--m13-bink) !important;
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 0 18px color-mix(in srgb,var(--m13-b1) 28%,transparent)}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 32%,transparent)}
 .m13 .m13-big-card.m13-btn-outline :is(.m13-go,.m13-action--primary),
 .m13 .m13-big-card.m13-btn-outline.m13-btn-same .m13-action{background:transparent;border:1.5px solid var(--m13-b1);color:var(--m13-bink) !important}
 .m13 .m13-big-card.m13-btn-other .m13-action:not(.m13-action--primary){background:transparent;border-color:var(--m13-bo);color:var(--m13-bo) !important}
