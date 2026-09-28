@@ -380,12 +380,20 @@
         c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
         var d = c.toDataURL('image/webp', 0.82);
-        if (d.indexOf('data:image/webp') !== 0) d = c.toDataURL('image/jpeg', 0.85);
+        if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(c) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85);
         URL.revokeObjectURL(url); res(d);
       };
       img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('bad')); };
       img.src = url;
     });
+  }
+  // Есть ли в картинке прозрачные места (проверяем редкой сеткой — этого достаточно)
+  function hasAlpha(c) {
+    try {
+      var d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, step = Math.max(4, Math.floor(d.length / 4 / 40000)) * 4;
+      for (var i = 3; i < d.length; i += step) if (d[i] < 250) return true;
+    } catch (e) {}
+    return false;
   }
   function imgSrc(v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : '../' + v; }
   function imageIn(obj, key, label, o) {
@@ -693,6 +701,7 @@
           var isStatic = c.interactive === false || !b.type || b.type === 'static';
           var tags = [];
           if (c.visible === false) tags.push(['скрыта', 1]);
+          if (c.back && c.back.stub && c.back.stub.on) tags.push(['заглушка', 1]);
           else if (isStatic) tags.push(['без оборота', 0]);
           else tags.push([b.routeId && routeById(b.routeId) ? 'маршрут' : 'оборот', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
@@ -760,6 +769,7 @@
           colorIn(sc.background, 'color', 'Цвет фона'),
           rangeIn(sc.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Чтобы карточки читались лучше.' }),
           rangeIn(sc.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px', hint: '0 — чёткая; 4–8 — мягкий фон.' })]),
+        selectIn(sc.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
         sub('Надписи над сеткой'),
         el('div', { class: 'a-row3' }, [
           colorOptIn(sc.head = sc.head || {}, 'color', 'Цвет надписей', { none: 'обычный тёмный', pick: '#ecd3a3' }),
@@ -1046,6 +1056,31 @@
       make: function () { return { kind: 'contact', label: 'Написать', visible: true }; }, addLabel: '+ Добавить кнопку' })];
     return [];
   }
+  // Оборот-заглушка: вместо блоков оборота — текст «скоро» и «Задать вопрос». Блоки не удаляются.
+  function stubFields(c, cb) {
+    var box = el('div');
+    function draw() {
+      var st = (c.back = c.back || { type: 'blocks', blocks: [] }).stub = c.back.stub || { on: false };
+      box.replaceChildren();
+      add(box, [
+        switchIn(st, 'on', 'Показывать на обороте заглушку «скоро»', {
+          hint: 'Вместо описания, форматов и цен — короткий текст и кнопка «Задать вопрос». Всё, что уже заполнено в обороте, сохраняется; выключите — и оно вернётся.',
+          onChange: function (v) {
+            if (v && !String(st.text || '').trim()) st.text = window.M13.stubText(c, DATA);
+            changed(); draw(); if (cb.redrawGrid) cb.redrawGrid();
+          } }),
+        st.on ? textIn(st, 'text', 'Текст на обороте', { multi: true, rows: 5, hint: 'Пустая строка — новый абзац. Дата старта маршрута подставилась сама — поправьте, если нужно.' }) : null,
+        st.on ? el('div', { class: 'a-row' }, [
+          textIn(st, 'ask', 'Надпись на кнопке', { ph: 'Задать вопрос', hint: 'Откроет окно «Telegram или VK» с готовым текстом «Хочу узнать подробнее про …».' }),
+          c.back.routeId ? switchIn(st, 'sandbox', 'Кнопка «Как устроены маршруты 13 MIRRORS»', { defTrue: true }) : el('span')]) : null,
+        st.on ? el('div', { class: 'a-theme' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть текст по умолчанию', onclick: function () { st.text = window.M13.stubText(c, DATA); changed(); draw(); } })]) : null
+      ]);
+    }
+    draw();
+    return [box];
+  }
+
   function backBlocksForm(c, cb) {
     var b = c.back = window.M13.toBlocks(c.back);
     b.blocks = b.blocks || [];
@@ -1225,6 +1260,7 @@
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid)), { open: false })
     ];
+    if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
     if (interactive) out.push(block('Оборот', backBlocksForm(c, cb)));
     out.push(block('Скопировать карточку', [copyCardBox(sc, i, cb)], { open: false, note: 'из этого или другого месяца' }));
     return out;
@@ -1273,6 +1309,52 @@
 
   /* ================= ПЕСОЧНИЦА ================= */
   function routeOptions() { return [['', '— не указан —']].concat(routes().map(function (r) { return [r.id, r.title]; })); }
+  // Оформление отдельной страницы (Песочница, Примеры): фон, шрифт, цвета, стеклянные панели.
+  // Кнопка — взять всё у витрины месяца. which — 'sandbox' или 'reflection' (для предпросмотра).
+  function lookFields(sb, which) {
+    var lk = sb.look = sb.look || {};
+    lk.background = lk.background || {};
+    function redraw() { ST[which + 'LookOpen'] = true; changed(); renderMain(); }
+    function fromMonth() {
+      var ids = Object.keys(DATA.showcases).sort();
+      var id = DATA.settings.currentShowcase && DATA.showcases[DATA.settings.currentShowcase] ? DATA.settings.currentShowcase : ids[ids.length - 1];
+      var sc = id && DATA.showcases[id]; if (!sc) { toast('Нет витрины месяца, у которой можно взять оформление.', true); return; }
+      var cs = sc.cardStyle || {}, bg = clone(sc.background || {});
+      // Здесь много текста: фон чуть темнее, панели плотнее, чем карточки витрины
+      if (bg.image) bg.dim = Math.max(+bg.dim || 0, 50);
+      sb.look = { background: bg, font: cs.font || '', textColor: cs.textColor || '', accent: cs.accent || (sc.head || {}).color || '',
+        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8 };
+      toast('Оформление взято у витрины «' + (sc.title || id) + '». Можно подправить ниже.');
+      redraw();
+    }
+    return [
+      el('p', { class: 'a-hint', text: 'Как выглядит эта страница: фон, шрифт, цвета, панели. Тексты не меняются.' }),
+      el('div', { class: 'a-theme' }, [
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '✨ Как у витрины месяца', onclick: fromMonth }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Светлая, как было', onclick: function () { sb.look = {}; redraw(); } }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть', onclick: function () { openPreview(which); } })]),
+      sub('Фон страницы'),
+      el('div', { class: 'a-row' }, [
+        imageIn(lk.background, 'image', 'Фоновая картинка', { max: 2400, hint: 'Растягивается на весь экран.' }),
+        imageIn(lk.background, 'imageTall', 'Картинка для телефона', { max: 2000, hint: 'Необязательно. Пусто — та же, что слева.' })]),
+      el('div', { class: 'a-row3' }, [
+        colorIn(lk.background, 'color', 'Цвет фона'),
+        rangeIn(lk.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Здесь много текста — обычно 45–65%.' }),
+        rangeIn(lk.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px' })]),
+      selectIn(lk.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
+      sub('Текст и панели'),
+      el('div', { class: 'a-row' }, [
+        selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
+        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' })]),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
+        colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
+      el('div', { class: 'a-row' }, [
+        rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
+        rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })])
+    ];
+  }
+
   function viewSandbox() {
     var sb = DATA.sandbox;
     sb.tabs = sb.tabs || { days: 'Примеры дней', chronicles: 'Что остаётся', reviews: 'Отзывы' };
@@ -1329,6 +1411,7 @@
         return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () { ST.sbTab = x[0]; renderMain(); } });
       }).concat([el('button', { type: 'button', text: 'Посмотреть', onclick: function () { openPreview('sandbox'); } })])),
       body,
+      block('Оформление страницы', lookFields(sb, 'sandbox'), { open: !!ST.sandboxLookOpen }),
       block('Шапка страницы и надписи', [
         textIn(sb, 'eyebrow', 'Надпись сверху'), textIn(sb, 'title', 'Заголовок'), textIn(sb, 'intro', 'Вступление', { multi: true, rows: 2 }),
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),
@@ -1356,6 +1439,7 @@
       collection(rf.items = rf.items || [], { visible: true, title: function (x) { return x.title; },
         make: function () { return { id: uid('e'), visible: true, image: null, title: 'Новый пример', text: '' }; }, addLabel: '+ Добавить пример',
         body: function (x) { return [imageIn(x, 'image', 'Изображение'), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 })]; } }),
+      block('Оформление страницы', lookFields(rf, 'reflection'), { open: !!ST.reflectionLookOpen }),
       block('Шапка страницы и кнопка', [
         textIn(rf, 'eyebrow', 'Надпись сверху'), textIn(rf, 'title', 'Заголовок'), textIn(rf, 'intro', 'Вступление', { multi: true, rows: 2 }),
         textIn(rf, 'placeholder', 'Надпись на примере без картинки'),
@@ -1862,7 +1946,15 @@
     return out;
   }
   function cleanShowcase(sc) {
-    var cards = (sc.cards || []).map(function (c) { return c && c.visible === false ? { id: c.id, visible: false } : c; });
+    var cards = (sc.cards || []).map(function (c) {
+      if (c && c.visible === false) return { id: c.id, visible: false };
+      var st = c && c.back && c.back.stub;
+      if (!st) return c;
+      // Заглушка включена — недописанные блоки оборота на сайт не уходят вовсе; выключена — убираем её из данных
+      var back = Object.assign({}, c.back);
+      if (st.on) { back.blocks = []; back.type = 'blocks'; } else delete back.stub;
+      return Object.assign({}, c, { back: back });
+    });
     var out = cleanDeep(Object.assign({}, sc, { cards: [] }));
     out.cards = cards.map(function (c) { return c.visible === false ? c : cleanDeep(c); });
     return out;
