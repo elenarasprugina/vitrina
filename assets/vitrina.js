@@ -177,7 +177,7 @@
     if (bg.color) rs.push('--m13-bgc:' + bg.color);
     if (bg.image) {
       rs.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')");
-      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px');
+      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
     }
     // Шапка: цвет надписей, положение, логотип вместо текста
     var hd = sc.head || {}, hcls = 'm13-header' + (hd.align === 'center' ? ' m13-header--center' : '') + (hd.color ? ' m13-header--tinted' : '');
@@ -971,6 +971,9 @@
 
   // Оформление отдельной страницы (Песочница, Примеры Карт-Отражений): фон как у месяца, шрифт, цвета, стеклянные панели.
   // look = {background:{image,imageTall,color,dim,blur}, font, textColor, accent, panelBg, glass, glassBlur}
+  // Как лежит картинка фона: на весь экран (обрезается), целиком по центру, крупно (по высоте экрана с запасом)
+  var BG_SIZE = { contain: 'contain', big: 'auto 135vh' };
+  function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
   function pageLook(lk) {
     if (!lk) return { cls: '', css: '' };
     var bg = lk.background || {}, css = [], cls = '';
@@ -978,7 +981,7 @@
     if (bg.image) {
       cls += ' m13-root m13-root--img';
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
-        '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px');
+        '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
     } else if (bg.color) cls += ' m13-root';
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
     if (!styled) return { cls: cls, css: css.join(';') };

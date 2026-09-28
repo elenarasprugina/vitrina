@@ -380,12 +380,20 @@
         c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
         var d = c.toDataURL('image/webp', 0.82);
-        if (d.indexOf('data:image/webp') !== 0) d = c.toDataURL('image/jpeg', 0.85);
+        if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(c) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85);
         URL.revokeObjectURL(url); res(d);
       };
       img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('bad')); };
       img.src = url;
     });
+  }
+  // Есть ли в картинке прозрачные места (проверяем редкой сеткой — этого достаточно)
+  function hasAlpha(c) {
+    try {
+      var d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, step = Math.max(4, Math.floor(d.length / 4 / 40000)) * 4;
+      for (var i = 3; i < d.length; i += step) if (d[i] < 250) return true;
+    } catch (e) {}
+    return false;
   }
   function imgSrc(v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : '../' + v; }
   function imageIn(obj, key, label, o) {
@@ -760,6 +768,7 @@
           colorIn(sc.background, 'color', 'Цвет фона'),
           rangeIn(sc.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Чтобы карточки читались лучше.' }),
           rangeIn(sc.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px', hint: '0 — чёткая; 4–8 — мягкий фон.' })]),
+        selectIn(sc.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
         sub('Надписи над сеткой'),
         el('div', { class: 'a-row3' }, [
           colorOptIn(sc.head = sc.head || {}, 'color', 'Цвет надписей', { none: 'обычный тёмный', pick: '#ecd3a3' }),
@@ -1305,6 +1314,7 @@
         colorIn(lk.background, 'color', 'Цвет фона'),
         rangeIn(lk.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Здесь много текста — обычно 45–65%.' }),
         rangeIn(lk.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px' })]),
+      selectIn(lk.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
       sub('Текст и панели'),
       el('div', { class: 'a-row' }, [
         selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
