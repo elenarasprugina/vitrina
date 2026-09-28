@@ -295,7 +295,7 @@
       glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around'),
       glass: num('glass', 0, 0, 100),
       glassBlur: num('glassBlur', 10, 0, 20),
-      backBg: f.backBg || d.backBg || '',
+      backBg: f.backBg || d.backBg || '', backText: f.backText || d.backText || '', backSize: pick('backSize', 'md'),
       // Стекло и узор: кромка, узор (готовый или своя картинка), где он лежит, цвет, заметность; помощь тексту
       rim: none(pick('rim', '')), pattern: none(pick('pattern', '')),
       patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
@@ -452,7 +452,13 @@
     // Оборот: свой цвет; если он тёмный — весь текст и плашки на обороте становятся светлыми
     var bb = sty.st.backBg, dark = bb && lum(hexRgb(bb)) < 128;
     big.classList.toggle('m13-back-dark', !!dark);
-    var bl = buttonLook(sty.st, !!dark);
+    // Свой цвет и размер текста на обороте
+    var btx = sty.st.backText;
+    big.classList.toggle('m13-back-tx', !!btx);
+    big.classList.remove('m13-bs-lg', 'm13-bs-xl');
+    if (sty.st.backSize === 'lg' || sty.st.backSize === 'xl') big.classList.add('m13-bs-' + sty.st.backSize);
+    var bl = buttonLook(sty.st, btx ? lum(hexRgb(btx)) > 128 : !!dark);
+    if (btx) bl.css.push('--m13-btx:' + btx);
     big.className = big.className.replace(/\s*m13-btn-[\w-]+/g, '');
     bl.cls.forEach(function (k) { big.classList.add(k); });
     big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : ''].concat(bl.css).filter(Boolean).join(';'));
@@ -999,7 +1005,7 @@
   }
 
   // Оформление отдельной страницы (Песочница, Примеры Карт-Отражений): фон как у месяца, шрифт, цвета, стеклянные панели.
-  // look = {background:{image,imageTall,color,dim,blur}, font, textColor, accent, panelBg, glass, glassBlur}
+  // look = {background:{image,imageTall,color,dim,blur,fit}, font, textColor, accent, panelBg, glass, glassBlur, textSize}
   // Как лежит картинка фона: на весь экран (обрезается), целиком по центру, крупно (по высоте экрана с запасом)
   var BG_SIZE = { contain: 'contain', big: 'auto 135vh' };
   function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
@@ -1012,6 +1018,8 @@
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
         '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
     } else if (bg.color) cls += ' m13-root';
+    var TK = { lg: 1.12, xl: 1.25 };
+    if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
     if (!styled) return { cls: cls, css: css.join(';') };
     cls += ' m13-look';

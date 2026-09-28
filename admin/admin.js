@@ -297,8 +297,14 @@
           rangeOptIn(stl, 'patternOpacity', 'Заметность узора', { min: 5, max: 100, step: 5, unit: '%', def: 80, onChange: onChange }, forCard),
           pat === 'custom' ? el('p', { class: 'a-hint', style: 'align-self:end', text: 'Свой узор показывается в своих цветах.' })
             : colorOptIn(stl, 'patternColor', 'Цвет узора', { none: 'иней — белый, остальные — акцентный', pick: '#eef6ff', onChange: onChange })]) : null,
+        sub('Оборот карточки'),
         el('div', { class: 'a-row' }, [
-          colorOptIn(stl, 'backBg', 'Цвет оборота карточки', { none: forCard ? 'как у всей витрины' : 'светлый', pick: '#15110c', onChange: onChange }),
+          colorOptIn(stl, 'backBg', 'Цвет оборота', { none: forCard ? 'как у всей витрины' : 'светлый', pick: '#15110c', onChange: onChange }),
+          colorOptIn(stl, 'backText', 'Цвет текста на обороте', { none: forCard ? 'как у всей витрины' : 'подберётся сам', pick: '#efe4d2', onChange: onChange,
+            hint: 'Пусто — на тёмном обороте светлый, на светлом тёмный.' })]),
+        el('div', { class: 'a-row' }, [
+          selectIn(stl, 'backSize', 'Размер текста на обороте', inh.concat([['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']]),
+            { def: forCard ? 'inherit' : 'md', onChange: onChange, hint: 'Описание, плашки, даты, подписи. Кнопки остаются как есть.' }),
           el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и кромка появляются и на обороте открытой карточки.' })])
       ]);
     }
@@ -1176,6 +1182,49 @@
   }
 
   /* ---------- Копирование карточки из любого месяца ---------- */
+  // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
+  var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
+    'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize'];
+  var STYLE_BACK = ['backBg', 'backText', 'backSize'].concat(BTN_KEYS);
+  function copyStyle(src, dst, what) {
+    var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
+    var keys = what === 'front' ? STYLE_FRONT : what === 'back' ? STYLE_BACK : STYLE_FRONT.concat(STYLE_BACK);
+    keys.forEach(function (k) { if (fs[k] != null && fs[k] !== '') ds[k] = clone(fs[k]); else delete ds[k]; });
+    if (what !== 'back') { if ((src.front || {}).statusStyle) df.statusStyle = src.front.statusStyle; else delete df.statusStyle; }
+  }
+  function copyStyleBox(sc, i, cb) {
+    var st = { month: sc.id, card: '', what: 'all', armed: false }, box = el('div', { class: 'a-copy' });
+    function isStatic(c) { return c.interactive === false || !c.back || c.back.type === 'static'; }
+    function draw() {
+      box.replaceChildren();
+      var opts = (DATA.showcases[st.month].cards || []).map(function (c, k) { return [String(k), (k + 1) + '. ' + ((c.front || {}).title || 'Без названия')]; })
+        .filter(function (x) { return !(st.month === sc.id && +x[0] === i); });
+      if (!opts.some(function (x) { return x[0] === st.card; })) st.card = opts.length ? opts[0][0] : '';
+      var src = DATA.showcases[st.month].cards[+st.card];
+      var name = src ? '«' + ((src.front || {}).title || '') + '»' : '';
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Берёт только вид — шрифт, цвета, стекло, узор, свечение, кнопки. Тексты, даты, картинки и блоки оборота не меняются. Пустые настройки станут «как у всей витрины».' }),
+        el('div', { class: 'a-row3' }, [
+          selectIn(st, 'month', 'Месяц', Object.keys(DATA.showcases).sort().map(function (id) { return [id, DATA.showcases[id].title]; }), { onChange: function () { st.armed = false; draw(); } }),
+          selectIn(st, 'card', 'С какой карточки', opts.length ? opts : [['', 'нет карточек']], { onChange: function () { st.armed = false; draw(); } }),
+          selectIn(st, 'what', 'Что взять', [['all', 'Всё оформление'], ['front', 'Только лицевую сторону'], ['back', 'Только оборот и кнопки']])]),
+        st.armed
+          ? el('div', { class: 'a-confirm' }, ['Оформление ' + name + ' получат все карточки этого месяца (кроме центральной без оборота). Точно?',
+              el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Да, всем', onclick: function () {
+                var n = 0;
+                sc.cards.forEach(function (c) { if (c !== src && !isStatic(c)) { copyStyle(src, c, st.what); n++; } });
+                changed(); cb.redrawAll(); toast('Готово: оформление применено к ' + n + ' карточкам. Не забудьте «Сохранить».'); } }),
+              el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Отмена', onclick: function () { st.armed = false; draw(); } })])
+          : el('div', { class: 'a-theme' }, [
+              el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--dark', text: 'Применить к этой карточке', disabled: !src, onclick: function () {
+                copyStyle(src, sc.cards[i], st.what); changed(); cb.redrawAll(); toast('Готово: оформление ' + name + ' применено. Тексты не тронуты.'); } }),
+              el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Применить ко всем карточкам месяца', disabled: !src, onclick: function () { st.armed = true; draw(); } })])
+      ]);
+    }
+    draw();
+    return box;
+  }
+
   function copyCardBox(sc, i, cb) {
     var st = { month: sc.id, card: '', armed: false }, box = el('div', { class: 'a-copy' });
     function cardsOf(id) {
@@ -1264,6 +1313,7 @@
     ];
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
     if (interactive) out.push(block('Оборот', backBlocksForm(c, cb)));
+    out.push(block('Скопировать оформление', [copyStyleBox(sc, i, cb)], { open: false, note: 'без текстов — только вид' }));
     out.push(block('Скопировать карточку', [copyCardBox(sc, i, cb)], { open: false, note: 'из этого или другого месяца' }));
     return out;
 
@@ -1325,7 +1375,7 @@
       // Здесь много текста: фон чуть темнее, панели плотнее, чем карточки витрины
       if (bg.image) bg.dim = Math.max(+bg.dim || 0, 50);
       sb.look = { background: bg, font: cs.font || '', textColor: cs.textColor || '', accent: cs.accent || (sc.head || {}).color || '',
-        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8 };
+        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8, textSize: cs.font === 'Cormorant Garamond' ? 'lg' : 'md' };
       toast('Оформление взято у витрины «' + (sc.title || id) + '». Можно подправить ниже.');
       redraw();
     }
@@ -1347,7 +1397,10 @@
       sub('Текст и панели'),
       el('div', { class: 'a-row' }, [
         selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
-        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' })]),
+        selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
+          hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' }), el('span')]),
       el('div', { class: 'a-row' }, [
         colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
         colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
