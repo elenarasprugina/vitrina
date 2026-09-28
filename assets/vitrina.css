@@ -641,4 +641,16 @@ body.m13-locked{overflow:hidden}
 @media (max-width:680px){ .m13-standalone .m13-ex-more > summary{font-size:calc(13px * var(--m13-tk,1))} .m13-standalone .m13-ex-more .m13-more-text{font-size:calc(14px * var(--m13-tk,1))} }
 /* Плашки примеров в ряду — одной высоты; под «Kin · название» всегда место на 2 строки, архетип и «Подробнее» — на одном уровне */
 .m13-examples{align-items:stretch}
-.m13-example-meta{line-height:1.45;min-height:2.9em}
+.m13-example-meta{line-height:1.45}
+.m13-example-meta:empty{display:none}
+/* Автовыравнивание: каждая плашка — 4 строки общей сетки ряда (картинка, подпись Kin, архетип, описание).
+   Строки ряда подстраиваются под самую длинную подпись/название — сколько бы строк они ни заняли. */
+@supports (grid-template-rows: subgrid) {
+  .m13-example{display:grid;grid-row:span 4;grid-template-rows:subgrid;row-gap:0;align-content:start}
+  .m13-example-meta:empty{display:block}
+  .m13-example > strong{align-self:start}
+}
+/* Старые браузеры без этой возможности: хотя бы место на 2 строки под подпись */
+@supports not (grid-template-rows: subgrid) {
+  .m13-example-meta{min-height:2.9em}
+}
