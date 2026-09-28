@@ -1273,6 +1273,50 @@
 
   /* ================= ПЕСОЧНИЦА ================= */
   function routeOptions() { return [['', '— не указан —']].concat(routes().map(function (r) { return [r.id, r.title]; })); }
+  // Оформление Песочницы: фон, шрифт, цвета, стеклянные панели. Кнопка — взять всё у витрины месяца.
+  function lookFields(sb) {
+    var lk = sb.look = sb.look || {};
+    lk.background = lk.background || {};
+    function redraw() { ST.sbLookOpen = true; changed(); renderMain(); }
+    function fromMonth() {
+      var ids = Object.keys(DATA.showcases).sort();
+      var id = DATA.settings.currentShowcase && DATA.showcases[DATA.settings.currentShowcase] ? DATA.settings.currentShowcase : ids[ids.length - 1];
+      var sc = id && DATA.showcases[id]; if (!sc) { toast('Нет витрины месяца, у которой можно взять оформление.', true); return; }
+      var cs = sc.cardStyle || {}, bg = clone(sc.background || {});
+      // Здесь много текста: фон чуть темнее, панели плотнее, чем карточки витрины
+      if (bg.image) bg.dim = Math.max(+bg.dim || 0, 50);
+      sb.look = { background: bg, font: cs.font || '', textColor: cs.textColor || '', accent: cs.accent || (sc.head || {}).color || '',
+        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8 };
+      toast('Оформление взято у витрины «' + (sc.title || id) + '». Можно подправить ниже.');
+      redraw();
+    }
+    return [
+      el('p', { class: 'a-hint', text: 'Как выглядит страница «Как устроены маршруты»: фон, шрифт, цвета, панели. Тексты не меняются.' }),
+      el('div', { class: 'a-theme' }, [
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '✨ Как у витрины месяца', onclick: fromMonth }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Светлая, как было', onclick: function () { sb.look = {}; redraw(); } }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть', onclick: function () { openPreview('sandbox'); } })]),
+      sub('Фон страницы'),
+      el('div', { class: 'a-row' }, [
+        imageIn(lk.background, 'image', 'Фоновая картинка', { max: 2400, hint: 'Растягивается на весь экран.' }),
+        imageIn(lk.background, 'imageTall', 'Картинка для телефона', { max: 2000, hint: 'Необязательно. Пусто — та же, что слева.' })]),
+      el('div', { class: 'a-row3' }, [
+        colorIn(lk.background, 'color', 'Цвет фона'),
+        rangeIn(lk.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Здесь много текста — обычно 45–65%.' }),
+        rangeIn(lk.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px' })]),
+      sub('Текст и панели'),
+      el('div', { class: 'a-row' }, [
+        selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
+        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' })]),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка, выбранный пример, линия у отзыва.' }),
+        colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
+      el('div', { class: 'a-row' }, [
+        rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
+        rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })])
+    ];
+  }
+
   function viewSandbox() {
     var sb = DATA.sandbox;
     sb.tabs = sb.tabs || { days: 'Примеры дней', chronicles: 'Что остаётся', reviews: 'Отзывы' };
@@ -1329,6 +1373,7 @@
         return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () { ST.sbTab = x[0]; renderMain(); } });
       }).concat([el('button', { type: 'button', text: 'Посмотреть', onclick: function () { openPreview('sandbox'); } })])),
       body,
+      block('Оформление страницы', lookFields(sb), { open: !!ST.sbLookOpen }),
       block('Шапка страницы и надписи', [
         textIn(sb, 'eyebrow', 'Надпись сверху'), textIn(sb, 'title', 'Заголовок'), textIn(sb, 'intro', 'Вступление', { multi: true, rows: 2 }),
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),

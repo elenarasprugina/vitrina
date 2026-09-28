@@ -954,7 +954,8 @@
       : '<a class="m13-iback" href="' + esc(backHref) + '">' + esc(T('backToShowcase') || '← К витрине') + '</a>';
     S.acts = [];
     var inner = which === 'sandbox' ? sandboxHTML(back) : reflectionHTML(back);
-    S.root.innerHTML = '<div class="m13-standalone">' + inner + '</div>' + modalHTML();
+    var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : null);
+    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' + modalHTML();
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
     if (home) home.addEventListener('click', function () { S.onBack(); });
@@ -966,6 +967,32 @@
       document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + (S.D.reflection.eyebrow || 'Карта-Отражение');
       bindActs(S.root);
     }
+  }
+
+  // Оформление отдельной страницы (Песочница): фон как у месяца, шрифт, цвета, стеклянные панели.
+  // look = {background:{image,imageTall,color,dim,blur}, font, textColor, accent, panelBg, glass, glassBlur}
+  function pageLook(lk) {
+    if (!lk) return { cls: '', css: '' };
+    var bg = lk.background || {}, css = [], cls = '';
+    if (bg.color) css.push('--m13-bgc:' + bg.color);
+    if (bg.image) {
+      cls += ' m13-root m13-root--img';
+      css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
+        '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px');
+    } else if (bg.color) cls += ' m13-root';
+    var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
+    if (!styled) return { cls: cls, css: css.join(';') };
+    cls += ' m13-look';
+    var pan = hexRgb(lk.panelBg || '#ffffff'), darkPan = lum(pan) < 128;
+    var glass = Math.max(0, Math.min(100, +lk.glass || 0));
+    var tx = lk.textColor || (darkPan ? '#efe4d2' : '#232323'), ac = lk.accent || tx;
+    // Заголовок стоит прямо на картинке: мягкая тень, тёмная под светлым текстом и светлая под тёмным
+    css.push('--lk-tsh:' + (lum(hexRgb(tx)) > 128 ? '0 1px 2px rgba(0,0,0,.75),0 0 18px rgba(0,0,0,.55)' : '0 1px 2px rgba(255,255,255,.8),0 0 18px rgba(255,255,255,.6)'));
+    css.push('--lk-tx:' + tx, '--lk-ac:' + ac, '--lk-ac-ink:' + inkFor(ac),
+      '--lk-pan:rgba(' + pan.join(',') + ',' + (1 - glass / 100).toFixed(2) + ')',
+      '--m13-gb:' + (lk.glassBlur == null || lk.glassBlur === '' ? 8 : Math.max(0, Math.min(20, +lk.glassBlur))) + 'px');
+    if (lk.font) { ensureFont(lk.font); css.push("--lk-font:'" + lk.font + "',Georgia,serif"); cls += ' m13-look--font'; }
+    return { cls: cls, css: css.join(';') };
   }
 
   /* ---------- Песочница ---------- */

@@ -515,3 +515,22 @@ body.m13-locked{overflow:hidden}
   .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action)::after{animation:none;display:none}
   .m13 .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action){animation:none}
 }
+
+/* ================= Оформление отдельной страницы (Песочница) ================= */
+.m13-look{--lk-mut:color-mix(in srgb,var(--lk-tx) 62%,transparent);--lk-soft:color-mix(in srgb,var(--lk-tx) 86%,transparent);
+  --lk-line:color-mix(in srgb,var(--lk-tx) 20%,transparent);color:var(--lk-tx);min-height:100vh;min-height:100svh}
+.m13-look--font{font-family:var(--lk-font)}
+.m13-look--font :is(.m13-ihead h2,.m13-panel h3,.m13-sb-item-title){font-weight:600;letter-spacing:0}
+.m13-look .m13-itop{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-look .m13-ihead{text-shadow:var(--lk-tsh)}
+.m13-look :is(.m13-iback,.m13-tab,.m13-sb-item,.m13-panel){background:var(--lk-pan);border-color:var(--lk-line);color:var(--lk-tx);
+  -webkit-backdrop-filter:blur(var(--m13-gb,8px));backdrop-filter:blur(var(--m13-gb,8px))}
+.m13-look :is(.m13-eyebrow,.m13-sb-item-top,.m13-panel-meta,.m13-sign,.m13-notice){color:var(--lk-mut)}
+.m13-look :is(.m13-ihead p,.m13-desc,.m13-block p,.m13-sb-item-sub,.m13-quote,.m13-practice){color:var(--lk-soft)}
+.m13-look .m13-notice{border-color:var(--lk-line);background:transparent}
+.m13-look .m13-tab.is-active{background:var(--lk-ac);border-color:var(--lk-ac);color:var(--lk-ac-ink)}
+.m13-look .m13-sb-item:hover{border-color:var(--lk-ac)}
+.m13-look .m13-sb-item.is-active{border-color:var(--lk-ac);box-shadow:inset 0 0 0 1px var(--lk-ac)}
+.m13-look :is(.m13-block,.m13-practice){background:color-mix(in srgb,var(--lk-tx) 6%,transparent);border-color:var(--lk-line)}
+.m13-look :is(.m13-block-title,.m13-practice strong){color:var(--lk-tx)}
+.m13-look .m13-quote{border-left-color:var(--lk-ac)}
