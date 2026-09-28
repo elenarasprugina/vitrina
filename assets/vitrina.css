@@ -602,3 +602,6 @@ body.m13-locked{overflow:hidden}
   .m13-bs-lg .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){zoom:1.12}
   .m13-bs-xl .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){zoom:1.24}
 }
+
+/* Градиент на кнопке тянется и под рамку — иначе у края видна тонкая полоска другого конца градиента */
+.m13 .m13-big-card[class*="m13-btn-"] :is(.m13-go,.m13-action){background-origin:border-box}

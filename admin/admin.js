@@ -1195,7 +1195,6 @@
   }
   function copyStyleBox(sc, i, cb) {
     var st = { month: sc.id, card: '', what: 'all', armed: false }, box = el('div', { class: 'a-copy' });
-    function isStatic(c) { return c.interactive === false || !c.back || c.back.type === 'static'; }
     function draw() {
       box.replaceChildren();
       var opts = (DATA.showcases[st.month].cards || []).map(function (c, k) { return [String(k), (k + 1) + '. ' + ((c.front || {}).title || 'Без названия')]; })
@@ -1210,10 +1209,10 @@
           selectIn(st, 'card', 'С какой карточки', opts.length ? opts : [['', 'нет карточек']], { onChange: function () { st.armed = false; draw(); } }),
           selectIn(st, 'what', 'Что взять', [['all', 'Всё оформление'], ['front', 'Только лицевую сторону'], ['back', 'Только оборот и кнопки']])]),
         st.armed
-          ? el('div', { class: 'a-confirm' }, ['Оформление ' + name + ' получат все карточки этого месяца (кроме центральной без оборота). Точно?',
+          ? el('div', { class: 'a-confirm' }, ['Оформление ' + name + ' получат все карточки этого месяца. Точно?',
               el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Да, всем', onclick: function () {
                 var n = 0;
-                sc.cards.forEach(function (c) { if (c !== src && !isStatic(c)) { copyStyle(src, c, st.what); n++; } });
+                sc.cards.forEach(function (c) { if (c !== src) { copyStyle(src, c, st.what); n++; } });
                 changed(); cb.redrawAll(); toast('Готово: оформление применено к ' + n + ' карточкам. Не забудьте «Сохранить».'); } }),
               el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Отмена', onclick: function () { st.armed = false; draw(); } })])
           : el('div', { class: 'a-theme' }, [
@@ -1289,7 +1288,7 @@
       el('div', { class: 'a-card', style: 'display:flex;flex-direction:column;gap:12px' }, [
         switchIn(c, 'visible', 'Показывать на витрине', { defTrue: true, hint: 'Если выключить, на этом месте будет пустая аккуратная клетка — сетка не сдвинется.', onChange: cb.redrawGrid }),
         switchIn({ v: interactive }, 'v', 'Карточка открывается и переворачивается', {
-          hint: 'Если выключить — карточка просто показывает текст, как центральная «13 MIRRORS». Оборот при этом сохраняется.',
+          hint: 'Все карточки одинаковые — и центральная тоже. Включите, и у карточки появятся оборот, заглушка, кнопки. Выключите — она просто показывает текст, а оборот сохраняется.',
           onChange: function (on) {
             c.interactive = on;
             if (on && (!c.back || !c.back.type || c.back.type === 'static')) c.back = c._back || presetBack('simple');
