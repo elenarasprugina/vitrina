@@ -639,4 +639,6 @@ body.m13-locked{overflow:hidden}
 .m13-look .m13-ex-more > summary{color:var(--lk-ac)}
 .m13-look .m13-ex-more .m13-more-text{color:var(--lk-soft)}
 @media (max-width:680px){ .m13-standalone .m13-ex-more > summary{font-size:calc(13px * var(--m13-tk,1))} .m13-standalone .m13-ex-more .m13-more-text{font-size:calc(14px * var(--m13-tk,1))} }
-.m13-examples{align-items:start}
+/* Плашки примеров в ряду — одной высоты; под «Kin · название» всегда место на 2 строки, архетип и «Подробнее» — на одном уровне */
+.m13-examples{align-items:stretch}
+.m13-example-meta{line-height:1.45;min-height:2.9em}
