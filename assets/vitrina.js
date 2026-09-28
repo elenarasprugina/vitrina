@@ -1184,6 +1184,7 @@
         return '<div class="m13-example">' +
           (it.image ? '<img src="' + esc(media(it.image)) + '" alt="' + esc(it.title) + '" loading="lazy">'
             : '<div class="m13-placeholder">' + esc(rf.placeholder || '') + '</div>') +
+          (it.meta ? '<em class="m13-example-meta">' + esc(it.meta) + '</em>' : '') +
           '<strong>' + esc(it.title) + '</strong>' + (it.text ? '<span>' + txt(it.text) + '</span>' : '') + '</div>';
       }).join('') + '</div>' +
       (oa && oa.show !== false && oa.label ? '<div class="m13-examples-cta"><button type="button" class="m13-action m13-action--primary"' +
