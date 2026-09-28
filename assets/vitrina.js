@@ -307,9 +307,9 @@
       btnStyle: none(pick('btnStyle', '')), btnColor: f.btnColor || d.btnColor || '', btnColor2: f.btnColor2 || d.btnColor2 || '',
       btnDir: pick('btnDir', 'diag'), btnInk: f.btnInk || d.btnInk || '', btnOther: pick('btnOther', 'outline'),
       btnOtherColor: f.btnOtherColor || d.btnOtherColor || '', btnLive: none(pick('btnLive', '')),
-      // Положение и выравнивание текста. У неоткрывающихся карточек (как центральная) — только своё, без общего месячного.
-      textPos: isStaticCard(c) ? (f.textPos && f.textPos !== 'inherit' ? f.textPos : '') : pick('textPos', ''),
-      textAlign: isStaticCard(c) ? (f.textAlign && f.textAlign !== 'inherit' ? f.textAlign : '') : pick('textAlign', '')
+      // Положение и выравнивание текста — у всех карточек одинаково: своё или общее месячное
+      textPos: pick('textPos', ''),
+      textAlign: pick('textAlign', '')
     };
   }
   function isStaticCard(c) { return !c || c.interactive === false || !c.back || c.back.type === 'static';
