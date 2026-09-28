@@ -4,6 +4,48 @@
   'use strict';
 
   var KEY = 'm13-admin-draft-v1';
+  // Копия черновика в браузере — в IndexedDB (там сотни мегабайт; в localStorage всего ~5 МБ, картинки туда не влезают).
+  // Старую копию из localStorage подхватываем и переносим.
+  var LOCAL = (function () {
+    var dbp = null, ST = 'kv';
+    function open() {
+      if (dbp) return dbp;
+      dbp = new Promise(function (res, rej) {
+        if (!window.indexedDB) return rej(new Error('no indexedDB'));
+        var r = indexedDB.open('m13-admin', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore(ST); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+      return dbp;
+    }
+    function tx(mode, fn) {
+      return open().then(function (db) {
+        return new Promise(function (res, rej) {
+          var t = db.transaction(ST, mode), q = fn(t.objectStore(ST));
+          t.oncomplete = function () { res(q && q.result); };
+          t.onerror = t.onabort = function () { rej(t.error || new Error('idb')); };
+        });
+      });
+    }
+    function legacy() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
+    return {
+      get: function () {
+        return tx('readonly', function (st) { return st.get(KEY); }).catch(function () { return null; })
+          .then(function (v) { return v || legacy(); });
+      },
+      set: function (o) {
+        return tx('readwrite', function (st) { return st.put(o, KEY); })
+          .then(function () { try { localStorage.removeItem(KEY); } catch (e) {} },
+            function () { localStorage.setItem(KEY, JSON.stringify(o)); });
+      },
+      del: function () {
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        return tx('readwrite', function (st) { return st.delete(KEY); }).catch(function () {});
+      }
+    };
+  })();
+  function keepLocal() { var t = Date.now(); LOCAL.set({ savedAt: t, data: DATA }).then(function () { savedAt = t; }, function () {}); savedAt = savedAt || t; }
   var MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
   // Оборот карточки собирается из блоков. У каждого блока — переключатель «видно/скрыто» и стрелки ↑↓.
   var BLOCKS = [
@@ -90,15 +132,13 @@
   function save() {
     syncIndex();
     var t = Date.now();
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ savedAt: t, data: DATA }));
-    } catch (e) {
-      toast('Не получилось сохранить: в браузере не хватает места. Скорее всего, слишком много больших картинок — уберите одну-две и попробуйте снова.', true);
-      return;
-    }
-    savedAt = t; dirty = false; updateState();
-    if (GHS.token) saveToGitHub();
-    else toast('Сохранено в этом браузере. Чтобы черновик был доступен с других устройств и его можно было опубликовать — войдите в GitHub.');
+    // Копия в браузере и сохранение в GitHub — независимо: если в браузере не хватит места, в GitHub всё равно сохраним
+    LOCAL.set({ savedAt: t, data: DATA }).then(function () { return true; }, function () { return false; }).then(function (ok) {
+      if (ok) savedAt = t;
+      if (GHS.token) { dirty = false; updateState(); saveToGitHub(); return; }
+      if (ok) { dirty = false; updateState(); toast('Сохранено в этом браузере. Чтобы черновик был доступен с других устройств и его можно было опубликовать — войдите в GitHub.'); }
+      else toast('В этом браузере не хватает места для черновика. Войдите в GitHub и нажмите «Сохранить» — там места достаточно.', true);
+    });
   }
 
   /* ---------- Загрузка ---------- */
@@ -1542,7 +1582,7 @@
       add(resetBox, reset.armed
         ? el('div', { class: 'a-confirm' }, ['Все изменения в этом браузере пропадут. Точно?',
             el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Да, вернуть исходное', onclick: function () {
-              try { localStorage.removeItem(KEY); } catch (e) {}
+              LOCAL.del();
               DATA = clone(ORIGINAL); dirty = false; savedAt = null; renderShell(); toast('Вернули исходные данные.'); } }),
             el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Отмена', onclick: function () { reset.armed = false; drawReset(); } })])
         : el('button', { type: 'button', class: 'a-btn a-btn--danger', text: 'Вернуть исходные данные…', onclick: function () { reset.armed = true; drawReset(); } }));
@@ -1950,7 +1990,7 @@
       GHS.contentTime = res.date;
       var gh = migrate(res.data), same = JSON.stringify(gh) === JSON.stringify(DATA);
       var hasLocal = false;
-      try { hasLocal = !!localStorage.getItem(KEY); } catch (e) {}
+      hasLocal = savedAt != null;
       if (same || !hasLocal) { useData(gh); if (fresh) toast('Вы вошли в GitHub. Черновик загружен.'); return; }
       var fmt = function (d) { return d ? new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'неизвестно когда'; };
       return dialog({ title: 'Какой черновик открыть?',
@@ -1966,7 +2006,7 @@
   }
   function useData(D) {
     DATA = D; dirty = false;
-    try { localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), data: DATA })); savedAt = Date.now(); } catch (e) {}
+    keepLocal();
     renderShell();
   }
 
@@ -2122,7 +2162,7 @@
       el('p', { class: 'a-hint', text: 'Скрытые карточки, выключенные поля и служебные пометки на сайт не попадают. Черновик перед публикацией сохранится в GitHub.' })]);
     dialog({ title: 'Опубликовать витрину?', body: body, buttons: [['go', 'Опубликовать', 'dark'], ['cancel', 'Отмена']] }).then(function (v) {
       if (v !== 'go') return;
-      if (dirty) try { localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), data: DATA })); savedAt = Date.now(); dirty = false; updateState(); } catch (e) {}
+      if (dirty) { keepLocal(); dirty = false; updateState(); }
       saveToGitHub(true).then(function (ok) {
         if (!ok) return;
         var P = buildSite(DATA), media, removed = [];
@@ -2150,7 +2190,7 @@
 
   // Публикация только настроек (главная страница, контакты, надписи) — без месяцев.
   function publishSettingsOnly() {
-    if (dirty) try { localStorage.setItem(KEY, JSON.stringify({ savedAt: Date.now(), data: DATA })); savedAt = Date.now(); dirty = false; updateState(); } catch (e) {}
+    if (dirty) { keepLocal(); dirty = false; updateState(); }
     saveToGitHub(true).then(function (ok) {
       if (!ok) return;
       var P = { settings: cleanDeep(DATA.settings) }, media;
@@ -2233,12 +2273,14 @@
     APP.innerHTML = '<p style="padding:40px;color:#6b6b68">Загружаем данные…</p>';
     loadSource().then(function (src) {
       ORIGINAL = src;
-      var saved = null;
-      try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
-      if (saved && saved.data) { DATA = saved.data; savedAt = saved.savedAt; } else DATA = clone(src);
-      migrate(DATA);
-      renderShell();
-      if (GHS.token) connect(false);
+      return LOCAL.get().then(function (saved) {
+        if (saved && saved.data) { DATA = saved.data; savedAt = saved.savedAt; } else DATA = clone(src);
+        migrate(DATA);
+        // Копия из старого хранилища — переносим в новое (и освобождаем старое)
+        if (saved && saved.data) LOCAL.set({ savedAt: savedAt, data: DATA }).catch(function () {});
+        renderShell();
+        if (GHS.token) connect(false);
+      });
     }).catch(function (e) {
       console.error(e);
       APP.innerHTML = '<p style="padding:40px">Не получилось загрузить данные витрины. Обновите страницу; если не поможет — напишите, что видите.</p>';
