@@ -1033,8 +1033,10 @@
     var pan = hexRgb(lk.panelBg || '#ffffff'), darkPan = lum(pan) < 128;
     var glass = Math.max(0, Math.min(100, +lk.glass || 0));
     var tx = lk.textColor || (darkPan ? '#efe4d2' : '#232323'), ac = lk.accent || tx;
-    // Заголовок стоит прямо на картинке: мягкая тень, тёмная под светлым текстом и светлая под тёмным
-    css.push('--lk-tsh:' + (lum(hexRgb(tx)) > 128 ? '0 1px 2px rgba(0,0,0,.75),0 0 18px rgba(0,0,0,.55)' : '0 1px 2px rgba(255,255,255,.8),0 0 18px rgba(255,255,255,.6)'));
+    // Заголовок стоит прямо на картинке: свой цвет (если задан) и мягкая тень — тёмная под светлым текстом, светлая под тёмным
+    var hd = lk.headColor || tx;
+    if (lk.headColor) css.push('--lk-hd:' + lk.headColor);
+    css.push('--lk-tsh:' + (lum(hexRgb(hd)) > 128 ? '0 1px 2px rgba(0,0,0,.75),0 0 18px rgba(0,0,0,.55)' : '0 1px 2px rgba(255,255,255,.8),0 0 18px rgba(255,255,255,.6)'));
     css.push('--lk-tx:' + tx, '--lk-ac:' + ac, '--lk-ac-ink:' + inkFor(ac),
       '--lk-pan:rgba(' + pan.join(',') + ',' + (1 - glass / 100).toFixed(2) + ')',
       '--m13-gb:' + (lk.glassBlur == null || lk.glassBlur === '' ? 8 : Math.max(0, Math.min(20, +lk.glassBlur))) + 'px');
@@ -1044,9 +1046,28 @@
 
   /* ---------- Песочница ---------- */
   var TABS = ['days', 'chronicles', 'reviews'];
-  var LABELS = { day: 'День {n}', meaning: 'Смысл дня', question: 'Вопрос дня', practice: 'Практика {n}', trace: 'Твой след',
+  var LABELS = { day: 'День {n}', meaning: 'Смысл дня', thought: 'Мысль дня', question: 'Вопрос дня', practice: 'Практика {n}', practiceOne: 'Практика', trace: 'Твой след',
     fragment: 'Фрагмент Летописи', lens: 'Линза 13 MIRRORS', review: 'Отзыв' };
   function L(key, vars) { var l = (S.D.sandbox.labels || {})[key]; return fill(l == null || l === '' ? LABELS[key] : l, vars || {}); }
+
+  // Текст с лёгкой разметкой: пустая строка — новый абзац, **жирный**, *курсив*, строки с «- » — список
+  function rich(s) {
+    return String(s || '').trim().split(/\n\s*\n/).map(function (par) {
+      var lines = par.split('\n'), out = '', list = [];
+      function inl(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>'); }
+      function flush() { if (list.length) { out += '<ul>' + list.map(function (x) { return '<li>' + inl(x) + '</li>'; }).join('') + '</ul>'; list = []; } }
+      var txtLines = [];
+      lines.forEach(function (ln) {
+        var m = /^\s*[-–•]\s+(.*)$/.exec(ln);
+        if (m) { if (txtLines.length) { out += '<p>' + txtLines.map(inl).join('<br>') + '</p>'; txtLines = []; } list.push(m[1]); }
+        else { flush(); if (ln.trim()) txtLines.push(ln.trim()); }
+      });
+      flush(); if (txtLines.length) out += '<p>' + txtLines.map(inl).join('<br>') + '</p>';
+      return out;
+    }).join('');
+  }
+  function plain(s) { return String(s || '').replace(/\*\*?(.+?)\*\*?/g, '$1').replace(/^\s*[-–•]\s+/gm, '').replace(/\s+/g, ' ').trim(); }
+  function firstLine(s) { var t = plain(String(s || '').split(/\n\s*\n/)[0]); return t.length > 140 ? t.slice(0, 138) + '…' : t; }
 
   function sandboxHTML(backBtn) {
     var sb = S.D.sandbox, notice = opt(sb.notice);
@@ -1064,8 +1085,8 @@
   function sbListItem(tab, it) {
     var r = routeById(it.routeId) || {};
     var top = '', title = '', sub = '';
-    if (tab === 'days') { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; sub = it.question; }
-    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = it.note; }
+    if (tab === 'days') { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; sub = firstLine(it.question || it.thought || it.meaning); }
+    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = firstLine(it.note || it.fragment); }
     else { top = [r.title, it.month].filter(Boolean).join(' · '); title = it.author; sub = it.text; }
     return '<button type="button" class="m13-sb-item" data-item="' + esc(it.id) + '">' +
       (top ? '<div class="m13-sb-item-top">' + esc(top) + '</div>' : '') +
@@ -1085,20 +1106,21 @@
         '<h3>' + esc(it.title) + '</h3>' +
         (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
         img +
-        (it.meaning ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('meaning')) + '</div><p>' + txt(it.meaning) + '</p></div>' : '') +
-        (it.question ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('question')) + '</div><p>' + txt(it.question) + '</p></div>' : '') +
-        (pr.length ? '<div class="m13-practices">' + pr.map(function (p, i) {
-          return '<div class="m13-practice"><strong>' + esc(L('practice', { n: i + 1 })) + '</strong>' + txt(p) + '</div>';
+        (it.meaning ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('meaning')) + '</div><div class="m13-rich">' + rich(it.meaning) + '</div></div>' : '') +
+        (it.thought ? '<div class="m13-block m13-thought"><div class="m13-block-title">' + esc(L('thought')) + '</div><div class="m13-rich">' + rich(it.thought) + '</div></div>' : '') +
+        (it.question ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('question')) + '</div><div class="m13-rich">' + rich(it.question) + '</div></div>' : '') +
+        (pr.length ? '<div class="m13-practices' + (pr.length === 1 ? ' m13-practices--one' : '') + '">' + pr.map(function (p, i) {
+          return '<div class="m13-practice"><strong>' + esc(pr.length === 1 ? L('practiceOne') : L('practice', { n: i + 1 })) + '</strong><div class="m13-rich">' + rich(p) + '</div></div>';
         }).join('') + '</div>' : '') +
-        (it.trace ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('trace')) + '</div><p>«' + txt(it.trace) + '»</p></div>' : '') +
+        (it.trace ? '<div class="m13-block m13-trace"><div class="m13-block-title">' + esc(L('trace')) + '</div><div class="m13-rich">' + rich(it.trace) + '</div></div>' : '') +
         '</article>';
     }
     if (tab === 'chronicles') {
       return toList + '<article class="m13-panel">' +
         '<div class="m13-eyebrow">' + esc(r.title || '') + '</div><h3>' + esc(it.name) + '</h3>' +
-        (it.note ? '<p class="m13-desc">' + txt(it.note) + '</p>' : '') + img +
-        (it.fragment ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('fragment')) + '</div><p>' + txt(it.fragment) + '</p></div>' : '') +
-        (it.lens ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('lens')) + '</div><p>' + txt(it.lens) + '</p></div>' : '') +
+        (it.note ? '<div class="m13-desc m13-rich">' + rich(it.note) + '</div>' : '') + img +
+        (it.fragment ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('fragment')) + '</div><div class="m13-rich">' + rich(it.fragment) + '</div></div>' : '') +
+        (it.lens ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('lens')) + '</div><div class="m13-rich">' + rich(it.lens) + '</div></div>' : '') +
         '</article>';
     }
     var meta2 = [r.title, it.month, it.source].filter(Boolean);
@@ -1129,7 +1151,8 @@
       });
       var items = visibleSorted(sb[t]);
       var cur = items.filter(function (x) { return x.id === id; })[0] || items[0];
-      holder.innerHTML = '<nav class="m13-sb-list">' + items.map(function (it) { return sbListItem(t, it); }).join('') + '</nav>' +
+      var intro = String(((sb.intros || {})[t]) || '').trim();
+      holder.innerHTML = (intro ? '<div class="m13-sb-intro m13-rich">' + rich(intro) + '</div>' : '') + '<nav class="m13-sb-list">' + items.map(function (it) { return sbListItem(t, it); }).join('') + '</nav>' +
         '<div class="m13-sb-detail">' + (cur ? sbDetail(t, cur) : '') + '</div>';
       holder.classList.toggle('is-detail', !!openDetail);
       // .m13-panel прячется на телефоне, пока не выбран элемент
