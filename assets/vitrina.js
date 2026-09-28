@@ -999,7 +999,7 @@
   }
 
   // Оформление отдельной страницы (Песочница, Примеры Карт-Отражений): фон как у месяца, шрифт, цвета, стеклянные панели.
-  // look = {background:{image,imageTall,color,dim,blur}, font, textColor, accent, panelBg, glass, glassBlur}
+  // look = {background:{image,imageTall,color,dim,blur,fit}, font, textColor, accent, panelBg, glass, glassBlur, textSize}
   // Как лежит картинка фона: на весь экран (обрезается), целиком по центру, крупно (по высоте экрана с запасом)
   var BG_SIZE = { contain: 'contain', big: 'auto 135vh' };
   function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
@@ -1012,6 +1012,8 @@
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
         '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
     } else if (bg.color) cls += ' m13-root';
+    var TK = { lg: 1.12, xl: 1.25 };
+    if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
     if (!styled) return { cls: cls, css: css.join(';') };
     cls += ' m13-look';

@@ -1325,7 +1325,7 @@
       // Здесь много текста: фон чуть темнее, панели плотнее, чем карточки витрины
       if (bg.image) bg.dim = Math.max(+bg.dim || 0, 50);
       sb.look = { background: bg, font: cs.font || '', textColor: cs.textColor || '', accent: cs.accent || (sc.head || {}).color || '',
-        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8 };
+        panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8, textSize: cs.font === 'Cormorant Garamond' ? 'lg' : 'md' };
       toast('Оформление взято у витрины «' + (sc.title || id) + '». Можно подправить ниже.');
       redraw();
     }
@@ -1347,7 +1347,10 @@
       sub('Текст и панели'),
       el('div', { class: 'a-row' }, [
         selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
-        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' })]),
+        selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
+          hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(lk, 'textColor', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2' }), el('span')]),
       el('div', { class: 'a-row' }, [
         colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
         colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
