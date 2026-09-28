@@ -326,7 +326,8 @@
     var st = cardStyle(c), cls = [], css = [];
     if (st.font) { ensureFont(st.font); css.push("font-family:'" + st.font + "',Georgia,serif"); }
     if (st.textColor) { cls.push('m13-styled'); css.push('--m13-tc:' + st.textColor); }
-    if (st.glass && !hasImg) {
+    // Стекло и у карточек с картинкой: сквозь прозрачные места PNG (например, цветок без фона) видно стекло, а не белую карточку
+    if (st.glass) {
       // «Зеркало»: цвет карточки полупрозрачный, сквозь него чуть видна картинка фона
       var rgb = hexRgb(st.bg || '#ffffff');
       css.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - st.glass / 100).toFixed(2) + ')', '--m13-gb:' + st.glassBlur + 'px');
