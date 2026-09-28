@@ -468,3 +468,50 @@ body.m13-locked{overflow:hidden}
 .m13-shade{background:linear-gradient(180deg,rgba(var(--m13-shc),.62) 0%,rgba(var(--m13-shc),.3) 40%,rgba(var(--m13-shc),0) 62%,rgba(var(--m13-shc),0) 78%,rgba(var(--m13-shc),.42) 100%)}
 .m13-pos-bottom > .m13-shade{transform:scaleY(-1)}
 .m13-pos-center > .m13-shade{background:rgba(var(--m13-shc),.36)}
+
+/* ================= Размер текста на карточке ================= */
+/* zoom увеличивает надпись вместе с её отступами и рамкой; на телефоне — мягче, там мало места */
+.m13-tt-sm :is(.m13-mini-title,.m13-hero-title){zoom:.88}
+.m13-tt-lg :is(.m13-mini-title,.m13-hero-title){zoom:1.15}
+.m13-ts-lg :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,.m13-flip-hint){zoom:1.18}
+.m13-ts-xl :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,.m13-flip-hint){zoom:1.36}
+@media (max-width:680px){
+  .m13-tt-lg .m13-mini-title{zoom:1.08}
+  .m13-ts-lg :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot){zoom:1.1}
+  .m13-ts-xl :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot){zoom:1.2}
+}
+
+/* Выравнивание по правому краю */
+.m13-thumb.m13-align-right{align-items:flex-end;text-align:right}
+.m13-front.m13-align-right{text-align:right}
+.m13-front.m13-align-right .m13-flip-hint{align-self:flex-end}
+
+/* ================= Кнопки на обороте ================= */
+/* Главная кнопка — первая в ряду (и «перейти» у маршрута); остальные — прозрачные с рамкой */
+.m13 .m13-big-card[class*="m13-btn-"] :is(.m13-go,.m13-action){position:relative;overflow:hidden;isolation:isolate}
+.m13 .m13-big-card.m13-btn-fill :is(.m13-go,.m13-action--primary),
+.m13 .m13-big-card.m13-btn-fill.m13-btn-same .m13-action{background:var(--m13-b1);border-color:var(--m13-b1);color:var(--m13-bink) !important}
+.m13 .m13-big-card.m13-btn-gradient :is(.m13-go,.m13-action--primary),
+.m13 .m13-big-card.m13-btn-gradient.m13-btn-same .m13-action{background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2));border-color:transparent;color:var(--m13-bink) !important;
+  box-shadow:0 6px 18px color-mix(in srgb,var(--m13-b2) 30%,transparent)}
+.m13 .m13-big-card.m13-btn-glass :is(.m13-go,.m13-action--primary),
+.m13 .m13-big-card.m13-btn-glass.m13-btn-same .m13-action{background:color-mix(in srgb,var(--m13-b1) 16%,transparent);border:1px solid var(--m13-b1);color:var(--m13-bink) !important;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 0 18px color-mix(in srgb,var(--m13-b1) 28%,transparent)}
+.m13 .m13-big-card.m13-btn-outline :is(.m13-go,.m13-action--primary),
+.m13 .m13-big-card.m13-btn-outline.m13-btn-same .m13-action{background:transparent;border:1.5px solid var(--m13-b1);color:var(--m13-bink) !important}
+.m13 .m13-big-card.m13-btn-other .m13-action:not(.m13-action--primary){background:transparent;border-color:var(--m13-bo);color:var(--m13-bo) !important}
+
+/* «Живость»: блик пробегает по кнопке; цвета градиента переливаются */
+.m13-btn-live-glint :is(.m13-go,.m13-action--primary)::after,.m13-btn-live-both :is(.m13-go,.m13-action--primary)::after,
+.m13-btn-same.m13-btn-live-glint .m13-action::after,.m13-btn-same.m13-btn-live-both .m13-action::after{
+  content:"";position:absolute;top:0;bottom:0;left:0;width:38%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:m13-glint 4.2s ease-in-out infinite}
+.m13 .m13-big-card.m13-btn-gradient:is(.m13-btn-live-flow,.m13-btn-live-both) :is(.m13-go,.m13-action--primary),
+.m13 .m13-big-card.m13-btn-gradient.m13-btn-same:is(.m13-btn-live-flow,.m13-btn-live-both) .m13-action{
+  background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2),var(--m13-b1));background-size:260% 260%;animation:m13-flow 6s ease-in-out infinite alternate}
+@keyframes m13-glint{0%{transform:translateX(-130%) skewX(-20deg)}55%,100%{transform:translateX(330%) skewX(-20deg)}}
+@keyframes m13-flow{from{background-position:0% 50%}to{background-position:100% 50%}}
+@media (prefers-reduced-motion:reduce){
+  .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action)::after{animation:none;display:none}
+  .m13 .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action){animation:none}
+}

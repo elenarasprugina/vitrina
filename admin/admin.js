@@ -220,8 +220,14 @@
       el('div', { class: 'a-row' }, [
         selectIn(stl, 'textPos', 'Где текст на лицевой стороне', inh.concat([['top', 'Сверху'], ['center', 'По центру'], ['bottom', 'Снизу']]),
           { def: forCard ? 'inherit' : 'top', onChange: onChange, hint: 'Выбирайте по картинке: чтобы текст не закрывал главное.' }),
-        selectIn(stl, 'textAlign', 'Выравнивание текста', inh.concat([['left', 'По левому краю'], ['center', 'По центру']]),
+        selectIn(stl, 'textAlign', 'Выравнивание текста', inh.concat([['left', 'По левому краю'], ['center', 'По центру'], ['right', 'По правому краю']]),
           { def: forCard ? 'inherit' : 'left', onChange: onChange })]),
+      el('div', { class: 'a-row' }, [
+        selectIn(stl, 'titleSize', 'Размер названия', inh.concat([['sm', 'Меньше'], ['md', 'Обычный'], ['lg', 'Крупнее']]),
+          { def: forCard ? 'inherit' : 'md', onChange: onChange }),
+        selectIn(stl, 'smallSize', 'Размер мелких надписей', inh.concat([['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']]),
+          { def: forCard ? 'inherit' : 'md', onChange: onChange,
+            hint: 'Тип, даты, «Вход открыт», «открыть», «Нажать — открыть оборот». На телефоне увеличиваются мягче — там мало места.' })]),
       el('div', { class: 'a-row' }, [
         colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины' : 'без акцента', pick: '#8a6bb8', onChange: onChange }),
         el('p', { class: 'a-hint', style: 'align-self:end', text: 'Красит рамку карточки, главную кнопку, счётчик дня и статус-плашку. Если цвет свечения не выбран — светится этим цветом.' })]),
@@ -235,6 +241,7 @@
         selectIn(stl, 'glowDir', 'Откуда идёт свет', inh.concat([['around', 'Вокруг всей карточки'], ['bottom', 'Снизу'], ['top', 'Сверху']]),
           { def: forCard ? 'inherit' : 'around', onChange: onChange })]),
       glassFields(stl, forCard, onChange),
+      buttonFields(stl, forCard, onChange),
       el('p', { class: 'a-hint', text: forCard
         ? 'Совет: свечение лучше всего работает, когда светятся одна-две карточки — например, центральная и ещё одна, на которую хочется обратить внимание.'
         : 'Совет: обычно для всей витрины свечение лучше выключить, а включить только у центральной карточки и одной акцентной — в их формах, раздел «Оформление».' })
@@ -293,6 +300,60 @@
         el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'backBg', 'Цвет оборота карточки', { none: forCard ? 'как у всей витрины' : 'светлый', pick: '#15110c', onChange: onChange }),
           el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и кромка появляются и на обороте открытой карточки.' })])
+      ]);
+    }
+    draw();
+    return box;
+  }
+
+  // «Кнопки на обороте»: вид главной кнопки, цвета, остальные кнопки, «живость», готовые наборы
+  var BTN_KEYS = ['btnStyle', 'btnColor', 'btnColor2', 'btnDir', 'btnInk', 'btnOther', 'btnOtherColor', 'btnLive'];
+  var BTN_PRESETS = [
+    ['✨ Золото', { btnStyle: 'gradient', btnColor: '#f8e7bf', btnColor2: '#c49a5a', btnDir: 'diag', btnLive: 'glint' }],
+    ['🌹 Розовое золото', { btnStyle: 'gradient', btnColor: '#f6dcd2', btnColor2: '#b8877a', btnDir: 'diag', btnLive: 'glint' }],
+    ['❄️ Зимнее серебро', { btnStyle: 'gradient', btnColor: '#ffffff', btnColor2: '#a9bdd2', btnDir: 'diag', btnLive: 'glint' }],
+    ['🪞 Стекло', { btnStyle: 'glass', btnColor: '#ecd3a3', btnLive: 'glint' }],
+    ['🐚 Перламутр', { btnStyle: 'gradient', btnColor: '#fbe9f1', btnColor2: '#c9def3', btnDir: 'diag', btnLive: 'both' }],
+    ['🌅 Закат', { btnStyle: 'gradient', btnColor: '#f7c46c', btnColor2: '#d9607e', btnDir: 'h', btnLive: 'both' }],
+    ['🌌 Северное сияние', { btnStyle: 'gradient', btnColor: '#62e0bd', btnColor2: '#8a6bd8', btnDir: 'h', btnLive: 'both' }],
+    ['🔥 Янтарь', { btnStyle: 'gradient', btnColor: '#ffd27a', btnColor2: '#c2571a', btnDir: 'v', btnLive: 'both' }]
+  ];
+  function buttonFields(stl, forCard, onChange) {
+    var inh = forCard ? [['inherit', 'Как у всей витрины']] : [];
+    var box = el('div', { class: 'a-glass' });
+    function redraw() { if (onChange) onChange(); draw(); }
+    function preset(p) {
+      BTN_KEYS.forEach(function (k) { delete stl[k]; });
+      if (p) Object.keys(p).forEach(function (k) { stl[k] = p[k]; });
+      changed(); redraw();
+    }
+    function draw() {
+      var bs = stl.btnStyle && stl.btnStyle !== 'inherit' ? stl.btnStyle : '';
+      var on = bs && bs !== 'none';
+      box.replaceChildren();
+      add(box, [
+        sub('Кнопки на обороте'),
+        el('p', { class: 'a-hint', text: 'Готовые наборы — одним нажатием, потом можно подправить. «Как по акцентному цвету» — вернуть как было.' }),
+        el('div', { class: 'a-presets' }, BTN_PRESETS.map(function (p) {
+          return el('button', { type: 'button', class: 'a-btn a-btn--small a-preset', style: '--p1:' + (p[1].btnColor || '#ecd3a3') + ';--p2:' + (p[1].btnColor2 || p[1].btnColor || '#ecd3a3'), text: p[0], onclick: function () { preset(p[1]); } });
+        }).concat([el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: forCard ? 'Как у всей витрины' : 'Как по акцентному цвету', onclick: function () { preset(null); } })])),
+        el('div', { class: 'a-row' }, [
+          selectIn(stl, 'btnStyle', 'Вид главной кнопки', inh.concat([['none', 'Как по акцентному цвету'], ['fill', 'Заливка — один цвет'], ['gradient', 'Градиент — два цвета'], ['glass', 'Стекло — прозрачная с кромкой'], ['outline', 'Контур — только рамка']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Главная — первая кнопка в ряду.' }),
+          on ? selectIn(stl, 'btnLive', 'Живость', inh.concat([['none', 'Спокойная'], ['glint', 'Блик пробегает по кнопке'], ['flow', 'Цвета переливаются (для градиента)'], ['both', 'Блик и перелив']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange }) : el('span')]),
+        on ? el('div', { class: 'a-row' }, [
+          colorOptIn(stl, 'btnColor', bs === 'gradient' ? 'Первый цвет' : 'Цвет кнопки', { none: 'акцентный', pick: '#ecd3a3', onChange: onChange }),
+          bs === 'gradient' ? colorOptIn(stl, 'btnColor2', 'Второй цвет', { none: 'как первый', pick: '#c49a5a', onChange: onChange })
+            : colorOptIn(stl, 'btnInk', 'Цвет надписи', { none: 'подберётся сам', pick: '#1c150c', onChange: onChange })]) : null,
+        on && bs === 'gradient' ? el('div', { class: 'a-row' }, [
+          selectIn(stl, 'btnDir', 'Направление градиента', inh.concat([['h', 'Слева направо'], ['diag', 'По диагонали'], ['v', 'Сверху вниз']]),
+            { def: forCard ? 'inherit' : 'diag', onChange: onChange }),
+          colorOptIn(stl, 'btnInk', 'Цвет надписи', { none: 'подберётся сам', pick: '#1c150c', onChange: onChange })]) : null,
+        el('div', { class: 'a-row' }, [
+          on ? selectIn(stl, 'btnOther', 'Остальные кнопки', inh.concat([['outline', 'Прозрачные с рамкой'], ['same', 'Такие же, как главная']]),
+            { def: forCard ? 'inherit' : 'outline', onChange: onChange }) : el('span'),
+          colorOptIn(stl, 'btnOtherColor', 'Цвет рамки и надписи остальных кнопок', { none: 'обычный', pick: '#ecd3a3', onChange: onChange })])
       ]);
     }
     draw();
