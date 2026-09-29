@@ -1198,11 +1198,18 @@
   var LIB_STEP = 12;
   function colorOf(it, r) { return (it && it.color) || (r && r.color) || ''; }
   function rcStyle(c) { return c ? ' style="--rc:' + esc(c) + '"' : ''; }
-  // c = {id, img, color, top, title, line, text, nested}; nested — обложка внутри страницы (пример дня внутри маршрута архива)
+  // Картинка обложки: заполняет окошко (края обрезаются) или целиком — по бокам та же картинка, размытая и увеличенная
+  function fitImgHTML(src, whole, lazy) {
+    var u = esc(media(src)), l = lazy ? ' loading="lazy"' : '';
+    return (whole ? '<img class="m13-fit-bg" src="' + u + '" alt="" aria-hidden="true"' + l + '>' : '') + '<img src="' + u + '" alt=""' + l + '>';
+  }
+  // c = {id, img, fit, color, top, title, line, text, nested}; fit 'whole' — картинка целиком;
+  // nested — обложка внутри страницы (пример дня внутри маршрута архива)
   function coverHTML(c) {
+    var whole = c.img && c.fit === 'whole';
     return '<button type="button" class="m13-cover' + (c.color ? ' m13-rc' : '') + (c.img ? '' : ' m13-cover--noimg') + '" ' +
       (c.nested ? 'data-sub' : 'data-open') + '="' + esc(c.id) + '"' + rcStyle(c.color) + '>' +
-      '<span class="m13-cover-img">' + (c.img ? '<img src="' + esc(media(c.img)) + '" alt="" loading="lazy">'
+      '<span class="m13-cover-img' + (whole ? ' m13-fit-whole' : '') + '">' + (c.img ? fitImgHTML(c.img, whole, true)
         : '<span class="m13-cover-ph">' + esc(c.ph || c.title || '') + '</span>') + '</span>' +
       '<span class="m13-cover-txt">' + (c.top ? '<span class="m13-cover-top">' + esc(c.top) + '</span>' : '') +
       '<span class="m13-cover-title">' + esc(c.title || '') + '</span>' +
@@ -1212,8 +1219,10 @@
   // Шапка страницы чтения: картинка маршрута (или своя обложка), цветная кромка, названия
   function readHeadHTML(h) {
     var g = h.img ? S.lb.push([{ src: media(h.img), caption: '' }]) - 1 : -1;
+    var whole = h.fit === 'whole';
     return '<header class="m13-read-head' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
-      (h.img ? '<button type="button" class="m13-read-img" data-m13-lb="' + g + ':0" aria-label="Открыть картинку крупно"><img src="' + esc(media(h.img)) + '" alt=""></button>' : '') +
+      (h.img ? '<button type="button" class="m13-read-img' + (whole ? ' m13-fit-whole' : '') + '" data-m13-lb="' + g + ':0" aria-label="Открыть картинку крупно">' +
+        fitImgHTML(h.img, whole) + '</button>' : '') +
       '<div class="m13-read-ht">' + (h.top ? '<div class="m13-eyebrow">' + esc(h.top) + '</div>' : '') + '<h3>' + esc(h.title || '') + '</h3>' +
       (h.line ? '<div class="m13-panel-day">' + esc(h.line) + '</div>' : '') +
       (h.meta && h.meta.length ? '<div class="m13-panel-meta">' + h.meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
@@ -1337,10 +1346,12 @@
   }
 
   /* ---------- Песочница ---------- */
+  // Обложек в ряд на компьютере: look.perRow 2 / 3 / 4 (по умолчанию 3; на телефоне всегда 2)
+  function colsCls(lk) { var n = +((lk || {}).perRow); return n === 2 || n === 4 ? ' m13-cols-' + n : ''; }
   function sandboxHTML(backBtn) {
     var sb = S.D.sandbox, notice = opt(sb.notice);
     var tabs = TABS.filter(function (t) { return visibleSorted(sb[t]).length; });
-    return '<div class="m13-ipage"><div class="m13-itop">' + backBtn + '</div>' +
+    return '<div class="m13-ipage' + colsCls(sb.look) + '"><div class="m13-itop">' + backBtn + '</div>' +
       '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(sb.eyebrow || '') + '</div>' +
       '<h2>' + esc(sb.title || '') + '</h2>' + (sb.intro ? '<p>' + txt(sb.intro) + '</p>' : '') +
       (notice ? '<span class="m13-notice">' + esc(notice) + '</span>' : '') + '</div>' +
@@ -1349,9 +1360,10 @@
       }).join('') + '</div>' +
       '<div class="m13-lib" data-sb></div></div>';
   }
-  // Обложка примера дня / Летописи. Картинка: своя обложка или картинка маршрута; цвет: свой или маршрута.
+  // Обложка примера дня / Летописи. Картинка: своя обложка или картинка маршрута (у каждой своё «целиком / заполнить»); цвет: свой или маршрута.
+  function sbImg(it, r) { return it.cover ? { img: it.cover, fit: it.coverFit || '' } : { img: r.image || '', fit: r.coverFit || '' }; }
   function sbCover(t, it, nested) {
-    var r = routeById(it.routeId) || {}, c = { id: nested ? t + ':' + it.id : it.id, img: it.cover || r.image || '', color: colorOf(it, r), nested: nested };
+    var r = routeById(it.routeId) || {}, c = Object.assign({ id: nested ? t + ':' + it.id : it.id, color: colorOf(it, r), nested: nested }, sbImg(it, r));
     if (t === 'days') {
       var dayN = it.day ? L('day', { n: it.day }) : '';
       if (S.D.sandbox.headMain !== 'day' && r.title) { c.title = r.title; c.line = [dayN, it.title].filter(Boolean).join(' · '); }
@@ -1361,7 +1373,7 @@
     return c;
   }
   function sbRead(t, it) {
-    var sb = S.D.sandbox, r = routeById(it.routeId) || {}, h = { img: it.cover || r.image || '', color: colorOf(it, r) };
+    var sb = S.D.sandbox, r = routeById(it.routeId) || {}, h = Object.assign({ color: colorOf(it, r) }, sbImg(it, r));
     var blocks = (M13.sbBlocks(t, it, sb.labels) || []).map(sbBlockHTML).join('');
     if (t === 'days') {
       var dayN = it.day ? L('day', { n: it.day }) : '';
@@ -1463,7 +1475,7 @@
   function eventsHTML(backBtn) {
     var ev = S.D.events || {};
     var tabs = EV_TABS.filter(function (t) { return evList(t).length; });
-    return '<div class="m13-ipage"><div class="m13-itop">' + backBtn + '</div>' +
+    return '<div class="m13-ipage' + colsCls(ev.look) + '"><div class="m13-itop">' + backBtn + '</div>' +
       '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(ev.eyebrow || '13 MIRRORS') + '</div>' +
       '<h2>' + esc(ev.title || 'События') + '</h2>' + (ev.intro ? '<p>' + txt(ev.intro) + '</p>' : '') + '</div>' +
       // Вкладки видны и когда она одна — как подпись раздела («Прошедшие маршруты»)
@@ -1473,7 +1485,7 @@
       (tabs.length ? '<div class="m13-lib" data-ev></div>' : '<p class="m13-sb-intro">' + esc(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
   }
   function evCover(e) {
-    return { id: e.id, img: e.cover || '', top: [EVENT_TYPES[e.type] || '', evDate(e)].filter(Boolean).join(' · '), title: e.title || '',
+    return { id: e.id, img: e.cover || '', fit: e.coverFit || '', top: [EVENT_TYPES[e.type] || '', evDate(e)].filter(Boolean).join(' · '), title: e.title || '',
       text: e.summary ? firstLine(e.summary) : '' };
   }
   function actionsHTML(acts, ctx) {
@@ -1514,7 +1526,7 @@
   // Маршрут в архиве: обложка и страница (картинка, даты, кин, описание, «как это было», фото, кнопки, примеры дней и Летописи)
   function routeDates(r) { var d = r.dates || {}; return evDate({ date: d.from, dateEnd: d.to }); }
   function routeCover(r) {
-    return { id: r.id, img: r.image || '', color: r.color || '', top: routeDates(r), title: r.title || '', text: firstLine(r.description || '') };
+    return { id: r.id, img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: routeDates(r), title: r.title || '', text: firstLine(r.description || '') };
   }
   function routeRead(r) {
     var sb = S.D.sandbox || {};
@@ -1528,7 +1540,7 @@
         L.map(function (it) { return coverHTML(sbCover(t, it, true)); }).join('') + '</div></section>' : '';
     }
     return '<article class="m13-panel m13-read-panel m13-ev">' +
-      readHeadHTML({ img: r.image || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [] }) +
+      readHeadHTML({ img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [] }) +
       (String(r.description || '').trim() ? '<div class="m13-block"><div class="m13-rich">' + rich(r.description) + '</div></div>' : '') +
       (r.archiveBlocks || []).map(sbBlockHTML).join('') +
       actionsHTML(acts, { card: r.title, url: libUrl('events', r.id, encodeURIComponent(r.id)), routeUrl: r.routeUrl, tplKey: 'route' }) +
