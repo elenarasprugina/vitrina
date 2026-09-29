@@ -677,12 +677,7 @@
       else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + esc(t) + '</div>'; }
       else if (x.kind === 'images') {
         var imgs = (x.images || []).filter(function (m) { return m && m.visible !== false && m.src; });
-        if (imgs.length) {
-          var g = S.lb.push(imgs.map(function (m) { return media(m.src); })) - 1;
-          html = '<div class="m13-gallery">' + imgs.map(function (m, k) {
-            return '<button type="button" class="m13-gallery-item" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
-              '<img src="' + esc(media(m.src)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>';
-        }
+        if (imgs.length) html = galleryHTML(imgs, 'row');
       }
       else if (x.kind === 'price') {
         var pv = String(x.value || '').trim();
@@ -913,12 +908,36 @@
       '<img class="m13-lb-img" id="m13-lb-img" alt="">' +
       '<button type="button" class="m13-lb-nav m13-lb-prev" id="m13-lb-prev" aria-label="Предыдущая">‹</button>' +
       '<button type="button" class="m13-lb-nav m13-lb-next" id="m13-lb-next" aria-label="Следующая">›</button>' +
+      '<div class="m13-lb-cap" id="m13-lb-cap"></div>' +
       '<div class="m13-lb-count" id="m13-lb-count"></div>' +
       '<button type="button" class="m13-lb-close" id="m13-lb-x" aria-label="Закрыть">×</button></div>';
   }
+  // Галерея: до 10 картинок с подписями. mode 'row' — ряд маленьких (оборот карточки),
+  // 'feature' — первая крупно с подписью, остальные рядом под ней (страницы). Крупно — в просмотрщике, с подписью.
+  function galleryHTML(list, mode) {
+    var imgs = (list || []).filter(function (m) { return m && m.visible !== false && m.src; }).slice(0, 10);
+    if (!imgs.length) return '';
+    var g = S.lb.push(imgs.map(function (m) { return { src: media(m.src), caption: String(m.caption || '').trim() }; })) - 1;
+    function btn(m, k, cls) {
+      return '<button type="button" class="' + cls + '" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
+        '<img src="' + esc(media(m.src)) + '" alt="' + esc(m.caption || '') + '" loading="lazy"></button>';
+    }
+    function cap(m) { var c = String(m.caption || '').trim(); return c ? '<figcaption class="m13-cap">' + esc(c) + '</figcaption>' : ''; }
+    if (mode === 'feature') {
+      return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + btn(imgs[0], 0, 'm13-fig-img') + cap(imgs[0]) + '</figure>' +
+        (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item'); }).join('') + '</div>' : '') + '</div>';
+    }
+    return '<div class="m13-gallery">' + imgs.map(function (m, k) { return btn(m, k, 'm13-gallery-item'); }).join('') + '</div>';
+  }
+  function bindLightbox(scope) {
+    scope.querySelectorAll('[data-m13-lb]').forEach(function (b) {
+      b.addEventListener('click', function (e) { e.stopPropagation(); var p = b.getAttribute('data-m13-lb').split(':'); openLightbox(+p[0], +p[1]); });
+    });
+  }
   function lbDraw() {
-    var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length;
-    q('#m13-lb-img').src = LB.list[LB.i];
+    var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length, it = LB.list[LB.i];
+    q('#m13-lb-img').src = typeof it === 'string' ? it : it.src;
+    var c = q('#m13-lb-cap'); if (c) c.textContent = (it && it.caption) || '';
     q('#m13-lb-count').textContent = n > 1 ? (LB.i + 1) + ' / ' + n : '';
     q('#m13-lb-prev').hidden = q('#m13-lb-next').hidden = n < 2;
   }
@@ -997,7 +1016,7 @@
     S.acts = [];
     var inner = which === 'sandbox' ? sandboxHTML(back) : reflectionHTML(back);
     var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : (S.D.reflection || {}).look);
-    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' + modalHTML();
+    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' + modalHTML() + lightboxHTML();
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
     if (home) home.addEventListener('click', function () { S.onBack(); });
@@ -1018,6 +1037,7 @@
   function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
   function pageLook(lk) {
     if (!lk) return { cls: '', css: '' };
+    if (lk.titleLine === false) { var r0 = pageLook(Object.assign({}, lk, { titleLine: true })); r0.cls += ' m13-noline'; return r0; }
     var bg = lk.background || {}, css = [], cls = '';
     if (bg.color) css.push('--m13-bgc:' + bg.color);
     if (bg.image) {
@@ -1054,7 +1074,7 @@
   function rich(s) {
     return String(s || '').trim().split(/\n\s*\n/).map(function (par) {
       var lines = par.split('\n'), out = '', list = [];
-      function inl(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>'); }
+      function inl(t) { return esc(t).replace(/__(.+?)__/g, '<u class="m13-u">$1</u>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>'); }
       function flush() { if (list.length) { out += '<ul>' + list.map(function (x) { return '<li>' + inl(x) + '</li>'; }).join('') + '</ul>'; list = []; } }
       var txtLines = [];
       lines.forEach(function (ln) {
@@ -1066,8 +1086,47 @@
       return out;
     }).join('');
   }
-  function plain(s) { return String(s || '').replace(/\*\*?(.+?)\*\*?/g, '$1').replace(/^\s*[-–•]\s+/gm, '').replace(/\s+/g, ' ').trim(); }
+  function plain(s) { return String(s || '').replace(/__(.+?)__/g, '$1').replace(/\*\*?(.+?)\*\*?/g, '$1').replace(/^\s*[-–•]\s+/gm, '').replace(/\s+/g, ' ').trim(); }
+  function firstText(tab, it) { var t = ''; (M13.sbBlocks(tab, it, (S.D.sandbox || {}).labels) || []).some(function (b) { if (b.visible !== false && b.kind === 'text' && String(b.text || '').trim()) { t = b.text; return true; } }); return t; }
   function firstLine(s) { var t = plain(String(s || '').split(/\n\s*\n/)[0]); return t.length > 140 ? t.slice(0, 138) + '…' : t; }
+
+  // Разделы примера (день, Летопись) — гибкие блоки: {kind:'text', title, text, look:'normal'|'thought'|'mantra', collapse}
+  // или {kind:'images', images:[{src, caption}]}. Старые поля (meaning, thought, practices…) превращаются в блоки на лету.
+  M13.sbBlocks = function (tab, it, labels) {
+    if (it && it.blocks) return it.blocks;
+    labels = labels || {};
+    function lab(k, v) { var l = labels[k]; return fill(l == null || l === '' ? LABELS[k] : l, v || {}); }
+    var B = [], n = 0;
+    function tb(title, text, o) { if (String(text || '').trim()) B.push(Object.assign({ id: 'b' + (++n), kind: 'text', visible: true, title: title, text: String(text) }, o || {})); }
+    if (it.image) B.push({ id: 'b' + (++n), kind: 'images', visible: true, images: [{ src: it.image, caption: '' }] });
+    if (tab === 'days') {
+      var pr = (it.practices || []).filter(function (x) { return String(x || '').trim(); });
+      tb(lab('meaning'), it.meaning, { collapse: true });
+      tb(lab('thought'), it.thought, { look: 'thought' });
+      tb(lab('question'), it.question);
+      pr.forEach(function (p, i) { tb(pr.length === 1 ? lab('practiceOne') : lab('practice', { n: i + 1 }), p, { collapse: true }); });
+      tb(lab('trace'), it.trace);
+    } else if (tab === 'chronicles') {
+      tb('', it.note);
+      tb(lab('fragment'), it.fragment, { collapse: true });
+      tb(lab('lens'), it.lens);
+    }
+    return B;
+  };
+  function sbBlockHTML(b) {
+    if (!b || b.visible === false) return '';
+    if (b.kind === 'images') return galleryHTML(b.images, 'feature');
+    var text = String(b.text || '').trim(); if (!text) return '';
+    var paras = text.split(/\n\s*\n/), sb = S.D.sandbox || {}, body;
+    // Длинный текст: первый абзац виден, остальное — под «Подробнее»
+    if (b.collapse && paras.length > 1 && text.length > 320) {
+      body = '<div class="m13-rich">' + rich(paras[0]) + '</div><details class="m13-more m13-sb-more"><summary><span class="m13-more-open">' +
+        esc(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + esc(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
+        '<div class="m13-rich">' + rich(paras.slice(1).join('\n\n')) + '</div></details>';
+    } else body = '<div class="m13-rich">' + rich(text) + '</div>';
+    var look = b.look === 'thought' ? ' m13-thought' : b.look === 'mantra' ? ' m13-mantra' : '';
+    return '<div class="m13-block' + look + '">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + body + '</div>';
+  }
 
   function sandboxHTML(backBtn) {
     var sb = S.D.sandbox, notice = opt(sb.notice);
@@ -1085,12 +1144,20 @@
   function sbListItem(tab, it) {
     var r = routeById(it.routeId) || {};
     var top = '', title = '', sub = '';
-    if (tab === 'days') { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; sub = firstLine(it.question || it.thought || it.meaning); }
-    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = firstLine(it.note || it.fragment); }
+    var day = '';
+    if (tab === 'days') {
+      var dl = [it.day ? L('day', { n: it.day }) : '', it.title].filter(Boolean).join(' · ');
+      sub = firstLine(it.question || it.thought || it.meaning || firstText(tab, it));
+      // Крупно — маршрут, ниже мельче — «День 1 · …» (или наоборот — настройка «Что главное в примере дня»)
+      if ((S.D.sandbox || {}).headMain !== 'day' && r.title) { title = r.title; day = dl; }
+      else { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; }
+    }
+    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = firstLine(it.note || it.fragment || firstText(tab, it)); }
     else { top = [r.title, it.month].filter(Boolean).join(' · '); title = it.author; sub = it.text; }
     return '<button type="button" class="m13-sb-item" data-item="' + esc(it.id) + '">' +
       (top ? '<div class="m13-sb-item-top">' + esc(top) + '</div>' : '') +
       '<div class="m13-sb-item-title">' + esc(title) + '</div>' +
+      (day ? '<div class="m13-sb-item-day">' + esc(day) + '</div>' : '') +
       (sub ? '<div class="m13-sb-item-sub">' + esc(sub) + '</div>' : '') + '</button>';
   }
 
@@ -1098,30 +1165,22 @@
     var sb = S.D.sandbox, r = routeById(it.routeId) || {};
     var img = it.image ? '<img class="m13-panel-img" src="' + esc(media(it.image)) + '" alt="" loading="lazy">' : '';
     var toList = '<button type="button" class="m13-iback m13-sb-toList" data-tolist>' + esc(T('backToList') || '← К списку') + '</button>';
+    var blocks = (M13.sbBlocks(tab, it, sb.labels) || []).map(sbBlockHTML).join('');
     if (tab === 'days') {
       var meta = [opt(it.kin), opt(it.tone), opt(it.seal)].filter(Boolean);
-      var pr = (it.practices || []).filter(Boolean);
+      var dl = [it.day ? L('day', { n: it.day }) : '', it.title].filter(Boolean).join(' · ');
+      var routeMain = sb.headMain !== 'day' && r.title;
       return toList + '<article class="m13-panel">' +
-        '<div class="m13-eyebrow">' + esc([r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · ')) + '</div>' +
-        '<h3>' + esc(it.title) + '</h3>' +
+        (routeMain
+          // Крупно — маршрут (волна), ниже — «День 1 · Красный Магнитный Дракон»
+          ? '<h3>' + esc(r.title) + '</h3>' + (dl ? '<div class="m13-panel-day">' + esc(dl) + '</div>' : '')
+          : '<div class="m13-eyebrow">' + esc([r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · ')) + '</div><h3>' + esc(it.title) + '</h3>') +
         (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-        img +
-        (it.meaning ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('meaning')) + '</div><div class="m13-rich">' + rich(it.meaning) + '</div></div>' : '') +
-        (it.thought ? '<div class="m13-block m13-thought"><div class="m13-block-title">' + esc(L('thought')) + '</div><div class="m13-rich">' + rich(it.thought) + '</div></div>' : '') +
-        (it.question ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('question')) + '</div><div class="m13-rich">' + rich(it.question) + '</div></div>' : '') +
-        (pr.length ? '<div class="m13-practices' + (pr.length === 1 ? ' m13-practices--one' : '') + '">' + pr.map(function (p, i) {
-          return '<div class="m13-practice"><strong>' + esc(pr.length === 1 ? L('practiceOne') : L('practice', { n: i + 1 })) + '</strong><div class="m13-rich">' + rich(p) + '</div></div>';
-        }).join('') + '</div>' : '') +
-        (it.trace ? '<div class="m13-block m13-trace"><div class="m13-block-title">' + esc(L('trace')) + '</div><div class="m13-rich">' + rich(it.trace) + '</div></div>' : '') +
-        '</article>';
+        blocks + '</article>';
     }
     if (tab === 'chronicles') {
       return toList + '<article class="m13-panel">' +
-        '<div class="m13-eyebrow">' + esc(r.title || '') + '</div><h3>' + esc(it.name) + '</h3>' +
-        (it.note ? '<div class="m13-desc m13-rich">' + rich(it.note) + '</div>' : '') + img +
-        (it.fragment ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('fragment')) + '</div><div class="m13-rich">' + rich(it.fragment) + '</div></div>' : '') +
-        (it.lens ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('lens')) + '</div><div class="m13-rich">' + rich(it.lens) + '</div></div>' : '') +
-        '</article>';
+        '<div class="m13-eyebrow">' + esc(r.title || '') + '</div><h3>' + esc(it.name) + '</h3>' + blocks + '</article>';
     }
     var meta2 = [r.title, it.month, it.source].filter(Boolean);
     return toList + '<article class="m13-panel">' +
@@ -1151,6 +1210,7 @@
       });
       var items = visibleSorted(sb[t]);
       var cur = items.filter(function (x) { return x.id === id; })[0] || items[0];
+      S.lb = [];
       var intro = String(((sb.intros || {})[t]) || '').trim();
       holder.innerHTML = (intro ? '<div class="m13-sb-intro m13-rich">' + rich(intro) + '</div>' : '') + '<nav class="m13-sb-list">' + items.map(function (it) { return sbListItem(t, it); }).join('') + '</nav>' +
         '<div class="m13-sb-detail">' + (cur ? sbDetail(t, cur) : '') + '</div>';
@@ -1164,6 +1224,7 @@
           if (isMobile()) { var sc = scope.closest('.m13-internal') || window; sc.scrollTo(0, 0); }
         });
       });
+      bindLightbox(holder);
       var tl = holder.querySelector('[data-tolist]');
       if (tl) tl.addEventListener('click', function () { show(t, cur && cur.id, false); setHash(t, null); });
     }

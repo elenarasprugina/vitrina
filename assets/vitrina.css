@@ -654,3 +654,32 @@ body.m13-locked{overflow:hidden}
 @supports not (grid-template-rows: subgrid) {
   .m13-example-meta{min-height:2.9em}
 }
+
+/* ================= Гибкие блоки Песочницы, галереи с подписями ================= */
+.m13-panel-day{margin:-4px 0 6px;font-size:13px;letter-spacing:.02em;color:#6e6e6e}
+.m13-standalone .m13-panel-day{font-size:calc(16px * var(--m13-tk,1))}
+.m13-sb-item-day{margin-top:2px;font-size:11.5px;color:#666}
+.m13-standalone .m13-sb-item-day{font-size:calc(13.5px * var(--m13-tk,1))}
+.m13-look :is(.m13-panel-day,.m13-sb-item-day){color:var(--lk-mut)}
+/* Заголовки блоков — с тонкой линией, как «Подробнее» (выключается в «Оформлении страницы») */
+.m13-standalone:not(.m13-noline) .m13-block-title{display:inline-block;border-bottom:1px solid currentColor;padding-bottom:2px;margin-bottom:9px}
+.m13 .m13-u{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+/* Мантра дня — по центру, курсивом, крупнее */
+.m13-mantra{text-align:center}
+.m13-mantra .m13-rich{font-style:italic}
+.m13-standalone .m13-mantra .m13-rich p{font-size:calc(19px * var(--m13-tk,1));line-height:1.5}
+.m13-sb-more{margin-top:4px}
+.m13-standalone .m13-sb-more > summary{font-size:calc(14px * var(--m13-tk,1))}
+.m13-look .m13-sb-more > summary{color:var(--lk-ac)}
+/* Галерея: первая крупно с подписью, остальные рядом */
+.m13-block--gallery{padding:10px}
+.m13-fig{margin:0}
+.m13-fig-img{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
+.m13-fig-img img{display:block;width:100%;max-height:560px;object-fit:contain;border-radius:10px}
+.m13-cap{margin-top:7px;font-size:12.5px;line-height:1.4;color:#7a7a7a;font-style:italic}
+.m13-standalone .m13-cap{font-size:calc(13.5px * var(--m13-tk,1))}
+.m13-look .m13-cap{color:var(--lk-mut)}
+.m13-gallery--rest{margin-top:8px;flex-wrap:wrap;overflow:visible}
+.m13-lb-cap{position:absolute;left:50%;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 24px);transform:translateX(-50%);max-width:min(680px,90vw);
+  color:rgba(255,255,255,.82);font-size:13.5px;line-height:1.45;text-align:center;font-style:italic}
+.m13-lb-cap:empty{display:none}

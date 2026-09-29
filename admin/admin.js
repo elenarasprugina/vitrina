@@ -1056,9 +1056,7 @@
     if (x.kind === 'more') return [el('p', { class: 'a-hint', text: 'Сначала видна только кнопка, по нажатию раскрывается текст. Короткое описание — в блоке «Описание» над этим.' }),
       el('div', { class: 'a-row' }, [textIn(x, 'label', 'Кнопка', { ph: 'Подробнее' }), textIn(x, 'labelClose', 'Кнопка, когда открыто', { ph: 'Свернуть' })]),
       textIn(x, 'text', 'Текст, который раскрывается', { multi: true, rows: 5 })];
-    if (x.kind === 'images') return [collection(x.images = x.images || [], { visible: true, max: 6, title: function (m, k) { return 'Картинка ' + (k + 1); },
-      body: function (m) { return [imageIn(m, 'src', '')]; }, make: function () { return { id: uid('img'), src: null, visible: true }; },
-      addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' })];
+    if (x.kind === 'images') return [galleryForm(x.images = x.images || [])];
     if (x.kind === 'price') return [el('div', { class: 'a-row' }, [textIn(x, 'value', 'Цена', { ph: '3 000 ₽' }),
       textIn(x, 'label', 'Подпись к цене', { ph: 'Пусто — название карточки' })])];
     if (x.kind === 'day') return [el('p', { class: 'a-hint', text: 'Появляется только в дни маршрута и считается по его датам.' }), needRoute('Счётчику нужны даты маршрута.')];
@@ -1448,13 +1446,59 @@
       el('div', { class: 'a-row' }, [
         colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
         colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
+      switchIn(lk, 'titleLine', 'Тонкая линия под заголовками разделов', { defTrue: true }),
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
         rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })])
     ];
   }
 
-  var SB_LABELS = { meaning: 'Смысл дня', thought: 'Мысль дня', question: 'Вопрос дня', trace: 'Твой след' };
+  // Гибкие разделы примера (день, Летопись): текстовые блоки с заголовком и блоки-картинки. Старые поля → блоки при первом открытии.
+  var SB_PRESETS = [
+    ['meaning', 'Контур дня', { collapse: true }], ['thought', 'Мысль дня', { look: 'thought' }], ['mantra', 'Мантра дня', { look: 'mantra' }],
+    ['question', 'Главный вопрос', {}], ['practice', 'Практика', { collapse: true }], ['trace', 'След дня', {}],
+    ['fragment', 'Фрагмент Летописи', { collapse: true }], ['text', 'Свой блок', {}], ['images', 'Картинки (до 10)', {}]
+  ];
+  function sbPreset(k) {
+    var p = SB_PRESETS.filter(function (x) { return x[0] === k; })[0] || SB_PRESETS[7];
+    if (k === 'images') return { id: uid('sb'), kind: 'images', visible: true, images: [] };
+    return Object.assign({ id: uid('sb'), kind: 'text', visible: true, title: k === 'text' ? '' : String(sbLabel(k) || p[1]).replace(/\s*\{n\}/, ''), text: '' }, p[2]);
+  }
+  var SB_LOOKS = [['normal', 'Обычный'], ['thought', 'Мысль — курсивом, крупнее'], ['mantra', 'Мантра — по центру, курсивом']];
+  function galleryForm(list) {
+    return collection(list, { visible: true, max: 10, title: function (m, k) { return (m.caption ? m.caption : 'Картинка ' + (k + 1)); },
+      body: function (m) { return [imageIn(m, 'src', '', { max: 1800 }), textIn(m, 'caption', 'Подпись под картинкой', { ph: 'Работа участницы маршрута «Белый Волшебник»', hint: 'Мелко и бледнее основного текста, как подпись к фото. Можно пусто.' })]; },
+      make: function () { return { id: uid('img'), src: null, caption: '', visible: true }; }, addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' });
+  }
+  function sbBlocksForm(x, tab) {
+    if (!x.blocks) {
+      x.blocks = clone(window.M13.sbBlocks(tab, x, DATA.sandbox.labels) || []).map(function (b) { b.id = uid('sb'); return b; });
+      ['meaning', 'thought', 'question', 'practices', 'trace', 'image', 'note', 'fragment', 'lens'].forEach(function (k) { delete x[k]; });
+    }
+    var sel = { k: 'text' };
+    return el('div', { class: 'a-glass' }, [
+      sub('Разделы'),
+      el('p', { class: 'a-hint', text: 'Добавляйте, переименовывайте, переставляйте и скрывайте разделы. В текстах: пустая строка — новый абзац, **жирный**, *курсив*, __подчёркнутый__, строка с «- » — пункт списка.' }),
+      collection(x.blocks, { visible: true,
+        title: function (b) { return b.kind === 'images' ? 'Картинки · ' + (b.images || []).length + ' шт.' : (b.title || 'Без заголовка') + (b.text ? ' — ' + String(b.text).replace(/\s+/g, ' ').slice(0, 40) + '…' : ''); },
+        body: function (b) {
+          if (b.kind === 'images') return [galleryForm(b.images = b.images || [])];
+          return [
+            textIn(b, 'title', 'Заголовок раздела', { ph: 'Контур дня, Мантра дня, Вкус дня…' }),
+            textIn(b, 'text', 'Текст', { multi: true, rows: 6 }),
+            el('div', { class: 'a-row' }, [
+              selectIn(b, 'look', 'Как показывать', SB_LOOKS, { def: 'normal' }),
+              switchIn(b, 'collapse', 'Длинный текст — под «Подробнее»', { hint: 'Виден первый абзац, остальное раскрывается.' })])
+          ];
+        },
+        addBox: function (push) {
+          return el('div', { class: 'a-row a-row--end' }, [
+            selectIn(sel, 'k', 'Добавить раздел', SB_PRESETS.map(function (p) { return [p[0], p[1]]; })),
+            el('button', { type: 'button', class: 'a-btn', text: '+ Добавить', onclick: function () { push(sbPreset(sel.k)); } })]);
+        } })
+    ]);
+  }
+  var SB_LABELS = { meaning: 'Контур дня', thought: 'Мысль дня', mantra: 'Мантра дня', question: 'Главный вопрос', practice: 'Практика', trace: 'След дня', fragment: 'Фрагмент Летописи' };
   function sbLabel(k) { var l = ((DATA.sandbox || {}).labels || {})[k]; return (l && String(l).trim()) || SB_LABELS[k]; }
   function viewSandbox() {
     var sb = DATA.sandbox;
@@ -1466,34 +1510,23 @@
     if (t === 'days') body = collection(sb.days = sb.days || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [r && r.title, x.day ? 'День ' + x.day : '', x.title].filter(Boolean).join(' · '); },
       make: function () { return { id: uid('d'), visible: true, routeId: '', day: null, kin: { value: '', show: false }, tone: { value: '', show: false }, seal: { value: '', show: false },
-        title: 'Новый пример дня', meaning: '', question: '', practices: ['', ''], trace: '', image: null }; },
+        title: 'Новый пример дня', blocks: [sbPreset('meaning'), sbPreset('thought'), sbPreset('question'), sbPreset('practice'), sbPreset('trace')] }; },
       addLabel: '+ Добавить пример дня',
       body: function (x) {
-        x.practices = x.practices || ['', ''];
         return [
           el('div', { class: 'a-row' }, [selectIn(x, 'routeId', 'Маршрут', routeOptions()), textIn(x, 'day', 'Номер дня', { type: 'number' })]),
           el('div', { class: 'a-row3' }, [optIn(x, 'kin', 'Кин'), optIn(x, 'tone', 'Тон'), optIn(x, 'seal', 'Печать')]),
-          textIn(x, 'title', 'Заголовок'),
-          el('p', { class: 'a-hint', text: 'В текстах: пустая строка — новый абзац, **жирный**, *курсив*, строка с «- » в начале — пункт списка. Пустые поля на странице не показываются.' }),
-          textIn(x, 'meaning', sbLabel('meaning'), { multi: true, rows: 5 }),
-          textIn(x, 'thought', sbLabel('thought'), { multi: true, rows: 2 }),
-          textIn(x, 'question', sbLabel('question'), { multi: true, rows: 2 }),
-          el('div', { class: 'a-row' }, [textIn(x.practices, 0, 'Практика 1', { multi: true, rows: 6 }), textIn(x.practices, 1, 'Практика 2', { multi: true, rows: 6 })]),
-          textIn(x.practices, 2, 'Практика 3 (необязательно)', { multi: true, rows: 4 }),
-          textIn(x, 'trace', sbLabel('trace'), { multi: true, rows: 2 }),
-          imageIn(x, 'image', 'Картинка (необязательно)')
+          textIn(x, 'title', 'Название дня', { hint: 'Например, «Красный Магнитный Дракон» или «День вне времени».' }),
+          sbBlocksForm(x, 'days')
         ];
       } });
     else if (t === 'chronicles') body = collection(sb.chronicles = sb.chronicles || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [x.name, r && r.title].filter(Boolean).join(' · '); },
-      make: function () { return { id: uid('c'), visible: true, routeId: '', name: 'Новая Летопись', note: '', fragment: '', lens: '', image: null }; },
+      make: function () { return { id: uid('c'), visible: true, routeId: '', name: 'Новая Летопись', blocks: [sbPreset('fragment')] }; },
       addLabel: '+ Добавить Летопись',
       body: function (x) { return [
         el('div', { class: 'a-row' }, [textIn(x, 'name', 'Название или номер'), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
-        textIn(x, 'note', 'Краткое пояснение', { multi: true, rows: 2, hint: 'Необязательно. Пусто — в списке слева покажется начало фрагмента.' }),
-        textIn(x, 'fragment', 'Фрагмент Летописи', { multi: true, rows: 5 }),
-        textIn(x, 'lens', '«Линза 13 MIRRORS»', { multi: true, rows: 3 }),
-        imageIn(x, 'image', 'Картинка (необязательно)')]; } });
+        sbBlocksForm(x, 'chronicles')]; } });
     else body = collection(sb.reviews = sb.reviews || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [x.author, r && r.title, x.month].filter(Boolean).join(' · '); },
       make: function () { return { id: uid('r'), visible: true, text: '', author: 'Участница маршрута', routeId: '', month: '', source: 'Telegram', signature: { show: true } }; },
@@ -1522,6 +1555,8 @@
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),
         sub('Названия вкладок'),
         el('div', { class: 'a-row3' }, [textIn(sb.tabs, 'days', 'Дни'), textIn(sb.tabs, 'chronicles', 'Летописи'), textIn(sb.tabs, 'reviews', 'Отзывы')]),
+        selectIn(sb, 'headMain', 'Что главное в примере дня', [['route', 'Маршрут крупно, ниже «День 1 · название дня»'], ['day', 'Название дня крупно, маршрут мелко сверху']], { def: 'route' }),
+        el('div', { class: 'a-row' }, [textIn(sb, 'moreLabel', 'Кнопка «Подробнее»', { ph: 'Подробнее' }), textIn(sb, 'lessLabel', 'Кнопка «Свернуть»', { ph: 'Свернуть' })]),
         sub('Вводный текст вкладки (над списком; пусто — без него)'),
         el('div', { class: 'a-row3' }, [textIn(sb.intros, 'days', 'Дни', { multi: true, rows: 3 }), textIn(sb.intros, 'chronicles', 'Летописи', { multi: true, rows: 3 }), textIn(sb.intros, 'reviews', 'Отзывы', { multi: true, rows: 3 })]),
         el('p', { class: 'a-hint', text: 'Вкладка пропадает со страницы сама, если в ней нет ни одного видимого примера.' }),
