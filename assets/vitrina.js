@@ -170,11 +170,11 @@
   function lock(on) { document.body.classList.toggle('m13-locked', on); }
 
   /* ================= ВИТРИНА ================= */
-  // Кнопка «Встречи и события» в шапке витрины — если есть хоть одно видимое событие (выключается в Настройках)
+  // Кнопка «События и архив» в шапке витрины — если есть хоть одно видимое событие или маршрут в архиве (выключается в панели)
   function eventsLinkHTML() {
     var ev = S.D.events || {}, st = S.D.settings || {};
-    if (st.eventsLink === false || !(ev.items || []).some(function (e) { return e && e.visible !== false; })) return '';
-    return '<a class="m13-evlink" href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + esc(T('eventsLink') || 'Встречи и события') + ' →</a>';
+    if (st.eventsLink === false || !((ev.items || []).some(function (e) { return e && e.visible !== false; }) || archRoutes().length)) return '';
+    return '<a class="m13-evlink" href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + esc(T('eventsLink') || 'События и архив') + ' →</a>';
   }
   function renderShowcase() {
     var sc = S.D.showcase;
@@ -1182,8 +1182,8 @@
     if (b.kind === 'images') return galleryHTML(b.images, 'feature');
     var text = String(b.text || '').trim(); if (!text) return '';
     var paras = text.split(/\n\s*\n/), sb = S.D.sandbox || {}, body;
-    // Длинный текст: первый абзац виден, остальное — под «Подробнее»
-    if (b.collapse && paras.length > 1 && text.length > 320) {
+    // «Подробнее» включено у раздела: первый абзац виден, остальное раскрывается (при любой длине)
+    if (b.collapse && paras.length > 1) {
       body = '<div class="m13-rich">' + rich(paras[0]) + '</div><details class="m13-more m13-sb-more"><summary><span class="m13-more-open">' +
         esc(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + esc(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
         '<div class="m13-rich">' + rich(paras.slice(1).join('\n\n')) + '</div></details>';
@@ -1192,6 +1192,151 @@
     return '<div class="m13-block' + look + '">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + body + '</div>';
   }
 
+  /* ---------- Библиотека: обложки → страница чтения (Песочница, События, архив маршрутов) ----------
+     Сетка обложек с фильтром и «Показать ещё» (по 12); нажатие — пример на всю ширину: «← Все», «Предыдущий / Следующий».
+     «Назад» телефона возвращает к обложкам на то же место. Отзывы — карточки, полный текст в окне поверх страницы. */
+  var LIB_STEP = 12;
+  function colorOf(it, r) { return (it && it.color) || (r && r.color) || ''; }
+  function rcStyle(c) { return c ? ' style="--rc:' + esc(c) + '"' : ''; }
+  // c = {id, img, color, top, title, line, text, nested}; nested — обложка внутри страницы (пример дня внутри маршрута архива)
+  function coverHTML(c) {
+    return '<button type="button" class="m13-cover' + (c.color ? ' m13-rc' : '') + (c.img ? '' : ' m13-cover--noimg') + '" ' +
+      (c.nested ? 'data-sub' : 'data-open') + '="' + esc(c.id) + '"' + rcStyle(c.color) + '>' +
+      '<span class="m13-cover-img">' + (c.img ? '<img src="' + esc(media(c.img)) + '" alt="" loading="lazy">'
+        : '<span class="m13-cover-ph">' + esc(c.ph || c.title || '') + '</span>') + '</span>' +
+      '<span class="m13-cover-txt">' + (c.top ? '<span class="m13-cover-top">' + esc(c.top) + '</span>' : '') +
+      '<span class="m13-cover-title">' + esc(c.title || '') + '</span>' +
+      (c.line ? '<span class="m13-cover-line">' + esc(c.line) + '</span>' : '') +
+      (c.text ? '<span class="m13-cover-sub">' + esc(c.text) + '</span>' : '') + '</span></button>';
+  }
+  // Шапка страницы чтения: картинка маршрута (или своя обложка), цветная кромка, названия
+  function readHeadHTML(h) {
+    var g = h.img ? S.lb.push([{ src: media(h.img), caption: '' }]) - 1 : -1;
+    return '<header class="m13-read-head' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
+      (h.img ? '<button type="button" class="m13-read-img" data-m13-lb="' + g + ':0" aria-label="Открыть картинку крупно"><img src="' + esc(media(h.img)) + '" alt=""></button>' : '') +
+      '<div class="m13-read-ht">' + (h.top ? '<div class="m13-eyebrow">' + esc(h.top) + '</div>' : '') + '<h3>' + esc(h.title || '') + '</h3>' +
+      (h.line ? '<div class="m13-panel-day">' + esc(h.line) + '</div>' : '') +
+      (h.meta && h.meta.length ? '<div class="m13-panel-meta">' + h.meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      '</div></header>';
+  }
+  function shareBtnHTML(title, url) {
+    return '<div class="m13-read-share"><button type="button" class="m13-action"' + act({ kind: 'share' }, { card: title, url: url }) + '>' +
+      esc(T('shareButton') || 'Поделиться') + '</button></div>';
+  }
+  function libUrl(dir, id, hash) {
+    var u = new URL(S.base + dir + '/', location.href);
+    return u.origin + u.pathname + (/^[\w-]+$/.test(id) ? id + '/' : '#' + hash);
+  }
+
+  // o = {list(), cover(it), read(it), filterOf(it)→{k,label,color}, filterOn, intro, allLabel, hash(id|null)→'#…'|null,
+  //      card(it) — вместо обложек карточки (отзывы), full(it) — текст в окне, sub(key, openId)→{back, html} — пример внутри страницы}
+  function libBind(holder, o) {
+    var st = { f: '', n: LIB_STEP, y: 0, y2: 0, open: null, layer: false };
+    var page = holder.closest('.m13-ipage'), box = holder.closest('.m13-internal');
+    function sy() { return box ? box.scrollTop : (window.pageYOffset || 0); }
+    function to(y) { if (box) box.scrollTop = y; else window.scrollTo(0, y); }
+    function setHash(h) { if (h) try { history.replaceState(history.state, '', h); } catch (e) {} }
+    function opts() {
+      if (!o.filterOf || o.filterOn === false) return [];
+      var seen = {}, out = [];
+      o.list().forEach(function (it) { var f = o.filterOf(it); if (f && f.k && !seen[f.k]) { seen[f.k] = 1; out.push(f); } });
+      return out.length > 1 ? out : [];
+    }
+    function list() { var L = o.list(); return st.f ? L.filter(function (it) { var f = o.filterOf(it); return f && f.k === st.f; }) : L; }
+    function reading(on) { if (page) page.classList.toggle('m13-reading', on); }
+    function grid() {
+      st.open = null; reading(false);
+      var op = opts(); if (st.f && !op.some(function (f) { return f.k === st.f; })) st.f = '';
+      var L = list();
+      var chips = op.length ? '<div class="m13-chips" role="group">' + [{ k: '', label: T('filterAll') || 'Все' }].concat(op).map(function (f) {
+        return '<button type="button" class="m13-chip' + (f.color ? ' m13-rc' : '') + (st.f === f.k ? ' is-active' : '') + '" data-f="' + esc(f.k) + '"' + rcStyle(f.color) + '>' + esc(f.label) + '</button>';
+      }).join('') + '</div>' : '';
+      holder.innerHTML = (o.intro || '') + chips +
+        (L.length ? '<div class="' + (o.card ? 'm13-rvs' : 'm13-covers') + '">' + L.slice(0, st.n).map(o.card || function (it) { return coverHTML(o.cover(it)); }).join('') + '</div>' : '') +
+        (L.length > st.n ? '<div class="m13-lib-more"><button type="button" class="m13-soft" data-more>' + esc(T('showMore') || 'Показать ещё') + ' · ' + (L.length - st.n) + '</button></div>' : '');
+      holder.querySelectorAll('[data-f]').forEach(function (b) {
+        b.addEventListener('click', function () { st.f = b.getAttribute('data-f'); st.n = LIB_STEP; grid(); });
+      });
+      var m = holder.querySelector('[data-more]');
+      if (m) m.addEventListener('click', function () { var y = sy(); st.n += LIB_STEP; grid(); to(y); });
+      holder.querySelectorAll('[data-open]').forEach(function (b) { b.addEventListener('click', function () { open(b.getAttribute('data-open'), true); }); });
+    }
+    function find(id) {
+      function idx(L) { for (var i = 0; i < L.length; i++) if (L[i].id === id) return i; return -1; }
+      var L = list(), i = idx(L);
+      if (i < 0 && st.f) { st.f = ''; L = list(); i = idx(L); }
+      return i < 0 ? null : { L: L, i: i };
+    }
+    function nav(L, i) {
+      var p = L[i - 1], n = L[i + 1];
+      function go(x, lab) { return x ? '<button type="button" class="m13-read-go" data-go="' + esc(x.id) + '">' + esc(lab) + '</button>' : '<span></span>'; }
+      return '<nav class="m13-read-nav">' + go(p, T('prevItem') || '← Предыдущий') +
+        '<button type="button" class="m13-read-go m13-read-all" data-all>' + esc(String(o.allLabel).replace(/^←\s*/, '')) + '</button>' +
+        go(n, T('nextItem') || 'Следующий →') + '</nav>';
+    }
+    function render(L, i) {
+      st.open = L[i].id; reading(true);
+      holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-all>' + esc(o.allLabel) + '</button>' +
+        o.read(L[i]) + nav(L, i) + '</div>';
+      bindActs(holder); bindLightbox(holder);
+      holder.querySelectorAll('[data-all]').forEach(function (b) {
+        b.addEventListener('click', function () { if (st.layer) closeTop(); else { back(); setHash(o.hash(null)); } });
+      });
+      holder.querySelectorAll('[data-go]').forEach(function (b) {
+        b.addEventListener('click', function () { var id = b.getAttribute('data-go'), x = find(id); if (!x) return; render(x.L, x.i); to(0); setHash(o.hash(id)); });
+      });
+      holder.querySelectorAll('[data-sub]').forEach(function (b) { b.addEventListener('click', function () { openSub(b.getAttribute('data-sub')); }); });
+    }
+    function back() { grid(); to(st.y); }
+    function open(id, push) {
+      var x = find(id); if (!x) return false;
+      if (o.card) { modal(x.L, x.i, push); return true; }
+      if (!st.open) st.y = sy();
+      render(x.L, x.i); to(0);
+      if (push && !st.layer) { st.layer = true; pushLayer('read', function () { st.layer = false; back(); }, o.hash(id)); }
+      else setHash(o.hash(id));
+      return true;
+    }
+    // Пример внутри страницы (например, день маршрута на странице архива) — свой шаг «назад»
+    function openSub(key) {
+      var s = o.sub && o.sub(key, st.open); if (!s) return;
+      st.y2 = sy();
+      holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-subback>' + esc(s.back) + '</button>' + s.html + '</div>';
+      bindActs(holder); bindLightbox(holder);
+      holder.querySelector('[data-subback]').addEventListener('click', closeTop);
+      to(0);
+      pushLayer('sub', function () { var x = find(st.open); if (x) render(x.L, x.i); to(st.y2); });
+    }
+    // Окно с полным текстом (отзывы): стрелки к соседним, закрыть — крестик, мимо окна, Esc, «назад»
+    function modal(L, i, push) {
+      var host = page || holder, m = host.querySelector('.m13-rvm');
+      if (!m) {
+        host.insertAdjacentHTML('beforeend', '<div class="m13-rvm" role="dialog" aria-modal="true"><div class="m13-rvm-box">' +
+          '<button type="button" class="m13-rvm-x" aria-label="Закрыть">×</button><div class="m13-rvm-body"></div>' +
+          '<div class="m13-rvm-nav"><button type="button" class="m13-rvm-go" data-d="-1" aria-label="Предыдущий">←</button><span class="m13-rvm-n"></span>' +
+          '<button type="button" class="m13-rvm-go" data-d="1" aria-label="Следующий">→</button></div></div></div>');
+        m = host.querySelector('.m13-rvm');
+        m.querySelector('.m13-rvm-x').addEventListener('click', closeTop);
+        m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
+        m.querySelectorAll('[data-d]').forEach(function (b) { b.addEventListener('click', function () { if (m._go) m._go(+b.getAttribute('data-d')); }); });
+      }
+      var cur = i, was = document.body.classList.contains('m13-locked');
+      function draw() {
+        m.querySelector('.m13-rvm-body').innerHTML = o.full(L[cur]);
+        m.querySelector('.m13-rvm-n').textContent = L.length > 1 ? (cur + 1) + ' / ' + L.length : '';
+        m.querySelectorAll('[data-d]').forEach(function (b) { var d = +b.getAttribute('data-d'); b.disabled = !L[cur + d]; b.hidden = L.length < 2; });
+        m.querySelector('.m13-rvm-box').scrollTop = 0;
+      }
+      function key(e) { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') m._go(e.key === 'ArrowRight' ? 1 : -1); }
+      m._go = function (d) { if (L[cur + d]) { cur += d; draw(); } };
+      draw(); m.classList.add('is-open'); lock(true);
+      document.addEventListener('keydown', key);
+      pushLayer('review', function () { m.classList.remove('is-open'); lock(was); document.removeEventListener('keydown', key); m._go = null; });
+    }
+    return { grid: grid, open: open };
+  }
+
+  /* ---------- Песочница ---------- */
   function sandboxHTML(backBtn) {
     var sb = S.D.sandbox, notice = opt(sb.notice);
     var tabs = TABS.filter(function (t) { return visibleSorted(sb[t]).length; });
@@ -1202,105 +1347,90 @@
       '<div class="m13-tabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (t) {
         return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + esc((sb.tabs || {})[t] || t) + '</button>';
       }).join('') + '</div>' +
-      '<div class="m13-sb" data-sb></div></div>';
+      '<div class="m13-lib" data-sb></div></div>';
   }
-
-  function sbListItem(tab, it) {
-    var r = routeById(it.routeId) || {};
-    var top = '', title = '', sub = '';
-    var day = '';
-    if (tab === 'days') {
-      var dl = [it.day ? L('day', { n: it.day }) : '', it.title].filter(Boolean).join(' · ');
-      sub = firstLine(it.question || it.thought || it.meaning || firstText(tab, it));
-      // Крупно — маршрут, ниже мельче — «День 1 · …» (или наоборот — настройка «Что главное в примере дня»)
-      if ((S.D.sandbox || {}).headMain !== 'day' && r.title) { title = r.title; day = dl; }
-      else { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; }
-    }
-    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = firstLine(it.note || it.fragment || firstText(tab, it)); }
-    else { top = [r.title, it.month].filter(Boolean).join(' · '); title = it.author; sub = it.text; }
-    return '<button type="button" class="m13-sb-item" data-item="' + esc(it.id) + '">' +
-      (top ? '<div class="m13-sb-item-top">' + esc(top) + '</div>' : '') +
-      '<div class="m13-sb-item-title">' + esc(title) + '</div>' +
-      '<div class="m13-sb-item-day">' + esc(day) + '</div>' +
-      '<div class="m13-sb-item-sub">' + esc(sub) + '</div>' + '</button>';
+  // Обложка примера дня / Летописи. Картинка: своя обложка или картинка маршрута; цвет: свой или маршрута.
+  function sbCover(t, it, nested) {
+    var r = routeById(it.routeId) || {}, c = { id: nested ? t + ':' + it.id : it.id, img: it.cover || r.image || '', color: colorOf(it, r), nested: nested };
+    if (t === 'days') {
+      var dayN = it.day ? L('day', { n: it.day }) : '';
+      if (S.D.sandbox.headMain !== 'day' && r.title) { c.title = r.title; c.line = [dayN, it.title].filter(Boolean).join(' · '); }
+      else { c.top = [r.title, dayN].filter(Boolean).join(' · '); c.title = it.title; }
+      c.text = firstLine(it.question || it.thought || it.meaning || firstText(t, it));
+    } else { c.top = r.title || ''; c.title = it.name; c.text = firstLine(it.note || it.fragment || firstText(t, it)); }
+    return c;
   }
-
-  function sbDetail(tab, it) {
+  function sbRead(t, it) {
+    var sb = S.D.sandbox, r = routeById(it.routeId) || {}, h = { img: it.cover || r.image || '', color: colorOf(it, r) };
+    var blocks = (M13.sbBlocks(t, it, sb.labels) || []).map(sbBlockHTML).join('');
+    if (t === 'days') {
+      var dayN = it.day ? L('day', { n: it.day }) : '';
+      h.meta = [opt(it.kin), opt(it.tone), opt(it.seal)].filter(Boolean);
+      if (sb.headMain !== 'day' && r.title) { h.title = r.title; h.line = [dayN, it.title].filter(Boolean).join(' · '); }
+      else { h.top = [r.title, dayN].filter(Boolean).join(' · '); h.title = it.title; }
+    } else { h.top = r.title || ''; h.title = it.name; }
+    return '<article class="m13-panel m13-read-panel">' + readHeadHTML(h) + blocks +
+      shareBtnHTML([h.title, h.line].filter(Boolean).join(' · '), libUrl('sandbox', it.id, t + '/' + encodeURIComponent(it.id))) + '</article>';
+  }
+  function reviewCard(it) {
+    var r = routeById(it.routeId) || {}, sb = S.D.sandbox, text = String(it.text || '').trim(), c = colorOf(it, r);
+    var meta = [r.title, it.month].filter(Boolean).join(' · ');
+    var long = text.length > 240 || text.split('\n').length > 4;
+    return '<button type="button" class="m13-rv' + (c ? ' m13-rc' : '') + '" data-open="' + esc(it.id) + '"' + rcStyle(c) + '>' +
+      '<span class="m13-rv-text">«' + esc(plain(text.replace(/\n+/g, ' ')).slice(0, 420)) + '»</span>' +
+      (long ? '<span class="m13-rv-more">' + esc(sb.moreLabel || 'Подробнее') + ' →</span>' : '') +
+      '<span class="m13-rv-foot"><span class="m13-rv-who">' + esc(it.author || '') + '</span>' +
+      (meta ? '<span class="m13-rv-meta">' + esc(meta) + '</span>' : '') + '</span></button>';
+  }
+  function reviewFull(it) {
     var sb = S.D.sandbox, r = routeById(it.routeId) || {};
-    var img = it.image ? '<img class="m13-panel-img" src="' + esc(media(it.image)) + '" alt="" loading="lazy">' : '';
-    var toList = '<button type="button" class="m13-iback m13-sb-toList" data-tolist>' + esc(T('backToList') || '← К списку') + '</button>';
-    var blocks = (M13.sbBlocks(tab, it, sb.labels) || []).map(sbBlockHTML).join('');
-    if (tab === 'days') {
-      var meta = [opt(it.kin), opt(it.tone), opt(it.seal)].filter(Boolean);
-      var dl = [it.day ? L('day', { n: it.day }) : '', it.title].filter(Boolean).join(' · ');
-      var routeMain = sb.headMain !== 'day' && r.title;
-      return toList + '<article class="m13-panel">' +
-        (routeMain
-          // Крупно — маршрут (волна), ниже — «День 1 · Красный Магнитный Дракон»
-          ? '<h3>' + esc(r.title) + '</h3>' + (dl ? '<div class="m13-panel-day">' + esc(dl) + '</div>' : '')
-          : '<div class="m13-eyebrow">' + esc([r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · ')) + '</div><h3>' + esc(it.title) + '</h3>') +
-        (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-        blocks + '</article>';
-    }
-    if (tab === 'chronicles') {
-      return toList + '<article class="m13-panel">' +
-        '<div class="m13-eyebrow">' + esc(r.title || '') + '</div><h3>' + esc(it.name) + '</h3>' + blocks + '</article>';
-    }
-    var meta2 = [r.title, it.month, it.source].filter(Boolean);
-    return toList + '<article class="m13-panel">' +
-      '<div class="m13-eyebrow">' + esc(L('review')) + '</div><h3>' + esc(it.author || '') + '</h3>' +
-      (meta2.length ? '<div class="m13-panel-meta">' + meta2.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="m13-block"><div class="m13-quote">«' + txt(it.text) + '»</div>' +
-      (it.signature && it.signature.show ? '<div class="m13-sign">' + esc(sb.signatureText || '') + '</div>' : '') +
-      '</div></article>';
+    var meta = [r.title, it.month, it.source].filter(Boolean);
+    return '<div class="m13-eyebrow">' + esc(L('review')) + '</div><h3>' + esc(it.author || '') + '</h3>' +
+      (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="m13-quote">«' + txt(String(it.text || '').trim()) + '»</div>' +
+      (it.signature && it.signature.show ? '<div class="m13-sign">' + esc(sb.signatureText || '') + '</div>' : '');
   }
+  function sbFilterOf(it) { var r = routeById(it.routeId); return r ? { k: r.id, label: r.title, color: r.color || '' } : null; }
 
   function bindSandbox(scope, tab, itemId, useHash) {
-    var sb = S.D.sandbox;
-    var holder = scope.querySelector('[data-sb]');
-    var isMobile = function () { return window.matchMedia('(max-width:680px)').matches; };
+    var sb = S.D.sandbox, holder = scope.querySelector('[data-sb]');
     var tabs = scope.querySelectorAll('.m13-tab');
-    if (!visibleSorted(sb[tab]).length) tab = (tabs[0] && tabs[0].getAttribute('data-tab')) || 'days';
-
-    function setHash(t, id) {
-      if (!useHash) return;
-      try { history.replaceState(null, '', '#' + t + (id ? '/' + encodeURIComponent(id) : '')); } catch (e) {}
-    }
-    function show(t, id, openDetail) {
-      tab = t;
+    var have = TABS.filter(function (t) { return visibleSorted(sb[t]).length; });
+    if (have.indexOf(tab) < 0) tab = have[0] || 'days';
+    function show(t, id) {
       tabs.forEach(function (b) {
         var on = b.getAttribute('data-tab') === t;
         b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
       });
-      var items = visibleSorted(sb[t]);
-      var cur = items.filter(function (x) { return x.id === id; })[0] || items[0];
       var intro = String(((sb.intros || {})[t]) || '').trim();
-      holder.innerHTML = (intro ? '<div class="m13-sb-intro m13-rich">' + rich(intro) + '</div>' : '') + '<nav class="m13-sb-list">' + items.map(function (it) { return sbListItem(t, it); }).join('') + '</nav>' +
-        '<div class="m13-sb-detail">' + (cur ? sbDetail(t, cur) : '') + '</div>';
-      holder.classList.toggle('is-detail', !!openDetail);
-      // .m13-panel прячется на телефоне, пока не выбран элемент
-      holder.querySelectorAll('.m13-sb-item').forEach(function (b) {
-        var bid = b.getAttribute('data-item');
-        b.classList.toggle('is-active', !!cur && bid === cur.id);
-        b.addEventListener('click', function () {
-          show(t, bid, true); setHash(t, bid);
-          if (isMobile()) { var sc = scope.closest('.m13-internal') || window; sc.scrollTo(0, 0); }
-        });
+      var lib = libBind(holder, {
+        list: function () { return visibleSorted(sb[t]); },
+        filterOf: sbFilterOf, filterOn: sb.filter !== false,
+        intro: intro ? '<div class="m13-sb-intro m13-rich">' + rich(intro) + '</div>' : '',
+        allLabel: T('backToAll') || '← Все примеры',
+        hash: function (x) { return useHash ? '#' + t + (x ? '/' + encodeURIComponent(x) : '') : null; },
+        cover: function (it) { return sbCover(t, it); },
+        read: function (it) { return sbRead(t, it); },
+        card: t === 'reviews' ? reviewCard : null, full: reviewFull
       });
-      bindLightbox(holder);
-      var tl = holder.querySelector('[data-tolist]');
-      if (tl) tl.addEventListener('click', function () { show(t, cur && cur.id, false); setHash(t, null); });
+      if (!(id && lib.open(id, false))) lib.grid();
     }
     tabs.forEach(function (b) {
-      b.addEventListener('click', function () { show(b.getAttribute('data-tab'), null, false); setHash(b.getAttribute('data-tab'), null); });
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-tab'); show(t, null);
+        if (useHash) try { history.replaceState(history.state, '', '#' + t); } catch (e) {}
+      });
     });
-    show(tab, itemId, !!itemId);
+    show(tab, itemId);
   }
 
-  /* ---------- События: встречи, медитации, фестивали, поездки ---------- */
-  // events = {eyebrow, title, intro, tabs:{soon, past, cases}, look, items:[{id, visible, type, title, date, dateEnd, time, duration,
-  //   dateText, place, price, cover, summary, blocks, actions, archive}]}. Прошедшие — во вкладке «Как это было», примеры практик — отдельно.
+  /* ---------- События: встречи, медитации, фестивали, поездки; архив маршрутов ---------- */
+  // events = {eyebrow, title, intro, tabs:{soon, past, routes, cases}, look, filter, items:[{id, visible, type, title, date, dateEnd, time, duration,
+  //   dateText, place, price, cover, summary, blocks, actions, archive}]}. Прошедшие — «Как это было», маршруты с галочкой «в архив» — «Прошедшие маршруты».
   var EVENT_TYPES = { meeting: 'Встреча', meditation: 'Медитация', festival: 'Фестиваль', trip: 'Поездка', practice: 'Практика', case: 'Пример практики', other: '' };
+  var EVENT_PLURAL = { meeting: 'Встречи', meditation: 'Медитации', festival: 'Фестивали', trip: 'Поездки', practice: 'Практики', other: 'Другое' };
+  var EV_TABS = ['soon', 'past', 'routes', 'cases'];
+  var EV_TN = { soon: 'Скоро', past: 'Как это было', routes: 'Прошедшие маршруты', cases: 'Примеры практик' };
   var EV_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
   function evDate(e) {
     if (String(e.dateText || '').trim()) return String(e.dateText).trim();
@@ -1315,34 +1445,45 @@
     var end = parseDate(e.dateEnd) || parseDate(e.date);
     return end && end.getTime() < today().getTime() ? 'past' : 'soon';
   }
+  // Маршруты в архиве: галочка «Показывать в архиве» и маршрут уже закончился. Новые — сверху.
+  function archRoutes() {
+    var t = today().getTime();
+    return ((S.D.routes || {}).routes || []).filter(function (r) {
+      var end = parseDate((r.dates || {}).to);
+      return r && r.archive && r.visible !== false && (!end || end.getTime() < t);
+    }).sort(function (a, b) { return String((b.dates || {}).to || '').localeCompare(String((a.dates || {}).to || '')); });
+  }
   function evList(tab) {
+    if (tab === 'routes') return archRoutes();
     var ev = S.D.events || {}, L = (ev.items || []).filter(function (e) { return e && e.visible !== false && evTab(e) === tab && (tab !== 'past' || e.archive !== false); });
     function t(e) { var d = parseDate(e.date); return d ? d.getTime() : 9e15; }
     return L.sort(function (a, b) { return tab === 'past' ? t(b) - t(a) : t(a) - t(b); });
   }
-  function eventUrl(e) { var u = new URL(S.base + 'events/', location.href); return u.origin + u.pathname + (/^[\w-]+$/.test(e.id) ? e.id + '/' : '#' + encodeURIComponent(e.id)); }
+  function eventUrl(e) { return libUrl('events', e.id, encodeURIComponent(e.id)); }
   function eventsHTML(backBtn) {
     var ev = S.D.events || {};
-    var tabs = ['soon', 'past', 'cases'].filter(function (t) { return evList(t).length; });
-    var TN = { soon: 'Скоро', past: 'Как это было', cases: 'Примеры практик' };
+    var tabs = EV_TABS.filter(function (t) { return evList(t).length; });
     return '<div class="m13-ipage"><div class="m13-itop">' + backBtn + '</div>' +
       '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(ev.eyebrow || '13 MIRRORS') + '</div>' +
       '<h2>' + esc(ev.title || 'События') + '</h2>' + (ev.intro ? '<p>' + txt(ev.intro) + '</p>' : '') + '</div>' +
-      (tabs.length > 1 ? '<div class="m13-tabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (t) {
-        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + esc((ev.tabs || {})[t] || TN[t]) + '</button>';
+      // Вкладки видны и когда она одна — как подпись раздела («Прошедшие маршруты»)
+      (tabs.length ? '<div class="m13-tabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (t) {
+        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + esc((ev.tabs || {})[t] || EV_TN[t]) + '</button>';
       }).join('') + '</div>' : '') +
-      (tabs.length ? '<div class="m13-sb" data-ev></div>' : '<p class="m13-sb-intro">' + esc(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
+      (tabs.length ? '<div class="m13-lib" data-ev></div>' : '<p class="m13-sb-intro">' + esc(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
   }
-  function evItem(e) {
-    var top = [EVENT_TYPES[e.type] || '', evDate(e)].filter(Boolean).join(' · ');
-    return '<button type="button" class="m13-sb-item m13-ev-item" data-item="' + esc(e.id) + '">' +
-      (e.cover ? '<img class="m13-ev-thumb" src="' + esc(media(e.cover)) + '" alt="" loading="lazy">' : '') +
-      '<span class="m13-ev-txt">' + (top ? '<span class="m13-sb-item-top">' + esc(top) + '</span>' : '') +
-      '<span class="m13-sb-item-title">' + esc(e.title || '') + '</span>' +
-      '<span class="m13-sb-item-sub">' + esc(e.summary ? firstLine(e.summary) : '') + '</span></span></button>';
+  function evCover(e) {
+    return { id: e.id, img: e.cover || '', top: [EVENT_TYPES[e.type] || '', evDate(e)].filter(Boolean).join(' · '), title: e.title || '',
+      text: e.summary ? firstLine(e.summary) : '' };
   }
-  function evDetail(e) {
-    var toList = '<button type="button" class="m13-iback m13-sb-toList" data-tolist>' + esc(T('backToList') || '← К списку') + '</button>';
+  function actionsHTML(acts, ctx) {
+    var btns = acts.map(function (a, i) {
+      return '<button type="button" class="m13-action' + (i ? '' : ' m13-action--primary') + '"' +
+        act(a, Object.assign({ action: a.label }, ctx)) + '>' + esc(a.label || 'Написать') + '</button>';
+    }).join('');
+    return btns ? '<div class="m13-actions m13-ev-actions' + (acts.length > 2 ? ' m13-actions--grid' : '') + '">' + btns + '</div>' : '';
+  }
+  function evRead(e) {
     var meta = [evDate(e), e.place, e.price].filter(function (x) { return String(x || '').trim(); });
     var past = evTab(e) === 'past';
     var acts = (e.actions || []).filter(function (a) {
@@ -1350,19 +1491,14 @@
       if (past && a.kind !== 'share' && a.kind !== 'link') return false;   // прошедшее: без записи и календаря — только ссылки и «Поделиться»
       if (a.kind === 'calendar') return calActive(evCal(e, a));
       return true;
-    }).slice(0, 4);
-    var btns = acts.map(function (a, i) {
-      var aa = a.kind === 'calendar' ? Object.assign({}, a, { cal: evCal(e, a) }) : a;
-      return '<button type="button" class="m13-action' + (i ? '' : ' m13-action--primary') + '"' +
-        act(aa, { card: e.title, action: a.label, price: e.price || '', url: eventUrl(e), tplKey: 'offer' }) + '>' + esc(a.label || 'Написать') + '</button>';
-    }).join('');
-    return toList + '<article class="m13-panel m13-ev">' +
+    }).slice(0, 4).map(function (a) { return a.kind === 'calendar' ? Object.assign({}, a, { cal: evCal(e, a) }) : a; });
+    return '<article class="m13-panel m13-ev">' +
       '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div><h3>' + esc(e.title || '') + '</h3>' +
       (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
       (e.cover ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature') : '') +
       (e.summary ? '<div class="m13-block"><div class="m13-rich">' + rich(e.summary) + '</div></div>' : '') +
       (e.blocks || []).map(sbBlockHTML).join('') +
-      (btns ? '<div class="m13-actions m13-ev-actions' + (acts.length > 2 ? ' m13-actions--grid' : '') + '">' + btns + '</div>' : '') +
+      actionsHTML(acts, { card: e.title, price: e.price || '', url: eventUrl(e), tplKey: 'offer' }) +
       '</article>';
   }
   // Календарь события: из даты и времени самого события (если у кнопки свои — берутся они)
@@ -1375,36 +1511,72 @@
     if (!c.place) c.place = e.place || '';
     return c;
   }
+  // Маршрут в архиве: обложка и страница (картинка, даты, кин, описание, «как это было», фото, кнопки, примеры дней и Летописи)
+  function routeDates(r) { var d = r.dates || {}; return evDate({ date: d.from, dateEnd: d.to }); }
+  function routeCover(r) {
+    return { id: r.id, img: r.image || '', color: r.color || '', top: routeDates(r), title: r.title || '', text: firstLine(r.description || '') };
+  }
+  function routeRead(r) {
+    var sb = S.D.sandbox || {};
+    var days = visibleSorted(sb.days).filter(function (x) { return x.routeId === r.id; });
+    var chr = visibleSorted(sb.chronicles).filter(function (x) { return x.routeId === r.id; });
+    var kin = opt(r.kin);
+    var acts = (r.archiveActions || []).filter(function (a) { return a && a.visible !== false; }).slice(0, 4);
+    if (r.routeUrl && r.archivePageBtn !== false) acts = acts.concat([{ kind: 'link', url: r.routeUrl, label: T('routePage') || 'Страница маршрута' }]).slice(0, 4);
+    function sec(title, t, L) {
+      return L.length ? '<section class="m13-read-sec"><div class="m13-block-title">' + esc(title) + '</div><div class="m13-covers m13-covers--mini">' +
+        L.map(function (it) { return coverHTML(sbCover(t, it, true)); }).join('') + '</div></section>' : '';
+    }
+    return '<article class="m13-panel m13-read-panel m13-ev">' +
+      readHeadHTML({ img: r.image || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [] }) +
+      (String(r.description || '').trim() ? '<div class="m13-block"><div class="m13-rich">' + rich(r.description) + '</div></div>' : '') +
+      (r.archiveBlocks || []).map(sbBlockHTML).join('') +
+      actionsHTML(acts, { card: r.title, url: libUrl('events', r.id, encodeURIComponent(r.id)), routeUrl: r.routeUrl, tplKey: 'route' }) +
+      sec((sb.tabs || {}).days || 'Примеры дней', 'days', days) + sec((sb.tabs || {}).chronicles || 'Летописи', 'chronicles', chr) +
+      '</article>';
+  }
   var EV = null;
   function showEvent(id) { if (EV) EV.show(null, id, true); }
   function bindEvents(scope, itemId, useHash) {
     var holder = scope.querySelector('[data-ev]');
     if (!holder) return;
-    var tabs = scope.querySelectorAll('.m13-tab'), isMobile = function () { return window.matchMedia('(max-width:680px)').matches; };
-    var all = (S.D.events || {}).items || [];
-    function show(t, id, openDetail) {
-      var e0 = id && all.filter(function (x) { return x.id === id && x.visible !== false; })[0];
-      if (e0) t = evTab(e0);
-      if (!t || !evList(t).length) t = ['soon', 'past', 'cases'].filter(function (x) { return evList(x).length; })[0];
-      tabs.forEach(function (b) { var on = b.getAttribute('data-tab') === t; b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-      var items = evList(t), cur = items.filter(function (x) { return x.id === id; })[0] || items[0];
-      holder.innerHTML = '<nav class="m13-sb-list">' + items.map(evItem).join('') + '</nav><div class="m13-sb-detail">' + (cur ? evDetail(cur) : '') + '</div>';
-      holder.classList.toggle('is-detail', !!openDetail);
-      bindActs(holder); bindLightbox(holder);
-      holder.querySelectorAll('.m13-sb-item').forEach(function (b) {
-        var bid = b.getAttribute('data-item');
-        b.classList.toggle('is-active', !!cur && bid === cur.id);
-        b.addEventListener('click', function () {
-          show(t, bid, true); if (useHash) try { history.replaceState(null, '', '#' + bid); } catch (x) {}
-          if (isMobile()) { var sc = scope.closest('.m13-internal') || window; sc.scrollTo(0, 0); }
-        });
-      });
-      var tl = holder.querySelector('[data-tolist]');
-      if (tl) tl.addEventListener('click', function () { show(t, cur && cur.id, false); });
+    var ev = S.D.events || {}, tabs = scope.querySelectorAll('.m13-tab'), all = ev.items || [];
+    function tabOf(id) {
+      var e = all.filter(function (x) { return x.id === id && x.visible !== false; })[0];
+      if (e) return evTab(e);
+      return archRoutes().some(function (r) { return r.id === id; }) ? 'routes' : null;
     }
-    tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab'), null, false); }); });
+    function show(t, id, push) {
+      var have = EV_TABS.filter(function (x) { return evList(x).length; });
+      if (id && EV_TABS.indexOf(id) >= 0) { t = id; id = null; }
+      if (id) { var tt = tabOf(id); if (tt) t = tt; else id = null; }
+      if (have.indexOf(t) < 0) t = have[0];
+      tabs.forEach(function (b) { var on = b.getAttribute('data-tab') === t; b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      var routes = t === 'routes';
+      var lib = libBind(holder, {
+        list: function () { return evList(t); },
+        filterOf: routes ? null : function (e) { return EVENT_PLURAL[e.type] ? { k: e.type, label: EVENT_PLURAL[e.type] } : null; },
+        filterOn: ev.filter !== false,
+        allLabel: routes ? (T('backToRoutes') || '← Все маршруты') : (T('backToEvents') || '← Все события'),
+        hash: function (x) { return useHash ? '#' + (x ? encodeURIComponent(x) : t) : null; },
+        cover: routes ? routeCover : evCover,
+        read: routes ? routeRead : evRead,
+        sub: function (key, rid) {
+          var p = key.split(':'), sb = S.D.sandbox || {}, it = visibleSorted(sb[p[0]]).filter(function (x) { return x.id === p[1]; })[0];
+          var r = routeById(rid) || {};
+          return it ? { back: '← ' + (r.title || ''), html: sbRead(p[0], it) } : null;
+        }
+      });
+      if (!(id && lib.open(id, !!push))) lib.grid();
+    }
+    tabs.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-tab'); show(t, null);
+        if (useHash) try { history.replaceState(history.state, '', '#' + t); } catch (x) {}
+      });
+    });
     EV = { show: show };
-    show(null, itemId, !!itemId);
+    show(null, itemId);
   }
 
   /* ---------- Примеры Карт-Отражений ---------- */

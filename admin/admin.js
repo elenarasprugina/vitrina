@@ -920,6 +920,28 @@
     }
     return m.join('\n');
   }
+  // Текст превью: без разметки, первый абзац, не длиннее 200 знаков
+  function plainShort(t) {
+    t = String(t || '').split(/\n\s*\n/)[0].replace(/__|\*\*?/g, '').replace(/^\s*[-–•]\s+/gm, '').replace(/\s+/g, ' ').trim();
+    return t.length > 200 ? t.slice(0, 198) + '…' : t;
+  }
+  function previewOf(kind, id, D) {
+    var rts = (D.routes || {}).routes || [];
+    function rt(rid) { return rts.filter(function (r) { return r.id === rid; })[0] || {}; }
+    if (kind === 'event') {
+      var e = ((D.events || {}).items || []).filter(function (x) { return x.id === id; })[0] || {};
+      return { dir: 'events', hash: encodeURIComponent(id), title: e.title || '', desc: plainShort(e.summary), img: e.cover };
+    }
+    if (kind === 'archroute') {
+      var ar = rt(id);
+      return { dir: 'events', hash: encodeURIComponent(id), title: ar.title || '', desc: plainShort(ar.description), img: ar.image };
+    }
+    var sb = D.sandbox || {}, tab = (sb.days || []).some(function (x) { return x.id === id; }) ? 'days' : 'chronicles';
+    var it = (sb[tab] || []).filter(function (x) { return x.id === id; })[0] || {}, r = rt(it.routeId);
+    var blocks = window.M13.sbBlocks(tab, it, sb.labels) || [], first = blocks.filter(function (b) { return b.kind === 'text' && String(b.text || '').trim(); })[0];
+    var title = tab === 'days' ? [r.title, it.day ? 'День ' + it.day : '', it.title].filter(Boolean).join(' · ') : [it.name, r.title].filter(Boolean).join(' · ');
+    return { dir: 'sandbox', hash: tab + '/' + encodeURIComponent(id), title: title, desc: plainShort(first && first.text), img: it.cover || r.image };
+  }
   function pageHTML(kind, id, D, cardId) {
     D = D || DATA;
     var st = D.settings, site = st.siteTitle || '13 MIRRORS';
@@ -940,19 +962,20 @@
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
         '<a href="' + target + '">' + escAttr(f.title || 'Открыть карточку') + '</a>\n</body>\n</html>\n';
     }
-    if (kind === 'event') {
-      // Страница-превью события: своя ссылка с картинкой и названием для Telegram/VK, сразу открывает событие
-      var e = ((D.events || {}).items || []).filter(function (x) { return x.id === cardId; })[0] || {};
-      var etitle = (e.title || '') + ' · ' + site, edesc = String(e.summary || '').replace(/[*_]/g, '').trim() || sh.description;
-      var eimg = absImg(e.cover, D), esized = false;
-      if (!eimg) { eimg = absImg(sh.image, D); esized = !!eimg; }
-      var etarget = '../#' + encodeURIComponent(cardId);
+    if (kind === 'event' || kind === 'sbitem' || kind === 'archroute') {
+      // Страница-превью события, примера Песочницы или маршрута в архиве: своя ссылка с картинкой и названием для Telegram/VK,
+      // сразу открывает нужное на общей странице
+      var pv = previewOf(kind, cardId, D);
+      var ptitle = pv.title + ' · ' + site, pdesc = pv.desc || sh.description;
+      var pimg = absImg(pv.img, D), psized = false;
+      if (!pimg) { pimg = absImg(sh.image, D); psized = !!pimg; }
+      var ptarget = '../#' + pv.hash;
       return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(etitle) + '</title>\n' +
-        metaTags({ url: siteUrl(D) + 'events/' + encodeURIComponent(cardId) + '/', title: etitle, description: edesc, image: eimg, sized: esized }, D) + '\n' +
-        '<meta http-equiv="refresh" content="0; url=' + etarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + 'events/') + '">\n</head>\n' +
-        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(etarget) + ');</script>\n' +
-        '<a href="' + etarget + '">' + escAttr(e.title || 'Открыть событие') + '</a>\n</body>\n</html>\n';
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ptitle) + '</title>\n' +
+        metaTags({ url: siteUrl(D) + pv.dir + '/' + encodeURIComponent(cardId) + '/', title: ptitle, description: pdesc, image: pimg, sized: psized }, D) + '\n' +
+        '<meta http-equiv="refresh" content="0; url=' + ptarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + pv.dir + '/') + '">\n</head>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
+        '<a href="' + ptarget + '">' + escAttr(pv.title || 'Открыть') + '</a>\n</body>\n</html>\n';
     }
     var base = kind === 'main' ? './' : '../';
     var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
@@ -1414,10 +1437,42 @@
             textIn(r, 'description', 'Описание', { multi: true, rows: 4 }),
             textIn(r, 'routeUrl', 'Ссылка на страницу маршрута', { ph: 'https://13mirrors.ru/yellow-sun/',
               hint: 'Постоянная страница, где идут дни маршрута. Нужна для кнопки «Пройти маршрут».' }),
-            imageIn(r, 'image', 'Картинка маршрута')
+            imageIn(r, 'image', 'Картинка маршрута', { hint: 'Показывается на обложках примеров этого маршрута в Песочнице и в архиве.' }),
+            colorOptIn(r, 'color', 'Цвет маршрута', { none: 'без цвета', pick: '#c9a14a',
+              hint: 'Лёгкий оттенок и свечение у обложек его примеров, Летописей, отзывов и в архиве. У отдельного примера можно поставить свой.' }),
+            archiveFields(r)
           ];
         } })
     ];
+  }
+  // Архив: галочка «Показывать в архиве» и страница прошедшего маршрута («как это было», фото, кнопки)
+  function archiveFields(r) {
+    var box = el('div', { class: 'a-glass' });
+    function draw() {
+      box.replaceChildren();
+      var ended = r.dates && r.dates.to && r.dates.to < new Date().toISOString().slice(0, 10);
+      add(box, [sub('Архив прошедших маршрутов'),
+        switchIn(r, 'archive', 'Показывать в архиве', { onChange: draw,
+          hint: 'Маршрут появится на странице «События и архив» → «Прошедшие маршруты» после последнего дня. Без галочки — нигде не показывается.' })]);
+      if (!r.archive) return;
+      if (!r.archiveBlocks) r.archiveBlocks = [{ id: uid('sb'), kind: 'text', visible: true, title: 'Как это было', text: '', collapse: true },
+        { id: uid('sb'), kind: 'images', visible: true, images: [] }];
+      r.archiveActions = r.archiveActions || [];
+      add(box, [
+        el('p', { class: 'a-hint', text: ended ? 'Маршрут уже закончился — после публикации он будет в архиве.' : 'Маршрут ещё не закончился — в архиве появится сам после ' + fmtDates({ from: r.dates.to, to: '' }) + '.' }),
+        el('p', { class: 'a-hint', text: 'На странице маршрута в архиве будут картинка, даты, кин, описание — и ниже то, что вы добавите здесь. Примеры дней и Летописи этого маршрута из Песочницы появятся сами.' }),
+        sbBlocksForm({ blocks: r.archiveBlocks }, 'archive'),
+        el('div', { class: 'a-glass' }, [sub('Кнопки на странице маршрута (до 4)'),
+          el('p', { class: 'a-hint', text: 'Например, «Смотреть запись» — ссылка на видео. «Поделиться» даёт ссылку на страницу маршрута в архиве.' }),
+          collection(r.archiveActions, { max: 4, visible: true, title: function (a) { return a.label || defLabel(kindOf(a)); },
+            make: function () { return { kind: 'link', label: 'Смотреть запись', url: '' }; }, addLabel: '+ Добавить кнопку',
+            body: function (a) { return [actionIn({ a: a }, 'a', '', { kinds: ['link', 'share', 'contact', 'download'] })]; } }),
+          r.routeUrl ? switchIn(r, 'archivePageBtn', 'Кнопка «Страница маршрута» (ведёт на ссылку маршрута)', { defTrue: true }) : null]),
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть в архиве', onclick: function () { openPreview('events', null, r.id); } })])
+      ]);
+    }
+    draw();
+    return box;
   }
 
   /* ================= СОБЫТИЯ ================= */
@@ -1449,8 +1504,9 @@
       el('div', {}, [el('h1', { class: 'a-h1', text: 'События' }),
         el('p', { class: 'a-lead', text: 'Встречи, медитации, фестивали, поездки, практики. Событие заводится здесь один раз — его можно открыть кнопкой с любой плашки или карточки витрины. Прошедшие события сами переходят во вкладку «Как это было»: добавьте туда фото и короткий рассказ.' })]),
       el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу событий', onclick: function () { openPreview('events'); } })]),
-      switchIn(DATA.settings, 'eventsLink', 'Кнопка «Встречи и события» в шапке витрины', { defTrue: true,
-        hint: 'Появляется, когда есть хоть одно событие. Надпись меняется в Настройках → «Надписи».' }),
+      switchIn(DATA.settings, 'eventsLink', 'Кнопка «События и архив» в шапке витрины', { defTrue: true,
+        hint: 'Появляется, когда есть хоть одно событие или маршрут в архиве. Надпись меняется в Настройках → «Надписи на витрине».' }),
+      el('p', { class: 'a-hint', text: 'Прошедшие маршруты попадают на эту страницу из раздела «Маршруты» — галочкой «Показывать в архиве» у маршрута.' }),
       collection(ev.items, { visible: true,
         title: function (e) { var t = (EV_TYPES.filter(function (x) { return x[0] === e.type; })[0] || [])[1]; return [e.title || 'Без названия', e.date, t, e.date && (e.dateEnd || e.date) < today && e.type !== 'case' ? 'прошло' : ''].filter(Boolean).join(' · '); },
         canDelete: function (e) { var u = evUsage(e.id); return u.length ? 'На это событие ведут кнопки: ' + u.join('; ') + '. Сначала поменяйте их — или просто скройте событие.' : ''; },
@@ -1490,7 +1546,9 @@
       block('Оформление страницы', lookFields(ev, 'events'), { open: !!ST.eventsLookOpen }),
       block('Шапка страницы и надписи', [
         textIn(ev, 'eyebrow', 'Надпись сверху'), textIn(ev, 'title', 'Заголовок'), textIn(ev, 'intro', 'Вступление', { multi: true, rows: 2 }),
-        el('div', { class: 'a-row3' }, [textIn(ev.tabs, 'soon', 'Вкладка «Скоро»'), textIn(ev.tabs, 'past', 'Вкладка «Как это было»'), textIn(ev.tabs, 'cases', 'Вкладка «Примеры практик»')]),
+        el('div', { class: 'a-row' }, [textIn(ev.tabs, 'soon', 'Вкладка «Скоро»'), textIn(ev.tabs, 'past', 'Вкладка «Как это было»'),
+          textIn(ev.tabs, 'routes', 'Вкладка «Прошедшие маршруты»', { ph: 'Прошедшие маршруты' }), textIn(ev.tabs, 'cases', 'Вкладка «Примеры практик»')]),
+        switchIn(ev, 'filter', 'Фильтр по типу над обложками', { defTrue: true, hint: '«Все · Встречи · Медитации…» — когда во вкладке события разных типов.' }),
         textIn(ev, 'empty', 'Если событий нет', { ph: 'Скоро здесь появятся новые события.' })
       ], { open: false })
     ];
@@ -1616,6 +1674,8 @@
           el('div', { class: 'a-row' }, [selectIn(x, 'routeId', 'Маршрут', routeOptions()), textIn(x, 'day', 'Номер дня', { type: 'number' })]),
           el('div', { class: 'a-row3' }, [optIn(x, 'kin', 'Кин'), optIn(x, 'tone', 'Тон'), optIn(x, 'seal', 'Печать')]),
           textIn(x, 'title', 'Название дня', { hint: 'Например, «Красный Магнитный Дракон» или «День вне времени».' }),
+          el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
+            colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           sbBlocksForm(x, 'days')
         ];
       } });
@@ -1625,6 +1685,8 @@
       addLabel: '+ Добавить Летопись',
       body: function (x) { return [
         el('div', { class: 'a-row' }, [textIn(x, 'name', 'Название или номер'), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
+        el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
+            colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
         sbBlocksForm(x, 'chronicles')]; } });
     else body = collection(sb.reviews = sb.reviews || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [x.author, r && r.title, x.month].filter(Boolean).join(' · '); },
@@ -1637,7 +1699,8 @@
           textIn(x, 'text', 'Текст отзыва', { multi: true, rows: 5 }),
           el('div', { class: 'a-row' }, [textIn(x, 'author', 'Как подписать', { ph: 'Имя, инициалы или «участница маршрута»' }), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
           el('div', { class: 'a-row' }, [textIn(x, 'month', 'Месяц и год', { ph: 'Октябрь 2026' }), selectIn(x, 'source', 'Откуда', [['Telegram', 'Telegram'], ['VK', 'VK'], ['другое', 'Другое']])]),
-          switchIn(x.signature, 'show', 'Подпись «Опубликовано с разрешения…»')
+          switchIn(x.signature, 'show', 'Подпись «Опубликовано с разрешения…»'),
+          colorOptIn(x, 'color', 'Свой цвет карточки', { none: 'как у маршрута', pick: '#c9a14a' })
         ];
       } });
 
@@ -1654,6 +1717,7 @@
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),
         sub('Названия вкладок'),
         el('div', { class: 'a-row3' }, [textIn(sb.tabs, 'days', 'Дни'), textIn(sb.tabs, 'chronicles', 'Летописи'), textIn(sb.tabs, 'reviews', 'Отзывы')]),
+        switchIn(sb, 'filter', 'Фильтр по маршрутам над обложками', { defTrue: true, hint: '«Все · Красный Дракон · …» — появляется сам, когда в разделе примеры двух и больше маршрутов.' }),
         selectIn(sb, 'headMain', 'Что главное в примере дня', [['route', 'Маршрут крупно, ниже «День 1 · название дня»'], ['day', 'Название дня крупно, маршрут мелко сверху']], { def: 'route' }),
         el('div', { class: 'a-row' }, [textIn(sb, 'moreLabel', 'Кнопка «Подробнее»', { ph: 'Подробнее' }), textIn(sb, 'lessLabel', 'Кнопка «Свернуть»', { ph: 'Свернуть' })]),
         sub('Вводный текст вкладки (над списком; пусто — без него)'),
@@ -1703,8 +1767,11 @@
     ['contactCopied', 'Сообщение «текст скопирован»'], ['contactMissing', 'Если контакт не задан ({channel})'], ['close', 'Кнопка «Закрыть»'],
     ['calendarTitle', 'Заголовок окна календаря'], ['calendarGoogle', 'Кнопка Google Календаря'], ['calendarOther', 'Кнопка другого календаря'],
     ['calendarNote', 'Пояснение про время'], ['calendarMsk', 'Подпись «по Москве»'], ['calendarButton', 'Кнопка «в календарь» на плашке'],
-    ['shareCopied', 'Сообщение «ссылка скопирована»'], ['eventsLink', 'Кнопка «Встречи и события» в шапке витрины'],
-    ['backToCard', 'Кнопка «Назад к карте»'], ['backToShowcase', 'Кнопка «К витрине»'], ['backToList', 'Кнопка «К списку»'], ['loadError', 'Сообщение об ошибке загрузки']
+    ['shareCopied', 'Сообщение «ссылка скопирована»'], ['eventsLink', 'Кнопка «События и архив» в шапке витрины'],
+    ['backToCard', 'Кнопка «Назад к карте»'], ['backToShowcase', 'Кнопка «К витрине»'], ['backToList', 'Кнопка «К списку»'], ['loadError', 'Сообщение об ошибке загрузки'],
+    ['backToAll', 'Песочница: «← Все примеры»'], ['backToEvents', 'События: «← Все события»'], ['backToRoutes', 'Архив: «← Все маршруты»'],
+    ['prevItem', '«← Предыдущий»'], ['nextItem', '«Следующий →»'], ['showMore', '«Показать ещё»'], ['filterAll', 'Фильтр: «Все»'],
+    ['shareButton', 'Кнопка «Поделиться» у примера'], ['routePage', 'Архив: кнопка «Страница маршрута»'], ['archiveRoute', 'Архив: подпись «Маршрут»']
   ];
   function viewSettings() {
     var st = DATA.settings;
@@ -2260,6 +2327,15 @@
     ((P.events || {}).items || []).forEach(function (e) {
       if (e && e.visible !== false && /^[\w-]+$/.test(e.id)) files['events/' + e.id + '/index.html'] = { text: pageHTML('event', null, P, e.id) };
     });
+    // Маршруты с галочкой «в архиве» и примеры Песочницы — свои страницы-превью (ссылка «Поделиться»)
+    ((P.routes || {}).routes || []).forEach(function (r) {
+      if (r && r.archive && /^[\w-]+$/.test(r.id) && !files['events/' + r.id + '/index.html']) files['events/' + r.id + '/index.html'] = { text: pageHTML('archroute', null, P, r.id) };
+    });
+    ['days', 'chronicles'].forEach(function (t) {
+      ((P.sandbox || {})[t] || []).forEach(function (it) {
+        if (it && it.visible !== false && /^[\w-]+$/.test(it.id)) files['sandbox/' + it.id + '/index.html'] = { text: pageHTML('sbitem', null, P, it.id) };
+      });
+    });
     Object.keys(P.showcases).forEach(function (id) {
       var sc = P.showcases[id];
       files['data/showcases/' + id + '.json'] = { text: jsonText(sc) };
@@ -2275,10 +2351,12 @@
     Object.keys(existing).forEach(function (p) {
       var m = /^data\/showcases\/(\d{4}-\d{2})\.json$/.exec(p) || /^(\d{4}-\d{2})\//.exec(p);
       if (m && !files[p]) { files[p] = null; if (!P.showcases[m[1]] && removed.indexOf(m[1]) < 0) removed.push(m[1]); }
-      if (/^events\/[\w-]+\/index\.html$/.test(p) && !files[p]) files[p] = null;   // страницы удалённых или скрытых событий
+      if (/^(events|sandbox)\/[\w-]+\/index\.html$/.test(p) && !files[p]) files[p] = null;   // страницы удалённых или скрытых событий и примеров
     });
     return { files: files, removed: removed };
   }
+  // Для проверки страниц-превью из консоли браузера
+  window.M13_ADMIN = { pageHTML: pageHTML };
   function publish() {
     if (GHS.busy) return;
     if (!GHS.token) {
