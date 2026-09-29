@@ -784,6 +784,8 @@ body.m13-locked{overflow:hidden}
 :is(.m13-cover-img,.m13-read-img).m13-fit-whole img.m13-fit-bg{position:absolute;inset:0;object-fit:cover;filter:blur(14px) saturate(1.1);transform:scale(1.25);opacity:.85}
 .m13-read-share{margin-top:10px}
 .m13-read-share .m13-action{width:auto;padding:9px 18px}
+/* В оформленной странице — как остальные кнопки внутри плашки (События, архив): прозрачная, рамка и надпись цветом текста */
+.m13-look .m13-read-share .m13-action{background:transparent;border-color:var(--lk-line);color:var(--lk-tx)}
 .m13-read-sec{margin-top:16px}
 .m13-read-sec .m13-block-title{margin-bottom:9px}
 .m13-read-nav{width:100%;display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
