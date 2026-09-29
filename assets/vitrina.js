@@ -1046,7 +1046,7 @@
       navigator.share({ title: title, url: url }).catch(function () {});
       return;
     }
-    toast(copyText(url) ? (T('shareCopied') || 'Ссылка на карточку скопирована — её можно отправить в чат.') : url);
+    toast(copyText(url) ? (T('shareCopied') || 'Ссылка скопирована — её можно отправить в чат.') : url);
   }
 
   /* ================= ВНУТРЕННИЕ СТРАНИЦЫ ================= */
@@ -1057,7 +1057,10 @@
   function openInternal(target, tab) {
     var box = S.root.querySelector('#m13-int-' + target); if (!box) return;
     var back = '<button type="button" class="m13-iback" data-m13-iback>' + esc(T('backToCard') || '← Назад к карте') + '</button>';
-    box.innerHTML = target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back);
+    // Оформление страницы (фон, шрифт, цвета, размер текста) — как у отдельной страницы /sandbox/, /events/, /reflection/
+    var lk = pageLook(target === 'sandbox' ? S.D.sandbox.look : target === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
+    box.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
+      (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back)) + '</div>';
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
     else if (target === 'events') bindEvents(box, tab || null, false);
     else bindActs(box);
