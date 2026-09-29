@@ -741,6 +741,9 @@ body.m13-locked{overflow:hidden}
 .m13-chip.is-active{background:#232323;border-color:#232323;color:#fff}
 .m13-covers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .m13-covers--mini{grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.m13-cols-2 .m13-covers:not(.m13-covers--mini){grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.m13-cols-4 .m13-covers:not(.m13-covers--mini){grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:900px) and (min-width:681px){ .m13-cols-4 .m13-covers:not(.m13-covers--mini){grid-template-columns:repeat(3,minmax(0,1fr))} }
 .m13-cover{display:flex;flex-direction:column;min-width:0;padding:0;overflow:hidden;text-align:left;cursor:pointer;color:inherit;font:inherit;
   border:1px solid var(--m13-line);border-radius:16px;background:#fff;transition:transform .16s ease,box-shadow .16s ease}
 .m13-cover:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.14)}
@@ -775,6 +778,10 @@ body.m13-locked{overflow:hidden}
 .m13-read-ht{min-width:0}
 .m13-read-img{flex-shrink:0;width:118px;height:118px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:zoom-in;background:none}
 .m13-read-img img{display:block;width:100%;height:100%;object-fit:cover}
+/* Обложка целиком: картинка вписана полностью, по бокам — она же, размытая и увеличенная */
+:is(.m13-cover-img,.m13-read-img).m13-fit-whole{position:relative}
+:is(.m13-cover-img,.m13-read-img).m13-fit-whole img{position:relative;object-fit:contain}
+:is(.m13-cover-img,.m13-read-img).m13-fit-whole img.m13-fit-bg{position:absolute;inset:0;object-fit:cover;filter:blur(14px) saturate(1.1);transform:scale(1.25);opacity:.85}
 .m13-read-share{margin-top:10px}
 .m13-read-share .m13-action{width:auto;padding:9px 18px}
 .m13-read-sec{margin-top:16px}
@@ -834,6 +841,7 @@ body.m13-locked{overflow:hidden}
 @media (max-width:680px){
   .m13-covers{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .m13-covers--mini{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .m13-ipage:is(.m13-cols-2,.m13-cols-4) .m13-covers:not(.m13-covers--mini){grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .m13-cover{border-radius:13px}
   .m13-cover-txt{padding:9px 10px 11px}
   .m13-standalone .m13-cover-title{font-size:calc(15px * var(--m13-tk,1))}
