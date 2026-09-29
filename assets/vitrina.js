@@ -170,6 +170,12 @@
   function lock(on) { document.body.classList.toggle('m13-locked', on); }
 
   /* ================= ВИТРИНА ================= */
+  // Кнопка «Встречи и события» в шапке витрины — если есть хоть одно видимое событие (выключается в Настройках)
+  function eventsLinkHTML() {
+    var ev = S.D.events || {}, st = S.D.settings || {};
+    if (st.eventsLink === false || !(ev.items || []).some(function (e) { return e && e.visible !== false; })) return '';
+    return '<a class="m13-evlink" href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + esc(T('eventsLink') || 'Встречи и события') + ' →</a>';
+  }
   function renderShowcase() {
     var sc = S.D.showcase;
     if (!sc) throw new Error('Нет данных витрины');
@@ -199,7 +205,7 @@
     var html = root + '<main class="m13-page">' +
       '<header class="' + hcls + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker +
       '<h1>' + esc(sc.title) + (sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '') + '</h1>' +
-      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + '</header>' +
+      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML() + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
       '</section></div></main>' +
@@ -210,6 +216,9 @@
       b.addEventListener('click', function () { openCard(b.getAttribute('data-card')); });
     });
     bindOverlay(); bindModal();
+    // В предпросмотре панели сайта ещё нет — открываем события поверх витрины
+    var evl = S.root.querySelector('[data-m13-evlink]');
+    if (evl && S.onBack) evl.addEventListener('click', function (e) { e.preventDefault(); openInternal('events'); });
 
     // Прямая ссылка на карточку: /2026-10/#sun
     var h = decodeURIComponent((location.hash || '').slice(1));
