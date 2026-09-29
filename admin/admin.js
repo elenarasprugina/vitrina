@@ -146,9 +146,10 @@
   function loadSource() {
     if (window.M13_DATA) return Promise.resolve(clone(window.M13_DATA));
     var d = '../data/';
-    return Promise.all(['settings', 'routes', 'formats', 'sandbox', 'reflection'].map(function (n) { return getJSON(d + n + '.json'); }))
+    return Promise.all(['settings', 'routes', 'formats', 'sandbox', 'reflection'].map(function (n) { return getJSON(d + n + '.json'); })
+      .concat([getJSON(d + 'events.json').catch(function () { return EVENTS_DEFAULT(); })]))
       .then(function (r) {
-        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], showcases: {} };
+        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], showcases: {} };
         return getJSON(d + 'showcases/index.json').then(function (idx) {
           out.index = idx;
           return Promise.all(idx.showcases.map(function (s) {
@@ -472,7 +473,7 @@
     ['contact', 'Написать — окно «Telegram или VK»', 'Написать'], ['link', 'Открыть страницу (ссылку)', 'Подробнее'],
     ['examples', 'Примеры — страница Карт-Отражений', 'Примеры'], ['sandbox', 'Как устроено — Песочница', 'Как устроены маршруты'],
     ['calendar', 'Добавить в календарь', 'Добавить в календарь'], ['share', 'Поделиться ссылкой на карточку', 'Поделиться'],
-    ['download', 'Скачать файл', 'Скачать']
+    ['download', 'Скачать файл', 'Скачать'], ['event', 'Страница события (из «Событий»)', 'Подробнее']
   ];
   function kindOf(a) { return a.kind === 'internal' ? (a.target === 'sandbox' ? 'sandbox' : 'examples') : (a.kind || 'contact'); }
   function defLabel(k) { return (ACTION_KINDS.filter(function (x) { return x[0] === k; })[0] || [])[2] || 'Написать'; }
@@ -513,9 +514,11 @@
           else a.kind = v;
           if (v === 'calendar' && !a.cal) a.cal = { date: '', time: '', duration: 60, title: '', place: '', details: '' };
           draw(); } }) : null,
+        k === 'event' ? selectIn(a, 'eventId', 'Какое событие', [['', '— выберите —']].concat(((DATA.events || {}).items || []).map(function (e) { return [e.id, e.title || 'Без названия']; })),
+          { hint: 'События заводятся в разделе «События». Откроется страница события — с описанием, картинками и кнопками.' }) : null,
         k === 'link' ? textIn(a, 'url', 'Ссылка', { ph: 'https://…', hint: o.linkHint || 'Полный адрес страницы, начиная с https://' }) : null,
         k === 'download' ? textIn(a, 'url', 'Ссылка на файл', { ph: 'https://…', hint: 'Пока — ссылкой (например, на Яндекс Диск). Загрузка файлов прямо из панели появится вместе с публикацией.' }) : null,
-        k === 'calendar' ? calFields(a.cal = a.cal || { duration: 60 }) : null,
+        k === 'calendar' ? (o.calAuto ? el('p', { class: 'a-hint', text: 'Дата, время, длительность и место возьмутся из события.' }) : calFields(a.cal = a.cal || { duration: 60 })) : null,
         k === 'share' ? el('p', { class: 'a-hint', text: 'На телефоне откроется меню «Поделиться» (Telegram, VK…), на компьютере ссылка на эту карточку скопируется.' }) : null,
         k === 'examples' || k === 'sandbox' ? el('p', { class: 'a-hint', text: k === 'sandbox' ? 'Откроется Песочница — «Как устроены маршруты».' : 'Откроется страница примеров Карт-Отражений.' }) : null,
         k === 'contact'
@@ -623,7 +626,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['routes', 'Маршруты'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['routes', 'Маршруты'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -663,6 +666,7 @@
     else if (s === 'routes') add(m, viewRoutes());
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
+    else if (s === 'events') add(m, viewEvents());
     else add(m, viewSettings());
   }
 
@@ -893,7 +897,7 @@
   // картинки к этому моменту — файлы media/…, а не data:.
   // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'card' (…/2026-10/sun/ — превью одной карточки
   // и сразу переход на витрину с открытой карточкой), 'sandbox', 'reflection'.
-  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение' };
+  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События' };
   function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
   function absImg(src, D) { return src && !/^(data:|blob:)/.test(src) ? (/^https?:/.test(src) ? src : siteUrl(D) + src) : ''; }
   function metaTags(o, D) {
@@ -930,6 +934,20 @@
         '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
         '<a href="' + target + '">' + escAttr(f.title || 'Открыть карточку') + '</a>\n</body>\n</html>\n';
+    }
+    if (kind === 'event') {
+      // Страница-превью события: своя ссылка с картинкой и названием для Telegram/VK, сразу открывает событие
+      var e = ((D.events || {}).items || []).filter(function (x) { return x.id === cardId; })[0] || {};
+      var etitle = (e.title || '') + ' · ' + site, edesc = String(e.summary || '').replace(/[*_]/g, '').trim() || sh.description;
+      var eimg = absImg(e.cover, D), esized = false;
+      if (!eimg) { eimg = absImg(sh.image, D); esized = !!eimg; }
+      var etarget = '../#' + encodeURIComponent(cardId);
+      return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(etitle) + '</title>\n' +
+        metaTags({ url: siteUrl(D) + 'events/' + encodeURIComponent(cardId) + '/', title: etitle, description: edesc, image: eimg, sized: esized }, D) + '\n' +
+        '<meta http-equiv="refresh" content="0; url=' + etarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + 'events/') + '">\n</head>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(etarget) + ');</script>\n' +
+        '<a href="' + etarget + '">' + escAttr(e.title || 'Открыть событие') + '</a>\n</body>\n</html>\n';
     }
     var base = kind === 'main' ? './' : '../';
     var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
@@ -994,7 +1012,7 @@
       el('div', { class: 'a-row' }, [optIn(it, 'date', 'Дата', { ph: '08 октября' }), optIn(it, 'price', 'Цена', { ph: '2 500 ₽ или «Свободный вход»' })]),
       optIn(it, 'text', 'Короткое описание', { multi: true, rows: 2 }),
       el('div', { class: 'a-row' }, [optIn(it, 'duration', 'Длительность', { ph: 'до 90 минут' }), optIn(it, 'status', 'Статус', { ph: 'осталось 2 места' })]),
-      actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться' }),
+      actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться', kinds: ['contact', 'link', 'event'] }),
       itemCalendar(it)
     ];
   }
@@ -1056,9 +1074,7 @@
     if (x.kind === 'more') return [el('p', { class: 'a-hint', text: 'Сначала видна только кнопка, по нажатию раскрывается текст. Короткое описание — в блоке «Описание» над этим.' }),
       el('div', { class: 'a-row' }, [textIn(x, 'label', 'Кнопка', { ph: 'Подробнее' }), textIn(x, 'labelClose', 'Кнопка, когда открыто', { ph: 'Свернуть' })]),
       textIn(x, 'text', 'Текст, который раскрывается', { multi: true, rows: 5 })];
-    if (x.kind === 'images') return [collection(x.images = x.images || [], { visible: true, max: 6, title: function (m, k) { return 'Картинка ' + (k + 1); },
-      body: function (m) { return [imageIn(m, 'src', '')]; }, make: function () { return { id: uid('img'), src: null, visible: true }; },
-      addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' })];
+    if (x.kind === 'images') return [galleryForm(x.images = x.images || [])];
     if (x.kind === 'price') return [el('div', { class: 'a-row' }, [textIn(x, 'value', 'Цена', { ph: '3 000 ₽' }),
       textIn(x, 'label', 'Подпись к цене', { ph: 'Пусто — название карточки' })])];
     if (x.kind === 'day') return [el('p', { class: 'a-hint', text: 'Появляется только в дни маршрута и считается по его датам.' }), needRoute('Счётчику нужны даты маршрута.')];
@@ -1399,6 +1415,80 @@
     ];
   }
 
+  /* ================= СОБЫТИЯ ================= */
+  function EVENTS_DEFAULT() { return { eyebrow: '13 MIRRORS', title: 'События', intro: '', tabs: { soon: 'Скоро', past: 'Как это было', cases: 'Примеры практик' }, items: [] }; }
+  var EV_TYPES = [['meeting', 'Встреча'], ['meditation', 'Медитация'], ['festival', 'Фестиваль'], ['trip', 'Поездка'], ['practice', 'Практика'], ['case', 'Пример практики (обезличенно)'], ['other', 'Другое']];
+  // Заготовки разделов для каждого типа
+  var EV_BLOCKS = {
+    meeting: [['О встрече'], ['Для кого'], ['Что будет'], ['Ведущая']], meditation: [['О медитации'], ['Как проходит'], ['Что взять с собой']],
+    festival: [['О фестивале'], ['Программа'], ['Ведущие'], ['Как добраться']], trip: [['О поездке'], ['Маршрут поездки'], ['Что включено'], ['Проживание']],
+    practice: [['О практике'], ['Как проходит'], ['Для кого']], case: [['Запрос'], ['Как шла работа'], ['Что изменилось']], other: [['Описание']]
+  };
+  function evUsage(id) {
+    var u = [];
+    Object.keys(DATA.showcases).forEach(function (k) {
+      (DATA.showcases[k].cards || []).forEach(function (c) {
+        (((c.back || {}).blocks) || []).forEach(function (b) {
+          (b.items || []).forEach(function (it) { if (it.action && it.action.kind === 'event' && it.action.eventId === id) u.push(DATA.showcases[k].title + ' → «' + ((c.front || {}).title || '') + '»'); });
+          (b.actions || []).forEach(function (a) { if (a && a.kind === 'event' && a.eventId === id) u.push(DATA.showcases[k].title + ' → «' + ((c.front || {}).title || '') + '»'); });
+        });
+      });
+    });
+    return u;
+  }
+  function viewEvents() {
+    var ev = DATA.events = DATA.events || EVENTS_DEFAULT();
+    ev.items = ev.items || []; ev.tabs = ev.tabs || {};
+    var today = new Date().toISOString().slice(0, 10);
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'События' }),
+        el('p', { class: 'a-lead', text: 'Встречи, медитации, фестивали, поездки, практики. Событие заводится здесь один раз — его можно открыть кнопкой с любой плашки или карточки витрины. Прошедшие события сами переходят во вкладку «Как это было»: добавьте туда фото и короткий рассказ.' })]),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу событий', onclick: function () { openPreview('events'); } })]),
+      collection(ev.items, { visible: true,
+        title: function (e) { var t = (EV_TYPES.filter(function (x) { return x[0] === e.type; })[0] || [])[1]; return [e.title || 'Без названия', e.date, t, e.date && (e.dateEnd || e.date) < today && e.type !== 'case' ? 'прошло' : ''].filter(Boolean).join(' · '); },
+        canDelete: function (e) { var u = evUsage(e.id); return u.length ? 'На это событие ведут кнопки: ' + u.join('; ') + '. Сначала поменяйте их — или просто скройте событие.' : ''; },
+        addBox: function (push) {
+          var sel = { t: 'meeting' };
+          return el('div', { class: 'a-row a-row--end' }, [
+            selectIn(sel, 't', 'Новое событие', EV_TYPES),
+            el('button', { type: 'button', class: 'a-btn', text: '+ Добавить событие', onclick: function () {
+              push({ id: uid('ev'), visible: true, type: sel.t, title: sel.t === 'case' ? 'Пример практики' : 'Новое событие', date: '', dateEnd: '', time: '', duration: 120,
+                place: '', price: '', cover: null, summary: '', archive: true,
+                blocks: (EV_BLOCKS[sel.t] || EV_BLOCKS.other).map(function (b) { return { id: uid('sb'), kind: 'text', visible: true, title: b[0], text: '', collapse: true }; })
+                  .concat([{ id: uid('sb'), kind: 'images', visible: true, images: [] }]),
+                actions: sel.t === 'case' ? [] : [{ kind: 'contact', label: 'Записаться' }, { kind: 'calendar', label: 'Добавить в календарь' }, { kind: 'share', label: 'Поделиться' }] });
+            } })]);
+        },
+        body: function (e) {
+          e.actions = e.actions || []; e.blocks = e.blocks || [];
+          return [
+            el('div', { class: 'a-row' }, [textIn(e, 'title', 'Название'), selectIn(e, 'type', 'Тип', EV_TYPES, { def: 'meeting' })]),
+            e.type === 'case' ? el('p', { class: 'a-note', text: 'Пример практики — только обезличенно и с разрешения человека: без имён и деталей, по которым его можно узнать.' }) : null,
+            e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'date', 'Дата', { type: 'date' }), textIn(e, 'dateEnd', 'Последний день (если несколько)', { type: 'date' }), textIn(e, 'time', 'Начало', { ph: '19:00' })]),
+            e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'duration', 'Длительность, минут', { type: 'number', ph: '120' }), textIn(e, 'place', 'Где', { ph: 'Онлайн / Москва, …' }), textIn(e, 'price', 'Стоимость', { ph: '1 500 ₽ / свободный вход' })]),
+            e.type === 'case' ? null : textIn(e, 'dateText', 'Дата своими словами (необязательно)', { ph: 'Каждый четверг октября', hint: 'Если заполнено — показывается вместо даты.' }),
+            imageIn(e, 'cover', 'Главная картинка', { max: 1800, hint: 'Показывается крупно наверху страницы и маленькой — в списке.' }),
+            textIn(e, 'coverCaption', 'Подпись под главной картинкой', { ph: 'необязательно' }),
+            textIn(e, 'summary', 'Коротко — одним-двумя предложениями', { multi: true, rows: 2, hint: 'Видно сразу, под картинкой, и в списке событий.' }),
+            sbBlocksForm(e, 'event'),
+            e.type === 'case' ? null : el('div', { class: 'a-glass' }, [sub('Кнопки (до 4)'),
+              el('p', { class: 'a-hint', text: '«Добавить в календарь» сама берёт дату, время и место события. У прошедшего события остаются только «Ссылка» и «Поделиться».' }),
+              collection(e.actions, { max: 4, visible: true, title: function (a) { return a.label || defLabel(kindOf(a)); },
+                make: function () { return { kind: 'contact', label: 'Записаться' }; }, addLabel: '+ Добавить кнопку',
+                body: function (a) { return [actionIn({ a: a }, 'a', '', { kinds: ['contact', 'link', 'calendar', 'share', 'download'], calAuto: true })]; } })]),
+            e.type === 'case' ? null : switchIn(e, 'archive', 'Когда пройдёт — показывать в «Как это было»', { defTrue: true }),
+            el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть это событие', onclick: function () { openPreview('events', null, e.id); } })])
+          ];
+        } }),
+      block('Оформление страницы', lookFields(ev, 'events'), { open: !!ST.eventsLookOpen }),
+      block('Шапка страницы и надписи', [
+        textIn(ev, 'eyebrow', 'Надпись сверху'), textIn(ev, 'title', 'Заголовок'), textIn(ev, 'intro', 'Вступление', { multi: true, rows: 2 }),
+        el('div', { class: 'a-row3' }, [textIn(ev.tabs, 'soon', 'Вкладка «Скоро»'), textIn(ev.tabs, 'past', 'Вкладка «Как это было»'), textIn(ev.tabs, 'cases', 'Вкладка «Примеры практик»')]),
+        textIn(ev, 'empty', 'Если событий нет', { ph: 'Скоро здесь появятся новые события.' })
+      ], { open: false })
+    ];
+  }
+
   /* ================= ПЕСОЧНИЦА ================= */
   function routeOptions() { return [['', '— не указан —']].concat(routes().map(function (r) { return [r.id, r.title]; })); }
   // Оформление отдельной страницы (Песочница, Примеры): фон, шрифт, цвета, стеклянные панели.
@@ -1448,13 +1538,59 @@
       el('div', { class: 'a-row' }, [
         colorOptIn(lk, 'accent', 'Акцентный цвет', { none: 'как текст', pick: '#ecd3a3', hint: 'Выбранная вкладка и пример, линия у отзыва, кнопка заказа.' }),
         colorOptIn(lk, 'panelBg', 'Цвет панелей', { none: 'белый', pick: '#17120c' })]),
+      switchIn(lk, 'titleLine', 'Тонкая линия под заголовками разделов', { defTrue: true }),
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
         rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })])
     ];
   }
 
-  var SB_LABELS = { meaning: 'Смысл дня', thought: 'Мысль дня', question: 'Вопрос дня', trace: 'Твой след' };
+  // Гибкие разделы примера (день, Летопись): текстовые блоки с заголовком и блоки-картинки. Старые поля → блоки при первом открытии.
+  var SB_PRESETS = [
+    ['meaning', 'Контур дня', { collapse: true }], ['thought', 'Мысль дня', { look: 'thought' }], ['mantra', 'Мантра дня', { look: 'mantra' }],
+    ['question', 'Главный вопрос', {}], ['practice', 'Практика', { collapse: true }], ['trace', 'След дня', {}],
+    ['fragment', 'Фрагмент Летописи', { collapse: true }], ['text', 'Свой блок', {}], ['images', 'Картинки (до 10)', {}]
+  ];
+  function sbPreset(k) {
+    var p = SB_PRESETS.filter(function (x) { return x[0] === k; })[0] || SB_PRESETS[7];
+    if (k === 'images') return { id: uid('sb'), kind: 'images', visible: true, images: [] };
+    return Object.assign({ id: uid('sb'), kind: 'text', visible: true, title: k === 'text' ? '' : String(sbLabel(k) || p[1]).replace(/\s*\{n\}/, ''), text: '' }, p[2]);
+  }
+  var SB_LOOKS = [['normal', 'Обычный'], ['thought', 'Мысль — курсивом, крупнее'], ['mantra', 'Мантра — по центру, курсивом']];
+  function galleryForm(list) {
+    return collection(list, { visible: true, max: 10, title: function (m, k) { return (m.caption ? m.caption : 'Картинка ' + (k + 1)); },
+      body: function (m) { return [imageIn(m, 'src', '', { max: 1800 }), textIn(m, 'caption', 'Подпись под картинкой', { ph: 'Работа участницы маршрута «Белый Волшебник»', hint: 'Мелко и бледнее основного текста, как подпись к фото. Можно пусто.' })]; },
+      make: function () { return { id: uid('img'), src: null, caption: '', visible: true }; }, addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' });
+  }
+  function sbBlocksForm(x, tab) {
+    if (!x.blocks) {
+      x.blocks = clone(window.M13.sbBlocks(tab, x, DATA.sandbox.labels) || []).map(function (b) { b.id = uid('sb'); return b; });
+      ['meaning', 'thought', 'question', 'practices', 'trace', 'image', 'note', 'fragment', 'lens'].forEach(function (k) { delete x[k]; });
+    }
+    var sel = { k: 'text' };
+    return el('div', { class: 'a-glass' }, [
+      sub('Разделы'),
+      el('p', { class: 'a-hint', text: 'Добавляйте, переименовывайте, переставляйте и скрывайте разделы. В текстах: пустая строка — новый абзац, **жирный**, *курсив*, __подчёркнутый__, строка с «- » — пункт списка.' }),
+      collection(x.blocks, { visible: true,
+        title: function (b) { return b.kind === 'images' ? 'Картинки · ' + (b.images || []).length + ' шт.' : (b.title || 'Без заголовка') + (b.text ? ' — ' + String(b.text).replace(/\s+/g, ' ').slice(0, 40) + '…' : ''); },
+        body: function (b) {
+          if (b.kind === 'images') return [galleryForm(b.images = b.images || [])];
+          return [
+            textIn(b, 'title', 'Заголовок раздела', { ph: 'Контур дня, Мантра дня, Вкус дня…' }),
+            textIn(b, 'text', 'Текст', { multi: true, rows: 6 }),
+            el('div', { class: 'a-row' }, [
+              selectIn(b, 'look', 'Как показывать', SB_LOOKS, { def: 'normal' }),
+              switchIn(b, 'collapse', 'Длинный текст — под «Подробнее»', { hint: 'Виден первый абзац, остальное раскрывается.' })])
+          ];
+        },
+        addBox: function (push) {
+          return el('div', { class: 'a-row a-row--end' }, [
+            selectIn(sel, 'k', 'Добавить раздел', SB_PRESETS.map(function (p) { return [p[0], p[1]]; })),
+            el('button', { type: 'button', class: 'a-btn', text: '+ Добавить', onclick: function () { push(sbPreset(sel.k)); } })]);
+        } })
+    ]);
+  }
+  var SB_LABELS = { meaning: 'Контур дня', thought: 'Мысль дня', mantra: 'Мантра дня', question: 'Главный вопрос', practice: 'Практика', trace: 'След дня', fragment: 'Фрагмент Летописи' };
   function sbLabel(k) { var l = ((DATA.sandbox || {}).labels || {})[k]; return (l && String(l).trim()) || SB_LABELS[k]; }
   function viewSandbox() {
     var sb = DATA.sandbox;
@@ -1466,34 +1602,23 @@
     if (t === 'days') body = collection(sb.days = sb.days || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [r && r.title, x.day ? 'День ' + x.day : '', x.title].filter(Boolean).join(' · '); },
       make: function () { return { id: uid('d'), visible: true, routeId: '', day: null, kin: { value: '', show: false }, tone: { value: '', show: false }, seal: { value: '', show: false },
-        title: 'Новый пример дня', meaning: '', question: '', practices: ['', ''], trace: '', image: null }; },
+        title: 'Новый пример дня', blocks: [sbPreset('meaning'), sbPreset('thought'), sbPreset('question'), sbPreset('practice'), sbPreset('trace')] }; },
       addLabel: '+ Добавить пример дня',
       body: function (x) {
-        x.practices = x.practices || ['', ''];
         return [
           el('div', { class: 'a-row' }, [selectIn(x, 'routeId', 'Маршрут', routeOptions()), textIn(x, 'day', 'Номер дня', { type: 'number' })]),
           el('div', { class: 'a-row3' }, [optIn(x, 'kin', 'Кин'), optIn(x, 'tone', 'Тон'), optIn(x, 'seal', 'Печать')]),
-          textIn(x, 'title', 'Заголовок'),
-          el('p', { class: 'a-hint', text: 'В текстах: пустая строка — новый абзац, **жирный**, *курсив*, строка с «- » в начале — пункт списка. Пустые поля на странице не показываются.' }),
-          textIn(x, 'meaning', sbLabel('meaning'), { multi: true, rows: 5 }),
-          textIn(x, 'thought', sbLabel('thought'), { multi: true, rows: 2 }),
-          textIn(x, 'question', sbLabel('question'), { multi: true, rows: 2 }),
-          el('div', { class: 'a-row' }, [textIn(x.practices, 0, 'Практика 1', { multi: true, rows: 6 }), textIn(x.practices, 1, 'Практика 2', { multi: true, rows: 6 })]),
-          textIn(x.practices, 2, 'Практика 3 (необязательно)', { multi: true, rows: 4 }),
-          textIn(x, 'trace', sbLabel('trace'), { multi: true, rows: 2 }),
-          imageIn(x, 'image', 'Картинка (необязательно)')
+          textIn(x, 'title', 'Название дня', { hint: 'Например, «Красный Магнитный Дракон» или «День вне времени».' }),
+          sbBlocksForm(x, 'days')
         ];
       } });
     else if (t === 'chronicles') body = collection(sb.chronicles = sb.chronicles || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [x.name, r && r.title].filter(Boolean).join(' · '); },
-      make: function () { return { id: uid('c'), visible: true, routeId: '', name: 'Новая Летопись', note: '', fragment: '', lens: '', image: null }; },
+      make: function () { return { id: uid('c'), visible: true, routeId: '', name: 'Новая Летопись', blocks: [sbPreset('fragment')] }; },
       addLabel: '+ Добавить Летопись',
       body: function (x) { return [
         el('div', { class: 'a-row' }, [textIn(x, 'name', 'Название или номер'), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
-        textIn(x, 'note', 'Краткое пояснение', { multi: true, rows: 2, hint: 'Необязательно. Пусто — в списке слева покажется начало фрагмента.' }),
-        textIn(x, 'fragment', 'Фрагмент Летописи', { multi: true, rows: 5 }),
-        textIn(x, 'lens', '«Линза 13 MIRRORS»', { multi: true, rows: 3 }),
-        imageIn(x, 'image', 'Картинка (необязательно)')]; } });
+        sbBlocksForm(x, 'chronicles')]; } });
     else body = collection(sb.reviews = sb.reviews || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [x.author, r && r.title, x.month].filter(Boolean).join(' · '); },
       make: function () { return { id: uid('r'), visible: true, text: '', author: 'Участница маршрута', routeId: '', month: '', source: 'Telegram', signature: { show: true } }; },
@@ -1522,6 +1647,8 @@
         optIn(sb, 'notice', 'Плашка-пометка', { hint: 'Например, «Тестовые примеры». Выключите, когда появятся настоящие.' }),
         sub('Названия вкладок'),
         el('div', { class: 'a-row3' }, [textIn(sb.tabs, 'days', 'Дни'), textIn(sb.tabs, 'chronicles', 'Летописи'), textIn(sb.tabs, 'reviews', 'Отзывы')]),
+        selectIn(sb, 'headMain', 'Что главное в примере дня', [['route', 'Маршрут крупно, ниже «День 1 · название дня»'], ['day', 'Название дня крупно, маршрут мелко сверху']], { def: 'route' }),
+        el('div', { class: 'a-row' }, [textIn(sb, 'moreLabel', 'Кнопка «Подробнее»', { ph: 'Подробнее' }), textIn(sb, 'lessLabel', 'Кнопка «Свернуть»', { ph: 'Свернуть' })]),
         sub('Вводный текст вкладки (над списком; пусто — без него)'),
         el('div', { class: 'a-row3' }, [textIn(sb.intros, 'days', 'Дни', { multi: true, rows: 3 }), textIn(sb.intros, 'chronicles', 'Летописи', { multi: true, rows: 3 }), textIn(sb.intros, 'reviews', 'Отзывы', { multi: true, rows: 3 })]),
         el('p', { class: 'a-hint', text: 'Вкладка пропадает со страницы сама, если в ней нет ни одного видимого примера.' }),
@@ -1702,7 +1829,7 @@
   var PHONE = { w: 375 }, pvPhone = false;
   function canPhone() { return window.innerWidth >= 600; }
   function previewData(showcaseId) {
-    return { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection,
+    return { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection, events: DATA.events,
       index: DATA.index, showcase: DATA.showcases[showcaseId] };
   }
   // Окно-«телефон»: пишем в пустой iframe страницу с тем же рендерером и ждём, пока он загрузится.
@@ -1722,13 +1849,14 @@
     })();
   }
   function openPreview(view, showcaseId, cardId) {
-    if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : 'showcase';
+    if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : ST.section === 'events' ? 'events' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
     var cur = view, M = null, mount = null;
     function go(v) {
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
+      if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
       M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId) })
         .then(function () { if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; } });
       pv.scrollTop = 0;
@@ -1755,6 +1883,7 @@
       el('button', { type: 'button', 'data-v': 'showcase', text: 'Витрина', onclick: function () { go('showcase'); } }),
       el('button', { type: 'button', 'data-v': 'sandbox', text: 'Песочница', onclick: function () { go('sandbox'); } }),
       el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
+      el('button', { type: 'button', 'data-v': 'events', text: 'События', onclick: function () { go('events'); } }),
       canPhone() ? phoneBtn : null
     ]);
     pv.classList.add('is-open');
@@ -1781,6 +1910,7 @@
   // Приводит данные к нынешнему виду (старые обороты → блоки).
   function migrate(D) {
     D.showcases = D.showcases || {};
+    D.events = D.events || EVENTS_DEFAULT(); D.events.items = D.events.items || [];
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {
         if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
@@ -1886,7 +2016,7 @@
   }
 
   /* ---------- Данные ↔ файлы ---------- */
-  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection'];
+  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events'];
   function jsonText(o) { return JSON.stringify(o, null, 2) + '\n'; }
   function draftFiles(D) {
     var out = {};
@@ -1909,7 +2039,7 @@
       });
       if (t.files['data/showcases/index.json']) jobs.push(readText(repo, t.files['data/showcases/index.json']).then(function (x) { D.index = JSON.parse(x); }));
       return Promise.all(jobs).then(function () {
-        DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n]); });
+        DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n] || (n === 'events' ? EVENTS_DEFAULT() : {})); });
         return { data: D, date: t.date };
       });
     });
@@ -2119,6 +2249,10 @@
     files['index.html'] = { text: pageHTML('main', null, P) };
     files['sandbox/index.html'] = { text: pageHTML('sandbox', null, P) };
     files['reflection/index.html'] = { text: pageHTML('reflection', null, P) };
+    files['events/index.html'] = { text: pageHTML('events', null, P) };
+    ((P.events || {}).items || []).forEach(function (e) {
+      if (e && e.visible !== false && /^[\w-]+$/.test(e.id)) files['events/' + e.id + '/index.html'] = { text: pageHTML('event', null, P, e.id) };
+    });
     Object.keys(P.showcases).forEach(function (id) {
       var sc = P.showcases[id];
       files['data/showcases/' + id + '.json'] = { text: jsonText(sc) };
@@ -2134,6 +2268,7 @@
     Object.keys(existing).forEach(function (p) {
       var m = /^data\/showcases\/(\d{4}-\d{2})\.json$/.exec(p) || /^(\d{4}-\d{2})\//.exec(p);
       if (m && !files[p]) { files[p] = null; if (!P.showcases[m[1]] && removed.indexOf(m[1]) < 0) removed.push(m[1]); }
+      if (/^events\/[\w-]+\/index\.html$/.test(p) && !files[p]) files[p] = null;   // страницы удалённых или скрытых событий
     });
     return { files: files, removed: removed };
   }

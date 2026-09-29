@@ -65,15 +65,16 @@
       var id = showcaseId || P.settings.currentShowcase;
       return Promise.resolve({
         settings: P.settings, routes: P.routes, formats: P.formats, index: P.index,
-        sandbox: P.sandbox, reflection: P.reflection, showcase: (P.showcases || {})[id] || null
+        sandbox: P.sandbox, reflection: P.reflection, events: P.events || null, showcase: (P.showcases || {})[id] || null
       });
     }
     var d = base + 'data/';
     return Promise.all([
       getJSON(d + 'settings.json'), getJSON(d + 'routes.json'), getJSON(d + 'formats.json'),
-      getJSON(d + 'sandbox.json'), getJSON(d + 'reflection.json')
+      getJSON(d + 'sandbox.json'), getJSON(d + 'reflection.json'),
+      getJSON(d + 'events.json').catch(function () { return null; })   // событий может ещё не быть
     ]).then(function (r) {
-      var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], index: null, showcase: null };
+      var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], index: null, showcase: null };
       var id = showcaseId || out.settings.currentShowcase;
       if (S.view !== 'showcase') return out;
       return getJSON(d + 'showcases/' + id + '.json').then(function (sc) { out.showcase = sc; return out; });
@@ -81,6 +82,7 @@
   };
 
   /* ---------- Запуск ---------- */
+  M13.setStartEvent = function (id) { S.startEvent = id || null; };
   M13.boot = function () {
     var el = document.getElementById('m13');
     M13.mount(el, {
@@ -101,6 +103,7 @@
       S.D = D;
       if (S.view === 'sandbox') renderStandalone('sandbox');
       else if (S.view === 'reflection') renderStandalone('reflection');
+      else if (S.view === 'events') renderStandalone('events');
       else renderShowcase();
     }).catch(function (e) {
       console.error(e);
@@ -123,6 +126,8 @@
       if (url) window.open(url, '_blank', 'noopener');
     } else if (action.kind === 'internal') {
       openInternal(action.target, action.tab);
+    } else if (action.kind === 'event') {
+      if (S.view === 'events') showEvent(action.eventId); else openInternal('events', action.eventId);
     } else if (action.kind === 'calendar') {
       openCalendar(action.cal || action, ctx);
     } else if (action.kind === 'share') {
@@ -677,12 +682,7 @@
       else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + esc(t) + '</div>'; }
       else if (x.kind === 'images') {
         var imgs = (x.images || []).filter(function (m) { return m && m.visible !== false && m.src; });
-        if (imgs.length) {
-          var g = S.lb.push(imgs.map(function (m) { return media(m.src); })) - 1;
-          html = '<div class="m13-gallery">' + imgs.map(function (m, k) {
-            return '<button type="button" class="m13-gallery-item" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
-              '<img src="' + esc(media(m.src)) + '" alt="" loading="lazy"></button>'; }).join('') + '</div>';
-        }
+        if (imgs.length) html = galleryHTML(imgs, 'row');
       }
       else if (x.kind === 'price') {
         var pv = String(x.value || '').trim();
@@ -913,12 +913,36 @@
       '<img class="m13-lb-img" id="m13-lb-img" alt="">' +
       '<button type="button" class="m13-lb-nav m13-lb-prev" id="m13-lb-prev" aria-label="Предыдущая">‹</button>' +
       '<button type="button" class="m13-lb-nav m13-lb-next" id="m13-lb-next" aria-label="Следующая">›</button>' +
+      '<div class="m13-lb-cap" id="m13-lb-cap"></div>' +
       '<div class="m13-lb-count" id="m13-lb-count"></div>' +
       '<button type="button" class="m13-lb-close" id="m13-lb-x" aria-label="Закрыть">×</button></div>';
   }
+  // Галерея: до 10 картинок с подписями. mode 'row' — ряд маленьких (оборот карточки),
+  // 'feature' — первая крупно с подписью, остальные рядом под ней (страницы). Крупно — в просмотрщике, с подписью.
+  function galleryHTML(list, mode) {
+    var imgs = (list || []).filter(function (m) { return m && m.visible !== false && m.src; }).slice(0, 10);
+    if (!imgs.length) return '';
+    var g = S.lb.push(imgs.map(function (m) { return { src: media(m.src), caption: String(m.caption || '').trim() }; })) - 1;
+    function btn(m, k, cls) {
+      return '<button type="button" class="' + cls + '" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
+        '<img src="' + esc(media(m.src)) + '" alt="' + esc(m.caption || '') + '" loading="lazy"></button>';
+    }
+    function cap(m) { var c = String(m.caption || '').trim(); return c ? '<figcaption class="m13-cap">' + esc(c) + '</figcaption>' : ''; }
+    if (mode === 'feature') {
+      return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + btn(imgs[0], 0, 'm13-fig-img') + cap(imgs[0]) + '</figure>' +
+        (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item'); }).join('') + '</div>' : '') + '</div>';
+    }
+    return '<div class="m13-gallery">' + imgs.map(function (m, k) { return btn(m, k, 'm13-gallery-item'); }).join('') + '</div>';
+  }
+  function bindLightbox(scope) {
+    scope.querySelectorAll('[data-m13-lb]').forEach(function (b) {
+      b.addEventListener('click', function (e) { e.stopPropagation(); var p = b.getAttribute('data-m13-lb').split(':'); openLightbox(+p[0], +p[1]); });
+    });
+  }
   function lbDraw() {
-    var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length;
-    q('#m13-lb-img').src = LB.list[LB.i];
+    var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length, it = LB.list[LB.i];
+    q('#m13-lb-img').src = typeof it === 'string' ? it : it.src;
+    var c = q('#m13-lb-cap'); if (c) c.textContent = (it && it.caption) || '';
     q('#m13-lb-count').textContent = n > 1 ? (LB.i + 1) + ' / ' + n : '';
     q('#m13-lb-prev').hidden = q('#m13-lb-next').hidden = n < 2;
   }
@@ -963,7 +987,7 @@
     clearTimeout(toast.t); toast.t = setTimeout(function () { t.classList.remove('is-on'); }, 3200);
   }
   function shareCard(ctx) {
-    var url = cardUrl(), title = [(S.D.settings || {}).siteTitle || '13 MIRRORS', ctx.card].filter(Boolean).join(' · ');
+    var url = ctx.url || cardUrl(), title = [(S.D.settings || {}).siteTitle || '13 MIRRORS', ctx.card].filter(Boolean).join(' · ');
     if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
       navigator.share({ title: title, url: url }).catch(function () {});
       return;
@@ -973,14 +997,15 @@
 
   /* ================= ВНУТРЕННИЕ СТРАНИЦЫ ================= */
   function internalHTML() {
-    return '<div class="m13-internal" id="m13-int-sandbox"></div><div class="m13-internal" id="m13-int-reflection"></div>';
+    return '<div class="m13-internal" id="m13-int-sandbox"></div><div class="m13-internal" id="m13-int-reflection"></div><div class="m13-internal" id="m13-int-events"></div>';
   }
   // Открыть Песочницу или Примеры поверх открытой карточки («← Назад к карте» вернёт к обороту).
   function openInternal(target, tab) {
     var box = S.root.querySelector('#m13-int-' + target); if (!box) return;
     var back = '<button type="button" class="m13-iback" data-m13-iback>' + esc(T('backToCard') || '← Назад к карте') + '</button>';
-    box.innerHTML = target === 'sandbox' ? sandboxHTML(back) : reflectionHTML(back);
+    box.innerHTML = target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back);
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
+    else if (target === 'events') bindEvents(box, tab || null, false);
     else bindActs(box);
     box.querySelector('[data-m13-iback]').addEventListener('click', closeTop);
     box.classList.add('is-open'); box.scrollTop = 0;
@@ -995,13 +1020,17 @@
       ? '<button type="button" class="m13-iback" data-m13-home>' + esc(T('backToShowcase') || '← К витрине') + '</button>'
       : '<a class="m13-iback" href="' + esc(backHref) + '">' + esc(T('backToShowcase') || '← К витрине') + '</a>';
     S.acts = [];
-    var inner = which === 'sandbox' ? sandboxHTML(back) : reflectionHTML(back);
-    var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : (S.D.reflection || {}).look);
-    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' + modalHTML();
+    var inner = which === 'sandbox' ? sandboxHTML(back) : which === 'events' ? eventsHTML(back) : reflectionHTML(back);
+    var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : which === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
+    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' +
+      modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
     if (home) home.addEventListener('click', function () { S.onBack(); });
-    if (which === 'sandbox') {
+    if (which === 'events') {
+      document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + ((S.D.events || {}).title || 'События');
+      bindEvents(S.root, S.onBack ? (S.startEvent || null) : (decodeURIComponent((location.hash || '').slice(1)) || null), !S.onBack);
+    } else if (which === 'sandbox') {
       document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + (S.D.sandbox.title || 'Песочница');
       var h = decodeURIComponent((location.hash || '').slice(1)).split('/');
       bindSandbox(S.root, S.onBack ? 'days' : (h[0] || 'days'), S.onBack ? null : (h[1] || null), !S.onBack);
@@ -1018,6 +1047,7 @@
   function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
   function pageLook(lk) {
     if (!lk) return { cls: '', css: '' };
+    if (lk.titleLine === false) { var r0 = pageLook(Object.assign({}, lk, { titleLine: true })); r0.cls += ' m13-noline'; return r0; }
     var bg = lk.background || {}, css = [], cls = '';
     if (bg.color) css.push('--m13-bgc:' + bg.color);
     if (bg.image) {
@@ -1054,7 +1084,7 @@
   function rich(s) {
     return String(s || '').trim().split(/\n\s*\n/).map(function (par) {
       var lines = par.split('\n'), out = '', list = [];
-      function inl(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>'); }
+      function inl(t) { return esc(t).replace(/__(.+?)__/g, '<u class="m13-u">$1</u>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>'); }
       function flush() { if (list.length) { out += '<ul>' + list.map(function (x) { return '<li>' + inl(x) + '</li>'; }).join('') + '</ul>'; list = []; } }
       var txtLines = [];
       lines.forEach(function (ln) {
@@ -1066,8 +1096,47 @@
       return out;
     }).join('');
   }
-  function plain(s) { return String(s || '').replace(/\*\*?(.+?)\*\*?/g, '$1').replace(/^\s*[-–•]\s+/gm, '').replace(/\s+/g, ' ').trim(); }
+  function plain(s) { return String(s || '').replace(/__(.+?)__/g, '$1').replace(/\*\*?(.+?)\*\*?/g, '$1').replace(/^\s*[-–•]\s+/gm, '').replace(/\s+/g, ' ').trim(); }
+  function firstText(tab, it) { var t = ''; (M13.sbBlocks(tab, it, (S.D.sandbox || {}).labels) || []).some(function (b) { if (b.visible !== false && b.kind === 'text' && String(b.text || '').trim()) { t = b.text; return true; } }); return t; }
   function firstLine(s) { var t = plain(String(s || '').split(/\n\s*\n/)[0]); return t.length > 140 ? t.slice(0, 138) + '…' : t; }
+
+  // Разделы примера (день, Летопись) — гибкие блоки: {kind:'text', title, text, look:'normal'|'thought'|'mantra', collapse}
+  // или {kind:'images', images:[{src, caption}]}. Старые поля (meaning, thought, practices…) превращаются в блоки на лету.
+  M13.sbBlocks = function (tab, it, labels) {
+    if (it && it.blocks) return it.blocks;
+    labels = labels || {};
+    function lab(k, v) { var l = labels[k]; return fill(l == null || l === '' ? LABELS[k] : l, v || {}); }
+    var B = [], n = 0;
+    function tb(title, text, o) { if (String(text || '').trim()) B.push(Object.assign({ id: 'b' + (++n), kind: 'text', visible: true, title: title, text: String(text) }, o || {})); }
+    if (it.image) B.push({ id: 'b' + (++n), kind: 'images', visible: true, images: [{ src: it.image, caption: '' }] });
+    if (tab === 'days') {
+      var pr = (it.practices || []).filter(function (x) { return String(x || '').trim(); });
+      tb(lab('meaning'), it.meaning, { collapse: true });
+      tb(lab('thought'), it.thought, { look: 'thought' });
+      tb(lab('question'), it.question);
+      pr.forEach(function (p, i) { tb(pr.length === 1 ? lab('practiceOne') : lab('practice', { n: i + 1 }), p, { collapse: true }); });
+      tb(lab('trace'), it.trace);
+    } else if (tab === 'chronicles') {
+      tb('', it.note);
+      tb(lab('fragment'), it.fragment, { collapse: true });
+      tb(lab('lens'), it.lens);
+    }
+    return B;
+  };
+  function sbBlockHTML(b) {
+    if (!b || b.visible === false) return '';
+    if (b.kind === 'images') return galleryHTML(b.images, 'feature');
+    var text = String(b.text || '').trim(); if (!text) return '';
+    var paras = text.split(/\n\s*\n/), sb = S.D.sandbox || {}, body;
+    // Длинный текст: первый абзац виден, остальное — под «Подробнее»
+    if (b.collapse && paras.length > 1 && text.length > 320) {
+      body = '<div class="m13-rich">' + rich(paras[0]) + '</div><details class="m13-more m13-sb-more"><summary><span class="m13-more-open">' +
+        esc(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + esc(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
+        '<div class="m13-rich">' + rich(paras.slice(1).join('\n\n')) + '</div></details>';
+    } else body = '<div class="m13-rich">' + rich(text) + '</div>';
+    var look = b.look === 'thought' ? ' m13-thought' : b.look === 'mantra' ? ' m13-mantra' : '';
+    return '<div class="m13-block' + look + '">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + body + '</div>';
+  }
 
   function sandboxHTML(backBtn) {
     var sb = S.D.sandbox, notice = opt(sb.notice);
@@ -1085,12 +1154,20 @@
   function sbListItem(tab, it) {
     var r = routeById(it.routeId) || {};
     var top = '', title = '', sub = '';
-    if (tab === 'days') { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; sub = firstLine(it.question || it.thought || it.meaning); }
-    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = firstLine(it.note || it.fragment); }
+    var day = '';
+    if (tab === 'days') {
+      var dl = [it.day ? L('day', { n: it.day }) : '', it.title].filter(Boolean).join(' · ');
+      sub = firstLine(it.question || it.thought || it.meaning || firstText(tab, it));
+      // Крупно — маршрут, ниже мельче — «День 1 · …» (или наоборот — настройка «Что главное в примере дня»)
+      if ((S.D.sandbox || {}).headMain !== 'day' && r.title) { title = r.title; day = dl; }
+      else { top = [r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · '); title = it.title; }
+    }
+    else if (tab === 'chronicles') { top = r.title || ''; title = it.name; sub = firstLine(it.note || it.fragment || firstText(tab, it)); }
     else { top = [r.title, it.month].filter(Boolean).join(' · '); title = it.author; sub = it.text; }
     return '<button type="button" class="m13-sb-item" data-item="' + esc(it.id) + '">' +
       (top ? '<div class="m13-sb-item-top">' + esc(top) + '</div>' : '') +
       '<div class="m13-sb-item-title">' + esc(title) + '</div>' +
+      (day ? '<div class="m13-sb-item-day">' + esc(day) + '</div>' : '') +
       (sub ? '<div class="m13-sb-item-sub">' + esc(sub) + '</div>' : '') + '</button>';
   }
 
@@ -1098,30 +1175,22 @@
     var sb = S.D.sandbox, r = routeById(it.routeId) || {};
     var img = it.image ? '<img class="m13-panel-img" src="' + esc(media(it.image)) + '" alt="" loading="lazy">' : '';
     var toList = '<button type="button" class="m13-iback m13-sb-toList" data-tolist>' + esc(T('backToList') || '← К списку') + '</button>';
+    var blocks = (M13.sbBlocks(tab, it, sb.labels) || []).map(sbBlockHTML).join('');
     if (tab === 'days') {
       var meta = [opt(it.kin), opt(it.tone), opt(it.seal)].filter(Boolean);
-      var pr = (it.practices || []).filter(Boolean);
+      var dl = [it.day ? L('day', { n: it.day }) : '', it.title].filter(Boolean).join(' · ');
+      var routeMain = sb.headMain !== 'day' && r.title;
       return toList + '<article class="m13-panel">' +
-        '<div class="m13-eyebrow">' + esc([r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · ')) + '</div>' +
-        '<h3>' + esc(it.title) + '</h3>' +
+        (routeMain
+          // Крупно — маршрут (волна), ниже — «День 1 · Красный Магнитный Дракон»
+          ? '<h3>' + esc(r.title) + '</h3>' + (dl ? '<div class="m13-panel-day">' + esc(dl) + '</div>' : '')
+          : '<div class="m13-eyebrow">' + esc([r.title, it.day ? L('day', { n: it.day }) : ''].filter(Boolean).join(' · ')) + '</div><h3>' + esc(it.title) + '</h3>') +
         (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-        img +
-        (it.meaning ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('meaning')) + '</div><div class="m13-rich">' + rich(it.meaning) + '</div></div>' : '') +
-        (it.thought ? '<div class="m13-block m13-thought"><div class="m13-block-title">' + esc(L('thought')) + '</div><div class="m13-rich">' + rich(it.thought) + '</div></div>' : '') +
-        (it.question ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('question')) + '</div><div class="m13-rich">' + rich(it.question) + '</div></div>' : '') +
-        (pr.length ? '<div class="m13-practices' + (pr.length === 1 ? ' m13-practices--one' : '') + '">' + pr.map(function (p, i) {
-          return '<div class="m13-practice"><strong>' + esc(pr.length === 1 ? L('practiceOne') : L('practice', { n: i + 1 })) + '</strong><div class="m13-rich">' + rich(p) + '</div></div>';
-        }).join('') + '</div>' : '') +
-        (it.trace ? '<div class="m13-block m13-trace"><div class="m13-block-title">' + esc(L('trace')) + '</div><div class="m13-rich">' + rich(it.trace) + '</div></div>' : '') +
-        '</article>';
+        blocks + '</article>';
     }
     if (tab === 'chronicles') {
       return toList + '<article class="m13-panel">' +
-        '<div class="m13-eyebrow">' + esc(r.title || '') + '</div><h3>' + esc(it.name) + '</h3>' +
-        (it.note ? '<div class="m13-desc m13-rich">' + rich(it.note) + '</div>' : '') + img +
-        (it.fragment ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('fragment')) + '</div><div class="m13-rich">' + rich(it.fragment) + '</div></div>' : '') +
-        (it.lens ? '<div class="m13-block"><div class="m13-block-title">' + esc(L('lens')) + '</div><div class="m13-rich">' + rich(it.lens) + '</div></div>' : '') +
-        '</article>';
+        '<div class="m13-eyebrow">' + esc(r.title || '') + '</div><h3>' + esc(it.name) + '</h3>' + blocks + '</article>';
     }
     var meta2 = [r.title, it.month, it.source].filter(Boolean);
     return toList + '<article class="m13-panel">' +
@@ -1164,6 +1233,7 @@
           if (isMobile()) { var sc = scope.closest('.m13-internal') || window; sc.scrollTo(0, 0); }
         });
       });
+      bindLightbox(holder);
       var tl = holder.querySelector('[data-tolist]');
       if (tl) tl.addEventListener('click', function () { show(t, cur && cur.id, false); setHash(t, null); });
     }
@@ -1171,6 +1241,116 @@
       b.addEventListener('click', function () { show(b.getAttribute('data-tab'), null, false); setHash(b.getAttribute('data-tab'), null); });
     });
     show(tab, itemId, !!itemId);
+  }
+
+  /* ---------- События: встречи, медитации, фестивали, поездки ---------- */
+  // events = {eyebrow, title, intro, tabs:{soon, past, cases}, look, items:[{id, visible, type, title, date, dateEnd, time, duration,
+  //   dateText, place, price, cover, summary, blocks, actions, archive}]}. Прошедшие — во вкладке «Как это было», примеры практик — отдельно.
+  var EVENT_TYPES = { meeting: 'Встреча', meditation: 'Медитация', festival: 'Фестиваль', trip: 'Поездка', practice: 'Практика', case: 'Пример практики', other: '' };
+  var EV_MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  function evDate(e) {
+    if (String(e.dateText || '').trim()) return String(e.dateText).trim();
+    var a = parseDate(e.date), b = parseDate(e.dateEnd);
+    if (!a) return '';
+    var s1 = a.getDate() + ' ' + EV_MONTHS[a.getMonth()];
+    if (b && b.getTime() !== a.getTime()) s1 = (a.getMonth() === b.getMonth() ? a.getDate() : s1) + '–' + b.getDate() + ' ' + EV_MONTHS[b.getMonth()];
+    return s1 + (e.time ? ', ' + e.time : '');
+  }
+  function evTab(e) {
+    if (e.type === 'case') return 'cases';
+    var end = parseDate(e.dateEnd) || parseDate(e.date);
+    return end && end.getTime() < today().getTime() ? 'past' : 'soon';
+  }
+  function evList(tab) {
+    var ev = S.D.events || {}, L = (ev.items || []).filter(function (e) { return e && e.visible !== false && evTab(e) === tab && (tab !== 'past' || e.archive !== false); });
+    function t(e) { var d = parseDate(e.date); return d ? d.getTime() : 9e15; }
+    return L.sort(function (a, b) { return tab === 'past' ? t(b) - t(a) : t(a) - t(b); });
+  }
+  function eventUrl(e) { var u = new URL(S.base + 'events/', location.href); return u.origin + u.pathname + (/^[\w-]+$/.test(e.id) ? e.id + '/' : '#' + encodeURIComponent(e.id)); }
+  function eventsHTML(backBtn) {
+    var ev = S.D.events || {};
+    var tabs = ['soon', 'past', 'cases'].filter(function (t) { return evList(t).length; });
+    var TN = { soon: 'Скоро', past: 'Как это было', cases: 'Примеры практик' };
+    return '<div class="m13-ipage"><div class="m13-itop">' + backBtn + '</div>' +
+      '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(ev.eyebrow || '13 MIRRORS') + '</div>' +
+      '<h2>' + esc(ev.title || 'События') + '</h2>' + (ev.intro ? '<p>' + txt(ev.intro) + '</p>' : '') + '</div>' +
+      (tabs.length > 1 ? '<div class="m13-tabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (t) {
+        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + esc((ev.tabs || {})[t] || TN[t]) + '</button>';
+      }).join('') + '</div>' : '') +
+      (tabs.length ? '<div class="m13-sb" data-ev></div>' : '<p class="m13-sb-intro">' + esc(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
+  }
+  function evItem(e) {
+    var top = [EVENT_TYPES[e.type] || '', evDate(e)].filter(Boolean).join(' · ');
+    return '<button type="button" class="m13-sb-item m13-ev-item" data-item="' + esc(e.id) + '">' +
+      (e.cover ? '<img class="m13-ev-thumb" src="' + esc(media(e.cover)) + '" alt="" loading="lazy">' : '') +
+      '<span class="m13-ev-txt">' + (top ? '<span class="m13-sb-item-top">' + esc(top) + '</span>' : '') +
+      '<span class="m13-sb-item-title">' + esc(e.title || '') + '</span>' +
+      (e.summary ? '<span class="m13-sb-item-sub">' + esc(firstLine(e.summary)) + '</span>' : '') + '</span></button>';
+  }
+  function evDetail(e) {
+    var toList = '<button type="button" class="m13-iback m13-sb-toList" data-tolist>' + esc(T('backToList') || '← К списку') + '</button>';
+    var meta = [evDate(e), e.place, e.price].filter(function (x) { return String(x || '').trim(); });
+    var past = evTab(e) === 'past';
+    var acts = (e.actions || []).filter(function (a) {
+      if (!a || a.visible === false) return false;
+      if (past && a.kind !== 'share' && a.kind !== 'link') return false;   // прошедшее: без записи и календаря — только ссылки и «Поделиться»
+      if (a.kind === 'calendar') return calActive(evCal(e, a));
+      return true;
+    }).slice(0, 4);
+    var btns = acts.map(function (a, i) {
+      var aa = a.kind === 'calendar' ? Object.assign({}, a, { cal: evCal(e, a) }) : a;
+      return '<button type="button" class="m13-action' + (i ? '' : ' m13-action--primary') + '"' +
+        act(aa, { card: e.title, action: a.label, price: e.price || '', url: eventUrl(e), tplKey: 'offer' }) + '>' + esc(a.label || 'Написать') + '</button>';
+    }).join('');
+    return toList + '<article class="m13-panel m13-ev">' +
+      '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div><h3>' + esc(e.title || '') + '</h3>' +
+      (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      (e.cover ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature') : '') +
+      (e.summary ? '<div class="m13-block"><div class="m13-rich">' + rich(e.summary) + '</div></div>' : '') +
+      (e.blocks || []).map(sbBlockHTML).join('') +
+      (btns ? '<div class="m13-actions m13-ev-actions' + (acts.length > 2 ? ' m13-actions--grid' : '') + '">' + btns + '</div>' : '') +
+      '</article>';
+  }
+  // Календарь события: из даты и времени самого события (если у кнопки свои — берутся они)
+  function evCal(e, a) {
+    var c = Object.assign({}, a.cal || {});
+    if (!c.date) c.date = e.date || '';
+    if (!c.time && e.time && /^\d{1,2}:\d{2}$/.test(e.time)) c.time = e.time;
+    if (!c.duration) c.duration = +e.duration || 120;
+    if (!c.title) c.title = e.title;
+    if (!c.place) c.place = e.place || '';
+    return c;
+  }
+  var EV = null;
+  function showEvent(id) { if (EV) EV.show(null, id, true); }
+  function bindEvents(scope, itemId, useHash) {
+    var holder = scope.querySelector('[data-ev]');
+    if (!holder) return;
+    var tabs = scope.querySelectorAll('.m13-tab'), isMobile = function () { return window.matchMedia('(max-width:680px)').matches; };
+    var all = (S.D.events || {}).items || [];
+    function show(t, id, openDetail) {
+      var e0 = id && all.filter(function (x) { return x.id === id && x.visible !== false; })[0];
+      if (e0) t = evTab(e0);
+      if (!t || !evList(t).length) t = ['soon', 'past', 'cases'].filter(function (x) { return evList(x).length; })[0];
+      tabs.forEach(function (b) { var on = b.getAttribute('data-tab') === t; b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      var items = evList(t), cur = items.filter(function (x) { return x.id === id; })[0] || items[0];
+      holder.innerHTML = '<nav class="m13-sb-list">' + items.map(evItem).join('') + '</nav><div class="m13-sb-detail">' + (cur ? evDetail(cur) : '') + '</div>';
+      holder.classList.toggle('is-detail', !!openDetail);
+      bindActs(holder); bindLightbox(holder);
+      holder.querySelectorAll('.m13-sb-item').forEach(function (b) {
+        var bid = b.getAttribute('data-item');
+        b.classList.toggle('is-active', !!cur && bid === cur.id);
+        b.addEventListener('click', function () {
+          show(t, bid, true); if (useHash) try { history.replaceState(null, '', '#' + bid); } catch (x) {}
+          if (isMobile()) { var sc = scope.closest('.m13-internal') || window; sc.scrollTo(0, 0); }
+        });
+      });
+      var tl = holder.querySelector('[data-tolist]');
+      if (tl) tl.addEventListener('click', function () { show(t, cur && cur.id, false); });
+    }
+    tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab'), null, false); }); });
+    EV = { show: show };
+    show(null, itemId, !!itemId);
   }
 
   /* ---------- Примеры Карт-Отражений ---------- */
