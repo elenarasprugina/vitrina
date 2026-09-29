@@ -1444,6 +1444,8 @@
       el('div', {}, [el('h1', { class: 'a-h1', text: 'События' }),
         el('p', { class: 'a-lead', text: 'Встречи, медитации, фестивали, поездки, практики. Событие заводится здесь один раз — его можно открыть кнопкой с любой плашки или карточки витрины. Прошедшие события сами переходят во вкладку «Как это было»: добавьте туда фото и короткий рассказ.' })]),
       el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу событий', onclick: function () { openPreview('events'); } })]),
+      switchIn(DATA.settings, 'eventsLink', 'Кнопка «Встречи и события» в шапке витрины', { defTrue: true,
+        hint: 'Появляется, когда есть хоть одно событие. Надпись меняется в Настройках → «Надписи».' }),
       collection(ev.items, { visible: true,
         title: function (e) { var t = (EV_TYPES.filter(function (x) { return x[0] === e.type; })[0] || [])[1]; return [e.title || 'Без названия', e.date, t, e.date && (e.dateEnd || e.date) < today && e.type !== 'case' ? 'прошло' : ''].filter(Boolean).join(' · '); },
         canDelete: function (e) { var u = evUsage(e.id); return u.length ? 'На это событие ведут кнопки: ' + u.join('; ') + '. Сначала поменяйте их — или просто скройте событие.' : ''; },
@@ -1696,7 +1698,7 @@
     ['contactCopied', 'Сообщение «текст скопирован»'], ['contactMissing', 'Если контакт не задан ({channel})'], ['close', 'Кнопка «Закрыть»'],
     ['calendarTitle', 'Заголовок окна календаря'], ['calendarGoogle', 'Кнопка Google Календаря'], ['calendarOther', 'Кнопка другого календаря'],
     ['calendarNote', 'Пояснение про время'], ['calendarMsk', 'Подпись «по Москве»'], ['calendarButton', 'Кнопка «в календарь» на плашке'],
-    ['shareCopied', 'Сообщение «ссылка скопирована»'],
+    ['shareCopied', 'Сообщение «ссылка скопирована»'], ['eventsLink', 'Кнопка «Встречи и события» в шапке витрины'],
     ['backToCard', 'Кнопка «Назад к карте»'], ['backToShowcase', 'Кнопка «К витрине»'], ['backToList', 'Кнопка «К списку»'], ['loadError', 'Сообщение об ошибке загрузки']
   ];
   function viewSettings() {

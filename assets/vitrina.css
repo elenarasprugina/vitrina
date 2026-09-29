@@ -694,3 +694,8 @@ body.m13-locked{overflow:hidden}
 .m13-standalone .m13-ev-actions .m13-action{font-size:calc(14.5px * var(--m13-tk,1))}
 .m13-look .m13-ev .m13-action{background:transparent;border-color:var(--lk-line);color:var(--lk-tx) !important}
 .m13-look .m13-ev .m13-action--primary{background:var(--lk-ac);border-color:var(--lk-ac);color:var(--lk-ac-ink) !important}
+/* Кнопка «Встречи и события» в шапке витрины */
+.m13-evlink{display:inline-block;margin-top:10px;font-family:var(--m13-hfont,inherit);padding:7px 14px;border:1px solid currentColor;border-radius:999px;font-size:14.5px;text-decoration:none;color:inherit;opacity:.9}
+.m13-evlink:hover{opacity:1}
+.m13-header--tinted .m13-evlink{color:var(--m13-head)}
+@media (max-width:680px){.m13-evlink{font-size:11.5px;padding:5px 11px;margin-top:6px}}
