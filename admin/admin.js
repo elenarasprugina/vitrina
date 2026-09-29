@@ -1633,6 +1633,8 @@
         selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
         selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
           hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
+      selectIn(lk, 'lineH', 'Межстрочный интервал', [['', 'Обычный'], ['tight', 'Плотнее'], ['loose', 'Свободнее']], { def: '',
+        hint: 'Расстояние между строками в текстах разделов. «Плотнее» — текст компактнее, меньше пустоты.' }),
       el('div', { class: 'a-row' }, [
         colorOptIn(lk, 'textColor', 'Цвет текста в панелях', { none: 'подберётся сам', pick: '#efe4d2' }),
         colorOptIn(lk, 'headColor', 'Цвет заголовка страницы', { none: 'как текст', pick: '#ecd3a3', hint: 'Заголовок и вступление стоят прямо на фоне.' })]),

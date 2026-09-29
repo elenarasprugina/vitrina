@@ -1112,8 +1112,9 @@
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
         '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
     } else if (bg.color) cls += ' m13-root';
-    var TK = { lg: 1.12, xl: 1.25 };
+    var TK = { lg: 1.12, xl: 1.25 }, LH = { tight: 1.42, loose: 1.78 };
     if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
+    if (LH[lk.lineH]) css.push('--m13-lh:' + LH[lk.lineH]);
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
     if (!styled) return { cls: cls, css: css.join(';') };
     cls += ' m13-look';
@@ -1185,8 +1186,8 @@
     if (b.kind === 'images') return galleryHTML(b.images, 'feature');
     var text = String(b.text || '').trim(); if (!text) return '';
     var paras = text.split(/\n\s*\n/), sb = S.D.sandbox || {}, body;
-    // «Подробнее» включено у раздела: первый абзац виден, остальное раскрывается (при любой длине)
-    if (b.collapse && paras.length > 1) {
+    // «Подробнее» включено у раздела: первый абзац виден, остальное раскрывается — только если текст правда длинный
+    if (b.collapse && paras.length > 1 && text.length > 320) {
       body = '<div class="m13-rich">' + rich(paras[0]) + '</div><details class="m13-more m13-sb-more"><summary><span class="m13-more-open">' +
         esc(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + esc(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
         '<div class="m13-rich">' + rich(paras.slice(1).join('\n\n')) + '</div></details>';
@@ -1377,7 +1378,7 @@
   }
   function sbRead(t, it) {
     var sb = S.D.sandbox, r = routeById(it.routeId) || {}, h = Object.assign({ color: colorOf(it, r) }, sbImg(it, r));
-    var blocks = (M13.sbBlocks(t, it, sb.labels) || []).map(sbBlockHTML).join('');
+    var blocks = pairPractices(M13.sbBlocks(t, it, sb.labels) || []);
     if (t === 'days') {
       var dayN = it.day ? L('day', { n: it.day }) : '';
       h.meta = [opt(it.kin), opt(it.tone), opt(it.seal)].filter(Boolean);
@@ -1386,6 +1387,23 @@
     } else { h.top = r.title || ''; h.title = it.name; }
     return '<article class="m13-panel m13-read-panel">' + readHeadHTML(h) + blocks +
       shareBtnHTML([h.title, h.line].filter(Boolean).join(' · '), libUrl('sandbox', it.id, t + '/' + encodeURIComponent(it.id))) + '</article>';
+  }
+  // Практики, идущие подряд (заголовок начинается с «Практика»), на компьютере стоят по две в ряд
+  function pairPractices(list) {
+    var pre = String(L('practice', { n: '' })).trim().toLowerCase(), one = String(L('practiceOne')).trim().toLowerCase();
+    function isPr(b) {
+      var t = String(b.title || '').trim().toLowerCase();
+      return b.kind === 'text' && b.visible !== false && String(b.text || '').trim() && b.look !== 'mantra' &&
+        (t.indexOf('практик') === 0 || (pre && t.indexOf(pre) === 0) || (one && t.indexOf(one) === 0));
+    }
+    var out = '', run = [];
+    function flush() {
+      out += run.length > 1 ? '<div class="m13-pair">' + run.map(sbBlockHTML).join('') + '</div>' : run.map(sbBlockHTML).join('');
+      run = [];
+    }
+    list.forEach(function (b) { if (isPr(b)) run.push(b); else { if (b.visible === false) return; flush(); out += sbBlockHTML(b); } });
+    flush();
+    return out;
   }
   function reviewCard(it) {
     var r = routeById(it.routeId) || {}, sb = S.D.sandbox, text = String(it.text || '').trim(), c = colorOf(it, r);
