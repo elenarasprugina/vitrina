@@ -414,6 +414,12 @@
       return '<div class="m13-thumb m13-thumb--empty" aria-hidden="true"><span class="m13-empty-mark"></span></div>';
     }
     var f = c.front || {};
+    // Карточка-календарь с мини-календарём на лицевой стороне: вместо картинки и надписей — сетка месяца
+    if (isCalCard(c) && c.monthCal.face !== 'image') {
+      var cs = styleOf(c, false);
+      return '<button type="button" class="m13-thumb m13-thumb--cal' + (cs.cls ? ' ' + cs.cls : '') + '" style="' + esc(cs.css) + '" data-card="' + esc(c.id) + '" aria-label="' +
+        esc([f.eyebrow || 'Календарь', (c.monthCal.title || M13.calMonthName(calYM()))].join(' · ')) + '">' + calMiniHTML(c) + cs.lay + '</button>';
+    }
     var sty = styleOf(c, !!f.image);
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
     var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '');
@@ -653,36 +659,56 @@
     var keep = S.D; if (data) S.D = data;
     try { return calModel(c.monthCal || {}).free.map(function (x) { return x.id; }); } finally { S.D = keep; }
   };
-  function calStar(cal) { return (cal && cal.starColor) || '#f1cf78'; }
-  function calHTML(c) {
-    var cal = c.monthCal || {}, M = calModel(cal), ym = M.ym;
-    var t0 = today(), wd = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-    var first = (new Date(ym.y, ym.m - 1, 1).getDay() + 6) % 7, h = '';
+  // Вид календаря: что летит (звёзды / снежинки), цвет полёта, линия маршрута, сила свечения, цвета встреч и особых дней
+  function calSnow(cal) { return (cal && cal.flyer) === 'snow'; }
+  function calStar(cal) { return (cal && cal.starColor) || (calSnow(cal) ? '#cfe8ff' : '#f1cf78'); }
+  var CAL_LINES = { thread: 1, band: 1, wave: 1, cloud: 1 }, CAL_GLOW = { none: 0, soft: 1, bright: 1.8 };
+  function calLook(cal, extra) {
+    cal = cal || {};
+    var line = CAL_LINES[cal.line] ? cal.line : 'thread', g = CAL_GLOW[cal.glow] != null ? CAL_GLOW[cal.glow] : 1;
+    return ' class="' + extra + ' m13-cal--' + line + (g ? '' : ' m13-cal--flat') + '" style="' + esc('--m13-star:' + calStar(cal) + ';--m13-cg:' + g +
+      ';--m13-cm:' + (cal.meetColor || '#f1c65a') + ';--m13-cs:' + (cal.specialColor || '#b48ee0')) + '"';
+  }
+  // Сетка месяца: большая (кнопки-числа с подписями) или мини на лицевой стороне (только для вида)
+  function calGridHTML(M, mini) {
+    var ym = M.ym, t0 = today(), wd = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    var first = (new Date(ym.y, ym.m - 1, 1).getDay() + 6) % 7;
+    var h = wd.map(function (x) { return '<span class="m13-cal-wd">' + (mini ? x.charAt(0) : x) + '</span>'; }).join('');
     for (var p = 0; p < first; p++) h += '<span class="m13-cal-pad" aria-hidden="true"></span>';
     for (var d = 1; d <= M.n; d++) {
       var o = M.days[d], dt = new Date(ym.y, ym.m - 1, d), col = (first + d - 1) % 7;
-      var cls = 'm13-cal-day' + (dt < t0 ? ' is-past' : '') + (+dt === +t0 ? ' is-today' : '') + (o.cards.length ? '' : ' is-empty');
-      var say = [d + ' ' + MONTHS_GEN[ym.m - 1]].concat(o.routes.map(function (r) { return r.title; }), o.meets.map(function (x) { return x.title; }),
-        o.special.map(function (x) { return x.title; })).filter(Boolean).join(' · ');
+      var mark = o.meets.length && o.special.length ? ' m13-cal-both' : o.meets.length ? ' m13-cal-meet' : o.special.length ? ' m13-cal-spec' : '';
+      var cls = 'm13-cal-day' + mark + (dt < t0 ? ' is-past' : '') + (+dt === +t0 ? ' is-today' : '') + (o.cards.length ? '' : ' is-empty');
       var bars = o.routes.slice(0, 2).map(function (r) {
         return '<i style="--c:' + esc(r.color) + '" class="' + ((r.start || col === 0 || d === 1) ? 'm13-s' : '') + ((r.end || col === 6 || d === M.n) ? ' m13-e' : '') + '"></i>';
       }).join('');
-      h += '<button type="button" class="' + cls + '" data-day="' + d + '" title="' + esc(say) + '" aria-label="' + esc(say) + '"' + (o.cards.length ? '' : ' disabled') + '>' +
-        '<span class="m13-cal-n">' + d + '</span><span class="m13-cal-bars">' + bars + '</span>' +
-        '<span class="m13-cal-dots">' + (o.meets.length ? '<i class="m13-cal-m"></i>' : '') + (o.special.length ? '<i class="m13-cal-sp"></i>' : '') + '</span></button>';
+      var inner = '<span class="m13-cal-n">' + d + '</span><span class="m13-cal-bars">' + bars + '</span>';
+      if (mini) { h += '<span class="' + cls + '">' + inner + '</span>'; continue; }
+      var say = [d + ' ' + MONTHS_GEN[ym.m - 1]].concat(o.routes.map(function (r) { return r.title; }), o.meets.map(function (x) { return x.title; }),
+        o.special.map(function (x) { return x.title; })).filter(Boolean).join(' · ');
+      h += '<button type="button" class="' + cls + '" data-day="' + d + '" title="' + esc(say) + '" aria-label="' + esc(say) + '"' + (o.cards.length ? '' : ' disabled') + '>' + inner + '</button>';
     }
-    var hasM = M.days && Object.keys(M.days).some(function (k) { return M.days[k].meets.length; });
+    return '<div class="m13-cal-grid">' + h + '</div>';
+  }
+  // Лицевая сторона карточки-календаря: мини-календарь (рисуется сам) или своя картинка и надписи (face: 'image')
+  function calMiniHTML(c) {
+    var cal = c.monthCal || {}, M = calModel(cal);
+    return '<div' + calLook(cal, 'm13-calmini') + ' aria-hidden="true"><div class="m13-calmini-t">' + esc(cal.title || M13.calMonthName(M.ym)) + '</div>' + calGridHTML(M, true) + '</div>';
+  }
+  function calHTML(c) {
+    var cal = c.monthCal || {}, M = calModel(cal), ym = M.ym;
+    var hasM = Object.keys(M.days).some(function (k) { return M.days[k].meets.length; });
     var hasS = Object.keys(M.days).some(function (k) { return M.days[k].special.length; });
-    var legend = M.routes.map(function (r) { return '<span><i class="m13-lg-bar" style="--c:' + esc(r.color) + '"></i>' + esc(r.title) + '</span>'; }).join('') +
-      (hasM ? '<span><i class="m13-cal-m"></i>' + esc(cal.meetLabel || 'Встречи') + '</span>' : '') +
-      (hasS ? '<span><i class="m13-cal-sp"></i>' + esc(cal.specialLabel || 'Особые дни') + '</span>' : '');
+    var legend = M.routes.map(function (r) { return '<span class="m13-lg-r"><span class="m13-cal-bars"><i class="m13-s m13-e" style="--c:' + esc(r.color) + '"></i></span>' + esc(r.title) + '</span>'; }).join('') +
+      (hasM ? '<span class="m13-cal-meet"><b class="m13-cal-n">8</b>' + esc(cal.meetLabel || 'Встречи') + '</span>' : '') +
+      (hasS ? '<span class="m13-cal-spec"><b class="m13-cal-n">4</b>' + esc(cal.specialLabel || 'Особые дни') + '</span>' : '');
     var free = M.free.length ? '<div class="m13-cal-free"><span class="m13-cal-free-l">' + esc(cal.freeLabel || 'Когда удобно — по договорённости:') + '</span>' +
       M.free.map(function (x) { return '<button type="button" class="m13-cal-chip" data-to="' + esc(x.id) + '">' + esc((x.front || {}).title || '') + '</button>'; }).join('') + '</div>' : '';
-    return '<div class="m13-cal" style="--m13-star:' + esc(calStar(cal)) + '">' +
+    var hint = cal.hint || (calSnow(cal) ? 'Нажмите на число — снежинки покажут, что в этот день.' : 'Нажмите на число — звёзды покажут, что в этот день.');
+    return '<div' + calLook(cal, 'm13-cal') + '>' +
       '<div class="m13-cal-head"><div class="m13-eyebrow">' + esc(cal.eyebrow || 'Календарь') + '</div>' +
-      '<h3>' + esc(cal.title || M13.calMonthName(ym)) + '</h3>' + (cal.noHint ? '' : '<div class="m13-cal-hint">' + esc(cal.hint || 'Нажмите на число — звёзды покажут, что в этот день.') + '</div>') + '</div>' +
-      '<div class="m13-cal-grid">' + wd.map(function (x) { return '<span class="m13-cal-wd">' + x + '</span>'; }).join('') + h + '</div>' +
-      (legend ? '<div class="m13-cal-legend">' + legend + '</div>' : '') + free + '</div>';
+      '<h3>' + esc(cal.title || M13.calMonthName(ym)) + '</h3>' + (cal.noHint ? '' : '<div class="m13-cal-hint">' + esc(hint) + '</div>') + '</div>' +
+      calGridHTML(M, false) + (legend ? '<div class="m13-cal-legend">' + legend + '</div>' : '') + free + '</div>';
   }
   function calBind(scope, c) {
     var M = calModel(c.monthCal || {});
@@ -712,7 +738,7 @@
     function launch() {
       ids.map(thumbOf).filter(Boolean).forEach(function (t, i) {
         if (reduce || !from || !from.animate) { light(t); return; }
-        S.calTimers.push(setTimeout(function () { flyStar(from, t, col, function () { light(t); }); }, i * 180));
+        S.calTimers.push(setTimeout(function () { flyStar(from, t, col, function () { light(t); }, calSnow(c.monthCal)); }, i * 180));
       });
     }
     calUnlight();
@@ -728,8 +754,8 @@
     ov.animate([{ backgroundColor: getComputedStyle(ov).backgroundColor }, { backgroundColor: 'rgba(0,0,0,0)' }], { duration: 460, fill: 'forwards' });
     a.onfinish = function () { ov.style.visibility = 'hidden'; closeTop(); launch(); };
   }
-  // Звезда летит по дуге из карточки a в карточку b, за ней — 7 искр
-  function flyStar(a, b, col, done) {
+  // Звезда (или снежинка, snow) летит по дуге из карточки a в карточку b, за ней — 7 искр
+  function flyStar(a, b, col, done, snow) {
     var A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
     var x0 = A.left + A.width / 2, y0 = A.top + A.height / 2, x1 = B.left + B.width / 2, y1 = B.top + B.height / 2;
     var dist = Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
@@ -738,7 +764,7 @@
     for (var i = 0; i <= 24; i++) {
       var t = i / 24, u = 1 - t;
       var x = u * u * x0 + 2 * u * t * cx + t * t * x1, y = u * u * y0 + 2 * u * t * cy + t * t * y1;
-      kf.push({ transform: 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (0.7 + Math.sin(t * Math.PI) * .7).toFixed(2) + ')' });
+      kf.push({ transform: 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (0.7 + Math.sin(t * Math.PI) * .7).toFixed(2) + ')' + (snow ? ' rotate(' + Math.round(t * 240) + 'deg)' : '') });
     }
     var dur = Math.max(620, Math.min(1100, 480 + dist * .9)), opt2 = { duration: dur, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' };
     function dot(cls, delay, k) {
@@ -748,7 +774,7 @@
       return an;
     }
     for (var s2 = 1; s2 <= 7; s2++) dot('m13-spark', s2 * 26, (1 - s2 / 9).toFixed(2));
-    dot('m13-star', 0, 0).addEventListener('finish', done);
+    dot(snow ? 'm13-star m13-snow' : 'm13-star', 0, 0).addEventListener('finish', done);
   }
 
   /* ---------- Оборот: общее ---------- */
