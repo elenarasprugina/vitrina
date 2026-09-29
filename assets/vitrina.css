@@ -683,3 +683,14 @@ body.m13-locked{overflow:hidden}
 .m13-lb-cap{position:absolute;left:50%;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 24px);transform:translateX(-50%);max-width:min(680px,90vw);
   color:rgba(255,255,255,.82);font-size:13.5px;line-height:1.45;text-align:center;font-style:italic}
 .m13-lb-cap:empty{display:none}
+
+/* ================= События ================= */
+.m13-ev-item{display:flex;gap:11px;align-items:flex-start}
+.m13-ev-thumb{width:64px;height:64px;flex-shrink:0;object-fit:cover;border-radius:9px}
+.m13-ev-txt{display:flex;flex-direction:column;min-width:0}
+.m13-ev-meta{margin-bottom:8px}
+.m13-standalone .m13-ev-meta{font-size:calc(14.5px * var(--m13-tk,1))}
+.m13-ev-actions{margin-top:12px}
+.m13-standalone .m13-ev-actions .m13-action{font-size:calc(14.5px * var(--m13-tk,1))}
+.m13-look .m13-ev .m13-action{background:transparent;border-color:var(--lk-line);color:var(--lk-tx) !important}
+.m13-look .m13-ev .m13-action--primary{background:var(--lk-ac);border-color:var(--lk-ac);color:var(--lk-ac-ink) !important}

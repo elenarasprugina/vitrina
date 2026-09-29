@@ -146,9 +146,10 @@
   function loadSource() {
     if (window.M13_DATA) return Promise.resolve(clone(window.M13_DATA));
     var d = '../data/';
-    return Promise.all(['settings', 'routes', 'formats', 'sandbox', 'reflection'].map(function (n) { return getJSON(d + n + '.json'); }))
+    return Promise.all(['settings', 'routes', 'formats', 'sandbox', 'reflection'].map(function (n) { return getJSON(d + n + '.json'); })
+      .concat([getJSON(d + 'events.json').catch(function () { return EVENTS_DEFAULT(); })]))
       .then(function (r) {
-        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], showcases: {} };
+        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], showcases: {} };
         return getJSON(d + 'showcases/index.json').then(function (idx) {
           out.index = idx;
           return Promise.all(idx.showcases.map(function (s) {
@@ -472,7 +473,7 @@
     ['contact', 'Написать — окно «Telegram или VK»', 'Написать'], ['link', 'Открыть страницу (ссылку)', 'Подробнее'],
     ['examples', 'Примеры — страница Карт-Отражений', 'Примеры'], ['sandbox', 'Как устроено — Песочница', 'Как устроены маршруты'],
     ['calendar', 'Добавить в календарь', 'Добавить в календарь'], ['share', 'Поделиться ссылкой на карточку', 'Поделиться'],
-    ['download', 'Скачать файл', 'Скачать']
+    ['download', 'Скачать файл', 'Скачать'], ['event', 'Страница события (из «Событий»)', 'Подробнее']
   ];
   function kindOf(a) { return a.kind === 'internal' ? (a.target === 'sandbox' ? 'sandbox' : 'examples') : (a.kind || 'contact'); }
   function defLabel(k) { return (ACTION_KINDS.filter(function (x) { return x[0] === k; })[0] || [])[2] || 'Написать'; }
@@ -513,9 +514,11 @@
           else a.kind = v;
           if (v === 'calendar' && !a.cal) a.cal = { date: '', time: '', duration: 60, title: '', place: '', details: '' };
           draw(); } }) : null,
+        k === 'event' ? selectIn(a, 'eventId', 'Какое событие', [['', '— выберите —']].concat(((DATA.events || {}).items || []).map(function (e) { return [e.id, e.title || 'Без названия']; })),
+          { hint: 'События заводятся в разделе «События». Откроется страница события — с описанием, картинками и кнопками.' }) : null,
         k === 'link' ? textIn(a, 'url', 'Ссылка', { ph: 'https://…', hint: o.linkHint || 'Полный адрес страницы, начиная с https://' }) : null,
         k === 'download' ? textIn(a, 'url', 'Ссылка на файл', { ph: 'https://…', hint: 'Пока — ссылкой (например, на Яндекс Диск). Загрузка файлов прямо из панели появится вместе с публикацией.' }) : null,
-        k === 'calendar' ? calFields(a.cal = a.cal || { duration: 60 }) : null,
+        k === 'calendar' ? (o.calAuto ? el('p', { class: 'a-hint', text: 'Дата, время, длительность и место возьмутся из события.' }) : calFields(a.cal = a.cal || { duration: 60 })) : null,
         k === 'share' ? el('p', { class: 'a-hint', text: 'На телефоне откроется меню «Поделиться» (Telegram, VK…), на компьютере ссылка на эту карточку скопируется.' }) : null,
         k === 'examples' || k === 'sandbox' ? el('p', { class: 'a-hint', text: k === 'sandbox' ? 'Откроется Песочница — «Как устроены маршруты».' : 'Откроется страница примеров Карт-Отражений.' }) : null,
         k === 'contact'
@@ -623,7 +626,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['routes', 'Маршруты'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['routes', 'Маршруты'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -663,6 +666,7 @@
     else if (s === 'routes') add(m, viewRoutes());
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
+    else if (s === 'events') add(m, viewEvents());
     else add(m, viewSettings());
   }
 
@@ -893,7 +897,7 @@
   // картинки к этому моменту — файлы media/…, а не data:.
   // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'card' (…/2026-10/sun/ — превью одной карточки
   // и сразу переход на витрину с открытой карточкой), 'sandbox', 'reflection'.
-  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение' };
+  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События' };
   function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
   function absImg(src, D) { return src && !/^(data:|blob:)/.test(src) ? (/^https?:/.test(src) ? src : siteUrl(D) + src) : ''; }
   function metaTags(o, D) {
@@ -930,6 +934,20 @@
         '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
         '<a href="' + target + '">' + escAttr(f.title || 'Открыть карточку') + '</a>\n</body>\n</html>\n';
+    }
+    if (kind === 'event') {
+      // Страница-превью события: своя ссылка с картинкой и названием для Telegram/VK, сразу открывает событие
+      var e = ((D.events || {}).items || []).filter(function (x) { return x.id === cardId; })[0] || {};
+      var etitle = (e.title || '') + ' · ' + site, edesc = String(e.summary || '').replace(/[*_]/g, '').trim() || sh.description;
+      var eimg = absImg(e.cover, D), esized = false;
+      if (!eimg) { eimg = absImg(sh.image, D); esized = !!eimg; }
+      var etarget = '../#' + encodeURIComponent(cardId);
+      return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(etitle) + '</title>\n' +
+        metaTags({ url: siteUrl(D) + 'events/' + encodeURIComponent(cardId) + '/', title: etitle, description: edesc, image: eimg, sized: esized }, D) + '\n' +
+        '<meta http-equiv="refresh" content="0; url=' + etarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + 'events/') + '">\n</head>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(etarget) + ');</script>\n' +
+        '<a href="' + etarget + '">' + escAttr(e.title || 'Открыть событие') + '</a>\n</body>\n</html>\n';
     }
     var base = kind === 'main' ? './' : '../';
     var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
@@ -994,7 +1012,7 @@
       el('div', { class: 'a-row' }, [optIn(it, 'date', 'Дата', { ph: '08 октября' }), optIn(it, 'price', 'Цена', { ph: '2 500 ₽ или «Свободный вход»' })]),
       optIn(it, 'text', 'Короткое описание', { multi: true, rows: 2 }),
       el('div', { class: 'a-row' }, [optIn(it, 'duration', 'Длительность', { ph: 'до 90 минут' }), optIn(it, 'status', 'Статус', { ph: 'осталось 2 места' })]),
-      actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться' }),
+      actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться', kinds: ['contact', 'link', 'event'] }),
       itemCalendar(it)
     ];
   }
@@ -1397,6 +1415,80 @@
     ];
   }
 
+  /* ================= СОБЫТИЯ ================= */
+  function EVENTS_DEFAULT() { return { eyebrow: '13 MIRRORS', title: 'События', intro: '', tabs: { soon: 'Скоро', past: 'Как это было', cases: 'Примеры практик' }, items: [] }; }
+  var EV_TYPES = [['meeting', 'Встреча'], ['meditation', 'Медитация'], ['festival', 'Фестиваль'], ['trip', 'Поездка'], ['practice', 'Практика'], ['case', 'Пример практики (обезличенно)'], ['other', 'Другое']];
+  // Заготовки разделов для каждого типа
+  var EV_BLOCKS = {
+    meeting: [['О встрече'], ['Для кого'], ['Что будет'], ['Ведущая']], meditation: [['О медитации'], ['Как проходит'], ['Что взять с собой']],
+    festival: [['О фестивале'], ['Программа'], ['Ведущие'], ['Как добраться']], trip: [['О поездке'], ['Маршрут поездки'], ['Что включено'], ['Проживание']],
+    practice: [['О практике'], ['Как проходит'], ['Для кого']], case: [['Запрос'], ['Как шла работа'], ['Что изменилось']], other: [['Описание']]
+  };
+  function evUsage(id) {
+    var u = [];
+    Object.keys(DATA.showcases).forEach(function (k) {
+      (DATA.showcases[k].cards || []).forEach(function (c) {
+        (((c.back || {}).blocks) || []).forEach(function (b) {
+          (b.items || []).forEach(function (it) { if (it.action && it.action.kind === 'event' && it.action.eventId === id) u.push(DATA.showcases[k].title + ' → «' + ((c.front || {}).title || '') + '»'); });
+          (b.actions || []).forEach(function (a) { if (a && a.kind === 'event' && a.eventId === id) u.push(DATA.showcases[k].title + ' → «' + ((c.front || {}).title || '') + '»'); });
+        });
+      });
+    });
+    return u;
+  }
+  function viewEvents() {
+    var ev = DATA.events = DATA.events || EVENTS_DEFAULT();
+    ev.items = ev.items || []; ev.tabs = ev.tabs || {};
+    var today = new Date().toISOString().slice(0, 10);
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'События' }),
+        el('p', { class: 'a-lead', text: 'Встречи, медитации, фестивали, поездки, практики. Событие заводится здесь один раз — его можно открыть кнопкой с любой плашки или карточки витрины. Прошедшие события сами переходят во вкладку «Как это было»: добавьте туда фото и короткий рассказ.' })]),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу событий', onclick: function () { openPreview('events'); } })]),
+      collection(ev.items, { visible: true,
+        title: function (e) { var t = (EV_TYPES.filter(function (x) { return x[0] === e.type; })[0] || [])[1]; return [e.title || 'Без названия', e.date, t, e.date && (e.dateEnd || e.date) < today && e.type !== 'case' ? 'прошло' : ''].filter(Boolean).join(' · '); },
+        canDelete: function (e) { var u = evUsage(e.id); return u.length ? 'На это событие ведут кнопки: ' + u.join('; ') + '. Сначала поменяйте их — или просто скройте событие.' : ''; },
+        addBox: function (push) {
+          var sel = { t: 'meeting' };
+          return el('div', { class: 'a-row a-row--end' }, [
+            selectIn(sel, 't', 'Новое событие', EV_TYPES),
+            el('button', { type: 'button', class: 'a-btn', text: '+ Добавить событие', onclick: function () {
+              push({ id: uid('ev'), visible: true, type: sel.t, title: sel.t === 'case' ? 'Пример практики' : 'Новое событие', date: '', dateEnd: '', time: '', duration: 120,
+                place: '', price: '', cover: null, summary: '', archive: true,
+                blocks: (EV_BLOCKS[sel.t] || EV_BLOCKS.other).map(function (b) { return { id: uid('sb'), kind: 'text', visible: true, title: b[0], text: '', collapse: true }; })
+                  .concat([{ id: uid('sb'), kind: 'images', visible: true, images: [] }]),
+                actions: sel.t === 'case' ? [] : [{ kind: 'contact', label: 'Записаться' }, { kind: 'calendar', label: 'Добавить в календарь' }, { kind: 'share', label: 'Поделиться' }] });
+            } })]);
+        },
+        body: function (e) {
+          e.actions = e.actions || []; e.blocks = e.blocks || [];
+          return [
+            el('div', { class: 'a-row' }, [textIn(e, 'title', 'Название'), selectIn(e, 'type', 'Тип', EV_TYPES, { def: 'meeting' })]),
+            e.type === 'case' ? el('p', { class: 'a-note', text: 'Пример практики — только обезличенно и с разрешения человека: без имён и деталей, по которым его можно узнать.' }) : null,
+            e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'date', 'Дата', { type: 'date' }), textIn(e, 'dateEnd', 'Последний день (если несколько)', { type: 'date' }), textIn(e, 'time', 'Начало', { ph: '19:00' })]),
+            e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'duration', 'Длительность, минут', { type: 'number', ph: '120' }), textIn(e, 'place', 'Где', { ph: 'Онлайн / Москва, …' }), textIn(e, 'price', 'Стоимость', { ph: '1 500 ₽ / свободный вход' })]),
+            e.type === 'case' ? null : textIn(e, 'dateText', 'Дата своими словами (необязательно)', { ph: 'Каждый четверг октября', hint: 'Если заполнено — показывается вместо даты.' }),
+            imageIn(e, 'cover', 'Главная картинка', { max: 1800, hint: 'Показывается крупно наверху страницы и маленькой — в списке.' }),
+            textIn(e, 'coverCaption', 'Подпись под главной картинкой', { ph: 'необязательно' }),
+            textIn(e, 'summary', 'Коротко — одним-двумя предложениями', { multi: true, rows: 2, hint: 'Видно сразу, под картинкой, и в списке событий.' }),
+            sbBlocksForm(e, 'event'),
+            e.type === 'case' ? null : el('div', { class: 'a-glass' }, [sub('Кнопки (до 4)'),
+              el('p', { class: 'a-hint', text: '«Добавить в календарь» сама берёт дату, время и место события. У прошедшего события остаются только «Ссылка» и «Поделиться».' }),
+              collection(e.actions, { max: 4, visible: true, title: function (a) { return a.label || defLabel(kindOf(a)); },
+                make: function () { return { kind: 'contact', label: 'Записаться' }; }, addLabel: '+ Добавить кнопку',
+                body: function (a) { return [actionIn({ a: a }, 'a', '', { kinds: ['contact', 'link', 'calendar', 'share', 'download'], calAuto: true })]; } })]),
+            e.type === 'case' ? null : switchIn(e, 'archive', 'Когда пройдёт — показывать в «Как это было»', { defTrue: true }),
+            el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть это событие', onclick: function () { openPreview('events', null, e.id); } })])
+          ];
+        } }),
+      block('Оформление страницы', lookFields(ev, 'events'), { open: !!ST.eventsLookOpen }),
+      block('Шапка страницы и надписи', [
+        textIn(ev, 'eyebrow', 'Надпись сверху'), textIn(ev, 'title', 'Заголовок'), textIn(ev, 'intro', 'Вступление', { multi: true, rows: 2 }),
+        el('div', { class: 'a-row3' }, [textIn(ev.tabs, 'soon', 'Вкладка «Скоро»'), textIn(ev.tabs, 'past', 'Вкладка «Как это было»'), textIn(ev.tabs, 'cases', 'Вкладка «Примеры практик»')]),
+        textIn(ev, 'empty', 'Если событий нет', { ph: 'Скоро здесь появятся новые события.' })
+      ], { open: false })
+    ];
+  }
+
   /* ================= ПЕСОЧНИЦА ================= */
   function routeOptions() { return [['', '— не указан —']].concat(routes().map(function (r) { return [r.id, r.title]; })); }
   // Оформление отдельной страницы (Песочница, Примеры): фон, шрифт, цвета, стеклянные панели.
@@ -1737,7 +1829,7 @@
   var PHONE = { w: 375 }, pvPhone = false;
   function canPhone() { return window.innerWidth >= 600; }
   function previewData(showcaseId) {
-    return { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection,
+    return { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection, events: DATA.events,
       index: DATA.index, showcase: DATA.showcases[showcaseId] };
   }
   // Окно-«телефон»: пишем в пустой iframe страницу с тем же рендерером и ждём, пока он загрузится.
@@ -1757,13 +1849,14 @@
     })();
   }
   function openPreview(view, showcaseId, cardId) {
-    if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : 'showcase';
+    if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : ST.section === 'events' ? 'events' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
     var cur = view, M = null, mount = null;
     function go(v) {
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
+      if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
       M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId) })
         .then(function () { if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; } });
       pv.scrollTop = 0;
@@ -1790,6 +1883,7 @@
       el('button', { type: 'button', 'data-v': 'showcase', text: 'Витрина', onclick: function () { go('showcase'); } }),
       el('button', { type: 'button', 'data-v': 'sandbox', text: 'Песочница', onclick: function () { go('sandbox'); } }),
       el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
+      el('button', { type: 'button', 'data-v': 'events', text: 'События', onclick: function () { go('events'); } }),
       canPhone() ? phoneBtn : null
     ]);
     pv.classList.add('is-open');
@@ -1816,6 +1910,7 @@
   // Приводит данные к нынешнему виду (старые обороты → блоки).
   function migrate(D) {
     D.showcases = D.showcases || {};
+    D.events = D.events || EVENTS_DEFAULT(); D.events.items = D.events.items || [];
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {
         if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
@@ -1921,7 +2016,7 @@
   }
 
   /* ---------- Данные ↔ файлы ---------- */
-  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection'];
+  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events'];
   function jsonText(o) { return JSON.stringify(o, null, 2) + '\n'; }
   function draftFiles(D) {
     var out = {};
@@ -1944,7 +2039,7 @@
       });
       if (t.files['data/showcases/index.json']) jobs.push(readText(repo, t.files['data/showcases/index.json']).then(function (x) { D.index = JSON.parse(x); }));
       return Promise.all(jobs).then(function () {
-        DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n]); });
+        DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n] || (n === 'events' ? EVENTS_DEFAULT() : {})); });
         return { data: D, date: t.date };
       });
     });
@@ -2154,6 +2249,10 @@
     files['index.html'] = { text: pageHTML('main', null, P) };
     files['sandbox/index.html'] = { text: pageHTML('sandbox', null, P) };
     files['reflection/index.html'] = { text: pageHTML('reflection', null, P) };
+    files['events/index.html'] = { text: pageHTML('events', null, P) };
+    ((P.events || {}).items || []).forEach(function (e) {
+      if (e && e.visible !== false && /^[\w-]+$/.test(e.id)) files['events/' + e.id + '/index.html'] = { text: pageHTML('event', null, P, e.id) };
+    });
     Object.keys(P.showcases).forEach(function (id) {
       var sc = P.showcases[id];
       files['data/showcases/' + id + '.json'] = { text: jsonText(sc) };
@@ -2169,6 +2268,7 @@
     Object.keys(existing).forEach(function (p) {
       var m = /^data\/showcases\/(\d{4}-\d{2})\.json$/.exec(p) || /^(\d{4}-\d{2})\//.exec(p);
       if (m && !files[p]) { files[p] = null; if (!P.showcases[m[1]] && removed.indexOf(m[1]) < 0) removed.push(m[1]); }
+      if (/^events\/[\w-]+\/index\.html$/.test(p) && !files[p]) files[p] = null;   // страницы удалённых или скрытых событий
     });
     return { files: files, removed: removed };
   }
