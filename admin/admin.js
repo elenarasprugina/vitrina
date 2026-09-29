@@ -95,6 +95,7 @@
   function optVal(f) { return f && typeof f === 'object' ? (f.show === false ? '' : (f.value || '')) : (f || ''); }
   function routes() { return DATA.routes.routes; }
   function routeById(id) { return routes().filter(function (r) { return r.id === id; })[0] || null; }
+  function routeColorOf(x) { return function () { var r = routeById(x.routeId); return r && r.color; }; }
   function fmtDates(d) {
     if (!d || !d.from) return '';
     var f = d.from.split('-'), t = (d.to || '').split('-');
@@ -222,42 +223,57 @@
     t.addEventListener('input', function () { obj[key] = t.value; if (/^#[0-9a-f]{6}$/i.test(t.value)) c.value = t.value; changed(); });
     return field(label, el('div', { class: 'a-color' }, [c, t]));
   }
+  // Пустое значение: o.inh() — цвет, который берётся «сверху» (у всей витрины, у маршрута),
+  // o.base — цвет по умолчанию, если сверху ничего нет. Квадратик показывает то, что видно на сайте.
   function colorOptIn(obj, key, label, o) {
     o = o || {};
     var box = el('div', { class: 'a-field' });
+    function val(x) { return typeof x === 'function' ? x() : x; }
+    function hex(x) { return /^#[0-9a-f]{6}$/i.test(x || '') ? x : ''; }
     function draw() {
-      var v = obj[key] || '';
-      var c = el('input', { type: 'color' }); c.value = /^#[0-9a-f]{6}$/i.test(v) ? v : (o.pick || '#ffffff');
+      var v = obj[key] || '', iv = v ? '' : hex(val(o.inh)), bv = v || iv ? '' : hex(val(o.base));
+      var c = el('input', { type: 'color' }); c.value = hex(v) || iv || bv || o.pick || '#ffffff';
       c.addEventListener('input', function () { obj[key] = c.value; changed(); draw(); if (o.onChange) o.onChange(); });
       box.replaceChildren();
       add(box, [el('span', { class: 'a-label', text: label }),
-        el('div', { class: 'a-color' }, [c,
-          el('span', { class: 'a-hint', text: v ? v : (o.none || 'по умолчанию') }),
+        el('div', { class: 'a-color' + (v ? '' : iv || bv ? ' is-inh' : ' is-empty') }, [c,
+          el('span', { class: 'a-hint', text: v ? v : iv ? (val(o.inhLabel) || 'как у всей витрины') + ': ' + iv : (o.none || 'по умолчанию') }),
           v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Сбросить', onclick: function () {
             obj[key] = ''; changed(); draw(); if (o.onChange) o.onChange(); } }) : null]),
         o.hint ? el('span', { class: 'a-hint', text: o.hint }) : null]);
     }
     draw();
+    box.redraw = draw;
     return box;
   }
+  // Яркость цвета #rrggbb (0–255) — чтобы понять, тёмный ли оборот
+  function hexLum(h) {
+    h = /^#[0-9a-f]{6}$/i.test(h || '') ? h : '#ffffff';
+    return 0.299 * parseInt(h.substr(1, 2), 16) + 0.587 * parseInt(h.substr(3, 2), 16) + 0.114 * parseInt(h.substr(5, 2), 16);
+  }
+  // У карточки: значение всей витрины (d — cardStyle месяца); у месяца — ничего
+  function inhOf(d, forCard, k) { return forCard ? function () { return d[k]; } : null; }
   function fontOptions(inherit) {
     var list = [[ '', inherit ? 'Как у всей витрины' : 'Обычный (как сейчас)' ]];
     return list.concat((window.M13.FONTS || []).map(function (f) { return [f, f]; }));
   }
-  // Поля оформления. forCard — для одной карточки (с вариантом «как у всей витрины»).
-  function styleFields(stl, forCard, onChange) {
+  // Поля оформления. forCard — для одной карточки (с вариантом «как у всей витрины»),
+  // d — оформление всей витрины (cardStyle месяца), чтобы показать унаследованные цвета.
+  function styleFields(stl, forCard, onChange, d) {
     var inh = forCard ? [['inherit', 'Как у всей витрины']] : [];
+    d = forCard && d || {};
+    var glowBox;
     var fontSel = selectIn(stl, 'font', 'Шрифт', fontOptions(forCard), { onChange: function (v) { window.M13.ensureFont(v); preview(); onChange && onChange(); } });
     var sample = el('div', { class: 'a-font-sample', text: 'Синяя Рука · Карта-Отражение · 3 000 ₽' });
     function preview() { var f = stl.font; if (f) window.M13.ensureFont(f); sample.style.fontFamily = f ? "'" + f + "',Georgia,serif" : ''; }
     preview();
     return [
       el('div', { class: 'a-row' }, [el('div', { class: 'a-field' }, [fontSel, sample]),
-        colorOptIn(stl, 'textColor', 'Цвет текста', { none: forCard ? 'как у всей витрины' : 'обычный тёмный', pick: '#ffffff', onChange: onChange })]),
+        colorOptIn(stl, 'textColor', 'Цвет текста', { none: forCard ? 'как у всей витрины' : 'обычный тёмный', pick: '#ffffff', inh: inhOf(d, forCard, 'textColor'), onChange: onChange })]),
       el('div', { class: 'a-row' }, [
         selectIn(stl, 'overlay', 'Дымка поверх картинки (чтобы текст читался)', inh.concat([['light', 'Светлая дымка — для тёмного текста'], ['dark', 'Тёмная дымка — для светлого текста'], ['none', 'Без дымки — картинка как есть']]),
           { def: forCard ? 'inherit' : 'light' }),
-        colorOptIn(stl, 'bg', 'Цвет карточки (когда нет картинки)', { none: forCard ? 'как у всей витрины' : 'белый', onChange: onChange })]),
+        colorOptIn(stl, 'bg', 'Цвет карточки (когда нет картинки)', { none: forCard ? 'как у всей витрины: белый' : 'белый', inh: inhOf(d, forCard, 'bg'), base: '#ffffff', onChange: onChange })]),
       el('div', { class: 'a-row' }, [
         selectIn(stl, 'textPos', 'Где текст на лицевой стороне', inh.concat([['top', 'Сверху'], ['center', 'По центру'], ['bottom', 'Снизу']]),
           { def: forCard ? 'inherit' : 'top', onChange: onChange, hint: 'Выбирайте по картинке: чтобы текст не закрывал главное.' }),
@@ -270,19 +286,23 @@
           { def: forCard ? 'inherit' : 'md', onChange: onChange,
             hint: 'Тип, даты, «Вход открыт», «открыть», «Нажать — открыть оборот». На телефоне увеличиваются мягче — там мало места.' })]),
       el('div', { class: 'a-row' }, [
-        colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины' : 'без акцента', pick: '#8a6bb8', onChange: onChange }),
+        colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины: без акцента' : 'без акцента', pick: '#8a6bb8', inh: inhOf(d, forCard, 'accent'),
+          onChange: function () { if (glowBox) glowBox.redraw(); if (onChange) onChange(); } }),
         el('p', { class: 'a-hint', style: 'align-self:end', text: 'Красит рамку карточки, главную кнопку, счётчик дня и статус-плашку. Если цвет свечения не выбран — светится этим цветом.' })]),
       el('div', { class: 'a-row' }, [
         selectIn(stl, 'glow', 'Свечение', inh.concat([['off', 'Без свечения'], ['soft', 'Ровное свечение'], ['live', 'Живое (мягко пульсирует)']]),
           { def: forCard ? 'inherit' : 'off', onChange: onChange }),
-        colorOptIn(stl, 'glowColor', 'Цвет свечения', { none: forCard ? 'как у всей витрины' : 'золотистый', pick: '#e8c77a', onChange: onChange })]),
+        glowBox = colorOptIn(stl, 'glowColor', 'Цвет свечения', { none: forCard ? 'как у всей витрины: золотистый' : 'золотистый', base: '#e8c77a', onChange: onChange,
+          // Без своего цвета свечение берёт акцентный (свой у карточки, потом у всей витрины)
+          inh: function () { return stl.accent || d.glowColor || d.accent; },
+          inhLabel: function () { return stl.accent || !d.glowColor && d.accent ? 'по акцентному цвету' : 'как у всей витрины'; } })]),
       el('div', { class: 'a-row' }, [
         selectIn(stl, 'glowStrength', 'Сила свечения', inh.concat([['weak', 'Слабое'], ['medium', 'Среднее'], ['strong', 'Сильное']]),
           { def: forCard ? 'inherit' : 'medium', onChange: onChange }),
         selectIn(stl, 'glowDir', 'Откуда идёт свет', inh.concat([['around', 'Вокруг всей карточки'], ['bottom', 'Снизу'], ['top', 'Сверху']]),
           { def: forCard ? 'inherit' : 'around', onChange: onChange })]),
-      glassFields(stl, forCard, onChange),
-      buttonFields(stl, forCard, onChange),
+      glassFields(stl, forCard, onChange, d),
+      buttonFields(stl, forCard, onChange, d),
       el('p', { class: 'a-hint', text: forCard
         ? 'Совет: свечение лучше всего работает, когда светятся одна-две карточки — например, центральная и ещё одна, на которую хочется обратить внимание.'
         : 'Совет: обычно для всей витрины свечение лучше выключить, а включить только у центральной карточки и одной акцентной — в их формах, раздел «Оформление».' })
@@ -308,12 +328,14 @@
     return box;
   }
   // «Стекло и узор»: прозрачность, размытие, кромка, узор, помощь тексту, цвет оборота
-  function glassFields(stl, forCard, onChange) {
+  function glassFields(stl, forCard, onChange, d) {
     var inh = forCard ? [['inherit', 'Как у всей витрины']] : [];
+    d = d || {};
     var box = el('div', { class: 'a-glass' });
     function redraw() { if (onChange) onChange(); draw(); }
     function draw() {
       var pat = stl.pattern && stl.pattern !== 'inherit' ? stl.pattern : '';
+      var txBox;
       box.replaceChildren();
       add(box, [
         sub('Стекло и узор'),
@@ -337,11 +359,16 @@
         pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
           rangeOptIn(stl, 'patternOpacity', 'Заметность узора', { min: 5, max: 100, step: 5, unit: '%', def: 80, onChange: onChange }, forCard),
           pat === 'custom' ? el('p', { class: 'a-hint', style: 'align-self:end', text: 'Свой узор показывается в своих цветах.' })
-            : colorOptIn(stl, 'patternColor', 'Цвет узора', { none: 'иней — белый, остальные — акцентный', pick: '#eef6ff', onChange: onChange })]) : null,
+            : colorOptIn(stl, 'patternColor', 'Цвет узора', { none: 'иней — белый, остальные — акцентный', pick: '#eef6ff', inh: inhOf(d, forCard, 'patternColor'), onChange: onChange,
+                base: function () { return pat === 'frost' ? '#eef6ff' : stl.accent || d.accent || '#ecd3a3'; } })]) : null,
         sub('Оборот карточки'),
         el('div', { class: 'a-row' }, [
-          colorOptIn(stl, 'backBg', 'Цвет оборота', { none: forCard ? 'как у всей витрины' : 'светлый', pick: '#15110c', onChange: onChange }),
-          colorOptIn(stl, 'backText', 'Цвет текста на обороте', { none: forCard ? 'как у всей витрины' : 'подберётся сам', pick: '#efe4d2', onChange: onChange,
+          colorOptIn(stl, 'backBg', 'Цвет оборота', { none: forCard ? 'как у всей витрины: светлый' : 'светлый', pick: '#15110c', inh: inhOf(d, forCard, 'backBg'), base: '#f8f8f8',
+            onChange: function () { if (txBox) txBox.redraw(); if (onChange) onChange(); } }),
+          txBox = colorOptIn(stl, 'backText', 'Цвет текста на обороте', { none: forCard ? 'как у всей витрины: подберётся сам' : 'подберётся сам', pick: '#efe4d2', onChange: onChange,
+            inh: inhOf(d, forCard, 'backText'),
+            // Подбирается сам: на тёмном обороте светлый, на светлом тёмный
+            base: function () { return hexLum(stl.backBg || d.backBg || '#f8f8f8') < 128 ? '#efe4d2' : '#202020'; },
             hint: 'Пусто — на тёмном обороте светлый, на светлом тёмный.' })]),
         el('div', { class: 'a-row' }, [
           rangeOptIn(stl, 'backGlass', 'Прозрачность оборота', { max: 90, step: 5, unit: '%', def: forCard ? 30 : 0, onChange: onChange,
@@ -370,8 +397,10 @@
     ['🌌 Северное сияние', { btnStyle: 'gradient', btnColor: '#62e0bd', btnColor2: '#8a6bd8', btnDir: 'h', btnLive: 'both' }],
     ['🔥 Янтарь', { btnStyle: 'gradient', btnColor: '#ffd27a', btnColor2: '#c2571a', btnDir: 'v', btnLive: 'both' }]
   ];
-  function buttonFields(stl, forCard, onChange) {
+  function buttonFields(stl, forCard, onChange, d) {
     var inh = forCard ? [['inherit', 'Как у всей витрины']] : [];
+    d = d || {};
+    function accentNow() { return stl.accent || d.accent || '#ecd3a3'; }
     var box = el('div', { class: 'a-glass' });
     function redraw() { if (onChange) onChange(); draw(); }
     function preset(p) {
@@ -395,17 +424,18 @@
           on ? selectIn(stl, 'btnLive', 'Живость', inh.concat([['none', 'Спокойная'], ['glint', 'Блик пробегает по кнопке'], ['flow', 'Цвета переливаются (для градиента)'], ['both', 'Блик и перелив']]),
             { def: forCard ? 'inherit' : 'none', onChange: onChange }) : el('span')]),
         on ? el('div', { class: 'a-row' }, [
-          colorOptIn(stl, 'btnColor', bs === 'gradient' ? 'Первый цвет' : 'Цвет кнопки', { none: 'акцентный', pick: '#ecd3a3', onChange: onChange }),
-          bs === 'gradient' ? colorOptIn(stl, 'btnColor2', 'Второй цвет', { none: 'как первый', pick: '#c49a5a', onChange: onChange })
-            : colorOptIn(stl, 'btnInk', 'Цвет надписи', { none: 'подберётся сам', pick: '#1c150c', onChange: onChange })]) : null,
+          colorOptIn(stl, 'btnColor', bs === 'gradient' ? 'Первый цвет' : 'Цвет кнопки', { none: 'акцентный', pick: '#ecd3a3', inh: inhOf(d, forCard, 'btnColor'), base: accentNow, onChange: onChange }),
+          bs === 'gradient' ? colorOptIn(stl, 'btnColor2', 'Второй цвет', { none: 'как первый', pick: '#c49a5a', inh: inhOf(d, forCard, 'btnColor2'),
+              base: function () { return stl.btnColor || d.btnColor || accentNow(); }, onChange: onChange })
+            : colorOptIn(stl, 'btnInk', 'Цвет надписи', { none: 'подберётся сам', pick: '#1c150c', inh: inhOf(d, forCard, 'btnInk'), onChange: onChange })]) : null,
         on && bs === 'gradient' ? el('div', { class: 'a-row' }, [
           selectIn(stl, 'btnDir', 'Направление градиента', inh.concat([['h', 'Слева направо'], ['diag', 'По диагонали'], ['v', 'Сверху вниз']]),
             { def: forCard ? 'inherit' : 'diag', onChange: onChange }),
-          colorOptIn(stl, 'btnInk', 'Цвет надписи', { none: 'подберётся сам', pick: '#1c150c', onChange: onChange })]) : null,
+          colorOptIn(stl, 'btnInk', 'Цвет надписи', { none: 'подберётся сам', pick: '#1c150c', inh: inhOf(d, forCard, 'btnInk'), onChange: onChange })]) : null,
         el('div', { class: 'a-row' }, [
           on ? selectIn(stl, 'btnOther', 'Остальные кнопки', inh.concat([['outline', 'Прозрачные с рамкой'], ['same', 'Такие же, как главная']]),
             { def: forCard ? 'inherit' : 'outline', onChange: onChange }) : el('span'),
-          colorOptIn(stl, 'btnOtherColor', 'Цвет рамки и надписи остальных кнопок', { none: 'обычный', pick: '#ecd3a3', onChange: onChange })])
+          colorOptIn(stl, 'btnOtherColor', 'Цвет рамки и надписи остальных кнопок', { none: 'обычный', pick: '#ecd3a3', inh: inhOf(d, forCard, 'btnOtherColor'), onChange: onChange })])
       ]);
     }
     draw();
@@ -1393,7 +1423,7 @@
         phaseFields(c, cb)
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
-        .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid)), { open: false })
+        .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false })
     ];
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
     if (interactive) out.push(block('Оборот', backBlocksForm(c, cb)));
@@ -1683,7 +1713,7 @@
           el('div', { class: 'a-row3' }, [optIn(x, 'kin', 'Кин'), optIn(x, 'tone', 'Тон'), optIn(x, 'seal', 'Печать')]),
           textIn(x, 'title', 'Название дня', { hint: 'Например, «Красный Магнитный Дракон» или «День вне времени».' }),
           el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
-            colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
+            colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           fitIn(x, 'coverFit', 'Своя обложка в окошке', 'Для вертикальной картинки (паспорт архетипа) — «целиком». Если своей обложки нет — как настроено у картинки маршрута в «Маршрутах».'),
           sbBlocksForm(x, 'days')
         ];
@@ -1695,7 +1725,7 @@
       body: function (x) { return [
         el('div', { class: 'a-row' }, [textIn(x, 'name', 'Название или номер'), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
         el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
-            colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
+            colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           fitIn(x, 'coverFit', 'Своя обложка в окошке', 'Для вертикальной картинки (паспорт архетипа) — «целиком». Если своей обложки нет — как настроено у картинки маршрута в «Маршрутах».'),
         sbBlocksForm(x, 'chronicles')]; } });
     else body = collection(sb.reviews = sb.reviews || [], { visible: true,
@@ -1710,7 +1740,7 @@
           el('div', { class: 'a-row' }, [textIn(x, 'author', 'Как подписать', { ph: 'Имя, инициалы или «участница маршрута»' }), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
           el('div', { class: 'a-row' }, [textIn(x, 'month', 'Месяц и год', { ph: 'Октябрь 2026' }), selectIn(x, 'source', 'Откуда', [['Telegram', 'Telegram'], ['VK', 'VK'], ['другое', 'Другое']])]),
           switchIn(x.signature, 'show', 'Подпись «Опубликовано с разрешения…»'),
-          colorOptIn(x, 'color', 'Свой цвет карточки', { none: 'как у маршрута', pick: '#c9a14a' })
+          colorOptIn(x, 'color', 'Свой цвет карточки', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута' })
         ];
       } });
 
@@ -2001,6 +2031,9 @@
         if (c._backs) delete c._backs;
       });
     });
+    // Старый текст «Ссылка на карточку скопирована…» — кнопка есть и у примеров, событий, архива
+    var tx = D.settings && D.settings.texts;
+    if (tx && tx.shareCopied === 'Ссылка на карточку скопирована — её можно отправить в чат.') tx.shareCopied = 'Ссылка скопирована — её можно отправить в чат.';
     return D;
   }
 

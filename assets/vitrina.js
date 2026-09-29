@@ -1046,7 +1046,7 @@
       navigator.share({ title: title, url: url }).catch(function () {});
       return;
     }
-    toast(copyText(url) ? (T('shareCopied') || 'Ссылка на карточку скопирована — её можно отправить в чат.') : url);
+    toast(copyText(url) ? (T('shareCopied') || 'Ссылка скопирована — её можно отправить в чат.') : url);
   }
 
   /* ================= ВНУТРЕННИЕ СТРАНИЦЫ ================= */
