@@ -887,38 +887,89 @@ body.m13-locked{overflow:hidden}
 .m13-cal-hint{margin-top:4px;font-size:12px;opacity:.7}
 .m13-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:4px}
 .m13-cal-wd{padding:2px 0 4px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.6}
-.m13-cal-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;padding:4px 0 5px;
+.m13-cal-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:50px;padding:4px 0 3px;
   border:0;background:none;color:inherit;font:inherit;cursor:pointer;border-radius:10px}
 .m13-cal-day:not(:disabled):hover{background:color-mix(in srgb,currentColor 8%,transparent)}
 .m13-cal-day:disabled{cursor:default}
-.m13-cal-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-size:15px;font-variant-numeric:tabular-nums}
+.m13-cal-n{position:relative;z-index:1;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-size:15px;font-variant-numeric:tabular-nums}
 .m13-cal-day.is-empty .m13-cal-n{opacity:.55}
 .m13-cal-day.is-past{opacity:.42}
 .m13-cal-day.is-today .m13-cal-n{box-shadow:inset 0 0 0 1.2px currentColor;font-weight:700}
-/* Полоса маршрута под числами — сплошная через дни, скругления в начале и конце */
-.m13-cal-bars{display:flex;flex-direction:column;gap:2px;width:100%;min-height:4px}
-.m13-cal-bars i{display:block;height:4px;background:var(--c);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
-.m13-cal-bars i.m13-s{margin-left:5px;border-top-left-radius:3px;border-bottom-left-radius:3px}
-.m13-cal-bars i.m13-e{margin-right:5px;border-top-right-radius:3px;border-bottom-right-radius:3px}
-.m13-cal-dots{display:flex;gap:4px;min-height:6px}
-.m13-cal-m,.m13-cal-sp{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.m13-cal-m{background:#e0b64e;box-shadow:0 0 5px rgba(224,182,78,.8)}
-.m13-cal-sp{background:#b48ee0;box-shadow:0 0 5px rgba(180,142,224,.8)}
-.m13-cal-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;opacity:.85}
-.m13-cal-legend span{display:inline-flex;align-items:center;gap:6px}
-.m13-lg-bar{display:inline-block;width:18px;height:4px;border-radius:3px;background:var(--c);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
+/* Светится само число: встречи, особые дни, оба сразу (без точек).
+   --m13-cg — сила свечения (0 нет, 1 мягкое, 1.8 яркое); --m13-cm, --m13-cs — цвета встреч и особых дней */
+.m13-cal-n::before{content:"";position:absolute;inset:-4px;z-index:-1;border-radius:50%;opacity:calc(var(--m13-cg,1) * .55);pointer-events:none}
+.m13-cal-meet .m13-cal-n,.m13-cal-spec .m13-cal-n,.m13-cal-both .m13-cal-n{font-weight:650}
+.m13-cal-meet .m13-cal-n{color:color-mix(in srgb,var(--m13-cm) 78%,currentColor);
+  text-shadow:0 0 calc(5px * var(--m13-cg,1)) var(--m13-cm),0 0 calc(13px * var(--m13-cg,1)) var(--m13-cm)}
+.m13-cal-meet .m13-cal-n::before{background:radial-gradient(circle,color-mix(in srgb,var(--m13-cm) 45%,transparent),transparent 68%)}
+.m13-cal-spec .m13-cal-n{color:color-mix(in srgb,var(--m13-cs) 78%,currentColor);
+  text-shadow:0 0 calc(5px * var(--m13-cg,1)) var(--m13-cs),0 0 calc(13px * var(--m13-cg,1)) var(--m13-cs)}
+.m13-cal-spec .m13-cal-n::before{background:radial-gradient(circle,color-mix(in srgb,var(--m13-cs) 45%,transparent),transparent 68%)}
+.m13-cal-both .m13-cal-n{color:color-mix(in srgb,var(--m13-cm) 55%,currentColor);
+  text-shadow:0 0 calc(5px * var(--m13-cg,1)) var(--m13-cm),0 0 calc(15px * var(--m13-cg,1)) var(--m13-cs)}
+.m13-cal-both .m13-cal-n::before{background:radial-gradient(circle,color-mix(in srgb,var(--m13-cm) 45%,transparent) 25%,color-mix(in srgb,var(--m13-cs) 45%,transparent) 50%,transparent 70%)}
+/* Линия маршрута под числами: сплошная через дни, концы тают. Виды: нить, мягкая полоса, волна, облачко */
+.m13-cal-bars{display:flex;flex-direction:column;width:100%;min-height:12px}
+.m13-cal-bars i{position:relative;display:block;height:12px}
+.m13-cal-bars i + i{margin-top:-4px}
+.m13-cal-bars i::before,.m13-cal-bars i::after{content:"";position:absolute;left:0;right:0;top:50%;pointer-events:none}
+.m13-cal-bars i::after{height:2px;margin-top:-1px;background:var(--c);border-radius:1px}
+.m13-cal-bars i::before{height:10px;margin-top:-5px;background:linear-gradient(180deg,transparent,var(--c),transparent);opacity:calc(var(--m13-cg,1) * .5);filter:blur(2px)}
+.m13-cal-bars i.m13-s{-webkit-mask-image:linear-gradient(90deg,transparent,#000 38%);mask-image:linear-gradient(90deg,transparent,#000 38%)}
+.m13-cal-bars i.m13-e{-webkit-mask-image:linear-gradient(270deg,transparent,#000 38%);mask-image:linear-gradient(270deg,transparent,#000 38%)}
+.m13-cal-bars i.m13-s.m13-e{-webkit-mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent)}
+.m13-cal--band .m13-cal-bars i::after{height:6px;margin-top:-3px;border-radius:3px;opacity:.5;filter:blur(1px)}
+.m13-cal--band .m13-cal-bars i::before{height:12px;margin-top:-6px;opacity:calc(var(--m13-cg,1) * .35);filter:blur(3px)}
+.m13-cal--wave .m13-cal-bars i::after{height:8px;margin-top:-4px;border-radius:0;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='1.7'/%3E%3C/svg%3E") 0 0 / 50% 100% repeat-x;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='1.7'/%3E%3C/svg%3E") 0 0 / 50% 100% repeat-x}
+.m13-cal--wave .m13-cal-bars i::before{opacity:calc(var(--m13-cg,1) * .4)}
+/* Облачко: без линии — цветная дымка за числами дней маршрута */
+.m13-cal--cloud .m13-cal-bars{position:absolute;left:-14%;right:-14%;top:0;height:40px;min-height:0;z-index:0}
+.m13-cal--cloud .m13-cal-bars i{position:absolute;inset:0;height:auto;margin:0}
+.m13-cal--cloud .m13-cal-bars i::after{display:none}
+.m13-cal--cloud .m13-cal-bars i::before{top:0;bottom:0;height:auto;margin:0;background:radial-gradient(ellipse 60% 50% at 50% 50%,var(--c),transparent);
+  opacity:calc(.3 + var(--m13-cg,1) * .14);filter:blur(4px)}
+.m13-cal--cloud .m13-cal-day{padding-bottom:8px;min-height:44px}
+.m13-cal-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;opacity:.9}
+.m13-cal-legend > span{display:inline-flex;align-items:center;gap:6px}
+.m13-cal-legend .m13-cal-bars,.m13-cal--cloud .m13-cal-legend .m13-cal-bars{position:relative;left:auto;right:auto;top:auto;width:24px;min-height:12px;height:12px}
+.m13-cal-legend .m13-cal-bars i.m13-s.m13-e{-webkit-mask-image:linear-gradient(90deg,transparent,#000 25%,#000 75%,transparent);mask-image:linear-gradient(90deg,transparent,#000 25%,#000 75%,transparent)}
+.m13-cal-legend .m13-cal-n{width:auto;height:auto;font-size:13px;font-weight:700}
+.m13-cal-legend .m13-cal-n::before{inset:-5px -7px}
 .m13-cal-free{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:auto;padding-top:10px;border-top:1px solid color-mix(in srgb,currentColor 18%,transparent);font-size:12.5px}
 .m13-cal-free-l{opacity:.75;margin-right:2px}
 .m13-cal-chip{border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:999px;background:transparent;color:inherit;font:inherit;padding:5px 11px;cursor:pointer}
 .m13-cal-chip:hover{border-color:currentColor}
 .m13-bs-lg .m13-cal{zoom:1.08}.m13-bs-xl .m13-cal{zoom:1.16}
-/* Звезда и искры */
+/* Мини-календарь на лицевой стороне маленькой карточки — только для вида, нажатие открывает большой */
+.m13-thumb--cal{justify-content:flex-start;align-items:stretch;padding:11px 10px 8px}
+.m13-calmini{position:relative;z-index:2;display:flex;flex-direction:column;width:100%;height:100%;min-height:0}
+.m13-calmini-t{margin:0 2px 5px;font-size:clamp(11px,calc(var(--card-w) * .072),18px);font-weight:750;line-height:1.1}
+.m13-calmini .m13-cal-grid{row-gap:0;flex:1;align-content:space-evenly}
+.m13-calmini .m13-cal-wd{padding:0 0 2px;font-size:8.5px;letter-spacing:0}
+.m13-calmini .m13-cal-day{min-height:0;padding:0;gap:0;cursor:inherit;border-radius:6px}
+.m13-calmini .m13-cal-n{width:calc(var(--card-w) * .095);height:calc(var(--card-w) * .095);font-size:clamp(8px,calc(var(--card-w) * .046),12px)}
+.m13-calmini .m13-cal-n::before{inset:-2px}
+.m13-calmini .m13-cal-bars{min-height:6px}
+.m13-calmini .m13-cal-bars i{height:6px}
+.m13-calmini .m13-cal-bars i + i{margin-top:-2px}
+.m13-calmini .m13-cal-bars i::before{height:6px;margin-top:-3px}
+.m13-calmini.m13-cal--band .m13-cal-bars i::after{height:4px;margin-top:-2px}
+.m13-calmini.m13-cal--wave .m13-cal-bars i::after{height:6px;margin-top:-3px}
+.m13-calmini.m13-cal--cloud .m13-cal-bars{height:calc(var(--card-w) * .095 + 4px)}
+.m13-calmini.m13-cal--cloud .m13-cal-day{padding-bottom:3px;min-height:0}
+/* Звезда, снежинка и искры */
 .m13-star,.m13-spark{position:fixed;left:0;top:0;z-index:130;pointer-events:none;border-radius:50%}
 .m13-star{width:10px;height:10px;margin:-5px 0 0 -5px;background:#fff;
   box-shadow:0 0 4px 2px var(--m13-star),0 0 14px 6px var(--m13-star),0 0 30px 10px color-mix(in srgb,var(--m13-star) 45%,transparent)}
 .m13-star::before,.m13-star::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:1.5px;margin:-.75px 0 0 -17px;
   background:linear-gradient(90deg,transparent,#fff 50%,transparent);border-radius:1px}
 .m13-star::after{transform:rotate(90deg)}
+.m13-star.m13-snow{width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:0;box-shadow:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg id='a'%3E%3Cpath d='M12 12V1.8M9.2 4.4 12 7.2l2.8-2.8'/%3E%3C/g%3E%3Cuse href='%23a' transform='rotate(60 12 12)'/%3E%3Cuse href='%23a' transform='rotate(120 12 12)'/%3E%3Cuse href='%23a' transform='rotate(180 12 12)'/%3E%3Cuse href='%23a' transform='rotate(240 12 12)'/%3E%3Cuse href='%23a' transform='rotate(300 12 12)'/%3E%3Ccircle cx='12' cy='12' r='1.6' fill='white' stroke='none'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter:drop-shadow(0 0 2px var(--m13-star)) drop-shadow(0 0 7px var(--m13-star))}
+.m13-star.m13-snow::before,.m13-star.m13-snow::after{display:none}
 .m13-spark{width:5px;height:5px;margin:-2.5px 0 0 -2.5px;background:#fff;box-shadow:0 0 6px 2px var(--m13-star)}
 /* Карточки дня: вспышка и мягкая подсветка до следующего нажатия */
 .m13-grid .m13-thumb.m13-lit{z-index:3;animation:none;
@@ -932,12 +983,23 @@ body.m13-locked{overflow:hidden}
 @media (max-width:680px){
   .m13-cal{gap:8px}
   .m13-cal-head h3{font-size:21px}
-  .m13-cal-day{min-height:44px;padding:2px 0 4px;gap:2px}
+  .m13-cal-day{min-height:42px;padding:2px 0 2px;gap:1px}
   .m13-cal-n{width:26px;height:26px;font-size:13.5px}
+  .m13-cal--cloud .m13-cal-bars{height:34px}
   .m13-cal-wd{font-size:10px}
   .m13-cal-legend{font-size:11px;gap:4px 10px}
   .m13-cal-free{font-size:11.5px;padding-top:8px}
   .m13-cal-chip{padding:4px 9px}
   .m13-star::before,.m13-star::after{width:26px;margin-left:-13px}
+  /* Мини-календарь на телефоне: только название месяца и сетка, линия — всегда тонкая нить */
+  .m13-thumb--cal{padding:6px 5px 4px}
+  .m13-calmini-t{font-size:10px;margin:0 1px 2px}
+  .m13-calmini .m13-cal-wd{display:none}
+  .m13-calmini .m13-cal-n{width:14px;height:14px;font-size:7.5px}
+  .m13-calmini.m13-calmini .m13-cal-bars{position:relative;left:auto;right:auto;top:auto;height:3px;min-height:3px;z-index:auto}
+  .m13-calmini.m13-calmini .m13-cal-bars i{position:relative;inset:auto;height:3px;margin:0}
+  .m13-calmini.m13-calmini .m13-cal-bars i::after{display:block;top:50%;bottom:auto;height:1px;margin-top:-.5px;border-radius:1px;opacity:1;filter:none;-webkit-mask:none;mask:none}
+  .m13-calmini.m13-calmini .m13-cal-bars i::before{display:none}
+  .m13-calmini.m13-calmini .m13-cal-day{padding:0;min-height:0}
 }
 @media (prefers-reduced-motion:reduce){ .m13-grid .m13-thumb.m13-lit.m13-hit{animation:none} }
