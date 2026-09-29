@@ -272,3 +272,10 @@ select.a-input{padding-right:28px}
 .a-glass{display:grid;gap:12px}
 .a-presets{display:flex;flex-wrap:wrap;gap:6px}
 .a-preset{background:linear-gradient(135deg,var(--p1),var(--p2));border-color:transparent;color:#1c150c}
+/* Календарь месяца */
+.a-callist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.a-callist li{display:flex;align-items:center;gap:8px}
+.a-calbar{display:inline-block;width:22px;height:5px;border-radius:3px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.25);flex-shrink:0}
+.a-caldot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0b64e;flex-shrink:0;margin:0 7px}
+.a-calfree{display:flex;flex-direction:column;gap:8px}
+.a-calhint{margin-top:-4px}

@@ -563,7 +563,7 @@ body.m13-locked{overflow:hidden}
 .m13-standalone .m13-panel .m13-desc{font-size:calc(15px * var(--m13-tk,1));line-height:1.55}
 .m13-standalone .m13-block{padding:14px 16px}
 .m13-standalone .m13-block-title{font-size:calc(14px * var(--m13-tk,1))}
-.m13-standalone .m13-block p{font-size:calc(16px * var(--m13-tk,1));line-height:1.6}
+.m13-standalone .m13-block p{font-size:calc(16px * var(--m13-tk,1));line-height:var(--m13-lh,1.6)}
 .m13-standalone .m13-practice{padding:14px;font-size:calc(15.5px * var(--m13-tk,1));line-height:1.55}
 .m13-standalone .m13-quote{font-size:calc(17.5px * var(--m13-tk,1));line-height:1.6}
 .m13-standalone .m13-sign{font-size:11.5px}
@@ -611,7 +611,7 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-rich p:last-child,.m13 .m13-rich ul:last-child{margin-bottom:0}
 .m13 .m13-rich ul{margin:.2em 0 .7em;padding-left:1.25em}
 .m13-rich li{margin:.15em 0}
-.m13-standalone .m13-block .m13-rich :is(p,ul){font-size:calc(16px * var(--m13-tk,1));line-height:1.6}
+.m13-standalone .m13-block .m13-rich :is(p,ul){font-size:calc(16px * var(--m13-tk,1));line-height:var(--m13-lh,1.6)}
 .m13-standalone .m13-practice .m13-rich :is(p,ul){font-size:inherit;line-height:inherit}
 .m13-thought .m13-rich{font-style:italic}
 .m13-standalone .m13-thought .m13-rich p{font-size:calc(18px * var(--m13-tk,1))}
@@ -668,6 +668,14 @@ body.m13-locked{overflow:hidden}
 .m13-mantra{text-align:center}
 .m13-mantra .m13-rich{font-style:italic}
 .m13-standalone .m13-mantra .m13-rich p{font-size:calc(19px * var(--m13-tk,1));line-height:1.5}
+/* На странице чтения мантра — без рамки, крупная фраза прямо на фоне */
+.m13-read .m13-block.m13-mantra{background:none;border:0;box-shadow:none;padding:22px 8px 18px}
+.m13-standalone .m13-read .m13-mantra .m13-rich p{font-size:calc(24px * var(--m13-tk,1));line-height:1.4}
+.m13-read .m13-mantra .m13-block-title{opacity:.8}
+/* Практики подряд — по две в ряд (на телефоне друг под другом) */
+.m13-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.m13-pair > .m13-block{margin-top:0}
+.m13-pair > .m13-block:last-child:nth-child(odd){grid-column:1 / -1}
 .m13-sb-more{margin-top:4px}
 .m13-standalone .m13-sb-more > summary{font-size:calc(14px * var(--m13-tk,1))}
 .m13-look .m13-sb-more > summary{color:var(--lk-ac)}
@@ -767,7 +775,8 @@ body.m13-locked{overflow:hidden}
 .m13-lib-more .m13-soft{width:auto;padding:11px 22px}
 
 /* Страница чтения */
-.m13-read{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+/* Чтение — колонкой около 800 px по центру */
+.m13-read{display:flex;flex-direction:column;gap:12px;align-items:flex-start;max-width:800px;margin:0 auto}
 .m13-read > .m13-panel{width:100%}
 .m13-read-head{display:flex;gap:16px;align-items:center;padding:12px;margin-bottom:12px;border:1px solid var(--m13-line);border-radius:14px}
 .m13-read-head.m13-rc{border-color:color-mix(in srgb,var(--rc) 55%,transparent);
@@ -776,7 +785,7 @@ body.m13-locked{overflow:hidden}
 .m13-read-head h3{margin:3px 0 4px}
 .m13-read-head .m13-panel-day{margin:0}
 .m13-read-ht{min-width:0}
-.m13-read-img{flex-shrink:0;width:118px;height:118px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:zoom-in;background:none}
+.m13-read-img{flex-shrink:0;width:190px;height:190px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:zoom-in;background:none}
 .m13-read-img img{display:block;width:100%;height:100%;object-fit:cover}
 /* Обложка целиком: картинка вписана полностью, по бокам — она же, размытая и увеличенная */
 :is(.m13-cover-img,.m13-read-img).m13-fit-whole{position:relative}
@@ -855,7 +864,10 @@ body.m13-locked{overflow:hidden}
   .m13-chips::-webkit-scrollbar{display:none}
   .m13-chip{flex-shrink:0;white-space:nowrap}
   .m13-read-head{gap:12px;padding:10px}
-  .m13-read-img{width:84px;height:84px}
+  .m13-read-img{width:108px;height:108px}
+  .m13-pair{grid-template-columns:1fr}
+  .m13-standalone .m13-read .m13-mantra .m13-rich p{font-size:calc(20px * var(--m13-tk,1))}
+  .m13-read .m13-block.m13-mantra{padding:16px 4px 12px}
   .m13-read-nav{grid-template-columns:1fr 1fr;row-gap:8px}
   .m13-read-nav .m13-read-all{grid-column:1 / -1;grid-row:2;justify-self:center}
   .m13-read-go{padding:8px 12px}
@@ -865,3 +877,67 @@ body.m13-locked{overflow:hidden}
 @media (prefers-reduced-motion:reduce){ .m13-cover,.m13-rv{transition:none} .m13-cover:hover,.m13-rv:hover{transform:none} }
 .m13-tabs[style="--n:1"]{grid-template-columns:auto;justify-content:start}
 .m13-tabs[style="--n:1"] .m13-tab{padding-left:22px;padding-right:22px}
+
+/* ================= Календарь месяца (вид карточки) ================= */
+/* Открывается сразу сеткой: без лицевой стороны и кнопки «перевернуть» */
+.m13-big-card.m13-noanim{transition:none}
+.m13-calmode ~ .m13-unflip{display:none !important}
+.m13-cal{display:flex;flex-direction:column;gap:10px;min-height:100%}
+.m13-cal-head h3{margin:2px 0 0;font-size:24px;line-height:1.1}
+.m13-cal-hint{margin-top:4px;font-size:12px;opacity:.7}
+.m13-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:4px}
+.m13-cal-wd{padding:2px 0 4px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.6}
+.m13-cal-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;padding:4px 0 5px;
+  border:0;background:none;color:inherit;font:inherit;cursor:pointer;border-radius:10px}
+.m13-cal-day:not(:disabled):hover{background:color-mix(in srgb,currentColor 8%,transparent)}
+.m13-cal-day:disabled{cursor:default}
+.m13-cal-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-size:15px;font-variant-numeric:tabular-nums}
+.m13-cal-day.is-empty .m13-cal-n{opacity:.55}
+.m13-cal-day.is-past{opacity:.42}
+.m13-cal-day.is-today .m13-cal-n{box-shadow:inset 0 0 0 1.2px currentColor;font-weight:700}
+/* Полоса маршрута под числами — сплошная через дни, скругления в начале и конце */
+.m13-cal-bars{display:flex;flex-direction:column;gap:2px;width:100%;min-height:4px}
+.m13-cal-bars i{display:block;height:4px;background:var(--c);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
+.m13-cal-bars i.m13-s{margin-left:5px;border-top-left-radius:3px;border-bottom-left-radius:3px}
+.m13-cal-bars i.m13-e{margin-right:5px;border-top-right-radius:3px;border-bottom-right-radius:3px}
+.m13-cal-dots{display:flex;gap:4px;min-height:6px}
+.m13-cal-m,.m13-cal-sp{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.m13-cal-m{background:#e0b64e;box-shadow:0 0 5px rgba(224,182,78,.8)}
+.m13-cal-sp{background:#b48ee0;box-shadow:0 0 5px rgba(180,142,224,.8)}
+.m13-cal-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;opacity:.85}
+.m13-cal-legend span{display:inline-flex;align-items:center;gap:6px}
+.m13-lg-bar{display:inline-block;width:18px;height:4px;border-radius:3px;background:var(--c);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
+.m13-cal-free{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:auto;padding-top:10px;border-top:1px solid color-mix(in srgb,currentColor 18%,transparent);font-size:12.5px}
+.m13-cal-free-l{opacity:.75;margin-right:2px}
+.m13-cal-chip{border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:999px;background:transparent;color:inherit;font:inherit;padding:5px 11px;cursor:pointer}
+.m13-cal-chip:hover{border-color:currentColor}
+.m13-bs-lg .m13-cal{zoom:1.08}.m13-bs-xl .m13-cal{zoom:1.16}
+/* Звезда и искры */
+.m13-star,.m13-spark{position:fixed;left:0;top:0;z-index:130;pointer-events:none;border-radius:50%}
+.m13-star{width:10px;height:10px;margin:-5px 0 0 -5px;background:#fff;
+  box-shadow:0 0 4px 2px var(--m13-star),0 0 14px 6px var(--m13-star),0 0 30px 10px color-mix(in srgb,var(--m13-star) 45%,transparent)}
+.m13-star::before,.m13-star::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:1.5px;margin:-.75px 0 0 -17px;
+  background:linear-gradient(90deg,transparent,#fff 50%,transparent);border-radius:1px}
+.m13-star::after{transform:rotate(90deg)}
+.m13-spark{width:5px;height:5px;margin:-2.5px 0 0 -2.5px;background:#fff;box-shadow:0 0 6px 2px var(--m13-star)}
+/* Карточки дня: вспышка и мягкая подсветка до следующего нажатия */
+.m13-grid .m13-thumb.m13-lit{z-index:3;animation:none;
+  box-shadow:0 0 0 1.5px var(--m13-star),0 0 26px 6px color-mix(in srgb,var(--m13-star) 50%,transparent)}
+.m13-grid .m13-thumb.m13-lit.m13-hit{animation:m13-hit 1s ease-out}
+@keyframes m13-hit{
+  0%{transform:scale(1);filter:brightness(1)}
+  18%{transform:scale(1.05);filter:brightness(1.35);box-shadow:0 0 0 2px var(--m13-star),0 0 60px 20px var(--m13-star)}
+  100%{transform:scale(1);filter:brightness(1)}
+}
+@media (max-width:680px){
+  .m13-cal{gap:8px}
+  .m13-cal-head h3{font-size:21px}
+  .m13-cal-day{min-height:44px;padding:2px 0 4px;gap:2px}
+  .m13-cal-n{width:26px;height:26px;font-size:13.5px}
+  .m13-cal-wd{font-size:10px}
+  .m13-cal-legend{font-size:11px;gap:4px 10px}
+  .m13-cal-free{font-size:11.5px;padding-top:8px}
+  .m13-cal-chip{padding:4px 9px}
+  .m13-star::before,.m13-star::after{width:26px;margin-left:-13px}
+}
+@media (prefers-reduced-motion:reduce){ .m13-grid .m13-thumb.m13-lit.m13-hit{animation:none} }
