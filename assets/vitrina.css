@@ -699,3 +699,33 @@ body.m13-locked{overflow:hidden}
 .m13-evlink:hover{opacity:1}
 .m13-header--tinted .m13-evlink{color:var(--m13-head)}
 @media (max-width:680px){.m13-evlink{font-size:11.5px;padding:5px 11px;margin-top:6px}}
+
+/* ================= Полупрозрачный оборот, автовыравнивание плашек ================= */
+/* Оборот-стекло: цвет оборота с прозрачностью (--m13-back задаётся в rgba), за ним размытие */
+.m13-back-glass .m13-back{-webkit-backdrop-filter:blur(var(--m13-bb,8px)) saturate(1.1);backdrop-filter:blur(var(--m13-bb,8px)) saturate(1.1)}
+.m13-back-glass--clear .m13-back{-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-back-glass:not(.m13-back-dark) :is(.m13-format:not(.is-closed),.m13-item,.m13-day,.m13-info,.m13-dates,.m13-price-line,.m13-fact){background:rgba(255,255,255,.72)}
+.m13-back-glass:not(.m13-back-dark) .m13-format.is-closed{background:rgba(255,255,255,.35)}
+.m13-back-glass .m13-face.m13-back{border-color:rgba(255,255,255,.28)}
+
+/* Форматы маршрута: у всех квадратов ряда одинаковые строки (название, цена, подпись) — высоты выравнивает
+   evenRows() в vitrina.js, название прижато к цене, поэтому цены стоят на одном уровне */
+.m13-format-name{display:flex;align-items:flex-end;justify-content:center}
+@supports (grid-template-rows: subgrid) {
+  /* Плашки (встречи, варианты, виды работы): общие строки ряда — дата, название, описание, срок, цена, «Написать →» */
+  .m13-items--rows{row-gap:0}
+  .m13-items--rows .m13-item{display:grid;grid-row:span var(--rows,6);grid-template-rows:subgrid;row-gap:0;align-content:start;margin-bottom:7px}
+  .m13-items--rows .m13-item > *{min-width:0}
+  .m13-items--rows :is(.m13-item-action,.m13-item-acts){align-self:end}
+}
+@media (max-width:680px){ @supports (grid-template-rows: subgrid) { .m13-items--rows .m13-item{margin-bottom:5px} } }
+
+/* Список Песочницы и событий: у всех плашек одинаковое место под строку «День …» и под подпись (2 строки) —
+   плашки ровные, как бы ни отличалась длина текста */
+.m13-sb-item-day:empty,.m13-sb-item-sub:empty{display:none}
+.m13-sb-list:has(.m13-sb-item-day:not(:empty)) .m13-sb-item-day:empty{display:block;min-height:1.3em}
+.m13-sb-list:has(.m13-sb-item-sub:not(:empty)) .m13-sb-item-sub{display:-webkit-box;min-height:calc(2em * 1.3)}
+.m13-standalone .m13-sb-list:has(.m13-sb-item-sub:not(:empty)) .m13-sb-item-sub{min-height:calc(2em * 1.4)}
+/* Если цены или подписи нет ни у одного квадрата — пустые строки не занимают место */
+.m13-formats:not(:has(.m13-format-price:not(:empty))) .m13-format-price,
+.m13-formats:not(:has(.m13-format-note:not(:empty))) .m13-format-note{display:none}

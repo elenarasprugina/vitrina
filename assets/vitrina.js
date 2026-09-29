@@ -310,6 +310,8 @@
       glass: num('glass', 0, 0, 100),
       glassBlur: num('glassBlur', 10, 0, 20),
       backBg: f.backBg || d.backBg || '', backText: f.backText || d.backText || '', backSize: pick('backSize', 'md'),
+      // Прозрачность оборота (0 — сплошной) и размытие того, что за ним
+      backGlass: num('backGlass', 0, 0, 90), backBlur: num('backBlur', 8, 0, 20),
       // Стекло и узор: кромка, узор (готовый или своя картинка), где он лежит, цвет, заметность; помощь тексту
       rim: none(pick('rim', '')), pattern: none(pick('pattern', '')),
       patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
@@ -467,6 +469,11 @@
     // Оборот: свой цвет; если он тёмный — весь текст и плашки на обороте становятся светлыми
     var bb = sty.st.backBg, dark = bb && lum(hexRgb(bb)) < 128;
     big.classList.toggle('m13-back-dark', !!dark);
+    // Полупрозрачный оборот: цвет оборота (или светлый по умолчанию) с прозрачностью, за ним — размытие
+    var bg = sty.st.backGlass;
+    big.classList.toggle('m13-back-glass', !!bg);
+    big.classList.toggle('m13-back-glass--clear', !!bg && !sty.st.backBlur);
+    if (bg) bb = 'rgba(' + hexRgb(bb || '#f8f8f8').join(',') + ',' + (1 - bg / 100).toFixed(2) + ')';
     // Свой цвет и размер текста на обороте
     var btx = sty.st.backText;
     big.classList.toggle('m13-back-tx', !!btx);
@@ -476,7 +483,7 @@
     if (btx) bl.css.push('--m13-btx:' + btx);
     big.className = big.className.replace(/\s*m13-btn-[\w-]+/g, '');
     bl.cls.forEach(function (k) { big.classList.add(k); });
-    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : ''].concat(bl.css).filter(Boolean).join(';'));
+    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : '', bg ? '--m13-bb:' + sty.st.backBlur + 'px' : ''].concat(bl.css).filter(Boolean).join(';'));
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
@@ -508,9 +515,37 @@
 
     S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     S.root.querySelector('#m13-overlay').classList.add('is-open');
+    evenRows(backc);
+    // Поворот телефона, смена ширины окна, догрузка шрифта — выровнять заново
+    if (!S.evenBound) {
+      S.evenBound = true;
+      var again = function () { if (S.card) evenRows(); };
+      window.addEventListener('resize', again);
+      if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', again);
+    }
     lock(true);
     pushLayer('card', closeCardNow, '#' + encodeURIComponent(c.id));
   }
+  // Квадраты форматов: в каждом ряду название, цена и подпись получают одинаковую высоту (по самой высокой),
+  // поэтому в ряду всё стоит на одном уровне, а сами квадраты остаются по центру.
+  var EVEN_PARTS = ['.m13-format-name', '.m13-format-price', '.m13-format-note'];
+  function evenRows(root) {
+    (root || S.root).querySelectorAll('.m13-formats').forEach(function (g) {
+      var cells = [].slice.call(g.children), rows = {};
+      cells.forEach(function (c) {
+        EVEN_PARTS.forEach(function (q) { var n = c.querySelector(q); if (n) n.style.minHeight = ''; });
+        (rows[c.offsetTop] = rows[c.offsetTop] || []).push(c);
+      });
+      Object.keys(rows).forEach(function (k) {
+        EVEN_PARTS.forEach(function (q) {
+          var ns = rows[k].map(function (c) { return c.querySelector(q); }).filter(Boolean);
+          var h = Math.max.apply(null, ns.map(function (n) { return n.offsetHeight; }).concat(0));
+          ns.forEach(function (n) { n.style.minHeight = h ? h + 'px' : ''; });
+        });
+      });
+    });
+  }
+  M13.evenRows = evenRows;
   function closeCardNow() {
     S.root.querySelector('#m13-overlay').classList.remove('is-open');
     S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
@@ -551,26 +586,35 @@
   function itemsHTML(c, list, max, tplKey) {
     var items = visibleSorted(list, max || 10);
     if (!items.length) return '';
-    return '<div class="m13-items' + (items.length === 1 ? ' m13-items--one' : '') + '">' + items.map(function (it) {
+    // Автовыравнивание: если какая-то часть (дата, описание, срок, цена) есть хотя бы у одной плашки,
+    // у остальных на её месте пустая строка — тогда в ряду названия, цены и «Написать →» стоят на одном уровне.
+    var one = items.length === 1, has = {};
+    items.forEach(function (it) {
+      if (opt(it.date)) has.date = 1; if (opt(it.text)) has.text = 1; if (opt(it.price)) has.price = 1;
+      if (opt(it.duration) || opt(it.status)) has.meta = 1;
+    });
+    function part(cls, on, html) { return on ? '<div class="' + cls + '">' + html + '</div>' : (has[cls.slice(9)] && !one ? '<div class="' + cls + '"></div>' : ''); }
+    var rows = 2 + (has.date ? 1 : 0) + (has.text ? 1 : 0) + (has.meta ? 1 : 0) + (has.price ? 1 : 0);
+    return '<div class="m13-items' + (one ? ' m13-items--one' : ' m13-items--rows') + '" style="--rows:' + rows + '">' + items.map(function (it) {
       var date = opt(it.date), text = opt(it.text), dur = opt(it.duration), price = opt(it.price), status = opt(it.status);
       var meta = [dur, status].filter(Boolean).join(' · ');
       var a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       if (cal) return '<div class="m13-item m13-item--cal" role="button" tabindex="0"' + act(a, ctx) + '>' +
-        (date ? '<div class="m13-item-date">' + esc(date) + '</div>' : '') +
+        part('m13-item-date', date, esc(date)) +
         '<div class="m13-item-title">' + esc(it.title) + '</div>' +
-        (text ? '<div class="m13-item-text">' + txt(text) + '</div>' : '') +
-        (meta ? '<div class="m13-item-meta">' + esc(meta) + '</div>' : '') +
-        (price ? '<div class="m13-item-price">' + esc(price) + '</div>' : '') +
+        part('m13-item-text', text, txt(text)) +
+        part('m13-item-meta', meta, esc(meta)) +
+        part('m13-item-price', price, esc(price)) +
         '<div class="m13-item-acts"><span class="m13-item-action">' + esc(a.label || 'Написать') + ' →</span>' +
         '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + esc(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
       return '<button type="button" class="m13-item"' + act(a, ctx) + '>' +
-        (date ? '<div class="m13-item-date">' + esc(date) + '</div>' : '') +
+        part('m13-item-date', date, esc(date)) +
         '<div class="m13-item-title">' + esc(it.title) + '</div>' +
-        (text ? '<div class="m13-item-text">' + txt(text) + '</div>' : '') +
-        (meta ? '<div class="m13-item-meta">' + esc(meta) + '</div>' : '') +
-        (price ? '<div class="m13-item-price">' + esc(price) + '</div>' : '') +
+        part('m13-item-text', text, txt(text)) +
+        part('m13-item-meta', meta, esc(meta)) +
+        part('m13-item-price', price, esc(price)) +
         '<div class="m13-item-action">' + esc(a.label || 'Написать') + ' →</div></button>';
     }).join('') + '</div>';
   }
@@ -736,6 +780,7 @@
       return f.visible !== false && !(f.availability === 'closed' && x.closed === 'hide');
     });
     if (!list.length) return '';
+    // Цена и подпись — у всех квадратов (пустые, если у этого нет), чтобы строки в ряду совпадали
     return '<div class="m13-formats" style="--n:' + Math.min(list.length, 3) + '">' + list.map(function (f) {
       var fm = formatById(f.formatId) || {};
       var name = f.title || fm.title || '';
@@ -744,8 +789,8 @@
       var closed = f.availability === 'closed';
       if (closed) note = T('formatClosed') || 'набор закрыт';
       var inner = '<div class="m13-format-name">' + esc(name) + '</div>' +
-        (price ? '<div class="m13-format-price">' + esc(price) + '</div>' : '') +
-        (note ? '<div class="m13-format-note">' + esc(note) + '</div>' : '');
+        '<div class="m13-format-price">' + esc(price) + '</div>' +
+        '<div class="m13-format-note">' + esc(note) + '</div>';
       if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
       var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
       return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
@@ -1176,8 +1221,8 @@
     return '<button type="button" class="m13-sb-item" data-item="' + esc(it.id) + '">' +
       (top ? '<div class="m13-sb-item-top">' + esc(top) + '</div>' : '') +
       '<div class="m13-sb-item-title">' + esc(title) + '</div>' +
-      (day ? '<div class="m13-sb-item-day">' + esc(day) + '</div>' : '') +
-      (sub ? '<div class="m13-sb-item-sub">' + esc(sub) + '</div>' : '') + '</button>';
+      '<div class="m13-sb-item-day">' + esc(day) + '</div>' +
+      '<div class="m13-sb-item-sub">' + esc(sub) + '</div>' + '</button>';
   }
 
   function sbDetail(tab, it) {
@@ -1294,7 +1339,7 @@
       (e.cover ? '<img class="m13-ev-thumb" src="' + esc(media(e.cover)) + '" alt="" loading="lazy">' : '') +
       '<span class="m13-ev-txt">' + (top ? '<span class="m13-sb-item-top">' + esc(top) + '</span>' : '') +
       '<span class="m13-sb-item-title">' + esc(e.title || '') + '</span>' +
-      (e.summary ? '<span class="m13-sb-item-sub">' + esc(firstLine(e.summary)) + '</span>' : '') + '</span></button>';
+      '<span class="m13-sb-item-sub">' + esc(e.summary ? firstLine(e.summary) : '') + '</span></span></button>';
   }
   function evDetail(e) {
     var toList = '<button type="button" class="m13-iback m13-sb-toList" data-tolist>' + esc(T('backToList') || '← К списку') + '</button>';

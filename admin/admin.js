@@ -344,6 +344,11 @@
           colorOptIn(stl, 'backText', 'Цвет текста на обороте', { none: forCard ? 'как у всей витрины' : 'подберётся сам', pick: '#efe4d2', onChange: onChange,
             hint: 'Пусто — на тёмном обороте светлый, на светлом тёмный.' })]),
         el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'backGlass', 'Прозрачность оборота', { max: 90, step: 5, unit: '%', def: forCard ? 30 : 0, onChange: onChange,
+            hint: '0% — сплошной цвет. 20–40% — сквозь оборот чуть видна витрина, текст читается. Плашки на светлом обороте остаются почти белыми.' }, forCard),
+          rangeOptIn(stl, 'backBlur', 'Размытие за оборотом', { max: 20, step: 1, unit: ' px', def: 8, onChange: onChange,
+            hint: 'Работает, когда оборот прозрачный. 0 — витрина за ним чёткая, 8–12 — матовое стекло.' }, forCard)]),
+        el('div', { class: 'a-row' }, [
           selectIn(stl, 'backSize', 'Размер текста на обороте', inh.concat([['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']]),
             { def: forCard ? 'inherit' : 'md', onChange: onChange, hint: 'Описание, плашки, даты, подписи. Кнопки остаются как есть.' }),
           el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и кромка появляются и на обороте открытой карточки.' })])
@@ -1242,7 +1247,7 @@
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
     'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize'];
-  var STYLE_BACK = ['backBg', 'backText', 'backSize'].concat(BTN_KEYS);
+  var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
     var keys = what === 'front' ? STYLE_FRONT : what === 'back' ? STYLE_BACK : STYLE_FRONT.concat(STYLE_BACK);
