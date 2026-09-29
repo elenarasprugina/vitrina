@@ -788,7 +788,8 @@
           var isStatic = c.interactive === false || !b.type || b.type === 'static';
           var tags = [];
           if (c.visible === false) tags.push(['скрыта', 1]);
-          if (c.back && c.back.stub && c.back.stub.on) tags.push(['заглушка', 1]);
+          if (c.monthCal && c.monthCal.on) tags.push(['календарь', 0]);
+          else if (c.back && c.back.stub && c.back.stub.on) tags.push(['заглушка', 1]);
           else if (isStatic) tags.push(['без оборота', 0]);
           else tags.push([b.routeId && routeById(b.routeId) ? 'маршрут' : 'оборот', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
@@ -807,7 +808,7 @@
             tc ? 'color:' + tc : '', bg && !f.image && c.visible !== false ? 'background-color:' + bg : '', ac && c.visible !== false ? 'border-color:' + ac : '',
             glow === 'soft' || glow === 'live' ? 'box-shadow:0 ' + Math.round(gy * 7 * gk) + 'px ' + Math.round(12 * gk) + 'px ' + (gy ? -2 : Math.round(2 * gk)) + 'px ' + gc : ''].filter(Boolean).join(';');
           return el('button', { type: 'button', class: 'a-mcard' + (i === ST.card ? ' is-sel' : '') + (c.visible === false ? ' is-hidden' : '') +
-              (isStatic && c.visible !== false ? ' is-static' : '') + (f.image ? ' has-img ov-' + ov : '') + (tc ? ' has-tc' : ''),
+              (isStatic && c.visible !== false && !(c.monthCal && c.monthCal.on) ? ' is-static' : '') + (f.image ? ' has-img ov-' + ov : '') + (tc ? ' has-tc' : ''),
             style: css || null,
             onclick: function () { ST.card = i; ST.mobileForm = true; wrap.classList.add('is-form'); drawGrid(); drawForm(); window.scrollTo(0, 0); } }, [
             el('div', {}, [el('div', { class: 'a-mcard-n', text: String(i + 1) }),
@@ -1068,10 +1069,103 @@
     return [
       textIn(it, 'title', 'Название'),
       el('div', { class: 'a-row' }, [optIn(it, 'date', 'Дата', { ph: '08 октября' }), optIn(it, 'price', 'Цена', { ph: '2 500 ₽ или «Свободный вход»' })]),
+      itemCalHint(it),
       optIn(it, 'text', 'Короткое описание', { multi: true, rows: 2 }),
       el('div', { class: 'a-row' }, [optIn(it, 'duration', 'Длительность', { ph: 'до 90 минут' }), optIn(it, 'status', 'Статус', { ph: 'осталось 2 места' })]),
       actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться', kinds: ['contact', 'link', 'event'] }),
       itemCalendar(it)
+    ];
+  }
+
+  /* ---------- Календарь месяца (вид карточки) ---------- */
+  function scYM(sc) { var m = /^(\d{4})-(\d{2})/.exec((sc && sc.id) || ''); return m ? { y: +m[1], m: +m[2] } : null; }
+  function calOn(sc) { return !!sc && (sc.cards || []).some(function (c) { return c.visible !== false && c.monthCal && c.monthCal.on; }); }
+  var MON_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  // Под датой плашки: попадёт ли встреча в календарь месяца (только если в месяце есть календарь)
+  function itemCalHint(it) {
+    var sc = DATA.showcases[ST.showcase], ym = scYM(sc);
+    if (!ym || !calOn(sc)) return null;
+    var h = el('span', { class: 'a-hint a-calhint' });
+    function draw() {
+      var t = optVal(it.date), d = window.M13.calDaysIn(t, ym);
+      h.classList.toggle('a-hint--warn', !!t && !d.length);
+      h.textContent = d.length ? 'В календаре месяца: ' + d.join(', ') + ' ' + MON_GEN[ym.m - 1] + ' ✓'
+        : t ? 'Календарь не нашёл здесь дату этого месяца. Напишите так: «8 октября», «8 и 15 октября» или «08.10».'
+        : 'Без даты (или дата скрыта) — в календарь месяца не попадёт.';
+    }
+    draw();
+    setTimeout(function () { var row = h.previousSibling; if (row) { row.addEventListener('input', draw); row.addEventListener('change', draw); } }, 0);
+    return h;
+  }
+  function monthCalFields(sc, c, cb) {
+    var cal = c.monthCal, ym = scYM(sc) || { y: 2026, m: 1 };
+    cal.days = cal.days || []; cal.freeHide = cal.freeHide || [];
+    var cards = (sc.cards || []).filter(function (x) { return x !== c && x.visible !== false; });
+    function cardName(x) { var f = x.front || {}; return f.title || f.eyebrow || x.id; }
+    var data = { routes: DATA.routes, settings: DATA.settings, formats: DATA.formats, showcase: sc };
+    // Что календарь видит сам: маршруты с датами и даты встреч
+    var seen = el('div', { class: 'a-calseen' });
+    function drawSeen() {
+      var L = [];
+      cards.forEach(function (x) {
+        if (x.interactive === false || !x.back || x.back.type === 'static') return;
+        var b = window.M13.toBlocks(x.back), r = b.routeId ? routeById(b.routeId) : null;
+        if (r && r.dates && r.dates.from && r.dates.to) L.push(el('li', {}, [el('i', { class: 'a-calbar', style: 'background:' + window.M13.routeTone(r) }), r.title + ' — ' + fmtDates(r.dates)]));
+        if (b.stub && b.stub.on) return;
+        var ds = [];
+        (b.blocks || []).forEach(function (k) {
+          if (k.kind !== 'items' || k.visible === false) return;
+          (k.items || []).forEach(function (it) { if (it.visible !== false) window.M13.calDaysIn(optVal(it.date), ym).forEach(function (d) { if (ds.indexOf(d) < 0) ds.push(d); }); });
+        });
+        if (ds.length) L.push(el('li', {}, [el('i', { class: 'a-caldot' }), '«' + cardName(x) + '»: встречи ' + ds.sort(function (a, b) { return a - b; }).join(', ') + ' ' + MON_GEN[ym.m - 1]]));
+      });
+      seen.replaceChildren(L.length ? el('ul', { class: 'a-callist' }, L) : el('p', { class: 'a-empty', text: 'Пока ни одной даты: у маршрутов карточек нет дат, у плашек — дат этого месяца.' }));
+    }
+    drawSeen();
+    // Особые дни: дата, подпись, в какую карточку летит звезда
+    var targets = [['', '— ни в какую, только точка —']].concat(cards.filter(function (x) { return x.interactive !== false && x.back && x.back.type !== 'static'; })
+      .map(function (x) { return [x.id, cardName(x)]; }));
+    var days = collection(cal.days, {
+      title: function (d) { var p = (d.date || '').split('-'); return [p.length === 3 ? +p[2] + ' ' + MON_GEN[+p[1] - 1] : 'Без даты', d.label].filter(Boolean).join(' · '); },
+      body: function (d) {
+        return [el('div', { class: 'a-row' }, [textIn(d, 'date', 'Дата', { type: 'date' }), textIn(d, 'label', 'Подпись', { ph: 'Портальный день' })]),
+          selectIn(d, 'cardId', 'Звезда летит в карточку', targets, { hint: 'Например, в «Свечи»: в портальные дни их изготавливают.' })];
+      },
+      make: function () { return { id: uid('cd'), date: ym.y + '-' + pad(ym.m) + '-01', label: cal.days.length ? (cal.days[cal.days.length - 1].label || '') : 'Портальный день', cardId: cal.days.length ? cal.days[cal.days.length - 1].cardId || '' : '' }; },
+      onChange: function () { drawFree(); },
+      addLabel: '+ Добавить особый день', empty: 'Пока нет. Например, портальные дни — сиреневая точка, звезда летит в карточку «Свечи».'
+    });
+    // Карточки без дат — строкой внизу календаря; любую можно убрать
+    var freeBox = el('div', { class: 'a-calfree' });
+    function drawFree() {
+      var auto = window.M13.calFree({ monthCal: Object.assign({}, cal, { freeHide: [] }) }, data);
+      var list = cards.filter(function (x) { return auto.indexOf(x.id) >= 0; });
+      freeBox.replaceChildren();
+      if (!list.length) { freeBox.appendChild(el('p', { class: 'a-empty', text: 'Все открывающиеся карточки уже есть в календаре по датам.' })); return; }
+      list.forEach(function (x) {
+        var o = { v: cal.freeHide.indexOf(x.id) < 0 };
+        freeBox.appendChild(switchIn(o, 'v', cardName(x), { onChange: function (on) {
+          var i = cal.freeHide.indexOf(x.id);
+          if (on && i >= 0) cal.freeHide.splice(i, 1); if (!on && i < 0) cal.freeHide.push(x.id); changed(); } }));
+      });
+    }
+    drawFree();
+    return [
+      el('p', { class: 'a-hint', text: 'Маленькая карточка выглядит как обычно — картинка или стекло и надписи из «Лицевой стороны». ' +
+        'При нажатии открывается сетка месяца. Даты вводить второй раз не нужно: маршруты берутся из раздела «Маршруты», встречи — из даты на плашке («8 октября»). ' +
+        'Нажатие на число — календарь складывается в свою карточку, и звёзды летят в карточки этого дня.' }),
+      el('div', { class: 'a-row' }, [textIn(cal, 'eyebrow', 'Надпись сверху', { ph: 'Календарь' }), textIn(cal, 'title', 'Заголовок', { ph: sc.title || '' })]),
+      textIn(cal, 'hint', 'Подсказка под заголовком', { ph: 'Нажмите на число — звёзды покажут, что в этот день.' }),
+      switchIn(cal, 'noHint', 'Не показывать подсказку'),
+      sub('Что календарь нашёл сам'), seen,
+      sub('Особые дни'), days,
+      el('div', { class: 'a-row' }, [textIn(cal, 'meetLabel', 'Подпись к точкам встреч', { ph: 'Встречи' }), textIn(cal, 'specialLabel', 'Подпись к особым дням', { ph: 'Особые дни' })]),
+      sub('Карточки без дат'),
+      textIn(cal, 'freeLabel', 'Подпись строки', { ph: 'Когда удобно — по договорённости:' }),
+      el('p', { class: 'a-hint', text: 'Открывающиеся карточки, у которых нет дат в этом месяце, стоят строкой внизу календаря. Выключите те, что там не нужны.' }),
+      freeBox,
+      colorOptIn(cal, 'starColor', 'Цвет звёзд', { none: 'золотой', base: '#f1cf78', pick: '#f1cf78' }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть календарь', onclick: function () { openPreview('showcase', sc.id, c.id); } })
     ];
   }
 
@@ -1390,7 +1484,8 @@
     c.front = c.front || {};
     delete c._backs;
     var f = c.front;
-    var interactive = c.interactive !== false && c.back && c.back.type && c.back.type !== 'static';
+    var isCal = !!(c.monthCal && c.monthCal.on);
+    var interactive = !isCal && c.interactive !== false && c.back && c.back.type && c.back.type !== 'static';
     var out = [
       el('div', { class: 'a-formhead' }, [
         el('button', { type: 'button', class: 'a-btn a-btn--small a-toMap', text: '← К сетке', onclick: function () { ST.mobileForm = false; renderMain(); } }),
@@ -1401,13 +1496,22 @@
       ]),
       el('div', { class: 'a-card', style: 'display:flex;flex-direction:column;gap:12px' }, [
         switchIn(c, 'visible', 'Показывать на витрине', { defTrue: true, hint: 'Если выключить, на этом месте будет пустая аккуратная клетка — сетка не сдвинется.', onChange: cb.redrawGrid }),
-        switchIn({ v: interactive }, 'v', 'Карточка открывается и переворачивается', {
-          hint: 'Все карточки одинаковые — и центральная тоже. Включите, и у карточки появятся оборот, заглушка, кнопки. Выключите — она просто показывает текст, а оборот сохраняется.',
-          onChange: function (on) {
-            c.interactive = on;
-            if (on && (!c.back || !c.back.type || c.back.type === 'static')) c.back = c._back || presetBack('simple');
-            if (!on && c.back && c.back.type !== 'static') { c._back = c.back; c.back = { type: 'static' }; }
-            if (on) delete c._back;
+        selectIn({ v: isCal ? 'cal' : interactive ? 'open' : 'plain' }, 'v', 'Что делает карточка',
+          [['plain', 'Просто показывает текст'], ['open', 'Открывается и переворачивается'], ['cal', 'Календарь месяца']], {
+          hint: 'Все карточки одинаковые — и центральная тоже. «Открывается» — у карточки появятся оборот, заглушка, кнопки. ' +
+            '«Календарь месяца» — при нажатии открывается сетка месяца с маршрутами, встречами и особыми днями. Оборот при переключении не теряется.',
+          onChange: function (v) {
+            if (v === 'cal') {
+              c.monthCal = Object.assign({ days: [], freeHide: [] }, c.monthCal || {}, { on: true });
+              if (!f.eyebrow && (!f.title || /^Карточка \d+$/.test(f.title))) { f.eyebrow = 'Календарь'; f.title = sc.title || ''; }
+            } else {
+              if (c.monthCal) c.monthCal.on = false;
+              var on = v === 'open';
+              c.interactive = on;
+              if (on && (!c.back || !c.back.type || c.back.type === 'static')) c.back = c._back || presetBack('simple');
+              if (!on && c.back && c.back.type !== 'static') { c._back = c.back; c.back = { type: 'static' }; }
+              if (on) delete c._back;
+            }
             changed(); cb.redrawAll();
           } })
       ]),
@@ -1425,6 +1529,7 @@
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false })
     ];
+    if (isCal) out.push(block('Календарь месяца', monthCalFields(sc, c, cb)));
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
     if (interactive) out.push(block('Оборот', backBlocksForm(c, cb)));
     out.push(block('Скопировать оформление', [copyStyleBox(sc, i, cb)], { open: false, note: 'без текстов — только вид' }));
@@ -2301,7 +2406,7 @@
       var v = o[k];
       if (k.charAt(0) === '_') return;
       if (v && typeof v === 'object' && !Array.isArray(v) && v.show === false) return;
-      if ((k === 'phase' || k === 'calendar') && v && typeof v === 'object' && !v.on) return;
+      if ((k === 'phase' || k === 'calendar' || k === 'monthCal') && v && typeof v === 'object' && !v.on) return;
       out[k] = cleanDeep(v);
     });
     return out;

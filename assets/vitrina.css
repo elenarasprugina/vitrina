@@ -877,3 +877,67 @@ body.m13-locked{overflow:hidden}
 @media (prefers-reduced-motion:reduce){ .m13-cover,.m13-rv{transition:none} .m13-cover:hover,.m13-rv:hover{transform:none} }
 .m13-tabs[style="--n:1"]{grid-template-columns:auto;justify-content:start}
 .m13-tabs[style="--n:1"] .m13-tab{padding-left:22px;padding-right:22px}
+
+/* ================= Календарь месяца (вид карточки) ================= */
+/* Открывается сразу сеткой: без лицевой стороны и кнопки «перевернуть» */
+.m13-big-card.m13-noanim{transition:none}
+.m13-calmode ~ .m13-unflip{display:none !important}
+.m13-cal{display:flex;flex-direction:column;gap:10px;min-height:100%}
+.m13-cal-head h3{margin:2px 0 0;font-size:24px;line-height:1.1}
+.m13-cal-hint{margin-top:4px;font-size:12px;opacity:.7}
+.m13-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:4px}
+.m13-cal-wd{padding:2px 0 4px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.6}
+.m13-cal-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;padding:4px 0 5px;
+  border:0;background:none;color:inherit;font:inherit;cursor:pointer;border-radius:10px}
+.m13-cal-day:not(:disabled):hover{background:color-mix(in srgb,currentColor 8%,transparent)}
+.m13-cal-day:disabled{cursor:default}
+.m13-cal-n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-size:15px;font-variant-numeric:tabular-nums}
+.m13-cal-day.is-empty .m13-cal-n{opacity:.55}
+.m13-cal-day.is-past{opacity:.42}
+.m13-cal-day.is-today .m13-cal-n{box-shadow:inset 0 0 0 1.2px currentColor;font-weight:700}
+/* Полоса маршрута под числами — сплошная через дни, скругления в начале и конце */
+.m13-cal-bars{display:flex;flex-direction:column;gap:2px;width:100%;min-height:4px}
+.m13-cal-bars i{display:block;height:4px;background:var(--c);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
+.m13-cal-bars i.m13-s{margin-left:5px;border-top-left-radius:3px;border-bottom-left-radius:3px}
+.m13-cal-bars i.m13-e{margin-right:5px;border-top-right-radius:3px;border-bottom-right-radius:3px}
+.m13-cal-dots{display:flex;gap:4px;min-height:6px}
+.m13-cal-m,.m13-cal-sp{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.m13-cal-m{background:#e0b64e;box-shadow:0 0 5px rgba(224,182,78,.8)}
+.m13-cal-sp{background:#b48ee0;box-shadow:0 0 5px rgba(180,142,224,.8)}
+.m13-cal-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;opacity:.85}
+.m13-cal-legend span{display:inline-flex;align-items:center;gap:6px}
+.m13-lg-bar{display:inline-block;width:18px;height:4px;border-radius:3px;background:var(--c);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
+.m13-cal-free{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:auto;padding-top:10px;border-top:1px solid color-mix(in srgb,currentColor 18%,transparent);font-size:12.5px}
+.m13-cal-free-l{opacity:.75;margin-right:2px}
+.m13-cal-chip{border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:999px;background:transparent;color:inherit;font:inherit;padding:5px 11px;cursor:pointer}
+.m13-cal-chip:hover{border-color:currentColor}
+.m13-bs-lg .m13-cal{zoom:1.08}.m13-bs-xl .m13-cal{zoom:1.16}
+/* Звезда и искры */
+.m13-star,.m13-spark{position:fixed;left:0;top:0;z-index:130;pointer-events:none;border-radius:50%}
+.m13-star{width:10px;height:10px;margin:-5px 0 0 -5px;background:#fff;
+  box-shadow:0 0 4px 2px var(--m13-star),0 0 14px 6px var(--m13-star),0 0 30px 10px color-mix(in srgb,var(--m13-star) 45%,transparent)}
+.m13-star::before,.m13-star::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:1.5px;margin:-.75px 0 0 -17px;
+  background:linear-gradient(90deg,transparent,#fff 50%,transparent);border-radius:1px}
+.m13-star::after{transform:rotate(90deg)}
+.m13-spark{width:5px;height:5px;margin:-2.5px 0 0 -2.5px;background:#fff;box-shadow:0 0 6px 2px var(--m13-star)}
+/* Карточки дня: вспышка и мягкая подсветка до следующего нажатия */
+.m13-grid .m13-thumb.m13-lit{z-index:3;animation:none;
+  box-shadow:0 0 0 1.5px var(--m13-star),0 0 26px 6px color-mix(in srgb,var(--m13-star) 50%,transparent)}
+.m13-grid .m13-thumb.m13-lit.m13-hit{animation:m13-hit 1s ease-out}
+@keyframes m13-hit{
+  0%{transform:scale(1);filter:brightness(1)}
+  18%{transform:scale(1.05);filter:brightness(1.35);box-shadow:0 0 0 2px var(--m13-star),0 0 60px 20px var(--m13-star)}
+  100%{transform:scale(1);filter:brightness(1)}
+}
+@media (max-width:680px){
+  .m13-cal{gap:8px}
+  .m13-cal-head h3{font-size:21px}
+  .m13-cal-day{min-height:44px;padding:2px 0 4px;gap:2px}
+  .m13-cal-n{width:26px;height:26px;font-size:13.5px}
+  .m13-cal-wd{font-size:10px}
+  .m13-cal-legend{font-size:11px;gap:4px 10px}
+  .m13-cal-free{font-size:11.5px;padding-top:8px}
+  .m13-cal-chip{padding:4px 9px}
+  .m13-star::before,.m13-star::after{width:26px;margin-left:-13px}
+}
+@media (prefers-reduced-motion:reduce){ .m13-grid .m13-thumb.m13-lit.m13-hit{animation:none} }

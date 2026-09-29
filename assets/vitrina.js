@@ -230,7 +230,7 @@
 
   function findCard(id) {
     return (S.D.showcase.cards || []).filter(function (c) {
-      return c.id === id && c.visible !== false && c.interactive !== false && c.back && c.back.type !== 'static';
+      return c.id === id && c.visible !== false && (isCalCard(c) || (c.interactive !== false && c.back && c.back.type !== 'static'));
     })[0] || null;
   }
 
@@ -417,7 +417,7 @@
     var sty = styleOf(c, !!f.image);
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
     var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '');
-    var isStatic = c.interactive === false || !c.back || c.back.type === 'static';
+    var isStatic = !isCalCard(c) && (c.interactive === false || !c.back || c.back.type === 'static');
     var sub = opt(f.subtitle), foot = opt(f.foot);
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
@@ -504,16 +504,22 @@
     if (blay) back.insertAdjacentHTML('beforeend', blay);
 
     S.acts = [];
-    var backc = S.root.querySelector('#m13-backc');
-    backc.innerHTML = backHTML(c);
+    var backc = S.root.querySelector('#m13-backc'), isCal = isCalCard(c);
+    backc.innerHTML = isCal ? calHTML(c) : backHTML(c);
     bindActs(backc);
+    if (isCal) calBind(backc, c);
     backc.querySelectorAll('[data-m13-lb]').forEach(function (b) {
       b.addEventListener('click', function (e) {
         e.stopPropagation(); var p = b.getAttribute('data-m13-lb').split(':'); openLightbox(+p[0], +p[1]);
       });
     });
 
-    S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
+    // Календарь месяца открывается сразу сеткой (без лицевой стороны и переворота)
+    big.classList.toggle('m13-calmode', isCal);
+    if (isCal) {
+      calUnlight();
+      big.classList.add('m13-noanim', 'is-flipped'); void big.offsetWidth; big.classList.remove('m13-noanim');
+    } else big.classList.remove('is-flipped');
     S.root.querySelector('#m13-overlay').classList.add('is-open');
     evenRows(backc);
     // Поворот телефона, смена ширины окна, догрузка шрифта — выровнять заново
@@ -547,6 +553,9 @@
   }
   M13.evenRows = evenRows;
   function closeCardNow() {
+    var ov = S.root.querySelector('#m13-overlay');
+    ov.getAnimations && ov.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); });
+    ov.style.visibility = '';
     S.root.querySelector('#m13-overlay').classList.remove('is-open');
     S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     lock(false); S.card = null;
@@ -556,6 +565,191 @@
     openCard(id);
     if (flipped && S.card) S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
   };
+
+  /* ---------- Календарь месяца — вид карточки ----------
+     card.monthCal = {on, meetLabel, specialLabel, freeLabel, freeHide:[id карточки], days:[{id, date, label, cardId}], starColor}.
+     Даты не вводятся дважды: маршруты — даты маршрутов карточек, встречи — текст даты плашек («08 октября»),
+     особые дни (порталы) — свой список. Нажатие на число: календарь складывается в свою карточку,
+     из неё летят звёзды в карточки этого дня; они вспыхивают и остаются подсвеченными до следующего раза. */
+  function isCalCard(c) { return !!(c && c.monthCal && c.monthCal.on); }
+  M13.isCalCard = isCalCard;
+  var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  var MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  function monOf(w) {
+    w = String(w || '').toLowerCase();
+    var P = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    for (var i = 0; i < 12; i++) if (i === 4 ? /^ма[йя]$/.test(w) : w.indexOf(P[i]) === 0) return i + 1;
+    return 0;
+  }
+  // Числа месяца из текста даты плашки: «08 октября», «8 и 15 октября», «8–10 окт», «с 8 по 10 октября», «08.10», «08.10.2026».
+  // Возвращает дни, попадающие в месяц ym = {y, m}.
+  M13.calDaysIn = function (text, ym) {
+    var t = String(text || '').toLowerCase().replace(/ё/g, 'е'), out = [];
+    function add(d, m, y) { if (m === ym.m && (!y || y === ym.y || y === ym.y % 100) && d >= 1 && d <= new Date(ym.y, ym.m, 0).getDate() && out.indexOf(d) < 0) out.push(d); }
+    var re = /((?:\d{1,2}\s*(?:,|и|по|–|—|-)\s*)*\d{1,2})\s*([а-я]{3,})(?:\s+(\d{4}))?/g, m;
+    while ((m = re.exec(t))) {
+      var mon = monOf(m[2]); if (!mon) continue;
+      var parts = m[1].split(/\s*(,|и|по|–|—|-)\s*/), prev = null, range = false;
+      parts.forEach(function (x) {
+        if (/^\d+$/.test(x)) { var d = +x; if (range && prev) { for (var k = prev + 1; k <= d; k++) add(k, mon, +m[3] || 0); } else add(d, mon, +m[3] || 0); prev = d; range = false; }
+        else range = /[–—-]|по/.test(x);
+      });
+    }
+    var re2 = /(^|[^\d:])(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?![\d:])/g;
+    while ((m = re2.exec(t))) add(+m[2], +m[3], m[4] ? +m[4] : 0);
+    return out.sort(function (a, b) { return a - b; });
+  };
+  function calYM() {
+    var sc = S.D.showcase || {}, k = /^(\d{4})-(\d{2})/.exec(sc.id || '') || /^(\d{4})-(\d{2})/.exec((sc.period || {}).from || '');
+    var n = today(); return k ? { y: +k[1], m: +k[2] } : { y: n.getFullYear(), m: n.getMonth() + 1 };
+  }
+  M13.calMonthName = function (ym) { return MONTHS_NOM[ym.m - 1] + ' ' + ym.y; };
+  // Цвет маршрута в календаре: свой (route.color) или по названию — синий, жёлтый, красный, белый
+  function routeTone(r) {
+    if (r.color) return r.color;
+    var t = String(r.title || '').toLowerCase().replace(/ё/g, 'е');
+    return /син/.test(t) ? '#4f7fd0' : /желт/.test(t) ? '#e3b53a' : /красн/.test(t) ? '#d25a45' : /бел/.test(t) ? '#f3efe6' : '#9a8fb8';
+  }
+  M13.routeTone = routeTone;
+  function calModel(cal) {
+    var ym = calYM(), n = new Date(ym.y, ym.m, 0).getDate(), days = {}, routes = [], dated = {}, i;
+    for (i = 1; i <= n; i++) days[i] = { routes: [], meets: [], special: [], cards: [] };
+    function hit(d, key, x, cardId) { var o = days[d]; if (!o) return; o[key].push(x); if (cardId && o.cards.indexOf(cardId) < 0) o.cards.push(cardId); if (cardId) dated[cardId] = true; }
+    var cards = (S.D.showcase.cards || []).filter(function (c) { return c && c.visible !== false && !isCalCard(c); });
+    cards.forEach(function (c) {
+      if (c.interactive === false || !c.back || c.back.type === 'static') return;
+      var b = M13.toBlocks(c.back), r = b.routeId ? routeById(b.routeId) : null, rd = r && r.dates;
+      var from = rd && parseDate(rd.from), to = rd && parseDate(rd.to);
+      if (from && to) {
+        var any = false;
+        for (i = 1; i <= n; i++) {
+          var dt = new Date(ym.y, ym.m - 1, i);
+          if (dt >= from && dt <= to) { any = true; hit(i, 'routes', { id: r.id, color: routeTone(r), title: r.title, start: +dt === +from, end: +dt === +to }, c.id); }
+        }
+        if (any) routes.push({ title: r.title, color: routeTone(r) });
+      }
+      if (b.stub && b.stub.on) return;
+      (b.blocks || []).forEach(function (x) {
+        if (x.kind !== 'items' || x.visible === false) return;
+        (x.items || []).forEach(function (it) {
+          if (!it || it.visible === false) return;
+          M13.calDaysIn(opt(it.date), ym).forEach(function (d) { hit(d, 'meets', { title: it.title || '' }, c.id); });
+        });
+      });
+    });
+    var ids = cards.map(function (c) { return c.id; });
+    (cal.days || []).forEach(function (x) {
+      var dt = parseDate(x.date); if (!dt || dt.getFullYear() !== ym.y || dt.getMonth() + 1 !== ym.m) return;
+      hit(dt.getDate(), 'special', { title: x.label || '' }, ids.indexOf(x.cardId) >= 0 ? x.cardId : '');
+    });
+    // Карточки без дат (открывающиеся) — строкой «Когда удобно — по договорённости»
+    var hide = cal.freeHide || [];
+    var free = cards.filter(function (c) {
+      return c.interactive !== false && c.back && c.back.type !== 'static' && !dated[c.id] && hide.indexOf(c.id) < 0;
+    });
+    return { ym: ym, n: n, days: days, routes: routes, free: free };
+  }
+  M13.calFree = function (c, data) {
+    var keep = S.D; if (data) S.D = data;
+    try { return calModel(c.monthCal || {}).free.map(function (x) { return x.id; }); } finally { S.D = keep; }
+  };
+  function calStar(cal) { return (cal && cal.starColor) || '#f1cf78'; }
+  function calHTML(c) {
+    var cal = c.monthCal || {}, M = calModel(cal), ym = M.ym;
+    var t0 = today(), wd = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    var first = (new Date(ym.y, ym.m - 1, 1).getDay() + 6) % 7, h = '';
+    for (var p = 0; p < first; p++) h += '<span class="m13-cal-pad" aria-hidden="true"></span>';
+    for (var d = 1; d <= M.n; d++) {
+      var o = M.days[d], dt = new Date(ym.y, ym.m - 1, d), col = (first + d - 1) % 7;
+      var cls = 'm13-cal-day' + (dt < t0 ? ' is-past' : '') + (+dt === +t0 ? ' is-today' : '') + (o.cards.length ? '' : ' is-empty');
+      var say = [d + ' ' + MONTHS_GEN[ym.m - 1]].concat(o.routes.map(function (r) { return r.title; }), o.meets.map(function (x) { return x.title; }),
+        o.special.map(function (x) { return x.title; })).filter(Boolean).join(' · ');
+      var bars = o.routes.slice(0, 2).map(function (r) {
+        return '<i style="--c:' + esc(r.color) + '" class="' + ((r.start || col === 0 || d === 1) ? 'm13-s' : '') + ((r.end || col === 6 || d === M.n) ? ' m13-e' : '') + '"></i>';
+      }).join('');
+      h += '<button type="button" class="' + cls + '" data-day="' + d + '" title="' + esc(say) + '" aria-label="' + esc(say) + '"' + (o.cards.length ? '' : ' disabled') + '>' +
+        '<span class="m13-cal-n">' + d + '</span><span class="m13-cal-bars">' + bars + '</span>' +
+        '<span class="m13-cal-dots">' + (o.meets.length ? '<i class="m13-cal-m"></i>' : '') + (o.special.length ? '<i class="m13-cal-sp"></i>' : '') + '</span></button>';
+    }
+    var hasM = M.days && Object.keys(M.days).some(function (k) { return M.days[k].meets.length; });
+    var hasS = Object.keys(M.days).some(function (k) { return M.days[k].special.length; });
+    var legend = M.routes.map(function (r) { return '<span><i class="m13-lg-bar" style="--c:' + esc(r.color) + '"></i>' + esc(r.title) + '</span>'; }).join('') +
+      (hasM ? '<span><i class="m13-cal-m"></i>' + esc(cal.meetLabel || 'Встречи') + '</span>' : '') +
+      (hasS ? '<span><i class="m13-cal-sp"></i>' + esc(cal.specialLabel || 'Особые дни') + '</span>' : '');
+    var free = M.free.length ? '<div class="m13-cal-free"><span class="m13-cal-free-l">' + esc(cal.freeLabel || 'Когда удобно — по договорённости:') + '</span>' +
+      M.free.map(function (x) { return '<button type="button" class="m13-cal-chip" data-to="' + esc(x.id) + '">' + esc((x.front || {}).title || '') + '</button>'; }).join('') + '</div>' : '';
+    return '<div class="m13-cal" style="--m13-star:' + esc(calStar(cal)) + '">' +
+      '<div class="m13-cal-head"><div class="m13-eyebrow">' + esc(cal.eyebrow || 'Календарь') + '</div>' +
+      '<h3>' + esc(cal.title || M13.calMonthName(ym)) + '</h3>' + (cal.noHint ? '' : '<div class="m13-cal-hint">' + esc(cal.hint || 'Нажмите на число — звёзды покажут, что в этот день.') + '</div>') + '</div>' +
+      '<div class="m13-cal-grid">' + wd.map(function (x) { return '<span class="m13-cal-wd">' + x + '</span>'; }).join('') + h + '</div>' +
+      (legend ? '<div class="m13-cal-legend">' + legend + '</div>' : '') + free + '</div>';
+  }
+  function calBind(scope, c) {
+    var M = calModel(c.monthCal || {});
+    scope.querySelectorAll('.m13-cal-day[data-day]').forEach(function (b) {
+      b.addEventListener('click', function () { var o = M.days[+b.getAttribute('data-day')]; if (o && o.cards.length) calFly(c, o.cards); });
+    });
+    scope.querySelectorAll('.m13-cal-chip[data-to]').forEach(function (b) {
+      b.addEventListener('click', function () { calFly(c, [b.getAttribute('data-to')]); });
+    });
+  }
+  function thumbOf(id) { return S.root.querySelector('.m13-grid [data-card="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); }
+  function calUnlight() {
+    if (S.calTimers) S.calTimers.forEach(clearTimeout);
+    S.calTimers = [];
+    S.root.querySelectorAll('.m13-lit').forEach(function (n) { n.classList.remove('m13-lit', 'm13-hit'); n.style.removeProperty('--m13-star'); });
+    S.root.querySelectorAll('.m13-star,.m13-spark').forEach(function (n) { n.remove(); });
+  }
+  function calFly(c, ids) {
+    var col = calStar(c.monthCal), from = thumbOf(c.id);
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var ov = S.root.querySelector('#m13-overlay'), stage = S.root.querySelector('.m13-big-stage');
+    function light(t) {
+      t.style.setProperty('--m13-star', col);
+      t.classList.remove('m13-hit'); void t.offsetWidth;
+      t.classList.add('m13-lit', 'm13-hit');
+    }
+    function launch() {
+      ids.map(thumbOf).filter(Boolean).forEach(function (t, i) {
+        if (reduce || !from || !from.animate) { light(t); return; }
+        S.calTimers.push(setTimeout(function () { flyStar(from, t, col, function () { light(t); }); }, i * 180));
+      });
+    }
+    calUnlight();
+    if (reduce || !from || !stage.animate) { ov.style.visibility = 'hidden'; closeTop(); launch(); return; }
+    // Календарь складывается в свою маленькую карточку
+    var R = stage.getBoundingClientRect(), T = from.getBoundingClientRect();
+    var m0 = getComputedStyle(stage).transform, ty0 = 0;
+    try { ty0 = new DOMMatrix(m0 === 'none' ? undefined : m0).m42; } catch (e) {}
+    var dx = (T.left + T.width / 2) - (R.left + R.width / 2), dy = (T.top + T.height / 2) - (R.top + R.height / 2) + ty0;
+    var a = stage.animate([{ transform: m0 === 'none' ? 'none' : m0, opacity: 1 },
+      { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + (T.width / R.width) + ',' + (T.height / R.height) + ')', opacity: .35 }],
+      { duration: 460, easing: 'cubic-bezier(.55,.05,.4,1)', fill: 'forwards' });
+    ov.animate([{ backgroundColor: getComputedStyle(ov).backgroundColor }, { backgroundColor: 'rgba(0,0,0,0)' }], { duration: 460, fill: 'forwards' });
+    a.onfinish = function () { ov.style.visibility = 'hidden'; closeTop(); launch(); };
+  }
+  // Звезда летит по дуге из карточки a в карточку b, за ней — 7 искр
+  function flyStar(a, b, col, done) {
+    var A = a.getBoundingClientRect(), B = b.getBoundingClientRect();
+    var x0 = A.left + A.width / 2, y0 = A.top + A.height / 2, x1 = B.left + B.width / 2, y1 = B.top + B.height / 2;
+    var dist = Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+    var cx = (x0 + x1) / 2 - (y1 - y0) * .25, cy = Math.min(y0, y1) - Math.max(50, dist * .35);
+    var kf = [];
+    for (var i = 0; i <= 24; i++) {
+      var t = i / 24, u = 1 - t;
+      var x = u * u * x0 + 2 * u * t * cx + t * t * x1, y = u * u * y0 + 2 * u * t * cy + t * t * y1;
+      kf.push({ transform: 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (0.7 + Math.sin(t * Math.PI) * .7).toFixed(2) + ')' });
+    }
+    var dur = Math.max(620, Math.min(1100, 480 + dist * .9)), opt2 = { duration: dur, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' };
+    function dot(cls, delay, k) {
+      var n = document.createElement('i'); n.className = cls; n.style.setProperty('--m13-star', col); S.root.appendChild(n);
+      var an = n.animate(kf.map(function (f, j) { return { transform: f.transform + (k ? ' scale(' + k + ')' : ''), opacity: k ? (1 - j / 24) * .9 : 1 }; }), Object.assign({}, opt2, { delay: delay }));
+      an.onfinish = function () { n.remove(); };
+      return an;
+    }
+    for (var s2 = 1; s2 <= 7; s2++) dot('m13-spark', s2 * 26, (1 - s2 / 9).toFixed(2));
+    dot('m13-star', 0, 0).addEventListener('finish', done);
+  }
 
   /* ---------- Оборот: общее ---------- */
   function headHTML(c, extraMeta) {
