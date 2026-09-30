@@ -1311,7 +1311,7 @@ body.m13-locked{overflow:hidden}
 .m13-gl{--gl-i:clamp(6px,calc(2.6 * var(--u)),16px);--gl-k:1;position:absolute;box-sizing:border-box;display:flex;flex-direction:column;gap:clamp(2px,calc(.9 * var(--u)),7px);overflow:hidden;
   max-height:calc(100% - 2 * var(--gl-i));padding:clamp(6px,calc(3.2 * var(--u)),22px) clamp(8px,calc(4 * var(--u)),28px);border-radius:clamp(8px,calc(2.2 * var(--u)),14px);
   color:var(--gl-c,#ecd3a3);background:var(--gl-bg,rgba(20,14,10,.3));-webkit-backdrop-filter:blur(var(--gl-b,8px)) saturate(1.2);backdrop-filter:blur(var(--gl-b,8px)) saturate(1.2);
-  text-align:left;line-height:1.15;text-shadow:0 1px 10px rgba(0,0,0,.3);font-style:normal}
+  text-align:left;line-height:1.15;text-shadow:0 1px 10px var(--gl-sh,rgba(0,0,0,.3));font-style:normal}
 .m13-gl-sz-s{--gl-k:.84}
 .m13-gl-sz-l{--gl-k:1.2}
 .m13-gl-top{font-size:clamp(7.5px,calc(2.3 * var(--u) * var(--gl-k)),13px);font-weight:600;letter-spacing:.2em;text-transform:uppercase;opacity:.92}
@@ -1338,9 +1338,45 @@ body.m13-locked{overflow:hidden}
 .m13-gl--center{left:50%;top:50%;width:70%;transform:translate(-50%,-50%)}
 .m13-gl--full{inset:var(--gl-i);justify-content:center}
 /* контур */
-.m13-gl-rim-line{border:1px solid color-mix(in srgb,var(--gl-c) 42%,transparent)}
-.m13-gl-rim-glow{border:1px solid color-mix(in srgb,var(--gl-c) 78%,transparent);
-  box-shadow:0 0 16px color-mix(in srgb,var(--gl-c) 45%,transparent),inset 0 0 14px color-mix(in srgb,var(--gl-c) 20%,transparent)}
+.m13-gl-rim-line{border:1px solid color-mix(in srgb,var(--gl-rc,var(--gl-c)) 42%,transparent)}
+.m13-gl-rim-glow{border:1px solid color-mix(in srgb,var(--gl-rc,var(--gl-c)) 78%,transparent);
+  box-shadow:0 0 16px color-mix(in srgb,var(--gl-rc,var(--gl-c)) 45%,transparent),inset 0 0 14px color-mix(in srgb,var(--gl-rc,var(--gl-c)) 20%,transparent)}
+/* свой цвет контура — ярче */
+.m13-gl-rcs.m13-gl-rim-line{border-color:color-mix(in srgb,var(--gl-rc) 88%,transparent)}
+/* подложка: без стекла (только текст) или только рамка */
+.m13-gl-bk-none,.m13-gl-bk-rim{background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-gl-bk-none{border:0 !important;box-shadow:none !important}
+/* тень у букв: нет / мягкая (обычно) / сильная */
+.m13-gl-sh-none{text-shadow:none}
+.m13-gl-sh-strong{text-shadow:0 0 2px var(--gl-sh),0 1px 12px var(--gl-sh),0 0 26px var(--gl-sh)}
+/* девять точек: надпись по ширине текста (или своя ширина) */
+.m13-gl--pt{--gl-o:clamp(8px,calc(4 * var(--u)),48px);width:var(--gl-w,max-content);max-width:calc(100% - 2 * var(--gl-o));max-height:calc(100% - 2 * var(--gl-o))}
+.m13-gl--tl{left:var(--gl-o);top:var(--gl-o)}
+.m13-gl--tc{left:50%;top:var(--gl-o);transform:translateX(-50%)}
+.m13-gl--tr{right:var(--gl-o);top:var(--gl-o)}
+.m13-gl--ml{left:var(--gl-o);top:50%;transform:translateY(-50%)}
+.m13-gl--mc{left:50%;top:50%;transform:translate(-50%,-50%)}
+.m13-gl--mr{right:var(--gl-o);top:50%;transform:translateY(-50%)}
+.m13-gl--bl{left:var(--gl-o);bottom:var(--gl-o)}
+.m13-gl--bc{left:50%;bottom:var(--gl-o);transform:translateX(-50%)}
+.m13-gl--br{right:var(--gl-o);bottom:var(--gl-o)}
+/* свои строки: у каждой свой шрифт, толщина, курсив, размер, цвет; отступ и тонкая линия перед строкой */
+.m13-gl--own{gap:0}
+.m13-gl-r{display:block;line-height:1.12;overflow-wrap:break-word}
+.m13-gl-r--xs{font-size:clamp(7px,calc(1.9 * var(--u) * var(--gl-k)),12px);line-height:1.3}
+.m13-gl-r--s{font-size:clamp(8.5px,calc(2.6 * var(--u) * var(--gl-k)),16px);line-height:1.3}
+.m13-gl-r--m{font-size:clamp(10px,calc(3.6 * var(--u) * var(--gl-k)),24px);line-height:1.22}
+.m13-gl-r--l{font-size:clamp(12px,calc(5.4 * var(--u) * var(--gl-k)),36px)}
+.m13-gl-r--xl{font-size:clamp(13px,calc(7.6 * var(--u) * var(--gl-k)),52px);line-height:1.02}
+.m13-gl-r--xxl{font-size:clamp(15px,calc(10 * var(--u) * var(--gl-k)),68px);line-height:.98}
+.m13-gl-r--caps{text-transform:uppercase;letter-spacing:.24em}
+.m13-gl-g-s{margin-top:calc(.7 * var(--u))}
+.m13-gl-g-m{margin-top:calc(1.5 * var(--u))}
+.m13-gl-g-l{margin-top:calc(2.8 * var(--u))}
+.m13-gl-r--line{margin-top:calc(1.2 * var(--u));padding-top:calc(1.1 * var(--u));border-top:1px solid color-mix(in srgb,var(--gl-rc,var(--gl-c)) 60%,transparent)}
+.m13-gl-r--line.m13-gl-g-m{margin-top:calc(1.8 * var(--u))}
+.m13-gl-r--line.m13-gl-g-l{margin-top:calc(3 * var(--u))}
+.m13-gl-r-mk{margin-top:calc(1 * var(--u))}
 .m13-gl--band.m13-gl-rim-line,.m13-gl--band.m13-gl-rim-glow{border-width:1px 0 0}
 /* главная картинка на странице события: рамка по размеру самой картинки, стекло — поверх неё */
 .m13-fig-img.m13-gl-fig{position:relative;width:fit-content;max-width:100%;margin:0 auto;border-radius:10px;overflow:hidden}

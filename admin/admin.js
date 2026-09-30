@@ -2163,6 +2163,67 @@
   var GL_ALIGN_OPTS = [['', 'Само (по центру — у «по центру» и «на всю»)'], ['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']];
   var GL_MARK_OPTS = [['', 'Нет'], ['dandelion', 'Одуванчик'], ['logo', 'Логотип 13 MIRRORS']];
   var GL_FIT_OPTS = [['', 'По тексту'], ['even', 'Одинаковая у всех в ряду']];
+  var GL_PT_OPTS = [['tl', 'Точка: сверху слева'], ['tc', 'Точка: сверху по центру'], ['tr', 'Точка: сверху справа'], ['ml', 'Точка: по центру слева'],
+    ['mc', 'Точка: в самом центре'], ['mr', 'Точка: по центру справа'], ['bl', 'Точка: снизу слева'], ['bc', 'Точка: снизу по центру'], ['br', 'Точка: снизу справа']];
+  var GL_WIDTH_OPTS = [['', 'По тексту'], ['s', 'Узкая (треть картинки)'], ['m', 'Средняя (половина)'], ['l', 'Широкая'], ['f', 'Во всю ширину']];
+  var GL_BACK_OPTS = [['', 'Стекло'], ['none', 'Без стекла — текст прямо на картинке'], ['rim', 'Только рамка']];
+  var GL_SHADOW_OPTS = [['', 'Мягкая'], ['strong', 'Сильная'], ['none', 'Без тени']];
+  var GL_ROW_SIZE_OPTS = [['xs', 'Совсем мелко'], ['s', 'Мелко'], ['m', 'Средне'], ['l', 'Крупно'], ['xl', 'Очень крупно'], ['xxl', 'Огромно']];
+  var GL_GAP_OPTS = [['', 'Без отступа'], ['s', 'Маленький'], ['m', 'Средний'], ['l', 'Большой']];
+  // Вставки для своих строк — какие есть у каждого вида
+  var GL_TOKENS = {
+    event: [['название', 'название'], ['тип', 'тип: Встреча…'], ['дата', 'дата и время'], ['место', 'место'], ['цена', 'цена']],
+    route: [['маршрут', 'маршрут'], ['даты', 'даты маршрута'], ['день', '«День 1 · …»'], ['кин', 'кин'], ['название', 'название']],
+    kin: [['название', 'архетип'], ['кин', 'строка Kin']]
+  };
+  // С чего начинаются свои строки (потом всё можно поменять)
+  function glassRowsStart(kind) {
+    var id = function () { return uid('gr'); };
+    if (kind === 'event') return [
+      { id: id(), text: '{тип}', size: 'xs', caps: true, weight: 'light', font: 'Montserrat' },
+      { id: id(), text: '{название}', size: 'xl', weight: 'bold' },
+      { id: id(), text: '{дата} · {место}', size: 's', line: true, gap: 'm', font: 'Montserrat' }];
+    if (kind === 'kin') return [{ id: id(), text: '{название}', size: 'l' }];
+    return [
+      { id: id(), text: 'Маршрут · {даты}', size: 'xs', caps: true, weight: 'light', font: 'Montserrat' },
+      { id: id(), text: '{маршрут}', size: 'xl' },
+      { id: id(), text: '{день}', size: 's', gap: 's' }];
+  }
+  // Редактор своих строк: до 6, у каждой текст со вставками, шрифт, толщина, курсив, размер, цвет, прописные, отступ, линия
+  function glassRowsFields(g, kind) {
+    var box = el('div', { class: 'a-gl-rows' });
+    g.rows = g.rows || [];
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Слова в фигурных скобках подставляются сами из полей — у каждого ' +
+          (kind === 'event' ? 'события' : kind === 'kin' ? 'карты' : 'маршрута и примера') + ' свои. Пустая вставка не оставляет лишних «·».' }),
+        collection(g.rows, { ordered: false, visible: true, max: 6, title: function (r) { return r.text || 'Пустая строка'; },
+          make: function () { return { id: uid('gr'), text: '', size: 'm' }; }, addLabel: '+ Добавить строку', onChange: draw,
+          body: function (r) {
+            var chips = el('div', { class: 'a-gl-tokens' }, [el('span', { class: 'a-hint', text: 'Вставить:' })].concat(GL_TOKENS[kind].map(function (t) {
+              return el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: t[1], onclick: function () {
+                r.text = (String(r.text || '').replace(/\s+$/, '') + (r.text ? ' ' : '') + '{' + t[0] + '}'); changed(); draw(); } });
+            })));
+            return [
+              textIn(r, 'text', 'Текст строки', { ph: kind === 'event' ? 'Встреча · {дата}' : 'Свои слова и вставки' }),
+              chips,
+              el('div', { class: 'a-row3' }, [
+                fontLook(selectIn(r, 'font', 'Шрифт', [['', 'Как у всей надписи']].concat((window.M13.FONTS || []).map(function (f) { return [f, f]; })), { def: '' })),
+                selectIn(r, 'weight', 'Толщина', GL_W_OPTS, { def: 'normal' }),
+                selectIn(r, 'size', 'Размер', GL_ROW_SIZE_OPTS, { def: 'm' })]),
+              el('div', { class: 'a-row3' }, [switchIn(r, 'italic', 'Курсив'), switchIn(r, 'caps', 'Прописными, с разрядкой'),
+                selectIn(r, 'gap', 'Отступ перед строкой', GL_GAP_OPTS, { def: '' })]),
+              el('div', { class: 'a-row' }, [
+                colorOptIn(r, 'color', 'Цвет строки', { inh: function () { return g.color || '#ecd3a3'; }, inhLabel: 'как у всей надписи' }),
+                switchIn(r, 'line', 'Тонкая линия над строкой', { hint: 'Цветом контура. У первой строки не рисуется.' })])
+            ];
+          } })
+      ]);
+    }
+    draw();
+    return box;
+  }
   /* Виды картинок со стеклом: 'event' — события (events.look.imgGlass, item.glass); 'route' — картинки маршрутов: примеры дней,
      Летописи, маршруты в архиве (sandbox.look.imgGlass, route.glass); 'kin' — Карты-Отражения (reflection.look.imgGlass, item.glass). */
   var GL_KINDS = {
@@ -2236,27 +2297,41 @@
         el('div', { class: 'a-row' }, [switchIn(g, 'day', '«День 1 · …» (у примеров дней)', { defTrue: true }), switchIn(g, 'kin', 'Кин', { defTrue: true })])];
     }
     function draw() {
+      var own = g.write === 'own', back = g.back || '', pt = !!(window.M13.GLASS_PT || {})[g.pos];
       box.replaceChildren();
-      add(box, [glassDemo(g, getS, kind), sub('Что написано на стекле')].concat(lines(), [
+      add(box, [glassDemo(g, getS, kind), sub('Что написано на стекле'),
+        selectIn(g, 'write', 'Как писать', [['', 'Само — строки из полей, как сейчас'], ['own', 'Свои строки — свой шрифт, толщина, курсив, размер у каждой']], { def: '', onChange: function (v) {
+          if (v === 'own' && !(g.rows && g.rows.length)) {
+            g.rows = glassRowsStart(kind);
+            // у афиш событий свои строки начинаются без стекла — текст прямо на картинке
+            if (kind === 'event' && !g.back) { g.back = 'none'; if (!g.pos || !(window.M13.GLASS_PT || {})[g.pos]) g.pos = 'tl'; }
+          }
+          changed(); redraw(); } })].concat(own ? [glassRowsFields(g, kind)] : lines(), [
         selectIn(g, 'mark', 'Маленький значок', GL_MARK_OPTS, { def: '' }),
-        switchIn(g, 'extraOn', 'Ещё строка — свой текст', { onChange: redraw }),
-        g.extraOn ? textIn(g, 'extra', 'Ещё строка', { ph: kind === 'event' ? 'Ведущая — Елена Распругина' : 'Created with you. For you.' }) : null,
-        sub('Стекло'),
-        el('div', { class: 'a-row' }, [selectIn(g, 'pos', 'Где стекло', GL_POS_OPTS, { def: kind === 'event' ? 'bottom' : 'band' }),
-          selectIn(g, 'tint', 'Оттенок стекла', GL_TINT_OPTS, { def: 'dark', onChange: redraw })]),
-        g.tint === 'own' ? colorOptIn(g, 'tintColor', 'Цвет стекла', { pick: '#1c2a3a', none: 'не выбран — тёмный' }) : null,
-        el('div', { class: 'a-row' }, [
+        own ? null : switchIn(g, 'extraOn', 'Ещё строка — свой текст', { onChange: redraw }),
+        !own && g.extraOn ? textIn(g, 'extra', 'Ещё строка', { ph: kind === 'event' ? 'Ведущая — Елена Распругина' : 'Created with you. For you.' }) : null,
+        sub('Где надпись и подложка'),
+        el('div', { class: 'a-row' }, [selectIn(g, 'pos', 'Где', GL_POS_OPTS.concat(GL_PT_OPTS), { def: kind === 'event' ? 'bottom' : 'band', onChange: redraw,
+            hint: '«Точка» — надпись в углу, у края или в центре, шириной по тексту.' }),
+          pt ? selectIn(g, 'width', 'Ширина надписи', GL_WIDTH_OPTS, { def: '' }) : el('span')]),
+        el('div', { class: 'a-row' }, [selectIn(g, 'back', 'Подложка', GL_BACK_OPTS, { def: '', onChange: redraw }),
+          selectIn(g, 'shadow', 'Тень у букв', GL_SHADOW_OPTS, { def: '', hint: 'Под тёмным текстом тень светлая, под светлым — тёмная. Без стекла помогает читать надпись на картинке.' })]),
+        back ? null : el('div', { class: 'a-row' }, [selectIn(g, 'tint', 'Оттенок стекла', GL_TINT_OPTS, { def: 'dark', onChange: redraw }),
+          g.tint === 'own' ? colorOptIn(g, 'tintColor', 'Цвет стекла', { pick: '#1c2a3a', none: 'не выбран — тёмный' }) : el('span')]),
+        back ? null : el('div', { class: 'a-row' }, [
           rangeIn(g, 'glass', 'Прозрачность стекла', { max: 100, step: 5, unit: '%', def: 70, hint: 'Больше — прозрачнее, сквозь стекло видна картинка. 60–80% — надпись читается.' }),
           rangeIn(g, 'blur', 'Размытие за стеклом', { max: 20, unit: ' px', def: 8 })]),
-        el('div', { class: 'a-row' }, [selectIn(g, 'rim', 'Контур', GL_RIM_OPTS, { def: 'line' }),
-          selectIn(g, 'fit', 'Высота стекла', GL_FIT_OPTS, { def: '', hint: 'По тексту — длинное название делает стекло выше. Одинаковая — в ряду обложек все стёкла одной высоты (по самому высокому), текст посередине.' })]),
+        back === 'none' ? null : el('div', { class: 'a-row' }, [selectIn(g, 'rim', 'Контур', back === 'rim' ? GL_RIM_OPTS.slice(1) : GL_RIM_OPTS, { def: 'line' }),
+          colorOptIn(g, 'rimColor', 'Цвет контура и линий', { none: 'как цвет текста', pick: '#b8893a' })]),
+        back === 'none' && own ? colorOptIn(g, 'rimColor', 'Цвет линий между строками', { none: 'как цвет текста', pick: '#b8893a' }) : null,
+        selectIn(g, 'fit', 'Высота стекла', GL_FIT_OPTS, { def: '', hint: 'По тексту — длинное название делает стекло выше. Одинаковая — в ряду обложек все стёкла одной высоты (по самому высокому), текст посередине.' }),
         sub('Текст'),
         el('div', { class: 'a-row' }, [
-          fontIn(g, 'font', 'Шрифт названия', (window.M13.FONTS || []).map(function (f) { return [f, f]; }), null, 'PRO МАК · Свет внутри · 13 MIRRORS'),
-          selectIn(g, 'weight', 'Толщина букв названия', GL_W_OPTS, { def: 'normal', hint: 'Если у шрифта нет такой толщины — будет обычная.' })]),
+          fontIn(g, 'font', own ? 'Шрифт всей надписи' : 'Шрифт названия', (window.M13.FONTS || []).map(function (f) { return [f, f]; }), null, 'PRO МАК · Свет внутри · 13 MIRRORS'),
+          own ? el('span') : selectIn(g, 'weight', 'Толщина букв названия', GL_W_OPTS, { def: 'normal', hint: 'Если у шрифта нет такой толщины — будет обычная.' })]),
         el('div', { class: 'a-row3' }, [
           colorOptIn(g, 'color', 'Цвет текста', { base: '#ecd3a3', none: 'золотистый' }),
-          selectIn(g, 'size', 'Размер текста', GL_SIZE_OPTS, { def: 'm' }),
+          selectIn(g, 'size', own ? 'Размер всей надписи' : 'Размер текста', GL_SIZE_OPTS, { def: 'm' }),
           selectIn(g, 'align', 'Выравнивание', GL_ALIGN_OPTS, { def: '' })])
       ]));
     }
@@ -2340,25 +2415,33 @@
     if (max && lines.length > max) { lines = lines.slice(0, max); lines[max - 1] = lines[max - 1].replace(/\s*\S*$/, '') + '…'; }
     return lines;
   }
-  // kind — 'event' | 'days' | 'chronicles' | 'route' | 'kin'; x — событие, пример, маршрут или карта
+  // kind — 'event' | 'days' | 'chronicles' | 'route' | 'kin'; x — событие, пример, маршрут или карта.
+  // Рисует то же, что на сайте: строки «само» или свои строки, место (края, полоса, девять точек), подложку, контур, тень у букв.
   function glassCanvas(kind, x, g, D) {
-    var M = window.M13, DEF = M.GLASS_DEF, W = SHARE_SIZE[0], H = SHARE_SIZE[1];
+    var M = window.M13, DEF = M.GLASS_DEF, W = SHARE_SIZE[0], H = SHARE_SIZE[1], PT = M.GLASS_PT || {};
     function v(k) { return g[k] == null || g[k] === '' ? DEF[k] : g[k]; }
-    var L = M.glassLinesOf(kind, x, g, D), font = v('font'), color = g.color || DEF.color, tint = v('tint');
-    var pos = g.pos || M.GLASS_POS_DEF[kind] || DEF.pos, src = M.glassFor(kind, x, D).img;
+    var L = M.glassLinesOf(kind, x, g, D), own = M.glassRowsOf(kind, x, g, D), font = v('font'), color = g.color || DEF.color, tint = v('tint');
+    var pos = g.pos || M.GLASS_POS_DEF[kind] || DEF.pos, pt = PT[pos] ? pos : '', src = M.glassFor(kind, x, D).img;
+    var back = g.back === 'none' || g.back === 'rim' ? g.back : 'glass', rimK = v('rim');
+    if (back === 'rim' && rimK === 'none') rimK = 'line';
+    var rimC = /^#[0-9a-f]{6}$/i.test(g.rimColor || '') ? g.rimColor : '';
     var rgb = tint === 'own' ? [1, 3, 5].map(function (i) { return parseInt((g.tintColor || '#141414').substr(i, 2), 16); }).join(',')
       : { light: '255,255,255', dark: '20,14,10', gold: '236,211,163' }[tint] || '20,14,10';
     var pageFont = ((kind === 'days' || kind === 'chronicles' ? D.sandbox : kind === 'kin' ? D.reflection : D.events) || {}).look;
     pageFont = (pageFont || {}).font || '';
-    var W8 = { light: 300, normal: 400, semi: 600, bold: 700 }[v('weight')] || 400;
-    if (M.fontCaps(font).w.indexOf(W8) < 0) W8 = 400;
-    [font, pageFont].forEach(function (f) { if (f) M.ensureFont(f); });
+    var WN = { light: 300, normal: 400, semi: 600, bold: 700 };
+    function wOf(f, w) { var n = WN[w] || 400; return M.fontCaps(f).w.indexOf(n) >= 0 ? n : 400; }
+    var W8 = wOf(font, v('weight'));
     var fam = function (f) { return f ? "'" + f + "', Georgia, serif" : 'Georgia, serif'; };
-    var fontsReady = document.fonts && document.fonts.load ? Promise.all([
-      document.fonts.load(W8 + ' 40px ' + fam(font), 'Аб'), document.fonts.load('600 20px ' + fam(pageFont), 'Аб'), document.fonts.load('400 20px ' + fam(pageFont), 'Аб')
-    ]).catch(function () {}) : Promise.resolve();
+    var loads = [[font, W8, false], [pageFont, 600, false], [pageFont, 400, false]];
+    (own || []).forEach(function (r) { var f = r.font || font; loads.push([f, wOf(f, r.weight), !!r.italic && M.fontCaps(f).it]); });
+    loads.forEach(function (l) { if (l[0]) M.ensureFont(l[0]); });
+    var fontsReady = document.fonts && document.fonts.load ? Promise.all(loads.map(function (l) {
+      return document.fonts.load((l[2] ? 'italic ' : '') + l[1] + ' 40px ' + fam(l[0]), 'Аб');
+    })).catch(function () {}) : Promise.resolve();
     var markP = g.mark === 'dandelion' ? loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(M.dandSVG('logo').replace(/currentColor/g, color).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="124" ')))
       : g.mark === 'logo' ? loadImg(D.settings.logo ? imgSrc(D.settings.logo) : '../assets/logo.png') : Promise.resolve(null);
+    function hexL(h) { h = /^#[0-9a-f]{6}$/i.test(h || '') ? h : '#ecd3a3'; return 0.299 * parseInt(h.substr(1, 2), 16) + 0.587 * parseInt(h.substr(3, 2), 16) + 0.114 * parseInt(h.substr(5, 2), 16); }
     return Promise.all([loadImg(imgSrc(src)), fontsReady, markP.catch(function () { return null; })]).then(function (r) {
       var img = r[0], mk = r[2], c = document.createElement('canvas'); c.width = W; c.height = H;
       var ctx = c.getContext('2d'), iw = img.naturalWidth, ih = img.naturalHeight;
@@ -2372,64 +2455,102 @@
       // размеры — как на сайте (vitrina.css, .m13-gl), но крупнее: превью в Telegram показывают уменьшенным
       var s = 1.55, u = Math.max(R.w / 100, 0.75 * R.h / 100), gk = { s: 0.84, l: 1.2 }[g.size] || 1;
       function cl(a, x, b) { return Math.max(a * s, Math.min(b * s, x * s)); }
-      var ins = cl(6, 2.6 * u, 16), padY = cl(6, 3.2 * u, 22), padX = cl(8, 4 * u, 28), rad = cl(8, 2.2 * u, 14), gap = cl(2, 0.9 * u, 7);
+      var ins = cl(6, 2.6 * u, 16), off = cl(8, 4 * u, 48), padY = cl(6, 3.2 * u, 22), padX = cl(8, 4 * u, 28), rad = cl(8, 2.2 * u, 14), gap = cl(2, 0.9 * u, 7);
       var side = pos === 'left' || pos === 'right';
       var fTop = cl(7.5, 2.3 * u * gk, 13), fT = side ? cl(11, 4.6 * u * gk, 34) : cl(12, 7.4 * u * gk, 50), fD = cl(9, 3 * u * gk, 18), fX = cl(10, 3.4 * u * gk, 21);
-      var bw = pos === 'band' ? R.w : side ? R.w * 0.44 : pos === 'center' ? R.w * 0.7 : R.w - 2 * ins, tw = bw - 2 * padX;
-      var al = g.align || (pos === 'center' || pos === 'full' ? 'center' : 'left');
+      var maxW = pt ? R.w - 2 * off : pos === 'band' ? R.w : side ? R.w * 0.44 : pos === 'center' ? R.w * 0.7 : R.w - 2 * ins;
+      var WID = { s: 0.36, m: 0.5, l: 0.7 };
+      var bw = pt ? (g.width === 'f' ? R.w - 2 * off : WID[g.width] ? R.w * WID[g.width] : maxW) : maxW, tw = bw - 2 * padX;
+      var al = g.align || (pt ? PT[pt] : pos === 'center' || pos === 'full' ? 'center' : 'left');
       var mkW = mk ? (g.mark === 'logo' ? fD * 1.15 * mk.naturalWidth / mk.naturalHeight : fD * 2.1 * 100 / 124) : 0, mkH = mk ? (g.mark === 'logo' ? fD * 1.15 : fD * 2.1) : 0;
       var rows = [];
-      if (L.top) { ctx.font = '600 ' + fTop + 'px ' + fam(pageFont); rows.push({ f: ctx.font, size: fTop, lines: glassWrap(ctx, L.top.toUpperCase(), tw, 2), ls: 0.2, a: 0.92 }); }
-      if (L.title) { ctx.font = W8 + ' ' + fT + 'px ' + fam(font); rows.push({ f: ctx.font, size: fT, lh: 1.05, lines: glassWrap(ctx, L.title, tw, 3) }); }
-      if (L.meta.length || mk) {
-        ctx.font = '400 ' + fD + 'px ' + fam(pageFont);
-        var ml = L.meta.length ? glassWrap(ctx, L.meta.join(' · '), tw - (mk ? mkW + fD * 0.6 : 0), 3) : [];
-        rows.push({ f: ctx.font, size: fD, lh: 1.3, lines: ml, mark: true, a: 0.96, h: Math.max(ml.length * fD * 1.3, mkH) });
+      if (own) {
+        var RS = M.GLASS_ROW, GP = M.GLASS_GAP;
+        own.forEach(function (rw, i) {
+          var f = rw.font || font, z = RS[rw.size] || RS.m, size = cl(z[1], z[0] * u * gk, z[2]), it = !!rw.italic && M.fontCaps(f).it;
+          ctx.font = (it ? 'italic ' : '') + wOf(f, rw.weight) + ' ' + size + 'px ' + fam(f);
+          if ('letterSpacing' in ctx) ctx.letterSpacing = rw.caps ? (size * 0.24) + 'px' : '0px';
+          var lh = rw.size === 'xs' || rw.size === 's' ? 1.3 : rw.size === 'm' ? 1.22 : rw.size === 'xxl' ? 0.98 : rw.size === 'xl' ? 1.02 : 1.12;
+          var line = !!rw.line && i > 0, top = i ? (GP[rw.gap] || 0) * u * s + (line ? 1.2 * u * s : 0) : 0;
+          rows.push({ f: ctx.font, size: size, lh: lh, ls: rw.caps ? 0.24 : 0, color: /^#[0-9a-f]{6}$/i.test(rw.color || '') ? rw.color : '',
+            lines: glassWrap(ctx, rw.caps ? rw.text.toUpperCase() : rw.text, tw, 4), top: top, line: line, lpad: line ? 1.1 * u * s : 0 });
+        });
+        if (mk) rows.push({ mark: true, lines: [], size: fD, h: mkH, top: u * s });
+      } else {
+        if (L.top) { ctx.font = '600 ' + fTop + 'px ' + fam(pageFont); if ('letterSpacing' in ctx) ctx.letterSpacing = (fTop * 0.2) + 'px'; rows.push({ f: ctx.font, size: fTop, lines: glassWrap(ctx, L.top.toUpperCase(), tw, 2), ls: 0.2, a: 0.92 }); }
+        if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+        if (L.title) { ctx.font = W8 + ' ' + fT + 'px ' + fam(font); rows.push({ f: ctx.font, size: fT, lh: 1.05, lines: glassWrap(ctx, L.title, tw, 3) }); }
+        if (L.meta.length || mk) {
+          ctx.font = '400 ' + fD + 'px ' + fam(pageFont);
+          var ml = L.meta.length ? glassWrap(ctx, L.meta.join(' · '), tw - (mk ? mkW + fD * 0.6 : 0), 3) : [];
+          rows.push({ f: ctx.font, size: fD, lh: 1.3, lines: ml, mark: true, a: 0.96, h: Math.max(ml.length * fD * 1.3, mkH) });
+        }
+        if (L.extra) { ctx.font = 'italic 400 ' + fX + 'px ' + fam(font); rows.push({ f: ctx.font, size: fX, lh: 1.25, lines: glassWrap(ctx, L.extra, tw, 3) }); }
+        rows.forEach(function (w, i) { if (i) w.top = gap; });
       }
-      if (L.extra) { ctx.font = 'italic 400 ' + fX + 'px ' + fam(font); rows.push({ f: ctx.font, size: fX, lh: 1.25, lines: glassWrap(ctx, L.extra, tw, 3) }); }
-      rows.forEach(function (w) { if (w.h == null) w.h = w.lines.length * w.size * (w.lh || 1.15); });
-      var ch = rows.reduce(function (a, w) { return a + w.h; }, 0) + gap * Math.max(0, rows.length - 1);
-      var fixed = side || pos === 'full', bh = fixed ? R.h - 2 * ins : Math.min(ch + 2 * padY, pos === 'band' ? R.h : R.h - 2 * ins);
-      var bx = pos === 'band' ? R.x : pos === 'right' ? R.x + R.w - ins - bw : pos === 'center' ? R.x + (R.w - bw) / 2 : R.x + ins;
-      var by = pos === 'top' || fixed ? R.y + ins : pos === 'center' ? R.y + (R.h - bh) / 2 : pos === 'band' ? R.y + R.h - bh : R.y + R.h - ins - bh;
+      function widthOf(w) {
+        ctx.font = w.f || ctx.font; if ('letterSpacing' in ctx) ctx.letterSpacing = w.ls ? (w.size * w.ls) + 'px' : '0px';
+        return w.lines.reduce(function (m, l) { return Math.max(m, ctx.measureText(l).width); }, 0) + (w.mark && mk ? (w.lines.length ? fD * 0.6 : 0) + mkW : 0);
+      }
+      rows.forEach(function (w) { if (w.h == null) w.h = w.lines.length * w.size * (w.lh || 1.15) + (w.lpad || 0); w.top = w.top || 0; });
+      // «по тексту» у девяти точек — ширина по самой длинной строке
+      if (pt && !g.width) { bw = Math.min(maxW, rows.reduce(function (m, w) { return Math.max(m, widthOf(w)); }, 0) + 2 * padX); tw = bw - 2 * padX; }
+      var ch = rows.reduce(function (a, w) { return a + w.h + w.top; }, 0);
+      var fixed = side || pos === 'full', bh = fixed ? R.h - 2 * ins : Math.min(ch + 2 * padY, pos === 'band' ? R.h : R.h - 2 * (pt ? off : ins));
+      var col = pt ? PT[pt] : '', row = pt ? pt.charAt(0) : '';
+      var bx = pt ? (col === 'left' ? R.x + off : col === 'right' ? R.x + R.w - off - bw : R.x + (R.w - bw) / 2)
+        : pos === 'band' ? R.x : pos === 'right' ? R.x + R.w - ins - bw : pos === 'center' ? R.x + (R.w - bw) / 2 : R.x + ins;
+      var by = pt ? (row === 't' ? R.y + off : row === 'b' ? R.y + R.h - off - bh : R.y + (R.h - bh) / 2)
+        : pos === 'top' || fixed ? R.y + ins : pos === 'center' ? R.y + (R.h - bh) / 2 : pos === 'band' ? R.y + R.h - bh : R.y + R.h - ins - bh;
       var r0 = pos === 'band' ? 0 : rad;
       function box() { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, r0); else ctx.rect(bx, by, bw, bh); }
-      // стекло: размытая картинка под ним, оттенок, контур
-      ctx.save(); box(); ctx.clip();
-      var bl = Math.max(0, Math.min(24, +v('blur'))) * s;
-      if (bl) { ctx.filter = 'blur(' + bl + 'px) saturate(1.2)'; ctx.drawImage(img, R.x, R.y, R.w, R.h); ctx.filter = 'none'; }
-      ctx.fillStyle = 'rgba(' + rgb + ',' + ((100 - Math.max(0, Math.min(100, +v('glass')))) / 100) + ')'; ctx.fillRect(bx, by, bw, bh);
-      ctx.restore();
-      var rim = v('rim');
-      if (rim !== 'none') {
-        ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.globalAlpha = rim === 'glow' ? 0.78 : 0.42;
-        if (rim === 'glow') { ctx.shadowColor = color; ctx.shadowBlur = 22; }
+      var lineC = rimC || color;
+      // подложка: стекло (размытая картинка под ним и оттенок) — или ничего
+      if (back === 'glass') {
+        ctx.save(); box(); ctx.clip();
+        var bl = Math.max(0, Math.min(24, +v('blur'))) * s;
+        if (bl) { ctx.filter = 'blur(' + bl + 'px) saturate(1.2)'; ctx.drawImage(img, R.x, R.y, R.w, R.h); ctx.filter = 'none'; }
+        ctx.fillStyle = 'rgba(' + rgb + ',' + ((100 - Math.max(0, Math.min(100, +v('glass')))) / 100) + ')'; ctx.fillRect(bx, by, bw, bh);
+        ctx.restore();
+      }
+      if (back !== 'none' && rimK !== 'none') {
+        ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = lineC; ctx.globalAlpha = rimK === 'glow' ? 0.78 : rimC ? 0.88 : 0.42;
+        if (rimK === 'glow') { ctx.shadowColor = lineC; ctx.shadowBlur = 22; }
         if (pos === 'band') { ctx.beginPath(); ctx.moveTo(bx, by + 1); ctx.lineTo(bx + bw, by + 1); ctx.stroke(); } else { box(); ctx.stroke(); }
         ctx.restore();
       }
-      // текст
-      ctx.save(); box(); ctx.clip();
-      ctx.fillStyle = color; ctx.textBaseline = 'top'; ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1;
+      // текст; тень у букв — светлая под тёмным текстом, тёмная под светлым
+      ctx.save(); if (back !== 'none') { box(); ctx.clip(); }
+      var shC = hexL(color) < 110 ? 'rgba(255,248,235,.6)' : 'rgba(0,0,0,.34)', shK = g.shadow === 'none' ? 0 : g.shadow === 'strong' ? 18 : 10;
+      ctx.textBaseline = 'top'; ctx.shadowColor = shC; ctx.shadowBlur = shK; ctx.shadowOffsetY = shK ? 1 : 0;
       var y = fixed ? (pos === 'full' ? by + (bh - ch) / 2 : by + bh - padY - ch) : by + padY;
-      function tx(line, w, x0) { return al === 'center' ? x0 + (tw - w) / 2 : al === 'right' ? x0 + tw - w : x0; }
+      if (!fixed && g.fit === 'even') y = by + (bh - ch) / 2;
+      function tx(w, x0) { return al === 'center' ? x0 + (tw - w) / 2 : al === 'right' ? x0 + tw - w : x0; }
       rows.forEach(function (w) {
-        ctx.font = w.f; ctx.globalAlpha = w.a || 1;
+        y += w.top;
+        if (w.line) {
+          ctx.save(); ctx.shadowBlur = 0; ctx.globalAlpha = 0.6; ctx.strokeStyle = lineC; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(bx + padX, y); ctx.lineTo(bx + padX + tw, y); ctx.stroke(); ctx.restore();
+          y += w.lpad;
+        }
+        ctx.fillStyle = w.color || color; ctx.globalAlpha = w.a || 1;
+        if (w.f) ctx.font = w.f;
         if ('letterSpacing' in ctx) ctx.letterSpacing = w.ls ? (w.size * w.ls) + 'px' : '0px';
-        var lh = w.size * (w.lh || 1.15), x0 = bx + padX;
+        var lh = w.size * (w.lh || 1.15), x0 = bx + padX, hh = w.h - (w.lpad || 0);
         if (w.mark) {
           var widest = w.lines.reduce(function (m, l) { return Math.max(m, ctx.measureText(l).width); }, 0);
-          var full = widest + (mk ? (widest ? fD * 0.6 : 0) + mkW : 0), sx = tx('', full, x0), ty = y + (w.h - w.lines.length * lh) / 2;
-          w.lines.forEach(function (l, i) { ctx.fillText(l, w.lines.length > 1 ? tx(l, ctx.measureText(l).width, x0) : sx, ty + i * lh); });
+          var full = widest + (mk ? (widest ? fD * 0.6 : 0) + mkW : 0), sx = tx(full, x0), ty = y + (hh - w.lines.length * lh) / 2;
+          w.lines.forEach(function (l, i) { ctx.fillText(l, w.lines.length > 1 ? tx(ctx.measureText(l).width, x0) : sx, ty + i * lh); });
           if (mk) {
-            var mx = sx + full - mkW, my = y + (w.h - mkH) / 2;
+            var mx = sx + full - mkW, my = y + (hh - mkH) / 2;
             if (g.mark === 'logo') {   // логотип — только очертания, цветом текста
               var o = document.createElement('canvas'); o.width = Math.ceil(mkW * 2); o.height = Math.ceil(mkH * 2);
               var oc = o.getContext('2d'); oc.drawImage(mk, 0, 0, o.width, o.height); oc.globalCompositeOperation = 'source-in'; oc.fillStyle = color; oc.fillRect(0, 0, o.width, o.height);
               ctx.drawImage(o, mx, my, mkW, mkH);
             } else ctx.drawImage(mk, mx, my, mkW, mkH);
           }
-        } else w.lines.forEach(function (l, i) { ctx.fillText(l, tx(l, ctx.measureText(l).width, x0), y + i * lh); });
-        y += w.h + gap;
+        } else w.lines.forEach(function (l, i) { ctx.fillText(l, tx(ctx.measureText(l).width, x0), y + i * lh); });
+        y += hh;
       });
       ctx.restore();
       return c;
