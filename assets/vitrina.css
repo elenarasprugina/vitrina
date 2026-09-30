@@ -197,7 +197,7 @@ body.m13-locked{overflow:hidden}
 .m13-placeholder{flex:1;min-height:110px;margin-bottom:10px;border:1px dashed #bdbdbd;border-radius:10px;display:grid;place-items:center;
   color:#8a8a8a;font-size:11px;text-align:center;padding:8px}
 .m13-example strong{font-size:13px}
-.m13-example span{margin-top:3px;color:#666;font-size:11px;line-height:1.35}
+.m13-example span:not(.m13-gl-box):not(.m13-gl-box *){margin-top:3px;color:#666;font-size:11px;line-height:1.35}
 .m13-examples-cta{margin-top:16px;max-width:360px}
 
 /* ---------- Телефон ---------- */
@@ -676,7 +676,7 @@ body.m13-locked{overflow:hidden}
 .m13-look .m13-quote{border-left-color:var(--lk-ac)}
 /* Примеры Карт-Отражений */
 .m13-look .m13-example{background:var(--lk-pan);border-color:var(--lk-line);color:var(--lk-tx);-webkit-backdrop-filter:blur(var(--m13-gb,8px));backdrop-filter:blur(var(--m13-gb,8px))}
-.m13-look .m13-example span{color:var(--lk-soft)}
+.m13-look .m13-example span:not(.m13-gl-box):not(.m13-gl-box *){color:var(--lk-soft)}
 .m13-look .m13-placeholder{border-color:var(--lk-line);color:var(--lk-mut)}
 .m13-look .m13-examples-cta .m13-action--primary{background:var(--lk-ac);border-color:var(--lk-ac);color:var(--lk-ac-ink) !important}
 /* Оборот-заглушка «скоро» */
@@ -708,7 +708,7 @@ body.m13-locked{overflow:hidden}
 .m13-standalone .m13-quote{font-size:calc(17.5px * var(--m13-tk,1));line-height:1.6}
 .m13-standalone .m13-sign{font-size:11.5px}
 .m13-standalone .m13-example strong{font-size:calc(17px * var(--m13-tk,1))}
-.m13-standalone .m13-example span{font-size:calc(14px * var(--m13-tk,1));line-height:1.45}
+.m13-standalone .m13-example span:not(.m13-gl-box):not(.m13-gl-box *){font-size:calc(14px * var(--m13-tk,1));line-height:1.45}
 .m13-standalone .m13-placeholder{font-size:calc(12.5px * var(--m13-tk,1))}
 /* Кнопка заказа на странице «Примеры»: по центру, внизу экрана, всегда под рукой */
 .m13-standalone .m13-examples-cta{position:sticky;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:5;
@@ -725,7 +725,7 @@ body.m13-locked{overflow:hidden}
   .m13-standalone .m13-practice{font-size:calc(15px * var(--m13-tk,1))}
   .m13-standalone .m13-quote{font-size:calc(16.5px * var(--m13-tk,1))}
   .m13-standalone .m13-example strong{font-size:calc(15.5px * var(--m13-tk,1))}
-  .m13-standalone .m13-example span{font-size:calc(13px * var(--m13-tk,1))}
+  .m13-standalone .m13-example span:not(.m13-gl-box):not(.m13-gl-box *){font-size:calc(13px * var(--m13-tk,1))}
   .m13-standalone .m13-examples-cta{width:100%}
 }
 
@@ -928,9 +928,9 @@ body.m13-locked{overflow:hidden}
 .m13-read-img{flex-shrink:0;width:190px;height:190px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:zoom-in;background:none}
 .m13-read-img img{display:block;width:100%;height:100%;object-fit:cover}
 /* Обложка целиком: картинка вписана полностью, по бокам — она же, размытая и увеличенная */
-:is(.m13-cover-img,.m13-read-img).m13-fit-whole{position:relative}
-:is(.m13-cover-img,.m13-read-img).m13-fit-whole img{position:relative;object-fit:contain}
-:is(.m13-cover-img,.m13-read-img).m13-fit-whole img.m13-fit-bg{position:absolute;inset:0;object-fit:cover;filter:blur(14px) saturate(1.1);transform:scale(1.25);opacity:.85}
+:is(.m13-cover-img,.m13-read-img,.m13-ex-img).m13-fit-whole{position:relative}
+:is(.m13-cover-img,.m13-read-img,.m13-ex-img).m13-fit-whole img{position:relative;object-fit:contain}
+:is(.m13-cover-img,.m13-read-img,.m13-ex-img).m13-fit-whole img.m13-fit-bg{position:absolute;inset:0;object-fit:cover;filter:blur(14px) saturate(1.1);transform:scale(1.25);opacity:.85}
 .m13-read-share{margin-top:10px}
 .m13-read-share .m13-action{width:auto;padding:9px 18px}
 /* В оформленной странице — как остальные кнопки внутри плашки (События, архив): прозрачная, рамка и надпись цветом текста */
@@ -1345,3 +1345,18 @@ body.m13-locked{overflow:hidden}
 /* главная картинка на странице события: рамка по размеру самой картинки, стекло — поверх неё */
 .m13-fig-img.m13-gl-fig{position:relative;width:fit-content;max-width:100%;margin:0 auto;border-radius:10px;overflow:hidden}
 .m13-fig-img.m13-gl-fig > img{width:auto;max-width:100%;height:auto;max-height:560px;border-radius:0}
+/* «Одинаковая высота у всех»: высоту задаёт evenGlass (по самой высокой плашке в сетке), текст — посередине плашки */
+.m13-gl-even:not(.m13-gl--left):not(.m13-gl--right):not(.m13-gl--full){justify-content:center}
+/* Страница примера дня / маршрута в архиве со стеклом: картинка крупно вместо шапки */
+.m13-read-glass{margin-bottom:12px}
+.m13-read-glass > .m13-block--gallery{margin:0}
+.m13-read-glass > .m13-panel-meta{margin:8px 0 0;justify-content:center}
+/* Карта-Отражение: картинка нажимается (крупно, целиком); со стеклом — в окошке 3:4, по бокам та же картинка, размытая */
+.m13-ex-img{display:block;position:relative;width:100%;padding:0;border:0;background:none;margin:0 0 10px;border-radius:10px;overflow:hidden;cursor:zoom-in;font:inherit;color:inherit}
+.m13-ex-img > img{margin:0;border-radius:0}
+.m13-ex-img.m13-fit-whole{aspect-ratio:3 / 4}
+.m13-ex-img.m13-fit-whole > img{height:100%;aspect-ratio:auto}
+.m13-ex-img:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.m13-example--gl .m13-example-meta{min-height:0;margin:0;height:0}
+.m13-example--gl .m13-ex-img{margin-bottom:0}
+.m13-example--gl .m13-ex-more{margin-top:0}
