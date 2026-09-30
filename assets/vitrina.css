@@ -496,12 +496,13 @@ body.m13-locked{overflow:hidden}
     drop-shadow(0 0 16px rgba(var(--m13-hzc),calc(var(--m13-hk,.6) * .45)))}
 .m13-foot.m13-hz > .m13-foot-text{opacity:1}
 /* Приветственный свет по карточкам — один раз при открытии */
-.m13-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;
+/* Селектор сильнее, чем .m13-deco > :not(.m13-lay): иначе у карточек с контуром или узором полоса встаёт в раскладку и сдвигает кнопки */
+.m13 .m13-thumb > i.m13-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;margin:0;
   --m13-sh-c:color-mix(in srgb,var(--m13-shine-c,#fff3cf) 62%,#e8c77a);
   background:linear-gradient(115deg,transparent 32%,color-mix(in srgb,var(--m13-sh-c) 26%,transparent) 45%,color-mix(in srgb,var(--m13-sh-c) 55%,rgba(255,255,255,.35)) 50%,color-mix(in srgb,var(--m13-sh-c) 26%,transparent) 55%,transparent 68%) no-repeat;
   background-size:260% 100%;background-position:100% 0;opacity:0;animation:m13-sheen 1.6s cubic-bezier(.4,0,.3,1) both}
 @keyframes m13-sheen{0%{opacity:0;background-position:100% 0} 15%{opacity:1} 85%{opacity:1} 100%{opacity:0;background-position:0 0}}
-@media (prefers-reduced-motion:reduce){ .m13-shining .m13-gt,.m13-shining .m13-logo,.m13-fstar,.m13-sheen{animation:none} .m13-sheen{display:none} }
+@media (prefers-reduced-motion:reduce){ .m13-shining .m13-gt,.m13-shining .m13-logo,.m13-fstar{animation:none} .m13 .m13-thumb > i.m13-sheen{display:none} }
 @media (max-width:680px){
   .m13-foot{margin-top:4px;gap:4px}
   .m13-foot .m13-logo{width:min(28vw,108px,calc(24px * var(--m13-lr,4.5)))}
