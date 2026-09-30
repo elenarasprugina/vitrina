@@ -487,8 +487,9 @@
     cell.classList.add('m13-lid-going'); cl.add('is-open');
     setTimeout(function () { lid.remove(); cell.classList.remove('m13-lid-going', 'm13-lidcell--flip'); }, total + 80);
   }
-  // Мягкая обложка, как тетрадный лист: лист режется на полоски вдоль корешка; каждая следующая поворачивается чуть позже и быстрее,
-  // поэтому лист изгибается дугой; по изгибу бегут свет и тень; в конце кончик чуть «доплывает». Каждая полоска показывает свой
+  // Мягкая обложка, как тетрадный лист: лист режется на полоски вдоль корешка; лист поворачивается целиком, а чем дальше полоска
+  // от корешка, тем больше она опережает — край идёт чуть впереди, лист выгибается наружу (как перелистываемая страница);
+  // по изгибу бегут свет и тень; в конце край чуть «доплывает». Каждая полоска показывает свой
   // кусочек той же обложки (надпись, стекло, иней — без швов). Возвращает, сколько длится раскрытие (мс).
   var BEND_N = 12;
   function lidBend(lid, ms) {
@@ -526,8 +527,8 @@
       if (!t0) t0 = now;
       var t = (now - t0) / ms, X = 0, Z = 0, sh = [], bend = [];
       list.forEach(function (o, k) {
-        var u = k / (n - 1), a = 0.3 * u, b = 0.8 + 0.12 * u;
-        var phi = PHI * ease(cut((t - a) / (b - a))) + 9 * u * u * Math.sin(Math.PI * cut((t - b) / 0.3));
+        var u = k / (n - 1), p = cut(t / 0.88);
+        var phi = PHI * ease(p) + 34 * Math.pow(u, 1.4) * Math.sin(Math.PI * p) + 7 * u * u * Math.sin(Math.PI * cut((t - 0.88) / 0.22));
         var r = phi * Math.PI / 180, tr;
         if (from === 'left') tr = 'translate3d(' + X.toFixed(2) + 'px,0,' + Z.toFixed(2) + 'px) rotateY(' + (-phi).toFixed(2) + 'deg)';
         else if (from === 'right') tr = 'translate3d(' + (-X).toFixed(2) + 'px,0,' + Z.toFixed(2) + 'px) rotateY(' + phi.toFixed(2) + 'deg)';
