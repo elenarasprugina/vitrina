@@ -386,7 +386,9 @@
      signSize s | m | l, signPos center | top | bottom; signMirror — одуванчик на изгибе зеркально.
      open: book — раскрывается на корешке; flip — переворот карты: обложка — рубашка, карточка приподнимается и переворачивается лицом
      (from left | right — слева направо / справа налево, top | bottom — сверху вниз / снизу вверх).
-     feel: soft (по умолчанию) — мягкая: книга изгибается, как тетрадный лист, карта чуть пружинит, как картон | hard — твёрдая, как переплёт. */
+     feel: soft (по умолчанию) — мягкая: книга изгибается, как тетрадный лист, карта чуть пружинит, как картон |
+     leather — как толстая мягкая кожа: тяжёлый плавный изгиб ровной дугой, скруглённый край, матовый тёплый свет; карта переворачивается плавно, без пружины |
+     hard — твёрдая, как переплёт. */
   var LID_OPEN = { book: 1, flip: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
   function lidQuiet() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function lidOf(c) {
@@ -474,7 +476,7 @@
       leaf.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - gl / 100).toFixed(2) + ')', '--m13-lb:' + bl + 'px');
     }
     var rim = L.rim === 'light' || L.rim === 'cold' || L.rim === 'gold' ? '<i class="m13-lay m13-rim m13-rim--' + L.rim + '"' + (L.rimColor ? ' style="' + esc('--m13-rc:' + L.rimColor) + '"' : '') + '></i>' : '';
-    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft') + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
+    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft' + (L.feel === 'leather' ? ' m13-lid--leather' : '')) + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
       Math.round(lidNum(L.pause, 0.5, 0, 3) * 1000) + '" style="' + esc(css.join(';')) + '"><i class="m13-lid-cast"></i>' +
       '<div class="m13-lid-leaf m13-lid-' + mat + '"' + (leaf.length ? ' style="' + esc(leaf.join(';')) + '"' : '') + '>' +
       (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + lidSign(L, dark) + rim + '<i class="m13-lid-shade"></i></div></div>';
@@ -482,29 +484,37 @@
   function lidOpen(lid) {
     if (!lid || !lid.isConnected || lid.classList.contains('is-open')) return;
     var cell = lid.parentNode, ms = parseFloat(lid.style.getPropertyValue('--m13-lid-ms')) || 1000, cl = lid.classList, total = ms;
-    if (cl.contains('m13-lid--flip')) total = Math.round(ms * 1.3);
+    if (cl.contains('m13-lid--flip')) total = Math.round(ms * (cl.contains('m13-lid--leather') ? 1.5 : 1.3));
     else if (cl.contains('m13-lid--soft')) total = lidBend(lid, ms);
+    // скорость — и для самой карточки (у переворота она поворачивается вместе с рубашкой; переменная стоит на обложке и до неё не доходит)
+    cell.style.setProperty('--m13-lid-ms', ms + 'ms');
     cell.classList.add('m13-lid-going'); cl.add('is-open');
-    setTimeout(function () { lid.remove(); cell.classList.remove('m13-lid-going', 'm13-lidcell--flip'); }, total + 80);
+    setTimeout(function () { lid.remove(); cell.classList.remove('m13-lid-going', 'm13-lidcell--flip'); cell.style.removeProperty('--m13-lid-ms'); }, total + 80);
   }
   // Мягкая обложка, как тетрадный лист: лист режется на полоски вдоль корешка; лист поворачивается целиком, а чем дальше полоска
   // от корешка, тем больше она опережает — край идёт чуть впереди, лист выгибается наружу (как перелистываемая страница);
   // по изгибу бегут свет и тень; в конце край чуть «доплывает». Каждая полоска показывает свой
   // кусочек той же обложки (надпись, стекло, иней — без швов). Возвращает, сколько длится раскрытие (мс).
-  var BEND_N = 12;
+  // Кожа (m13-lid--leather): полосок больше, лист тяжелее — трогается и ложится плавнее, изгибается ровной дугой (без заострения к краю),
+  // в конце край мягко «доплывает» дольше; свет на изгибе широкий, тёплый и матовый, тень чуть глубже.
+  var BEND = {
+    soft: { n: 12, lead: 34, pw: 1.4, P: 0.88, set: 7, setLen: 0.22, fade: 0.62, fadeLen: 0.45, end: 1.1, hl: 0.26, hlC: '255,255,255', shK: 1, lap: 0.8 },
+    leather: { n: 20, lead: 44, pw: 1, P: 1, set: 9, setLen: 0.32, fade: 0.8, fadeLen: 0.52, end: 1.32, hl: 0.15, hlC: '255,238,212', shK: 1.15, lap: 1.2 }
+  };
   function lidBend(lid, ms) {
     var leaf = lid.querySelector('.m13-lid-leaf'), W = lid.offsetWidth, H = lid.offsetHeight;
     if (!leaf || !W || !H || !window.requestAnimationFrame) return ms;
     var cl = lid.classList, from = cl.contains('m13-lid--right') ? 'right' : cl.contains('m13-lid--top') ? 'top' : cl.contains('m13-lid--bottom') ? 'bottom' : 'left';
-    var vert = from === 'top' || from === 'bottom', near = from === 'left' || from === 'top', len = vert ? H : W, n = BEND_N, w = len / n;
-    var deep = cl.contains('m13-lid--deep') ? 0.75 : 0.5, box = document.createElement('div'), list = [], i;
+    var B = cl.contains('m13-lid--leather') ? BEND.leather : BEND.soft;
+    var vert = from === 'top' || from === 'bottom', near = from === 'left' || from === 'top', len = vert ? H : W, n = B.n, w = len / n;
+    var deep = (cl.contains('m13-lid--deep') ? 0.75 : 0.5) * B.shK, box = document.createElement('div'), list = [], i;
     // Стекло и иней: размытие у повёрнутых полосок не работает, поэтому лист на время изгиба плотный — тем цветом,
     // каким обложка видится поверх карточки; настоящая обложка тает поверх полосок в первые мгновения
     var cs = getComputedStyle(leaf), clear = (cs.backdropFilter || cs.webkitBackdropFilter || 'none') !== 'none', solid = lid.style.getPropertyValue('--m13-lid-solid');
     box.className = 'm13-lid-bend';
     for (i = 0; i < n; i++) {
       // полоски чуть заходят одна на другую, чтобы между ними не светились щёлки
-      var sz = w + (i < n - 1 ? 0.8 : 0), at = near ? 0 : len - sz, off = near ? -i * w : -(len - sz - i * w);
+      var sz = w + (i < n - 1 ? B.lap : 0), at = near ? 0 : len - sz, off = near ? -i * w : -(len - sz - i * w);
       var st = document.createElement('div'), pc = leaf.cloneNode(true), sh = document.createElement('i'), hl = document.createElement('i');
       st.className = 'm13-lid-strip'; sh.className = 'm13-lid-sh'; hl.className = 'm13-lid-hl';
       st.style.cssText = vert ? 'left:0;top:' + at + 'px;width:' + W + 'px;height:' + sz + 'px' : 'top:0;left:' + at + 'px;height:' + H + 'px;width:' + sz + 'px';
@@ -519,16 +529,17 @@
     // Полоски — поверх обложки; у стекла и инея они проявляются за первые мгновения (плавный переход), потом обложка прячется
     lid.insertBefore(box, leaf.nextSibling);
     if (!clear) leaf.style.visibility = 'hidden'; else box.style.opacity = '0';
-    function ease(p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+    // кожа тяжелее: трогается и ложится плавнее (кривая четвёртой степени вместо третьей)
+    function ease(p) { return B === BEND.leather ? (p < 0.5 ? 8 * Math.pow(p, 4) : 1 - Math.pow(-2 * p + 2, 4) / 2) : p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
     function cut(x) { return Math.max(0, Math.min(1, x)); }
-    var t0 = 0, END = 1.1, PHI = 172, dir = { left: 90, right: 270, top: 180, bottom: 0 }[from];
+    var t0 = 0, END = B.end, PHI = 172, dir = { left: 90, right: 270, top: 180, bottom: 0 }[from];
     function frame(now) {
       if (!box.isConnected) return;
       if (!t0) t0 = now;
       var t = (now - t0) / ms, X = 0, Z = 0, sh = [], bend = [];
       list.forEach(function (o, k) {
-        var u = k / (n - 1), p = cut(t / 0.88);
-        var phi = PHI * ease(p) + 34 * Math.pow(u, 1.4) * Math.sin(Math.PI * p) + 7 * u * u * Math.sin(Math.PI * cut((t - 0.88) / 0.22));
+        var u = k / (n - 1), p = cut(t / B.P);
+        var phi = PHI * ease(p) + B.lead * Math.pow(u, B.pw) * Math.sin(Math.PI * p) + B.set * u * u * Math.sin(Math.PI * cut((t - B.P) / B.setLen));
         var r = phi * Math.PI / 180, tr;
         if (from === 'left') tr = 'translate3d(' + X.toFixed(2) + 'px,0,' + Z.toFixed(2) + 'px) rotateY(' + (-phi).toFixed(2) + 'deg)';
         else if (from === 'right') tr = 'translate3d(' + (-X).toFixed(2) + 'px,0,' + Z.toFixed(2) + 'px) rotateY(' + phi.toFixed(2) + 'deg)';
@@ -542,13 +553,14 @@
       });
       // тень плавно перетекает от полоски к полоске (без ступенек); на самом изгибе — светлый блик
       // блик — там, где лист круче всего изгибается (разница углов соседних полосок)
-      var hl = bend.map(function (v, k) { return k ? Math.min(0.26, Math.abs(v - bend[k - 1]) / 36) : 0; });
+      // (разница пересчитана на ширину полоски, чтобы при 12 и 20 полосках блик был одинаковой силы)
+      var hl = bend.map(function (v, k) { return k ? Math.min(B.hl, Math.abs(v - bend[k - 1]) * (n - 1) / 396) : 0; });
       function grad(arr, k, c) {
         var a0 = (arr[k] + arr[Math.max(0, k - 1)]) / 2, a1 = (arr[k] + arr[Math.min(n - 1, k + 1)]) / 2;
         return 'linear-gradient(' + dir + 'deg,rgba(' + c + ',' + a0.toFixed(3) + '),rgba(' + c + ',' + arr[k].toFixed(3) + '),rgba(' + c + ',' + a1.toFixed(3) + '))';
       }
-      list.forEach(function (o, k) { o.sh.style.background = grad(sh, k, '0,0,0'); o.hl.style.background = grad(hl, k, '255,255,255'); });
-      var fade = 1 - cut((t - 0.62) / 0.45);
+      list.forEach(function (o, k) { o.sh.style.background = grad(sh, k, '0,0,0'); o.hl.style.background = grad(hl, k, B.hlC); });
+      var fade = 1 - cut((t - B.fade) / B.fadeLen);
       box.style.opacity = (clear ? Math.min(fade, cut(t / 0.12)) : fade).toFixed(3);
       if (clear && t > 0.12) leaf.style.visibility = 'hidden';
       if (t < END) requestAnimationFrame(frame);
@@ -559,7 +571,7 @@
   // Карточка с обложкой: обложка стоит над карточкой в общей обёртке (m13-cell), чтобы при раскрытии выходить за её край
   function withLid(c, html) {
     var L = lidOf(c); if (!L || !html) return html;
-    var lid = lidHTML(c, L), cls = 'm13-lidcell' + (L.open === 'flip' ? ' m13-lidcell--flip m13-flip--' + (LID_FROM[L.from] ? L.from : 'left') + (L.feel === 'hard' ? '' : ' m13-flip-soft') : '');
+    var lid = lidHTML(c, L), cls = 'm13-lidcell' + (L.open === 'flip' ? ' m13-lidcell--flip m13-flip--' + (LID_FROM[L.from] ? L.from : 'left') + (L.feel === 'hard' ? '' : L.feel === 'leather' ? ' m13-flip-leather' : ' m13-flip-soft') : '');
     if (html.indexOf('<div class="m13-cell ') === 0) return html.replace('<div class="m13-cell ', '<div class="m13-cell ' + cls + ' ').replace(/<\/div>$/, lid + '</div>');
     return '<div class="m13-cell ' + cls + '">' + html + lid + '</div>';
   }
