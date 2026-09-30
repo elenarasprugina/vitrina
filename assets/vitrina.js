@@ -1461,6 +1461,7 @@
       rim: st.rim, rimColor: st.rimColor, rimLive: st.rimLive, rimRunColor: st.rimRunColor, rimSpeed: st.rimSpeed, rimPlace: st.rimPlace });
   }
   function pageWin(lk) {
+    if (lk.glass && typeof lk.glass === 'object') lk = Object.assign({}, lk, { glass: '' });
     if (!lk.panelBg && !lk.textColor && !lk.accent && !lk.glass && !lk.font) return null;
     return winFrom({ bg: lk.panelBg || '#ffffff', glass: lk.glass, blur: lk.glassBlur == null || lk.glassBlur === '' ? 8 : lk.glassBlur,
       text: lk.textColor, font: lk.font, accent: lk.accent });
@@ -1839,6 +1840,7 @@
     var TK = { lg: 1.12, xl: 1.25 }, LH = { tight: 1.42, loose: 1.78 };
     if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
     if (LH[lk.lineH]) css.push('--m13-lh:' + LH[lk.lineH]);
+    if (lk.glass && typeof lk.glass === 'object') lk = Object.assign({}, lk, { glass: '' });
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
     if (!styled) { var tb0 = tabsLook(lk.tabs, '#232323', '#232323'); return { cls: cls + tb0.cls, css: css.concat(tb0.css).join(';') }; }
     cls += ' m13-look';
@@ -2264,7 +2266,7 @@
       text: e.summary ? firstLine(e.summary) : '', gl: g ? glassHTML(e, g) : '' };
   }
   /* ---------- Стекло с надписью на картинке события ----------
-     events.look.glass — образец для всех событий (on: false — выключен): {on, pos, tint, tintColor, glass, blur, rim, font, weight, color, size, align,
+     events.look.imgGlass — образец для всех событий (on: false — выключен): {on, pos, tint, tintColor, glass, blur, rim, font, weight, color, size, align,
        top, topText, title, date, place, price, mark, extraOn, extra}; строки top/title/date/place/price — false, чтобы скрыть.
      У события item.glass = {mode: '' (как у всех) | 'off' | 'own', …те же поля}. Надпись — настоящий текст поверх картинки. */
   var GL_POS = { bottom: 1, band: 1, top: 1, left: 1, right: 1, center: 1, full: 1 };
@@ -2277,7 +2279,9 @@
   function glv(g, k) { return g[k] == null || g[k] === '' ? GL_DEF[k] : g[k]; }
   // Образец d (on: false — выключен) и своё у объекта f = {mode: '' (как у всех) | 'off' | 'own', …}
   function glassPick(d, f) { d = d || {}; f = f || {}; return f.mode === 'own' ? f : f.mode === 'off' ? null : d.on !== false ? d : null; }
-  function glassOf(e, ev) { return glassPick((((ev || S.D.events || {}).look) || {}).glass, e && e.glass); }
+  // Образец стекла на картинке — look.imgGlass (look.glass — это «Прозрачность панелей» страницы, число)
+  function imgGlassOf(lk) { lk = lk || {}; return lk.imgGlass || (lk.glass && typeof lk.glass === 'object' ? lk.glass : null); }
+  function glassOf(e, ev) { return glassPick(imgGlassOf((ev || S.D.events || {}).look), e && e.glass); }
   function glassLines(e, g) {
     function on(k) { return g[k] !== false; }
     return {
@@ -2287,10 +2291,10 @@
       extra: g.extraOn ? String(g.extra || '').trim() : ''
     };
   }
-  /* Стекло на картинке маршрута: sandbox.look.glass — образец для примеров дней, Летописей и маршрутов в архиве,
+  /* Стекло на картинке маршрута: sandbox.look.imgGlass — образец для примеров дней, Летописей и маршрутов в архиве,
      у маршрута route.glass = {mode, …} — своё (действует везде, где стоит его картинка). Строки: top (надпись сверху; topText — своя,
      пусто — «Маршрут» или название маршрута), dates (даты маршрута), title, day («День N · …»), kin, extraOn + extra. */
-  function routeGlassOf(r) { return glassPick(((S.D.sandbox || {}).look || {}).glass, r && r.glass); }
+  function routeGlassOf(r) { return glassPick(imgGlassOf((S.D.sandbox || {}).look), r && r.glass); }
   // Что можно написать на стекле: kind 'days' | 'chronicles' (x — пример, r — его маршрут) | 'route' (x — маршрут)
   function routeGlassSrc(kind, x, r) {
     var s = { kicker: T('archiveRoute') || 'Маршрут', dates: routeDates(r || {}), title: '', line: '', kin: '' };
@@ -2313,10 +2317,10 @@
       extra: g.extraOn ? ok(g.extra) : ''
     };
   }
-  /* Стекло на Карте-Отражении: reflection.look.glass — образец, у карты item.glass = {mode, …}.
+  /* Стекло на Карте-Отражении: reflection.look.imgGlass — образец, у карты item.glass = {mode, …}.
      Строки: title — название архетипа (крупно), kin — строка «Kin …» мелко под ним (по умолчанию выключена: кин есть на самой карте),
      topText — своя надпись сверху, extraOn + extra. */
-  function kinGlassOf(it) { return glassPick(((S.D.reflection || {}).look || {}).glass, it && it.glass); }
+  function kinGlassOf(it) { return glassPick(imgGlassOf((S.D.reflection || {}).look), it && it.glass); }
   function kinGlassLines(it, g) {
     function ok(v) { return String(v || '').trim(); }
     return { top: g.top !== false ? ok(g.topText) : '', title: g.title !== false ? ok(it.title) : '',

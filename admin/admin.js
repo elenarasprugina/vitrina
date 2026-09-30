@@ -2153,7 +2153,7 @@
     return u;
   }
   /* ---------- Стекло с надписью на картинке события ----------
-     events.look.glass — образец для всех событий (on: false — выключен), item.glass = {mode: '' | 'off' | 'own', …те же поля}.
+     events.look.imgGlass — образец для всех событий (on: false — выключен), item.glass = {mode: '' | 'off' | 'own', …те же поля}.
      Рисует витрина (M13.glassPreview), здесь — поля и живой предпросмотр: обложка в списке и главная картинка на странице события. */
   var GL_POS_OPTS = [['bottom', 'Снизу'], ['band', 'Полосой по нижнему краю'], ['top', 'Сверху'], ['left', 'Слева'], ['right', 'Справа'], ['center', 'По центру'], ['full', 'На всю картинку']];
   var GL_TINT_OPTS = [['dark', 'Тёмное'], ['light', 'Светлое'], ['gold', 'Золотистое'], ['own', 'Свой цвет']];
@@ -2163,14 +2163,15 @@
   var GL_ALIGN_OPTS = [['', 'Само (по центру — у «по центру» и «на всю»)'], ['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']];
   var GL_MARK_OPTS = [['', 'Нет'], ['dandelion', 'Одуванчик'], ['logo', 'Логотип 13 MIRRORS']];
   var GL_FIT_OPTS = [['', 'По тексту'], ['even', 'Одинаковая у всех в ряду']];
-  /* Виды картинок со стеклом: 'event' — события (events.look.glass, item.glass); 'route' — картинки маршрутов: примеры дней,
-     Летописи, маршруты в архиве (sandbox.look.glass, route.glass); 'kin' — Карты-Отражения (reflection.look.glass, item.glass). */
+  /* Виды картинок со стеклом: 'event' — события (events.look.imgGlass, item.glass); 'route' — картинки маршрутов: примеры дней,
+     Летописи, маршруты в архиве (sandbox.look.imgGlass, route.glass); 'kin' — Карты-Отражения (reflection.look.imgGlass, item.glass). */
   var GL_KINDS = {
     event: { pat: function () { var ev = DATA.events || {}; ev.look = ev.look || {}; return ev.look; }, all: 'Как у всех событий', where: 'События → Оформление страницы → Стекло на картинке' },
     route: { pat: function () { var sb = DATA.sandbox || {}; sb.look = sb.look || {}; return sb.look; }, all: 'Как у всех маршрутов', where: 'Песочница → Оформление страницы → Стекло на картинках маршрутов' },
     kin: { pat: function () { var rf = DATA.reflection || {}; rf.look = rf.look || {}; return rf.look; }, all: 'Как у всех Карт-Отражений', where: 'Карты-Отражения → Оформление страницы → Стекло на картинке' }
   };
-  function glassPattern(kind) { var lk = GL_KINDS[kind || 'event'].pat(); return (lk.glass = lk.glass || {}); }
+  // Образец — look.imgGlass (look.glass занято: «Прозрачность панелей»)
+  function glassPattern(kind) { var lk = GL_KINDS[kind || 'event'].pat(); return (lk.imgGlass = lk.imgGlass || {}); }
   // Пример для предпросмотра: ближайшее событие с картинкой, иначе — выдуманное
   function glassSample() {
     var L = ((DATA.events || {}).items || []).filter(function (e) { return e && e.cover && e.type !== 'case'; });
@@ -3067,6 +3068,11 @@
         if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
         if (c._backs) delete c._backs;
       });
+    });
+    // Образец стекла на картинке мог оказаться в look.glass (там «Прозрачность панелей») — переносим в look.imgGlass
+    [D.events, D.sandbox, D.reflection].forEach(function (x) {
+      var lk = x && x.look;
+      if (lk && lk.glass && typeof lk.glass === 'object') { if (!lk.imgGlass) lk.imgGlass = lk.glass; delete lk.glass; }
     });
     // Старый текст «Ссылка на карточку скопирована…» — кнопка есть и у примеров, событий, архива
     var tx = D.settings && D.settings.texts;
