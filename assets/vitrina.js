@@ -297,7 +297,10 @@
      head.shineWhen: '' изредка (раз в 25 с) | often (раз в 8 с) | open (только при открытии).
      head.shineSpeed — сколько идёт один проход: fast | normal | slow (по умолчанию) | vslow. */
   var SHINE_MS = { fast: 1400, normal: 2200, slow: 3400, vslow: 5000 }, SHINE_EVERY = { often: 8000, '': 25000 };
-  function wakeStop() { (S.wakeT || []).forEach(clearTimeout); S.wakeT = []; if (S.wakeIO) { S.wakeIO.disconnect(); S.wakeIO = null; } }
+  function wakeStop() {
+    (S.wakeT || []).forEach(clearTimeout); S.wakeT = []; if (S.wakeIO) { S.wakeIO.disconnect(); S.wakeIO = null; }
+    if (S.root) S.root.classList.remove('m13-hold-run');
+  }
   function wake(hd) {
     wakeStop();
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -329,6 +332,9 @@
     if (welcome) {
       later(function () { pass(head); }, 700);
       later(sheenCards, 1000);
+      // Бегущий блик по контурам ждёт, пока пройдёт приветствие (надпись, волна по карточкам, подпись), потом плавно появляется
+      root.classList.add('m13-hold-run');
+      later(function () { root.classList.remove('m13-hold-run'); }, Math.max(3600, 2100 + ms));
     }
     if (foot && (welcome || own)) later(function () { whenSeen(foot, function () { pass(foot); again(); }); }, welcome ? 2100 : 1200);
   }

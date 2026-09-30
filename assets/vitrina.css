@@ -586,6 +586,9 @@ body.m13-locked{overflow:hidden}
   background:conic-gradient(from 0deg,transparent 0deg 318deg,color-mix(in srgb,var(--m13-runc) 30%,transparent) 336deg,var(--m13-runc) 351deg,#fff 357deg,transparent 360deg);
   animation:m13-rim-spin var(--m13-rs,12s) linear infinite}
 .m13-rim-run.m13-rim-glow{padding:4px;opacity:.35;filter:blur(1.5px)}
+/* Пока идёт приветственный блик, бегущий блик спрятан; потом плавно появляется */
+.m13-rim-run{transition:opacity 1.4s ease}
+.m13-hold-run .m13-rim-run{opacity:0}
 @keyframes m13-rim-spin{to{transform:rotate(360deg)}}
 
 /* Дымка под строками: мягкое облачко повторяет форму текста, остальная карточка — чистое стекло. --m13-hz — сила (0–1) */
