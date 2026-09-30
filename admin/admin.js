@@ -1425,7 +1425,8 @@
     function rt(rid) { return rts.filter(function (r) { return r.id === rid; })[0] || {}; }
     if (kind === 'event') {
       var e = ((D.events || {}).items || []).filter(function (x) { return x.id === id; })[0] || {};
-      return { dir: 'events', hash: encodeURIComponent(id), title: e.title || '', desc: plainShort(e.summary), img: e.cover };
+      // shareImage — картинка превью со стеклом и надписью (рисуется при публикации, bakeGlass)
+      return { dir: 'events', hash: encodeURIComponent(id), title: e.title || '', desc: plainShort(e.summary), img: e.shareImage || e.cover, sized: !!e.shareImage };
     }
     if (kind === 'archroute') {
       var ar = rt(id);
@@ -1462,7 +1463,7 @@
       // сразу открывает нужное на общей странице
       var pv = previewOf(kind, cardId, D);
       var ptitle = pv.title + ' · ' + site, pdesc = pv.desc || sh.description;
-      var pimg = absImg(pv.img, D), psized = false;
+      var pimg = absImg(pv.img, D), psized = !!(pimg && pv.sized);
       if (!pimg) { pimg = absImg(sh.image, D); psized = !!pimg; }
       var ptarget = '../#' + pv.hash;
       return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
@@ -2254,11 +2255,141 @@
         !g.mode && pat.on !== false && e.cover ? glassDemo(pat, function () { return e; }) : null,
         g.mode === 'own' ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять заново из образца', onclick: function () {
           var c = clone(pat); delete c.on; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, c, { mode: 'own' }); changed(); draw(); } })]) : null,
-        g.mode === 'own' ? glassFields(g, function () { return e; }) : null
+        g.mode === 'own' ? glassFields(g, function () { return e; }) : null,
+        g.mode !== 'off' && e.cover ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(e); } })]) : null
       ]);
     }
     draw();
     return box;
+  }
+
+  /* ---------- Превью ссылки на событие: стекло с надписью «впекается» в картинку 1200×630 ----------
+     Мессенджеры показывают картинку из og:image, текста сайта не видят. При публикации для события со стеклом рисуется
+     JPEG: картинка целиком (по бокам — она же, размытая), поверх — стекло с теми же строками, что на сайте. Файл — item.shareImage. */
+  function loadImg(src) {
+    return new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; });
+  }
+  function glassWrap(ctx, text, w, max) {
+    var words = String(text).split(/\s+/).filter(Boolean), lines = [], cur = '';
+    words.forEach(function (wd) {
+      var t = cur ? cur + ' ' + wd : wd;
+      if (cur && ctx.measureText(t).width > w) { lines.push(cur); cur = wd; } else cur = t;
+    });
+    if (cur) lines.push(cur);
+    if (max && lines.length > max) { lines = lines.slice(0, max); lines[max - 1] = lines[max - 1].replace(/\s*\S*$/, '') + '…'; }
+    return lines;
+  }
+  function glassCanvas(e, g, D) {
+    var M = window.M13, DEF = M.GLASS_DEF, W = SHARE_SIZE[0], H = SHARE_SIZE[1];
+    function v(k) { return g[k] == null || g[k] === '' ? DEF[k] : g[k]; }
+    var L = M.glassLines(e, g), font = v('font'), color = g.color || DEF.color, pos = v('pos'), tint = v('tint');
+    var rgb = tint === 'own' ? [1, 3, 5].map(function (i) { return parseInt((g.tintColor || '#141414').substr(i, 2), 16); }).join(',')
+      : { light: '255,255,255', dark: '20,14,10', gold: '236,211,163' }[tint] || '20,14,10';
+    var pageFont = ((D.events || {}).look || {}).font || '';
+    var W8 = { light: 300, normal: 400, semi: 600, bold: 700 }[v('weight')] || 400;
+    if (M.fontCaps(font).w.indexOf(W8) < 0) W8 = 400;
+    [font, pageFont].forEach(function (f) { if (f) M.ensureFont(f); });
+    var fam = function (f) { return f ? "'" + f + "', Georgia, serif" : 'Georgia, serif'; };
+    var fontsReady = document.fonts && document.fonts.load ? Promise.all([
+      document.fonts.load(W8 + ' 40px ' + fam(font), 'Аб'), document.fonts.load('600 20px ' + fam(pageFont), 'Аб'), document.fonts.load('400 20px ' + fam(pageFont), 'Аб')
+    ]).catch(function () {}) : Promise.resolve();
+    var markP = g.mark === 'dandelion' ? loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(M.dandSVG('logo').replace(/currentColor/g, color).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="124" ')))
+      : g.mark === 'logo' ? loadImg(D.settings.logo ? imgSrc(D.settings.logo) : '../assets/logo.png') : Promise.resolve(null);
+    return Promise.all([loadImg(imgSrc(e.cover)), fontsReady, markP.catch(function () { return null; })]).then(function (r) {
+      var img = r[0], mk = r[2], c = document.createElement('canvas'); c.width = W; c.height = H;
+      var ctx = c.getContext('2d'), iw = img.naturalWidth, ih = img.naturalHeight;
+      // фон: та же картинка крупно и размыто; сверху — картинка целиком
+      var sc = Math.max(W / iw, H / ih) * 1.15;
+      ctx.fillStyle = '#16110d'; ctx.fillRect(0, 0, W, H);
+      ctx.filter = 'blur(28px)'; ctx.drawImage(img, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc); ctx.filter = 'none';
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, 0, W, H);
+      var k = Math.min(W / iw, H / ih), R = { w: iw * k, h: ih * k }; R.x = (W - R.w) / 2; R.y = (H - R.h) / 2;
+      ctx.drawImage(img, R.x, R.y, R.w, R.h);
+      // размеры — как на сайте (vitrina.css, .m13-gl), но крупнее: превью в Telegram показывают уменьшенным
+      var s = 1.55, u = Math.max(R.w / 100, 0.75 * R.h / 100), gk = { s: 0.84, l: 1.2 }[g.size] || 1;
+      function cl(a, x, b) { return Math.max(a * s, Math.min(b * s, x * s)); }
+      var ins = cl(6, 2.6 * u, 16), padY = cl(6, 3.2 * u, 22), padX = cl(8, 4 * u, 28), rad = cl(8, 2.2 * u, 14), gap = cl(2, 0.9 * u, 7);
+      var side = pos === 'left' || pos === 'right';
+      var fTop = cl(7.5, 2.3 * u * gk, 13), fT = side ? cl(11, 4.6 * u * gk, 34) : cl(12, 7.4 * u * gk, 50), fD = cl(9, 3 * u * gk, 18), fX = cl(10, 3.4 * u * gk, 21);
+      var bw = pos === 'band' ? R.w : side ? R.w * 0.44 : pos === 'center' ? R.w * 0.7 : R.w - 2 * ins, tw = bw - 2 * padX;
+      var al = g.align || (pos === 'center' || pos === 'full' ? 'center' : 'left');
+      var mkW = mk ? (g.mark === 'logo' ? fD * 1.15 * mk.naturalWidth / mk.naturalHeight : fD * 2.1 * 100 / 124) : 0, mkH = mk ? (g.mark === 'logo' ? fD * 1.15 : fD * 2.1) : 0;
+      var rows = [];
+      if (L.top) { ctx.font = '600 ' + fTop + 'px ' + fam(pageFont); rows.push({ f: ctx.font, size: fTop, lines: glassWrap(ctx, L.top.toUpperCase(), tw, 2), ls: 0.2, a: 0.92 }); }
+      if (L.title) { ctx.font = W8 + ' ' + fT + 'px ' + fam(font); rows.push({ f: ctx.font, size: fT, lh: 1.05, lines: glassWrap(ctx, L.title, tw, 3) }); }
+      if (L.meta.length || mk) {
+        ctx.font = '400 ' + fD + 'px ' + fam(pageFont);
+        var ml = L.meta.length ? glassWrap(ctx, L.meta.join(' · '), tw - (mk ? mkW + fD * 0.6 : 0), 3) : [];
+        rows.push({ f: ctx.font, size: fD, lh: 1.3, lines: ml, mark: true, a: 0.96, h: Math.max(ml.length * fD * 1.3, mkH) });
+      }
+      if (L.extra) { ctx.font = 'italic 400 ' + fX + 'px ' + fam(font); rows.push({ f: ctx.font, size: fX, lh: 1.25, lines: glassWrap(ctx, L.extra, tw, 3) }); }
+      rows.forEach(function (w) { if (w.h == null) w.h = w.lines.length * w.size * (w.lh || 1.15); });
+      var ch = rows.reduce(function (a, w) { return a + w.h; }, 0) + gap * Math.max(0, rows.length - 1);
+      var fixed = side || pos === 'full', bh = fixed ? R.h - 2 * ins : Math.min(ch + 2 * padY, pos === 'band' ? R.h : R.h - 2 * ins);
+      var bx = pos === 'band' ? R.x : pos === 'right' ? R.x + R.w - ins - bw : pos === 'center' ? R.x + (R.w - bw) / 2 : R.x + ins;
+      var by = pos === 'top' || fixed ? R.y + ins : pos === 'center' ? R.y + (R.h - bh) / 2 : pos === 'band' ? R.y + R.h - bh : R.y + R.h - ins - bh;
+      var r0 = pos === 'band' ? 0 : rad;
+      function box() { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, r0); else ctx.rect(bx, by, bw, bh); }
+      // стекло: размытая картинка под ним, оттенок, контур
+      ctx.save(); box(); ctx.clip();
+      var bl = Math.max(0, Math.min(24, +v('blur'))) * s;
+      if (bl) { ctx.filter = 'blur(' + bl + 'px) saturate(1.2)'; ctx.drawImage(img, R.x, R.y, R.w, R.h); ctx.filter = 'none'; }
+      ctx.fillStyle = 'rgba(' + rgb + ',' + ((100 - Math.max(0, Math.min(100, +v('glass')))) / 100) + ')'; ctx.fillRect(bx, by, bw, bh);
+      ctx.restore();
+      var rim = v('rim');
+      if (rim !== 'none') {
+        ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.globalAlpha = rim === 'glow' ? 0.78 : 0.42;
+        if (rim === 'glow') { ctx.shadowColor = color; ctx.shadowBlur = 22; }
+        if (pos === 'band') { ctx.beginPath(); ctx.moveTo(bx, by + 1); ctx.lineTo(bx + bw, by + 1); ctx.stroke(); } else { box(); ctx.stroke(); }
+        ctx.restore();
+      }
+      // текст
+      ctx.save(); box(); ctx.clip();
+      ctx.fillStyle = color; ctx.textBaseline = 'top'; ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 1;
+      var y = fixed ? (pos === 'full' ? by + (bh - ch) / 2 : by + bh - padY - ch) : by + padY;
+      function tx(line, w, x0) { return al === 'center' ? x0 + (tw - w) / 2 : al === 'right' ? x0 + tw - w : x0; }
+      rows.forEach(function (w) {
+        ctx.font = w.f; ctx.globalAlpha = w.a || 1;
+        if ('letterSpacing' in ctx) ctx.letterSpacing = w.ls ? (w.size * w.ls) + 'px' : '0px';
+        var lh = w.size * (w.lh || 1.15), x0 = bx + padX;
+        if (w.mark) {
+          var widest = w.lines.reduce(function (m, l) { return Math.max(m, ctx.measureText(l).width); }, 0);
+          var full = widest + (mk ? (widest ? fD * 0.6 : 0) + mkW : 0), sx = tx('', full, x0), ty = y + (w.h - w.lines.length * lh) / 2;
+          w.lines.forEach(function (l, i) { ctx.fillText(l, w.lines.length > 1 ? tx(l, ctx.measureText(l).width, x0) : sx, ty + i * lh); });
+          if (mk) {
+            var mx = sx + full - mkW, my = y + (w.h - mkH) / 2;
+            if (g.mark === 'logo') {   // логотип — только очертания, цветом текста
+              var o = document.createElement('canvas'); o.width = Math.ceil(mkW * 2); o.height = Math.ceil(mkH * 2);
+              var oc = o.getContext('2d'); oc.drawImage(mk, 0, 0, o.width, o.height); oc.globalCompositeOperation = 'source-in'; oc.fillStyle = color; oc.fillRect(0, 0, o.width, o.height);
+              ctx.drawImage(o, mx, my, mkW, mkH);
+            } else ctx.drawImage(mk, mx, my, mkW, mkH);
+          }
+        } else w.lines.forEach(function (l, i) { ctx.fillText(l, tx(l, ctx.measureText(l).width, x0), y + i * lh); });
+        y += w.h + gap;
+      });
+      ctx.restore();
+      return c;
+    });
+  }
+  // При публикации: у каждого видимого события со стеклом — своя картинка превью (data:… → media/… в extractImages)
+  function bakeGlass(P) {
+    var ev = P.events || {};
+    return Promise.all((ev.items || []).map(function (e) {
+      delete e.shareImage;
+      var g = e && e.visible !== false && e.cover && e.type !== 'case' ? window.M13.glassOf(e, ev) : null;
+      if (!g) return null;
+      return glassCanvas(e, g, P).then(function (c) { e.shareImage = c.toDataURL('image/jpeg', 0.88); }).catch(function () {});
+    }));
+  }
+  function glassShareShow(e) {
+    var g = window.M13.glassOf(e, DATA.events);
+    if (!e.cover || !g) { toast('У события нет главной картинки или стекло выключено — в Telegram будет просто главная картинка.', true); return; }
+    glassCanvas(e, g, DATA).then(function (c) {
+      c.style.cssText = 'display:block;width:100%;height:auto;border-radius:8px';
+      dialog({ title: 'Картинка превью для Telegram и VK', body: el('div', {}, [c,
+        el('p', { class: 'a-hint', text: 'Такая картинка появится в превью ссылки на это событие после публикации. На сайте надпись остаётся настоящим текстом.' })]),
+        buttons: [['ok', 'Понятно', 'dark']] });
+    }).catch(function () { toast('Не получилось нарисовать превью — картинка не загрузилась.', true); });
   }
 
   function viewEvents() {
@@ -3262,7 +3393,7 @@
     return { files: files, removed: removed };
   }
   // Для проверки страниц-превью из консоли браузера
-  window.M13_ADMIN = { pageHTML: pageHTML };
+  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass };
   function publish() {
     if (GHS.busy) return;
     if (!GHS.token) {
@@ -3293,7 +3424,7 @@
         if (!ok) return;
         var P = buildSite(DATA), media, removed = [];
         busy('Готовим картинки…');
-        return extractImages(P).then(function (m) {
+        return bakeGlass(P).then(function () { return extractImages(P); }).then(function (m) {
           media = m;
           busy('Смотрим, что сейчас на сайте…');
           return headOf(GH.site);
