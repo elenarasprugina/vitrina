@@ -1,5 +1,9 @@
 {
   "showcases": [
-    { "id": "2026-10", "title": "Октябрь 2026", "status": "draft", "basedOn": null }
+    {
+      "id": "2026-10",
+      "title": "Октябрь 2026",
+      "status": "published"
+    }
   ]
 }
