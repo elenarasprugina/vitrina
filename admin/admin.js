@@ -2149,6 +2149,118 @@
     });
     return u;
   }
+  /* ---------- Стекло с надписью на картинке события ----------
+     events.look.glass — образец для всех событий (on: false — выключен), item.glass = {mode: '' | 'off' | 'own', …те же поля}.
+     Рисует витрина (M13.glassPreview), здесь — поля и живой предпросмотр: обложка в списке и главная картинка на странице события. */
+  var GL_POS_OPTS = [['bottom', 'Снизу'], ['band', 'Полосой по нижнему краю'], ['top', 'Сверху'], ['left', 'Слева'], ['right', 'Справа'], ['center', 'По центру'], ['full', 'На всю картинку']];
+  var GL_TINT_OPTS = [['dark', 'Тёмное'], ['light', 'Светлое'], ['gold', 'Золотистое'], ['own', 'Свой цвет']];
+  var GL_RIM_OPTS = [['none', 'Без контура'], ['line', 'Тонкий'], ['glow', 'Светящийся']];
+  var GL_W_OPTS = [['light', 'Тонкая'], ['normal', 'Обычная'], ['semi', 'Полужирная'], ['bold', 'Жирная']];
+  var GL_SIZE_OPTS = [['s', 'Мельче'], ['m', 'Обычный'], ['l', 'Крупнее']];
+  var GL_ALIGN_OPTS = [['', 'Само (по центру — у «по центру» и «на всю»)'], ['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']];
+  var GL_MARK_OPTS = [['', 'Нет'], ['dandelion', 'Одуванчик'], ['logo', 'Логотип 13 MIRRORS']];
+  function glassPattern() { var ev = DATA.events || {}; ev.look = ev.look || {}; return (ev.look.glass = ev.look.glass || {}); }
+  // Пример для предпросмотра: ближайшее событие с картинкой, иначе — выдуманное
+  function glassSample() {
+    var L = ((DATA.events || {}).items || []).filter(function (e) { return e && e.cover && e.type !== 'case'; });
+    var up = L.filter(function (e) { return e.visible !== false && (e.dateEnd || e.date || '9') >= new Date().toISOString().slice(0, 10); });
+    return up[0] || L[0] || { type: 'meeting', title: 'PRO МАК', date: '2026-10-08', time: '19:00', place: 'Москва', price: 'свободный вход', cover: null };
+  }
+  function glassDemo(g, getE) {
+    var cover = el('div', { class: 'a-gl-cover' }), page = el('div', { class: 'a-gl-page' });
+    var box = el('div', { class: 'a-gl-demo' }, [
+      el('div', { class: 'a-gl-col' }, [cover, el('span', { class: 'a-hint', text: 'Обложка в списке' })]),
+      el('div', { class: 'a-gl-col' }, [page, el('span', { class: 'a-hint', text: 'На странице события' })])]);
+    function paint(frame, e, html) {
+      frame.innerHTML = (e.cover ? '<img alt="" src="' + imgSrc(e.cover).replace(/"/g, '&quot;') + '">' : '<span class="a-gl-noimg"></span>') +
+        '<span class="m13-gl-box">' + html + '</span>';
+    }
+    function run() {
+      var e = (getE && getE()) || glassSample(), html = window.M13.glassPreview(e, g, { events: DATA.events, settings: DATA.settings });
+      paint(cover, e, html); paint(page, e, html);
+    }
+    LIVE.push({ node: box, run: run });
+    run();
+    return box;
+  }
+  // Поля стекла: общие для образца и для своего стекла у события. getE — событие для предпросмотра (пусто — пример)
+  function glassFields(g, getE) {
+    var box = el('div', { class: 'a-glass' });
+    function redraw() { draw(); }
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        glassDemo(g, getE),
+        sub('Что написано на стекле'),
+        el('p', { class: 'a-hint', text: 'Дата и время, место и цена берутся из полей события сами. Пустое поле на стекле не появляется.' }),
+        switchIn(g, 'top', 'Надпись сверху', { defTrue: true, onChange: redraw }),
+        g.top === false ? null : textIn(g, 'topText', 'Своя надпись сверху', { ph: 'пусто — тип события: Встреча, Медитация, Фестиваль…' }),
+        switchIn(g, 'title', 'Название', { defTrue: true }),
+        el('div', { class: 'a-row3' }, [switchIn(g, 'date', 'Дата и время', { defTrue: true }), switchIn(g, 'place', 'Место', { defTrue: true }), switchIn(g, 'price', 'Цена', { defTrue: true })]),
+        selectIn(g, 'mark', 'Маленький значок', GL_MARK_OPTS, { def: '' }),
+        switchIn(g, 'extraOn', 'Ещё строка — свой текст', { onChange: redraw }),
+        g.extraOn ? textIn(g, 'extra', 'Ещё строка', { ph: 'Ведущая — Елена Распругина' }) : null,
+        sub('Стекло'),
+        el('div', { class: 'a-row' }, [selectIn(g, 'pos', 'Где стекло', GL_POS_OPTS, { def: 'bottom' }),
+          selectIn(g, 'tint', 'Оттенок стекла', GL_TINT_OPTS, { def: 'dark', onChange: redraw })]),
+        g.tint === 'own' ? colorOptIn(g, 'tintColor', 'Цвет стекла', { pick: '#1c2a3a', none: 'не выбран — тёмный' }) : null,
+        el('div', { class: 'a-row' }, [
+          rangeIn(g, 'glass', 'Прозрачность стекла', { max: 100, step: 5, unit: '%', def: 70, hint: 'Больше — прозрачнее, сквозь стекло видна картинка. 60–80% — надпись читается.' }),
+          rangeIn(g, 'blur', 'Размытие за стеклом', { max: 20, unit: ' px', def: 8 })]),
+        selectIn(g, 'rim', 'Контур', GL_RIM_OPTS, { def: 'line' }),
+        sub('Текст'),
+        el('div', { class: 'a-row' }, [
+          fontIn(g, 'font', 'Шрифт названия', (window.M13.FONTS || []).map(function (f) { return [f, f]; }), null, 'PRO МАК · Свет внутри · 13 MIRRORS'),
+          selectIn(g, 'weight', 'Толщина букв названия', GL_W_OPTS, { def: 'normal', hint: 'Если у шрифта нет такой толщины — будет обычная.' })]),
+        el('div', { class: 'a-row3' }, [
+          colorOptIn(g, 'color', 'Цвет текста', { base: '#ecd3a3', none: 'золотистый' }),
+          selectIn(g, 'size', 'Размер текста', GL_SIZE_OPTS, { def: 'm' }),
+          selectIn(g, 'align', 'Выравнивание', GL_ALIGN_OPTS, { def: '' })])
+      ]);
+    }
+    draw();
+    return box;
+  }
+  // «Оформление страницы» Событий: образец на все события
+  function glassPatternFields() {
+    var g = glassPattern(), box = el('div', { class: 'a-glass' });
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Картинка события видна целиком, поверх — прозрачное стекло с надписью (настоящий текст, не часть картинки). Это образец для всех событий, чтобы афиши были в одном ключе: меняются только картинка и слова. У любого события его можно выключить или сделать своё.' }),
+        switchIn(g, 'on', 'Стекло с надписью на картинках событий', { defTrue: true, onChange: draw }),
+        g.on === false ? null : el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Как в эскизе: тёмное снизу, золотистый текст', onclick: function () {
+          var keep = { on: g.on }; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, keep); changed(); draw(); } })]),
+        g.on === false ? null : glassFields(g, null)
+      ]);
+    }
+    draw();
+    return box;
+  }
+  // У события: как у всех / выключено / своё (своё начинается с копии образца)
+  function glassEventFields(e) {
+    var box = el('div', { class: 'a-glass' });
+    function draw() {
+      var g = e.glass = e.glass || {}, pat = glassPattern();
+      box.replaceChildren();
+      add(box, [
+        sub('Стекло на картинке'),
+        selectIn(g, 'mode', 'Стекло с надписью', [['', 'Как у всех событий'], ['off', 'Выключено'], ['own', 'Своё']], { def: '', onChange: function (v) {
+          if (v === 'own' && Object.keys(g).length < 2) { var c = clone(pat); delete c.on; Object.assign(g, c, { mode: 'own' }); }
+          changed(); draw(); } }),
+        !e.cover ? el('p', { class: 'a-hint a-hint--warn', text: 'Нет главной картинки — стекла не будет.' }) : null,
+        !g.mode ? el('p', { class: 'a-hint', text: pat.on === false ? 'Образец выключен (События → Оформление страницы → Стекло на картинке) — стекла нет.'
+          : 'Как задано в «Оформлении страницы» → «Стекло на картинке».' }) : null,
+        !g.mode && pat.on !== false && e.cover ? glassDemo(pat, function () { return e; }) : null,
+        g.mode === 'own' ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять заново из образца', onclick: function () {
+          var c = clone(pat); delete c.on; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, c, { mode: 'own' }); changed(); draw(); } })]) : null,
+        g.mode === 'own' ? glassFields(g, function () { return e; }) : null
+      ]);
+    }
+    draw();
+    return box;
+  }
+
   function viewEvents() {
     var ev = DATA.events = DATA.events || EVENTS_DEFAULT();
     ev.items = ev.items || []; ev.tabs = ev.tabs || {};
@@ -2186,6 +2298,7 @@
             imageIn(e, 'cover', 'Главная картинка', { max: 1800, hint: 'Показывается крупно наверху страницы и маленькой — в списке.' }),
             fitIn(e, 'coverFit', 'Главная картинка в списке', 'Наверху страницы события она всегда целиком. В списке окошко 4:3 — для вертикальной картинки выберите «целиком».'),
             textIn(e, 'coverCaption', 'Подпись под главной картинкой', { ph: 'необязательно' }),
+            e.type === 'case' ? null : glassEventFields(e),
             textIn(e, 'summary', 'Коротко — одним-двумя предложениями', { multi: true, rows: 2, hint: 'Видно сразу, под картинкой, и в списке событий.' }),
             sbBlocksForm(e, 'event'),
             e.type === 'case' ? null : el('div', { class: 'a-glass' }, [sub('Кнопки (до 4)'),
@@ -2270,6 +2383,8 @@
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
         rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })]),
+      which === 'events' ? sub('Стекло на картинке') : null,
+      which === 'events' ? glassPatternFields() : null,
       which === 'reflection' ? null : sub('Вкладки'),
       which === 'reflection' ? null : tabsFields(lk, which),
       sub('Окна и сообщения'),

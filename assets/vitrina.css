@@ -1302,3 +1302,46 @@ body.m13-locked{overflow:hidden}
   box-shadow:0 0 14px rgba(var(--tb-r),.55),0 0 3px rgba(var(--tb-r),.8),inset 0 0 10px rgba(var(--tb-r),.25)}
 .m13-tbx.m13-tb-line.m13-tr-glow :is(.m13-tab,.m13-chip).is-active,.m13-tbx.m13-tb-line.m13-tr-line :is(.m13-tab,.m13-chip).is-active{box-shadow:inset 0 0 0 1px rgb(var(--tb-r)),0 0 14px rgba(var(--tb-r),.5)}
 .m13-tbx.m13-tb-line.m13-tr-line :is(.m13-tab,.m13-chip).is-active{box-shadow:inset 0 0 0 1px rgb(var(--tb-r))}
+
+/* ---------- Стекло с надписью на картинке события (обложки в списке и главная картинка на странице события) ---------- */
+/* Слой .m13-gl-box ложится ровно на картинку; размеры надписи — от ширины картинки (cqw), поэтому на обложке мельче, на странице крупнее */
+.m13-cover--gl .m13-cover-img{position:relative}
+.m13-gl-box{position:absolute;inset:0;container-type:size;pointer-events:none;z-index:1}
+.m13-gl{--u:max(1cqw,.75cqh)}   /* у вертикальной картинки надпись по высоте, а не по узкой ширине */
+.m13-gl{--gl-i:clamp(6px,calc(2.6 * var(--u)),16px);--gl-k:1;position:absolute;box-sizing:border-box;display:flex;flex-direction:column;gap:clamp(2px,calc(.9 * var(--u)),7px);overflow:hidden;
+  max-height:calc(100% - 2 * var(--gl-i));padding:clamp(6px,calc(3.2 * var(--u)),22px) clamp(8px,calc(4 * var(--u)),28px);border-radius:clamp(8px,calc(2.2 * var(--u)),14px);
+  color:var(--gl-c,#ecd3a3);background:var(--gl-bg,rgba(20,14,10,.3));-webkit-backdrop-filter:blur(var(--gl-b,8px)) saturate(1.2);backdrop-filter:blur(var(--gl-b,8px)) saturate(1.2);
+  text-align:left;line-height:1.15;text-shadow:0 1px 10px rgba(0,0,0,.3);font-style:normal}
+.m13-gl-sz-s{--gl-k:.84}
+.m13-gl-sz-l{--gl-k:1.2}
+.m13-gl-top{font-size:clamp(7.5px,calc(2.3 * var(--u) * var(--gl-k)),13px);font-weight:600;letter-spacing:.2em;text-transform:uppercase;opacity:.92}
+.m13-gl-t{font-size:clamp(12px,calc(7.4 * var(--u) * var(--gl-k)),50px);line-height:1.05;overflow-wrap:break-word;hyphens:auto;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.m13-gl-row{display:flex;align-items:center;gap:.6em}
+.m13-gl-d{font-size:clamp(9px,calc(3 * var(--u) * var(--gl-k)),18px);letter-spacing:.03em;line-height:1.3;opacity:.96}
+.m13-gl-x{font-size:clamp(10px,calc(3.4 * var(--u) * var(--gl-k)),21px);font-style:italic;line-height:1.25}
+.m13-gl-mk{flex-shrink:0;display:inline-flex;color:inherit;font-size:clamp(9.5px,calc(3 * var(--u) * var(--gl-k)),18px)}
+.m13-gl-mk--dand svg{display:block;width:auto;height:2.1em}
+.m13-gl-mk .m13-logo{display:block;width:auto;height:1.15em;aspect-ratio:var(--m13-lr,4.5)}
+.m13-gl-al-center{text-align:center}
+.m13-gl-al-center .m13-gl-row{justify-content:center}
+.m13-gl-al-right{text-align:right}
+.m13-gl-al-right .m13-gl-row{justify-content:flex-end}
+/* где стекло */
+.m13-gl--bottom{left:var(--gl-i);right:var(--gl-i);bottom:var(--gl-i)}
+.m13-gl--top{left:var(--gl-i);right:var(--gl-i);top:var(--gl-i)}
+.m13-gl--band{left:0;right:0;bottom:0;border-radius:0;max-height:100%}
+.m13-gl--left{left:var(--gl-i);top:var(--gl-i);bottom:var(--gl-i);width:44%;justify-content:flex-end}
+.m13-gl--right{right:var(--gl-i);top:var(--gl-i);bottom:var(--gl-i);width:44%;justify-content:flex-end}
+:is(.m13-gl--left,.m13-gl--right) .m13-gl-t{font-size:clamp(11px,calc(4.6 * var(--u) * var(--gl-k)),34px)}
+:is(.m13-gl--left,.m13-gl--right) .m13-gl-top{letter-spacing:.1em}
+.m13-gl--center{left:50%;top:50%;width:70%;transform:translate(-50%,-50%)}
+.m13-gl--full{inset:var(--gl-i);justify-content:center}
+/* контур */
+.m13-gl-rim-line{border:1px solid color-mix(in srgb,var(--gl-c) 42%,transparent)}
+.m13-gl-rim-glow{border:1px solid color-mix(in srgb,var(--gl-c) 78%,transparent);
+  box-shadow:0 0 16px color-mix(in srgb,var(--gl-c) 45%,transparent),inset 0 0 14px color-mix(in srgb,var(--gl-c) 20%,transparent)}
+.m13-gl--band.m13-gl-rim-line,.m13-gl--band.m13-gl-rim-glow{border-width:1px 0 0}
+/* главная картинка на странице события: рамка по размеру самой картинки, стекло — поверх неё */
+.m13-fig-img.m13-gl-fig{position:relative;width:fit-content;max-width:100%;margin:0 auto;border-radius:10px;overflow:hidden}
+.m13-fig-img.m13-gl-fig > img{width:auto;max-width:100%;height:auto;max-height:560px;border-radius:0}
