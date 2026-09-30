@@ -226,6 +226,10 @@
     S.root.querySelectorAll('.m13-thumb[data-card]').forEach(function (b) {
       b.addEventListener('click', function () { openCard(b.getAttribute('data-card')); });
     });
+    // Нажатие на закрытую обложку раскрывает её сразу; на всякий случай все обложки раскрываются не позже чем через 10 с
+    var lids = S.root.querySelectorAll('.m13-lid');
+    lids.forEach(function (l) { l.addEventListener('click', function (e) { e.stopPropagation(); lidOpen(l); }); });
+    if (lids.length) setTimeout(function () { lids.forEach(lidOpen); }, 10000);
     bindOverlay(); bindModal();
     // В предпросмотре панели логотип внизу не уводит со страницы
     var fl = S.root.querySelector('.m13-foot-logo');
@@ -331,26 +335,130 @@
     }
     if (welcome) {
       later(function () { pass(head); }, 700);
-      later(sheenCards, 1000);
+      later(function () { sheenCards(false); }, 1000);
       // Бегущий блик по контурам ждёт, пока пройдёт приветствие (надпись, волна по карточкам, подпись), потом плавно появляется
       root.classList.add('m13-hold-run');
       later(function () { root.classList.remove('m13-hold-run'); }, Math.max(3600, 2100 + ms));
     }
     if (foot && (welcome || own)) later(function () { whenSeen(foot, function () { pass(foot); again(); }); }, welcome ? 2100 : 1200);
+    // Обложки карточек: без приветственного блика — своя волна только по ним
+    if (!welcome && root.querySelector('.m13-lid')) later(function () { sheenCards(true); }, 600);
   }
-  // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке
-  function sheenCards() {
+  // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке.
+  // head.wave — откуда идёт волна: corner (из левого верхнего угла, по умолчанию) | top | bottom | left | right | center;
+  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | ray | dust | flash.
+  // onlyLids — только по карточкам с обложкой (когда приветственный блик выключен).
+  var WAVE_SPREAD = { fast: 400, normal: 650, slow: 1000, vslow: 1500 }, WAVE_PASS = { fast: 1200, normal: 1600, slow: 2100, vslow: 2800 };
+  var SHEEN_KINDS = { soft: 1, ray: 1, dust: 1, flash: 1 };
+  function sheenCards(onlyLids) {
     var g = S.root.querySelector('.m13-grid'); if (!g) return;
     var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
-    var G = g.getBoundingClientRect();
-    g.querySelectorAll('.m13-thumb:not(.m13-thumb--empty)').forEach(function (t) {
-      var R = t.getBoundingClientRect(), k = ((R.left - G.left) / Math.max(1, G.width) + (R.top - G.top) / Math.max(1, G.height)) / 2;
-      var n = document.createElement('i'); n.className = 'm13-sheen'; n.setAttribute('aria-hidden', 'true');
-      n.style.animationDelay = Math.round(k * 900) + 'ms';
-      n.style.setProperty('--m13-shine-c', col);
-      t.appendChild(n);
-      S.wakeT.push(setTimeout(function () { n.remove(); }, Math.round(k * 900) + 1800));
+    var kind = SHEEN_KINDS[hd.sheenKind] ? hd.sheenKind : 'soft', spread = WAVE_SPREAD[hd.waveSpeed] || WAVE_SPREAD.normal, run = WAVE_PASS[hd.waveSpeed] || WAVE_PASS.normal;
+    var G = g.getBoundingClientRect(), w = hd.wave;
+    var list = [].slice.call(g.querySelectorAll('.m13-thumb:not(.m13-thumb--empty)')).map(function (t) {
+      var R = t.getBoundingClientRect(), x = (R.left + R.width / 2 - G.left) / Math.max(1, G.width), y = (R.top + R.height / 2 - G.top) / Math.max(1, G.height);
+      var v = w === 'top' ? y : w === 'bottom' ? 1 - y : w === 'left' ? x : w === 'right' ? 1 - x
+        : w === 'center' ? Math.sqrt((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5)) : x + y;
+      return { t: t, v: v, lid: t.parentNode.querySelector(':scope > .m13-lid') };
     });
+    var vs = list.map(function (o) { return o.v; }), lo = Math.min.apply(null, vs), hi = Math.max.apply(null, vs);
+    list.forEach(function (o) {
+      if (onlyLids && !o.lid) return;
+      var delay = Math.round((hi > lo ? (o.v - lo) / (hi - lo) : 0) * spread);
+      var n = document.createElement('i'); n.className = 'm13-sheen' + (kind !== 'soft' ? ' m13-sheen--' + kind : ''); n.setAttribute('aria-hidden', 'true');
+      n.style.animationDelay = delay + 'ms'; n.style.animationDuration = run + 'ms';
+      n.style.setProperty('--m13-shine-c', col);
+      (o.lid ? o.lid.querySelector('.m13-lid-leaf') : o.t).appendChild(n);
+      S.wakeT.push(setTimeout(function () { n.remove(); }, delay + run + 200));
+      // Обложка раскрывается, когда блик почти прошёл, и после паузы
+      if (o.lid) S.wakeT.push(setTimeout(function () { lidOpen(o.lid); }, delay + Math.round(run * 0.7) + (+o.lid.getAttribute('data-pause') || 0)));
+    });
+  }
+
+  /* ---------- Обложка карточки при открытии витрины ----------
+     Для всего месяца: cardStyle.lid = {open: '' (без обложки) | 'book', …}; у карточки: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}
+     (своя обложка — все настройки в том же объекте). Волна приветственного блика доходит до карточки → блик по обложке → пауза →
+     обложка раскрывается и убирается; нажатие на закрытую обложку раскрывает её сразу. Каждый раз при открытии витрины;
+     «меньше движения» в системе — обложек нет.
+     Настройки: from left | right | top | bottom; speed fast | normal | slow | vslow; pause (секунды, 0–3); shadow soft | deep;
+     mat glass | color | image | frost (запотевшее зеркало); color; glass — прозрачность 0–90 %; blur — размытие, px; image; frost — плотность инея 0–100;
+     rim '' | light | cold | gold, rimColor; sign '' | text | spark | star | moon | dandelion | logo | image; text, signImg, font, signColor,
+     signSize s | m | l, signPos center | top | bottom. */
+  var LID_OPEN = { book: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
+  function lidQuiet() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  function lidOf(c) {
+    if (!c || c.visible === false || lidQuiet()) return null;
+    var d = ((S.D.showcase || {}).cardStyle || {}).lid || {}, f = (((c.front || {}).style) || {}).lid || {};
+    var L = f.mode === 'own' ? f : f.mode === 'off' ? null : d;
+    return L && LID_OPEN[L.open] ? L : null;
+  }
+  function lidNum(v, def, lo, hi) { v = v == null || v === '' || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
+  // Одуванчик из логотипа: 13 лучей с «вилочками» семян на концах, серединка и стебель; цвет — currentColor
+  var DAND = '';
+  function dandSVG() {
+    if (DAND) return DAND;
+    var r = '', t = '', d = '';
+    function xy(x, y) { return x.toFixed(1) + ' ' + y.toFixed(1); }
+    function dot(x, y, k) { return 'M' + xy(x - k, y) + 'a' + k + ' ' + k + ' 0 1 0 ' + 2 * k + ' 0a' + k + ' ' + k + ' 0 1 0 ' + -2 * k + ' 0'; }
+    [38, 33, 37, 31, 36, 32, 38, 32, 36, 31, 37, 33, 38].forEach(function (l, i) {
+      var a = (-150 + 25 * i) * Math.PI / 180, sa = Math.sin(a), ca = Math.cos(a), fx = 50 + sa * (l - 2.5), fy = 44 - ca * (l - 2.5);
+      r += 'M' + xy(50 + sa * 1.5, 44 - ca * 1.5) + 'L' + xy(50 + sa * l, 44 - ca * l);
+      [-0.9, 0.9].forEach(function (k) {
+        var ex = fx + Math.sin(a + k) * 6.2, ey = fy - Math.cos(a + k) * 6.2;
+        t += 'M' + xy(fx, fy) + 'L' + xy(ex, ey); d += dot(ex, ey, 1.45);
+      });
+      d += dot(50 + sa * (l + 1.4), 44 - ca * (l + 1.4), 1.55);
+    });
+    return (DAND = '<svg viewBox="0 0 100 118" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.1" d="' + r + '"/>' +
+      '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.1" d="' + t + '"/><path fill="currentColor" d="' + d + '"/>' +
+      '<circle cx="50" cy="44" r="3.4" fill="currentColor"/><path d="M50 72V116" stroke="currentColor" stroke-width="5"/></svg>');
+  }
+  M13.dandSVG = dandSVG;
+  // Надпись или значок на обложке
+  function lidSign(L, dark) {
+    var k = L.sign, inner = '', ty = [];
+    if (k === 'text') {
+      var tx = String(L.text || '').trim(); if (!tx) return '';
+      if (L.font) { ensureFont(L.font); ty.push("font-family:'" + L.font + "',Georgia,serif"); }
+      inner = '<span class="m13-lid-tx">' + txt(tx) + '</span>';
+    } else if (STAR_PATH[k]) inner = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH[k] + '"/></svg>';
+    else if (k === 'dandelion') inner = dandSVG();
+    else if (k === 'logo') inner = logoHTML(S.D.showcase.head || {});
+    else if (k === 'image' && L.signImg) inner = '<img alt="" src="' + esc(media(L.signImg)) + '">';
+    if (!inner) return '';
+    ty.push('color:' + (L.signColor || (dark ? '#f3e6cc' : '#3b2f24')));
+    var at = L.signPos === 'top' || L.signPos === 'bottom' ? L.signPos : 'center', sz = L.signSize === 's' || L.signSize === 'l' ? L.signSize : 'm';
+    return '<div class="m13-lid-sign m13-lid-sign--' + k + ' m13-lid-at-' + at + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' + inner + '</div>';
+  }
+  function lidHTML(c, L) {
+    var st = cardStyle(c), from = LID_FROM[L.from] ? L.from : 'left', mat = L.mat === 'color' || L.mat === 'frost' || (L.mat === 'image' && L.image) ? L.mat : 'glass';
+    var col = L.color || (mat === 'frost' ? '#e4ebf1' : st.bg || '#f4efe6'), rgb = hexRgb(col), dark = mat === 'image' || (mat !== 'frost' && lum(rgb) < 128);
+    var css = ['--m13-lid-ms:' + (LID_MS[L.speed] || LID_MS.normal) + 'ms', '--m13-ac:' + (st.accent || '#ecd3a3')], leaf = [];
+    if (mat === 'color') leaf.push('background-color:' + col);
+    else if (mat === 'image') leaf.push("background:" + col + " url('" + media(L.image) + "') center/cover no-repeat");
+    else if (mat === 'frost') css.push('--m13-fr:' + (lidNum(L.frost, 60, 0, 100) / 100).toFixed(2), '--m13-frc:' + rgb.join(','));
+    else {
+      var gl = lidNum(L.glass, 35, 0, 90), bl = lidNum(L.blur, 8, 0, 20);
+      leaf.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - gl / 100).toFixed(2) + ')', '--m13-lb:' + bl + 'px');
+    }
+    var rim = L.rim === 'light' || L.rim === 'cold' || L.rim === 'gold' ? '<i class="m13-lay m13-rim m13-rim--' + L.rim + '"' + (L.rimColor ? ' style="' + esc('--m13-rc:' + L.rimColor) + '"' : '') + '></i>' : '';
+    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
+      Math.round(lidNum(L.pause, 0.5, 0, 3) * 1000) + '" style="' + esc(css.join(';')) + '"><i class="m13-lid-cast"></i>' +
+      '<div class="m13-lid-leaf m13-lid-' + mat + '"' + (leaf.length ? ' style="' + esc(leaf.join(';')) + '"' : '') + '>' +
+      (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + lidSign(L, dark) + rim + '<i class="m13-lid-shade"></i></div></div>';
+  }
+  function lidOpen(lid) {
+    if (!lid || !lid.isConnected || lid.classList.contains('is-open')) return;
+    var cell = lid.parentNode, ms = parseFloat(lid.style.getPropertyValue('--m13-lid-ms')) || 1000;
+    cell.classList.add('m13-lid-going'); lid.classList.add('is-open');
+    setTimeout(function () { lid.remove(); cell.classList.remove('m13-lid-going'); }, ms + 80);
+  }
+  // Карточка с обложкой: обложка стоит над карточкой в общей обёртке (m13-cell), чтобы при раскрытии выходить за её край
+  function withLid(c, html) {
+    var L = lidOf(c); if (!L || !html) return html;
+    var lid = lidHTML(c, L);
+    if (html.indexOf('<div class="m13-cell ') === 0) return html.replace('<div class="m13-cell ', '<div class="m13-cell m13-lidcell ').replace(/<\/div>$/, lid + '</div>');
+    return '<div class="m13-cell m13-lidcell">' + html + lid + '</div>';
   }
   M13.wake = function () { if (S.D && S.D.showcase && S.root.querySelector('.m13-grid')) wake(S.D.showcase.head || {}); };
 
@@ -584,7 +692,8 @@
     return '<div class="m13-cell ' + tempo + '" style="' + esc(glowVars(sty.st)) + '"><i class="m13-breath" aria-hidden="true"></i>' +
       html.replace(/ m13-glow-live/, '') + '</div>';
   }
-  function thumbHTML(c) {
+  function thumbHTML(c) { return withLid(c, thumbCore(c)); }
+  function thumbCore(c) {
     if (!c || c.visible === false) {
       return '<div class="m13-thumb m13-thumb--empty" aria-hidden="true"><span class="m13-empty-mark"></span></div>';
     }
