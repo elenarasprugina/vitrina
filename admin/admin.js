@@ -3047,6 +3047,34 @@
   }
   // Картинки data:… → файлы media/<отпечаток>.<расширение>. Одинаковые картинки — один файл.
   function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+  // SHA-1 без crypto.subtle: на странице без https (http://…) браузер его не даёт
+  function sha1(bytes) {
+    if (window.crypto && crypto.subtle && crypto.subtle.digest) return crypto.subtle.digest('SHA-1', bytes);
+    var n = bytes.length, words = ((n + 8) >> 6) + 1, w = new Array(words * 16), i, j;
+    for (i = 0; i < w.length; i++) w[i] = 0;
+    for (i = 0; i < n; i++) w[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
+    w[n >> 2] |= 0x80 << (24 - (n % 4) * 8);
+    w[words * 16 - 2] = Math.floor(n / 0x20000000);
+    w[words * 16 - 1] = (n * 8) >>> 0;
+    var h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0, x = new Array(80);
+    function rol(v, s) { return (v << s) | (v >>> (32 - s)); }
+    for (i = 0; i < w.length; i += 16) {
+      var a = h0, b = h1, c = h2, d = h3, e = h4, f, k, t;
+      for (j = 0; j < 80; j++) {
+        x[j] = j < 16 ? w[i + j] : rol(x[j - 3] ^ x[j - 8] ^ x[j - 14] ^ x[j - 16], 1);
+        if (j < 20) { f = (b & c) | (~b & d); k = 0x5a827999; }
+        else if (j < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
+        else if (j < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
+        else { f = b ^ c ^ d; k = 0xca62c1d6; }
+        t = (rol(a, 5) + f + e + k + x[j]) | 0;
+        e = d; d = c; c = rol(b, 30); b = a; a = t;
+      }
+      h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
+    }
+    var out = new Uint8Array(20);
+    [h0, h1, h2, h3, h4].forEach(function (h, q) { for (var r = 0; r < 4; r++) out[q * 4 + r] = (h >>> (24 - r * 8)) & 255; });
+    return Promise.resolve(out.buffer);
+  }
   function extractImages(P) {
     var found = {}, list = [];
     (function walk(o) {
@@ -3065,7 +3093,7 @@
       var ext = { jpeg: 'jpg', 'svg+xml': 'svg' }[m[1].toLowerCase()] || m[1].toLowerCase();
       var bin = atob(m[2]), bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return crypto.subtle.digest('SHA-1', bytes).then(function (h) {
+      return sha1(bytes).then(function (h) {
         var path = 'media/' + hex(h).slice(0, 20) + '.' + ext;
         map[uri] = path; media[path] = m[2];
       });
