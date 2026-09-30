@@ -1779,9 +1779,10 @@
       (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back)) + '</div>';
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
     else if (target === 'events') bindEvents(box, tab || null, false);
-    else bindActs(box);
+    else { bindActs(box); bindLightbox(box); }
     box.querySelector('[data-m13-iback]').addEventListener('click', closeTop);
     box.classList.add('is-open'); box.scrollTop = 0;
+    evenGlassSoon(box);
     pushLayer(target, function () { box.classList.remove('is-open'); box.innerHTML = ''; });
   }
 
@@ -1809,7 +1810,7 @@
       bindSandbox(S.root, S.onBack ? 'days' : (h[0] || 'days'), S.onBack ? null : (h[1] || null), !S.onBack);
     } else {
       document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + (S.D.reflection.eyebrow || 'Карта-Отражение');
-      bindActs(S.root);
+      bindActs(S.root); bindLightbox(S.root); evenGlassSoon(S.root);
     }
   }
 
@@ -1960,6 +1961,15 @@
   }
   // Шапка страницы чтения: картинка маршрута (или своя обложка), цветная кромка, названия
   function readHeadHTML(h) {
+    // Со стеклом: картинка крупно, надписи — на стекле; над картинкой не повторяются (заголовок остаётся для читалок экрана).
+    // Чего нет на стекле (тон, печать…), — строкой под картинкой.
+    if (h.img && h.gl && h.gl.html) {
+      var rest = (h.meta || []).slice(h.gl.kin ? 1 : 0);
+      return '<header class="m13-read-glass' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
+        '<h3 class="m13-sr">' + esc([h.top, h.title, h.line].filter(Boolean).join(' · ')) + '</h3>' +
+        galleryHTML([{ src: h.img, caption: '' }], 'feature', h.gl.html) +
+        (rest.length ? '<div class="m13-panel-meta">' + rest.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') + '</header>';
+    }
     var g = h.img ? S.lb.push([{ src: media(h.img), caption: '' }]) - 1 : -1;
     var whole = h.fit === 'whole';
     return '<header class="m13-read-head' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
@@ -2011,6 +2021,7 @@
       var m = holder.querySelector('[data-more]');
       if (m) m.addEventListener('click', function () { var y = sy(); st.n += LIB_STEP; grid(); to(y); });
       holder.querySelectorAll('[data-open]').forEach(function (b) { b.addEventListener('click', function () { open(b.getAttribute('data-open'), true); }); });
+      evenGlassSoon(holder);
     }
     function find(id) {
       function idx(L) { for (var i = 0; i < L.length; i++) if (L[i].id === id) return i; return -1; }
@@ -2037,6 +2048,7 @@
         b.addEventListener('click', function () { var id = b.getAttribute('data-go'), x = find(id); if (!x) return; render(x.L, x.i); to(0); setHash(o.hash(id)); });
       });
       holder.querySelectorAll('[data-sub]').forEach(function (b) { b.addEventListener('click', function () { openSub(b.getAttribute('data-sub')); }); });
+      evenGlassSoon(holder);
     }
     function back() { grid(); to(st.y); }
     function open(id, push) {
@@ -2112,6 +2124,7 @@
       else { c.top = [r.title, dayN].filter(Boolean).join(' · '); c.title = it.title; }
       c.text = firstLine(it.question || it.thought || it.meaning || firstText(t, it));
     } else { c.top = r.title || ''; c.title = it.name; c.text = firstLine(it.note || it.fragment || firstText(t, it)); }
+    c.gl = glassOn(t, it);
     return c;
   }
   function sbRead(t, it) {
@@ -2123,6 +2136,8 @@
       if (sb.headMain !== 'day' && r.title) { h.title = r.title; h.line = [dayN, it.title].filter(Boolean).join(' · '); }
       else { h.top = [r.title, dayN].filter(Boolean).join(' · '); h.title = it.title; }
     } else { h.top = r.title || ''; h.title = it.name; }
+    var gf = glassFor(t, it);
+    if (gf.g) h.gl = { html: glassBox(glassLinesOf(t, it, gf.g), gf.g, t), kin: gf.g.kin !== false && t === 'days' && !!opt(it.kin) };
     return '<article class="m13-panel m13-read-panel">' + readHeadHTML(h) + blocks +
       shareBtnHTML([h.title, h.line].filter(Boolean).join(' · '), libUrl('sandbox', it.id, t + '/' + encodeURIComponent(it.id))) + '</article>';
   }
@@ -2256,11 +2271,13 @@
   var GL_TINT = { light: '255,255,255', dark: '20,14,10', gold: '236,211,163' };
   var GL_DEF = { pos: 'bottom', tint: 'dark', glass: 70, blur: 8, rim: 'line', font: 'Cormorant Garamond', weight: 'normal', color: '#ecd3a3', size: 'm', align: '' };
   M13.GLASS_DEF = GL_DEF;
+  // Где стекло по умолчанию: у событий — снизу, у картинок маршрутов и Карт-Отражений — полосой по нижнему краю
+  var GL_POS_DEF = { event: 'bottom', days: 'band', chronicles: 'band', route: 'band', kin: 'band' };
+  M13.GLASS_POS_DEF = GL_POS_DEF;
   function glv(g, k) { return g[k] == null || g[k] === '' ? GL_DEF[k] : g[k]; }
-  function glassOf(e, ev) {
-    var d = (((ev || S.D.events || {}).look) || {}).glass || {}, f = (e && e.glass) || {};
-    return f.mode === 'own' ? f : f.mode === 'off' ? null : d.on !== false ? d : null;
-  }
+  // Образец d (on: false — выключен) и своё у объекта f = {mode: '' (как у всех) | 'off' | 'own', …}
+  function glassPick(d, f) { d = d || {}; f = f || {}; return f.mode === 'own' ? f : f.mode === 'off' ? null : d.on !== false ? d : null; }
+  function glassOf(e, ev) { return glassPick((((ev || S.D.events || {}).look) || {}).glass, e && e.glass); }
   function glassLines(e, g) {
     function on(k) { return g[k] !== false; }
     return {
@@ -2270,29 +2287,110 @@
       extra: g.extraOn ? String(g.extra || '').trim() : ''
     };
   }
-  function glassHTML(e, g) {
-    var L = glassLines(e, g), pos = GL_POS[g.pos] ? g.pos : 'bottom', font = glv(g, 'font'), tint = glv(g, 'tint');
+  /* Стекло на картинке маршрута: sandbox.look.glass — образец для примеров дней, Летописей и маршрутов в архиве,
+     у маршрута route.glass = {mode, …} — своё (действует везде, где стоит его картинка). Строки: top (надпись сверху; topText — своя,
+     пусто — «Маршрут» или название маршрута), dates (даты маршрута), title, day («День N · …»), kin, extraOn + extra. */
+  function routeGlassOf(r) { return glassPick(((S.D.sandbox || {}).look || {}).glass, r && r.glass); }
+  // Что можно написать на стекле: kind 'days' | 'chronicles' (x — пример, r — его маршрут) | 'route' (x — маршрут)
+  function routeGlassSrc(kind, x, r) {
+    var s = { kicker: T('archiveRoute') || 'Маршрут', dates: routeDates(r || {}), title: '', line: '', kin: '' };
+    if (kind === 'days') {
+      var dayN = x.day ? L('day', { n: x.day }) : '';
+      if (S.D.sandbox.headMain !== 'day' && r.title) { s.title = r.title; s.line = [dayN, x.title].filter(Boolean).join(' · '); }
+      else { s.kicker = r.title || s.kicker; s.title = x.title || ''; s.line = dayN; }
+      s.kin = opt(x.kin);
+    } else if (kind === 'chronicles') { s.kicker = r.title || s.kicker; s.title = x.name || ''; }
+    else { s.title = r.title || ''; s.kin = opt(r.kin); }
+    return s;
+  }
+  function routeGlassLines(s, g) {
+    function on(k) { return g[k] !== false; }
+    function ok(v) { return String(v || '').trim(); }
+    return {
+      top: [on('top') ? ok(g.topText) || s.kicker : '', on('dates') ? s.dates : ''].filter(ok).join(' · '),
+      title: on('title') ? ok(s.title) : '',
+      meta: [on('day') ? s.line : '', on('kin') ? s.kin : ''].filter(ok),
+      extra: g.extraOn ? ok(g.extra) : ''
+    };
+  }
+  /* Стекло на Карте-Отражении: reflection.look.glass — образец, у карты item.glass = {mode, …}.
+     Строки: title — название архетипа (крупно), kin — строка «Kin …» мелко под ним (по умолчанию выключена: кин есть на самой карте),
+     topText — своя надпись сверху, extraOn + extra. */
+  function kinGlassOf(it) { return glassPick(((S.D.reflection || {}).look || {}).glass, it && it.glass); }
+  function kinGlassLines(it, g) {
+    function ok(v) { return String(v || '').trim(); }
+    return { top: g.top !== false ? ok(g.topText) : '', title: g.title !== false ? ok(it.title) : '',
+      meta: g.kin === true && ok(it.meta) ? [ok(it.meta)] : [], extra: g.extraOn ? ok(g.extra) : '' };
+  }
+  // Строки стекла для любого вида картинки (и для панели: предпросмотр, картинка превью ссылки)
+  function glassLinesOf(kind, x, g) {
+    if (kind === 'event') return glassLines(x, g);
+    if (kind === 'kin') return kinGlassLines(x, g);
+    if (kind === 'route') return routeGlassLines(routeGlassSrc('route', x, x), g);
+    return routeGlassLines(routeGlassSrc(kind, x, routeById(x.routeId) || {}), g);
+  }
+  // Какое стекло и на какой картинке: {g, img} (g — null, если стекла нет)
+  function glassFor(kind, x) {
+    var r, img;
+    if (kind === 'event') { img = x.cover; return { img: img, g: img ? glassOf(x) : null }; }
+    if (kind === 'kin') { img = x.image; return { img: img, g: img ? kinGlassOf(x) : null }; }
+    r = kind === 'route' ? x : routeById(x.routeId) || {};
+    img = kind === 'route' ? r.image : sbImg(x, r).img;
+    return { img: img, g: img ? routeGlassOf(r) : null };
+  }
+  function glassBox(Ls, g, kind) {
+    var pos = GL_POS[g.pos] ? g.pos : GL_POS_DEF[kind] || 'bottom', font = glv(g, 'font'), tint = glv(g, 'tint');
     var rgb = tint === 'own' ? hexRgb(g.tintColor || '#141414').join(',') : GL_TINT[tint] || GL_TINT.dark;
     var a = Math.max(0, Math.min(100, +glv(g, 'glass'))), bl = Math.max(0, Math.min(24, +glv(g, 'blur')));
     var al = g.align === 'left' || g.align === 'center' || g.align === 'right' ? g.align : pos === 'center' || pos === 'full' ? 'center' : 'left';
     var rim = g.rim === 'none' || g.rim === 'glow' ? g.rim : 'line', sz = g.size === 's' || g.size === 'l' ? g.size : 'm';
     var mark = g.mark === 'dandelion' ? '<span class="m13-gl-mk m13-gl-mk--dand">' + dandSVG('logo') + '</span>'
       : g.mark === 'logo' ? '<span class="m13-gl-mk m13-gl-mk--logo">' + logoHTML({}) + '</span>' : '';
-    if (!L.top && !L.title && !L.meta.length && !L.extra && !mark) return '';
+    if (!Ls.top && !Ls.title && !Ls.meta.length && !Ls.extra && !mark) return '';
     if (FONTS[font]) ensureFont(font);
     var ty = (FONTS[font] ? ["font-family:'" + font + "',Georgia,serif"] : []).concat(typeCss(font, glv(g, 'weight')));
-    return '<span class="m13-gl m13-gl--' + pos + ' m13-gl-al-' + al + ' m13-gl-rim-' + rim + ' m13-gl-sz-' + sz + '" style="' +
+    // fit 'even' — «одинаковая высота у всех»: плашки в одном ряду обложек/карт выравниваются по самой высокой (evenGlass)
+    return '<span class="m13-gl m13-gl--' + pos + ' m13-gl-al-' + al + ' m13-gl-rim-' + rim + ' m13-gl-sz-' + sz + (g.fit === 'even' ? ' m13-gl-even' : '') + '" style="' +
       esc('--gl-bg:rgba(' + rgb + ',' + ((100 - a) / 100).toFixed(2) + ');--gl-b:' + bl + 'px;--gl-c:' + (g.color || GL_DEF.color)) + '">' +
-      (L.top ? '<span class="m13-gl-top">' + esc(L.top) + '</span>' : '') +
-      (L.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + esc(L.title) + '</span>' : '') +
-      (L.meta.length || mark ? '<span class="m13-gl-row">' + (L.meta.length ? '<span class="m13-gl-d">' + esc(L.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
-      (L.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(L.extra) + '</span>' : '') + '</span>';
+      (Ls.top ? '<span class="m13-gl-top">' + esc(Ls.top) + '</span>' : '') +
+      (Ls.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + esc(Ls.title) + '</span>' : '') +
+      (Ls.meta.length || mark ? '<span class="m13-gl-row">' + (Ls.meta.length ? '<span class="m13-gl-d">' + esc(Ls.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
+      (Ls.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(Ls.extra) + '</span>' : '') + '</span>';
   }
+  function glassHTML(e, g) { return glassBox(glassLines(e, g), g, 'event'); }
+  function glassOn(kind, x) { var f = glassFor(kind, x); return f.g ? glassBox(glassLinesOf(kind, x, f.g), f.g, kind) : ''; }
+  // «Одинаковая высота у всех»: в каждой сетке обложек / Карт-Отражений плашки получают высоту самой высокой
+  function evenGlass(root) {
+    root = root || S.root; if (!root) return;
+    root.querySelectorAll('.m13-covers, .m13-examples').forEach(function (grp) {
+      var gs = [].slice.call(grp.querySelectorAll('.m13-gl-even'));
+      gs.forEach(function (x) { x.style.minHeight = ''; });
+      if (gs.length < 2) return;
+      var h = Math.max.apply(null, gs.map(function (x) { return x.offsetHeight; }));
+      if (h) gs.forEach(function (x) { x.style.minHeight = h + 'px'; });
+    });
+    if (!S.glEvenBound) {
+      S.glEvenBound = true;
+      var again = function () { clearTimeout(S.glEvenT); S.glEvenT = setTimeout(function () { evenGlass(); }, 120); };
+      window.addEventListener('resize', again);
+      if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', again);
+    }
+  }
+  function evenGlassSoon(root) { (window.requestAnimationFrame || setTimeout)(function () { evenGlass(root); }); }
+  M13.evenGlass = evenGlass;
   // Для панели: стекло на примере события; D — черновик {events, settings}
   M13.glassPreview = function (e, g, D) {
     var keep = S.D, kb = S.base; S.D = Object.assign({}, S.D || {}, D || {}); S.base = '../';
     try { return g ? glassHTML(e, g) : ''; } finally { S.D = keep; S.base = kb; }
   };
+  // Для панели: стекло любого вида. kind — 'event' | 'days' | 'chronicles' | 'route' | 'kin'; D — черновик целиком
+  function withD(D, fn) {
+    var keep = S.D, kb = S.base; S.D = Object.assign({}, S.D || {}, D || {}); S.base = '../';
+    try { return fn(); } finally { S.D = keep; S.base = kb; }
+  }
+  M13.glassPreviewOf = function (kind, x, g, D) { return withD(D, function () { return g ? glassBox(glassLinesOf(kind, x, g), g, kind) : ''; }); };
+  M13.glassLinesOf = function (kind, x, g, D) { return withD(D, function () { return glassLinesOf(kind, x, g); }); };
+  M13.glassFor = function (kind, x, D) { return withD(D, function () { return glassFor(kind, x); }); };
   M13.glassOf = function (e, ev) { return glassOf(e, ev); };
   M13.glassLines = function (e, g) { return glassLines(e, g); };
   M13.evDate = function (e) { return evDate(e); };
@@ -2339,7 +2437,7 @@
   // Маршрут в архиве: обложка и страница (картинка, даты, кин, описание, «как это было», фото, кнопки, примеры дней и Летописи)
   function routeDates(r) { var d = r.dates || {}; return evDate({ date: d.from, dateEnd: d.to }); }
   function routeCover(r) {
-    return { id: r.id, img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: routeDates(r), title: r.title || '', text: firstLine(r.description || '') };
+    return { id: r.id, img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: routeDates(r), title: r.title || '', text: firstLine(r.description || ''), gl: glassOn('route', r) };
   }
   function routeRead(r) {
     var sb = S.D.sandbox || {};
@@ -2352,8 +2450,10 @@
       return L.length ? '<section class="m13-read-sec"><div class="m13-block-title">' + esc(title) + '</div><div class="m13-covers m13-covers--mini">' +
         L.map(function (it) { return coverHTML(sbCover(t, it, true)); }).join('') + '</div></section>' : '';
     }
+    var gr = glassFor('route', r);
     return '<article class="m13-panel m13-read-panel m13-ev">' +
-      readHeadHTML({ img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [] }) +
+      readHeadHTML({ img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [],
+        gl: gr.g ? { html: glassBox(glassLinesOf('route', r, gr.g), gr.g, 'route'), kin: gr.g.kin !== false } : null }) +
       (String(r.description || '').trim() ? '<div class="m13-block"><div class="m13-rich">' + rich(r.description) + '</div></div>' : '') +
       (r.archiveBlocks || []).map(sbBlockHTML).join('') +
       actionsHTML(acts, { card: r.title, url: libUrl('events', r.id, encodeURIComponent(r.id)), routeUrl: r.routeUrl, tplKey: 'route' }) +
@@ -2412,12 +2512,17 @@
       '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(rf.eyebrow || '') + '</div>' +
       '<h2>' + esc(rf.title || '') + '</h2>' + (rf.intro ? '<p>' + txt(rf.intro) + '</p>' : '') + '</div>' +
       '<div class="m13-examples">' + items.map(function (it) {
-        return '<div class="m13-example">' +
-          (it.image ? '<img src="' + esc(media(it.image)) + '" alt="' + esc(it.title) + '" loading="lazy">'
+        // Со стеклом: название (и, если включено, Kin) — на стекле, под картинкой не повторяются.
+        // Нажатие на карту открывает её крупно, целиком.
+        var gf = glassFor('kin', it), gl = gf.g ? glassBox(kinGlassLines(it, gf.g), gf.g, 'kin') : '';
+        var lb = it.image ? S.lb.push([{ src: media(it.image), caption: '' }]) - 1 : -1;
+        return '<div class="m13-example' + (gl ? ' m13-example--gl' : '') + '">' +
+          (it.image ? '<button type="button" class="m13-ex-img' + (gl ? ' m13-fit-whole' : '') + '" data-m13-lb="' + lb + ':0" aria-label="' + esc((it.title ? it.title + ' — ' : '') + 'открыть крупно') + '">' +
+              (gl ? fitImgHTML(it.image, true, true) + '<span class="m13-gl-box">' + gl + '</span>' : '<img src="' + esc(media(it.image)) + '" alt="' + esc(it.title) + '" loading="lazy">') + '</button>'
             : '<div class="m13-placeholder">' + esc(rf.placeholder || '') + '</div>') +
           // Всегда 4 части (картинка, подпись Kin, архетип, описание) — по ним плашки в ряду выравниваются автоматически
-          '<em class="m13-example-meta">' + esc(it.meta || '') + '</em>' +
-          '<strong>' + esc(it.title) + '</strong>' +
+          '<em class="m13-example-meta">' + (gl ? '' : esc(it.meta || '')) + '</em>' +
+          '<strong>' + (gl && gf.g.title !== false ? '<span class="m13-sr">' + esc(it.title) + '</span>' : esc(it.title)) + '</strong>' +
           // Описание — под кнопкой «Подробнее»: текст любой длины, картинки в ряду стоят ровно
           (it.text ? (rf.textOpen ? '<span>' + txt(it.text) + '</span>'
             : '<details class="m13-more m13-ex-more"><summary><span class="m13-more-open">' + esc(rf.moreLabel || 'Подробнее') + ' ↓</span>' +

@@ -1430,13 +1430,13 @@
     }
     if (kind === 'archroute') {
       var ar = rt(id);
-      return { dir: 'events', hash: encodeURIComponent(id), title: ar.title || '', desc: plainShort(ar.description), img: ar.image };
+      return { dir: 'events', hash: encodeURIComponent(id), title: ar.title || '', desc: plainShort(ar.description), img: ar.shareImage || ar.image, sized: !!ar.shareImage };
     }
     var sb = D.sandbox || {}, tab = (sb.days || []).some(function (x) { return x.id === id; }) ? 'days' : 'chronicles';
     var it = (sb[tab] || []).filter(function (x) { return x.id === id; })[0] || {}, r = rt(it.routeId);
     var blocks = window.M13.sbBlocks(tab, it, sb.labels) || [], first = blocks.filter(function (b) { return b.kind === 'text' && String(b.text || '').trim(); })[0];
     var title = tab === 'days' ? [r.title, it.day ? 'День ' + it.day : '', it.title].filter(Boolean).join(' · ') : [it.name, r.title].filter(Boolean).join(' · ');
-    return { dir: 'sandbox', hash: tab + '/' + encodeURIComponent(id), title: title, desc: plainShort(first && first.text), img: it.cover || r.image };
+    return { dir: 'sandbox', hash: tab + '/' + encodeURIComponent(id), title: title, desc: plainShort(first && first.text), img: it.shareImage || it.cover || r.image, sized: !!it.shareImage };
   }
   function pageHTML(kind, id, D, cardId) {
     D = D || DATA;
@@ -2092,6 +2092,8 @@
               hint: 'Постоянная страница, где идут дни маршрута. Нужна для кнопки «Пройти маршрут».' }),
             imageIn(r, 'image', 'Картинка маршрута', { hint: 'Показывается на обложках примеров этого маршрута в Песочнице и в архиве.' }),
             fitIn(r, 'coverFit', 'Картинка маршрута на обложках', FIT_HINT + ' Действует у примеров без своей обложки и в архиве.'),
+            glassOwnFields(r, 'route', { title: 'Стекло на картинке маршрута', img: function () { return !!r.image; },
+              noImg: 'Нет картинки маршрута — стекло будет только у примеров со своей обложкой.', share: !!r.archive }),
             colorOptIn(r, 'color', 'Цвет маршрута', { none: 'без цвета', pick: '#c9a14a',
               hint: 'Лёгкий оттенок и свечение у обложек его примеров, Летописей, отзывов и в архиве. У отдельного примера можно поставить свой.' }),
             archiveFields(r)
@@ -2160,55 +2162,93 @@
   var GL_SIZE_OPTS = [['s', 'Мельче'], ['m', 'Обычный'], ['l', 'Крупнее']];
   var GL_ALIGN_OPTS = [['', 'Само (по центру — у «по центру» и «на всю»)'], ['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']];
   var GL_MARK_OPTS = [['', 'Нет'], ['dandelion', 'Одуванчик'], ['logo', 'Логотип 13 MIRRORS']];
-  function glassPattern() { var ev = DATA.events || {}; ev.look = ev.look || {}; return (ev.look.glass = ev.look.glass || {}); }
+  var GL_FIT_OPTS = [['', 'По тексту'], ['even', 'Одинаковая у всех в ряду']];
+  /* Виды картинок со стеклом: 'event' — события (events.look.glass, item.glass); 'route' — картинки маршрутов: примеры дней,
+     Летописи, маршруты в архиве (sandbox.look.glass, route.glass); 'kin' — Карты-Отражения (reflection.look.glass, item.glass). */
+  var GL_KINDS = {
+    event: { pat: function () { var ev = DATA.events || {}; ev.look = ev.look || {}; return ev.look; }, all: 'Как у всех событий', where: 'События → Оформление страницы → Стекло на картинке' },
+    route: { pat: function () { var sb = DATA.sandbox || {}; sb.look = sb.look || {}; return sb.look; }, all: 'Как у всех маршрутов', where: 'Песочница → Оформление страницы → Стекло на картинках маршрутов' },
+    kin: { pat: function () { var rf = DATA.reflection || {}; rf.look = rf.look || {}; return rf.look; }, all: 'Как у всех Карт-Отражений', where: 'Карты-Отражения → Оформление страницы → Стекло на картинке' }
+  };
+  function glassPattern(kind) { var lk = GL_KINDS[kind || 'event'].pat(); return (lk.glass = lk.glass || {}); }
   // Пример для предпросмотра: ближайшее событие с картинкой, иначе — выдуманное
   function glassSample() {
     var L = ((DATA.events || {}).items || []).filter(function (e) { return e && e.cover && e.type !== 'case'; });
     var up = L.filter(function (e) { return e.visible !== false && (e.dateEnd || e.date || '9') >= new Date().toISOString().slice(0, 10); });
     return up[0] || L[0] || { type: 'meeting', title: 'PRO МАК', date: '2026-10-08', time: '19:00', place: 'Москва', price: 'свободный вход', cover: null };
   }
-  function glassDemo(g, getE) {
-    var cover = el('div', { class: 'a-gl-cover' }), page = el('div', { class: 'a-gl-page' });
-    var box = el('div', { class: 'a-gl-demo' }, [
-      el('div', { class: 'a-gl-col' }, [cover, el('span', { class: 'a-hint', text: 'Обложка в списке' })]),
-      el('div', { class: 'a-gl-col' }, [page, el('span', { class: 'a-hint', text: 'На странице события' })])]);
-    function paint(frame, e, html) {
-      frame.innerHTML = (e.cover ? '<img alt="" src="' + imgSrc(e.cover).replace(/"/g, '&quot;') + '">' : '<span class="a-gl-noimg"></span>') +
+  // Для маршрутов — пример дня с картинкой (своей или маршрута), иначе маршрут с картинкой; для Карт — первая карта с картинкой
+  function glassSampleOf(kind) {
+    if (kind === 'event') return { k: 'event', x: glassSample() };
+    if (kind === 'kin') {
+      var ks = ((DATA.reflection || {}).items || []).filter(function (x) { return x && x.image; });
+      return { k: 'kin', x: ks[0] || { title: 'Проводник пространств', meta: 'Kin 33 · Красный Резонансный Небесный Странник', image: null } };
+    }
+    var rs = (DATA.routes || {}).routes || [];
+    var ds = ((DATA.sandbox || {}).days || []).filter(function (d) { var r = routeById(d.routeId); return d.visible !== false && (d.cover || (r && r.image)); });
+    if (ds.length) return { k: 'days', x: ds[0] };
+    var rr = rs.filter(function (r) { return r.image; })[0];
+    return { k: 'route', x: rr || { title: 'Красный Дракон', dates: { from: '2026-08-27', to: '2026-09-08' }, image: null } };
+  }
+  // Предпросмотр: обложка в списке и картинка на странице. getS() → {k, x} — что показывать (пусто — пример)
+  function glassDemo(g, getS, kind) {
+    kind = kind || 'event';
+    var cover = el('div', { class: 'a-gl-cover' + (kind === 'kin' ? ' a-gl-cover--kin' : '') }), page = el('div', { class: 'a-gl-page' });
+    var cols = [el('div', { class: 'a-gl-col' }, [cover, el('span', { class: 'a-hint', text: kind === 'kin' ? 'Карта на странице «Примеры»' : 'Обложка в списке' })])];
+    if (kind !== 'kin') cols.push(el('div', { class: 'a-gl-col' }, [page, el('span', { class: 'a-hint', text: kind === 'event' ? 'На странице события' : 'На странице примера' })]));
+    var box = el('div', { class: 'a-gl-demo' }, cols);
+    function paint(frame, img, html) {
+      frame.innerHTML = (img ? '<img alt="" src="' + imgSrc(img).replace(/"/g, '&quot;') + '">' : '<span class="a-gl-noimg"></span>') +
         '<span class="m13-gl-box">' + html + '</span>';
     }
     function run() {
-      var e = (getE && getE()) || glassSample(), html = window.M13.glassPreview(e, g, { events: DATA.events, settings: DATA.settings });
-      paint(cover, e, html); paint(page, e, html);
+      var sm = (getS && getS()) || glassSampleOf(kind), M = window.M13;
+      var img = M.glassFor(sm.k, sm.x, DATA).img, html = M.glassPreviewOf(sm.k, sm.x, g, DATA);
+      paint(cover, img, html); if (kind !== 'kin') paint(page, img, html);
     }
     LIVE.push({ node: box, run: run });
     run();
     return box;
   }
-  // Поля стекла: общие для образца и для своего стекла у события. getE — событие для предпросмотра (пусто — пример)
-  function glassFields(g, getE) {
+  // Поля стекла: общие для образца и для своего стекла. getS — что показывать в предпросмотре (пусто — пример)
+  function glassFields(g, getS, kind) {
+    kind = kind || 'event';
     var box = el('div', { class: 'a-glass' });
     function redraw() { draw(); }
-    function draw() {
-      box.replaceChildren();
-      add(box, [
-        glassDemo(g, getE),
-        sub('Что написано на стекле'),
+    function lines() {
+      if (kind === 'event') return [
         el('p', { class: 'a-hint', text: 'Дата и время, место и цена берутся из полей события сами. Пустое поле на стекле не появляется.' }),
         switchIn(g, 'top', 'Надпись сверху', { defTrue: true, onChange: redraw }),
         g.top === false ? null : textIn(g, 'topText', 'Своя надпись сверху', { ph: 'пусто — тип события: Встреча, Медитация, Фестиваль…' }),
         switchIn(g, 'title', 'Название', { defTrue: true }),
-        el('div', { class: 'a-row3' }, [switchIn(g, 'date', 'Дата и время', { defTrue: true }), switchIn(g, 'place', 'Место', { defTrue: true }), switchIn(g, 'price', 'Цена', { defTrue: true })]),
+        el('div', { class: 'a-row3' }, [switchIn(g, 'date', 'Дата и время', { defTrue: true }), switchIn(g, 'place', 'Место', { defTrue: true }), switchIn(g, 'price', 'Цена', { defTrue: true })])];
+      if (kind === 'kin') return [
+        el('p', { class: 'a-hint', text: 'Название архетипа и строка Kin берутся из полей карты сами. Kin уже есть на самой карте, поэтому обычно он выключен.' }),
+        switchIn(g, 'title', 'Название архетипа (крупно)', { defTrue: true }),
+        switchIn(g, 'kin', 'Строка «Kin …» — мелко под названием'),
+        textIn(g, 'topText', 'Своя надпись сверху (мелко)', { ph: 'пусто — без надписи' })];
+      return [
+        el('p', { class: 'a-hint', text: 'Всё берётся само: название и даты — из маршрута, «День 1 · …» и кин — из примера дня. Пустое поле на стекле не появляется.' }),
+        switchIn(g, 'top', 'Надпись сверху', { defTrue: true, onChange: redraw }),
+        g.top === false ? null : textIn(g, 'topText', 'Своя надпись сверху', { ph: 'пусто — «Маршрут» (у Летописей — название маршрута)' }),
+        el('div', { class: 'a-row' }, [switchIn(g, 'dates', 'Даты маршрута (в надписи сверху)', { defTrue: true }), switchIn(g, 'title', 'Название (крупно)', { defTrue: true })]),
+        el('div', { class: 'a-row' }, [switchIn(g, 'day', '«День 1 · …» (у примеров дней)', { defTrue: true }), switchIn(g, 'kin', 'Кин', { defTrue: true })])];
+    }
+    function draw() {
+      box.replaceChildren();
+      add(box, [glassDemo(g, getS, kind), sub('Что написано на стекле')].concat(lines(), [
         selectIn(g, 'mark', 'Маленький значок', GL_MARK_OPTS, { def: '' }),
         switchIn(g, 'extraOn', 'Ещё строка — свой текст', { onChange: redraw }),
-        g.extraOn ? textIn(g, 'extra', 'Ещё строка', { ph: 'Ведущая — Елена Распругина' }) : null,
+        g.extraOn ? textIn(g, 'extra', 'Ещё строка', { ph: kind === 'event' ? 'Ведущая — Елена Распругина' : 'Created with you. For you.' }) : null,
         sub('Стекло'),
-        el('div', { class: 'a-row' }, [selectIn(g, 'pos', 'Где стекло', GL_POS_OPTS, { def: 'bottom' }),
+        el('div', { class: 'a-row' }, [selectIn(g, 'pos', 'Где стекло', GL_POS_OPTS, { def: kind === 'event' ? 'bottom' : 'band' }),
           selectIn(g, 'tint', 'Оттенок стекла', GL_TINT_OPTS, { def: 'dark', onChange: redraw })]),
         g.tint === 'own' ? colorOptIn(g, 'tintColor', 'Цвет стекла', { pick: '#1c2a3a', none: 'не выбран — тёмный' }) : null,
         el('div', { class: 'a-row' }, [
           rangeIn(g, 'glass', 'Прозрачность стекла', { max: 100, step: 5, unit: '%', def: 70, hint: 'Больше — прозрачнее, сквозь стекло видна картинка. 60–80% — надпись читается.' }),
           rangeIn(g, 'blur', 'Размытие за стеклом', { max: 20, unit: ' px', def: 8 })]),
-        selectIn(g, 'rim', 'Контур', GL_RIM_OPTS, { def: 'line' }),
+        el('div', { class: 'a-row' }, [selectIn(g, 'rim', 'Контур', GL_RIM_OPTS, { def: 'line' }),
+          selectIn(g, 'fit', 'Высота стекла', GL_FIT_OPTS, { def: '', hint: 'По тексту — длинное название делает стекло выше. Одинаковая — в ряду обложек все стёкла одной высоты (по самому высокому), текст посередине.' })]),
         sub('Текст'),
         el('div', { class: 'a-row' }, [
           fontIn(g, 'font', 'Шрифт названия', (window.M13.FONTS || []).map(function (f) { return [f, f]; }), null, 'PRO МАК · Свет внутри · 13 MIRRORS'),
@@ -2217,50 +2257,70 @@
           colorOptIn(g, 'color', 'Цвет текста', { base: '#ecd3a3', none: 'золотистый' }),
           selectIn(g, 'size', 'Размер текста', GL_SIZE_OPTS, { def: 'm' }),
           selectIn(g, 'align', 'Выравнивание', GL_ALIGN_OPTS, { def: '' })])
-      ]);
+      ]));
     }
     draw();
     return box;
   }
-  // «Оформление страницы» Событий: образец на все события
-  function glassPatternFields() {
-    var g = glassPattern(), box = el('div', { class: 'a-glass' });
+  // «Оформление страницы»: образец на все картинки этого вида
+  var GL_PAT_TEXT = {
+    event: ['Картинка события видна целиком, поверх — прозрачное стекло с надписью (настоящий текст, не часть картинки). Это образец для всех событий, чтобы афиши были в одном ключе: меняются только картинка и слова. У любого события его можно выключить или сделать своё.',
+      'Стекло с надписью на картинках событий', 'Как в эскизе: тёмное снизу, золотистый текст'],
+    route: ['Картинка маршрута на обложках примеров дней, Летописей и маршрутов в архиве, а на странице примера — крупно, поверх неё прозрачное стекло с надписью. Это образец для всех маршрутов; у любого маршрута (раздел «Маршруты») его можно выключить или сделать своё.',
+      'Стекло с надписью на картинках маршрутов', 'Как в эскизе: тёмное полосой снизу, золотистый текст'],
+    kin: ['Карта крупно, поверх — прозрачное стекло с названием архетипа; нажатие открывает карту целиком. Это образец для всех карт; у любой карты его можно выключить или сделать своё.',
+      'Стекло с надписью на Картах-Отражениях', 'Как в эскизе: тёмное полосой снизу, только название']
+  };
+  function glassPatternFields(kind) {
+    kind = kind || 'event';
+    var g = glassPattern(kind), box = el('div', { class: 'a-glass' }), T3 = GL_PAT_TEXT[kind];
     function draw() {
       box.replaceChildren();
       add(box, [
-        el('p', { class: 'a-hint', text: 'Картинка события видна целиком, поверх — прозрачное стекло с надписью (настоящий текст, не часть картинки). Это образец для всех событий, чтобы афиши были в одном ключе: меняются только картинка и слова. У любого события его можно выключить или сделать своё.' }),
-        switchIn(g, 'on', 'Стекло с надписью на картинках событий', { defTrue: true, onChange: draw }),
-        g.on === false ? null : el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Как в эскизе: тёмное снизу, золотистый текст', onclick: function () {
+        el('p', { class: 'a-hint', text: T3[0] }),
+        switchIn(g, 'on', T3[1], { defTrue: true, onChange: draw }),
+        g.on === false ? null : el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: T3[2], onclick: function () {
           var keep = { on: g.on }; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, keep); changed(); draw(); } })]),
-        g.on === false ? null : glassFields(g, null)
+        g.on === false ? null : glassFields(g, null, kind)
       ]);
     }
     draw();
     return box;
   }
-  // У события: как у всех / выключено / своё (своё начинается с копии образца)
-  function glassEventFields(e) {
-    var box = el('div', { class: 'a-glass' });
+  // У события / маршрута / карты: как у всех / выключено / своё (своё начинается с копии образца).
+  // img() — есть ли картинка; share — показать кнопку «Превью ссылки для Telegram»
+  function glassOwnFields(x, kind, o) {
+    o = o || {};
+    var box = el('div', { class: 'a-glass' }), K = GL_KINDS[kind], sk = kind === 'route' ? 'route' : kind;
+    function getS() {
+      // у маршрута в предпросмотре — его пример дня (если есть), иначе сам маршрут, как в архиве
+      if (kind === 'route') { var d = ((DATA.sandbox || {}).days || []).filter(function (y) { return y.routeId === x.id && y.visible !== false && !y.cover; })[0]; if (d) return { k: 'days', x: d }; }
+      return { k: sk, x: x };
+    }
     function draw() {
-      var g = e.glass = e.glass || {}, pat = glassPattern();
+      var g = x.glass = x.glass || {}, pat = glassPattern(kind), has = o.img ? o.img() : true;
       box.replaceChildren();
       add(box, [
-        sub('Стекло на картинке'),
-        selectIn(g, 'mode', 'Стекло с надписью', [['', 'Как у всех событий'], ['off', 'Выключено'], ['own', 'Своё']], { def: '', onChange: function (v) {
+        sub(o.title || 'Стекло на картинке'),
+        selectIn(g, 'mode', 'Стекло с надписью', [['', K.all], ['off', 'Выключено'], ['own', 'Своё']], { def: '', onChange: function (v) {
           if (v === 'own' && Object.keys(g).length < 2) { var c = clone(pat); delete c.on; Object.assign(g, c, { mode: 'own' }); }
           changed(); draw(); } }),
-        !e.cover ? el('p', { class: 'a-hint a-hint--warn', text: 'Нет главной картинки — стекла не будет.' }) : null,
-        !g.mode ? el('p', { class: 'a-hint', text: pat.on === false ? 'Образец выключен (События → Оформление страницы → Стекло на картинке) — стекла нет.'
-          : 'Как задано в «Оформлении страницы» → «Стекло на картинке».' }) : null,
-        !g.mode && pat.on !== false && e.cover ? glassDemo(pat, function () { return e; }) : null,
+        !has ? el('p', { class: 'a-hint a-hint--warn', text: o.noImg || 'Нет картинки — стекла не будет.' }) : null,
+        !g.mode ? el('p', { class: 'a-hint', text: pat.on === false ? 'Образец выключен (' + K.where + ') — стекла нет.' : 'Как задано в образце: ' + K.where + '.' }) : null,
+        !g.mode && pat.on !== false && has ? glassDemo(pat, getS, kind) : null,
         g.mode === 'own' ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять заново из образца', onclick: function () {
           var c = clone(pat); delete c.on; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, c, { mode: 'own' }); changed(); draw(); } })]) : null,
-        g.mode === 'own' ? glassFields(g, function () { return e; }) : null,
-        g.mode !== 'off' && e.cover ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(e); } })]) : null
+        g.mode === 'own' ? glassFields(g, getS, kind) : null,
+        g.mode !== 'off' && has && o.share ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(sk, x); } })]) : null
       ]);
     }
     draw();
     return box;
+  }
+  function glassEventFields(e) { return glassOwnFields(e, 'event', { img: function () { return !!e.cover; }, noImg: 'Нет главной картинки — стекла не будет.', share: true }); }
+  // У примера дня / Летописи: только кнопка превью (стекло задаётся у маршрута)
+  function glassItemShare(t, x) {
+    return el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(t, x); } })]);
   }
 
   /* ---------- Превью ссылки на событие: стекло с надписью «впекается» в картинку 1200×630 ----------
@@ -2279,13 +2339,16 @@
     if (max && lines.length > max) { lines = lines.slice(0, max); lines[max - 1] = lines[max - 1].replace(/\s*\S*$/, '') + '…'; }
     return lines;
   }
-  function glassCanvas(e, g, D) {
+  // kind — 'event' | 'days' | 'chronicles' | 'route' | 'kin'; x — событие, пример, маршрут или карта
+  function glassCanvas(kind, x, g, D) {
     var M = window.M13, DEF = M.GLASS_DEF, W = SHARE_SIZE[0], H = SHARE_SIZE[1];
     function v(k) { return g[k] == null || g[k] === '' ? DEF[k] : g[k]; }
-    var L = M.glassLines(e, g), font = v('font'), color = g.color || DEF.color, pos = v('pos'), tint = v('tint');
+    var L = M.glassLinesOf(kind, x, g, D), font = v('font'), color = g.color || DEF.color, tint = v('tint');
+    var pos = g.pos || M.GLASS_POS_DEF[kind] || DEF.pos, src = M.glassFor(kind, x, D).img;
     var rgb = tint === 'own' ? [1, 3, 5].map(function (i) { return parseInt((g.tintColor || '#141414').substr(i, 2), 16); }).join(',')
       : { light: '255,255,255', dark: '20,14,10', gold: '236,211,163' }[tint] || '20,14,10';
-    var pageFont = ((D.events || {}).look || {}).font || '';
+    var pageFont = ((kind === 'days' || kind === 'chronicles' ? D.sandbox : kind === 'kin' ? D.reflection : D.events) || {}).look;
+    pageFont = (pageFont || {}).font || '';
     var W8 = { light: 300, normal: 400, semi: 600, bold: 700 }[v('weight')] || 400;
     if (M.fontCaps(font).w.indexOf(W8) < 0) W8 = 400;
     [font, pageFont].forEach(function (f) { if (f) M.ensureFont(f); });
@@ -2295,7 +2358,7 @@
     ]).catch(function () {}) : Promise.resolve();
     var markP = g.mark === 'dandelion' ? loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(M.dandSVG('logo').replace(/currentColor/g, color).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="124" ')))
       : g.mark === 'logo' ? loadImg(D.settings.logo ? imgSrc(D.settings.logo) : '../assets/logo.png') : Promise.resolve(null);
-    return Promise.all([loadImg(imgSrc(e.cover)), fontsReady, markP.catch(function () { return null; })]).then(function (r) {
+    return Promise.all([loadImg(imgSrc(src)), fontsReady, markP.catch(function () { return null; })]).then(function (r) {
       var img = r[0], mk = r[2], c = document.createElement('canvas'); c.width = W; c.height = H;
       var ctx = c.getContext('2d'), iw = img.naturalWidth, ih = img.naturalHeight;
       // фон: та же картинка крупно и размыто; сверху — картинка целиком
@@ -2372,22 +2435,27 @@
     });
   }
   // При публикации: у каждого видимого события со стеклом — своя картинка превью (data:… → media/… в extractImages)
+  // Также у примеров дней и Летописей (sandbox/<id>/) и маршрутов в архиве (events/<id>/) — стекло с картинки маршрута
   function bakeGlass(P) {
-    var ev = P.events || {};
-    return Promise.all((ev.items || []).map(function (e) {
-      delete e.shareImage;
-      var g = e && e.visible !== false && e.cover && e.type !== 'case' ? window.M13.glassOf(e, ev) : null;
-      if (!g) return null;
-      return glassCanvas(e, g, P).then(function (c) { e.shareImage = c.toDataURL('image/jpeg', 0.88); }).catch(function () {});
-    }));
+    var ev = P.events || {}, sb = P.sandbox || {}, jobs = [];
+    function bake(kind, x, ok) {
+      delete x.shareImage;
+      var f = ok ? window.M13.glassFor(kind, x, P) : null;
+      if (!f || !f.g || !f.img) return;
+      jobs.push(glassCanvas(kind, x, f.g, P).then(function (c) { x.shareImage = c.toDataURL('image/jpeg', 0.88); }).catch(function () {}));
+    }
+    (ev.items || []).forEach(function (e) { if (e) bake('event', e, e.visible !== false && e.type !== 'case'); });
+    ['days', 'chronicles'].forEach(function (t) { (sb[t] || []).forEach(function (x) { if (x) bake(t, x, x.visible !== false); }); });
+    ((P.routes || {}).routes || []).forEach(function (r) { if (r) bake('route', r, r.visible !== false && !!r.archive); });
+    return Promise.all(jobs);
   }
-  function glassShareShow(e) {
-    var g = window.M13.glassOf(e, DATA.events);
-    if (!e.cover || !g) { toast('У события нет главной картинки или стекло выключено — в Telegram будет просто главная картинка.', true); return; }
-    glassCanvas(e, g, DATA).then(function (c) {
+  function glassShareShow(kind, x) {
+    var f = window.M13.glassFor(kind, x, DATA);
+    if (!f.img || !f.g) { toast('Нет картинки или стекло выключено — в Telegram будет просто картинка.', true); return; }
+    glassCanvas(kind, x, f.g, DATA).then(function (c) {
       c.style.cssText = 'display:block;width:100%;height:auto;border-radius:8px';
       dialog({ title: 'Картинка превью для Telegram и VK', body: el('div', {}, [c,
-        el('p', { class: 'a-hint', text: 'Такая картинка появится в превью ссылки на это событие после публикации. На сайте надпись остаётся настоящим текстом.' })]),
+        el('p', { class: 'a-hint', text: 'Такая картинка появится в превью ссылки после публикации. На сайте надпись остаётся настоящим текстом.' })]),
         buttons: [['ok', 'Понятно', 'dark']] });
     }).catch(function () { toast('Не получилось нарисовать превью — картинка не загрузилась.', true); });
   }
@@ -2514,8 +2582,8 @@
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
         rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })]),
-      which === 'events' ? sub('Стекло на картинке') : null,
-      which === 'events' ? glassPatternFields() : null,
+      which === 'events' ? sub('Стекло на картинке') : which === 'sandbox' ? sub('Стекло на картинках маршрутов') : sub('Стекло на картинке'),
+      glassPatternFields(which === 'events' ? 'event' : which === 'sandbox' ? 'route' : 'kin'),
       which === 'reflection' ? null : sub('Вкладки'),
       which === 'reflection' ? null : tabsFields(lk, which),
       sub('Окна и сообщения'),
@@ -2620,6 +2688,7 @@
           el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
             colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           fitIn(x, 'coverFit', 'Своя обложка в окошке', 'Для вертикальной картинки (паспорт архетипа) — «целиком». Если своей обложки нет — как настроено у картинки маршрута в «Маршрутах».'),
+          glassItemShare('days', x),
           sbBlocksForm(x, 'days')
         ];
       } });
@@ -2632,6 +2701,7 @@
         el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
             colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           fitIn(x, 'coverFit', 'Своя обложка в окошке', 'Для вертикальной картинки (паспорт архетипа) — «целиком». Если своей обложки нет — как настроено у картинки маршрута в «Маршрутах».'),
+          glassItemShare('chronicles', x),
         sbBlocksForm(x, 'chronicles')]; } });
     else body = collection(sb.reviews = sb.reviews || [], { visible: true,
       title: function (x) { var r = routeById(x.routeId); return [x.author, r && r.title, x.month].filter(Boolean).join(' · '); },
@@ -2691,7 +2761,8 @@
       el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPreview('reflection'); } })]),
       collection(rf.items = rf.items || [], { visible: true, title: function (x) { return x.title; },
         make: function () { return { id: uid('e'), visible: true, image: null, title: 'Новый пример', text: '' }; }, addLabel: '+ Добавить пример',
-        body: function (x) { return [imageIn(x, 'image', 'Изображение', { max: 1400 }), textIn(x, 'meta', 'Kin и название карты', { ph: 'Kin 68 · Жёлтая Электрическая Звезда', hint: 'Мелко над названием. Можно оставить пустым.' }), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 })]; } }),
+        body: function (x) { return [imageIn(x, 'image', 'Изображение', { max: 1400 }), textIn(x, 'meta', 'Kin и название карты', { ph: 'Kin 68 · Жёлтая Электрическая Звезда', hint: 'Мелко над названием. Можно оставить пустым. Если у карты есть стекло — строка Kin на нём по умолчанию выключена.' }), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 }),
+          glassOwnFields(x, 'kin', { img: function () { return !!x.image; } })]; } }),
       block('Оформление страницы', lookFields(rf, 'reflection'), { open: !!ST.reflectionLookOpen }),
       block('Шапка страницы и кнопка', [
         textIn(rf, 'eyebrow', 'Надпись сверху'), textIn(rf, 'title', 'Заголовок'), textIn(rf, 'intro', 'Вступление', { multi: true, rows: 2 }),
