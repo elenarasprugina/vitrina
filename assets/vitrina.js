@@ -189,7 +189,7 @@
     if (bg.color) rs.push('--m13-bgc:' + bg.color);
     if (bg.image) {
       rs.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')");
-      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
+      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg) + bgFx(bg));
     }
     // Шапка: цвет надписей, положение, логотип вместо текста
     var hd = sc.head || {}, hcls = 'm13-header' + (hd.align === 'center' ? ' m13-header--center' : '') + (hd.color ? ' m13-header--tinted' : '');
@@ -208,7 +208,7 @@
     var tType = typeCss('', hd.topWeight, hd.topItalic);
     var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap m13-logo-wrap--' + (hd.topSize === 's' || hd.topSize === 'l' ? hd.topSize : 'm') + '">' + logoHTML(hd) + '</h2>'
       : top === 'none' ? '' : '<div class="m13-kicker"' + (tType.length ? ' style="' + tType.join(';') + '"' : '') + '><span class="m13-gt">' + esc(topText) + '</span></div>';
-    var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' : '') + '" style="' + esc(rs.join(';')) + '">';
+    var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') : '') + '" style="' + esc(rs.join(';')) + '">';
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '';
     var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
@@ -789,6 +789,8 @@
   M13.routeTone = routeTone;
   function calModel(cal) {
     var ym = calYM(), n = new Date(ym.y, ym.m, 0).getDate(), days = {}, routes = [], dated = {}, i;
+    // Цвет маршрута в календаре: свой у этого календаря (monthCal.routeColors), иначе цвет маршрута
+    function rcol(r) { return ((cal.routeColors || {})[r.id]) || routeTone(r); }
     for (i = 1; i <= n; i++) days[i] = { routes: [], meets: [], special: [], cards: [] };
     function hit(d, key, x, cardId) { var o = days[d]; if (!o) return; o[key].push(x); if (cardId && o.cards.indexOf(cardId) < 0) o.cards.push(cardId); if (cardId) dated[cardId] = true; }
     var cards = (S.D.showcase.cards || []).filter(function (c) { return c && c.visible !== false && !isCalCard(c); });
@@ -800,9 +802,9 @@
         var any = false;
         for (i = 1; i <= n; i++) {
           var dt = new Date(ym.y, ym.m - 1, i);
-          if (dt >= from && dt <= to) { any = true; hit(i, 'routes', { id: r.id, color: routeTone(r), title: r.title, start: +dt === +from, end: +dt === +to }, c.id); }
+          if (dt >= from && dt <= to) { any = true; hit(i, 'routes', { id: r.id, color: rcol(r), title: r.title, start: +dt === +from, end: +dt === +to }, c.id); }
         }
-        if (any) routes.push({ title: r.title, color: routeTone(r) });
+        if (any && !routes.some(function (x) { return x.id === r.id; })) routes.push({ id: r.id, title: r.title, color: rcol(r) });
       }
       if (b.stub && b.stub.on) return;
       (b.blocks || []).forEach(function (x) {
@@ -871,9 +873,11 @@
     var cal = c.monthCal || {}, M = calModel(cal), ym = M.ym;
     var hasM = Object.keys(M.days).some(function (k) { return M.days[k].meets.length; });
     var hasS = Object.keys(M.days).some(function (k) { return M.days[k].special.length; });
-    var legend = M.routes.map(function (r) { return '<span class="m13-lg-r"><span class="m13-cal-bars"><i class="m13-s m13-e" style="--c:' + esc(r.color) + '"></i></span>' + esc(r.title) + '</span>'; }).join('') +
-      (hasM ? '<span class="m13-cal-meet"><b class="m13-cal-n">8</b>' + esc(cal.meetLabel || 'Встречи') + '</span>' : '') +
-      (hasS ? '<span class="m13-cal-spec"><b class="m13-cal-n">4</b>' + esc(cal.specialLabel || 'Особые дни') + '</span>' : '');
+    // Пояснения под сеткой: маршруты — столбиком (на телефоне в два столбца), под ними — встречи и особые дни одной строкой
+    var lgR = M.routes.map(function (r) { return '<span class="m13-lg-r"><span class="m13-cal-bars"><i class="m13-s m13-e" style="--c:' + esc(r.color) + '"></i></span><span>' + esc(r.title) + '</span></span>'; }).join('');
+    var lgM = (hasM ? '<span class="m13-cal-meet"><b class="m13-cal-n">8</b><span>' + esc(cal.meetLabel || 'Встречи') + '</span></span>' : '') +
+      (hasS ? '<span class="m13-cal-spec"><b class="m13-cal-n">4</b><span>' + esc(cal.specialLabel || 'Особые дни') + '</span></span>' : '');
+    var legend = (lgR ? '<div class="m13-lg-routes">' + lgR + '</div>' : '') + (lgM ? '<div class="m13-lg-marks">' + lgM + '</div>' : '');
     var free = M.free.length ? '<div class="m13-cal-free"><span class="m13-cal-free-l">' + esc(cal.freeLabel || 'Когда удобно — по договорённости:') + '</span>' +
       M.free.map(function (x) { return '<button type="button" class="m13-cal-chip" data-to="' + esc(x.id) + '">' + esc((x.front || {}).title || '') + '</button>'; }).join('') + '</div>' : '';
     var hint = cal.hint || (calSnow(cal) ? 'Нажмите на число — снежинки покажут, что в этот день.' : 'Нажмите на число — звёзды покажут, что в этот день.');
@@ -1577,15 +1581,22 @@
   // Как лежит картинка фона: на весь экран (обрезается), целиком по центру, крупно (по высоте экрана с запасом)
   var BG_SIZE = { contain: 'contain', big: 'auto 135vh' };
   function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
+  // Яркость, контраст и насыщенность картинки фона: bg.bright / bg.contrast / bg.sat в процентах (100 — как есть, 50–150)
+  function bgFx(bg) {
+    var f = [['brightness', bg.bright], ['contrast', bg.contrast], ['saturate', bg.sat]].filter(function (x) {
+      return x[1] != null && x[1] !== '' && !isNaN(+x[1]) && +x[1] !== 100;
+    }).map(function (x) { return x[0] + '(' + (Math.max(30, Math.min(200, +x[1])) / 100) + ')'; });
+    return f.length ? ';--m13-bgf:' + f.join(' ') : '';
+  }
   function pageLook(lk) {
     if (!lk) return { cls: '', css: '' };
     if (lk.titleLine === false) { var r0 = pageLook(Object.assign({}, lk, { titleLine: true })); r0.cls += ' m13-noline'; return r0; }
     var bg = lk.background || {}, css = [], cls = '';
     if (bg.color) css.push('--m13-bgc:' + bg.color);
     if (bg.image) {
-      cls += ' m13-root m13-root--img';
+      cls += ' m13-root m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '');
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
-        '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg));
+        '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg) + bgFx(bg));
     } else if (bg.color) cls += ' m13-root';
     var TK = { lg: 1.12, xl: 1.25 }, LH = { tight: 1.42, loose: 1.78 };
     if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
