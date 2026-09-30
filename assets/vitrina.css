@@ -141,7 +141,7 @@ body.m13-locked{overflow:hidden}
 .m13-action--primary{border-color:#232323;background:#232323;color:#fff !important}
 
 /* ---------- Окно «Куда написать?» ---------- */
-.m13-modal{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(20,20,20,.64)}
+.m13-modal{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(16,14,12,.46)}
 .m13-modal.is-open{display:flex}
 .m13-modal-box{width:min(390px,92vw);padding:20px;border-radius:18px;background:#fff;box-shadow:0 25px 70px rgba(0,0,0,.3)}
 .m13-modal-box h3{margin:0 0 12px;font-size:19px;line-height:1.2}
@@ -342,6 +342,25 @@ body.m13-locked{overflow:hidden}
 .m13-channels--col a.m13-channel + a.m13-channel{background:#fff;color:#232323 !important}
 .m13-cal-when{font-size:14px;color:#444;margin-top:-4px}
 
+/* Окна и сообщение в оформлении карточки или страницы (applyWin): --w-bg фон с прозрачностью, --w-blur, --w-tx текст,
+   --w-ac/--w-ac-ink кнопка, --w-font шрифт, --w-rim цвет контура. Кнопки «как на обороте» — классы m13-btn-* ниже */
+.m13-win{--w-mut:color-mix(in srgb,var(--w-tx) 64%,transparent);--w-soft:color-mix(in srgb,var(--w-tx) 86%,transparent);
+  --w-line:color-mix(in srgb,var(--w-tx) 22%,transparent);position:relative;background:var(--w-bg);color:var(--w-tx);
+  border:1px solid var(--w-line);-webkit-backdrop-filter:blur(var(--w-blur,0px)) saturate(1.1);backdrop-filter:blur(var(--w-blur,0px)) saturate(1.1)}
+.m13-win.m13-has-rim{border-color:transparent}
+.m13-win > :not(.m13-lay){position:relative;z-index:2}
+.m13-win--font,.m13-toast.m13-win--font{font-family:var(--w-font)}
+.m13-win--font h3{font-weight:600;letter-spacing:0}
+.m13-win .m13-msg{background:color-mix(in srgb,var(--w-tx) 7%,transparent);border-color:var(--w-line);color:var(--w-soft)}
+.m13-win :is(.m13-msg-label,.m13-hint,.m13-eyebrow){color:var(--w-mut)}
+.m13-win .m13-cal-when{color:var(--w-soft)}
+.m13-win .m13-hint.is-done{color:var(--w-tx)}
+.m13-win .m13-channel{background:var(--w-ac);border-color:var(--w-ac);color:var(--w-ac-ink) !important}
+.m13-win .m13-channels--col a.m13-channel.m13-ch2,.m13-win .m13-modal-close{background:transparent;border-color:var(--w-line);color:var(--w-tx) !important}
+.m13-win[class*="m13-btn-"] .m13-channel{position:relative;overflow:hidden;isolation:isolate;background-origin:border-box}
+.m13-toast.m13-win-t{background:var(--w-bg);color:var(--w-tx);border:1px solid var(--w-rim,var(--w-line,color-mix(in srgb,var(--w-tx) 22%,transparent)));
+  -webkit-backdrop-filter:blur(var(--w-blur,0px)) saturate(1.1);backdrop-filter:blur(var(--w-blur,0px)) saturate(1.1)}
+
 /* Короткое сообщение внизу экрана («ссылка скопирована») */
 .m13-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);z-index:700;max-width:calc(100% - 32px);
   background:#232323;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.35;box-shadow:0 10px 30px rgba(0,0,0,.25);
@@ -412,9 +431,17 @@ body.m13-locked{overflow:hidden}
 .m13-header--center{text-align:center}
 .m13-header--center .m13-intro{margin-left:auto;margin-right:auto}
 .m13-logo-wrap{margin:0 0 8px;font-size:0;line-height:0}
-.m13-logo{display:inline-block;width:clamp(170px,22vw,280px);aspect-ratio:2454/545;background:var(--m13-head,var(--m13-ink));
+/* Логотип: --m13-lr — пропорции картинки (ширина / высота). Высокий логотип не разрастается: ширина ограничена высотой */
+.m13-logo{display:inline-block;width:min(clamp(170px,22vw,280px),calc(62px * var(--m13-lr,4.5)));aspect-ratio:var(--m13-lr,4.5);background:currentColor;
   -webkit-mask:center/contain no-repeat;mask:center/contain no-repeat}
-@media (max-width:680px){ .m13-logo{width:min(56vw,210px)} .m13-logo-wrap{margin-bottom:5px} }
+.m13-header .m13-logo{color:var(--m13-head,var(--m13-ink))}
+.m13-logo-wrap--s .m13-logo{width:min(clamp(120px,15vw,190px),calc(42px * var(--m13-lr,4.5)))}
+.m13-logo-wrap--l .m13-logo{width:min(clamp(220px,30vw,380px),calc(84px * var(--m13-lr,4.5)))}
+@media (max-width:680px){
+  .m13-logo{width:min(56vw,210px,calc(47px * var(--m13-lr,4.5)))} .m13-logo-wrap{margin-bottom:5px}
+  .m13-logo-wrap--s .m13-logo{width:min(40vw,150px,calc(33px * var(--m13-lr,4.5)))}
+  .m13-logo-wrap--l .m13-logo{width:min(72vw,270px,calc(60px * var(--m13-lr,4.5)))}
+}
 .m13-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* Под сеткой: логотип (ссылка на главную) и/или надпись. На компьютере сетка уменьшается на высоту подписи (--m13-fh) */
 @media (min-width:681px){ .m13-page--foot .m13-grid{--card-w:min(255px,calc((100vw - 64px - 2 * var(--m13-gap)) / 3),calc((100vh - 160px - var(--m13-fh,0px) - 2 * var(--m13-gap)) * 0.3))} }
@@ -424,23 +451,60 @@ body.m13-locked{overflow:hidden}
 .m13-foot.m13-header--tinted{color:var(--m13-head)}
 .m13-foot-logo{display:block;font-size:0;line-height:0;opacity:.9;transition:opacity .2s}
 .m13-foot-logo:hover{opacity:1}
-.m13-foot .m13-logo{width:clamp(96px,9vw,130px)}
-.m13-foot--m .m13-logo{width:clamp(150px,17vw,220px)}
-.m13-foot--l .m13-logo{width:clamp(200px,24vw,320px)}
-.m13-foot-text{font-family:var(--m13-hfont,inherit);font-size:14px;letter-spacing:.04em;opacity:.85}
+.m13-foot .m13-logo{width:min(clamp(96px,9vw,130px),calc(29px * var(--m13-lr,4.5)))}
+.m13-foot--m .m13-logo{width:min(clamp(150px,17vw,220px),calc(49px * var(--m13-lr,4.5)))}
+.m13-foot--l .m13-logo{width:min(clamp(200px,24vw,320px),calc(71px * var(--m13-lr,4.5)))}
+.m13-foot-text{display:inline-flex;align-items:center;gap:.45em;font-family:var(--m13-hfont,inherit);font-size:14px;letter-spacing:.04em;opacity:.85}
 .m13-foot--l .m13-foot-text{font-size:16px}
-/* Блик по подписи: раз в ~12 с по надписи и логотипу пробегает лёгкий свет */
-.m13-shine .m13-foot-text span,.m13-shine .m13-logo{
-  background-image:linear-gradient(100deg,var(--m13-head,var(--m13-ink)) 0 42%,var(--m13-shine) 50%,var(--m13-head,var(--m13-ink)) 58% 100%);
-  background-size:300% 100%;background-position:100% 0;animation:m13-shine 12s ease-in-out infinite}
-.m13-shine .m13-foot-text span{-webkit-background-clip:text;background-clip:text;color:transparent}
-@keyframes m13-shine{0%,72%{background-position:100% 0} 90%,100%{background-position:0 0}}
-@media (prefers-reduced-motion:reduce){ .m13-shine .m13-foot-text span,.m13-shine .m13-logo{animation:none} }
+/* Надпись внизу — своё положение, отдельно от логотипа */
+.m13-foot-text.m13-al-left{align-self:flex-start;text-align:left}
+.m13-foot-text.m13-al-center{align-self:center;text-align:center}
+.m13-foot-text.m13-al-right{align-self:flex-end;text-align:right}
+/* Блик: по надписи и логотипу проходит лёгкий свет. Сама анимация — только пока стоит .m13-shining (включает скрипт):
+   приветственный при открытии и по расписанию подписи. --m13-shd — сколько идёт один проход */
+.m13-shine .m13-gt,.m13-shine .m13-logo{
+  background-image:linear-gradient(100deg,currentColor 0 42%,var(--m13-shine) 50%,currentColor 58% 100%);
+  background-size:300% 100%;background-position:100% 0}
+.m13-shine .m13-gt{-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.m13-shining .m13-gt,.m13-shining .m13-logo{animation:m13-shine var(--m13-shd,3.4s) cubic-bezier(.45,0,.4,1) both}
+.m13-header.m13-shining h1 .m13-gt{animation-delay:calc(var(--m13-shd,3.4s) * .12)}
+@keyframes m13-shine{from{background-position:100% 0} to{background-position:0 0}}
+/* Звёздочка у подписи: тихо мерцает, вместе с бликом вспыхивает лучиками */
+.m13-fstar{display:inline-block;flex:none;width:.95em;height:.95em;line-height:0;color:var(--m13-stc,var(--m13-shine,currentColor));
+  opacity:.8;animation:m13-twinkle 5s ease-in-out infinite}
+.m13-fstar--a{animation-delay:-2.5s}
+.m13-fstar svg{width:100%;height:100%;fill:currentColor;overflow:visible;filter:drop-shadow(0 0 2px currentColor)}
+.m13-fstar--moon svg{transform:scale(.9)}
+@keyframes m13-twinkle{0%,100%{opacity:.62} 50%{opacity:.95}}
+.m13-shining .m13-fstar{animation:m13-flash 1.3s cubic-bezier(.3,0,.3,1) both}
+.m13-shining .m13-fstar--a{animation-delay:calc(var(--m13-shd,3.4s) * .72)}
+.m13-shining .m13-fstar--b{animation-delay:calc(var(--m13-shd,3.4s) * .08)}
+@keyframes m13-flash{
+  0%{opacity:.7;transform:scale(1) rotate(0)}
+  30%{opacity:1;transform:scale(1.7) rotate(25deg);filter:drop-shadow(0 0 6px currentColor) drop-shadow(0 0 12px currentColor) brightness(1.4)}
+  100%{opacity:.8;transform:scale(1) rotate(45deg)}}
+.m13-fstar--moon{--m13-rot:0deg}
+.m13-shining .m13-fstar--moon{animation-name:m13-flash-moon}
+@keyframes m13-flash-moon{0%{opacity:.7;transform:scale(1)} 30%{opacity:1;transform:scale(1.45);filter:drop-shadow(0 0 6px currentColor) drop-shadow(0 0 12px currentColor)} 100%{opacity:.8;transform:scale(1)}}
+/* Дымка под надписями над сеткой и под ней: облачко повторяет форму букв и логотипа. --m13-hk — сила */
+.m13-hz{--m13-hzc:8,6,4}
+.m13-hz--light{--m13-hzc:255,255,255}
+.m13-header.m13-hz > :is(.m13-kicker,h1,.m13-intro,.m13-logo-wrap),.m13-foot.m13-hz > :is(.m13-foot-text,.m13-foot-logo){
+  filter:drop-shadow(0 0 2px rgba(var(--m13-hzc),calc(var(--m13-hk,.6) * .75))) drop-shadow(0 0 7px rgba(var(--m13-hzc),calc(var(--m13-hk,.6) * .55)))
+    drop-shadow(0 0 16px rgba(var(--m13-hzc),calc(var(--m13-hk,.6) * .45)))}
+.m13-foot.m13-hz > .m13-foot-text{opacity:1}
+/* Приветственный свет по карточкам — один раз при открытии */
+.m13-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;
+  --m13-sh-c:color-mix(in srgb,var(--m13-shine-c,#fff3cf) 62%,#e8c77a);
+  background:linear-gradient(115deg,transparent 32%,color-mix(in srgb,var(--m13-sh-c) 26%,transparent) 45%,color-mix(in srgb,var(--m13-sh-c) 55%,rgba(255,255,255,.35)) 50%,color-mix(in srgb,var(--m13-sh-c) 26%,transparent) 55%,transparent 68%) no-repeat;
+  background-size:260% 100%;background-position:100% 0;opacity:0;animation:m13-sheen 1.6s cubic-bezier(.4,0,.3,1) both}
+@keyframes m13-sheen{0%{opacity:0;background-position:100% 0} 15%{opacity:1} 85%{opacity:1} 100%{opacity:0;background-position:0 0}}
+@media (prefers-reduced-motion:reduce){ .m13-shining .m13-gt,.m13-shining .m13-logo,.m13-fstar,.m13-sheen{animation:none} .m13-sheen{display:none} }
 @media (max-width:680px){
   .m13-foot{margin-top:4px;gap:4px}
-  .m13-foot .m13-logo{width:min(28vw,108px)}
-  .m13-foot--m .m13-logo{width:min(42vw,160px)}
-  .m13-foot--l .m13-logo{width:min(58vw,220px)}
+  .m13-foot .m13-logo{width:min(28vw,108px,calc(24px * var(--m13-lr,4.5)))}
+  .m13-foot--m .m13-logo{width:min(42vw,160px,calc(36px * var(--m13-lr,4.5)))}
+  .m13-foot--l .m13-logo{width:min(58vw,220px,calc(49px * var(--m13-lr,4.5)))}
   .m13-foot-text{font-size:12px}
 }
 
@@ -517,7 +581,7 @@ body.m13-locked{overflow:hidden}
 .m13-rim-run{padding:1.6px;overflow:hidden;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 .m13-rim-run::before{content:"";position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;
   background:conic-gradient(from 0deg,transparent 0deg 318deg,color-mix(in srgb,var(--m13-runc) 30%,transparent) 336deg,var(--m13-runc) 351deg,#fff 357deg,transparent 360deg);
-  animation:m13-rim-spin 7s linear infinite}
+  animation:m13-rim-spin var(--m13-rs,12s) linear infinite}
 .m13-rim-run.m13-rim-glow{padding:4px;opacity:.35;filter:blur(1.5px)}
 @keyframes m13-rim-spin{to{transform:rotate(360deg)}}
 
@@ -558,29 +622,31 @@ body.m13-locked{overflow:hidden}
 /* Главная кнопка — первая в ряду (и «перейти» у маршрута); остальные — прозрачные с рамкой */
 .m13 .m13-big-card[class*="m13-btn-"] :is(.m13-go,.m13-action){position:relative;overflow:hidden;isolation:isolate}
 .m13 .m13-big-card.m13-btn-fill :is(.m13-go,.m13-action--primary),
-.m13 .m13-big-card.m13-btn-fill.m13-btn-same .m13-action{background:var(--m13-b1);border-color:var(--m13-b1);color:var(--m13-bink) !important}
+.m13 .m13-big-card.m13-btn-fill.m13-btn-same .m13-action,.m13-win.m13-btn-fill .m13-channel:not(.m13-ch2),.m13-win.m13-btn-fill.m13-btn-same .m13-channel{background:var(--m13-b1);border-color:var(--m13-b1);color:var(--m13-bink) !important}
 .m13 .m13-big-card.m13-btn-gradient :is(.m13-go,.m13-action--primary),
-.m13 .m13-big-card.m13-btn-gradient.m13-btn-same .m13-action{background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2));border-color:transparent;color:var(--m13-bink) !important;
+.m13 .m13-big-card.m13-btn-gradient.m13-btn-same .m13-action,.m13-win.m13-btn-gradient .m13-channel:not(.m13-ch2),.m13-win.m13-btn-gradient.m13-btn-same .m13-channel{background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2));border-color:transparent;color:var(--m13-bink) !important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 40%,transparent)}
 .m13 .m13-big-card.m13-btn-glass :is(.m13-go,.m13-action--primary),
-.m13 .m13-big-card.m13-btn-glass.m13-btn-same .m13-action{background:color-mix(in srgb,var(--m13-b1) 16%,transparent);border:1px solid var(--m13-b1);color:var(--m13-bink) !important;
+.m13 .m13-big-card.m13-btn-glass.m13-btn-same .m13-action,.m13-win.m13-btn-glass .m13-channel:not(.m13-ch2),.m13-win.m13-btn-glass.m13-btn-same .m13-channel{background:color-mix(in srgb,var(--m13-b1) 16%,transparent);border:1px solid var(--m13-b1);color:var(--m13-bink) !important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 32%,transparent)}
 .m13 .m13-big-card.m13-btn-outline :is(.m13-go,.m13-action--primary),
-.m13 .m13-big-card.m13-btn-outline.m13-btn-same .m13-action{background:transparent;border:1.5px solid var(--m13-b1);color:var(--m13-bink) !important}
-.m13 .m13-big-card.m13-btn-other .m13-action:not(.m13-action--primary){background:transparent;border-color:var(--m13-bo);color:var(--m13-bo) !important}
+.m13 .m13-big-card.m13-btn-outline.m13-btn-same .m13-action,.m13-win.m13-btn-outline .m13-channel:not(.m13-ch2),.m13-win.m13-btn-outline.m13-btn-same .m13-channel{background:transparent;border:1.5px solid var(--m13-b1);color:var(--m13-bink) !important}
+.m13 .m13-big-card.m13-btn-other .m13-action:not(.m13-action--primary),.m13-win.m13-btn-other .m13-channel.m13-ch2{background:transparent;border-color:var(--m13-bo);color:var(--m13-bo) !important}
 
 /* «Живость»: блик пробегает по кнопке; цвета градиента переливаются */
 .m13-btn-live-glint :is(.m13-go,.m13-action--primary)::after,.m13-btn-live-both :is(.m13-go,.m13-action--primary)::after,
-.m13-btn-same.m13-btn-live-glint .m13-action::after,.m13-btn-same.m13-btn-live-both .m13-action::after{
+.m13-btn-same.m13-btn-live-glint .m13-action::after,.m13-btn-same.m13-btn-live-both .m13-action::after,
+.m13-win:is(.m13-btn-live-glint,.m13-btn-live-both) .m13-channel:not(.m13-ch2)::after{
   content:"";position:absolute;top:0;bottom:0;left:0;width:38%;pointer-events:none;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:m13-glint 4.2s ease-in-out infinite}
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:m13-glint calc(4.2s * var(--m13-gls,1.55)) ease-in-out infinite}
 .m13 .m13-big-card.m13-btn-gradient:is(.m13-btn-live-flow,.m13-btn-live-both) :is(.m13-go,.m13-action--primary),
-.m13 .m13-big-card.m13-btn-gradient.m13-btn-same:is(.m13-btn-live-flow,.m13-btn-live-both) .m13-action{
-  background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2),var(--m13-b1));background-size:260% 260%;animation:m13-flow 6s ease-in-out infinite alternate}
+.m13 .m13-big-card.m13-btn-gradient.m13-btn-same:is(.m13-btn-live-flow,.m13-btn-live-both) .m13-action,
+.m13-win.m13-btn-gradient:is(.m13-btn-live-flow,.m13-btn-live-both) .m13-channel:not(.m13-ch2){
+  background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2),var(--m13-b1));background-size:260% 260%;animation:m13-flow calc(6s * var(--m13-gls,1.55)) ease-in-out infinite alternate}
 @keyframes m13-glint{0%{transform:translateX(-130%) skewX(-20deg)}55%,100%{transform:translateX(330%) skewX(-20deg)}}
 @keyframes m13-flow{from{background-position:0% 50%}to{background-position:100% 50%}}
 @media (prefers-reduced-motion:reduce){
-  .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action)::after{animation:none;display:none}
+  .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action)::after,.m13-win .m13-channel::after{animation:none;display:none}
   .m13 .m13-big-card[class*="m13-btn-live"] :is(.m13-go,.m13-action){animation:none}
 }
 

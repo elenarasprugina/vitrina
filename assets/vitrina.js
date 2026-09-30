@@ -94,6 +94,7 @@
 
   // opts: {base, view, showcase, data?}  data — готовые данные (для предпросмотра в панели).
   M13.mount = function (el, opts) {
+    if (S.wakeT) wakeStop();
     S.root = el; S.base = opts.base || './'; S.view = opts.view || 'showcase';
     S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; lock(false);
     el.classList.add('m13');
@@ -140,9 +141,9 @@
   }
   function bindActs(scope) {
     scope.querySelectorAll('[data-m13-act]').forEach(function (b) {
-      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); runAct(+b.getAttribute('data-m13-act')); });
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); S.from = b; runAct(+b.getAttribute('data-m13-act')); });
       if (b.getAttribute('role') === 'button') b.addEventListener('keydown', function (e) {
-        if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); runAct(+b.getAttribute('data-m13-act')); } });
+        if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); S.from = b; runAct(+b.getAttribute('data-m13-act')); } });
     });
   }
 
@@ -196,19 +197,25 @@
     var hf = (sc.cardStyle || {}).font, hs = [];
     if (hd.color) hs.push('--m13-head:' + hd.color);
     if (hf) { ensureFont(hf); hs.push("--m13-hfont:'" + hf + "',Georgia,serif"); }
-    // Верхняя строка: своя надпись (пусто — «13 MIRRORS · Витрина»), логотип или ничего
+    // Блик: по подписи (своё расписание) и приветственный — по верхней строке, названию и подписи при открытии
+    var shineCss = '--m13-shine:' + (hd.shineColor || (sc.cardStyle || {}).rimRunColor || '#fff3cf');
+    var hs2 = hs.slice();
+    if (hd.welcome !== false) { hcls += ' m13-shine'; hs2.push(shineCss); }
+    hcls += hazeOf(hd.topHaze, hd.topHazeK, hs2);
+    // Верхняя строка: своя надпись (пусто — «13 MIRRORS · Витрина»), логотип или ничего; толщина и курсив надписи
     var top = hd.top || (hd.logo ? 'logo' : 'text');
     var topText = String(hd.topText || '').trim() || [st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ');
-    var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap">' + logoHTML() + '</h2>'
-      : top === 'none' ? '' : '<div class="m13-kicker">' + esc(topText) + '</div>';
+    var tType = typeCss('', hd.topWeight, hd.topItalic);
+    var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap m13-logo-wrap--' + (hd.topSize === 's' || hd.topSize === 'l' ? hd.topSize : 'm') + '">' + logoHTML(hd) + '</h2>'
+      : top === 'none' ? '' : '<div class="m13-kicker"' + (tType.length ? ' style="' + tType.join(';') + '"' : '') + '><span class="m13-gt">' + esc(topText) + '</span></div>';
     var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' : '') + '" style="' + esc(rs.join(';')) + '">';
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '';
     var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
     var html = root + '<main class="m13-page' + (foot ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
-      '<header class="' + hcls + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker +
+      '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + esc(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
-        : '<h1>' + esc(sc.title) + draft + '</h1>') +
+        : '<h1><span class="m13-gt">' + esc(sc.title) + '</span>' + draft + '</h1>') +
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML() + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
@@ -223,6 +230,7 @@
     // В предпросмотре панели логотип внизу не уводит со страницы
     var fl = S.root.querySelector('.m13-foot-logo');
     if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
+    wake(hd);
     // В предпросмотре панели сайта ещё нет — открываем события поверх витрины
     var evl = S.root.querySelector('[data-m13-evlink]');
     if (evl && S.onBack) evl.addEventListener('click', function (e) { e.preventDefault(); openInternal('events'); });
@@ -235,10 +243,31 @@
     }
   }
 
-  // Логотип (картинка-маска цветом надписей)
-  function logoHTML() {
-    var u = S.base + 'assets/logo.png';
-    return '<span class="m13-logo" role="img" aria-label="' + esc(S.D.settings.siteTitle || '13 MIRRORS') + '" style="-webkit-mask-image:url(\'' + u + '\');mask-image:url(\'' + u + '\')"></span>';
+  // Логотип (картинка-маска цветом надписей): свой у месяца (head.logoImg), общий (settings.logo) или обычный.
+  // Берутся только очертания картинки, цвет — цветом надписей. logoRatio — ширина / высота картинки.
+  function logoHTML(hd) {
+    var st = S.D.settings || {}, own = hd && hd.logoImg;
+    var u = own ? media(hd.logoImg) : st.logo ? media(st.logo) : S.base + 'assets/logo.png';
+    var r = +(own ? hd.logoRatio : st.logo ? st.logoRatio : 0) || 2454 / 545;
+    return '<span class="m13-logo" role="img" aria-label="' + esc(st.siteTitle || '13 MIRRORS') + '" style="' +
+      esc("-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--m13-lr:" + r.toFixed(3)) + '"></span>';
+  }
+  // Дымка под надписями над сеткой и под ней: тёмная (для светлых букв) или светлая, сила 0–100
+  function hazeOf(kind, k, css) {
+    if (kind !== 'dark' && kind !== 'light') return '';
+    var v = k == null || k === '' || isNaN(+k) ? 60 : Math.max(0, Math.min(100, +k));
+    css.push('--m13-hk:' + (v / 100).toFixed(2));
+    return ' m13-hz m13-hz--' + kind;
+  }
+  // Звёздочка у подписи: искра, звезда или месяц — вспыхивает вместе с бликом
+  var STAR_PATH = {
+    spark: 'M12 0C12.9 7.6 16.4 11.1 24 12 16.4 12.9 12.9 16.4 12 24 11.1 16.4 7.6 12.9 0 12 7.6 11.1 11.1 7.6 12 0Z',
+    star: 'M12 1.8l2.8 6.6 7.2.6-5.5 4.7 1.7 7-6.2-3.8-6.2 3.8 1.7-7L2 9l7.2-.6z',
+    moon: 'M19.6 15.8A8.6 8.6 0 0 1 8.2 4.4a8.6 8.6 0 1 0 11.4 11.4z'
+  };
+  function starHTML(hd, side) {
+    var k = STAR_PATH[hd.starKind] ? hd.starKind : 'spark';
+    return '<i class="m13-fstar m13-fstar--' + side + ' m13-fstar--' + k + '" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="' + STAR_PATH[k] + '"/></svg></i>';
   }
   // Под сеткой: логотип (ссылка на главную 13mirrors.ru), надпись («Увидимся за поворотом») или оба; размер, положение, блик
   function footHTML(hd, hs) {
@@ -246,13 +275,79 @@
     var logo = b === 'logo' || b === 'both', text = b === 'text' || b === 'both';
     var al = hd.bottomAlign === 'left' || hd.bottomAlign === 'right' ? hd.bottomAlign : 'center';
     var size = hd.bottomSize === 'm' || hd.bottomSize === 'l' ? hd.bottomSize : 's';
-    var css = hs.slice(), cs = S.D.showcase.cardStyle || {};
-    if (hd.shine) css.push('--m13-shine:' + (hd.shineColor || cs.rimRunColor || '#fff3cf'));
-    return '<footer class="m13-foot m13-foot--' + al + ' m13-foot--' + size + (hd.color ? ' m13-header--tinted' : '') + (hd.shine ? ' m13-shine' : '') + '"' +
+    var css = hs.slice(), cs = S.D.showcase.cardStyle || {}, shine = hd.shine || hd.welcome !== false;
+    if (shine) css.push('--m13-shine:' + (hd.shineColor || cs.rimRunColor || '#fff3cf'));
+    if (hd.starColor) css.push('--m13-stc:' + hd.starColor);
+    var hz = hazeOf(hd.bottomHaze, hd.bottomHazeK, css);
+    // Надпись: своё положение (пусто — как у логотипа), толщина и курсив; звёздочки по краям
+    var ta = hd.bottomTextAlign === 'left' || hd.bottomTextAlign === 'center' || hd.bottomTextAlign === 'right' ? hd.bottomTextAlign : '';
+    var ty = typeCss(cs.font || '', hd.bottomWeight, hd.bottomItalic), star = text && hd.star ? hd.star : '';
+    return '<footer class="m13-foot m13-foot--' + al + ' m13-foot--' + size + (hd.color ? ' m13-header--tinted' : '') + (shine ? ' m13-shine' : '') + hz + '"' +
       (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + '>' +
-      (logo ? '<a class="m13-foot-logo" href="' + esc(S.base + '../') + '" aria-label="13 MIRRORS — на главную">' + logoHTML() + '</a>' : '') +
-      (text ? '<div class="m13-foot-text"><span>' + esc(String(hd.bottomText || '').trim() || 'Увидимся за поворотом') + '</span></div>' : '') + '</footer>';
+      (logo ? '<a class="m13-foot-logo" href="' + esc(S.base + '../') + '" aria-label="13 MIRRORS — на главную">' + logoHTML(hd) + '</a>' : '') +
+      (text ? '<div class="m13-foot-text' + (ta ? ' m13-al-' + ta : '') + '"' + (ty.length ? ' style="' + ty.join(';') + '"' : '') + '>' +
+        (star === 'before' || star === 'both' ? starHTML(hd, 'b') : '') +
+        '<span class="m13-gt">' + esc(String(hd.bottomText || '').trim() || 'Увидимся за поворотом') + '</span>' +
+        (star === 'after' || star === 'both' ? starHTML(hd, 'a') : '') + '</div>' : '') + '</footer>';
   }
+  /* ---------- Блики: приветственный при открытии и по подписи ----------
+     Приветственный (head.welcome, по умолчанию включён): через ~0,7 с свет проходит по верхней строке и названию,
+     затем волной по карточкам (слева сверху — вправо вниз), затем по подписи со звёздочками.
+     Блик по подписи (head.shine): сначала при открытии (или когда подпись появится на экране), потом —
+     head.shineWhen: '' изредка (раз в 25 с) | often (раз в 8 с) | open (только при открытии).
+     head.shineSpeed — сколько идёт один проход: fast | normal | slow (по умолчанию) | vslow. */
+  var SHINE_MS = { fast: 1400, normal: 2200, slow: 3400, vslow: 5000 }, SHINE_EVERY = { often: 8000, '': 25000 };
+  function wakeStop() { (S.wakeT || []).forEach(clearTimeout); S.wakeT = []; if (S.wakeIO) { S.wakeIO.disconnect(); S.wakeIO = null; } }
+  function wake(hd) {
+    wakeStop();
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var root = S.root, head = root.querySelector('.m13-header'), foot = root.querySelector('.m13-foot');
+    var ms = SHINE_MS[hd.shineSpeed] || SHINE_MS.slow, welcome = hd.welcome !== false;
+    var stars = !!root.querySelector('.m13-foot .m13-fstar'), own = !!foot && (hd.shine || stars);
+    function later(fn, t) { S.wakeT.push(setTimeout(fn, t)); }
+    function pass(n) {
+      if (!n || !n.isConnected) return;
+      n.style.setProperty('--m13-shd', ms + 'ms');
+      n.classList.remove('m13-shining'); void n.offsetWidth; n.classList.add('m13-shining');
+      later(function () { n.classList.remove('m13-shining'); }, ms + 1400);
+    }
+    function seen(n) { var r = n.getBoundingClientRect(); return r.bottom > 0 && r.top < (window.innerHeight || 800); }
+    // Подпись ниже экрана (телефон) — блик, когда до неё докрутят
+    function whenSeen(n, fn) {
+      if (seen(n) || !window.IntersectionObserver) { fn(); return; }
+      S.wakeIO = new IntersectionObserver(function (es) {
+        if (!es.some(function (e) { return e.isIntersecting; })) return;
+        S.wakeIO.disconnect(); S.wakeIO = null; later(fn, 350);
+      });
+      S.wakeIO.observe(n);
+    }
+    function again() {
+      var every = hd.shineWhen === 'open' ? 0 : SHINE_EVERY[hd.shineWhen === 'often' ? 'often' : ''];
+      if (!every || !hd.shine && !stars) return;
+      later(function () { if (!document.hidden && seen(foot)) pass(foot); again(); }, every);
+    }
+    if (welcome) {
+      later(function () { pass(head); }, 700);
+      later(sheenCards, 1000);
+    }
+    if (foot && (welcome || own)) later(function () { whenSeen(foot, function () { pass(foot); again(); }); }, welcome ? 2100 : 1200);
+  }
+  // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке
+  function sheenCards() {
+    var g = S.root.querySelector('.m13-grid'); if (!g) return;
+    var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
+    var G = g.getBoundingClientRect();
+    g.querySelectorAll('.m13-thumb:not(.m13-thumb--empty)').forEach(function (t) {
+      var R = t.getBoundingClientRect(), k = ((R.left - G.left) / Math.max(1, G.width) + (R.top - G.top) / Math.max(1, G.height)) / 2;
+      var n = document.createElement('i'); n.className = 'm13-sheen'; n.setAttribute('aria-hidden', 'true');
+      n.style.animationDelay = Math.round(k * 900) + 'ms';
+      n.style.setProperty('--m13-shine-c', col);
+      t.appendChild(n);
+      S.wakeT.push(setTimeout(function () { n.remove(); }, Math.round(k * 900) + 1800));
+    });
+  }
+  M13.wake = function () { if (S.D && S.D.showcase && S.root.querySelector('.m13-grid')) wake(S.D.showcase.head || {}); };
+
   // Сколько места нужно подписи внизу — на столько уменьшается сетка на компьютере
   function footHeight(hd) {
     var b = hd.bottom, h = 18;
@@ -269,12 +364,30 @@
 
 
   /* ---------- Оформление карточки: шрифт, цвет текста, дымка на картинке, свечение ---------- */
+  // Браузер скачивает только те начертания, что реально есть на странице, поэтому курсив и тонкие подключены сразу
   var FONTS = {
-    'Cormorant Garamond': 'Cormorant+Garamond:wght@400;600;700', 'Playfair Display': 'Playfair+Display:wght@400;700;800',
-    'Philosopher': 'Philosopher:wght@400;700', 'Lora': 'Lora:wght@400;600;700', 'Montserrat': 'Montserrat:wght@400;600;800',
-    'Comfortaa': 'Comfortaa:wght@400;700', 'Marck Script': 'Marck+Script'
+    'Cormorant Garamond': 'Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700',
+    'Playfair Display': 'Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700',
+    'Philosopher': 'Philosopher:ital,wght@0,400;0,700;1,400;1,700', 'Lora': 'Lora:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700',
+    'Montserrat': 'Montserrat:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,400;1,600;1,700',
+    'Comfortaa': 'Comfortaa:wght@300;400;600;700', 'Marck Script': 'Marck+Script'
   };
   M13.FONTS = Object.keys(FONTS);
+  // Что умеет шрифт: толщины (300 тонкая, 400 обычная, 600 полужирная, 700 жирная) и курсив. Пусто (обычный шрифт устройства) — всё.
+  M13.FONT_CAPS = {
+    'Cormorant Garamond': { w: [300, 400, 600, 700], it: true }, 'Playfair Display': { w: [400, 600, 700], it: true },
+    'Philosopher': { w: [400, 700], it: true }, 'Lora': { w: [400, 600, 700], it: true }, 'Montserrat': { w: [300, 400, 600, 700], it: true },
+    'Comfortaa': { w: [300, 400, 600, 700], it: false }, 'Marck Script': { w: [400], it: false }
+  };
+  M13.fontCaps = function (name) { return M13.FONT_CAPS[name] || { w: [300, 400, 600, 700], it: true }; };
+  // Толщина и курсив надписи: только то, что есть у шрифта (иначе браузер «подделает» — выйдет грубо)
+  var FW = { light: 300, normal: 400, semi: 600, bold: 700 };
+  function typeCss(font, w, it) {
+    var caps = M13.fontCaps(font), out = [];
+    if (FW[w] && caps.w.indexOf(FW[w]) >= 0) out.push('font-weight:' + FW[w]);
+    if (it && caps.it) out.push('font-style:italic');
+    return out;
+  }
   var fontsLoaded = {};
   function ensureFont(name) {
     if (!name || !FONTS[name] || fontsLoaded[name]) return;
@@ -353,6 +466,8 @@
       // Контур (кромка): где (весь край / уголки), свой цвет, живость (дышит / бегущий блик) и цвет блика; темп живого свечения
       rimPlace: pick('rimPlace', 'edge'), rimColor: f.rimColor || d.rimColor || '', rimLive: none(pick('rimLive', '')),
       rimRunColor: f.rimRunColor || d.rimRunColor || '', glowTempo: pick('glowTempo', 'calm'),
+      // Скорость бегущего блика по контуру и блика по кнопке: fast | normal | slow (по умолчанию) | vslow
+      rimSpeed: pick('rimSpeed', 'slow'), btnSpeed: pick('btnSpeed', 'slow'),
       // Размер текста: название и мелкие надписи
       titleSize: pick('titleSize', 'md'), smallSize: pick('smallSize', 'md'),
       // Кнопки на обороте: вид главной, цвета, остальные кнопки, «живость»
@@ -410,6 +525,8 @@
 
   // Кнопки оборота: классы и переменные для большой карточки. Пусто — как раньше (по акцентному цвету).
   var BTN_DIR = { h: '90deg', diag: '135deg', v: '180deg' };
+  // Скорость: множитель длительности блика по кнопке (4,2 с) и перелива (6 с); круг бегущего блика по контуру — секунд
+  var BTN_S = { fast: 0.7, normal: 1, slow: 1.55, vslow: 2.25 }, RIM_S = { fast: 5, normal: 7, slow: 12, vslow: 18 };
   function buttonLook(st, backDark) {
     var cls = [], css = [];
     if (st.btnStyle) {
@@ -424,7 +541,7 @@
       if (!ink) ink = backDark ? (l1 > 110 ? c1 : '#efe4d2') : (l1 < 150 ? c1 : '#232323');
       css.push('--m13-b1:' + c1, '--m13-b2:' + c2, '--m13-bdir:' + (BTN_DIR[st.btnDir] || '135deg'));
       if (ink) css.push('--m13-bink:' + ink);
-      if (st.btnLive) cls.push('m13-btn-live-' + st.btnLive);
+      if (st.btnLive) { cls.push('m13-btn-live-' + st.btnLive); css.push('--m13-gls:' + (BTN_S[st.btnSpeed] || BTN_S.slow)); }
       if (st.btnOther === 'same') cls.push('m13-btn-same');
     }
     if (st.btnOtherColor && st.btnOther !== 'same') { cls.push('m13-btn-other'); css.push('--m13-bo:' + st.btnOtherColor); }
@@ -446,7 +563,7 @@
         esc("--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100)) + '"><i></i><i></i><i></i><i></i></i>';
     }
     if (st.rim) {
-      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4');
+      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4') + ';--m13-rs:' + (RIM_S[st.rimSpeed] || RIM_S.slow) + 's';
       h += '<i class="m13-lay m13-rimbox' + (st.rimPlace === 'corners' ? ' m13-rim--corners' : '') + (st.rimLive ? ' m13-rim--' + esc(st.rimLive) : '') +
         '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"></i>' +
         (st.rimLive === 'run' ? '<i class="m13-rim-run m13-rim-glow"></i><i class="m13-rim-run"></i>' : '') + '</i>';
@@ -1072,6 +1189,86 @@
     }).join('') + '</div>';
   }
 
+  /* ================= ОФОРМЛЕНИЕ ОКОН =================
+     Окна «Куда написать?», «Добавить в календарь» и сообщение «Ссылка скопирована» берут оформление того, откуда открыты:
+     с карточки — её оборот (цвет, прозрачность, размытие, цвет текста, шрифт, кнопки, контур), со страницы Песочницы,
+     Событий или Примеров — оформление страницы. Своё оформление окон: showcase.cardStyle.win / look.win =
+     {mode:'own', bg, glass, blur, text, font, accent, btnStyle, rim, rimColor}; mode '' — как у карточки (страницы).
+     Ничего не оформлено — белые, как раньше. */
+  function pageLookOf(w) { return (w === 'sandbox' ? (S.D.sandbox || {}).look : w === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look) || {}; }
+  function winFrom(o) {
+    var rgb = hexRgb(o.bg || '#ffffff'), dark = lum(rgb) < 128;
+    // Незаметная подложка: даже у очень прозрачного окна текст читается (не меньше 62% цвета и размытие за окном)
+    var glass = Math.max(0, Math.min(90, +o.glass || 0)), a = Math.max(0.62, 1 - glass / 100);
+    var blur = glass ? Math.max(8, +o.blur || 0) : 0;
+    var tx = o.text || (dark ? '#efe4d2' : '#232323'), txLight = lum(hexRgb(tx)) > 128;
+    var ac = o.accent || (txLight ? '#efe4d2' : '#232323');
+    var cls = ['m13-win'], css = ['--w-bg:rgba(' + rgb.join(',') + ',' + a.toFixed(2) + ')', '--w-tx:' + tx, '--w-ac:' + ac, '--w-ac-ink:' + inkFor(ac)];
+    if (blur) css.push('--w-blur:' + blur + 'px');
+    if (o.font) { ensureFont(o.font); css.push("--w-font:'" + o.font + "',Georgia,serif"); cls.push('m13-win--font'); }
+    if (o.accent) css.push(accentVars(o));
+    if (o.btn) { var bl = buttonLook(o.btn, txLight); cls = cls.concat(bl.cls); css = css.concat(bl.css); }
+    var lay = '';
+    if (o.rim) {
+      lay = decoHTML({ rim: o.rim, rimColor: o.rimColor, rimLive: o.rimLive, rimRunColor: o.rimRunColor, rimSpeed: o.rimSpeed, rimPlace: o.rimPlace, accent: o.accent }, false);
+      cls.push('m13-has-rim');
+      css.push('--w-rim:' + (o.rimColor || { light: 'rgba(255,255,255,.85)', cold: 'rgba(214,234,255,.95)' }[o.rim] || o.accent || '#ecd3a3'));
+    }
+    return { cls: cls, css: css, lay: lay };
+  }
+  function cardWin(c) {
+    var st = cardStyle(c);
+    if (!st.backBg && !st.backGlass && !st.backText && !st.font && !st.btnStyle && !st.rim && !st.accent) return null;
+    return winFrom({ bg: st.backBg || '#f8f8f8', glass: st.backGlass, blur: st.backBlur, text: st.backText, font: st.font, accent: st.accent, btn: st,
+      rim: st.rim, rimColor: st.rimColor, rimLive: st.rimLive, rimRunColor: st.rimRunColor, rimSpeed: st.rimSpeed, rimPlace: st.rimPlace });
+  }
+  function pageWin(lk) {
+    if (!lk.panelBg && !lk.textColor && !lk.accent && !lk.glass && !lk.font) return null;
+    return winFrom({ bg: lk.panelBg || '#ffffff', glass: lk.glass, blur: lk.glassBlur == null || lk.glassBlur === '' ? 8 : lk.glassBlur,
+      text: lk.textColor, font: lk.font, accent: lk.accent });
+  }
+  function ownWin(w) {
+    var rim = w.rim && w.rim !== 'none' ? w.rim : '';
+    var tx = w.text || (lum(hexRgb(w.bg || '#ffffff')) < 128 ? '#efe4d2' : '#232323');
+    return winFrom({ bg: w.bg || '#ffffff', glass: w.glass, blur: w.blur == null || w.blur === '' ? 10 : w.blur, text: w.text, font: w.font, accent: w.accent,
+      btn: w.btnStyle && w.btnStyle !== 'none' ? { btnStyle: w.btnStyle, btnColor: w.accent || tx, accent: w.accent } : null, rim: rim, rimColor: w.rimColor });
+  }
+  function winSource() {
+    var n = S.from && S.from.isConnected ? S.from : null;
+    var pg = n && n.closest ? n.closest('[data-m13-page]') : null;
+    if (!pg && !S.card) pg = S.root.querySelector('.m13-internal.is-open [data-m13-page]') || (S.view !== 'showcase' ? S.root.querySelector('[data-m13-page]') : null);
+    var win;
+    if (pg) {
+      var lk = pageLookOf(pg.getAttribute('data-m13-page'));
+      win = lk.win || {};
+      return win.mode === 'own' ? ownWin(win) : pageWin(lk);
+    }
+    win = ((S.D.showcase && S.D.showcase.cardStyle) || {}).win || {};
+    return win.mode === 'own' ? ownWin(win) : cardWin(S.card);
+  }
+  function applyWin() {
+    var L = winSource();
+    ['#m13-modal', '#m13-cal'].forEach(function (id) {
+      var box = S.root.querySelector(id + ' .m13-modal-box'); if (!box) return;
+      box.className = 'm13-modal-box' + (L ? ' ' + L.cls.join(' ') : '');
+      box.setAttribute('style', L ? L.css.join(';') : '');
+      box.querySelectorAll(':scope > .m13-lay').forEach(function (x) { x.remove(); });
+      if (L && L.lay) box.insertAdjacentHTML('beforeend', L.lay);
+    });
+    var t = S.root.querySelector('#m13-toast');
+    if (t) {
+      var on = t.classList.contains('is-on');
+      t.className = 'm13-toast' + (L ? ' m13-win-t' + (L.cls.indexOf('m13-win--font') >= 0 ? ' m13-win--font' : '') + (L.lay ? ' m13-has-rim' : '') : '') + (on ? ' is-on' : '');
+      t.setAttribute('style', L ? L.css.join(';') : '');
+    }
+  }
+  // Для панели: «Посмотреть окно» — открыть «Куда написать?» и «Ссылка скопирована» там, где сейчас витрина или страница
+  M13.demoWin = function () {
+    S.from = S.card ? S.root.querySelector('#m13-backc') : S.root.querySelector('.m13-internal.is-open [data-m13-page]') || S.root.querySelector('[data-m13-page]');
+    openContact({ kind: 'contact' }, { card: S.card ? (S.card.front || {}).title : 'Пример' });
+    setTimeout(function () { toast(T('shareCopied') || 'Ссылка скопирована — её можно отправить в чат.'); }, 500);
+  };
+
   /* ================= ОКНО «КУДА НАПИСАТЬ?» ================= */
   function modalHTML() {
     return '<div class="m13-modal" id="m13-modal" role="dialog" aria-modal="true" aria-labelledby="m13-modal-t">' +
@@ -1139,6 +1336,7 @@
     var hint = q('#m13-modal-h');
     hint.textContent = T('contactHint'); hint.classList.remove('is-done');
     q('#m13-modal-x').textContent = T('close') || 'Закрыть';
+    applyWin();
     q('#m13-modal').classList.add('is-open');
     pushLayer('contact', function () { q('#m13-modal').classList.remove('is-open'); contactNow = null; });
   }
@@ -1211,7 +1409,7 @@
     return '<div class="m13-modal" id="m13-cal" role="dialog" aria-modal="true" aria-labelledby="m13-cal-t"><div class="m13-modal-box">' +
       '<div class="m13-eyebrow" id="m13-cal-e"></div><h3 id="m13-cal-t"></h3><div class="m13-cal-when" id="m13-cal-w"></div>' +
       '<div class="m13-channels m13-channels--col"><a class="m13-channel" id="m13-cal-g" target="_blank" rel="noopener"></a>' +
-      '<a class="m13-channel" id="m13-cal-i" download="13mirrors.ics"></a></div>' +
+      '<a class="m13-channel m13-ch2" id="m13-cal-i" download="13mirrors.ics"></a></div>' +
       '<p class="m13-hint" id="m13-cal-h"></p><button type="button" class="m13-modal-close" id="m13-cal-x"></button></div></div>';
   }
   function openCalendar(cal, ctx) {
@@ -1230,6 +1428,7 @@
       m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
       q('#m13-cal-x').addEventListener('click', closeTop);
     }
+    applyWin();
     m.classList.add('is-open');
     pushLayer('calendar', function () { m.classList.remove('is-open'); });
   }
@@ -1321,6 +1520,7 @@
       navigator.share({ title: title, url: url }).catch(function () {});
       return;
     }
+    applyWin();
     toast(copyText(url) ? (T('shareCopied') || 'Ссылка скопирована — её можно отправить в чат.') : url);
   }
 
@@ -1334,7 +1534,7 @@
     var back = '<button type="button" class="m13-iback" data-m13-iback>' + esc(T('backToCard') || '← Назад к карте') + '</button>';
     // Оформление страницы (фон, шрифт, цвета, размер текста) — как у отдельной страницы /sandbox/, /events/, /reflection/
     var lk = pageLook(target === 'sandbox' ? S.D.sandbox.look : target === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
-    box.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
+    box.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + target + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
       (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back)) + '</div>';
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
     else if (target === 'events') bindEvents(box, tab || null, false);
@@ -1354,7 +1554,7 @@
     S.acts = [];
     var inner = which === 'sandbox' ? sandboxHTML(back) : which === 'events' ? eventsHTML(back) : reflectionHTML(back);
     var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : which === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
-    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' +
+    S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + which + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' +
       modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
