@@ -2210,8 +2210,8 @@
     run();
     return box;
   }
-  // Поля стекла: общие для образца и для своего стекла. getS — что показывать в предпросмотре (пусто — пример)
-  function glassFields(g, getS, kind) {
+  // Поля стекла с надписью на картинке (не путать с glassFields — «Стекло и узор» карточек): общие для образца и своего. getS — что показывать в предпросмотре (пусто — пример)
+  function glassImgFields(g, getS, kind) {
     kind = kind || 'event';
     var box = el('div', { class: 'a-glass' });
     function redraw() { draw(); }
@@ -2281,7 +2281,7 @@
         switchIn(g, 'on', T3[1], { defTrue: true, onChange: draw }),
         g.on === false ? null : el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: T3[2], onclick: function () {
           var keep = { on: g.on }; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, keep); changed(); draw(); } })]),
-        g.on === false ? null : glassFields(g, null, kind)
+        g.on === false ? null : glassImgFields(g, null, kind)
       ]);
     }
     draw();
@@ -2310,7 +2310,7 @@
         !g.mode && pat.on !== false && has ? glassDemo(pat, getS, kind) : null,
         g.mode === 'own' ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять заново из образца', onclick: function () {
           var c = clone(pat); delete c.on; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, c, { mode: 'own' }); changed(); draw(); } })]) : null,
-        g.mode === 'own' ? glassFields(g, getS, kind) : null,
+        g.mode === 'own' ? glassImgFields(g, getS, kind) : null,
         g.mode !== 'off' && has && o.share ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(sk, x); } })]) : null
       ]);
     }
