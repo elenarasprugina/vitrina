@@ -383,8 +383,11 @@
      Настройки: from left | right | top | bottom; speed fast | normal | slow | vslow; pause (секунды, 0–3); shadow soft | deep;
      mat glass | color | image | frost (запотевшее зеркало); color; glass — прозрачность 0–90 %; blur — размытие, px; image; frost — плотность инея 0–100;
      rim '' | light | cold | gold, rimColor; sign '' | text | spark | star | moon | dandelion | logo | image; text, signImg, font, signColor,
-     signSize s | m | l, signPos center | top | bottom. */
-  var LID_OPEN = { book: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
+     signSize s | m | l, signPos center | top | bottom; signMirror — одуванчик на изгибе зеркально.
+     open: book — раскрывается на корешке; flip — переворот карты: обложка — рубашка, карточка приподнимается и переворачивается лицом
+     (from left | right — слева направо / справа налево, top | bottom — сверху вниз / снизу вверх).
+     feel: soft (по умолчанию) — мягкая: книга изгибается, как тетрадный лист, карта чуть пружинит, как картон | hard — твёрдая, как переплёт. */
+  var LID_OPEN = { book: 1, flip: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
   function lidQuiet() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function lidOf(c) {
     if (!c || c.visible === false || lidQuiet()) return null;
@@ -393,27 +396,53 @@
     return L && LID_OPEN[L.open] ? L : null;
   }
   function lidNum(v, def, lo, hi) { v = v == null || v === '' || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
-  // Одуванчик из логотипа: 13 лучей с «вилочками» семян на концах, серединка и стебель; цвет — currentColor
-  var DAND = '';
-  function dandSVG() {
-    if (DAND) return DAND;
-    var r = '', t = '', d = '';
-    function xy(x, y) { return x.toFixed(1) + ' ' + y.toFixed(1); }
+  // Семейство одуванчиков: у всех 12 лучей через 30° (15°, 45°, …) и стебель; цвет — currentColor.
+  // kind: 'logo' — из логотипа (клиновидные лучи, кисточки из трёх точек, толстый стебель с зазором);
+  // 'line' — прямой (тонкие лучи, вилочка из трёх веточек, крупная серединка); 'wave' — то же на изгибе (mirror — зеркально).
+  // Геометрия утверждена ею 30.09.2026 (эскизы — docs/dandelions.js).
+  var DAND = {};
+  function dandSVG(kind, mirror) {
+    kind = kind === 'line' || kind === 'wave' ? kind : 'logo';
+    var key = kind + (kind === 'wave' && mirror ? '-m' : '');
+    if (DAND[key]) return DAND[key];
+    function xy(x, y) { return x.toFixed(2) + ' ' + y.toFixed(2); }
     function dot(x, y, k) { return 'M' + xy(x - k, y) + 'a' + k + ' ' + k + ' 0 1 0 ' + 2 * k + ' 0a' + k + ' ' + k + ' 0 1 0 ' + -2 * k + ' 0'; }
-    [38, 33, 37, 31, 36, 32, 38, 32, 36, 31, 37, 33, 38].forEach(function (l, i) {
-      var a = (-150 + 25 * i) * Math.PI / 180, sa = Math.sin(a), ca = Math.cos(a), fx = 50 + sa * (l - 2.5), fy = 44 - ca * (l - 2.5);
-      r += 'M' + xy(50 + sa * 1.5, 44 - ca * 1.5) + 'L' + xy(50 + sa * l, 44 - ca * l);
-      [-0.9, 0.9].forEach(function (k) {
-        var ex = fx + Math.sin(a + k) * 6.2, ey = fy - Math.cos(a + k) * 6.2;
-        t += 'M' + xy(fx, fy) + 'L' + xy(ex, ey); d += dot(ex, ey, 1.45);
+    var w = '', t = '', d = '', i, a, sa, ca;
+    if (kind === 'logo') {
+      for (i = 0; i < 12; i++) {
+        a = (15 + 30 * i) * Math.PI / 180; sa = Math.sin(a); ca = Math.cos(a);
+        var ex = 50 + sa * 34, ey = 42 - ca * 34;
+        // клиновидный луч: у серединки шире, к концу уже
+        w += 'M' + xy(50 + ca * 1.25, 42 + sa * 1.25) + 'L' + xy(ex + ca * 0.8, ey + sa * 0.8) + 'L' + xy(ex - ca * 0.8, ey - sa * 0.8) + 'L' + xy(50 - ca * 1.25, 42 - sa * 1.25) + 'Z';
+        [[0, 3.4], [-0.95, 3.1], [0.95, 3.1]].forEach(function (q) {
+          var qx = ex + Math.sin(a + q[0]) * q[1], qy = ey - Math.cos(a + q[0]) * q[1];
+          t += 'M' + xy(ex, ey) + 'L' + xy(qx, qy); d += dot(qx, qy, 1.3);
+        });
+      }
+      return (DAND[key] = '<svg viewBox="0 0 100 124" aria-hidden="true"><path fill="currentColor" d="' + w + '"/>' +
+        '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width=".8" d="' + t + '"/><path fill="currentColor" d="' + d + '"/>' +
+        '<circle cx="50" cy="42" r="4.6" fill="currentColor"/><rect x="47" y="69" width="6" height="53" fill="currentColor"/></svg>');
+    }
+    var k = 1.5;
+    for (i = 0; i < 12; i++) {
+      a = (15 + 30 * i) * Math.PI / 180; sa = Math.sin(a); ca = Math.cos(a);
+      var fx = 50 + sa * 24, fy = 40 - ca * 24;
+      w += 'M' + xy(50 + sa * 3.2, 40 - ca * 3.2) + 'L' + xy(fx, fy);
+      [[0, 9.6], [-0.45, 5.3], [0.45, 5.3]].forEach(function (q) {
+        var qx = fx + Math.sin(a + q[0]) * q[1], qy = fy - Math.cos(a + q[0]) * q[1];
+        t += 'M' + xy(fx, fy) + 'L' + xy(qx, qy); d += dot(qx, qy, 1.2 * k + 0.1);
       });
-      d += dot(50 + sa * (l + 1.4), 44 - ca * (l + 1.4), 1.55);
-    });
-    return (DAND = '<svg viewBox="0 0 100 118" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.1" d="' + r + '"/>' +
-      '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.1" d="' + t + '"/><path fill="currentColor" d="' + d + '"/>' +
-      '<circle cx="50" cy="44" r="3.4" fill="currentColor"/><path d="M50 72V116" stroke="currentColor" stroke-width="5"/></svg>');
+    }
+    var stem = kind === 'wave' ? 'M50 43.2C50.9 56 51.2 66 49.4 80C47.6 93 47.3 102 48.4 109C49.2 113.5 50.3 116 51.8 118.2' : 'M50 43.2V118.2';
+    return (DAND[key] = '<svg viewBox="0 0 100 122" aria-hidden="true"><g' + (key === 'wave-m' ? ' transform="matrix(-1 0 0 1 100 0)"' : '') + '>' +
+      '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="' + 0.7 * k + '" d="' + w + '"/>' +
+      '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="' + 0.55 * k + '" d="' + t + '"/>' +
+      '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="' + 1.1 * k + '" d="' + stem + '"/>' +
+      '<path fill="currentColor" d="' + d + '"/><circle cx="50" cy="40" r="' + (3.6 + 0.5 * (k - 1)) + '" fill="currentColor"/></g></svg>');
   }
   M13.dandSVG = dandSVG;
+  // Значки-одуванчики на обложке: sign → вид одуванчика
+  var DAND_SIGN = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave' };
   // Надпись или значок на обложке
   function lidSign(L, dark) {
     var k = L.sign, inner = '', ty = [];
@@ -422,18 +451,21 @@
       if (L.font) { ensureFont(L.font); ty.push("font-family:'" + L.font + "',Georgia,serif"); }
       inner = '<span class="m13-lid-tx">' + txt(tx) + '</span>';
     } else if (STAR_PATH[k]) inner = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH[k] + '"/></svg>';
-    else if (k === 'dandelion') inner = dandSVG();
+    else if (DAND_SIGN[k]) inner = dandSVG(DAND_SIGN[k], !!L.signMirror);
     else if (k === 'logo') inner = logoHTML(S.D.showcase.head || {});
     else if (k === 'image' && L.signImg) inner = '<img alt="" src="' + esc(media(L.signImg)) + '">';
     if (!inner) return '';
     ty.push('color:' + (L.signColor || (dark ? '#f3e6cc' : '#3b2f24')));
     var at = L.signPos === 'top' || L.signPos === 'bottom' ? L.signPos : 'center', sz = L.signSize === 's' || L.signSize === 'l' ? L.signSize : 'm';
-    return '<div class="m13-lid-sign m13-lid-sign--' + k + ' m13-lid-at-' + at + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' + inner + '</div>';
+    return '<div class="m13-lid-sign m13-lid-sign--' + (DAND_SIGN[k] ? 'dand' : k) + ' m13-lid-at-' + at + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' + inner + '</div>';
   }
   function lidHTML(c, L) {
     var st = cardStyle(c), from = LID_FROM[L.from] ? L.from : 'left', mat = L.mat === 'color' || L.mat === 'frost' || (L.mat === 'image' && L.image) ? L.mat : 'glass';
     var col = L.color || (mat === 'frost' ? '#e4ebf1' : st.bg || '#f4efe6'), rgb = hexRgb(col), dark = mat === 'image' || (mat !== 'frost' && lum(rgb) < 128);
     var css = ['--m13-lid-ms:' + (LID_MS[L.speed] || LID_MS.normal) + 'ms', '--m13-ac:' + (st.accent || '#ecd3a3')], leaf = [];
+    // Плотный цвет листа для мягкого изгиба (у стекла и инея — как они выглядят поверх карточки): размытие на изгибающихся полосках не работает
+    var under = hexRgb(st.bg || '#ffffff'), k = mat === 'frost' ? 0.2 + lidNum(L.frost, 60, 0, 100) / 200 : mat === 'glass' ? 1 - lidNum(L.glass, 35, 0, 90) / 100 : 1;
+    css.push('--m13-lid-solid:rgb(' + rgb.map(function (v, j) { return Math.round(v * k + under[j] * (1 - k)); }).join(',') + ')');
     if (mat === 'color') leaf.push('background-color:' + col);
     else if (mat === 'image') leaf.push("background:" + col + " url('" + media(L.image) + "') center/cover no-repeat");
     else if (mat === 'frost') css.push('--m13-fr:' + (lidNum(L.frost, 60, 0, 100) / 100).toFixed(2), '--m13-frc:' + rgb.join(','));
@@ -442,23 +474,93 @@
       leaf.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - gl / 100).toFixed(2) + ')', '--m13-lb:' + bl + 'px');
     }
     var rim = L.rim === 'light' || L.rim === 'cold' || L.rim === 'gold' ? '<i class="m13-lay m13-rim m13-rim--' + L.rim + '"' + (L.rimColor ? ' style="' + esc('--m13-rc:' + L.rimColor) + '"' : '') + '></i>' : '';
-    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
+    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft') + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
       Math.round(lidNum(L.pause, 0.5, 0, 3) * 1000) + '" style="' + esc(css.join(';')) + '"><i class="m13-lid-cast"></i>' +
       '<div class="m13-lid-leaf m13-lid-' + mat + '"' + (leaf.length ? ' style="' + esc(leaf.join(';')) + '"' : '') + '>' +
       (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + lidSign(L, dark) + rim + '<i class="m13-lid-shade"></i></div></div>';
   }
   function lidOpen(lid) {
     if (!lid || !lid.isConnected || lid.classList.contains('is-open')) return;
-    var cell = lid.parentNode, ms = parseFloat(lid.style.getPropertyValue('--m13-lid-ms')) || 1000;
-    cell.classList.add('m13-lid-going'); lid.classList.add('is-open');
-    setTimeout(function () { lid.remove(); cell.classList.remove('m13-lid-going'); }, ms + 80);
+    var cell = lid.parentNode, ms = parseFloat(lid.style.getPropertyValue('--m13-lid-ms')) || 1000, cl = lid.classList, total = ms;
+    if (cl.contains('m13-lid--flip')) total = Math.round(ms * 1.3);
+    else if (cl.contains('m13-lid--soft')) total = lidBend(lid, ms);
+    cell.classList.add('m13-lid-going'); cl.add('is-open');
+    setTimeout(function () { lid.remove(); cell.classList.remove('m13-lid-going', 'm13-lidcell--flip'); }, total + 80);
+  }
+  // Мягкая обложка, как тетрадный лист: лист режется на полоски вдоль корешка; каждая следующая поворачивается чуть позже и быстрее,
+  // поэтому лист изгибается дугой; по изгибу бегут свет и тень; в конце кончик чуть «доплывает». Каждая полоска показывает свой
+  // кусочек той же обложки (надпись, стекло, иней — без швов). Возвращает, сколько длится раскрытие (мс).
+  var BEND_N = 12;
+  function lidBend(lid, ms) {
+    var leaf = lid.querySelector('.m13-lid-leaf'), W = lid.offsetWidth, H = lid.offsetHeight;
+    if (!leaf || !W || !H || !window.requestAnimationFrame) return ms;
+    var cl = lid.classList, from = cl.contains('m13-lid--right') ? 'right' : cl.contains('m13-lid--top') ? 'top' : cl.contains('m13-lid--bottom') ? 'bottom' : 'left';
+    var vert = from === 'top' || from === 'bottom', near = from === 'left' || from === 'top', len = vert ? H : W, n = BEND_N, w = len / n;
+    var deep = cl.contains('m13-lid--deep') ? 0.75 : 0.5, box = document.createElement('div'), list = [], i;
+    // Стекло и иней: размытие у повёрнутых полосок не работает, поэтому лист на время изгиба плотный — тем цветом,
+    // каким обложка видится поверх карточки; настоящая обложка тает поверх полосок в первые мгновения
+    var cs = getComputedStyle(leaf), clear = (cs.backdropFilter || cs.webkitBackdropFilter || 'none') !== 'none', solid = lid.style.getPropertyValue('--m13-lid-solid');
+    box.className = 'm13-lid-bend';
+    for (i = 0; i < n; i++) {
+      // полоски чуть заходят одна на другую, чтобы между ними не светились щёлки
+      var sz = w + (i < n - 1 ? 0.8 : 0), at = near ? 0 : len - sz, off = near ? -i * w : -(len - sz - i * w);
+      var st = document.createElement('div'), pc = leaf.cloneNode(true), sh = document.createElement('i'), hl = document.createElement('i');
+      st.className = 'm13-lid-strip'; sh.className = 'm13-lid-sh'; hl.className = 'm13-lid-hl';
+      st.style.cssText = vert ? 'left:0;top:' + at + 'px;width:' + W + 'px;height:' + sz + 'px' : 'top:0;left:' + at + 'px;height:' + H + 'px;width:' + sz + 'px';
+      st.style.transformOrigin = { left: '0 50%', right: '100% 50%', top: '50% 0', bottom: '50% 100%' }[from];
+      pc.classList.remove('m13-lid-leaf'); pc.classList.add('m13-lid-pc');
+      pc.querySelectorAll('.m13-sheen,.m13-lid-shade').forEach(function (x) { x.remove(); });
+      pc.style.width = W + 'px'; pc.style.height = H + 'px'; pc.style[vert ? 'top' : 'left'] = off + 'px';
+      if (clear) { pc.style.backdropFilter = pc.style.webkitBackdropFilter = 'none'; if (solid) pc.style.backgroundColor = solid; if (pc.classList.contains('m13-lid-frost')) pc.style.backgroundImage = 'none'; }
+      st.appendChild(pc); st.appendChild(sh); st.appendChild(hl); box.appendChild(st);
+      list.push({ st: st, sh: sh, hl: hl });
+    }
+    // Полоски — поверх обложки; у стекла и инея они проявляются за первые мгновения (плавный переход), потом обложка прячется
+    lid.insertBefore(box, leaf.nextSibling);
+    if (!clear) leaf.style.visibility = 'hidden'; else box.style.opacity = '0';
+    function ease(p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+    function cut(x) { return Math.max(0, Math.min(1, x)); }
+    var t0 = 0, END = 1.1, PHI = 172, dir = { left: 90, right: 270, top: 180, bottom: 0 }[from];
+    function frame(now) {
+      if (!box.isConnected) return;
+      if (!t0) t0 = now;
+      var t = (now - t0) / ms, X = 0, Z = 0, sh = [], bend = [];
+      list.forEach(function (o, k) {
+        var u = k / (n - 1), a = 0.3 * u, b = 0.8 + 0.12 * u;
+        var phi = PHI * ease(cut((t - a) / (b - a))) + 9 * u * u * Math.sin(Math.PI * cut((t - b) / 0.3));
+        var r = phi * Math.PI / 180, tr;
+        if (from === 'left') tr = 'translate3d(' + X.toFixed(2) + 'px,0,' + Z.toFixed(2) + 'px) rotateY(' + (-phi).toFixed(2) + 'deg)';
+        else if (from === 'right') tr = 'translate3d(' + (-X).toFixed(2) + 'px,0,' + Z.toFixed(2) + 'px) rotateY(' + phi.toFixed(2) + 'deg)';
+        else if (from === 'top') tr = 'translate3d(0,' + X.toFixed(2) + 'px,' + Z.toFixed(2) + 'px) rotateX(' + phi.toFixed(2) + 'deg)';
+        else tr = 'translate3d(0,' + (-X).toFixed(2) + 'px,' + Z.toFixed(2) + 'px) rotateX(' + (-phi).toFixed(2) + 'deg)';
+        o.st.style.transform = tr;
+        X += w * Math.cos(r); Z += w * Math.sin(r);
+        // свет спереди и чуть со стороны края: чем круче полоска к нам, тем темнее
+        sh.push(Math.max(0, 0.954 - Math.abs(0.954 * Math.cos(r) - 0.3 * Math.sin(r))) * deep);
+        bend.push(phi);
+      });
+      // тень плавно перетекает от полоски к полоске (без ступенек); на самом изгибе — светлый блик
+      // блик — там, где лист круче всего изгибается (разница углов соседних полосок)
+      var hl = bend.map(function (v, k) { return k ? Math.min(0.26, Math.abs(v - bend[k - 1]) / 36) : 0; });
+      function grad(arr, k, c) {
+        var a0 = (arr[k] + arr[Math.max(0, k - 1)]) / 2, a1 = (arr[k] + arr[Math.min(n - 1, k + 1)]) / 2;
+        return 'linear-gradient(' + dir + 'deg,rgba(' + c + ',' + a0.toFixed(3) + '),rgba(' + c + ',' + arr[k].toFixed(3) + '),rgba(' + c + ',' + a1.toFixed(3) + '))';
+      }
+      list.forEach(function (o, k) { o.sh.style.background = grad(sh, k, '0,0,0'); o.hl.style.background = grad(hl, k, '255,255,255'); });
+      var fade = 1 - cut((t - 0.62) / 0.45);
+      box.style.opacity = (clear ? Math.min(fade, cut(t / 0.12)) : fade).toFixed(3);
+      if (clear && t > 0.12) leaf.style.visibility = 'hidden';
+      if (t < END) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    return Math.round(ms * END);
   }
   // Карточка с обложкой: обложка стоит над карточкой в общей обёртке (m13-cell), чтобы при раскрытии выходить за её край
   function withLid(c, html) {
     var L = lidOf(c); if (!L || !html) return html;
-    var lid = lidHTML(c, L);
-    if (html.indexOf('<div class="m13-cell ') === 0) return html.replace('<div class="m13-cell ', '<div class="m13-cell m13-lidcell ').replace(/<\/div>$/, lid + '</div>');
-    return '<div class="m13-cell m13-lidcell">' + html + lid + '</div>';
+    var lid = lidHTML(c, L), cls = 'm13-lidcell' + (L.open === 'flip' ? ' m13-lidcell--flip m13-flip--' + (LID_FROM[L.from] ? L.from : 'left') + (L.feel === 'hard' ? '' : ' m13-flip-soft') : '');
+    if (html.indexOf('<div class="m13-cell ') === 0) return html.replace('<div class="m13-cell ', '<div class="m13-cell ' + cls + ' ').replace(/<\/div>$/, lid + '</div>');
+    return '<div class="m13-cell ' + cls + '">' + html + lid + '</div>';
   }
   M13.wake = function () { if (S.D && S.D.showcase && S.root.querySelector('.m13-grid')) wake(S.D.showcase.head || {}); };
 
@@ -1717,7 +1819,7 @@
     if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
     if (LH[lk.lineH]) css.push('--m13-lh:' + LH[lk.lineH]);
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
-    if (!styled) return { cls: cls, css: css.join(';') };
+    if (!styled) { var tb0 = tabsLook(lk.tabs, '#232323', '#232323'); return { cls: cls + tb0.cls, css: css.concat(tb0.css).join(';') }; }
     cls += ' m13-look';
     var pan = hexRgb(lk.panelBg || '#ffffff'), darkPan = lum(pan) < 128;
     var glass = Math.max(0, Math.min(100, +lk.glass || 0));
@@ -1730,7 +1832,20 @@
       '--lk-pan:rgba(' + pan.join(',') + ',' + (1 - glass / 100).toFixed(2) + ')',
       '--m13-gb:' + (lk.glassBlur == null || lk.glassBlur === '' ? 8 : Math.max(0, Math.min(20, +lk.glassBlur))) + 'px');
     if (lk.font) { ensureFont(lk.font); css.push("--lk-font:'" + lk.font + "',Georgia,serif"); cls += ' m13-look--font'; }
-    return { cls: cls, css: css.join(';') };
+    var tb = tabsLook(lk.tabs, tx, ac);
+    return { cls: cls + tb.cls, css: css.concat(tb.css).join(';') };
+  }
+  // Вкладки страницы и плашки фильтра по маршрутам: look.tabs = {active: '' (сплошная, как было) | glass (акцент с прозрачностью) | line (только контур),
+  // glass — прозрачность стекла 0–90 % (70), rim: '' (как было) | none | line (тонкая линия) | glow (светящийся: выбранная ярче, остальные тише),
+  // rimColor (пусто — акцентный), text — цвет текста выбранной вкладки (пусто: у сплошной — подбирается к цвету, у стекла и контура — цвет текста)}
+  function tabsLook(t, tx, ac) {
+    t = t || {};
+    var act = t.active === 'glass' || t.active === 'line' ? t.active : '', rim = t.rim === 'none' || t.rim === 'line' || t.rim === 'glow' ? t.rim : '';
+    if (!act && !rim && !t.text) return { cls: '', css: [] };
+    var a = hexRgb(ac), gl = Math.max(0, Math.min(90, t.glass == null || t.glass === '' ? 70 : +t.glass));
+    var css = ['--tb-a:' + a.join(','), '--tb-r:' + hexRgb(t.rimColor || ac).join(','), '--tb-ink:' + (t.text || (act ? tx : inkFor(ac)))];
+    if (act === 'glass') css.push('--tb-fill:rgba(' + a.join(',') + ',' + (1 - gl / 100).toFixed(2) + ')');
+    return { cls: ' m13-tbx' + (act ? ' m13-tb-' + act : '') + (rim ? ' m13-tr-' + rim : ''), css: css };
   }
 
   /* ---------- Песочница ---------- */
