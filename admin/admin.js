@@ -484,6 +484,17 @@
     return box;
   }
 
+  // Сглаживание высокого качества; при сильном уменьшении — в несколько шагов (каждый не больше чем вдвое), так мелкие линии не «рвутся»
+  function smooth(g) { g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; return g; }
+  function halve(img, iw, ih, targetW) {
+    var src = img, w = iw, h = ih;
+    while (w / 2 >= targetW * 1.05 && w > 2) {
+      var c = document.createElement('canvas'); c.width = Math.round(w / 2); c.height = Math.round(h / 2);
+      smooth(c.getContext('2d')).drawImage(src, 0, 0, c.width, c.height);
+      src = c; w = c.width; h = c.height;
+    }
+    return src;
+  }
   // crop: [ширина, высота] — обрезать по центру ровно под этот размер и сохранить в JPEG
   // (так нужно для превью ссылок: Telegram и VK надёжно понимают только JPEG/PNG).
   function compressImage(file, max, crop) {
@@ -495,16 +506,18 @@
         if (crop) {
           var k2 = Math.max(crop[0] / iw, crop[1] / ih), sw = crop[0] / k2, sh = crop[1] / k2;
           c.width = crop[0]; c.height = crop[1];
-          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, crop[0], crop[1]);
-          g.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, crop[0], crop[1]);
-          URL.revokeObjectURL(url); return res(c.toDataURL('image/jpeg', 0.86));
+          var src = halve(img, iw, ih, crop[0] * iw / sw);
+          var kx = (src === img ? iw : src.width) / iw;
+          var g = smooth(c.getContext('2d')); g.fillStyle = '#fff'; g.fillRect(0, 0, crop[0], crop[1]);
+          g.drawImage(src, (iw - sw) / 2 * kx, (ih - sh) / 2 * kx, sw * kx, sh * kx, 0, 0, crop[0], crop[1]);
+          URL.revokeObjectURL(url); return res(c.toDataURL('image/jpeg', 0.9));
         }
         var w = iw, h = ih, k = Math.min(1, max / Math.max(w, h));
         w = Math.round(w * k); h = Math.round(h * k);
         c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        var d = c.toDataURL('image/webp', 0.82);
-        if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(c) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85);
+        smooth(c.getContext('2d')).drawImage(halve(img, iw, ih, w), 0, 0, w, h);
+        var d = c.toDataURL('image/webp', 0.9);
+        if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(c) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.9);
         URL.revokeObjectURL(url); res(d);
       };
       img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('bad')); };
@@ -783,6 +796,25 @@
     ];
   }
 
+  // Яркость, контраст и насыщенность картинки фона (100 % — как есть). Витрина применяет их фильтром к картинке, файл не меняется
+  function bgFxFields(bg) {
+    var box = el('div');
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        el('div', { class: 'a-row3' }, [
+          rangeIn(bg, 'bright', 'Яркость картинки', { min: 50, max: 150, step: 5, unit: '%', def: 100 }),
+          rangeIn(bg, 'contrast', 'Контраст', { min: 50, max: 150, step: 5, unit: '%', def: 100 }),
+          rangeIn(bg, 'sat', 'Насыщенность', { min: 0, max: 150, step: 5, unit: '%', def: 100, hint: '0% — чёрно-белая.' })]),
+        el('div', { class: 'a-theme' }, [
+          el('span', { class: 'a-hint', text: '100% — как в файле. Меняется только вид на сайте, сама картинка остаётся прежней.' }),
+          bg.bright != null || bg.contrast != null || bg.sat != null ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть как в файле', onclick: function () {
+            delete bg.bright; delete bg.contrast; delete bg.sat; changed(); draw(); } }) : null])]);
+    }
+    draw();
+    return box;
+  }
+
   /* ---------- Окна «Куда написать?», «Добавить в календарь» и «Ссылка скопирована» ----------
      obj.win = {mode:'' | 'own', bg, glass, blur, text, font, accent, btnStyle, rim, rimColor}. obj — cardStyle месяца или look страницы. */
   function winFields(obj, page, preview) {
@@ -848,7 +880,7 @@
         var k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
         var w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
         var c = document.createElement('canvas'); c.width = w; c.height = h;
-        var g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
+        var g = smooth(c.getContext('2d')); g.drawImage(halve(img, img.naturalWidth, img.naturalHeight, w), 0, 0, w, h); URL.revokeObjectURL(url);
         var D = g.getImageData(0, 0, w, h), px = D.data, i, removed = false;
         if (!hasAlpha(c)) {
           // Цвет фона — по четырём уголкам; чем ближе пиксель к нему, тем прозрачнее (края остаются мягкими)
@@ -1148,6 +1180,7 @@
           rangeIn(sc.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Чтобы карточки читались лучше.' }),
           rangeIn(sc.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px', hint: '0 — чёткая; 4–8 — мягкий фон.' })]),
         selectIn(sc.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
+        bgFxFields(sc.background),
         sub('Надписи над сеткой и под ней'),
         el('div', { class: 'a-row' }, [
           colorOptIn(sc.head = sc.head || {}, 'color', 'Цвет надписей и логотипа', { none: 'обычный тёмный', pick: '#ecd3a3' }),
@@ -1446,6 +1479,35 @@
       });
     }
     drawFree();
+    // Цвета линий маршрутов именно в этом календаре (monthCal.routeColors); пусто — цвет маршрута из раздела «Маршруты»
+    var calRoutes = [];
+    cards.forEach(function (x) {
+      if (x.interactive === false || !x.back || x.back.type === 'static') return;
+      var b = window.M13.toBlocks(x.back), r = b.routeId ? routeById(b.routeId) : null;
+      if (r && r.dates && r.dates.from && r.dates.to && calRoutes.indexOf(r) < 0) calRoutes.push(r);
+    });
+    var rcBox = el('div');
+    function toneKind(r) { var t = String(r.title || '').toLowerCase().replace(/ё/g, 'е'); return /син/.test(t) ? 0 : /желт/.test(t) ? 1 : /красн/.test(t) ? 2 : /бел/.test(t) ? 3 : 4; }
+    var RC_SETS = [
+      ['Приглушённые', ['#7f9cc9', '#d6b666', '#c47d6c', '#e6e0d3', '#a498c0']],
+      ['Пастель', ['#a9c4ec', '#f1da9a', '#eeab9d', '#f6f2e9', '#cbbfe6']],
+      ['Золото и лунный свет', ['#b7c7e6', '#ecd3a3', '#d9a68b', '#f3ead8', '#c9b8de']],
+      ['Драгоценные камни', ['#3f6fc4', '#e2a92e', '#b8413a', '#e9e4da', '#7a5bb5']]];
+    function drawRC() {
+      cal.routeColors = cal.routeColors || {};
+      rcBox.replaceChildren();
+      if (!calRoutes.length) return;
+      add(rcBox, [
+        el('p', { class: 'a-hint', text: 'Цвета линий именно в этом календаре. Пусто — цвет маршрута из раздела «Маршруты». Готовые наборы — одним нажатием, потом можно подправить.' }),
+        el('div', { class: 'a-presets', style: 'margin-bottom:10px' }, RC_SETS.map(function (set) {
+          return el('button', { type: 'button', class: 'a-btn a-btn--small a-preset', style: 'background:linear-gradient(90deg,' + set[1].slice(0, 4).join(',') + ')', text: set[0], onclick: function () {
+            calRoutes.forEach(function (r) { cal.routeColors[r.id] = set[1][toneKind(r)]; }); changed(); drawRC(); } });
+        }).concat([el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Как в «Маршрутах»', onclick: function () { cal.routeColors = {}; changed(); drawRC(); } })])),
+        el('div', { class: 'a-row' }, calRoutes.map(function (r) {
+          return colorOptIn(cal.routeColors, r.id, 'Линия «' + r.title + '»', { none: 'цвет маршрута', inh: function () { return window.M13.routeTone(r); }, inhLabel: 'цвет маршрута' });
+        }))]);
+    }
+    drawRC();
     var starOpt = { none: cal.flyer === 'snow' ? 'ледяной' : 'золотой', base: function () { return cal.flyer === 'snow' ? '#cfe8ff' : '#f1cf78'; } };
     var starBox = colorOptIn(cal, 'starColor', 'Цвет звёзд или снежинок', starOpt);
     return [
@@ -1460,7 +1522,7 @@
       sub('Как выглядит'),
       el('div', { class: 'a-row' }, [
         selectIn(cal, 'line', 'Линия маршрута', [['thread', 'Тонкая нить'], ['band', 'Широкая мягкая полоса'], ['wave', 'Волна'], ['cloud', 'Облачко — дымка за числами']], { def: 'thread',
-          hint: 'Цвет — цвет маршрута (раздел «Маршруты»). На телефоне в мини-календаре всегда тонкая нить — так читается лучше.' }),
+          hint: 'Цвета линий — ниже, «Цвета маршрутов». На телефоне в мини-календаре всегда тонкая нить — так читается лучше.' }),
         selectIn(cal, 'glow', 'Свечение чисел и линий', [['soft', 'Мягкое'], ['bright', 'Яркое'], ['none', 'Без свечения']], { def: 'soft',
           hint: 'Для линий и светящихся чисел. На тёмном фоне красивее всего.' })]),
       el('div', { class: 'a-row' }, [
@@ -1470,6 +1532,7 @@
         colorOptIn(cal, 'numColor', 'Цвет чисел', { none: 'как текст на обороте', pick: '#efe4d2', hint: 'Обычные числа. Встречи и особые дни — своими цветами (смешанными с этим).' }),
         selectIn(cal, 'lineW', 'Толщина линии', [['thin', 'Тонкая'], ['mid', 'Средняя'], ['thick', 'Толстая']], { def: 'thin', hint: 'Для нити, полосы и волны.' })]),
       selectIn(cal, 'lineMode', 'Линия через дни', [['solid', 'Сплошная — одной нитью через весь маршрут'], ['days', 'По дням — у каждого дня свой отрезок']], { def: 'solid' }),
+      calRoutes.length ? sub('Цвета маршрутов') : null, rcBox,
       el('div', { class: 'a-row' }, [
         selectIn(cal, 'flyer', 'Что летит в карточки', [['star', 'Звёзды'], ['snow', 'Снежинки']], { def: 'star',
           hint: 'Снежинки — например, на декабрь и Новый год.', onChange: function () { starOpt.none = cal.flyer === 'snow' ? 'ледяной' : 'золотой'; starBox.redraw(); } }),
@@ -2050,6 +2113,7 @@
         rangeIn(lk.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Здесь много текста — обычно 45–65%.' }),
         rangeIn(lk.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px' })]),
       selectIn(lk.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
+      bgFxFields(lk.background),
       sub('Текст и панели'),
       el('div', { class: 'a-row' }, [
         fontIn(lk, 'font', 'Шрифт', fontOptions(false), null, 'Примеры практик · День 3 · Мысль дня'),
