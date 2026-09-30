@@ -1685,7 +1685,8 @@
   }
   // Галерея: до 10 картинок с подписями. mode 'row' — ряд маленьких (оборот карточки),
   // 'feature' — первая крупно с подписью, остальные рядом под ней (страницы). Крупно — в просмотрщике, с подписью.
-  function galleryHTML(list, mode) {
+  // gl — стекло с надписью поверх первой картинки (главная картинка события)
+  function galleryHTML(list, mode, gl) {
     var imgs = (list || []).filter(function (m) { return m && m.visible !== false && m.src; }).slice(0, 10);
     if (!imgs.length) return '';
     var g = S.lb.push(imgs.map(function (m) { return { src: media(m.src), caption: String(m.caption || '').trim() }; })) - 1;
@@ -1695,7 +1696,9 @@
     }
     function cap(m) { var c = String(m.caption || '').trim(); return c ? '<figcaption class="m13-cap">' + esc(c) + '</figcaption>' : ''; }
     if (mode === 'feature') {
-      return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + btn(imgs[0], 0, 'm13-fig-img') + cap(imgs[0]) + '</figure>' +
+      var first = btn(imgs[0], 0, 'm13-fig-img' + (gl ? ' m13-gl-fig' : ''));
+      if (gl) first = first.replace(/<\/button>$/, '<span class="m13-gl-box">' + gl + '</span></button>');
+      return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + first + cap(imgs[0]) + '</figure>' +
         (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item'); }).join('') + '</div>' : '') + '</div>';
     }
     return '<div class="m13-gallery">' + imgs.map(function (m, k) { return btn(m, k, 'm13-gallery-item'); }).join('') + '</div>';
@@ -1944,14 +1947,16 @@
   // nested — обложка внутри страницы (пример дня внутри маршрута архива)
   function coverHTML(c) {
     var whole = c.img && c.fit === 'whole';
-    return '<button type="button" class="m13-cover' + (c.color ? ' m13-rc' : '') + (c.img ? '' : ' m13-cover--noimg') + '" ' +
+    return '<button type="button" class="m13-cover' + (c.color ? ' m13-rc' : '') + (c.img ? '' : ' m13-cover--noimg') + (c.gl ? ' m13-cover--gl' : '') + '" ' +
       (c.nested ? 'data-sub' : 'data-open') + '="' + esc(c.id) + '"' + rcStyle(c.color) + '>' +
       '<span class="m13-cover-img' + (whole ? ' m13-fit-whole' : '') + '">' + (c.img ? fitImgHTML(c.img, whole, true)
-        : '<span class="m13-cover-ph">' + esc(c.ph || c.title || '') + '</span>') + '</span>' +
+        : '<span class="m13-cover-ph">' + esc(c.ph || c.title || '') + '</span>') + (c.gl ? '<span class="m13-gl-box">' + c.gl + '</span>' : '') + '</span>' +
+      // Со стеклом надпись и название уже на картинке — под ней только «Коротко»
+      (c.gl ? (c.text ? '<span class="m13-cover-txt"><span class="m13-cover-sub">' + esc(c.text) + '</span></span>' : '') + '</button>' :
       '<span class="m13-cover-txt">' + (c.top ? '<span class="m13-cover-top">' + esc(c.top) + '</span>' : '') +
       '<span class="m13-cover-title">' + esc(c.title || '') + '</span>' +
       (c.line ? '<span class="m13-cover-line">' + esc(c.line) + '</span>' : '') +
-      (c.text ? '<span class="m13-cover-sub">' + esc(c.text) + '</span>' : '') + '</span></button>';
+      (c.text ? '<span class="m13-cover-sub">' + esc(c.text) + '</span>' : '') + '</span></button>');
   }
   // Шапка страницы чтения: картинка маршрута (или своя обложка), цветная кромка, названия
   function readHeadHTML(h) {
@@ -2239,9 +2244,58 @@
       (tabs.length ? '<div class="m13-lib" data-ev></div>' : '<p class="m13-sb-intro">' + esc(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
   }
   function evCover(e) {
+    var g = e.cover ? glassOf(e) : null;
     return { id: e.id, img: e.cover || '', fit: e.coverFit || '', top: [EVENT_TYPES[e.type] || '', evDate(e)].filter(Boolean).join(' · '), title: e.title || '',
-      text: e.summary ? firstLine(e.summary) : '' };
+      text: e.summary ? firstLine(e.summary) : '', gl: g ? glassHTML(e, g) : '' };
   }
+  /* ---------- Стекло с надписью на картинке события ----------
+     events.look.glass — образец для всех событий (on: false — выключен): {on, pos, tint, tintColor, glass, blur, rim, font, weight, color, size, align,
+       top, topText, title, date, place, price, mark, extraOn, extra}; строки top/title/date/place/price — false, чтобы скрыть.
+     У события item.glass = {mode: '' (как у всех) | 'off' | 'own', …те же поля}. Надпись — настоящий текст поверх картинки. */
+  var GL_POS = { bottom: 1, band: 1, top: 1, left: 1, right: 1, center: 1, full: 1 };
+  var GL_TINT = { light: '255,255,255', dark: '20,14,10', gold: '236,211,163' };
+  var GL_DEF = { pos: 'bottom', tint: 'dark', glass: 70, blur: 8, rim: 'line', font: 'Cormorant Garamond', weight: 'normal', color: '#ecd3a3', size: 'm', align: '' };
+  M13.GLASS_DEF = GL_DEF;
+  function glv(g, k) { return g[k] == null || g[k] === '' ? GL_DEF[k] : g[k]; }
+  function glassOf(e, ev) {
+    var d = (((ev || S.D.events || {}).look) || {}).glass || {}, f = (e && e.glass) || {};
+    return f.mode === 'own' ? f : f.mode === 'off' ? null : d.on !== false ? d : null;
+  }
+  function glassLines(e, g) {
+    function on(k) { return g[k] !== false; }
+    return {
+      top: on('top') ? String(g.topText || '').trim() || EVENT_TYPES[e.type] || '' : '',
+      title: on('title') ? String(e.title || '').trim() : '',
+      meta: [on('date') ? evDate(e) : '', on('place') ? e.place : '', on('price') ? e.price : ''].filter(function (x) { return String(x || '').trim(); }),
+      extra: g.extraOn ? String(g.extra || '').trim() : ''
+    };
+  }
+  function glassHTML(e, g) {
+    var L = glassLines(e, g), pos = GL_POS[g.pos] ? g.pos : 'bottom', font = glv(g, 'font'), tint = glv(g, 'tint');
+    var rgb = tint === 'own' ? hexRgb(g.tintColor || '#141414').join(',') : GL_TINT[tint] || GL_TINT.dark;
+    var a = Math.max(0, Math.min(100, +glv(g, 'glass'))), bl = Math.max(0, Math.min(24, +glv(g, 'blur')));
+    var al = g.align === 'left' || g.align === 'center' || g.align === 'right' ? g.align : pos === 'center' || pos === 'full' ? 'center' : 'left';
+    var rim = g.rim === 'none' || g.rim === 'glow' ? g.rim : 'line', sz = g.size === 's' || g.size === 'l' ? g.size : 'm';
+    var mark = g.mark === 'dandelion' ? '<span class="m13-gl-mk m13-gl-mk--dand">' + dandSVG('logo') + '</span>'
+      : g.mark === 'logo' ? '<span class="m13-gl-mk m13-gl-mk--logo">' + logoHTML({}) + '</span>' : '';
+    if (!L.top && !L.title && !L.meta.length && !L.extra && !mark) return '';
+    if (FONTS[font]) ensureFont(font);
+    var ty = (FONTS[font] ? ["font-family:'" + font + "',Georgia,serif"] : []).concat(typeCss(font, glv(g, 'weight')));
+    return '<span class="m13-gl m13-gl--' + pos + ' m13-gl-al-' + al + ' m13-gl-rim-' + rim + ' m13-gl-sz-' + sz + '" style="' +
+      esc('--gl-bg:rgba(' + rgb + ',' + ((100 - a) / 100).toFixed(2) + ');--gl-b:' + bl + 'px;--gl-c:' + (g.color || GL_DEF.color)) + '">' +
+      (L.top ? '<span class="m13-gl-top">' + esc(L.top) + '</span>' : '') +
+      (L.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + esc(L.title) + '</span>' : '') +
+      (L.meta.length || mark ? '<span class="m13-gl-row">' + (L.meta.length ? '<span class="m13-gl-d">' + esc(L.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
+      (L.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(L.extra) + '</span>' : '') + '</span>';
+  }
+  // Для панели: стекло на примере события; D — черновик {events, settings}
+  M13.glassPreview = function (e, g, D) {
+    var keep = S.D, kb = S.base; S.D = Object.assign({}, S.D || {}, D || {}); S.base = '../';
+    try { return g ? glassHTML(e, g) : ''; } finally { S.D = keep; S.base = kb; }
+  };
+  M13.glassOf = function (e, ev) { return glassOf(e, ev); };
+  M13.glassLines = function (e, g) { return glassLines(e, g); };
+  M13.evDate = function (e) { return evDate(e); };
   function actionsHTML(acts, ctx) {
     var btns = acts.map(function (a, i) {
       return '<button type="button" class="m13-action' + (i ? '' : ' m13-action--primary') + '"' +
@@ -2250,7 +2304,10 @@
     return btns ? '<div class="m13-actions m13-ev-actions' + (acts.length > 2 ? ' m13-actions--grid' : '') + '">' + btns + '</div>' : '';
   }
   function evRead(e) {
-    var meta = [evDate(e), e.place, e.price].filter(function (x) { return String(x || '').trim(); });
+    var g = e.cover ? glassOf(e) : null, gl = g ? glassHTML(e, g) : '';
+    // Что уже написано на стекле, над картинкой не повторяется (название остаётся для читалок экрана)
+    var on = function (k) { return !gl || g[k] === false; };
+    var meta = [on('date') ? evDate(e) : '', on('place') ? e.place : '', on('price') ? e.price : ''].filter(function (x) { return String(x || '').trim(); });
     var past = evTab(e) === 'past';
     var acts = (e.actions || []).filter(function (a) {
       if (!a || a.visible === false) return false;
@@ -2259,9 +2316,11 @@
       return true;
     }).slice(0, 4).map(function (a) { return a.kind === 'calendar' ? Object.assign({}, a, { cal: evCal(e, a) }) : a; });
     return '<article class="m13-panel m13-ev">' +
-      '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div><h3>' + esc(e.title || '') + '</h3>' +
+      (gl ? (on('top') ? '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div>' : '') +
+        '<h3' + (on('title') ? '' : ' class="m13-sr"') + '>' + esc(e.title || '') + '</h3>' + galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', gl)
+      : '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div><h3>' + esc(e.title || '') + '</h3>') +
       (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-      (e.cover ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature') : '') +
+      (e.cover && !gl ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature') : '') +
       (e.summary ? '<div class="m13-block"><div class="m13-rich">' + rich(e.summary) + '</div></div>' : '') +
       (e.blocks || []).map(sbBlockHTML).join('') +
       actionsHTML(acts, { card: e.title, price: e.price || '', url: eventUrl(e), tplKey: 'offer' }) +
