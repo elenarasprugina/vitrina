@@ -261,8 +261,24 @@ body.m13-locked{overflow:hidden}
 .m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-live{z-index:1}
 .m13-thumb.m13-glow-soft,.m13-thumb.m13-glow-soft:hover{box-shadow:0 calc(var(--m13-gy)*11px*var(--m13-gk)) calc(18px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
 .m13-thumb.m13-glow-live{animation:m13-glow 3.6s ease-in-out infinite alternate}
+/* Живое свечение: свет нарисован один раз слоем за карточкой, дышат только яркость и размер — плавно, без дрожи.
+   Темп: спокойное (9 с: вдох 4, выдох 5), медленное (13 с), мерцающее (с лёгкой дрожью света) */
+.m13-cell{position:relative;z-index:1}
+.m13-breath{position:absolute;inset:0;border-radius:var(--m13-radius);pointer-events:none;
+  box-shadow:0 calc(var(--m13-gy)*14px*var(--m13-gk)) calc(24px*var(--m13-gk)) calc(6px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow);
+  animation:m13-breathe 9s cubic-bezier(.45,0,.55,1) infinite;will-change:opacity,transform}
+.m13-gt-slow > .m13-breath{animation-duration:13s}
+.m13-gt-flicker > .m13-breath{animation-name:m13-breathe-f}
+@keyframes m13-breathe{0%,100%{opacity:.25;transform:scale(.975)} 45%{opacity:1;transform:scale(1.012)}}
+@keyframes m13-breathe-f{0%,100%{opacity:.25;transform:scale(.975)} 15%{opacity:.5} 18%{opacity:.4} 22%{opacity:.62} 30%{opacity:.55} 45%{opacity:1;transform:scale(1.012)}
+  60%{opacity:.8} 63%{opacity:.9} 67%{opacity:.7} 80%{opacity:.5} 83%{opacity:.58}}
+.m13-big-stage.m13-glow-live::before{content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
+  box-shadow:0 calc(var(--m13-gy)*32px*var(--m13-gk)) calc(56px*var(--m13-gk)) calc(12px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow);
+  animation:m13-breathe 9s cubic-bezier(.45,0,.55,1) infinite;will-change:opacity,transform}
+.m13-big-stage.m13-glow-live.m13-gt-slow::before{animation-duration:13s}
+.m13-big-stage.m13-glow-live.m13-gt-flicker::before{animation-name:m13-breathe-f}
 .m13-big-stage.m13-glow-soft .m13-face{box-shadow:0 calc(var(--m13-gy)*26px*var(--m13-gk)) calc(44px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow),0 28px 70px rgba(0,0,0,.24)}
-.m13-big-stage.m13-glow-live .m13-face{animation:m13-glow-big 3.6s ease-in-out infinite alternate}
+.m13-big-stage.m13-glow-live .m13-face{box-shadow:0 28px 70px rgba(0,0,0,.24)}
 @keyframes m13-glow{
   from{box-shadow:0 calc(var(--m13-gy)*5px*var(--m13-gk)) calc(6px*var(--m13-gk)) calc(0px - var(--m13-gy)*var(--m13-gy)*2px) var(--m13-glow)}
   to{box-shadow:0 calc(var(--m13-gy)*14px*var(--m13-gk)) calc(24px*var(--m13-gk)) calc(6px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}}
@@ -278,6 +294,8 @@ body.m13-locked{overflow:hidden}
 @media (prefers-reduced-motion:reduce){
   .m13-thumb.m13-glow-live{animation:none;box-shadow:0 calc(var(--m13-gy)*10px*var(--m13-gk)) calc(16px*var(--m13-gk)) calc(3px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
   .m13-big-stage.m13-glow-live .m13-face{animation:none;box-shadow:0 calc(var(--m13-gy)*24px*var(--m13-gk)) calc(40px*var(--m13-gk)) calc(8px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow)}
+  .m13-breath,.m13-big-stage.m13-glow-live::before,.m13-rim--breathe > .m13-rim{animation:none;opacity:.85;transform:none}
+  .m13-rim-run{display:none}
 }
 
 /* Метка «идёт сейчас» по датам — с маленькой мерцающей точкой */
@@ -397,6 +415,34 @@ body.m13-locked{overflow:hidden}
 .m13-logo{display:inline-block;width:clamp(170px,22vw,280px);aspect-ratio:2454/545;background:var(--m13-head,var(--m13-ink));
   -webkit-mask:center/contain no-repeat;mask:center/contain no-repeat}
 @media (max-width:680px){ .m13-logo{width:min(56vw,210px)} .m13-logo-wrap{margin-bottom:5px} }
+.m13-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Под сеткой: логотип (ссылка на главную) и/или надпись. На компьютере сетка уменьшается на высоту подписи (--m13-fh) */
+@media (min-width:681px){ .m13-page--foot .m13-grid{--card-w:min(255px,calc((100vw - 64px - 2 * var(--m13-gap)) / 3),calc((100vh - 160px - var(--m13-fh,0px) - 2 * var(--m13-gap)) * 0.3))} }
+.m13-foot{width:min(1180px,100%);margin:12px auto 0;display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;color:var(--m13-ink)}
+.m13-foot--left{align-items:flex-start;text-align:left}
+.m13-foot--right{align-items:flex-end;text-align:right}
+.m13-foot.m13-header--tinted{color:var(--m13-head)}
+.m13-foot-logo{display:block;font-size:0;line-height:0;opacity:.9;transition:opacity .2s}
+.m13-foot-logo:hover{opacity:1}
+.m13-foot .m13-logo{width:clamp(96px,9vw,130px)}
+.m13-foot--m .m13-logo{width:clamp(150px,17vw,220px)}
+.m13-foot--l .m13-logo{width:clamp(200px,24vw,320px)}
+.m13-foot-text{font-family:var(--m13-hfont,inherit);font-size:14px;letter-spacing:.04em;opacity:.85}
+.m13-foot--l .m13-foot-text{font-size:16px}
+/* Блик по подписи: раз в ~12 с по надписи и логотипу пробегает лёгкий свет */
+.m13-shine .m13-foot-text span,.m13-shine .m13-logo{
+  background-image:linear-gradient(100deg,var(--m13-head,var(--m13-ink)) 0 42%,var(--m13-shine) 50%,var(--m13-head,var(--m13-ink)) 58% 100%);
+  background-size:300% 100%;background-position:100% 0;animation:m13-shine 12s ease-in-out infinite}
+.m13-shine .m13-foot-text span{-webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes m13-shine{0%,72%{background-position:100% 0} 90%,100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){ .m13-shine .m13-foot-text span,.m13-shine .m13-logo{animation:none} }
+@media (max-width:680px){
+  .m13-foot{margin-top:4px;gap:4px}
+  .m13-foot .m13-logo{width:min(28vw,108px)}
+  .m13-foot--m .m13-logo{width:min(42vw,160px)}
+  .m13-foot--l .m13-logo{width:min(58vw,220px)}
+  .m13-foot-text{font-size:12px}
+}
 
 /* Карточки-«зеркала»: полупрозрачное стекло с лёгким размытием того, что за ним */
 .m13-glass{-webkit-backdrop-filter:blur(var(--m13-gb,10px)) saturate(1.15);backdrop-filter:blur(var(--m13-gb,10px)) saturate(1.15)}
@@ -450,6 +496,8 @@ body.m13-locked{overflow:hidden}
 .m13-back .m13-pat--full{opacity:calc(var(--m13-pop,.8) * .3)}
 
 /* Кромка стекла: тонкая линия с бликом */
+.m13-rimbox{z-index:3}
+.m13-rimbox > i{position:absolute;inset:0;border-radius:inherit}
 .m13-rim{z-index:3;padding:1.3px;
   background:linear-gradient(145deg,var(--m13-rc),color-mix(in srgb,var(--m13-rc) 18%,transparent) 35%,color-mix(in srgb,var(--m13-rc) 8%,transparent) 62%,color-mix(in srgb,var(--m13-rc) 62%,transparent));
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
@@ -457,7 +505,27 @@ body.m13-locked{overflow:hidden}
 .m13-rim--cold{--m13-rc:rgba(214,234,255,.95)}
 .m13-rim--gold{--m13-rc:var(--m13-ac,#ecd3a3)}
 .m13-thumb.m13-has-rim,.m13 .m13-face.m13-has-rim{border-color:transparent}
+/* Контур только в уголках: мягкие «скобочки» в четырёх углах */
+.m13-rim--corners{-webkit-mask:radial-gradient(30% 28% at 0 0,#000 55%,transparent),radial-gradient(30% 28% at 100% 0,#000 55%,transparent),
+    radial-gradient(30% 28% at 0 100%,#000 55%,transparent),radial-gradient(30% 28% at 100% 100%,#000 55%,transparent);
+  mask:radial-gradient(30% 28% at 0 0,#000 55%,transparent),radial-gradient(30% 28% at 100% 0,#000 55%,transparent),
+    radial-gradient(30% 28% at 0 100%,#000 55%,transparent),radial-gradient(30% 28% at 100% 100%,#000 55%,transparent)}
+/* Контур дышит — тем же ритмом, что и живое свечение */
+.m13-rim--breathe > .m13-rim{animation:m13-rim-breathe 9s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes m13-rim-breathe{0%,100%{opacity:.3} 45%{opacity:1}}
+/* Бегущий блик: светлая искра с хвостом медленно обегает край карточки */
+.m13-rim-run{padding:1.6px;overflow:hidden;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.m13-rim-run::before{content:"";position:absolute;left:50%;top:50%;width:200%;aspect-ratio:1;margin:-100% 0 0 -100%;
+  background:conic-gradient(from 0deg,transparent 0deg 318deg,color-mix(in srgb,var(--m13-runc) 30%,transparent) 336deg,var(--m13-runc) 351deg,#fff 357deg,transparent 360deg);
+  animation:m13-rim-spin 7s linear infinite}
+.m13-rim-run.m13-rim-glow{padding:4px;opacity:.35;filter:blur(1.5px)}
+@keyframes m13-rim-spin{to{transform:rotate(360deg)}}
 
+/* Дымка под строками: мягкое облачко повторяет форму текста, остальная карточка — чистое стекло. --m13-hz — сила (0–1) */
+.m13-th-haze{--m13-hzc:8,6,4}
+.m13-th-haze.m13-th--light{--m13-hzc:255,255,255}
+.m13-th-haze > :not(.m13-lay){text-shadow:0 0 3px rgba(var(--m13-hzc),calc(var(--m13-hz,.6) * .9)),0 0 9px rgba(var(--m13-hzc),calc(var(--m13-hz,.6) * .8)),
+  0 0 18px rgba(var(--m13-hzc),calc(var(--m13-hz,.6) * .7)),0 0 30px rgba(var(--m13-hzc),calc(var(--m13-hz,.6) * .5))}
 /* Помощь тексту: тень у букв или мягкое затемнение там, где текст */
 .m13-th-shadow{--m13-tsh:0 1px 2px rgba(0,0,0,.75),0 0 12px rgba(0,0,0,.5)}
 .m13-th-shadow.m13-th--light{--m13-tsh:0 1px 2px rgba(255,255,255,.8),0 0 12px rgba(255,255,255,.6)}
@@ -891,7 +959,7 @@ body.m13-locked{overflow:hidden}
   border:0;background:none;color:inherit;font:inherit;cursor:pointer;border-radius:10px}
 .m13-cal-day:not(:disabled):hover{background:color-mix(in srgb,currentColor 8%,transparent)}
 .m13-cal-day:disabled{cursor:default}
-.m13-cal-n{position:relative;z-index:1;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-size:15px;font-variant-numeric:tabular-nums}
+.m13-cal-n{position:relative;z-index:1;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-size:15px;font-variant-numeric:tabular-nums;color:var(--m13-cn,inherit)}
 .m13-cal-day.is-empty .m13-cal-n{opacity:.55}
 .m13-cal-day.is-past{opacity:.42}
 .m13-cal-day.is-today .m13-cal-n{box-shadow:inset 0 0 0 1.2px currentColor;font-weight:700}
@@ -899,13 +967,13 @@ body.m13-locked{overflow:hidden}
    --m13-cg — сила свечения (0 нет, 1 мягкое, 1.8 яркое); --m13-cm, --m13-cs — цвета встреч и особых дней */
 .m13-cal-n::before{content:"";position:absolute;inset:-4px;z-index:-1;border-radius:50%;opacity:calc(var(--m13-cg,1) * .55);pointer-events:none}
 .m13-cal-meet .m13-cal-n,.m13-cal-spec .m13-cal-n,.m13-cal-both .m13-cal-n{font-weight:650}
-.m13-cal-meet .m13-cal-n{color:color-mix(in srgb,var(--m13-cm) 78%,currentColor);
+.m13-cal-meet .m13-cal-n{color:color-mix(in srgb,var(--m13-cm) 78%,var(--m13-cn,currentColor));
   text-shadow:0 0 calc(5px * var(--m13-cg,1)) var(--m13-cm),0 0 calc(13px * var(--m13-cg,1)) var(--m13-cm)}
 .m13-cal-meet .m13-cal-n::before{background:radial-gradient(circle,color-mix(in srgb,var(--m13-cm) 45%,transparent),transparent 68%)}
-.m13-cal-spec .m13-cal-n{color:color-mix(in srgb,var(--m13-cs) 78%,currentColor);
+.m13-cal-spec .m13-cal-n{color:color-mix(in srgb,var(--m13-cs) 78%,var(--m13-cn,currentColor));
   text-shadow:0 0 calc(5px * var(--m13-cg,1)) var(--m13-cs),0 0 calc(13px * var(--m13-cg,1)) var(--m13-cs)}
 .m13-cal-spec .m13-cal-n::before{background:radial-gradient(circle,color-mix(in srgb,var(--m13-cs) 45%,transparent),transparent 68%)}
-.m13-cal-both .m13-cal-n{color:color-mix(in srgb,var(--m13-cm) 55%,currentColor);
+.m13-cal-both .m13-cal-n{color:color-mix(in srgb,var(--m13-cm) 55%,var(--m13-cn,currentColor));
   text-shadow:0 0 calc(5px * var(--m13-cg,1)) var(--m13-cm),0 0 calc(15px * var(--m13-cg,1)) var(--m13-cs)}
 .m13-cal-both .m13-cal-n::before{background:radial-gradient(circle,color-mix(in srgb,var(--m13-cm) 45%,transparent) 25%,color-mix(in srgb,var(--m13-cs) 45%,transparent) 50%,transparent 70%)}
 /* Линия маршрута под числами: сплошная через дни, концы тают. Виды: нить, мягкая полоса, волна, облачко */
@@ -913,16 +981,26 @@ body.m13-locked{overflow:hidden}
 .m13-cal-bars i{position:relative;display:block;height:12px}
 .m13-cal-bars i + i{margin-top:-4px}
 .m13-cal-bars i::before,.m13-cal-bars i::after{content:"";position:absolute;left:0;right:0;top:50%;pointer-events:none}
-.m13-cal-bars i::after{height:2px;margin-top:-1px;background:var(--c);border-radius:1px}
-.m13-cal-bars i::before{height:10px;margin-top:-5px;background:linear-gradient(180deg,transparent,var(--c),transparent);opacity:calc(var(--m13-cg,1) * .5);filter:blur(2px)}
+/* Толщина: --m13-lw (тонкая 2 px, средняя 3, толстая 4.5). Ореол без размытия по краям — линия сплошная, без «бусин» на стыках дней */
+.m13-cal{--m13-lw:2px}
+.m13-cal--lw-mid{--m13-lw:3px}
+.m13-cal--lw-thick{--m13-lw:4.5px}
+.m13-cal-bars i::after{height:var(--m13-lw);margin-top:calc(var(--m13-lw) / -2);background:var(--c);border-radius:var(--m13-lw)}
+.m13-cal-bars i::before{height:12px;margin-top:-6px;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--c) 70%,transparent) 50%,transparent);opacity:calc(var(--m13-cg,1) * .55)}
+/* По дням: у каждого дня свой отрезок с небольшими промежутками — числа читаются отдельными «кнопочками» */
+.m13-cal--seg .m13-cal-bars i::before,.m13-cal--seg .m13-cal-bars i::after{left:4px;right:4px;border-radius:6px}
+.m13-cal--seg .m13-cal-bars i{-webkit-mask-image:none !important;mask-image:none !important}
 .m13-cal-bars i.m13-s{-webkit-mask-image:linear-gradient(90deg,transparent,#000 38%);mask-image:linear-gradient(90deg,transparent,#000 38%)}
 .m13-cal-bars i.m13-e{-webkit-mask-image:linear-gradient(270deg,transparent,#000 38%);mask-image:linear-gradient(270deg,transparent,#000 38%)}
 .m13-cal-bars i.m13-s.m13-e{-webkit-mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent)}
-.m13-cal--band .m13-cal-bars i::after{height:6px;margin-top:-3px;border-radius:3px;opacity:.5;filter:blur(1px)}
-.m13-cal--band .m13-cal-bars i::before{height:12px;margin-top:-6px;opacity:calc(var(--m13-cg,1) * .35);filter:blur(3px)}
+.m13-cal--band .m13-cal-bars i::after{height:calc(var(--m13-lw) * 3);margin-top:calc(var(--m13-lw) * -1.5);border-radius:0;opacity:.55;
+  background:linear-gradient(180deg,transparent,var(--c) 30%,var(--c) 70%,transparent)}
+.m13-cal--band .m13-cal-bars i::before{opacity:calc(var(--m13-cg,1) * .4)}
+.m13-cal--wave{--m13-wv:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='1.7'/%3E%3C/svg%3E")}
+.m13-cal--wave.m13-cal--lw-mid{--m13-wv:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='2.5'/%3E%3C/svg%3E")}
+.m13-cal--wave.m13-cal--lw-thick{--m13-wv:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='3.4'/%3E%3C/svg%3E")}
 .m13-cal--wave .m13-cal-bars i::after{height:8px;margin-top:-4px;border-radius:0;
-  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='1.7'/%3E%3C/svg%3E") 0 0 / 50% 100% repeat-x;
-  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4Q5 0.6 10 4T20 4' fill='none' stroke='black' stroke-width='1.7'/%3E%3C/svg%3E") 0 0 / 50% 100% repeat-x}
+  -webkit-mask:var(--m13-wv) 0 0 / 50% 100% repeat-x;mask:var(--m13-wv) 0 0 / 50% 100% repeat-x}
 .m13-cal--wave .m13-cal-bars i::before{opacity:calc(var(--m13-cg,1) * .4)}
 /* Облачко: без линии — цветная дымка за числами дней маршрута */
 .m13-cal--cloud .m13-cal-bars{position:absolute;left:-14%;right:-14%;top:0;height:40px;min-height:0;z-index:0}
@@ -955,7 +1033,9 @@ body.m13-locked{overflow:hidden}
 .m13-calmini .m13-cal-bars i{height:6px}
 .m13-calmini .m13-cal-bars i + i{margin-top:-2px}
 .m13-calmini .m13-cal-bars i::before{height:6px;margin-top:-3px}
-.m13-calmini.m13-cal--band .m13-cal-bars i::after{height:4px;margin-top:-2px}
+.m13-calmini{--m13-lw:1.5px}
+.m13-calmini.m13-cal--lw-mid{--m13-lw:2px}
+.m13-calmini.m13-cal--lw-thick{--m13-lw:3px}
 .m13-calmini.m13-cal--wave .m13-cal-bars i::after{height:6px;margin-top:-3px}
 .m13-calmini.m13-cal--cloud .m13-cal-bars{height:calc(var(--card-w) * .095 + 4px)}
 .m13-calmini.m13-cal--cloud .m13-cal-day{padding-bottom:3px;min-height:0}

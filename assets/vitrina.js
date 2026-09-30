@@ -196,19 +196,23 @@
     var hf = (sc.cardStyle || {}).font, hs = [];
     if (hd.color) hs.push('--m13-head:' + hd.color);
     if (hf) { ensureFont(hf); hs.push("--m13-hfont:'" + hf + "',Georgia,serif"); }
-    var kicker = hd.logo
-      ? '<h2 class="m13-logo-wrap"><span class="m13-logo" role="img" aria-label="' + esc(st.siteTitle || '13 MIRRORS') + '" style="-webkit-mask-image:url(\'' + S.base + 'assets/logo.png\');mask-image:url(\'' + S.base + 'assets/logo.png\')"></span></h2>'
-      : '<div class="m13-kicker">' + esc([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</div>';
+    // Верхняя строка: своя надпись (пусто — «13 MIRRORS · Витрина»), логотип или ничего
+    var top = hd.top || (hd.logo ? 'logo' : 'text');
+    var topText = String(hd.topText || '').trim() || [st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ');
+    var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap">' + logoHTML() + '</h2>'
+      : top === 'none' ? '' : '<div class="m13-kicker">' + esc(topText) + '</div>';
     var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' : '') + '" style="' + esc(rs.join(';')) + '">';
 
-    var intro = opt(sc.intro);
-    var html = root + '<main class="m13-page">' +
+    var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '';
+    var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
+    var html = root + '<main class="m13-page' + (foot ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker +
-      '<h1>' + esc(sc.title) + (sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '') + '</h1>' +
+      (hd.hideTitle ? '<h1 class="m13-sr">' + esc(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
+        : '<h1>' + esc(sc.title) + draft + '</h1>') +
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML() + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
-      '</section></div></main>' +
+      '</section></div>' + foot + '</main>' +
       overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
 
@@ -216,6 +220,9 @@
       b.addEventListener('click', function () { openCard(b.getAttribute('data-card')); });
     });
     bindOverlay(); bindModal();
+    // В предпросмотре панели логотип внизу не уводит со страницы
+    var fl = S.root.querySelector('.m13-foot-logo');
+    if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
     // В предпросмотре панели сайта ещё нет — открываем события поверх витрины
     var evl = S.root.querySelector('[data-m13-evlink]');
     if (evl && S.onBack) evl.addEventListener('click', function (e) { e.preventDefault(); openInternal('events'); });
@@ -226,6 +233,32 @@
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
       openCard(h);
     }
+  }
+
+  // Логотип (картинка-маска цветом надписей)
+  function logoHTML() {
+    var u = S.base + 'assets/logo.png';
+    return '<span class="m13-logo" role="img" aria-label="' + esc(S.D.settings.siteTitle || '13 MIRRORS') + '" style="-webkit-mask-image:url(\'' + u + '\');mask-image:url(\'' + u + '\')"></span>';
+  }
+  // Под сеткой: логотип (ссылка на главную 13mirrors.ru), надпись («Увидимся за поворотом») или оба; размер, положение, блик
+  function footHTML(hd, hs) {
+    var b = hd.bottom || 'none'; if (b === 'none') return '';
+    var logo = b === 'logo' || b === 'both', text = b === 'text' || b === 'both';
+    var al = hd.bottomAlign === 'left' || hd.bottomAlign === 'right' ? hd.bottomAlign : 'center';
+    var size = hd.bottomSize === 'm' || hd.bottomSize === 'l' ? hd.bottomSize : 's';
+    var css = hs.slice(), cs = S.D.showcase.cardStyle || {};
+    if (hd.shine) css.push('--m13-shine:' + (hd.shineColor || cs.rimRunColor || '#fff3cf'));
+    return '<footer class="m13-foot m13-foot--' + al + ' m13-foot--' + size + (hd.color ? ' m13-header--tinted' : '') + (hd.shine ? ' m13-shine' : '') + '"' +
+      (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + '>' +
+      (logo ? '<a class="m13-foot-logo" href="' + esc(S.base + '../') + '" aria-label="13 MIRRORS — на главную">' + logoHTML() + '</a>' : '') +
+      (text ? '<div class="m13-foot-text"><span>' + esc(String(hd.bottomText || '').trim() || 'Увидимся за поворотом') + '</span></div>' : '') + '</footer>';
+  }
+  // Сколько места нужно подписи внизу — на столько уменьшается сетка на компьютере
+  function footHeight(hd) {
+    var b = hd.bottom, h = 18;
+    if (b === 'logo' || b === 'both') h += { s: 30, m: 50, l: 70 }[hd.bottomSize] || 30;
+    if (b === 'text' || b === 'both') h += 26;
+    return h;
   }
 
   function findCard(id) {
@@ -316,7 +349,10 @@
       rim: none(pick('rim', '')), pattern: none(pick('pattern', '')),
       patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
       patternColor: f.patternColor || d.patternColor || '', patternOpacity: num('patternOpacity', 80, 5, 100),
-      textHelp: none(pick('textHelp', '')),
+      textHelp: none(pick('textHelp', '')), hazeStrength: num('hazeStrength', 60, 0, 100),
+      // Контур (кромка): где (весь край / уголки), свой цвет, живость (дышит / бегущий блик) и цвет блика; темп живого свечения
+      rimPlace: pick('rimPlace', 'edge'), rimColor: f.rimColor || d.rimColor || '', rimLive: none(pick('rimLive', '')),
+      rimRunColor: f.rimRunColor || d.rimRunColor || '', glowTempo: pick('glowTempo', 'calm'),
       // Размер текста: название и мелкие надписи
       titleSize: pick('titleSize', 'md'), smallSize: pick('smallSize', 'md'),
       // Кнопки на обороте: вид главной, цвета, остальные кнопки, «живость»
@@ -337,6 +373,8 @@
     var y = st.glowDir === 'bottom' ? 1 : st.glowDir === 'top' ? -1 : 0;
     return '--m13-glow:' + st.glowColor + ';--m13-gk:' + (GLOW_K[st.glowStrength] || 1) + ';--m13-gy:' + y + ';--m13-gsp:' + (y ? -1 : 1);
   }
+  // Темп живого свечения: спокойное (по умолчанию), медленное, мерцающее
+  var TEMPO = { slow: 'm13-gt-slow', flicker: 'm13-gt-flicker' };
   // Возвращает {cls, css} для карточки: классы и inline-стиль.
   function styleOf(c, hasImg) {
     var st = cardStyle(c), cls = [], css = [];
@@ -357,6 +395,7 @@
     if (st.smallSize !== 'md') cls.push('m13-ts-' + st.smallSize);
     if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
+    if (st.glow === 'live' && TEMPO[st.glowTempo]) cls.push(TEMPO[st.glowTempo]);
     var lay = decoHTML(st, true);
     if (lay) cls.push('m13-deco');
     if (st.rim) cls.push('m13-has-rim');
@@ -364,6 +403,7 @@
       // Тень/затемнение под светлым текстом — тёмные, под тёмным — светлые
       var dark = st.textColor && lum(hexRgb(st.textColor)) < 128;
       cls.push('m13-th-' + st.textHelp + (dark ? ' m13-th--light' : ''));
+      if (st.textHelp === 'haze') css.push('--m13-hz:' + (st.hazeStrength / 100).toFixed(2));
     }
     return { cls: cls.join(' '), css: css.join(';'), st: st, lay: lay };
   }
@@ -405,10 +445,22 @@
       h += '<i class="m13-lay m13-pat m13-pat--' + place + (p === 'custom' ? ' m13-pat--img' : '') + '" aria-hidden="true" style="' +
         esc("--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100)) + '"><i></i><i></i><i></i><i></i></i>';
     }
-    if (st.rim) h += '<i class="m13-lay m13-rim m13-rim--' + esc(st.rim) + '" aria-hidden="true"></i>';
+    if (st.rim) {
+      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4');
+      h += '<i class="m13-lay m13-rimbox' + (st.rimPlace === 'corners' ? ' m13-rim--corners' : '') + (st.rimLive ? ' m13-rim--' + esc(st.rimLive) : '') +
+        '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"></i>' +
+        (st.rimLive === 'run' ? '<i class="m13-rim-run m13-rim-glow"></i><i class="m13-rim-run"></i>' : '') + '</i>';
+    }
     return h;
   }
 
+  // Живое свечение — отдельным слоем за карточкой: свет нарисован один раз, «дышат» только яркость и размер (плавно, без дрожи)
+  function breathWrap(sty, html) {
+    if (!/(^| )m13-glow-live( |$)/.test(sty.cls)) return html;
+    var tempo = TEMPO[sty.st.glowTempo] || '';
+    return '<div class="m13-cell ' + tempo + '" style="' + esc(glowVars(sty.st)) + '"><i class="m13-breath" aria-hidden="true"></i>' +
+      html.replace(/ m13-glow-live/, '') + '</div>';
+  }
   function thumbHTML(c) {
     if (!c || c.visible === false) {
       return '<div class="m13-thumb m13-thumb--empty" aria-hidden="true"><span class="m13-empty-mark"></span></div>';
@@ -417,8 +469,8 @@
     // Карточка-календарь с мини-календарём на лицевой стороне: вместо картинки и надписей — сетка месяца
     if (isCalCard(c) && c.monthCal.face !== 'image') {
       var cs = styleOf(c, false);
-      return '<button type="button" class="m13-thumb m13-thumb--cal' + (cs.cls ? ' ' + cs.cls : '') + '" style="' + esc(cs.css) + '" data-card="' + esc(c.id) + '" aria-label="' +
-        esc([f.eyebrow || 'Календарь', (c.monthCal.title || M13.calMonthName(calYM()))].join(' · ')) + '">' + calMiniHTML(c) + cs.lay + '</button>';
+      return breathWrap(cs, '<button type="button" class="m13-thumb m13-thumb--cal' + (cs.cls ? ' ' + cs.cls : '') + '" style="' + esc(cs.css) + '" data-card="' + esc(c.id) + '" aria-label="' +
+        esc([f.eyebrow || 'Календарь', (c.monthCal.title || M13.calMonthName(calYM()))].join(' · ')) + '">' + calMiniHTML(c) + cs.lay + '</button>');
     }
     var sty = styleOf(c, !!f.image);
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
@@ -432,10 +484,10 @@
       (f.title ? '<div class="m13-mini-title">' + esc(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + esc(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
-    if (isStatic) return '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + sty.lay + '</div>';
-    return '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
+    if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + sty.lay + '</div>');
+    return breathWrap(sty, '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
       '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + esc(foot) + '</span>' : '') +
-      '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div>' + sty.lay + '</button>';
+      '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div>' + sty.lay + '</button>');
   }
 
   /* ---------- Увеличенная карточка ---------- */
@@ -469,7 +521,7 @@
     var f = c.front || {};
     var front = S.root.querySelector('#m13-front');
     var sty = styleOf(c, !!f.image);
-    front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+|m13-accent/g, '') : '');
+    front.className = 'm13-face m13-front' + (f.image ? ' m13-front--img' : '') + (sty.cls ? ' ' + sty.cls.replace(/m13-glow-\w+|m13-gt-\w+|m13-accent/g, '') : '');
     var big = S.root.querySelector('#m13-bigcard');
     big.classList.toggle('m13-accent', !!sty.st.accent);
     // Оборот: свой цвет; если он тёмный — весь текст и плашки на обороте становятся светлыми
@@ -493,9 +545,10 @@
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
-    stage.classList.remove('m13-glow-soft', 'm13-glow-live');
+    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker');
     stage.setAttribute('style', '');
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
+    if (sty.st.glow === 'live' && TEMPO[sty.st.glowTempo]) stage.classList.add(TEMPO[sty.st.glowTempo]);
     var sub = opt(f.subtitle);
     front.innerHTML = '<div>' +
       (f.eyebrow ? '<div class="m13-hero-type">' + esc(f.eyebrow) + '</div>' : '') +
@@ -666,8 +719,10 @@
   function calLook(cal, extra) {
     cal = cal || {};
     var line = CAL_LINES[cal.line] ? cal.line : 'thread', g = CAL_GLOW[cal.glow] != null ? CAL_GLOW[cal.glow] : 1;
-    return ' class="' + extra + ' m13-cal--' + line + (g ? '' : ' m13-cal--flat') + '" style="' + esc('--m13-star:' + calStar(cal) + ';--m13-cg:' + g +
-      ';--m13-cm:' + (cal.meetColor || '#f1c65a') + ';--m13-cs:' + (cal.specialColor || '#b48ee0')) + '"';
+    var lw = cal.lineW === 'mid' || cal.lineW === 'thick' ? cal.lineW : 'thin';
+    return ' class="' + extra + ' m13-cal--' + line + ' m13-cal--lw-' + lw + (cal.lineMode === 'days' ? ' m13-cal--seg' : '') + (g ? '' : ' m13-cal--flat') + '" style="' +
+      esc('--m13-star:' + calStar(cal) + ';--m13-cg:' + g + ';--m13-cm:' + (cal.meetColor || '#f1c65a') + ';--m13-cs:' + (cal.specialColor || '#b48ee0') +
+        (cal.numColor ? ';--m13-cn:' + cal.numColor : '')) + '"';
   }
   // Сетка месяца: большая (кнопки-числа с подписями) или мини на лицевой стороне (только для вида)
   function calGridHTML(M, mini) {

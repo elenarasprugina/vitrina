@@ -301,6 +301,10 @@
           { def: forCard ? 'inherit' : 'medium', onChange: onChange }),
         selectIn(stl, 'glowDir', 'Откуда идёт свет', inh.concat([['around', 'Вокруг всей карточки'], ['bottom', 'Снизу'], ['top', 'Сверху']]),
           { def: forCard ? 'inherit' : 'around', onChange: onChange })]),
+      el('div', { class: 'a-row' }, [
+        selectIn(stl, 'glowTempo', 'Дыхание живого свечения', inh.concat([['calm', 'Спокойное (вдох 4 с, выдох 5 с)'], ['slow', 'Медленное, медитативное'], ['flicker', 'Мерцающее']]),
+          { def: forCard ? 'inherit' : 'calm', onChange: onChange, hint: 'Для «Живого» свечения. Контур, который дышит, дышит в том же ритме.' }),
+        el('span')]),
       glassFields(stl, forCard, onChange, d),
       buttonFields(stl, forCard, onChange, d),
       el('p', { class: 'a-hint', text: forCard
@@ -335,6 +339,8 @@
     function redraw() { if (onChange) onChange(); draw(); }
     function draw() {
       var pat = stl.pattern && stl.pattern !== 'inherit' ? stl.pattern : '';
+      function val(k) { return stl[k] && stl[k] !== 'inherit' ? stl[k] : (forCard ? d[k] : '') || ''; }
+      var tx = val('textHelp'), rim = val('rim') && val('rim') !== 'none', live = val('rimLive');
       var txBox;
       box.replaceChildren();
       add(box, [
@@ -345,10 +351,20 @@
           rangeOptIn(stl, 'glassBlur', 'Размытие за карточкой', { max: 20, step: 1, unit: ' px', def: 10, onChange: onChange,
             hint: '0 — картинка за карточкой чёткая. 2–4 — матовое стекло. 10 — сильно размыто.' }, forCard)]),
         el('div', { class: 'a-row' }, [
-          selectIn(stl, 'rim', 'Кромка стекла', inh.concat([['none', 'Без кромки'], ['light', 'Светлая'], ['cold', 'Холодная (зимняя)'], ['gold', 'Золотая — акцентным цветом']]),
-            { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Тонкая линия с бликом по краю карточки.' }),
-          selectIn(stl, 'textHelp', 'Чтобы текст читался', inh.concat([['none', 'Ничего не добавлять'], ['shadow', 'Тень у букв'], ['shade', 'Мягкое затемнение там, где текст']]),
-            { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Пригодится, когда за прозрачной карточкой яркая картинка.' })]),
+          selectIn(stl, 'textHelp', 'Чтобы текст читался', inh.concat([['none', 'Ничего не добавлять'], ['shadow', 'Тень у букв'], ['haze', 'Дымка под строками'], ['shade', 'Мягкое затемнение там, где текст']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Пригодится, когда за прозрачной карточкой яркая картинка. «Дымка под строками» — облачко только вокруг текста, остальное стекло чистое.' }),
+          tx === 'haze' ? rangeOptIn(stl, 'hazeStrength', 'Сила дымки', { max: 100, step: 5, unit: '%', def: 60, onChange: onChange }, forCard) : el('span')]),
+        sub('Контур карточки'),
+        el('div', { class: 'a-row' }, [
+          selectIn(stl, 'rim', 'Контур', inh.concat([['none', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный (зимний)'], ['gold', 'Золотой — акцентным цветом']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Тонкая линия с бликом по краю карточки. Цвет можно задать свой — ниже.' }),
+          rim ? selectIn(stl, 'rimPlace', 'Где', inh.concat([['edge', 'По всему краю'], ['corners', 'Только уголки']]), { def: forCard ? 'inherit' : 'edge', onChange: onChange }) : el('span')]),
+        rim ? el('div', { class: 'a-row' }, [
+          colorOptIn(stl, 'rimColor', 'Цвет контура', { none: 'как выбрано выше', pick: '#ecd3a3', inh: inhOf(d, forCard, 'rimColor'), onChange: onChange }),
+          selectIn(stl, 'rimLive', 'Живость контура', inh.concat([['none', 'Спокойный'], ['breathe', 'Дышит'], ['run', 'Бегущий блик']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Бегущий блик — светлая искра медленно обегает край. Лучше для одной-двух карточек.' })]) : null,
+        rim && live === 'run' ? colorOptIn(stl, 'rimRunColor', 'Цвет бегущего блика', { none: 'акцентный или светло-золотой', pick: '#fff1c4', inh: inhOf(d, forCard, 'rimRunColor'),
+          base: function () { return stl.accent || d.accent || '#fff1c4'; }, onChange: onChange }) : null,
         el('div', { class: 'a-row' }, [
           selectIn(stl, 'pattern', 'Узор на стекле', inh.concat([['none', 'Без узора'], ['frost', 'Иней'], ['sparks', 'Искры'], ['kaleido', 'Калейдоскоп'], ['custom', 'Свой узор (загрузить картинку)']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw }),
@@ -378,7 +394,7 @@
         el('div', { class: 'a-row' }, [
           selectIn(stl, 'backSize', 'Размер текста на обороте', inh.concat([['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']]),
             { def: forCard ? 'inherit' : 'md', onChange: onChange, hint: 'Описание, плашки, даты, подписи. Кнопки остаются как есть.' }),
-          el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и кромка появляются и на обороте открытой карточки.' })])
+          el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и контур появляются и на обороте открытой карточки.' })])
       ]);
     }
     draw();
@@ -741,6 +757,36 @@
     ];
   }
 
+  // Верхняя строка, название месяца, подпись под сеткой (логотип — ссылка на главную, «Увидимся за поворотом»), блик
+  function headFields(sc) {
+    var hd = sc.head, st = DATA.settings, box = el('div', { class: 'a-glass' });
+    if (!hd.top) hd.top = hd.logo ? 'logo' : 'text';
+    function draw() {
+      var b = hd.bottom || 'none';
+      box.replaceChildren();
+      add(box, [
+        el('div', { class: 'a-row' }, [
+          selectIn(hd, 'top', 'Сверху, над названием месяца', [['text', 'Надпись'], ['logo', 'Логотип'], ['none', 'Ничего']], { def: 'text', onChange: function () { delete hd.logo; draw(); } }),
+          hd.top === 'text' ? textIn(hd, 'topText', 'Надпись сверху', { ph: [st.siteTitle || '13 MIRRORS', (st.texts || {}).kicker || 'Витрина'].join(' · '),
+            hint: 'Пусто — «13 MIRRORS · Витрина». У каждого месяца своя.' }) : el('span')]),
+        switchIn(hd, 'hideTitle', 'Не показывать название месяца', { hint: 'Название «' + (sc.title || '') + '» остаётся в заголовке вкладки и в превью ссылки.' }),
+        el('div', { class: 'a-row' }, [
+          selectIn(hd, 'bottom', 'Под сеткой', [['none', 'Ничего'], ['logo', 'Логотип'], ['text', 'Надпись'], ['both', 'Логотип и надпись под ним']], { def: 'none', onChange: draw,
+            hint: 'Логотип внизу — ссылка на главную 13mirrors.ru. На компьютере карточки станут чуть меньше, чтобы всё помещалось на экране.' }),
+          b === 'text' || b === 'both' ? textIn(hd, 'bottomText', 'Надпись внизу', { ph: 'Увидимся за поворотом' }) : el('span')]),
+        b !== 'none' ? el('div', { class: 'a-row' }, [
+          b === 'logo' || b === 'both' ? selectIn(hd, 'bottomSize', 'Размер логотипа внизу', [['s', 'Маленький, как подпись'], ['m', 'Средний'], ['l', 'Крупный']], { def: 's' }) : el('span'),
+          selectIn(hd, 'bottomAlign', 'Положение внизу', [['center', 'По центру'], ['left', 'Слева'], ['right', 'Справа']], { def: 'center' })]) : null,
+        b !== 'none' ? el('div', { class: 'a-row' }, [
+          switchIn(hd, 'shine', 'Блик по подписи', { onChange: draw, hint: 'Раз в 10–15 секунд по надписи и логотипу пробегает лёгкий свет.' }),
+          hd.shine ? colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
+            inh: function () { return (sc.cardStyle || {}).rimRunColor; }, inhLabel: 'как бегущий блик карточек' }) : el('span')]) : null
+      ]);
+    }
+    draw();
+    return box;
+  }
+
   function createShowcase(y, m, baseId) {
     var id = y + '-' + pad(m);
     if (DATA.showcases[id]) { toast('Витрина «' + MONTHS[m - 1] + ' ' + y + '» уже есть. Откройте её в списке.', true); return; }
@@ -858,11 +904,11 @@
           rangeIn(sc.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Чтобы карточки читались лучше.' }),
           rangeIn(sc.background, 'blur', 'Размытие картинки', { max: 20, unit: ' px', hint: '0 — чёткая; 4–8 — мягкий фон.' })]),
         selectIn(sc.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
-        sub('Надписи над сеткой'),
-        el('div', { class: 'a-row3' }, [
-          colorOptIn(sc.head = sc.head || {}, 'color', 'Цвет надписей', { none: 'обычный тёмный', pick: '#ecd3a3' }),
-          selectIn(sc.head, 'align', 'Положение', [['left', 'Слева'], ['center', 'По центру']]),
-          el('div', { class: 'a-field', style: 'align-self:end' }, switchIn(sc.head, 'logo', 'Логотип вместо надписи «13 MIRRORS · Витрина»'))]),
+        sub('Надписи над сеткой и под ней'),
+        el('div', { class: 'a-row' }, [
+          colorOptIn(sc.head = sc.head || {}, 'color', 'Цвет надписей и логотипа', { none: 'обычный тёмный', pick: '#ecd3a3' }),
+          selectIn(sc.head, 'align', 'Положение надписей сверху', [['left', 'Слева'], ['center', 'По центру']])]),
+        headFields(sc),
         optIn(sc, 'intro', 'Общий текст на странице (под заголовком)', { multi: true, rows: 2 }),
         sub('Оформление всех карточек'),
         el('p', { class: 'a-hint', text: 'Задаётся один раз для всего месяца. У любой карточки можно поменять отдельно — в её форме, раздел «Оформление».' })
@@ -1038,7 +1084,8 @@
       } else {
         sc.background.color = '#f2f2f2'; delete sc.background.dim; delete sc.background.blur;
         sc.head = { align: sc.head.align };
-        ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg'].forEach(function (k) { delete sc.cardStyle[k]; });
+        ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg',
+          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor'].forEach(function (k) { delete sc.cardStyle[k]; });
       }
       ST.pageOpen = true; changed(); renderMain();
       toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
@@ -1170,6 +1217,10 @@
       el('div', { class: 'a-row' }, [
         colorOptIn(cal, 'meetColor', 'Цвет встреч', { none: 'золотой', base: '#f1c65a', pick: '#f1c65a', hint: 'Число дня встречи светится этим цветом.' }),
         colorOptIn(cal, 'specialColor', 'Цвет особых дней', { none: 'сиреневый', base: '#b48ee0', pick: '#b48ee0' })]),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(cal, 'numColor', 'Цвет чисел', { none: 'как текст на обороте', pick: '#efe4d2', hint: 'Обычные числа. Встречи и особые дни — своими цветами (смешанными с этим).' }),
+        selectIn(cal, 'lineW', 'Толщина линии', [['thin', 'Тонкая'], ['mid', 'Средняя'], ['thick', 'Толстая']], { def: 'thin', hint: 'Для нити, полосы и волны.' })]),
+      selectIn(cal, 'lineMode', 'Линия через дни', [['solid', 'Сплошная — одной нитью через весь маршрут'], ['days', 'По дням — у каждого дня свой отрезок']], { def: 'solid' }),
       el('div', { class: 'a-row' }, [
         selectIn(cal, 'flyer', 'Что летит в карточки', [['star', 'Звёзды'], ['snow', 'Снежинки']], { def: 'star',
           hint: 'Снежинки — например, на декабрь и Новый год.', onChange: function () { starOpt.none = cal.flyer === 'snow' ? 'ледяной' : 'золотой'; starBox.redraw(); } }),
@@ -1409,7 +1460,8 @@
   /* ---------- Копирование карточки из любого месяца ---------- */
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
-    'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize'];
+    'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize',
+    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo'];
   var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
