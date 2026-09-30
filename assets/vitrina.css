@@ -1215,7 +1215,7 @@ body.m13-locked{overflow:hidden}
 .m13-lid-sz-l{--m13-lsz:15.5cqw;--m13-lic:52%}
 .m13-lid-tx{font-size:var(--m13-lsz);line-height:1.12;letter-spacing:.02em;overflow-wrap:break-word;max-width:100%}
 .m13-lid-sign svg{display:block;width:var(--m13-lic);height:auto;fill:currentColor;overflow:visible}
-.m13-lid-sign--dandelion svg{width:calc(var(--m13-lic) * .95)}
+.m13-lid-sign--dand svg{width:calc(var(--m13-lic) * .95)}
 .m13-lid-sign .m13-logo{width:calc(var(--m13-lic) * 2.3);max-width:100%}
 .m13-lid-sign img{display:block;max-width:calc(var(--m13-lic) * 2);max-height:70cqh;object-fit:contain}
 .m13-lid-image .m13-lid-sign{filter:drop-shadow(0 1px 5px rgba(0,0,0,.55))}
@@ -1233,6 +1233,7 @@ body.m13-locked{overflow:hidden}
 .m13-lid--book.m13-lid--top{--m13-lid-t:rotateX(172deg)}
 .m13-lid--book.m13-lid--bottom{--m13-lid-t:rotateX(-172deg)}
 .m13-lid.is-open .m13-lid-leaf{animation:m13-lid-book var(--m13-lid-ms,1000ms) cubic-bezier(.5,.08,.3,1) forwards}
+.m13-lid--book.m13-lid--soft.is-open .m13-lid-leaf{animation:none}
 .m13-lid.is-open .m13-lid-sign{animation:m13-lid-fade calc(var(--m13-lid-ms,1000ms) * .45) ease forwards}
 .m13-lid.is-open .m13-lid-shade{animation:m13-lid-shade var(--m13-lid-ms,1000ms) ease forwards}
 .m13-lid--deep.is-open .m13-lid-shade{animation-name:m13-lid-shade-d}
@@ -1242,5 +1243,50 @@ body.m13-locked{overflow:hidden}
 @keyframes m13-lid-shade{0%{opacity:0} 48%{opacity:.3} 100%{opacity:.15}}
 @keyframes m13-lid-shade-d{0%{opacity:0} 48%{opacity:.55} 100%{opacity:.3}}
 @keyframes m13-lid-cast{0%{opacity:0} 35%{opacity:1} 100%{opacity:0}}
-@media (max-width:680px){ .m13-lid{perspective:520px} }
-@media (prefers-reduced-motion:reduce){ .m13-lid{display:none} }
+/* Мягкая книга (как тетрадный лист): при раскрытии лист заменяется полосками (lidBend в vitrina.js), каждая — кусочек той же обложки */
+.m13-lid-bend{position:absolute;inset:0;perspective:inherit;pointer-events:none}
+.m13-lid-strip{position:absolute;overflow:hidden;-webkit-backface-visibility:visible;backface-visibility:visible;will-change:transform}
+.m13-lid-strip:first-child{border-radius:inherit}
+.m13-lid-pc{position:absolute;top:0;left:0;border-radius:var(--m13-radius);overflow:hidden;container-type:size}
+.m13-lid-sh,.m13-lid-hl{position:absolute;inset:0;z-index:5;pointer-events:none}
+/* Переворот карты (как МАК-карта в раскладе): обложка — рубашка; карточка чуть приподнимается, переворачивается вокруг середины и ложится лицом.
+   Пока рубашка сверху, сама карточка лежит лицом вниз (повёрнута, её не видно). Мягкая — в конце чуть пружинит, как картон. */
+.m13-lidcell--flip,.m13-lid.m13-lid--flip{perspective:1100px}
+.m13-lidcell--flip{--fl-x:0;--fl-y:1;--fl-s:1}
+.m13-flip--right{--fl-s:-1}
+.m13-flip--top{--fl-x:1;--fl-y:0;--fl-s:-1}
+.m13-flip--bottom{--fl-x:1;--fl-y:0;--fl-s:1}
+.m13-lidcell--flip > .m13-thumb{-webkit-backface-visibility:hidden;backface-visibility:hidden;transform:rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * -180deg))}
+.m13-lid.m13-lid--flip .m13-lid-leaf{transform-origin:50% 50%;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.m13-lid--flip .m13-lid-cast{background:none;opacity:1;box-shadow:0 5px 15px rgba(0,0,0,.1)}
+.m13-lidcell--flip.m13-lid-going > .m13-thumb{animation:m13-flip-face calc(var(--m13-lid-ms,1000ms) * 1.3) cubic-bezier(.45,.05,.35,1) forwards}
+.m13-lidcell--flip.m13-flip-soft.m13-lid-going > .m13-thumb{animation-name:m13-flip-face-soft}
+.m13-lid--flip.is-open .m13-lid-leaf{animation:m13-flip-back calc(var(--m13-lid-ms,1000ms) * 1.3) cubic-bezier(.45,.05,.35,1) forwards}
+.m13-lid--flip.is-open .m13-lid-cast{animation:m13-flip-cast calc(var(--m13-lid-ms,1000ms) * 1.3) ease forwards}
+.m13-lid--flip.m13-lid--deep.is-open .m13-lid-cast{animation-name:m13-flip-cast-d}
+.m13-lid--flip.is-open .m13-lid-sign{animation:none}
+@keyframes m13-flip-back{0%{transform:scale(1) rotate3d(var(--fl-x),var(--fl-y),0,0deg)} 22%{transform:scale(1.06) rotate3d(var(--fl-x),var(--fl-y),0,0deg)}
+  60%{transform:scale(1.06) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * 180deg))} 100%{transform:scale(1) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * 180deg))}}
+@keyframes m13-flip-face{0%{transform:scale(1) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * -180deg))} 22%{transform:scale(1.06) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * -180deg))}
+  60%{transform:scale(1.06) rotate3d(var(--fl-x),var(--fl-y),0,0deg)} 100%{transform:scale(1) rotate3d(var(--fl-x),var(--fl-y),0,0deg)}}
+@keyframes m13-flip-face-soft{0%{transform:scale(1) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * -180deg))} 22%{transform:scale(1.06) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * -180deg))}
+  58%{transform:scale(1.06) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * 9deg))} 72%{transform:scale(1.04) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * -4deg))}
+  86%{transform:scale(1.01) rotate3d(var(--fl-x),var(--fl-y),0,calc(var(--fl-s) * 1.5deg))} 100%{transform:scale(1) rotate3d(var(--fl-x),var(--fl-y),0,0deg)}}
+@keyframes m13-flip-cast{0%{box-shadow:0 5px 15px rgba(0,0,0,.1);transform:scale(1)} 22%,60%{box-shadow:0 18px 36px rgba(0,0,0,.24);transform:scale(1.06)} 100%{box-shadow:0 5px 15px rgba(0,0,0,.08);transform:scale(1)}}
+@keyframes m13-flip-cast-d{0%{box-shadow:0 5px 15px rgba(0,0,0,.18);transform:scale(1)} 22%,60%{box-shadow:0 26px 48px rgba(0,0,0,.45);transform:scale(1.06)} 100%{box-shadow:0 5px 15px rgba(0,0,0,.1);transform:scale(1)}}
+@media (max-width:680px){ .m13-lid{perspective:520px} .m13-lidcell--flip,.m13-lid.m13-lid--flip{perspective:760px} }
+@media (prefers-reduced-motion:reduce){ .m13-lid{display:none} .m13-lidcell--flip > .m13-thumb{transform:none;backface-visibility:visible} }
+
+/* ================= Вкладки страницы и плашки фильтра (look.tabs) ================= */
+.m13-tbx :is(.m13-tab,.m13-chip).is-active{color:var(--tb-ink)}
+.m13-tbx.m13-tb-glass :is(.m13-tab,.m13-chip).is-active{background:var(--tb-fill);border-color:rgba(var(--tb-a),.8);
+  -webkit-backdrop-filter:blur(var(--m13-gb,8px));backdrop-filter:blur(var(--m13-gb,8px))}
+.m13-tbx.m13-tb-line :is(.m13-tab,.m13-chip).is-active{background:var(--lk-pan,#fff);border-color:rgb(var(--tb-a));box-shadow:inset 0 0 0 1px rgb(var(--tb-a))}
+.m13-tbx.m13-tr-none :is(.m13-tab,.m13-chip):not(.is-active){border-color:transparent}
+.m13-tbx.m13-tr-line :is(.m13-tab,.m13-chip){border-color:rgba(var(--tb-r),.42)}
+.m13-tbx.m13-tr-line :is(.m13-tab,.m13-chip).is-active{border-color:rgb(var(--tb-r))}
+.m13-tbx.m13-tr-glow :is(.m13-tab,.m13-chip){border-color:rgba(var(--tb-r),.5);box-shadow:0 0 7px rgba(var(--tb-r),.2),inset 0 0 5px rgba(var(--tb-r),.07)}
+.m13-tbx.m13-tr-glow :is(.m13-tab,.m13-chip).is-active{border-color:rgb(var(--tb-r));
+  box-shadow:0 0 14px rgba(var(--tb-r),.55),0 0 3px rgba(var(--tb-r),.8),inset 0 0 10px rgba(var(--tb-r),.25)}
+.m13-tbx.m13-tb-line.m13-tr-glow :is(.m13-tab,.m13-chip).is-active,.m13-tbx.m13-tb-line.m13-tr-line :is(.m13-tab,.m13-chip).is-active{box-shadow:inset 0 0 0 1px rgb(var(--tb-r)),0 0 14px rgba(var(--tb-r),.5)}
+.m13-tbx.m13-tb-line.m13-tr-line :is(.m13-tab,.m13-chip).is-active{box-shadow:inset 0 0 0 1px rgb(var(--tb-r))}

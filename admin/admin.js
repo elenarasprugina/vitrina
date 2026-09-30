@@ -864,20 +864,21 @@
   /* ---------- Обложка карточки при открытии витрины ----------
      Месяц: sc.cardStyle.lid = {open: '' | 'book', …}; карточка: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}.
      Поля — в vitrina.js (lidHTML). Волна и вид блика — в «Бликах» (head.wave, head.waveSpeed, head.sheenKind). */
-  var LID_OPENS = [['book', 'Книга — раскрывается на корешке']];
-  var LID_DEF = { open: 'book', from: 'left', speed: 'normal', pause: 0.5, shadow: 'soft', mat: 'glass', glass: 35, blur: 8 };
+  var LID_OPENS = [['book', 'Книга — раскрывается на корешке'], ['flip', 'Переворот карты — обложка как рубашка']];
+  var LID_DEF = { open: 'book', feel: 'soft', from: 'left', speed: 'normal', pause: 0.5, shadow: 'soft', mat: 'glass', glass: 35, blur: 8 };
+  var DAND_KINDS = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave' };
   function lidOnOf(sc, c) {
     var d = (sc.cardStyle || {}).lid || {}, f = ((c.front || {}).style || {}).lid || {};
     return f.mode === 'own' ? !!f.open : f.mode === 'off' ? false : !!d.open;
   }
-  function dandIcon() { var n = el('div', { class: 'a-lid-ic' }); n.innerHTML = window.M13.dandSVG ? window.M13.dandSVG() : ''; return n; }
+  function dandIcon(sign, mirror) { var n = el('div', { class: 'a-lid-ic' }); n.innerHTML = window.M13.dandSVG ? window.M13.dandSVG(DAND_KINDS[sign], mirror) : ''; return n; }
   function lidFields(sc, c) {
     var cs = sc.cardStyle = sc.cardStyle || {}, box = el('div', { class: 'a-glass' }), L;
     if (c) { var fs = c.front.style = c.front.style || {}; L = fs.lid = fs.lid || {}; } else L = cs.lid = cs.lid || {};
     var d = cs.lid || {};
     function fill() { Object.keys(LID_DEF).forEach(function (k) { if (L[k] == null || L[k] === '') L[k] = LID_DEF[k]; }); }
     function draw() {
-      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '';
+      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '', flip = L.open === 'flip';
       box.replaceChildren();
       add(box, [
         el('p', { class: 'a-hint', text: 'Когда витрина открывается, волна блика доходит до карточки, свет скользит по обложке — и она раскрывается. Под ней — лицевая сторона. ' +
@@ -891,8 +892,15 @@
             hint: 'Для всех карточек месяца. Обычно обложку ставят одной-двум карточкам — в их формах, раздел «Обложка при открытии витрины».' }),
         own ? sub('Как открывается') : null,
         own ? el('div', { class: 'a-row' }, [
-          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book' }) : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, конверт, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
-          selectIn(L, 'from', 'Где корешок', [['left', 'Слева — как книга'], ['right', 'Справа'], ['top', 'Сверху — поднимается вверх'], ['bottom', 'Снизу — откидывается вниз']], { def: 'left' })]) : null,
+          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book', onChange: function () { changed(); draw(); } })
+            : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, конверт, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
+          flip ? selectIn(L, 'from', 'Куда переворачивается', [['left', 'Слева направо'], ['right', 'Справа налево'], ['top', 'Сверху вниз'], ['bottom', 'Снизу вверх']], { def: 'left' })
+            : selectIn(L, 'from', 'Где корешок', [['left', 'Слева — как книга'], ['right', 'Справа'], ['top', 'Сверху — поднимается вверх'], ['bottom', 'Снизу — откидывается вниз']], { def: 'left' })]) : null,
+        own ? selectIn(L, 'feel', 'Какая обложка', flip
+          ? [['soft', 'Мягкая — в конце чуть пружинит, как картон'], ['hard', 'Твёрдая — ложится ровно']]
+          : [['soft', 'Мягкая, как тетрадный лист — изгибается дугой'], ['hard', 'Твёрдая, как переплёт — поворачивается ровной доской']], { def: 'soft',
+          hint: flip ? 'Обложка — это рубашка карты: карточка приподнимается, переворачивается вокруг середины и ложится лицом.'
+            : 'Мягкая изгибается, по изгибу бегут свет и тень, в конце лист чуть «доплывает».' }) : null,
         own ? el('div', { class: 'a-row3' }, [
           selectIn(L, 'speed', 'Скорость раскрытия', [['fast', 'Быстро — 0,7 с'], ['normal', 'Обычно — 1 с'], ['slow', 'Медленно — 1,4 с'], ['vslow', 'Очень медленно — 2 с']], { def: 'normal' }),
           rangeIn(L, 'pause', 'Пауза перед раскрытием', { max: 3, step: 0.5, unit: ' с', def: 0.5, hint: 'Сколько обложка стоит закрытой, когда по ней прошёл блик.' }),
@@ -913,10 +921,12 @@
           L.rim ? colorOptIn(L, 'rimColor', 'Цвет контура', { none: 'как выбрано слева', pick: '#ecd3a3' }) : el('span')]) : null,
         own ? sub('Надпись или значок') : null,
         own ? el('div', { class: 'a-row' }, [
-          selectIn(L, 'sign', 'На обложке', [['', 'Ничего'], ['text', 'Надпись'], ['dandelion', 'Одуванчик из логотипа'], ['logo', 'Логотип целиком'],
+          selectIn(L, 'sign', 'На обложке', [['', 'Ничего'], ['text', 'Надпись'], ['dandelion', 'Одуванчик из логотипа'], ['dandelion2', 'Одуванчик прямой'],
+            ['dandelion3', 'Одуванчик на изгибе'], ['logo', 'Логотип целиком'],
             ['spark', 'Искра ✦'], ['star', 'Звезда'], ['moon', 'Месяц'], ['image', 'Своя картинка']], { def: '', onChange: function () { changed(); draw(); } }),
           sign === 'text' ? textIn(L, 'text', 'Текст', { multi: true, rows: 2, ph: '13 MIRRORS', hint: 'Например, «Октябрь» или «Открой меня». Можно в две строки.' })
-            : sign === 'dandelion' ? dandIcon() : el('span')]) : null,
+            : DAND_KINDS[sign] ? el('div', {}, [dandIcon(sign, !!L.signMirror),
+              sign === 'dandelion3' ? switchIn(L, 'signMirror', 'Зеркально', { onChange: function () { changed(); draw(); } }) : null]) : el('span')]) : null,
         own && sign === 'image' ? imageIn(L, 'signImg', 'Картинка-значок', { max: 800, hint: 'Лучше PNG с прозрачным фоном. Показывается целиком.' }) : null,
         own && sign === 'text' ? fontIn(L, 'font', 'Шрифт надписи', fontOptions(false), null, String(L.text || '').trim() || '13 MIRRORS') : null,
         own && sign ? el('div', { class: 'a-row3' }, [
@@ -2033,7 +2043,7 @@
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false }),
-      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'раскрывается, как книга' })
+      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'книга или переворот карты' })
     ];
     if (isCal) out.push(block('Календарь месяца', monthCalFields(sc, c, cb)));
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
@@ -2259,9 +2269,41 @@
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
         rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })]),
+      which === 'reflection' ? null : sub('Вкладки'),
+      which === 'reflection' ? null : tabsFields(lk, which),
       sub('Окна и сообщения'),
       winFields(lk, true, function () { openPreview(which, null, null, true); })
     ];
+  }
+  // Вкладки страницы и плашки фильтра по маршрутам: look.tabs = {active: '' | glass | line, glass, rim: '' | none | line | glow, rimColor, text} (tabsLook в vitrina.js)
+  function tabsFields(lk, which) {
+    var t = lk.tabs = lk.tabs || {}, box = el('div', { class: 'a-glass' });
+    function tx() { return lk.textColor || (hexLum(lk.panelBg || '#ffffff') < 128 ? '#efe4d2' : '#232323'); }
+    function ac() { return lk.accent || tx(); }
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Вкладки вверху страницы и плашки фильтра над обложками (' + (which === 'events' ? 'по типу' : 'по маршрутам') + ') — выглядят одинаково.' }),
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✨ Рекомендуемый вид', onclick: function () {
+          lk.tabs = { active: 'glass', glass: 70, rim: 'glow' }; t = lk.tabs; changed(); draw();
+          toast('Выбранная вкладка — стекло акцентного цвета со светящимся контуром, остальные — с тихим контуром.'); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Как было', onclick: function () { lk.tabs = {}; t = lk.tabs; changed(); draw(); } })]),
+        el('div', { class: 'a-row' }, [
+          selectIn(t, 'active', 'Выбранная вкладка', [['', 'Сплошная, акцентным цветом'], ['glass', 'Стекло — акцентный цвет с прозрачностью'], ['line', 'Только контур']],
+            { def: '', onChange: function () { changed(); draw(); } }),
+          t.active === 'glass' ? rangeIn(t, 'glass', 'Прозрачность стекла', { max: 90, step: 5, unit: '%', def: 70, hint: 'Больше — прозрачнее, сквозь вкладку виден фон.' }) : el('span')]),
+        el('div', { class: 'a-row' }, [
+          selectIn(t, 'rim', 'Контур у вкладок', [['', 'Как было'], ['none', 'Без контура'], ['line', 'Тонкая линия'], ['glow', 'Светящийся — выбранная ярче, остальные тише']],
+            { def: '', onChange: function () { changed(); draw(); } }),
+          t.rim === 'line' || t.rim === 'glow' ? colorOptIn(t, 'rimColor', 'Цвет контура', { none: 'акцентный', inh: ac, inhLabel: 'акцентный' }) : el('span')]),
+        colorOptIn(t, 'text', 'Цвет текста выбранной вкладки', { none: 'подберётся сам', pick: '#efe4d2',
+          base: function () { return t.active === 'glass' || t.active === 'line' ? tx() : (hexLum(ac()) > 160 ? '#1f1f1f' : '#ffffff'); },
+          hint: 'Если на выбранной вкладке текст плохо виден — задайте здесь.' }),
+        el('p', { class: 'a-hint', text: 'Бегущего блика на вкладках нет — чтобы страница не перегружалась.' })
+      ]);
+    }
+    draw();
+    return box;
   }
 
   // Гибкие разделы примера (день, Летопись): текстовые блоки с заголовком и блоки-картинки. Старые поля → блоки при первом открытии.
