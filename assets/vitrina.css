@@ -497,12 +497,12 @@ body.m13-locked{overflow:hidden}
 .m13-foot.m13-hz > .m13-foot-text{opacity:1}
 /* Приветственный свет по карточкам — один раз при открытии */
 /* Селектор сильнее, чем .m13-deco > :not(.m13-lay): иначе у карточек с контуром или узором полоса встаёт в раскладку и сдвигает кнопки */
-.m13 .m13-thumb > i.m13-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;margin:0;
+.m13 .m13-thumb > i.m13-sheen,.m13 .m13-lid-leaf > i.m13-sheen{position:absolute;inset:0;z-index:5;pointer-events:none;border-radius:inherit;margin:0;
   --m13-sh-c:color-mix(in srgb,var(--m13-shine-c,#fff3cf) 62%,#e8c77a);
   background:linear-gradient(115deg,transparent 32%,color-mix(in srgb,var(--m13-sh-c) 26%,transparent) 45%,color-mix(in srgb,var(--m13-sh-c) 55%,rgba(255,255,255,.35)) 50%,color-mix(in srgb,var(--m13-sh-c) 26%,transparent) 55%,transparent 68%) no-repeat;
   background-size:260% 100%;background-position:100% 0;opacity:0;animation:m13-sheen 1.6s cubic-bezier(.4,0,.3,1) both}
 @keyframes m13-sheen{0%{opacity:0;background-position:100% 0} 15%{opacity:1} 85%{opacity:1} 100%{opacity:0;background-position:0 0}}
-@media (prefers-reduced-motion:reduce){ .m13-shining .m13-gt,.m13-shining .m13-logo,.m13-fstar{animation:none} .m13 .m13-thumb > i.m13-sheen{display:none} }
+@media (prefers-reduced-motion:reduce){ .m13-shining .m13-gt,.m13-shining .m13-logo,.m13-fstar{animation:none} .m13 i.m13-sheen{display:none} }
 @media (max-width:680px){
   .m13-foot{margin-top:4px;gap:4px}
   .m13-foot .m13-logo{width:min(28vw,108px,calc(24px * var(--m13-lr,4.5)))}
@@ -1163,3 +1163,84 @@ body.m13-locked{overflow:hidden}
   .m13-calmini.m13-calmini .m13-cal-day{padding:0;min-height:0}
 }
 @media (prefers-reduced-motion:reduce){ .m13-grid .m13-thumb.m13-lit.m13-hit{animation:none} }
+
+/* ================= Приветственный блик: вид ================= */
+/* Тонкий яркий луч */
+.m13 i.m13-sheen.m13-sheen--ray{background:linear-gradient(115deg,transparent 47.2%,color-mix(in srgb,var(--m13-sh-c) 25%,transparent) 48.9%,
+  color-mix(in srgb,var(--m13-sh-c) 60%,#fff) 49.75%,#fff 50%,color-mix(in srgb,var(--m13-sh-c) 60%,#fff) 50.25%,color-mix(in srgb,var(--m13-sh-c) 25%,transparent) 51.1%,transparent 52.8%) no-repeat;
+  background-size:260% 100%}
+/* Звёздная пыль: искорки идут полосой */
+.m13 i.m13-sheen.m13-sheen--dust{background:radial-gradient(circle,#fff 0 .8px,transparent 1.5px) 3px 7px/37px 23px,
+  radial-gradient(circle,var(--m13-sh-c) 0 1.1px,transparent 2px) 19px 2px/53px 41px,
+  radial-gradient(circle,rgba(255,255,255,.95) 0 .6px,transparent 1.2px) 11px 17px/29px 47px,
+  radial-gradient(circle,#fff 0 1.4px,color-mix(in srgb,var(--m13-sh-c) 40%,transparent) 2px,transparent 3.4px) 31px 13px/71px 59px,
+  radial-gradient(circle,var(--m13-sh-c) 0 .7px,transparent 1.3px) 7px 29px/19px 31px,
+  linear-gradient(115deg,transparent 42%,color-mix(in srgb,var(--m13-sh-c) 12%,transparent) 50%,transparent 58%) 100% 0/260% 100% no-repeat;
+  -webkit-mask:linear-gradient(115deg,transparent 40%,#000 47.5%,#000 52.5%,transparent 60%) 100% 0/260% 100% no-repeat;
+  mask:linear-gradient(115deg,transparent 40%,#000 47.5%,#000 52.5%,transparent 60%) 100% 0/260% 100% no-repeat;animation-name:m13-sheen-dust}
+@keyframes m13-sheen-dust{0%{opacity:0;-webkit-mask-position:100% 0;mask-position:100% 0} 15%{opacity:1} 85%{opacity:1}
+  100%{opacity:0;-webkit-mask-position:0 0;mask-position:0 0}}
+/* Вспышка из центра */
+.m13 i.m13-sheen.m13-sheen--flash{background:radial-gradient(circle at 50% 50%,#fff 0,color-mix(in srgb,var(--m13-sh-c) 75%,transparent) 12%,
+  color-mix(in srgb,var(--m13-sh-c) 22%,transparent) 38%,transparent 64%) center/100% 100% no-repeat;animation-name:m13-sheen-flash}
+@keyframes m13-sheen-flash{0%{opacity:0;transform:scale(.25)} 30%{opacity:1} 100%{opacity:0;transform:scale(1.6)}}
+
+/* ================= Обложка карточки при открытии витрины ================= */
+/* Обложка стоит над карточкой в общей обёртке и при раскрытии выходит за её край (поверх соседей) */
+.m13-lidcell{position:relative}
+.m13-lidcell.m13-lid-going{z-index:4}
+.m13-lid{position:absolute;inset:0;z-index:6;border-radius:var(--m13-radius);perspective:900px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.m13-lid.is-open{pointer-events:none}
+.m13-lid-leaf{position:absolute;inset:0;border-radius:inherit;overflow:hidden;container-type:size;transform-origin:0 50%;
+  box-shadow:0 5px 15px rgba(0,0,0,.1);-webkit-backface-visibility:visible;backface-visibility:visible}
+.m13-lid--deep .m13-lid-leaf{box-shadow:0 10px 28px rgba(0,0,0,.3)}
+.m13-lid--right .m13-lid-leaf{transform-origin:100% 50%}
+.m13-lid--top .m13-lid-leaf{transform-origin:50% 0}
+.m13-lid--bottom .m13-lid-leaf{transform-origin:50% 100%}
+/* Из чего обложка: стекло (цвет с прозрачностью + размытие того, что под ней), цвет, картинка, запотевшее зеркало */
+.m13-lid-glass{-webkit-backdrop-filter:blur(var(--m13-lb,8px));backdrop-filter:blur(var(--m13-lb,8px))}
+.m13-lid-frost{background:linear-gradient(135deg,rgba(var(--m13-frc),calc(.2 + var(--m13-fr) * .5)),rgba(var(--m13-frc),calc(.08 + var(--m13-fr) * .4)) 46%,rgba(var(--m13-frc),calc(.18 + var(--m13-fr) * .48)));
+  -webkit-backdrop-filter:blur(calc(2px + var(--m13-fr) * 16px)) saturate(.7) brightness(1.1);backdrop-filter:blur(calc(2px + var(--m13-fr) * 16px)) saturate(.7) brightness(1.1)}
+.m13-lid-fog{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:calc(.25 + var(--m13-fr) * .75);
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -.95'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0/120px 120px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.009' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E") 0 0/cover,
+    linear-gradient(118deg,transparent 18%,rgba(255,255,255,.4) 27%,transparent 36%,transparent 58%,rgba(255,255,255,.22) 64%,transparent 70%)}
+/* Надпись или значок */
+.m13-lid-sign{position:absolute;left:8%;right:8%;z-index:2;display:flex;justify-content:center;align-items:center;text-align:center;pointer-events:none}
+.m13-lid-at-center{top:0;bottom:0}
+.m13-lid-at-top{top:9%}
+.m13-lid-at-bottom{bottom:9%}
+.m13-lid-sz-s{--m13-lsz:8.5cqw;--m13-lic:24%}
+.m13-lid-sz-m{--m13-lsz:11.5cqw;--m13-lic:36%}
+.m13-lid-sz-l{--m13-lsz:15.5cqw;--m13-lic:52%}
+.m13-lid-tx{font-size:var(--m13-lsz);line-height:1.12;letter-spacing:.02em;overflow-wrap:break-word;max-width:100%}
+.m13-lid-sign svg{display:block;width:var(--m13-lic);height:auto;fill:currentColor;overflow:visible}
+.m13-lid-sign--dandelion svg{width:calc(var(--m13-lic) * .95)}
+.m13-lid-sign .m13-logo{width:calc(var(--m13-lic) * 2.3);max-width:100%}
+.m13-lid-sign img{display:block;max-width:calc(var(--m13-lic) * 2);max-height:70cqh;object-fit:contain}
+.m13-lid-image .m13-lid-sign{filter:drop-shadow(0 1px 5px rgba(0,0,0,.55))}
+/* Тень: на обложке, пока она поворачивается, и от неё — на карточке под ней */
+.m13-lid-shade{position:absolute;inset:0;z-index:4;border-radius:inherit;background:#000;opacity:0;pointer-events:none}
+.m13-lid-cast{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,rgba(0,0,0,var(--m13-lcs,.32)),rgba(0,0,0,calc(var(--m13-lcs,.32) * .35)) 35%,transparent 72%)}
+.m13-lid--deep{--m13-lcs:.6}
+.m13-lid--right .m13-lid-cast{background:linear-gradient(270deg,rgba(0,0,0,var(--m13-lcs,.32)),rgba(0,0,0,calc(var(--m13-lcs,.32) * .35)) 35%,transparent 72%)}
+.m13-lid--top .m13-lid-cast{background:linear-gradient(180deg,rgba(0,0,0,var(--m13-lcs,.32)),rgba(0,0,0,calc(var(--m13-lcs,.32) * .35)) 35%,transparent 72%)}
+.m13-lid--bottom .m13-lid-cast{background:linear-gradient(0deg,rgba(0,0,0,var(--m13-lcs,.32)),rgba(0,0,0,calc(var(--m13-lcs,.32) * .35)) 35%,transparent 72%)}
+/* Книга: обложка поворачивается на «корешке» к нам и в сторону, потом тает */
+.m13-lid--book{--m13-lid-t:rotateY(-172deg)}
+.m13-lid--book.m13-lid--right{--m13-lid-t:rotateY(172deg)}
+.m13-lid--book.m13-lid--top{--m13-lid-t:rotateX(172deg)}
+.m13-lid--book.m13-lid--bottom{--m13-lid-t:rotateX(-172deg)}
+.m13-lid.is-open .m13-lid-leaf{animation:m13-lid-book var(--m13-lid-ms,1000ms) cubic-bezier(.5,.08,.3,1) forwards}
+.m13-lid.is-open .m13-lid-sign{animation:m13-lid-fade calc(var(--m13-lid-ms,1000ms) * .45) ease forwards}
+.m13-lid.is-open .m13-lid-shade{animation:m13-lid-shade var(--m13-lid-ms,1000ms) ease forwards}
+.m13-lid--deep.is-open .m13-lid-shade{animation-name:m13-lid-shade-d}
+.m13-lid.is-open .m13-lid-cast{animation:m13-lid-cast var(--m13-lid-ms,1000ms) ease forwards}
+@keyframes m13-lid-book{0%{transform:none;opacity:1} 68%{opacity:1} 100%{transform:var(--m13-lid-t);opacity:0}}
+@keyframes m13-lid-fade{to{opacity:0}}
+@keyframes m13-lid-shade{0%{opacity:0} 48%{opacity:.3} 100%{opacity:.15}}
+@keyframes m13-lid-shade-d{0%{opacity:0} 48%{opacity:.55} 100%{opacity:.3}}
+@keyframes m13-lid-cast{0%{opacity:0} 35%{opacity:1} 100%{opacity:0}}
+@media (max-width:680px){ .m13-lid{perspective:520px} }
+@media (prefers-reduced-motion:reduce){ .m13-lid{display:none} }

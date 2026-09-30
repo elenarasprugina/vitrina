@@ -293,3 +293,18 @@ select.a-input{padding-right:28px}
 .a-glyph-grid button:hover{background:#fff6e2;border-color:#d9bf85}
 .a-glyph-pop p{margin:7px 2px 0;font-size:11px;line-height:1.35;color:var(--a-muted)}
 .a-readwarn{margin:2px 0 6px}
+
+/* Живой предпросмотр фона: компьютер и телефон; нажатие — крупно */
+.a-bgpvs{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.a-bgpvs > .a-hint{flex:1 1 180px;align-self:center;margin:0}
+.a-bgpv-col{display:grid;gap:4px;justify-items:center}
+.a-bgpv{position:relative;display:block;height:150px;aspect-ratio:1366/820;padding:0;border:1px solid var(--a-line);border-radius:8px;overflow:hidden;cursor:zoom-in;background:#f2f2f2}
+.a-bgpv--tall{aspect-ratio:390/844;border-radius:12px}
+.a-bgpv > i{position:absolute;inset:0;background-position:center;background-repeat:no-repeat}
+.a-bgbig{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.82);display:grid;place-items:center;align-content:center;gap:10px;color:#fff;font-size:13px;cursor:zoom-out;padding:16px}
+.a-bgpv--big{height:auto;width:min(92vw,1100px);cursor:zoom-out}
+.a-bgpv--big.a-bgpv--tall{width:auto;height:min(84vh,760px)}
+@media (max-width:420px){ .a-bgpv{height:120px} }
+/* Обложка: значок одуванчика рядом с выбором */
+.a-lid-ic{align-self:end;justify-self:start;width:48px;color:#b8958a}
+.a-lid-ic svg{display:block;width:100%;height:auto}

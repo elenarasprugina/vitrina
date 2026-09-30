@@ -110,7 +110,7 @@
   }
 
   /* ---------- Сохранение ---------- */
-  function changed() { if (!dirty) { dirty = true; updateState(); } }
+  function changed() { liveSoon(); if (!dirty) { dirty = true; updateState(); } }
   function updateState() {
     var s = document.getElementById('a-state'), b = document.getElementById('a-save');
     if (!s) return;
@@ -202,11 +202,12 @@
   }
   // Ползунок с подписью значения: o.min, o.max, o.step, o.unit
   function rangeIn(obj, key, label, o) {
+    function show(x) { return String(x).replace('.', ',') + (o.unit || ''); }
     o = o || {};
     var v = obj[key] == null || obj[key] === '' ? (o.def || 0) : +obj[key];
-    var out = el('span', { class: 'a-range-val', text: v + (o.unit || '') });
+    var out = el('span', { class: 'a-range-val', text: show(v) });
     var r = el('input', { type: 'range', class: 'a-range', min: o.min || 0, max: o.max || 100, step: o.step || 1, value: v });
-    r.addEventListener('input', function () { obj[key] = +r.value; out.textContent = r.value + (o.unit || ''); changed(); if (o.onChange) o.onChange(+r.value); });
+    r.addEventListener('input', function () { obj[key] = +r.value; out.textContent = show(r.value); changed(); if (o.onChange) o.onChange(+r.value); });
     return field(label, el('div', { class: 'a-range-row' }, [r, out]), o.hint);
   }
   function selectIn(obj, key, label, options, o) {
@@ -797,11 +798,55 @@
   }
 
   // Яркость, контраст и насыщенность картинки фона (100 % — как есть). Витрина применяет их фильтром к картинке, файл не меняется
+  /* ---------- Живой предпросмотр фона: как картинка ляжет на компьютере и на телефоне ----------
+     Меняется сразу вместе с ползунками (затемнение, размытие, яркость, контраст, насыщенность, как лежит); нажатие — крупно. */
+  var LIVE = [], liveRaf = 0;
+  function liveSoon() {
+    if (liveRaf) return;
+    liveRaf = requestAnimationFrame(function () {
+      liveRaf = 0; LIVE = LIVE.filter(function (f) { return f.node.isConnected; });
+      LIVE.forEach(function (f) { f.run(); });
+    });
+  }
+  // Как на сайте (renderShowcase / pageLook в vitrina.js): размытие — в пикселях экрана, поэтому в маленькой картинке оно пропорционально меньше
+  function bgPaint(frame, bg, tall) {
+    var src = tall ? bg.imageTall || bg.image : bg.image, pic = frame.firstChild, dim = pic.nextSibling;
+    var w = frame.clientWidth || (tall ? 69 : 250);
+    var fx = [['brightness', bg.bright], ['contrast', bg.contrast], ['saturate', bg.sat]].filter(function (x) {
+      return x[1] != null && x[1] !== '' && !isNaN(+x[1]) && +x[1] !== 100;
+    }).map(function (x) { return x[0] + '(' + Math.max(30, Math.min(200, +x[1])) / 100 + ')'; });
+    var bl = src ? Math.max(0, Math.min(20, +bg.blur || 0)) * w / (tall ? 390 : 1366) : 0;
+    frame.style.backgroundColor = bg.color || '#f2f2f2';
+    pic.style.backgroundImage = src ? "url('" + imgSrc(src) + "')" : 'none';
+    pic.style.backgroundSize = bg.fit === 'contain' ? 'contain' : bg.fit === 'big' ? 'auto 135%' : 'cover';
+    pic.style.filter = (bl ? 'blur(' + bl.toFixed(2) + 'px) ' : '') + fx.join(' ');
+    pic.style.transform = bl ? 'scale(1.06)' : '';
+    dim.style.background = src ? 'rgba(6,4,2,' + Math.max(0, Math.min(90, +bg.dim || 0)) / 100 + ')' : 'transparent';
+  }
+  function bgLive(bg) {
+    function frame(tall) {
+      var f = el('button', { type: 'button', class: 'a-bgpv' + (tall ? ' a-bgpv--tall' : ''), title: 'Посмотреть крупно', onclick: function () { bgBig(bg, tall); } }, [el('i'), el('i')]);
+      LIVE.push({ node: f, run: function () { bgPaint(f, bg, tall); } });
+      return f;
+    }
+    var box = el('div', { class: 'a-bgpvs' }, [
+      el('div', { class: 'a-bgpv-col' }, [frame(false), el('span', { class: 'a-hint', text: 'Компьютер' })]),
+      el('div', { class: 'a-bgpv-col' }, [frame(true), el('span', { class: 'a-hint', text: 'Телефон' })]),
+      el('p', { class: 'a-hint', text: 'Так фон выглядит на сайте. Меняется сразу, пока двигаете ползунки. Нажмите на картинку — откроется крупно.' })]);
+    setTimeout(liveSoon, 0);
+    return box;
+  }
+  function bgBig(bg, tall) {
+    var f = el('div', { class: 'a-bgpv a-bgpv--big' + (tall ? ' a-bgpv--tall' : '') }, [el('i'), el('i')]);
+    var ov = el('div', { class: 'a-bgbig', onclick: function () { ov.remove(); } }, [f, el('p', { text: (tall ? 'Телефон' : 'Компьютер') + ' · нажмите, чтобы закрыть' })]);
+    document.body.appendChild(ov);
+    bgPaint(f, bg, tall);
+  }
   function bgFxFields(bg) {
-    var box = el('div');
+    var box = el('div', { class: 'a-glass' }), live = bgLive(bg);
     function draw() {
       box.replaceChildren();
-      add(box, [
+      add(box, [live,
         el('div', { class: 'a-row3' }, [
           rangeIn(bg, 'bright', 'Яркость картинки', { min: 50, max: 150, step: 5, unit: '%', def: 100 }),
           rangeIn(bg, 'contrast', 'Контраст', { min: 50, max: 150, step: 5, unit: '%', def: 100 }),
@@ -810,6 +855,77 @@
           el('span', { class: 'a-hint', text: '100% — как в файле. Меняется только вид на сайте, сама картинка остаётся прежней.' }),
           bg.bright != null || bg.contrast != null || bg.sat != null ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть как в файле', onclick: function () {
             delete bg.bright; delete bg.contrast; delete bg.sat; changed(); draw(); } }) : null])]);
+    }
+    draw();
+    return box;
+  }
+
+
+  /* ---------- Обложка карточки при открытии витрины ----------
+     Месяц: sc.cardStyle.lid = {open: '' | 'book', …}; карточка: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}.
+     Поля — в vitrina.js (lidHTML). Волна и вид блика — в «Бликах» (head.wave, head.waveSpeed, head.sheenKind). */
+  var LID_OPENS = [['book', 'Книга — раскрывается на корешке']];
+  var LID_DEF = { open: 'book', from: 'left', speed: 'normal', pause: 0.5, shadow: 'soft', mat: 'glass', glass: 35, blur: 8 };
+  function lidOnOf(sc, c) {
+    var d = (sc.cardStyle || {}).lid || {}, f = ((c.front || {}).style || {}).lid || {};
+    return f.mode === 'own' ? !!f.open : f.mode === 'off' ? false : !!d.open;
+  }
+  function dandIcon() { var n = el('div', { class: 'a-lid-ic' }); n.innerHTML = window.M13.dandSVG ? window.M13.dandSVG() : ''; return n; }
+  function lidFields(sc, c) {
+    var cs = sc.cardStyle = sc.cardStyle || {}, box = el('div', { class: 'a-glass' }), L;
+    if (c) { var fs = c.front.style = c.front.style || {}; L = fs.lid = fs.lid || {}; } else L = cs.lid = cs.lid || {};
+    var d = cs.lid || {};
+    function fill() { Object.keys(LID_DEF).forEach(function (k) { if (L[k] == null || L[k] === '') L[k] = LID_DEF[k]; }); }
+    function draw() {
+      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '';
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Когда витрина открывается, волна блика доходит до карточки, свет скользит по обложке — и она раскрывается. Под ней — лицевая сторона. ' +
+          'Каждый раз при открытии. У кого в телефоне включено «уменьшить движение» — карточка сразу открыта.' }),
+        c ? selectIn(L, 'mode', 'Обложка у этой карточки', [['', 'Как у всей витрины (' + (d.open ? 'есть обложка' : 'без обложки') + ')'], ['off', 'Без обложки'], ['own', 'Своя обложка']], {
+          def: '', onChange: function (v) {
+            if (v === 'own') { Object.keys(d).forEach(function (k) { if (L[k] == null) L[k] = clone(d[k]); }); if (!L.open) L.open = 'book'; fill(); }
+            changed(); draw(); } })
+          : selectIn(L, 'open', 'Обложка у карточек', [['', 'Без обложки (как обычно)']].concat(LID_OPENS), {
+            def: '', onChange: function (v) { if (v) fill(); changed(); draw(); },
+            hint: 'Для всех карточек месяца. Обычно обложку ставят одной-двум карточкам — в их формах, раздел «Обложка при открытии витрины».' }),
+        own ? sub('Как открывается') : null,
+        own ? el('div', { class: 'a-row' }, [
+          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book' }) : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, конверт, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
+          selectIn(L, 'from', 'Где корешок', [['left', 'Слева — как книга'], ['right', 'Справа'], ['top', 'Сверху — поднимается вверх'], ['bottom', 'Снизу — откидывается вниз']], { def: 'left' })]) : null,
+        own ? el('div', { class: 'a-row3' }, [
+          selectIn(L, 'speed', 'Скорость раскрытия', [['fast', 'Быстро — 0,7 с'], ['normal', 'Обычно — 1 с'], ['slow', 'Медленно — 1,4 с'], ['vslow', 'Очень медленно — 2 с']], { def: 'normal' }),
+          rangeIn(L, 'pause', 'Пауза перед раскрытием', { max: 3, step: 0.5, unit: ' с', def: 0.5, hint: 'Сколько обложка стоит закрытой, когда по ней прошёл блик.' }),
+          selectIn(L, 'shadow', 'Тень при раскрытии', [['soft', 'Мягкая'], ['deep', 'Глубокая, объёмная']], { def: 'soft' })]) : null,
+        own ? sub('Из чего обложка') : null,
+        own ? el('div', { class: 'a-row' }, [
+          selectIn(L, 'mat', 'Материал', [['glass', 'Стекло'], ['color', 'Цвет'], ['image', 'Картинка'], ['frost', 'Запотевшее зеркало']], { def: 'glass', onChange: function () { changed(); draw(); } }),
+          colorOptIn(L, 'color', mat === 'frost' ? 'Оттенок инея' : mat === 'glass' ? 'Цвет стекла' : mat === 'image' ? 'Цвет, пока грузится картинка' : 'Цвет обложки',
+            { none: mat === 'frost' ? 'серебристый' : 'как у карточки', base: function () { return mat === 'frost' ? '#e4ebf1' : cs.bg || '#f4efe6'; } })]) : null,
+        own && mat === 'glass' ? el('div', { class: 'a-row' }, [
+          rangeIn(L, 'glass', 'Прозрачность стекла', { max: 90, step: 5, unit: '%', def: 35, hint: '0% — плотная обложка, ничего не видно. Больше — сквозь неё просвечивает карточка.' }),
+          rangeIn(L, 'blur', 'Размытие под стеклом', { max: 20, unit: ' px', def: 8, hint: 'Насколько размыта карточка, которая просвечивает.' })]) : null,
+        own && mat === 'frost' ? el('div', { class: 'a-row' }, [
+          rangeIn(L, 'frost', 'Плотность инея', { max: 100, step: 5, unit: '%', def: 60, hint: 'Меньше — лёгкая испарина, сквозь неё видна карточка. Больше — густой иней.' }), el('span')]) : null,
+        own && mat === 'image' ? imageIn(L, 'image', 'Картинка обложки', { max: 1400, hint: 'Ляжет на всю обложку, края обрежутся.' }) : null,
+        own ? el('div', { class: 'a-row' }, [
+          selectIn(L, 'rim', 'Контур обложки', [['', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный, серебристый'], ['gold', 'Золотой — акцентным цветом']], { def: '', onChange: function () { changed(); draw(); } }),
+          L.rim ? colorOptIn(L, 'rimColor', 'Цвет контура', { none: 'как выбрано слева', pick: '#ecd3a3' }) : el('span')]) : null,
+        own ? sub('Надпись или значок') : null,
+        own ? el('div', { class: 'a-row' }, [
+          selectIn(L, 'sign', 'На обложке', [['', 'Ничего'], ['text', 'Надпись'], ['dandelion', 'Одуванчик из логотипа'], ['logo', 'Логотип целиком'],
+            ['spark', 'Искра ✦'], ['star', 'Звезда'], ['moon', 'Месяц'], ['image', 'Своя картинка']], { def: '', onChange: function () { changed(); draw(); } }),
+          sign === 'text' ? textIn(L, 'text', 'Текст', { multi: true, rows: 2, ph: '13 MIRRORS', hint: 'Например, «Октябрь» или «Открой меня». Можно в две строки.' })
+            : sign === 'dandelion' ? dandIcon() : el('span')]) : null,
+        own && sign === 'image' ? imageIn(L, 'signImg', 'Картинка-значок', { max: 800, hint: 'Лучше PNG с прозрачным фоном. Показывается целиком.' }) : null,
+        own && sign === 'text' ? fontIn(L, 'font', 'Шрифт надписи', fontOptions(false), null, String(L.text || '').trim() || '13 MIRRORS') : null,
+        own && sign ? el('div', { class: 'a-row3' }, [
+          colorOptIn(L, 'signColor', 'Цвет', { none: 'подберётся сам', pick: '#ecd3a3' }),
+          selectIn(L, 'signSize', 'Размер', [['s', 'Маленький'], ['m', 'Средний'], ['l', 'Крупный']], { def: 'm' }),
+          selectIn(L, 'signPos', 'Где', [['center', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу']], { def: 'center' })]) : null,
+        own ? el('p', { class: 'a-hint', text: 'Откуда идёт волна по сетке, какой блик и как быстро он перебегает — в «Странице месяца», раздел «Блики».' }) : null,
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть раскрытие', onclick: function () { openPreview('showcase', sc.id); } })])
+      ]);
     }
     draw();
     return box;
@@ -1006,6 +1122,7 @@
     function draw() {
       var b = hd.bottom || 'none', logoB = b === 'logo' || b === 'both', textB = b === 'text' || b === 'both';
       var anyLogo = hd.top === 'logo' || logoB, glow = hd.welcome !== false || (b !== 'none' && hd.shine);
+      var lidAny = (sc.cards || []).some(function (c) { return c && c.visible !== false && lidOnOf(sc, c); });
       var topS = null, botS = null, defTop = [st.siteTitle || '13 MIRRORS', (st.texts || {}).kicker || 'Витрина'].join(' · ');
       box.replaceChildren();
       add(box, [
@@ -1052,6 +1169,11 @@
         b !== 'none' ? switchIn(hd, 'shine', 'Блик по подписи', { onChange: draw, hint: 'Сразу при открытии (на телефоне — когда подпись появится на экране), потом по расписанию ниже.' }) : null,
         b !== 'none' && hd.shine ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineWhen', 'Когда повторяется', [['open', 'Только при открытии'], ['', 'Изредка — раз в 25 секунд'], ['often', 'Чаще — раз в 8 секунд']], { def: '' }), el('span')]) : null,
+        hd.welcome !== false || lidAny ? el('div', { class: 'a-row3' }, [
+          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['ray', 'Тонкий яркий луч'], ['dust', 'Звёздная пыль'], ['flash', 'Вспышка из центра']], { def: 'soft' }),
+          selectIn(hd, 'wave', 'Откуда идёт волна', [['corner', 'Из левого верхнего угла'], ['center', 'От центра'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
+            { def: 'corner', hint: 'В каком порядке карточки получают блик (и раскрываются обложки).' }),
+          selectIn(hd, 'waveSpeed', 'Как быстро перебегает', SHINE_SPEEDS, { def: 'normal' })]) : null,
         glow ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineSpeed', 'Скорость блика', SHINE_SPEEDS, { def: 'slow', hint: 'Сколько свет идёт по надписи.' }),
           colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
@@ -1114,6 +1236,7 @@
           else if (c.back && c.back.stub && c.back.stub.on) tags.push(['заглушка', 1]);
           else if (isStatic) tags.push(['без оборота', 0]);
           else tags.push([b.routeId && routeById(b.routeId) ? 'маршрут' : 'оборот', 0]);
+          if (c.visible !== false && lidOnOf(sc, c)) tags.push(['обложка', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
           var font = fs.font || d.font, tc = fs.textColor || d.textColor, bg = fs.bg || d.bg;
           function pk(k, def) { return fs[k] && fs[k] !== 'inherit' ? fs[k] : (d[k] || def); }
@@ -1187,6 +1310,8 @@
           selectIn(sc.head, 'align', 'Положение надписей сверху', [['left', 'Слева'], ['center', 'По центру']])]),
         headFields(sc),
         optIn(sc, 'intro', 'Общий текст на странице (под заголовком)', { multi: true, rows: 2 }),
+        sub('Обложка карточек при открытии витрины'),
+        lidFields(sc, null),
         sub('Оформление всех карточек'),
         el('p', { class: 'a-hint', text: 'Задаётся один раз для всего месяца. У любой карточки можно поменять отдельно — в её форме, раздел «Оформление».' })
       ].concat(styleFields(sc.cardStyle = sc.cardStyle || {}, false, function () { drawGrid(); }), [
@@ -1907,7 +2032,8 @@
         phaseFields(c, cb)
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
-        .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false })
+        .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false }),
+      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'раскрывается, как книга' })
     ];
     if (isCal) out.push(block('Календарь месяца', monthCalFields(sc, c, cb)));
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
@@ -2495,6 +2621,7 @@
       el('button', { type: 'button', 'data-v': 'sandbox', text: 'Песочница', onclick: function () { go('sandbox'); } }),
       el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
       el('button', { type: 'button', 'data-v': 'events', text: 'События', onclick: function () { go('events'); } }),
+      el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', title: 'Открыть заново: блики и обложки', onclick: function () { go(cur); } }),
       canPhone() ? phoneBtn : null
     ]);
     pv.classList.add('is-open');
