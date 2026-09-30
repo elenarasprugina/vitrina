@@ -253,6 +253,22 @@
   }
   // У карточки: значение всей витрины (d — cardStyle месяца); у месяца — ничего
   function inhOf(d, forCard, k) { return forCard ? function () { return d[k]; } : null; }
+  // Выбор шрифта: названия в списке написаны самими шрифтами (где браузер это умеет), под списком — образец
+  function fontIn(obj, key, label, options, onChange, sampleText) {
+    var sample = el('div', { class: 'a-font-sample', text: sampleText || 'Увидимся за поворотом · 13 MIRRORS · 3 000 ₽' });
+    function show() { var f = obj[key] && obj[key] !== 'inherit' ? obj[key] : ''; if (f) window.M13.ensureFont(f); sample.style.fontFamily = f ? "'" + f + "',Georgia,serif" : ''; }
+    var f = selectIn(obj, key, label, options, { onChange: function (v) { show(); if (onChange) onChange(v); } });
+    fontLook(f); show();
+    return el('div', { class: 'a-field' }, [f, sample]);
+  }
+  function fontLook(node) {
+    var sel = node.querySelector('select');
+    if (sel) [].forEach.call(sel.options, function (o) {
+      if (!o.value || (window.M13.FONTS || []).indexOf(o.value) < 0) return;
+      window.M13.ensureFont(o.value); o.style.fontFamily = "'" + o.value + "',Georgia,serif"; o.style.fontSize = '16px';
+    });
+    return node;
+  }
   function fontOptions(inherit) {
     var list = [[ '', inherit ? 'Как у всей витрины' : 'Обычный (как сейчас)' ]];
     return list.concat((window.M13.FONTS || []).map(function (f) { return [f, f]; }));
@@ -263,7 +279,7 @@
     var inh = forCard ? [['inherit', 'Как у всей витрины']] : [];
     d = forCard && d || {};
     var glowBox;
-    var fontSel = selectIn(stl, 'font', 'Шрифт', fontOptions(forCard), { onChange: function (v) { window.M13.ensureFont(v); preview(); onChange && onChange(); } });
+    var fontSel = fontLook(selectIn(stl, 'font', 'Шрифт', fontOptions(forCard), { onChange: function (v) { window.M13.ensureFont(v); preview(); onChange && onChange(); } }));
     var sample = el('div', { class: 'a-font-sample', text: 'Синяя Рука · Карта-Отражение · 3 000 ₽' });
     function preview() { var f = stl.font; if (f) window.M13.ensureFont(f); sample.style.fontFamily = f ? "'" + f + "',Georgia,serif" : ''; }
     preview();
@@ -363,8 +379,11 @@
           colorOptIn(stl, 'rimColor', 'Цвет контура', { none: 'как выбрано выше', pick: '#ecd3a3', inh: inhOf(d, forCard, 'rimColor'), onChange: onChange }),
           selectIn(stl, 'rimLive', 'Живость контура', inh.concat([['none', 'Спокойный'], ['breathe', 'Дышит'], ['run', 'Бегущий блик']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Бегущий блик — светлая искра медленно обегает край. Лучше для одной-двух карточек.' })]) : null,
-        rim && live === 'run' ? colorOptIn(stl, 'rimRunColor', 'Цвет бегущего блика', { none: 'акцентный или светло-золотой', pick: '#fff1c4', inh: inhOf(d, forCard, 'rimRunColor'),
-          base: function () { return stl.accent || d.accent || '#fff1c4'; }, onChange: onChange }) : null,
+        rim && live === 'run' ? el('div', { class: 'a-row' }, [
+          colorOptIn(stl, 'rimRunColor', 'Цвет бегущего блика', { none: 'акцентный или светло-золотой', pick: '#fff1c4', inh: inhOf(d, forCard, 'rimRunColor'),
+            base: function () { return stl.accent || d.accent || '#fff1c4'; }, onChange: onChange }),
+          selectIn(stl, 'rimSpeed', 'Скорость бегущего блика', inh.concat(RIM_SPEEDS), { def: forCard ? 'inherit' : 'slow', onChange: onChange,
+            hint: 'Сколько блик идёт по кругу. Посмотреть — «Посмотреть» внизу, подождите полминуты.' })]) : null,
         el('div', { class: 'a-row' }, [
           selectIn(stl, 'pattern', 'Узор на стекле', inh.concat([['none', 'Без узора'], ['frost', 'Иней'], ['sparks', 'Искры'], ['kaleido', 'Калейдоскоп'], ['custom', 'Свой узор (загрузить картинку)']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw }),
@@ -401,6 +420,10 @@
     return box;
   }
 
+  // Скорость бликов: контур карточки, кнопка на обороте, подпись под сеткой
+  var RIM_SPEEDS = [['fast', 'Быстрый — круг за 5 с'], ['normal', 'Обычный — круг за 7 с'], ['slow', 'Медленный — круг за 12 с'], ['vslow', 'Очень медленный — круг за 18 с']];
+  var BTN_SPEEDS = [['fast', 'Быстрая'], ['normal', 'Обычная'], ['slow', 'Медленная'], ['vslow', 'Очень медленная']];
+  var SHINE_SPEEDS = [['fast', 'Быстрый'], ['normal', 'Обычный'], ['slow', 'Медленный'], ['vslow', 'Очень медленный']];
   // «Кнопки на обороте»: вид главной кнопки, цвета, остальные кнопки, «живость», готовые наборы
   var BTN_KEYS = ['btnStyle', 'btnColor', 'btnColor2', 'btnDir', 'btnInk', 'btnOther', 'btnOtherColor', 'btnLive'];
   var BTN_PRESETS = [
@@ -427,6 +450,7 @@
     function draw() {
       var bs = stl.btnStyle && stl.btnStyle !== 'inherit' ? stl.btnStyle : '';
       var on = bs && bs !== 'none';
+      var live = stl.btnLive && stl.btnLive !== 'inherit' ? stl.btnLive : forCard ? d.btnLive || '' : '';
       box.replaceChildren();
       add(box, [
         sub('Кнопки на обороте'),
@@ -438,7 +462,9 @@
           selectIn(stl, 'btnStyle', 'Вид главной кнопки', inh.concat([['none', 'Как по акцентному цвету'], ['fill', 'Заливка — один цвет'], ['gradient', 'Градиент — два цвета'], ['glass', 'Стекло — прозрачная с кромкой'], ['outline', 'Контур — только рамка']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Главная — первая кнопка в ряду.' }),
           on ? selectIn(stl, 'btnLive', 'Живость', inh.concat([['none', 'Спокойная'], ['glint', 'Блик пробегает по кнопке'], ['flow', 'Цвета переливаются (для градиента)'], ['both', 'Блик и перелив']]),
-            { def: forCard ? 'inherit' : 'none', onChange: onChange }) : el('span')]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw }) : el('span')]),
+        on && live && live !== 'none' ? el('div', { class: 'a-row' }, [
+          selectIn(stl, 'btnSpeed', 'Скорость блика и перелива', inh.concat(BTN_SPEEDS), { def: forCard ? 'inherit' : 'slow', onChange: onChange }), el('span')]) : null,
         on ? el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'btnColor', bs === 'gradient' ? 'Первый цвет' : 'Цвет кнопки', { none: 'акцентный', pick: '#ecd3a3', inh: inhOf(d, forCard, 'btnColor'), base: accentNow, onChange: onChange }),
           bs === 'gradient' ? colorOptIn(stl, 'btnColor2', 'Второй цвет', { none: 'как первый', pick: '#c49a5a', inh: inhOf(d, forCard, 'btnColor2'),
@@ -757,30 +783,248 @@
     ];
   }
 
-  // Верхняя строка, название месяца, подпись под сеткой (логотип — ссылка на главную, «Увидимся за поворотом»), блик
+  /* ---------- Окна «Куда написать?», «Добавить в календарь» и «Ссылка скопирована» ----------
+     obj.win = {mode:'' | 'own', bg, glass, blur, text, font, accent, btnStyle, rim, rimColor}. obj — cardStyle месяца или look страницы. */
+  function winFields(obj, page, preview) {
+    var w = obj.win = obj.win || {}, box = el('div', { class: 'a-glass' });
+    function draw() {
+      var own = w.mode === 'own';
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Окна «Куда написать?» (Telegram / VK), «Добавить в календарь» и сообщение «Ссылка скопирована».' }),
+        el('div', { class: 'a-row' }, [
+          selectIn(w, 'mode', 'Как выглядят', [['', page ? 'Как у страницы' : 'Как у карточки, с которой открыты'], ['own', 'Своё оформление']], { def: '', onChange: draw }),
+          el('p', { class: 'a-hint', style: 'align-self:end', text: own ? 'Одинаковые, какие бы ни были ' + (page ? 'панели страницы.' : 'карточки.')
+            : page ? 'Берут цвет панелей, прозрачность, текст, шрифт и акцентный цвет страницы.'
+              : 'Берут оборот карточки: цвет, прозрачность и размытие, текст, шрифт, кнопки и контур. У прозрачного стекла — лёгкая подложка, чтобы текст читался.' })]),
+        own ? el('div', { class: 'a-row' }, [
+          colorOptIn(w, 'bg', 'Цвет окна', { none: 'белый', pick: '#17120c', base: '#ffffff' }),
+          colorOptIn(w, 'text', 'Цвет текста', { none: 'подберётся сам', pick: '#efe4d2', base: function () { return hexLum(w.bg || '#ffffff') < 128 ? '#efe4d2' : '#232323'; } })]) : null,
+        own ? el('div', { class: 'a-row' }, [
+          rangeIn(w, 'glass', 'Прозрачность окна', { max: 90, step: 5, unit: '%', hint: '0% — сплошное. Даже при большой прозрачности остаётся лёгкая подложка.' }),
+          rangeIn(w, 'blur', 'Размытие за окном', { max: 20, unit: ' px', def: 10 })]) : null,
+        own ? el('div', { class: 'a-row' }, [
+          fontIn(w, 'font', 'Шрифт', fontOptions(false), null, 'Куда написать? · Telegram · VK'),
+          colorOptIn(w, 'accent', 'Цвет кнопок', { none: 'подберётся сам', pick: '#ecd3a3',
+            base: function () { return w.text || (hexLum(w.bg || '#ffffff') < 128 ? '#efe4d2' : '#232323'); } })]) : null,
+        own ? el('div', { class: 'a-row' }, [
+          selectIn(w, 'btnStyle', 'Вид кнопок', [['', 'Заливка цветом кнопок'], ['glass', 'Стекло — прозрачная с кромкой'], ['outline', 'Контур — только рамка']], { def: '' }),
+          selectIn(w, 'rim', 'Контур окна', [['', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный (зимний)'], ['gold', 'Золотой — цветом кнопок']], { def: '', onChange: draw })]) : null,
+        own && w.rim ? colorOptIn(w, 'rimColor', 'Цвет контура', { none: 'как выбрано выше', pick: '#ecd3a3' }) : null,
+        own ? readWarn(function () { return w.text || (hexLum(w.bg || '#ffffff') < 128 ? '#efe4d2' : '#232323'); },
+          function () { return { color: w.bg || '#ffffff' }; }, function () { return (+w.glass || 0) > 40; }, 'Текст в окне') : null,
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть окно', onclick: preview })])
+      ]);
+    }
+    draw();
+    return box;
+  }
+
+  // Толщина и курсив: только то, что есть у шрифта. font — название шрифта ('' — обычный шрифт устройства)
+  var WEIGHT_NAMES = { 300: ['light', 'Тонкая'], 400: ['normal', 'Обычная'], 600: ['semi', 'Полужирная'], 700: ['bold', 'Жирная'] };
+  function weightOpts(font) {
+    return window.M13.fontCaps(font).w.map(function (w) { return WEIGHT_NAMES[w]; });
+  }
+  // Образец надписи тем шрифтом, толщиной и наклоном, что будут на витрине
+  function typeSample(text, font, w, it, upper) {
+    if (font) window.M13.ensureFont(font);
+    var caps = window.M13.fontCaps(font), fw = { light: 300, semi: 600, bold: 700 }[w] || 400;
+    return el('div', { class: 'a-font-sample', text: text, style: (font ? "font-family:'" + font + "',Georgia,serif;" : '') +
+      'font-weight:' + (caps.w.indexOf(fw) >= 0 ? fw : 400) + ';font-style:' + (it && caps.it ? 'italic' : 'normal') + (upper ? ';text-transform:uppercase;letter-spacing:.08em;font-size:13px' : '') });
+  }
+  function typeFields(hd, wKey, iKey, font, onChange) {
+    var caps = window.M13.fontCaps(font), name = font || 'обычного шрифта';
+    return el('div', { class: 'a-row' }, [
+      selectIn(hd, wKey, 'Толщина букв', weightOpts(font), { def: 'normal', onChange: onChange,
+        hint: caps.w.length < 4 ? 'У ' + (font ? 'шрифта «' + font + '»' : name) + ' есть только эти варианты.' : '' }),
+      caps.it ? switchIn(hd, iKey, 'Курсив', { onChange: onChange }) : el('p', { class: 'a-hint', style: 'align-self:end', text: 'У шрифта «' + font + '» нет курсива.' })]);
+  }
+  // Логотип: берутся только очертания, цвет задаёт витрина. Прозрачные поля обрезаются;
+  // если фона-прозрачности нет (логотип на белом), фон убирается сам по цвету уголков.
+  function prepLogo(file) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var k = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
+        var w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        var g = c.getContext('2d'); g.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
+        var D = g.getImageData(0, 0, w, h), px = D.data, i, removed = false;
+        if (!hasAlpha(c)) {
+          // Цвет фона — по четырём уголкам; чем ближе пиксель к нему, тем прозрачнее (края остаются мягкими)
+          var cs = [0, (w - 1) * 4, (h - 1) * w * 4, ((h - 1) * w + w - 1) * 4], bg = [0, 0, 0];
+          cs.forEach(function (o) { bg[0] += px[o] / 4; bg[1] += px[o + 1] / 4; bg[2] += px[o + 2] / 4; });
+          for (i = 0; i < px.length; i += 4) {
+            var dd = Math.abs(px[i] - bg[0]) + Math.abs(px[i + 1] - bg[1]) + Math.abs(px[i + 2] - bg[2]);
+            px[i + 3] = Math.max(0, Math.min(255, Math.round((dd - 24) * 2.2)));
+          }
+          removed = true;
+        }
+        // Обрезать пустые поля вокруг
+        var x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) if (px[(y * w + x) * 4 + 3] > 16) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        if (x1 < 0) return rej(new Error('empty'));
+        g.putImageData(D, 0, 0);
+        var o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;
+        o.getContext('2d').drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
+        var data = o.toDataURL('image/webp', 0.9);
+        if (data.indexOf('data:image/webp') !== 0) data = o.toDataURL('image/png');
+        res({ src: data, ratio: +(o.width / o.height).toFixed(3), removed: removed });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('bad')); };
+      img.src = url;
+    });
+  }
+  function logoIn(obj, key, rKey, label, o) {
+    o = o || {};
+    var box = el('div', { class: 'a-field' });
+    function draw() {
+      var v = obj[key], shown = v ? imgSrc(v) : o.fallback ? o.fallback() : '../assets/logo.png';
+      var file = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
+      file.addEventListener('change', function () {
+        var f = file.files && file.files[0]; if (!f) return;
+        prepLogo(f).then(function (r) {
+          obj[key] = r.src; obj[rKey] = r.ratio; changed(); draw(); if (o.onChange) o.onChange();
+          toast(r.removed ? 'Логотип загружен. Фон у картинки был не прозрачный — убрали его сами. Проверьте, как вышло.' : 'Логотип загружен. Не забудьте «Сохранить».');
+        }).catch(function () { toast('Не получилось взять логотип из этой картинки. Нужен PNG с прозрачным фоном.', true); });
+      });
+      box.replaceChildren();
+      add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
+        el('div', { class: 'a-img' }, [
+          el('div', { class: 'a-logo-thumb' }, [el('span', { style: "-webkit-mask-image:url('" + shown + "');mask-image:url('" + shown + "');aspect-ratio:" + (+obj[rKey] || (o.fallbackRatio && o.fallbackRatio()) || 4.5) })]),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить' : 'Загрузить свой', onclick: function () { file.click(); } }),
+          v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: o.resetText || 'Вернуть обычный', onclick: function () {
+            delete obj[key]; delete obj[rKey]; changed(); draw(); if (o.onChange) o.onChange(); } }) : null, file]),
+        el('span', { class: 'a-hint', text: o.hint || 'PNG с прозрачным фоном. Цвета картинки не важны: логотип красится цветом надписей. Пустые поля вокруг обрежутся сами.' })]);
+    }
+    draw();
+    return box;
+  }
+
+  /* ---------- Читаемость: предупреждение «надпись сливается с фоном» ----------
+     Сравниваем цвет надписи с фоном (цвет или средний цвет нужной части картинки с учётом затемнения).
+     Пересчитывается само при любом изменении в панели. */
+  var READ_CHECKS = [], readTimer = null;
+  function relLum(rgb) {
+    var a = rgb.map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  }
+  function hexToRgb(h) { var m = /^#?([0-9a-f]{6})$/i.exec(String(h || '')); if (!m) return null; var n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function contrast(a, b) { var l1 = relLum(a), l2 = relLum(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); }
+  var imgAvgCache = {};
+  // Средний цвет полосы картинки (part: 'top' | 'bottom' | 'all'), как она лежит на экране «на весь экран»
+  function imgAvg(src, part) {
+    var key = part + '|' + src.slice(0, 64) + src.length;
+    if (imgAvgCache[key]) return imgAvgCache[key];
+    return (imgAvgCache[key] = new Promise(function (res) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas'); c.width = 48; c.height = 48;
+          var g = c.getContext('2d'); g.drawImage(img, 0, 0, 48, 48);
+          var y0 = part === 'top' ? 0 : part === 'bottom' ? 34 : 0, hh = part === 'all' ? 48 : 14;
+          var d = g.getImageData(0, y0, 48, hh).data, s2 = [0, 0, 0], n = 0;
+          for (var i = 0; i < d.length; i += 4) { s2[0] += d[i]; s2[1] += d[i + 1]; s2[2] += d[i + 2]; n++; }
+          res([s2[0] / n, s2[1] / n, s2[2] / n]);
+        } catch (e) { res(null); }
+      };
+      img.onerror = function () { res(null); };
+      img.src = imgSrc(src);
+    }));
+  }
+  // bg(): {color, image, dim, part} — фон под надписью; fg(): цвет надписи; skip(): true — проверять не нужно (включена дымка)
+  function readWarn(fg, bg, skip, what) {
+    var node = el('p', { class: 'a-hint a-hint--warn a-readwarn', hidden: true });
+    function run() {
+      if (skip && skip()) { node.hidden = true; return; }
+      var f = hexToRgb(fg()), b = bg() || {};
+      if (!f) { node.hidden = true; return; }
+      var base = hexToRgb(b.color) || [255, 255, 255];
+      (b.image ? Promise.resolve(imgAvg(b.image, b.part || 'all')) : Promise.resolve(null)).then(function (avg) {
+        var c = avg || base, k = Math.max(0, Math.min(0.9, (+b.dim || 0) / 100));
+        if (avg && k) c = c.map(function (v, j) { return v * (1 - k) + [6, 4, 2][j] * k; });
+        var r = contrast(f, c);
+        node.hidden = r >= 3;
+        node.textContent = '⚠ ' + (what || 'Надпись') + ' может плохо читаться: цвет почти сливается с фоном. Включите дымку или выберите цвет контрастнее.';
+      });
+    }
+    READ_CHECKS.push({ node: node, run: run });
+    setTimeout(run, 0);
+    return node;
+  }
+  function recheckRead() {
+    clearTimeout(readTimer);
+    readTimer = setTimeout(function () {
+      READ_CHECKS = READ_CHECKS.filter(function (x) { return x.node.isConnected; });
+      READ_CHECKS.forEach(function (x) { x.run(); });
+    }, 250);
+  }
+  document.addEventListener('input', recheckRead, true);
+  document.addEventListener('change', recheckRead, true);
+
+  // Верхняя строка, название месяца, подпись под сеткой (логотип — ссылка на главную, «Увидимся за поворотом»),
+  // дымка под надписями, толщина и курсив, звёздочка, блики, свой логотип месяца
+  var HAZE_OPTS = [['', 'Без дымки'], ['dark', 'Тёмная — для светлых букв'], ['light', 'Светлая — для тёмных букв']];
   function headFields(sc) {
     var hd = sc.head, st = DATA.settings, box = el('div', { class: 'a-glass' });
     if (!hd.top) hd.top = hd.logo ? 'logo' : 'text';
+    var hf = (sc.cardStyle || {}).font || '';
+    function headColor() { return hd.color || '#202020'; }
+    function bgUnder(part) { return function () { var b = sc.background || {}; return { color: b.color || '#f2f2f2', image: b.image, dim: b.dim, part: part }; }; }
     function draw() {
-      var b = hd.bottom || 'none';
+      var b = hd.bottom || 'none', logoB = b === 'logo' || b === 'both', textB = b === 'text' || b === 'both';
+      var anyLogo = hd.top === 'logo' || logoB, glow = hd.welcome !== false || (b !== 'none' && hd.shine);
+      var topS = null, botS = null, defTop = [st.siteTitle || '13 MIRRORS', (st.texts || {}).kicker || 'Витрина'].join(' · ');
       box.replaceChildren();
       add(box, [
         el('div', { class: 'a-row' }, [
           selectIn(hd, 'top', 'Сверху, над названием месяца', [['text', 'Надпись'], ['logo', 'Логотип'], ['none', 'Ничего']], { def: 'text', onChange: function () { delete hd.logo; draw(); } }),
           hd.top === 'text' ? textIn(hd, 'topText', 'Надпись сверху', { ph: [st.siteTitle || '13 MIRRORS', (st.texts || {}).kicker || 'Витрина'].join(' · '),
-            hint: 'Пусто — «13 MIRRORS · Витрина». У каждого месяца своя.' }) : el('span')]),
+            hint: 'Пусто — «13 MIRRORS · Витрина». У каждого месяца своя.', onInput: function (v) { if (topS) topS.textContent = v.trim() || defTop; } })
+            : hd.top === 'logo' ? selectIn(hd, 'topSize', 'Размер логотипа сверху', [['s', 'Маленький'], ['m', 'Обычный'], ['l', 'Крупный']], { def: 'm' }) : el('span')]),
+        hd.top === 'text' ? typeFields(hd, 'topWeight', 'topItalic', '', draw) : null,
+        topS = hd.top === 'text' ? typeSample(String(hd.topText || '').trim() || defTop, '', hd.topWeight, hd.topItalic, true) : null,
+        el('div', { class: 'a-row' }, [
+          selectIn(hd, 'topHaze', 'Дымка под надписями сверху', HAZE_OPTS, { def: '', onChange: draw,
+            hint: 'Мягкое облачко только вокруг букв и логотипа — чтобы читались на любой картинке.' }),
+          hd.topHaze ? rangeIn(hd, 'topHazeK', 'Сила дымки сверху', { max: 100, step: 5, unit: '%', def: 60 }) : el('span')]),
+        readWarn(headColor, bgUnder('top'), function () { return !!hd.topHaze; }, 'Надпись над сеткой'),
         switchIn(hd, 'hideTitle', 'Не показывать название месяца', { hint: 'Название «' + (sc.title || '') + '» остаётся в заголовке вкладки и в превью ссылки.' }),
         el('div', { class: 'a-row' }, [
           selectIn(hd, 'bottom', 'Под сеткой', [['none', 'Ничего'], ['logo', 'Логотип'], ['text', 'Надпись'], ['both', 'Логотип и надпись под ним']], { def: 'none', onChange: draw,
             hint: 'Логотип внизу — ссылка на главную 13mirrors.ru. На компьютере карточки станут чуть меньше, чтобы всё помещалось на экране.' }),
-          b === 'text' || b === 'both' ? textIn(hd, 'bottomText', 'Надпись внизу', { ph: 'Увидимся за поворотом' }) : el('span')]),
+          textB ? textIn(hd, 'bottomText', 'Надпись внизу', { ph: 'Увидимся за поворотом', hint: 'Можно добавить значки ✦ ✧ ☾ — кнопка ✦ появляется у поля, когда в нём пишете.',
+            onInput: function (v) { if (botS) botS.textContent = v.trim() || 'Увидимся за поворотом'; } }) : el('span')]),
         b !== 'none' ? el('div', { class: 'a-row' }, [
-          b === 'logo' || b === 'both' ? selectIn(hd, 'bottomSize', 'Размер логотипа внизу', [['s', 'Маленький, как подпись'], ['m', 'Средний'], ['l', 'Крупный']], { def: 's' }) : el('span'),
-          selectIn(hd, 'bottomAlign', 'Положение внизу', [['center', 'По центру'], ['left', 'Слева'], ['right', 'Справа']], { def: 'center' })]) : null,
+          logoB ? selectIn(hd, 'bottomSize', 'Размер логотипа внизу', [['s', 'Маленький, как подпись'], ['m', 'Средний'], ['l', 'Крупный']], { def: 's' }) : el('span'),
+          selectIn(hd, 'bottomAlign', b === 'both' ? 'Положение логотипа' : 'Положение внизу', [['center', 'По центру'], ['left', 'Слева'], ['right', 'Справа']], { def: 'center' })]) : null,
+        b === 'both' ? el('div', { class: 'a-row' }, [
+          selectIn(hd, 'bottomTextAlign', 'Положение надписи', [['', 'Как у логотипа'], ['center', 'По центру'], ['left', 'Слева'], ['right', 'Справа']], { def: '' }), el('span')]) : null,
+        textB ? typeFields(hd, 'bottomWeight', 'bottomItalic', hf, draw) : null,
+        botS = textB ? typeSample(String(hd.bottomText || '').trim() || 'Увидимся за поворотом', hf, hd.bottomWeight, hd.bottomItalic) : null,
+        textB ? el('div', { class: 'a-row' }, [
+          selectIn(hd, 'star', 'Звёздочка у надписи', [['', 'Нет'], ['before', 'Перед надписью'], ['after', 'После надписи'], ['both', 'С обеих сторон']], { def: '', onChange: draw,
+            hint: 'Тихо мерцает и вспыхивает вместе с бликом.' }),
+          hd.star ? selectIn(hd, 'starKind', 'Какая', [['spark', 'Искра — четыре луча'], ['star', 'Звезда'], ['moon', 'Месяц']], { def: 'spark' }) : el('span')]) : null,
+        textB && hd.star ? colorOptIn(hd, 'starColor', 'Цвет звёздочки', { none: 'как блик', base: function () { return hd.shineColor || (sc.cardStyle || {}).rimRunColor || '#fff3cf'; } }) : null,
         b !== 'none' ? el('div', { class: 'a-row' }, [
-          switchIn(hd, 'shine', 'Блик по подписи', { onChange: draw, hint: 'Раз в 10–15 секунд по надписи и логотипу пробегает лёгкий свет.' }),
-          hd.shine ? colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
-            inh: function () { return (sc.cardStyle || {}).rimRunColor; }, inhLabel: 'как бегущий блик карточек' }) : el('span')]) : null
+          selectIn(hd, 'bottomHaze', 'Дымка под подписью', HAZE_OPTS, { def: '', onChange: draw }),
+          hd.bottomHaze ? rangeIn(hd, 'bottomHazeK', 'Сила дымки внизу', { max: 100, step: 5, unit: '%', def: 60 }) : el('span')]) : null,
+        b !== 'none' ? readWarn(headColor, bgUnder('bottom'), function () { return !!hd.bottomHaze; }, 'Подпись под сеткой') : null,
+        anyLogo ? logoIn(hd, 'logoImg', 'logoRatio', 'Логотип этого месяца', { resetText: 'Как в «Настройках»',
+          fallback: function () { return st.logo ? imgSrc(st.logo) : '../assets/logo.png'; }, fallbackRatio: function () { return st.logo ? st.logoRatio : 0; },
+          hint: 'Пусто — общий логотип из «Настроек». Свой — например, тонкий или жирный вариант для этого месяца. PNG с прозрачным фоном.' }) : null,
+        sub('Блики'),
+        switchIn(hd, 'welcome', 'Приветственный блик при открытии', { defTrue: true, onChange: draw,
+          hint: 'Когда витрина открывается, один раз мягкий свет проходит по надписи сверху, волной по карточкам и по подписи внизу.' }),
+        b !== 'none' ? switchIn(hd, 'shine', 'Блик по подписи', { onChange: draw, hint: 'Сразу при открытии (на телефоне — когда подпись появится на экране), потом по расписанию ниже.' }) : null,
+        b !== 'none' && hd.shine ? el('div', { class: 'a-row' }, [
+          selectIn(hd, 'shineWhen', 'Когда повторяется', [['open', 'Только при открытии'], ['', 'Изредка — раз в 25 секунд'], ['often', 'Чаще — раз в 8 секунд']], { def: '' }), el('span')]) : null,
+        glow ? el('div', { class: 'a-row' }, [
+          selectIn(hd, 'shineSpeed', 'Скорость блика', SHINE_SPEEDS, { def: 'slow', hint: 'Сколько свет идёт по надписи.' }),
+          colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
+            inh: function () { return (sc.cardStyle || {}).rimRunColor; }, inhLabel: 'как бегущий блик карточек' })]) : null,
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть надписи и блики', onclick: function () { openPreview('showcase', sc.id); } })])
       ]);
     }
     draw();
@@ -912,7 +1156,12 @@
         optIn(sc, 'intro', 'Общий текст на странице (под заголовком)', { multi: true, rows: 2 }),
         sub('Оформление всех карточек'),
         el('p', { class: 'a-hint', text: 'Задаётся один раз для всего месяца. У любой карточки можно поменять отдельно — в её форме, раздел «Оформление».' })
-      ].concat(styleFields(sc.cardStyle = sc.cardStyle || {}, false, function () { drawGrid(); })),
+      ].concat(styleFields(sc.cardStyle = sc.cardStyle || {}, false, function () { drawGrid(); }), [
+        sub('Окна и сообщения'),
+        winFields(sc.cardStyle, false, function () {
+          var c0 = (sc.cards || []).filter(function (c) { return c && c.visible !== false && c.interactive !== false && c.back && c.back.type !== 'static' && !(c.monthCal && c.monthCal.on); })[0];
+          openPreview('showcase', sc.id, c0 ? c0.id : null, true);
+        })]),
         { open: !!ST.pageOpen, note: 'фон, надписи, оформление карточек, темы' }),
       shareBlock(sc),
       wrap
@@ -1085,7 +1334,7 @@
         sc.background.color = '#f2f2f2'; delete sc.background.dim; delete sc.background.blur;
         sc.head = { align: sc.head.align };
         ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg',
-          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor'].forEach(function (k) { delete sc.cardStyle[k]; });
+          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'rimSpeed', 'win'].forEach(function (k) { delete sc.cardStyle[k]; });
       }
       ST.pageOpen = true; changed(); renderMain();
       toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
@@ -1461,8 +1710,8 @@
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
     'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize',
-    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo'];
-  var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur'].concat(BTN_KEYS);
+    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed'];
+  var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur', 'btnSpeed'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
     var keys = what === 'front' ? STYLE_FRONT : what === 'back' ? STYLE_BACK : STYLE_FRONT.concat(STYLE_BACK);
@@ -1803,7 +2052,7 @@
       selectIn(lk.background, 'fit', 'Как лежит картинка', [['cover', 'На весь экран (края обрезаются)'], ['contain', 'Целиком, по центру'], ['big', 'Крупно, по высоте экрана']], { def: 'cover', hint: 'Для картинки на прозрачном фоне (например, цветок) — «Целиком» или «Крупно», вокруг будет цвет фона.' }),
       sub('Текст и панели'),
       el('div', { class: 'a-row' }, [
-        selectIn(lk, 'font', 'Шрифт', fontOptions(false), { onChange: function (v) { if (v) window.M13.ensureFont(v); } }),
+        fontIn(lk, 'font', 'Шрифт', fontOptions(false), null, 'Примеры практик · День 3 · Мысль дня'),
         selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
           hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
       selectIn(lk, 'lineH', 'Межстрочный интервал', [['', 'Обычный'], ['tight', 'Плотнее'], ['loose', 'Свободнее']], { def: '',
@@ -1819,7 +2068,9 @@
         hint: 'На телефоне всегда 2.' }),
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
-        rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })])
+        rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })]),
+      sub('Окна и сообщения'),
+      winFields(lk, true, function () { openPreview(which, null, null, true); })
     ];
   }
 
@@ -2012,6 +2263,9 @@
           textIn(st.contacts, 'telegram', 'Telegram', { ph: 'имя пользователя без @', hint: 'Например: elena_13mirrors или ссылка t.me/…' }),
           textIn(st.contacts, 'vk', 'VK', { ph: 'короткий адрес страницы', hint: 'Например: id12345678 или имя из адреса vk.com/…' })])
       ]),
+      block('Логотип', [
+        logoIn(st, 'logo', 'logoRatio', 'Логотип витрины', { hint: 'Показывается над сеткой и под ней (если так выбрано в «Странице месяца»). PNG с прозрачным фоном; если фон белый — уберём его сами. Цвет логотипа задаётся в каждом месяце: «Цвет надписей и логотипа». У месяца может быть свой логотип.' })
+      ], { open: false, note: 'общий для всех месяцев' }),
       block('Превью ссылки по умолчанию', [
         el('p', { class: 'a-hint', text: 'Картинка и подпись, которые Telegram и VK показывают под ссылкой. Используются для Песочницы, страницы примеров и для месяцев, у которых не задано своё превью.' }),
         shareFields(st.share = st.share || { title: '', description: '', image: null }, {
@@ -2137,7 +2391,7 @@
       else toast('Не получилось показать витрину в режиме телефона. Обновите страницу.', true);
     })();
   }
-  function openPreview(view, showcaseId, cardId) {
+  function openPreview(view, showcaseId, cardId, demo) {
     if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : ST.section === 'events' ? 'events' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
@@ -2147,7 +2401,11 @@
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
       if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
       M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId) })
-        .then(function () { if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; } });
+        .then(function () {
+          if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; }
+          // «Посмотреть окно»: сразу открыть «Куда написать?» и сообщение «Ссылка скопирована»
+          if (demo) { demo = false; setTimeout(function () { if (M.demoWin) M.demoWin(); }, 450); }
+        });
       pv.scrollTop = 0;
     }
     function build() {
@@ -2183,6 +2441,59 @@
     var pv = document.getElementById('a-preview');
     pv.classList.remove('is-open', 'is-phone'); pv.replaceChildren();
     document.body.style.overflow = ''; document.body.classList.remove('m13-locked');
+  }
+
+  /* ---------- Кнопка ✦ у текстовых полей: проверенные значки одним нажатием ----------
+     Появляется у поля, в котором сейчас пишут. Эти значки ведут себя как буквы (берут цвет и шрифт надписи)
+     и не превращаются на телефоне в цветные смайлы. */
+  var GLYPHS = ['✦', '✧', '⋆', '✶', '✷', '✺', '❋', '✢', '✣', '❖', '☆', '★', '✿', '❀', '☾', '☽', '·', '◦', '•', '—', '«»'];
+  var glyphBtn = null, glyphPop = null, glyphFor = null;
+  function glyphOk(n) {
+    if (!n || !n.matches || !n.matches('input.a-input, textarea.a-input')) return false;
+    if (n.tagName === 'INPUT' && (n.type || 'text') !== 'text') return false;
+    if (/https?:|@|t\.me|vk\.com|\d{2}:\d{2}/i.test(n.placeholder || '')) return false;
+    return !n.closest('.a-preview');
+  }
+  function glyphPlace() {
+    if (!glyphFor || !glyphFor.isConnected) { glyphHide(); return; }
+    var r = glyphFor.getBoundingClientRect();
+    // Поле ушло под верхнюю полосу или за экран — прячем кнопку и набор, пока оно не вернётся
+    var off = r.top < 64 || r.top > window.innerHeight - 30;
+    glyphBtn.style.visibility = glyphPop.style.visibility = off ? 'hidden' : '';
+    glyphBtn.style.top = (r.top + 4) + 'px'; glyphBtn.style.left = (r.right - 30) + 'px';
+    if (!glyphPop.hidden) { glyphPop.style.top = (r.bottom + 4) + 'px'; glyphPop.style.left = Math.max(8, Math.min(r.right - 262, window.innerWidth - 270)) + 'px'; }
+  }
+  function glyphHide() { if (glyphBtn) glyphBtn.hidden = true; if (glyphPop) glyphPop.hidden = true; glyphFor = null; }
+  function glyphInsert(g) {
+    var n = glyphFor; if (!n) return;
+    var a = n.selectionStart == null ? n.value.length : n.selectionStart, b = n.selectionEnd == null ? a : n.selectionEnd;
+    var ins = g === '«»' ? '«' + n.value.slice(a, b) + '»' : g, caret = g === '«»' ? a + ins.length - (b > a ? 0 : 1) : a + ins.length;
+    n.value = n.value.slice(0, a) + ins + n.value.slice(b);
+    n.setSelectionRange(caret, caret);
+    n.dispatchEvent(new Event('input', { bubbles: true }));
+    n.focus();
+  }
+  function glyphInit() {
+    glyphBtn = el('button', { type: 'button', class: 'a-glyph-btn', title: 'Вставить значок', text: '✦', hidden: true });
+    glyphPop = el('div', { class: 'a-glyph-pop', hidden: true }, [
+      el('div', { class: 'a-glyph-grid' }, GLYPHS.map(function (g) {
+        return el('button', { type: 'button', text: g, title: g === '«»' ? 'Кавычки «ёлочки»' : 'Вставить ' + g });
+      })),
+      el('p', { text: 'Значки ведут себя как буквы: берут цвет и шрифт надписи, блик проходит и по ним.' })]);
+    // mousedown без фокуса: поле не теряет курсор
+    [glyphBtn, glyphPop].forEach(function (n) { n.addEventListener('mousedown', function (e) { e.preventDefault(); }); });
+    glyphBtn.addEventListener('click', function () { glyphPop.hidden = !glyphPop.hidden; glyphPlace(); });
+    glyphPop.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { glyphInsert(b.textContent); } });
+    document.body.appendChild(glyphBtn); document.body.appendChild(glyphPop);
+    document.addEventListener('focusin', function (e) {
+      if (glyphOk(e.target)) { glyphFor = e.target; glyphBtn.hidden = false; glyphPop.hidden = true; glyphPlace(); }
+      else if (!glyphBtn.contains(e.target) && !glyphPop.contains(e.target)) glyphHide();
+    });
+    document.addEventListener('focusout', function () {
+      setTimeout(function () { var a = document.activeElement; if (!glyphOk(a) && !glyphPop.contains(a) && !glyphBtn.contains(a)) glyphHide(); }, 0);
+    });
+    window.addEventListener('scroll', function () { if (glyphFor) glyphPlace(); }, true);
+    window.addEventListener('resize', function () { if (glyphFor) glyphPlace(); });
   }
 
   /* ---------- Запуск ---------- */
@@ -2708,6 +3019,7 @@
 
   function boot() {
     APP = document.getElementById('adm');
+    glyphInit();
     APP.innerHTML = '<p style="padding:40px;color:#6b6b68">Загружаем данные…</p>';
     loadSource().then(function (src) {
       ORIGINAL = src;

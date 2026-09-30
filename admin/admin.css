@@ -279,3 +279,17 @@ select.a-input{padding-right:28px}
 .a-caldot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0b64e;flex-shrink:0;margin:0 7px}
 .a-calfree{display:flex;flex-direction:column;gap:8px}
 .a-calhint{margin-top:-4px}
+
+/* Логотип: образец цветом надписей (картинка — маска) */
+.a-logo-thumb{width:150px;height:64px;border-radius:9px;border:1px solid var(--a-line);background:#1b1611;display:grid;place-items:center;padding:8px}
+.a-logo-thumb span{display:block;max-width:100%;max-height:46px;width:100%;background:#ecd3a3;-webkit-mask:center/contain no-repeat;mask:center/contain no-repeat}
+/* Кнопка ✦ у поля, в котором пишут, и набор значков */
+.a-glyph-btn{position:fixed;z-index:1200;width:26px;height:26px;border:1px solid var(--a-line);border-radius:7px;background:#fff;color:#8a6b2e;
+  font-size:14px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.a-glyph-btn:hover{border-color:#b89a5c}
+.a-glyph-pop{position:fixed;font:12px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;z-index:1201;width:254px;padding:8px;border:1px solid var(--a-line);border-radius:12px;background:#fff;box-shadow:0 12px 30px rgba(0,0,0,.14)}
+.a-glyph-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.a-glyph-grid button{height:30px;border:1px solid var(--a-line);border-radius:7px;background:var(--a-soft);font-size:16px;cursor:pointer;padding:0}
+.a-glyph-grid button:hover{background:#fff6e2;border-color:#d9bf85}
+.a-glyph-pop p{margin:7px 2px 0;font-size:11px;line-height:1.35;color:var(--a-muted)}
+.a-readwarn{margin:2px 0 6px}
