@@ -32,7 +32,11 @@
   }
   function media(src) {
     if (!src) return '';
-    return /^(https?:|data:|blob:|\/)/.test(src) ? src : S.base + src;
+    if (/^(https?:|data:|blob:)/.test(src)) return src;
+    // Полный адрес: относительный url() в CSS-переменной браузер отсчитывает от vitrina.css, а не от страницы
+    var a = document.createElement('a');
+    a.href = /^\//.test(src) ? src : S.base + src;
+    return a.href;
   }
   function parseDate(iso) {
     if (!iso) return null;
