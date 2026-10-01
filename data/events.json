@@ -108,9 +108,10 @@
           "order": 2
         },
         {
-          "kind": "share",
-          "label": "Поделиться",
-          "order": 3
+          "kind": "contact",
+          "label": "Записаться",
+          "order": 3,
+          "message": "Привет!\nПришли, пожалуйста, ссылку на встречу \"Город МАК\"."
         }
       ],
       "order": 1,
@@ -161,7 +162,9 @@
         "mark": "",
         "shadow": "strong",
         "width": "",
-        "tint": "gold"
+        "tint": "gold",
+        "mark1": {},
+        "mark2": {}
       },
       "coverFit": "fill",
       "shareImage": "media/ee148a8ca003049824f9.jpg"
