@@ -64,7 +64,7 @@ jobs:
           for e in sorted(types): print('  %-6s %s' % (e, ', '.join(sorted(types[e]))))
           print('\nАдреса без имени файла:')
           for p in ['/', '/grimoire/', '/grimoire', '/vitrina/', '/vitrina', '/vitrina/2026-10/',
-                    '/vitrina/events/', '/vitrina/admin/', '/net-takoj-stranicy/', '/.13mirrors-deploy-root', '/cgi-bin/']:
+                    '/vitrina/events/', '/vitrina/admin/', '/net-takoj-stranicy/', '/.13mirrors-deploy-root', '/cgi-bin/', '/vitrina/.htaccess']:
               st, h, body = get(p)
               print('  %-26s %s %s %s' % (p, st, h.get('content-type', ''), ('→ ' + h['location']) if 'location' in h else ''))
           st, h, body = get('/vitrina/data/events.json')
@@ -82,7 +82,7 @@ jobs:
           ip, site = os.environ['BEGET_IP'], os.environ['SITE']
           js = open('v/index.html').read().split('vitrina.js?v=')[1].split('"')[0]
           media = sorted(glob.glob('v/media/*'))
-          paths = ['/', '/vitrina/', '/vitrina/admin/', '/vitrina/data/settings.json',
+          paths = ['/', '/vitrina/', '/vitrina/admin/', '/vitrina/2026-10/', '/vitrina/data/settings.json', '/vitrina/data/showcases/2026-10.json',
                    '/vitrina/assets/vitrina.js?v=' + js, '/vitrina/assets/vitrina.css?v=' + js,
                    '/favicon.svg', '/assets/door-wide.webp', '/assets/og.jpg']
           paths += ['/vitrina/media/' + os.path.basename(m) for m in media[:2]]
