@@ -54,6 +54,20 @@ body.a-body{margin:0;background:#f3f3f1}
 .a-block > summary small{font-weight:500;color:var(--a-muted);font-size:12px}
 .a-block-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:12px}
 .a-sub{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--a-muted);margin-top:4px}
+/* Свёрнутые группы: заголовок группы — строка «▸ ЗАГОЛОВОК · что внутри»; раскрытая — лесенкой, с линией слева */
+.a-fold{min-width:0}
+.a-fold > summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:8px;padding:7px 8px;margin:0 -8px;border-radius:8px;min-width:0}
+.a-fold > summary::-webkit-details-marker{display:none}
+.a-fold > summary:hover{background:var(--a-soft)}
+.a-fold > summary::before{content:"▸";color:var(--a-muted);font-size:11px;width:10px;flex-shrink:0}
+.a-fold[open] > summary::before{content:"▾"}
+.a-fold > summary .a-sub{margin:0;flex-shrink:0;max-width:60%}
+.a-fold[open] > summary .a-sub{color:#333}
+.a-fold-info{font-size:12px;color:var(--a-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a-fold[open] > summary .a-fold-info{display:none}
+.a-fold-body{display:grid;gap:12px;padding:6px 0 6px 12px;margin:2px 0 6px 4px;border-left:2px solid var(--a-line);min-width:0}
+.a-foldbar{display:flex;justify-content:flex-end;gap:6px;margin-bottom:-6px}
+.a-foldbar[hidden]{display:none}
 .a-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .a-row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 
