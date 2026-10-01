@@ -2180,7 +2180,9 @@
   var GL_W_OPTS = [['light', 'Тонкая'], ['normal', 'Обычная'], ['semi', 'Полужирная'], ['bold', 'Жирная']];
   var GL_SIZE_OPTS = [['s', 'Мельче'], ['m', 'Обычный'], ['l', 'Крупнее']];
   var GL_ALIGN_OPTS = [['', 'Само (по центру — у «по центру» и «на всю»)'], ['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа']];
-  var GL_MARK_OPTS = [['', 'Нет'], ['dandelion', 'Одуванчик'], ['logo', 'Логотип 13 MIRRORS']];
+  var GL_MARK_OPTS = [['dandelion', 'Одуванчик из логотипа'], ['dandelion2', 'Одуванчик прямой'], ['dandelion3', 'Одуванчик на изгибе'], ['flower', 'Цветок без стебля'], ['logo', 'Логотип 13 MIRRORS']];
+  var GL_MARK_AT = [['text', 'Рядом с надписью'], ['free', 'Отдельно — в своей точке']];
+  var GL_ZOOM_OPTS = [['', 'С надписью и значками'], ['mark', 'Только значки, что стоят отдельно'], ['plain', 'Как есть — чистая картинка']];
   var GL_FIT_OPTS = [['', 'По тексту'], ['even', 'Одинаковая у всех в ряду']];
   var GL_PT_OPTS = [['tl', 'Точка: сверху слева'], ['tc', 'Точка: сверху по центру'], ['tr', 'Точка: сверху справа'], ['ml', 'Точка: по центру слева'],
     ['mc', 'Точка: в самом центре'], ['mr', 'Точка: по центру справа'], ['bl', 'Точка: снизу слева'], ['bc', 'Точка: снизу по центру'], ['br', 'Точка: снизу справа']];
@@ -2291,6 +2293,33 @@
     run();
     return box;
   }
+  /* Значки на картинке: два места g.mark1, g.mark2 (рисует витрина — M13.marksOf, markHTML). У каждого: что, где (рядом с надписью |
+     отдельно — точка), размер, цвет, прозрачность; у стоящего отдельно — «водяной знак» на всех фото. И общее: что видно на картинке крупно. */
+  function glassMarkFields(g, kind, redraw) {
+    var DEF = window.M13.MARK_DEF || [{ kind: 'dandelion', at: 'text' }, { kind: 'logo', at: 'free' }];
+    var pts = GL_PT_OPTS.map(function (o) { var t = o[1].replace('Точка: ', ''); return [o[0], t.charAt(0).toUpperCase() + t.slice(1)]; });
+    var out = [sub('Значки на картинке'), el('p', { class: 'a-hint', text: 'Два места под значки — включите одно, другое или оба: например, одуванчик рядом с названием и 13 MIRRORS в углу. ' +
+      'Значок лежит поверх картинки, сам файл остаётся чистым; в превью для Telegram и в «Сохранить картинку с надписью» значок впечатан в картинку.' })];
+    [1, 2].forEach(function (i) {
+      var m = g['mark' + i] = g['mark' + i] || {}, d = DEF[i - 1], at = m.at || d.at, kd = m.kind || d.kind;
+      out.push(el('div', { class: 'a-gl-mark' }, [
+        switchIn(m, 'on', 'Значок ' + i, { onChange: redraw, hint: i === 1 ? 'например, одуванчик рядом с надписью' : 'например, логотип 13 MIRRORS в углу' }),
+        !m.on ? null : el('div', { class: 'a-row3' }, [
+          selectIn(m, 'kind', 'Что', GL_MARK_OPTS, { def: d.kind, onChange: redraw }),
+          selectIn(m, 'at', 'Где', GL_MARK_AT, { def: d.at, onChange: redraw }),
+          at === 'free' ? selectIn(m, 'pt', 'Точка', pts, { def: 'br', hint: 'Если надпись внизу — значок лучше поставить сверху.' }) : el('span')]),
+        m.on && kd === 'dandelion3' ? switchIn(m, 'mirror', 'Зеркально — стебель изгибается в другую сторону') : null,
+        !m.on ? null : el('div', { class: 'a-row3' }, [
+          selectIn(m, 'size', 'Размер', GL_SIZE_OPTS, { def: 'm' }),
+          colorOptIn(m, 'color', 'Цвет значка', { inh: function () { return g.color || '#ecd3a3'; }, inhLabel: 'как у надписи' }),
+          rangeIn(m, 'fade', 'Прозрачность', { max: 90, step: 5, unit: '%', def: at === 'free' ? 60 : 0, hint: 'Больше — прозрачнее, как водяной знак.' })]),
+        m.on && at === 'free' && kind !== 'kin' ? switchIn(m, 'all', kind === 'event' ? 'И на всех фото события — водяной знак' : 'И на всех фото маршрута в архиве — водяной знак',
+          { hint: 'Значок встанет в эту же точку на каждой фотографии из галереи.' }) : null
+      ]));
+    });
+    out.push(selectIn(g, 'zoom', 'Картинка крупно (когда на неё нажимают)', GL_ZOOM_OPTS, { def: '' }));
+    return out;
+  }
   // Поля стекла с надписью на картинке (не путать с glassFields — «Стекло и узор» карточек): общие для образца и своего. getS — что показывать в предпросмотре (пусто — пример)
   function glassImgFields(g, getS, kind) {
     kind = kind || 'event';
@@ -2326,7 +2355,6 @@
             if (kind === 'event' && !g.back) { g.back = 'none'; if (!g.pos || !(window.M13.GLASS_PT || {})[g.pos]) g.pos = 'tl'; }
           }
           changed(); redraw(); } })].concat(own ? [glassRowsFields(g, kind)] : lines(), [
-        selectIn(g, 'mark', 'Маленький значок', GL_MARK_OPTS, { def: '' }),
         own ? null : switchIn(g, 'extraOn', 'Ещё строка — свой текст', { onChange: redraw }),
         !own && g.extraOn ? textIn(g, 'extra', 'Ещё строка', { ph: kind === 'event' ? 'Ведущая — Елена Распругина' : 'Created with you. For you.' }) : null,
         sub('Где надпись и подложка'),
@@ -2352,7 +2380,7 @@
           colorOptIn(g, 'color', 'Цвет текста', { base: '#ecd3a3', none: 'золотистый' }),
           selectIn(g, 'size', own ? 'Размер всей надписи' : 'Размер текста', GL_SIZE_OPTS, { def: 'm' }),
           selectIn(g, 'align', 'Выравнивание', GL_ALIGN_OPTS, { def: '' })])
-      ]));
+      ], glassMarkFields(g, kind, redraw)));
     }
     draw();
     return box;
@@ -2463,11 +2491,19 @@
     var fontsReady = document.fonts && document.fonts.load ? Promise.all(loads.map(function (l) {
       return document.fonts.load((l[2] ? 'italic ' : '') + l[1] + ' 40px ' + fam(l[0]), 'Аб');
     })).catch(function () {}) : Promise.resolve();
-    var markP = g.mark === 'dandelion' ? loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(M.dandSVG('logo').replace(/currentColor/g, color).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="124" ')))
-      : g.mark === 'logo' ? loadImg(D.settings.logo ? imgSrc(D.settings.logo) : '../assets/logo.png') : Promise.resolve(null);
+    // значки (M13.marksOf): одуванчики и цветок — SVG своим цветом, логотип — картинка, потом маска цветом значка
+    var MKS = M.marksOf(g), MK = M.MARK;
+    var markP = Promise.all(MKS.map(function (m) {
+      var p = m.kind === 'logo' ? loadImg(D.settings.logo ? imgSrc(D.settings.logo) : '../assets/logo.png') : (function () {
+        var svg = M.markSVG(m), vb = ((svg.match(/viewBox="([^"]+)"/) || [])[1] || '0 0 100 124').split(' ');
+        return loadImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace(/currentColor/g, m.color || color)
+          .replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="' + vb[2] + '" height="' + vb[3] + '" ')));
+      })();
+      return p.then(function (im) { m.img = im; }, function () {});
+    }));
     function hexL(h) { h = /^#[0-9a-f]{6}$/i.test(h || '') ? h : '#ecd3a3'; return 0.299 * parseInt(h.substr(1, 2), 16) + 0.587 * parseInt(h.substr(3, 2), 16) + 0.114 * parseInt(h.substr(5, 2), 16); }
-    return Promise.all([loadImg(imgSrc(src)), fontsReady, markP.catch(function () { return null; })]).then(function (r) {
-      var img = r[0], mk = r[2], c = document.createElement('canvas'), iw = img.naturalWidth, ih = img.naturalHeight, R, s, f;
+    return Promise.all([loadImg(imgSrc(src)), fontsReady, markP]).then(function (r) {
+      var img = r[0], c = document.createElement('canvas'), iw = img.naturalWidth, ih = img.naturalHeight, R, s, f;
       if (opt.native) {
         // сама картинка, без полей; надпись — как на странице события, где картинка шириной около 1000 px (f — во сколько раз крупнее)
         var kn = Math.min(1, 2400 / Math.max(iw, ih));
@@ -2494,7 +2530,25 @@
       var WID = { s: 0.36, m: 0.5, l: 0.7 };
       var bw = pt ? (g.width === 'f' ? R.w - 2 * off : WID[g.width] ? R.w * WID[g.width] : maxW) : maxW, tw = bw - 2 * padX;
       var al = g.align || (pt ? PT[pt] : pos === 'center' || pos === 'full' ? 'center' : 'left');
-      var mkW = mk ? (g.mark === 'logo' ? fD * 1.15 * mk.naturalWidth / mk.naturalHeight : fD * 2.1 * 100 / 124) : 0, mkH = mk ? (g.mark === 'logo' ? fD * 1.15 : fD * 2.1) : 0;
+      // значки рядом с надписью — в строке на стекле, друг за другом
+      function mkT(m) { return m.kind === 'logo' || m.kind === 'flower' ? m.kind : 'dand'; }
+      var near = MKS.filter(function (m) { return m.at === 'text' && m.img; }).map(function (m) {
+        var h = fD * MK.k[m.size] * MK.near[mkT(m)]; return { m: m, h: h, w: h * m.img.naturalWidth / m.img.naturalHeight };
+      });
+      var mkGap = fD * 0.6, mk = near.length > 0;
+      var mkW = near.reduce(function (a, o, i) { return a + o.w + (i ? mkGap : 0); }, 0), mkH = near.reduce(function (a, o) { return Math.max(a, o.h); }, 0);
+      // значок своим цветом и прозрачностью; логотип — только очертания; sh — лёгкая тень (у значков, что стоят отдельно)
+      function drawMark(m, x, y, w, h, sh) {
+        var mc = m.color || color;
+        ctx.save(); ctx.globalAlpha = 1 - (m.fade || 0) / 100;
+        if (sh) { ctx.shadowColor = hexL(mc) < 110 ? 'rgba(255,248,235,.55)' : 'rgba(0,0,0,.38)'; ctx.shadowBlur = 4 * f * s; ctx.shadowOffsetY = f * s; }
+        if (m.kind === 'logo') {
+          var o = document.createElement('canvas'); o.width = Math.ceil(w * 2); o.height = Math.ceil(h * 2);
+          var oc = o.getContext('2d'); oc.drawImage(m.img, 0, 0, o.width, o.height); oc.globalCompositeOperation = 'source-in'; oc.fillStyle = mc; oc.fillRect(0, 0, o.width, o.height);
+          ctx.drawImage(o, x, y, w, h);
+        } else ctx.drawImage(m.img, x, y, w, h);
+        ctx.restore();
+      }
       var rows = [];
       if (own) {
         var RS = M.GLASS_ROW, GP = M.GLASS_GAP;
@@ -2527,7 +2581,7 @@
       rows.forEach(function (w) { if (w.h == null) w.h = w.lines.length * w.size * (w.lh || 1.15) + (w.lpad || 0); w.top = w.top || 0; });
       // «по тексту» у девяти точек — ширина по самой длинной строке
       if (pt && !g.width) { bw = Math.min(maxW, rows.reduce(function (m, w) { return Math.max(m, widthOf(w)); }, 0) + 2 * padX); tw = bw - 2 * padX; }
-      var ch = rows.reduce(function (a, w) { return a + w.h + w.top; }, 0);
+      var ch = rows.reduce(function (a, w) { return a + w.h + w.top; }, 0), hasText = rows.length > 0;
       var fixed = side || pos === 'full', bh = fixed ? R.h - 2 * ins : Math.min(ch + 2 * padY, pos === 'band' ? R.h : R.h - 2 * (pt ? off : ins));
       var col = pt ? PT[pt] : '', row = pt ? pt.charAt(0) : '';
       var bx = pt ? (col === 'left' ? R.x + off : col === 'right' ? R.x + R.w - off - bw : R.x + (R.w - bw) / 2)
@@ -2538,14 +2592,14 @@
       function box() { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, r0); else ctx.rect(bx, by, bw, bh); }
       var lineC = rimC || color;
       // подложка: стекло (размытая картинка под ним и оттенок) — или ничего
-      if (back === 'glass') {
+      if (back === 'glass' && hasText) {
         ctx.save(); box(); ctx.clip();
         var bl = Math.max(0, Math.min(24, +v('blur'))) * s;
         if (bl) { ctx.filter = 'blur(' + bl + 'px) saturate(1.2)'; ctx.drawImage(img, R.x, R.y, R.w, R.h); ctx.filter = 'none'; }
         ctx.fillStyle = 'rgba(' + rgb + ',' + ((100 - Math.max(0, Math.min(100, +v('glass')))) / 100) + ')'; ctx.fillRect(bx, by, bw, bh);
         ctx.restore();
       }
-      if (back !== 'none' && rimK !== 'none') {
+      if (back !== 'none' && rimK !== 'none' && hasText) {
         ctx.save(); ctx.lineWidth = 2 * f; ctx.strokeStyle = lineC; ctx.globalAlpha = rimK === 'glow' ? 0.78 : rimC ? 0.88 : 0.42;
         if (rimK === 'glow') { ctx.shadowColor = lineC; ctx.shadowBlur = 22; }
         if (pos === 'band') { ctx.beginPath(); ctx.moveTo(bx, by + 1); ctx.lineTo(bx + bw, by + 1); ctx.stroke(); } else { box(); ctx.stroke(); }
@@ -2574,17 +2628,22 @@
           var full = widest + (mk ? (widest ? fD * 0.6 : 0) + mkW : 0), sx = tx(full, x0), ty = y + (hh - w.lines.length * lh) / 2;
           w.lines.forEach(function (l, i) { ctx.fillText(l, w.lines.length > 1 ? tx(ctx.measureText(l).width, x0) : sx, ty + i * lh); });
           if (mk) {
-            var mx = sx + full - mkW, my = y + (hh - mkH) / 2;
-            if (g.mark === 'logo') {   // логотип — только очертания, цветом текста
-              var o = document.createElement('canvas'); o.width = Math.ceil(mkW * 2); o.height = Math.ceil(mkH * 2);
-              var oc = o.getContext('2d'); oc.drawImage(mk, 0, 0, o.width, o.height); oc.globalCompositeOperation = 'source-in'; oc.fillStyle = color; oc.fillRect(0, 0, o.width, o.height);
-              ctx.drawImage(o, mx, my, mkW, mkH);
-            } else ctx.drawImage(mk, mx, my, mkW, mkH);
+            var mx = sx + full - mkW;
+            near.forEach(function (q) { drawMark(q.m, mx, y + (hh - q.h) / 2, q.w, q.h); mx += q.w + mkGap; });
           }
         } else w.lines.forEach(function (l, i) { ctx.fillText(l, tx(ctx.measureText(l).width, x0), y + i * lh); });
         y += hh;
       });
       ctx.restore();
+      // значки отдельно — поверх картинки в своих точках (размер и отступ — как .m13-mk в vitrina.css)
+      MKS.forEach(function (m) {
+        if (m.at !== 'free' || !m.img) return;
+        var h = MK.k[m.size] * cl(MK.fs[0], MK.fs[1] * u, MK.fs[2]) * MK.free[mkT(m)], w = h * m.img.naturalWidth / m.img.naturalHeight;
+        var o = cl(MK.off[0], MK.off[1] * u, MK.off[2]), cc = PT[m.pt] || 'right', rr = m.pt.charAt(0);
+        var x = cc === 'left' ? R.x + o : cc === 'right' ? R.x + R.w - o - w : R.x + (R.w - w) / 2;
+        var y = rr === 't' ? R.y + o : rr === 'b' ? R.y + R.h - o - h : R.y + (R.h - h) / 2;
+        drawMark(m, x, y, w, h, true);
+      });
       return c;
     });
   }
@@ -3328,6 +3387,14 @@
       var lk = x && x.look;
       if (lk && lk.glass && typeof lk.glass === 'object') { if (!lk.imgGlass) lk.imgGlass = lk.glass; delete lk.glass; }
     });
+    // Один маленький значок g.mark → место 1 «рядом с надписью» (g.mark1), как было: без прозрачности
+    function markMig(g) {
+      if (!g || typeof g !== 'object' || !g.mark) return;
+      if ((g.mark === 'dandelion' || g.mark === 'logo') && !g.mark1) g.mark1 = { on: true, kind: g.mark, at: 'text', fade: 0 };
+      delete g.mark;
+    }
+    [D.events, D.sandbox, D.reflection].forEach(function (x) { markMig(x && x.look && x.look.imgGlass); });
+    [D.events.items, (D.reflection || {}).items, (D.routes || {}).routes].forEach(function (L) { (L || []).forEach(function (x) { markMig(x && x.glass); }); });
     // Старый текст «Ссылка на карточку скопирована…» — кнопка есть и у примеров, событий, архива
     var tx = D.settings && D.settings.texts;
     if (tx && tx.shareCopied === 'Ссылка на карточку скопирована — её можно отправить в чат.') tx.shareCopied = 'Ссылка скопирована — её можно отправить в чат.';

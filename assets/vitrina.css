@@ -406,7 +406,11 @@ body.m13-locked{overflow:hidden}
 .m13-lb{position:fixed;inset:0;z-index:600;display:none;align-items:center;justify-content:center;background:rgba(12,12,12,.92);
   padding:max(16px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom))}
 .m13-lb.is-open{display:flex}
-.m13-lb-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5);user-select:none;-webkit-user-drag:none}
+/* картинка крупно: рамка по размеру картинки — надпись и значки (если выбраны) лежат ровно на ней */
+.m13-lb-fig{position:relative;max-width:100%;line-height:0;border-radius:8px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.m13-lb-img{display:block;max-width:calc(100vw - 24px);max-height:calc(100vh - 32px);object-fit:contain;user-select:none;-webkit-user-drag:none}
+@supports (height:100dvh){.m13-lb-img{max-height:calc(100dvh - 2 * max(16px,env(safe-area-inset-bottom)))}}
+.m13-lb-fig .m13-gl-box:empty{display:none}
 .m13-lb-close,.m13-lb-nav{position:absolute;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#222;cursor:pointer;
   width:44px;height:44px;display:grid;place-items:center;font-size:28px;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .m13-lb-close{top:max(14px,env(safe-area-inset-top));right:14px;font-size:26px}
@@ -1320,8 +1324,9 @@ body.m13-locked{overflow:hidden}
 .m13-gl-row{display:flex;align-items:center;gap:.6em}
 .m13-gl-d{font-size:clamp(9px,calc(3 * var(--u) * var(--gl-k)),18px);letter-spacing:.03em;line-height:1.3;opacity:.96}
 .m13-gl-x{font-size:clamp(10px,calc(3.4 * var(--u) * var(--gl-k)),21px);font-style:italic;line-height:1.25}
-.m13-gl-mk{flex-shrink:0;display:inline-flex;color:inherit;font-size:clamp(9.5px,calc(3 * var(--u) * var(--gl-k)),18px)}
-.m13-gl-mk--dand svg{display:block;width:auto;height:2.1em}
+.m13-gl-mk{flex-shrink:0;display:inline-flex;color:inherit;font-size:calc(var(--mk-k,1) * clamp(9.5px,calc(3 * var(--u) * var(--gl-k)),18px))}
+.m13-gl-mk svg{display:block;width:auto;height:2.1em}
+.m13-gl-mk.m13-mk-t-flower svg{height:1.7em}
 .m13-gl-mk .m13-logo{display:block;width:auto;height:1.15em;aspect-ratio:var(--m13-lr,4.5)}
 .m13-gl-al-center{text-align:center}
 .m13-gl-al-center .m13-gl-row{justify-content:center}
@@ -1378,6 +1383,26 @@ body.m13-locked{overflow:hidden}
 .m13-gl-r--line.m13-gl-g-l{margin-top:calc(3 * var(--u))}
 .m13-gl-r-mk{margin-top:calc(1 * var(--u))}
 .m13-gl--band.m13-gl-rim-line,.m13-gl--band.m13-gl-rim-glow{border-width:1px 0 0}
+/* Значки отдельно от надписи: поверх картинки в одной из девяти точек, без стекла, с лёгкой тенью; размер — от картинки (как у надписи).
+   Те же числа — в M13.MARK (vitrina.js) и в картинке для Telegram (admin.js, glassCanvas) */
+.m13-mk{--u:max(1cqw,.75cqh);--mk-o:clamp(6px,calc(3 * var(--u)),36px);position:absolute;z-index:2;display:block;line-height:0;
+  font-size:calc(var(--mk-k,1) * clamp(6px,calc(3.4 * var(--u)),34px));filter:drop-shadow(0 1px 3px var(--mk-sh,rgba(0,0,0,.38)))}
+.m13-mk svg{display:block;width:auto;height:2.6em}
+.m13-mk.m13-mk-t-flower svg{height:2em}
+.m13-mk .m13-logo{display:block;width:auto;height:1em;aspect-ratio:var(--m13-lr,4.5)}
+.m13-mk-sz-s{--mk-k:.75}
+.m13-mk-sz-l{--mk-k:1.4}
+.m13-mk--tl{left:var(--mk-o);top:var(--mk-o)}
+.m13-mk--tc{left:50%;top:var(--mk-o);transform:translateX(-50%)}
+.m13-mk--tr{right:var(--mk-o);top:var(--mk-o)}
+.m13-mk--ml{left:var(--mk-o);top:50%;transform:translateY(-50%)}
+.m13-mk--mc{left:50%;top:50%;transform:translate(-50%,-50%)}
+.m13-mk--mr{right:var(--mk-o);top:50%;transform:translateY(-50%)}
+.m13-mk--bl{left:var(--mk-o);bottom:var(--mk-o)}
+.m13-mk--bc{left:50%;bottom:var(--mk-o);transform:translateX(-50%)}
+.m13-mk--br{right:var(--mk-o);bottom:var(--mk-o)}
+/* водяной знак на маленьких фото галереи */
+.m13-gallery-item.m13-has-mk{position:relative;overflow:hidden}
 /* главная картинка на странице события: рамка по размеру самой картинки, стекло — поверх неё */
 .m13-fig-img.m13-gl-fig{position:relative;width:fit-content;max-width:100%;margin:0 auto;border-radius:10px;overflow:hidden}
 .m13-fig-img.m13-gl-fig > img{width:auto;max-width:100%;height:auto;max-height:560px;border-radius:0}
