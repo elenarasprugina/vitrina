@@ -2387,7 +2387,9 @@
         g.mode === 'own' ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять заново из образца', onclick: function () {
           var c = clone(pat); delete c.on; Object.keys(g).forEach(function (k) { delete g[k]; }); Object.assign(g, c, { mode: 'own' }); changed(); draw(); } })]) : null,
         g.mode === 'own' ? glassImgFields(g, getS, kind) : null,
-        g.mode !== 'off' && has && o.share ? el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(sk, x); } })]) : null
+        g.mode !== 'off' && has ? el('div', { class: 'a-theme' }, [
+          o.share ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(sk, x); } }) : null,
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↓ Сохранить картинку с надписью', onclick: function () { glassSave(sk, x); } })]) : null
       ]);
     }
     draw();
@@ -2396,7 +2398,8 @@
   function glassEventFields(e) { return glassOwnFields(e, 'event', { img: function () { return !!e.cover; }, noImg: 'Нет главной картинки — стекла не будет.', share: true }); }
   // У примера дня / Летописи: только кнопка превью (стекло задаётся у маршрута)
   function glassItemShare(t, x) {
-    return el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(t, x); } })]);
+    return el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Превью ссылки для Telegram', onclick: function () { glassShareShow(t, x); } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↓ Сохранить картинку с надписью', onclick: function () { glassSave(t, x); } })]);
   }
 
   /* ---------- Превью ссылки на событие: стекло с надписью «впекается» в картинку 1200×630 ----------
@@ -2417,7 +2420,9 @@
   }
   // kind — 'event' | 'days' | 'chronicles' | 'route' | 'kin'; x — событие, пример, маршрут или карта.
   // Рисует то же, что на сайте: строки «само» или свои строки, место (края, полоса, девять точек), подложку, контур, тень у букв.
-  function glassCanvas(kind, x, g, D) {
+  // opt.native — картинка в родных пропорциях (до 2400 px по длинной стороне), надпись как на странице сайта; иначе — превью 1200×630
+  function glassCanvas(kind, x, g, D, opt) {
+    opt = opt || {};
     var M = window.M13, DEF = M.GLASS_DEF, W = SHARE_SIZE[0], H = SHARE_SIZE[1], PT = M.GLASS_PT || {};
     function v(k) { return g[k] == null || g[k] === '' ? DEF[k] : g[k]; }
     var L = M.glassLinesOf(kind, x, g, D), own = M.glassRowsOf(kind, x, g, D), font = v('font'), color = g.color || DEF.color, tint = v('tint');
@@ -2443,18 +2448,26 @@
       : g.mark === 'logo' ? loadImg(D.settings.logo ? imgSrc(D.settings.logo) : '../assets/logo.png') : Promise.resolve(null);
     function hexL(h) { h = /^#[0-9a-f]{6}$/i.test(h || '') ? h : '#ecd3a3'; return 0.299 * parseInt(h.substr(1, 2), 16) + 0.587 * parseInt(h.substr(3, 2), 16) + 0.114 * parseInt(h.substr(5, 2), 16); }
     return Promise.all([loadImg(imgSrc(src)), fontsReady, markP.catch(function () { return null; })]).then(function (r) {
-      var img = r[0], mk = r[2], c = document.createElement('canvas'); c.width = W; c.height = H;
-      var ctx = c.getContext('2d'), iw = img.naturalWidth, ih = img.naturalHeight;
-      // фон: та же картинка крупно и размыто; сверху — картинка целиком
-      var sc = Math.max(W / iw, H / ih) * 1.15;
-      ctx.fillStyle = '#16110d'; ctx.fillRect(0, 0, W, H);
-      ctx.filter = 'blur(28px)'; ctx.drawImage(img, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc); ctx.filter = 'none';
-      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, 0, W, H);
-      var k = Math.min(W / iw, H / ih), R = { w: iw * k, h: ih * k }; R.x = (W - R.w) / 2; R.y = (H - R.h) / 2;
+      var img = r[0], mk = r[2], c = document.createElement('canvas'), iw = img.naturalWidth, ih = img.naturalHeight, R, s, f;
+      if (opt.native) {
+        // сама картинка, без полей; надпись — как на странице события, где картинка шириной около 1000 px (f — во сколько раз крупнее)
+        var kn = Math.min(1, 2400 / Math.max(iw, ih));
+        W = Math.round(iw * kn); H = Math.round(ih * kn); c.width = W; c.height = H;
+        R = { x: 0, y: 0, w: W, h: H }; s = 1; f = W / 1000;
+      } else { c.width = W; c.height = H; s = 1.55; f = 1; }
+      var ctx = c.getContext('2d');
+      if (!opt.native) {
+        // фон: та же картинка крупно и размыто; сверху — картинка целиком
+        var sc = Math.max(W / iw, H / ih) * 1.15;
+        ctx.fillStyle = '#16110d'; ctx.fillRect(0, 0, W, H);
+        ctx.filter = 'blur(28px)'; ctx.drawImage(img, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc); ctx.filter = 'none';
+        ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, 0, W, H);
+        var k = Math.min(W / iw, H / ih); R = { w: iw * k, h: ih * k }; R.x = (W - R.w) / 2; R.y = (H - R.h) / 2;
+      }
       ctx.drawImage(img, R.x, R.y, R.w, R.h);
-      // размеры — как на сайте (vitrina.css, .m13-gl), но крупнее: превью в Telegram показывают уменьшенным
-      var s = 1.55, u = Math.max(R.w / 100, 0.75 * R.h / 100), gk = { s: 0.84, l: 1.2 }[g.size] || 1;
-      function cl(a, x, b) { return Math.max(a * s, Math.min(b * s, x * s)); }
+      // размеры — как на сайте (vitrina.css, .m13-gl); в превью Telegram крупнее (s): его показывают уменьшенным
+      var u = Math.max(R.w / 100, 0.75 * R.h / 100), gk = { s: 0.84, l: 1.2 }[g.size] || 1;
+      function cl(a, x, b) { return s * f * Math.max(a, Math.min(b, x / f)); }
       var ins = cl(6, 2.6 * u, 16), off = cl(8, 4 * u, 48), padY = cl(6, 3.2 * u, 22), padX = cl(8, 4 * u, 28), rad = cl(8, 2.2 * u, 14), gap = cl(2, 0.9 * u, 7);
       var side = pos === 'left' || pos === 'right';
       var fTop = cl(7.5, 2.3 * u * gk, 13), fT = side ? cl(11, 4.6 * u * gk, 34) : cl(12, 7.4 * u * gk, 50), fD = cl(9, 3 * u * gk, 18), fX = cl(10, 3.4 * u * gk, 21);
@@ -2514,22 +2527,22 @@
         ctx.restore();
       }
       if (back !== 'none' && rimK !== 'none') {
-        ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = lineC; ctx.globalAlpha = rimK === 'glow' ? 0.78 : rimC ? 0.88 : 0.42;
+        ctx.save(); ctx.lineWidth = 2 * f; ctx.strokeStyle = lineC; ctx.globalAlpha = rimK === 'glow' ? 0.78 : rimC ? 0.88 : 0.42;
         if (rimK === 'glow') { ctx.shadowColor = lineC; ctx.shadowBlur = 22; }
         if (pos === 'band') { ctx.beginPath(); ctx.moveTo(bx, by + 1); ctx.lineTo(bx + bw, by + 1); ctx.stroke(); } else { box(); ctx.stroke(); }
         ctx.restore();
       }
       // текст; тень у букв — светлая под тёмным текстом, тёмная под светлым
       ctx.save(); if (back !== 'none') { box(); ctx.clip(); }
-      var shC = hexL(color) < 110 ? 'rgba(255,248,235,.6)' : 'rgba(0,0,0,.34)', shK = g.shadow === 'none' ? 0 : g.shadow === 'strong' ? 18 : 10;
-      ctx.textBaseline = 'top'; ctx.shadowColor = shC; ctx.shadowBlur = shK; ctx.shadowOffsetY = shK ? 1 : 0;
+      var shC = hexL(color) < 110 ? 'rgba(255,248,235,.6)' : 'rgba(0,0,0,.34)', shK = (g.shadow === 'none' ? 0 : g.shadow === 'strong' ? 18 : 10) * f;
+      ctx.textBaseline = 'top'; ctx.shadowColor = shC; ctx.shadowBlur = shK; ctx.shadowOffsetY = shK ? f : 0;
       var y = fixed ? (pos === 'full' ? by + (bh - ch) / 2 : by + bh - padY - ch) : by + padY;
       if (!fixed && g.fit === 'even') y = by + (bh - ch) / 2;
       function tx(w, x0) { return al === 'center' ? x0 + (tw - w) / 2 : al === 'right' ? x0 + tw - w : x0; }
       rows.forEach(function (w) {
         y += w.top;
         if (w.line) {
-          ctx.save(); ctx.shadowBlur = 0; ctx.globalAlpha = 0.6; ctx.strokeStyle = lineC; ctx.lineWidth = 1.5;
+          ctx.save(); ctx.shadowBlur = 0; ctx.globalAlpha = 0.6; ctx.strokeStyle = lineC; ctx.lineWidth = 1.5 * f;
           ctx.beginPath(); ctx.moveTo(bx + padX, y); ctx.lineTo(bx + padX + tw, y); ctx.stroke(); ctx.restore();
           y += w.lpad;
         }
@@ -2571,15 +2584,36 @@
     ((P.routes || {}).routes || []).forEach(function (r) { if (r) bake('route', r, r.visible !== false && !!r.archive); });
     return Promise.all(jobs);
   }
+  // Имя файла: «13mirrors-pro-mak.jpg» (русские буквы — латиницей)
+  var TRL = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't',
+    у: 'u', ф: 'f', х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+  function fileSlug(t) {
+    return String(t || '').toLowerCase().split('').map(function (ch) { return TRL[ch] != null ? TRL[ch] : ch; }).join('')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'kartinka';
+  }
+  function glassTitle(kind, x) { return kind === 'chronicles' ? x.name : kind === 'days' ? [((routeById(x.routeId) || {}).title), x.day ? 'den ' + x.day : ''].filter(Boolean).join(' ') : x.title; }
+  function saveCanvas(c, name) {
+    var a = el('a', { href: c.toDataURL('image/jpeg', 0.92), download: '13mirrors-' + fileSlug(name) + '.jpg' });
+    document.body.appendChild(a); a.click(); a.remove();
+  }
   function glassShareShow(kind, x) {
     var f = window.M13.glassFor(kind, x, DATA);
     if (!f.img || !f.g) { toast('Нет картинки или стекло выключено — в Telegram будет просто картинка.', true); return; }
     glassCanvas(kind, x, f.g, DATA).then(function (c) {
-      c.style.cssText = 'display:block;width:100%;height:auto;border-radius:8px';
-      dialog({ title: 'Картинка превью для Telegram и VK', body: el('div', {}, [c,
-        el('p', { class: 'a-hint', text: 'Такая картинка появится в превью ссылки после публикации. На сайте надпись остаётся настоящим текстом.' })]),
+      var shown = el('img', { src: c.toDataURL('image/jpeg', 0.9), alt: '', style: 'display:block;width:100%;height:auto;border-radius:8px' });
+      dialog({ title: 'Картинка превью для Telegram и VK', body: el('div', {}, [shown,
+        el('p', { class: 'a-hint', text: 'Такая картинка появится в превью ссылки после публикации. На сайте надпись остаётся настоящим текстом.' }),
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скачать эту (1200 × 630)', onclick: function () { saveCanvas(c, glassTitle(kind, x) + '-telegram'); } })])]),
         buttons: [['ok', 'Понятно', 'dark']] });
     }).catch(function () { toast('Не получилось нарисовать превью — картинка не загрузилась.', true); });
+  }
+  // «Сохранить картинку с надписью»: картинка целиком, в своих пропорциях, надпись впечатана — как на странице сайта
+  function glassSave(kind, x) {
+    var f = window.M13.glassFor(kind, x, DATA);
+    if (!f.img) { toast('Нет картинки — сохранять нечего.', true); return; }
+    if (!f.g) { toast('Стекло с надписью выключено — включите его, чтобы сохранить картинку с надписью.', true); return; }
+    glassCanvas(kind, x, f.g, DATA, { native: true }).then(function (c) { saveCanvas(c, glassTitle(kind, x)); toast('Картинка сохранена в «Загрузки».'); })
+      .catch(function () { toast('Не получилось нарисовать картинку — она не загрузилась.', true); });
   }
 
   function viewEvents() {
@@ -3591,7 +3625,7 @@
     return { files: files, removed: removed };
   }
   // Для проверки страниц-превью из консоли браузера
-  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass };
+  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas };
   function publish() {
     if (GHS.busy) return;
     if (!GHS.token) {
