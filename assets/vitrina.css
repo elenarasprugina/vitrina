@@ -64,6 +64,9 @@ body.m13-locked{overflow:hidden}
 .m13-big-stage{position:relative;width:min(570px,92vw);height:min(650px,78svh);min-height:500px;perspective:1400px;transform:translateY(-1.5svh)}
 .m13-big-card{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .52s cubic-bezier(.2,.75,.2,1)}
 .m13-big-card.is-flipped{transform:rotateY(180deg)}
+/* Safari: свои слои внутри стороны (бегущий контур, блики, кнопки рядом с ними) не прячутся вместе со стороной —
+   лицевая сторона просвечивала зеркально сквозь оборот. Прячем изнанку у каждого слоя. */
+.m13-big-card .m13-face *{-webkit-backface-visibility:hidden;backface-visibility:hidden}
 .m13-face{position:absolute;inset:0;overflow:hidden;border:1px solid #bdbdbd;border-radius:22px;background:#fff;
   box-shadow:0 28px 70px rgba(0,0,0,.24);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .m13-front{padding:24px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;background-size:cover;background-position:center}

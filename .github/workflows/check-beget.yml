@@ -5,11 +5,21 @@ name: Проверка копии на Beget
 
 on:
   workflow_dispatch:        # Actions → «Проверка копии на Beget» → Run workflow
+    inputs:
+      quick:
+        description: 'Быстро: только https и сертификат (без сверки файлов и снимков)'
+        type: boolean
+        default: false
+      ip:
+        description: 'Свой адрес сервера (пусто — адрес evraspyn.beget.tech)'
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 env:
+  PYTHONUNBUFFERED: '1'     # строки журнала — сразу, даже если шаг застрянет
   BEGET_HOST: evraspyn.beget.tech
   SITE: 13mirrors.ru
 
@@ -25,11 +35,12 @@ jobs:
 
       - name: Адрес сервера
         run: |
-          ip=$(getent ahostsv4 "$BEGET_HOST" | awk 'NR==1{print $1}')
+          ip="${{ inputs.ip }}"; [ -n "$ip" ] || ip=$(getent ahostsv4 "$BEGET_HOST" | awk 'NR==1{print $1}')
           echo "Beget ($BEGET_HOST): $ip"; echo "BEGET_IP=$ip" >> "$GITHUB_ENV"
           echo "13mirrors.ru сейчас смотрит на:"; getent ahostsv4 "$SITE" | awk '{print $1}' | sort -u
 
       - name: Файлы — байт в байт
+        if: ${{ !inputs.quick }}
         run: |
           python3 - <<'EOF'
           import os, hashlib, http.client, urllib.parse
@@ -126,7 +137,8 @@ jobs:
           EOF
 
       - name: Страницы в браузере
-        if: always()
+        if: ${{ always() && !inputs.quick }}
+        timeout-minutes: 8
         run: |
           pip install -q playwright && python3 -m playwright install --with-deps chromium > /dev/null
           mkdir shots
@@ -161,5 +173,5 @@ jobs:
           EOF
 
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && !inputs.quick }}
         with: { name: snimki, path: shots, retention-days: 3 }
