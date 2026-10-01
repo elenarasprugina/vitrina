@@ -2890,7 +2890,9 @@
           return (b.title || 'Без заголовка') + (b.text ? ' — ' + String(b.text).replace(/\s+/g, ' ').slice(0, 40) + '…' : '');
         },
         body: function (b, render) {
-          if (b.kind === 'images') return [galleryForm(b.images = b.images || [])];
+          if (b.kind === 'images') return [galleryForm(b.images = b.images || []),
+            selectIn(b, 'thumbs', 'Остальные картинки (под главной)', [['square', 'Мелкими квадратиками — 4 в ряд на телефоне, 6 на компьютере'], ['row', 'Лентой в своих пропорциях']],
+              { def: tab === 'event' ? 'square' : 'row', hint: 'В квадратике видна середина картинки, края обрезаются; при нажатии картинка открывается целиком. Для афиш с надписью по краю лучше «лентой».' })];
           if (b.kind === 'hosts') return hostsForm(b, render);
           if (b.kind === 'program') return programForm(b);
           return [
@@ -2916,11 +2918,13 @@
   function evAccent() { return ((DATA.events || {}).look || {}).accent; }
   function hostsForm(b, render) {
     b.people = b.people || [];
-    var ring = b.layout === 'ring';
+    var ring = b.layout === 'ring', list;
+    // Добавили / убрали / переставили человека — пусть заголовок раздела сразу покажет, кто выбран
+    function tell() { if (list) list.dispatchEvent(new Event('change', { bubbles: true })); }
     return [
       textIn(b, 'title', 'Заголовок раздела', { ph: 'Ведущие, Ведущая, Кто ведёт…' }),
       people().length ? null : el('p', { class: 'a-note', text: 'Общий список пока пуст. Добавьте людей в блоке «Ведущие — общий список» ниже на этой странице (фото, имя, роль, пара строк) — потом выберите их здесь.' }),
-      collection(b.people, { ordered: false,
+      list = collection(b.people, { ordered: false, onChange: tell,
         title: function (x) { return (personName(x.id) || '— не выбран —') + (x.note ? ' · ' + x.note : ''); },
         make: function () { var have = b.people.map(function (x) { return x.id; }); var p = people().filter(function (q) { return have.indexOf(q.id) < 0; })[0]; return { id: p ? p.id : '', note: '' }; },
         addLabel: '+ Выбрать ведущего', empty: 'Пока никто не выбран.',
