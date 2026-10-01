@@ -4,10 +4,7 @@
 name: Проверка копии на Beget
 
 on:
-  push:
-    branches: [claude/bold-gates-3ns2mg]
-    paths: [.github/workflows/check-beget.yml]
-  workflow_dispatch:
+  workflow_dispatch:        # Actions → «Проверка копии на Beget» → Run workflow
 
 permissions:
   contents: read
