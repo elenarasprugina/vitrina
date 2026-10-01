@@ -61,6 +61,17 @@ body.m13-locked{overflow:hidden}
 .m13-overlay{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:14px;
   background:rgba(24,24,24,.58);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
 .m13-overlay.is-open{display:flex}
+/* Календарь складывается: затемнение с размытием — отдельным слоем, который только тает (без перерисовки каждый кадр);
+   у стеклянных сторон карточки размытие на это время снято */
+.m13-overlay.m13-folding{background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-overlay.m13-folding::before{content:"";position:absolute;inset:0;pointer-events:none;background:rgba(24,24,24,.58);
+  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);animation:m13-ov-melt .46s ease forwards}
+.m13-overlay.m13-folding .m13-face{-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-overlay.m13-folding *,.m13-overlay.m13-folding *::before,.m13-overlay.m13-folding *::after{animation-play-state:paused}
+@keyframes m13-ov-melt{to{opacity:0}}
+/* Сетка под открытой карточкой или страницей: бесконечные украшения на паузе (см. hushSync в vitrina.js) */
+.m13-hush .m13-page :is(.m13-breath,.m13-rim--breathe > .m13-rim,.m13-fstar,.m13-thumb.m13-glow-live),
+.m13-hush .m13-page .m13-rim-run::before,.m13-hush .m13-page .m13-phase--during::before{animation-play-state:paused}
 .m13-big-stage{position:relative;width:min(570px,92vw);height:min(650px,78svh);min-height:500px;perspective:1400px;transform:translateY(-1.5svh)}
 .m13-big-card{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .52s cubic-bezier(.2,.75,.2,1)}
 .m13-big-card.is-flipped{transform:rotateY(180deg)}
@@ -603,6 +614,9 @@ body.m13-locked{overflow:hidden}
 .m13-rim-run{transition:opacity 1.4s ease}
 .m13-hold-run .m13-rim-run{opacity:0}
 @keyframes m13-rim-spin{to{transform:rotate(360deg)}}
+/* Телефон: без размытого ореола у бегущего блика. Каждый слой блика — отдельный «трафарет», который телефон собирает
+   заново на каждом кадре; ореол давал половину всей этой работы, а на маленькой карточке его почти не видно */
+@media (max-width:680px){ .m13-rim-run.m13-rim-glow{display:none} }
 
 /* Дымка под строками: мягкое облачко повторяет форму текста, остальная карточка — чистое стекло. --m13-hz — сила (0–1) */
 .m13-th-haze{--m13-hzc:8,6,4}
@@ -1169,12 +1183,9 @@ body.m13-locked{overflow:hidden}
 /* Карточки дня: вспышка и мягкая подсветка до следующего нажатия */
 .m13-grid .m13-thumb.m13-lit{z-index:3;animation:none;
   box-shadow:0 0 0 1.5px var(--m13-star),0 0 26px 6px color-mix(in srgb,var(--m13-star) 50%,transparent)}
-.m13-grid .m13-thumb.m13-lit.m13-hit{animation:m13-hit 1s ease-out}
-@keyframes m13-hit{
-  0%{transform:scale(1);filter:brightness(1)}
-  18%{transform:scale(1.05);filter:brightness(1.35);box-shadow:0 0 0 2px var(--m13-star),0 0 60px 20px var(--m13-star)}
-  100%{transform:scale(1);filter:brightness(1)}
-}
+/* Вспышка (calFlash): слой поверх карточки — светлая дымка и сияние цвета звезды; анимируется только прозрачность */
+.m13-flash{position:fixed;z-index:129;pointer-events:none;opacity:0;background:rgba(255,255,255,.16);
+  box-shadow:0 0 0 2px var(--m13-star),0 0 60px 20px color-mix(in srgb,var(--m13-star) 80%,transparent),inset 0 0 26px 4px color-mix(in srgb,var(--m13-star) 45%,transparent)}
 @media (max-width:680px){
   .m13-cal{gap:8px}
   .m13-cal-head h3{font-size:21px}
@@ -1199,7 +1210,6 @@ body.m13-locked{overflow:hidden}
   .m13-calmini.m13-calmini .m13-cal-bars i::before{display:none}
   .m13-calmini.m13-calmini .m13-cal-day{padding:0;min-height:0}
 }
-@media (prefers-reduced-motion:reduce){ .m13-grid .m13-thumb.m13-lit.m13-hit{animation:none} }
 
 /* ================= Приветственный блик: вид ================= */
 /* Тонкий яркий луч */

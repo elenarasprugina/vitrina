@@ -155,6 +155,7 @@
   // Открытая карточка, Песочница и окно контакта — «слои». Системная кнопка «назад» закрывает верхний слой.
   function pushLayer(name, closeFn, hash) {
     S.layers.push({ name: name, close: closeFn });
+    hushSync();
     if (!S.useHistory) return;
     try { history.pushState({ m13: S.layers.length }, '', hash != null ? hash : location.href); }
     catch (e) { S.useHistory = false; }
@@ -163,11 +164,20 @@
     if (!S.layers.length) return;
     if (S.useHistory) { history.back(); return; }
     S.layers.pop().close();
+    hushSync();
   }
   window.addEventListener('popstate', function () {
     var l = S.layers.pop();
     if (l) l.close();
+    hushSync();
   });
+  // Пока сетка закрыта карточкой или страницей (и пока летят звёзды календаря), бесконечные украшения под ней
+  // (бегущий блик по контуру, дыхание свечения, мерцающая точка) стоят на паузе: их всё равно не видно за
+  // затемнением, а телефону иначе приходится каждый кадр заново размывать весь экран — всё начинает тормозить.
+  function hushSync() {
+    if (!S.root || !S.root.classList) return;
+    S.root.classList.toggle('m13-hush', !!S.flying || !!S.root.querySelector('#m13-overlay.is-open,.m13-internal.is-open'));
+  }
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && S.layers.length) closeTop();
     if (LB.open && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) lbGo(e.key === 'ArrowRight' ? 1 : -1);
@@ -976,6 +986,7 @@
     var ov = S.root.querySelector('#m13-overlay');
     ov.getAnimations && ov.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); });
     ov.style.visibility = '';
+    ov.classList.remove('m13-folding');
     S.root.querySelector('#m13-overlay').classList.remove('is-open');
     S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     lock(false); S.card = null;
@@ -1143,8 +1154,24 @@
   function calUnlight() {
     if (S.calTimers) S.calTimers.forEach(clearTimeout);
     S.calTimers = [];
-    S.root.querySelectorAll('.m13-lit').forEach(function (n) { n.classList.remove('m13-lit', 'm13-hit'); n.style.removeProperty('--m13-star'); });
-    S.root.querySelectorAll('.m13-star,.m13-spark').forEach(function (n) { n.remove(); });
+    S.root.querySelectorAll('.m13-lit').forEach(function (n) { n.classList.remove('m13-lit'); n.style.removeProperty('--m13-star'); });
+    S.root.querySelectorAll('.m13-star,.m13-spark,.m13-flash').forEach(function (n) { n.remove(); });
+    S.flying = 0;
+  }
+  // Вспышка карточки, в которую прилетела звезда: свет — отдельным слоем поверх карточки (меняется только прозрачность),
+  // сама карточка лишь чуть «вздыхает» масштабом. Раньше мигали яркость и тень самой карточки — телефон перерисовывал её
+  // каждый кадр, а яркость поднимала собственные цвета картинки (у оранжевой карточки вспышка выходила красной).
+  function calFlash(t, col) {
+    if (!t.animate) return;
+    var r = t.getBoundingClientRect(), f = document.createElement('i');
+    f.className = 'm13-flash';
+    f.style.cssText = 'left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px;border-radius:' +
+      getComputedStyle(t).borderRadius + ';--m13-star:' + col;
+    S.root.appendChild(f);
+    var k = [{ transform: 'scale(1)' }, { transform: 'scale(1.05)', offset: .18 }, { transform: 'scale(1)' }], o = { duration: 1000, easing: 'ease-out' };
+    t.animate(k, o);
+    f.animate([{ opacity: 0, transform: 'scale(1)' }, { opacity: 1, transform: 'scale(1.05)', offset: .18 }, { opacity: 0, transform: 'scale(1)' }], o)
+      .onfinish = function () { f.remove(); };
   }
   function calFly(c, ids) {
     var col = calStar(c.monthCal), from = thumbOf(c.id);
@@ -1152,16 +1179,23 @@
     var ov = S.root.querySelector('#m13-overlay'), stage = S.root.querySelector('.m13-big-stage');
     function light(t) {
       t.style.setProperty('--m13-star', col);
-      t.classList.remove('m13-hit'); void t.offsetWidth;
-      t.classList.add('m13-lit', 'm13-hit');
+      t.classList.add('m13-lit');
+      if (!reduce) calFlash(t, col);
     }
+    // Последняя звезда долетела и карточка отвспыхивала — украшения под ней снова оживают
+    function landed() { S.calTimers.push(setTimeout(function () { S.flying = 0; hushSync(); }, 1000)); }
     function launch() {
-      ids.map(thumbOf).filter(Boolean).forEach(function (t, i) {
+      var ts = ids.map(thumbOf).filter(Boolean);
+      ts.forEach(function (t, i) {
         if (reduce || !from || !from.animate) { light(t); return; }
-        S.calTimers.push(setTimeout(function () { flyStar(from, t, col, function () { light(t); }, calSnow(c.monthCal)); }, i * 180));
+        S.calTimers.push(setTimeout(function () {
+          flyStar(from, t, col, function () { light(t); if (i === ts.length - 1) landed(); }, calSnow(c.monthCal));
+        }, i * 150));
       });
+      if (!ts.length || reduce || !from || !from.animate) { S.flying = 0; hushSync(); }
     }
     calUnlight();
+    S.flying = 1;
     if (reduce || !from || !stage.animate) { ov.style.visibility = 'hidden'; closeTop(); launch(); return; }
     // Календарь складывается в свою маленькую карточку
     var R = stage.getBoundingClientRect(), T = from.getBoundingClientRect();
@@ -1171,7 +1205,9 @@
     var a = stage.animate([{ transform: m0 === 'none' ? 'none' : m0, opacity: 1 },
       { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + (T.width / R.width) + ',' + (T.height / R.height) + ')', opacity: .35 }],
       { duration: 460, easing: 'cubic-bezier(.55,.05,.4,1)', fill: 'forwards' });
-    ov.animate([{ backgroundColor: getComputedStyle(ov).backgroundColor }, { backgroundColor: 'rgba(0,0,0,0)' }], { duration: 460, fill: 'forwards' });
+    // Затемнение и размытие под календарём тают одним слоем (меняется только прозрачность — это телефон делает легко);
+    // стеклянное размытие самого календаря на время складывания снимаем — его пришлось бы пересчитывать каждый кадр
+    ov.classList.add('m13-folding');
     a.onfinish = function () { ov.style.visibility = 'hidden'; closeTop(); launch(); };
   }
   // Звезда (или снежинка, snow) летит по дуге из карточки a в карточку b, за ней — 7 искр
@@ -1186,7 +1222,7 @@
       var x = u * u * x0 + 2 * u * t * cx + t * t * x1, y = u * u * y0 + 2 * u * t * cy + t * t * y1;
       kf.push({ transform: 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (0.7 + Math.sin(t * Math.PI) * .7).toFixed(2) + ')' + (snow ? ' rotate(' + Math.round(t * 240) + 'deg)' : '') });
     }
-    var dur = Math.max(620, Math.min(1100, 480 + dist * .9)), opt2 = { duration: dur, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' };
+    var dur = Math.max(560, Math.min(950, 420 + dist * .8)), opt2 = { duration: dur, easing: 'cubic-bezier(.45,0,.35,1)', fill: 'both' };
     function dot(cls, delay, k) {
       var n = document.createElement('i'); n.className = cls; n.style.setProperty('--m13-star', col); S.root.appendChild(n);
       var an = n.animate(kf.map(function (f, j) { return { transform: f.transform + (k ? ' scale(' + k + ')' : ''), opacity: k ? (1 - j / 24) * .9 : 1 }; }), Object.assign({}, opt2, { delay: delay }));
