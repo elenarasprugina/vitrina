@@ -1,0 +1,12 @@
+# Настройка сервера Beget для витрины (на GitHub Pages этот файл ни на что не влияет).
+# Картинки (30 дней) и код (7 дней, имена с ?v=) Beget и сам держит в памяти браузера.
+# Здесь — страницы и данные: браузер каждый раз быстро сверяется с сервером,
+# поэтому после «Опубликовать» посетители сразу видят новое; данные — сжатые.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE application/json
+</IfModule>

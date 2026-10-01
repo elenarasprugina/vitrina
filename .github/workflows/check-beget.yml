@@ -39,7 +39,7 @@ jobs:
               c.request('GET', urllib.parse.quote(path), headers={'Host': site, 'User-Agent': 'check'})
               r = c.getresponse(); body = r.read(); c.close()
               return r.status, dict((k.lower(), v) for k, v in r.getheaders()), body
-          skip = {'.git', '.github', 'README.md', 'CNAME', 'CLAUDE.md'}
+          skip = {'.git', '.github', 'README.md', 'CNAME', 'CLAUDE.md', '.htaccess'}
           want = []
           for root, pref, extra in (('h', '/', {'vitrina'}), ('v', '/vitrina/', {'docs'})):
               for d, dirs, files in os.walk(root):
@@ -64,7 +64,7 @@ jobs:
           for e in sorted(types): print('  %-6s %s' % (e, ', '.join(sorted(types[e]))))
           print('\nАдреса без имени файла:')
           for p in ['/', '/grimoire/', '/grimoire', '/vitrina/', '/vitrina', '/vitrina/2026-10/',
-                    '/vitrina/events/', '/vitrina/admin/', '/net-takoj-stranicy/', '/.13mirrors-deploy-root', '/cgi-bin/']:
+                    '/vitrina/events/', '/vitrina/admin/', '/net-takoj-stranicy/', '/.13mirrors-deploy-root', '/cgi-bin/', '/vitrina/.htaccess']:
               st, h, body = get(p)
               print('  %-26s %s %s %s' % (p, st, h.get('content-type', ''), ('→ ' + h['location']) if 'location' in h else ''))
           st, h, body = get('/vitrina/data/events.json')
@@ -72,6 +72,57 @@ jobs:
           for k in ('server', 'content-type', 'cache-control', 'expires', 'etag', 'last-modified', 'content-encoding'):
               print('  %s: %s' % (k, h.get(k, '—')))
           if bad: raise SystemExit(1)
+          EOF
+
+      - name: Память браузера и сжатие
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import os, glob, socket, ssl, http.client
+          ip, site = os.environ['BEGET_IP'], os.environ['SITE']
+          js = open('v/index.html').read().split('vitrina.js?v=')[1].split('"')[0]
+          media = sorted(glob.glob('v/media/*'))
+          paths = ['/', '/vitrina/', '/vitrina/admin/', '/vitrina/2026-10/', '/vitrina/data/settings.json', '/vitrina/data/showcases/2026-10.json',
+                   '/vitrina/assets/vitrina.js?v=' + js, '/vitrina/assets/vitrina.css?v=' + js,
+                   '/favicon.svg', '/assets/door-wide.webp', '/assets/og.jpg']
+          paths += ['/vitrina/media/' + os.path.basename(m) for m in media[:2]]
+          class HTTPSToIP(http.client.HTTPSConnection):
+              def connect(self):
+                  s = socket.create_connection((ip, 443), timeout=30)
+                  self.sock = self._context.wrap_socket(s, server_hostname=self.host)
+          def ask(scheme, host, path):
+              if scheme == 'https':
+                  c = HTTPSToIP(host, 443, timeout=30, context=ssl.create_default_context())
+              else:
+                  c = http.client.HTTPConnection(ip, 80, timeout=30)
+              c.request('GET', path, headers={'Host': host, 'User-Agent': 'check', 'Accept-Encoding': 'gzip'})
+              r = c.getresponse(); body = r.read(); c.close()
+              return r.status, dict((k.lower(), v) for k, v in r.getheaders()), len(body)
+          for scheme in ('http', 'https'):
+              print('\n=== %s://%s ===' % (scheme, site))
+              try:
+                  for p in paths:
+                      st, h, n = ask(scheme, site, p)
+                      print('%-48s %s  %-28s cache-control: %-30s expires: %-31s сжатие: %-5s %d байт%s' % (
+                          p[:48], st, h.get('content-type', '')[:28], h.get('cache-control', '—'), h.get('expires', '—'),
+                          h.get('content-encoding', '—'), n, ('  → ' + h['location']) if 'location' in h else ''))
+              except Exception as e:
+                  print('  не отвечает: %s' % e)
+              for host in ('www.' + site, site):
+                  for p in ('/', '/vitrina/'):
+                      try:
+                          st, h, n = ask(scheme, host, p)
+                          print('  %s://%s%s → %s %s' % (scheme, host, p, st, h.get('location', '')))
+                      except Exception as e:
+                          print('  %s://%s%s → не отвечает: %s' % (scheme, host, p, e))
+          try:
+              c = ssl.create_default_context().wrap_socket(socket.create_connection((ip, 443), timeout=30), server_hostname=site)
+              cert = c.getpeercert(); c.close()
+              print('\nСертификат: выдан %s, для %s, действует до %s' % (
+                  dict(x[0] for x in cert['issuer']).get('organizationName'),
+                  ', '.join(v for k, v in cert.get('subjectAltName', ())), cert['notAfter']))
+          except Exception as e:
+              print('\nСертификата для %s на Beget пока нет: %s' % (site, e))
           EOF
 
       - name: Страницы в браузере
