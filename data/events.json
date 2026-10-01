@@ -7,23 +7,227 @@
     "past": "Как это было",
     "cases": "Примеры практик"
   },
-  "items": [],
+  "items": [
+    {
+      "id": "ev-a4g8f",
+      "visible": true,
+      "type": "meeting",
+      "title": "Город МАК",
+      "date": "2026-10-08",
+      "dateEnd": "",
+      "time": "",
+      "duration": 120,
+      "place": "Онлайн",
+      "price": "свободный вход",
+      "cover": "media/ad4ca7d2770fe5ec4071.webp",
+      "summary": "",
+      "archive": true,
+      "blocks": [
+        {
+          "id": "sb-cz6sj",
+          "kind": "text",
+          "visible": true,
+          "title": "О встрече",
+          "text": "Прогулка по улицам ассоциаций — от вашего текущего состояния к тому, в котором желание уже стало реальностью. Через МАК-карты, вопросы и живой маршрут мы будем искать не ответ «как получить желаемое», а состояние, из которого к нему можно идти.",
+          "collapse": true,
+          "look": "normal",
+          "order": 1
+        },
+        {
+          "id": "sb-rvtle",
+          "kind": "images",
+          "visible": true,
+          "images": [
+            {
+              "id": "img-pjjx4",
+              "src": "media/7468d785c0bcf6827ecb.webp",
+              "caption": "",
+              "visible": true,
+              "order": 1
+            },
+            {
+              "id": "img-0hmn5",
+              "src": "media/579acc6dee2591b8ef81.webp",
+              "caption": "",
+              "visible": true,
+              "order": 2
+            },
+            {
+              "id": "img-5zp8n",
+              "src": "media/51de5111ab7f01d525bc.webp",
+              "caption": "",
+              "visible": true,
+              "order": 3
+            },
+            {
+              "id": "img-2vm4z",
+              "src": "media/85df550a41f5c53e28b6.webp",
+              "caption": "",
+              "visible": true,
+              "order": 4
+            },
+            {
+              "id": "img-755en",
+              "src": "media/f26a13780d816d4d2b55.webp",
+              "caption": "",
+              "visible": true,
+              "order": 5
+            }
+          ],
+          "order": 2
+        },
+        {
+          "id": "sb-xf9iy",
+          "kind": "hosts",
+          "visible": true,
+          "title": "Ведущие",
+          "people": [
+            {
+              "id": "p-rvip6",
+              "note": ""
+            },
+            {
+              "id": "p-gapao",
+              "note": ""
+            }
+          ],
+          "layout": "auto",
+          "order": 3
+        }
+      ],
+      "actions": [
+        {
+          "kind": "contact",
+          "label": "Записаться",
+          "message": "Привет! \nПришли, пожалуйста, мне ссылку на встречу.",
+          "order": 1
+        },
+        {
+          "kind": "calendar",
+          "label": "Добавить в календарь",
+          "order": 2
+        },
+        {
+          "kind": "share",
+          "label": "Поделиться",
+          "order": 3
+        }
+      ],
+      "order": 1,
+      "coverCaption": "Город МАК",
+      "glass": {
+        "mode": "own",
+        "pos": "tl",
+        "glass": 50,
+        "blur": 0,
+        "color": "#3d2a03",
+        "fit": "even",
+        "top": true,
+        "place": false,
+        "price": false,
+        "rim": "none",
+        "title": false,
+        "topText": "ВСТРЕЧА Город МАК❖   ",
+        "date": false,
+        "align": "left",
+        "write": "own",
+        "rows": [
+          {
+            "id": "gr-4jkm3",
+            "text": "{тип} ",
+            "size": "xs",
+            "caps": true,
+            "weight": "light",
+            "font": "Montserrat",
+            "italic": false
+          },
+          {
+            "id": "gr-20x9x",
+            "text": "{дата} · {место} ",
+            "size": "s",
+            "line": true,
+            "gap": "m",
+            "font": "Montserrat"
+          },
+          {
+            "id": "gr-7nw2m",
+            "text": "{название}",
+            "size": "xl",
+            "weight": "bold",
+            "gap": "s"
+          }
+        ],
+        "back": "none",
+        "mark": "",
+        "shadow": "strong",
+        "width": "",
+        "tint": "gold"
+      },
+      "coverFit": "fill",
+      "shareImage": "media/ee148a8ca003049824f9.jpg"
+    }
+  ],
   "look": {
     "background": {
-      "color": "#fdfcfc",
-      "image": "media/4513feb7be529698cbfa.webp",
+      "color": "#0d0a07",
+      "image": "media/ca0291e4004398d55e93.webp",
       "dim": 0,
-      "blur": 0,
-      "imageTall": "media/12c80e276fee12aa8de4.webp"
+      "blur": 20,
+      "imageTall": "media/4ab75352b39b4748cc9a.webp",
+      "contrast": 70,
+      "sat": 115,
+      "bright": 100
     },
     "font": "Cormorant Garamond",
-    "textColor": "#1466e7",
-    "headColor": "#1466e7",
-    "accent": "#e5b765",
-    "panelBg": "",
-    "glass": 85,
-    "glassBlur": 3,
-    "textSize": "xl",
-    "lineH": "tight"
-  }
+    "textColor": "",
+    "headColor": "#ecd3a3",
+    "accent": "#ecd3a3",
+    "panelBg": "#0d0a07",
+    "glass": 25,
+    "glassBlur": 8,
+    "textSize": "lg",
+    "tabs": {
+      "active": "glass",
+      "glass": 70,
+      "rim": "glow"
+    },
+    "win": {},
+    "imgGlass": {
+      "pos": "top",
+      "glass": 100,
+      "blur": 0,
+      "color": "#3d2a03",
+      "fit": "even",
+      "top": true,
+      "place": false,
+      "price": false,
+      "rim": "none",
+      "title": false,
+      "topText": "ВСТРЕЧА Город МАК❖   ",
+      "date": false,
+      "align": "left",
+      "mark1": {},
+      "mark2": {}
+    }
+  },
+  "people": [
+    {
+      "id": "p-rvip6",
+      "visible": true,
+      "name": "Елена Распругина",
+      "role": "Автор проекта 13MIRRORS",
+      "about": "Исследователь. Странник. Проводник и Мастер в работе с людьми.",
+      "photo": "media/71f3ad7396cd6c7d9d40.webp",
+      "photoY": 30
+    },
+    {
+      "id": "p-gapao",
+      "visible": true,
+      "name": "Ирина Жукова",
+      "role": "преподаватель, психолог",
+      "about": "EMDR/ДПДГ, КПТ, АСТ, схематерапия, ImTT - терапия трансформацией образа",
+      "photo": "media/b75dd224e0f5e0d4c4d1.webp",
+      "photoY": 30
+    }
+  ]
 }

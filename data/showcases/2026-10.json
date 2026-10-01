@@ -857,6 +857,7 @@
     "topHaze": "dark",
     "sheenKind": "soft",
     "waveSpeed": "slow",
-    "topHazeK": 70
+    "topHazeK": 90,
+    "hideTitle": false
   }
 }

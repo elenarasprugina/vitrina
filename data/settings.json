@@ -1,11 +1,11 @@
 {
   "siteTitle": "13 MIRRORS",
   "currentShowcase": "2026-10",
-  "siteUrl": "https://13mirrors.ru/vitrina/",
+  "siteUrl": "https://13mirrors.ru",
   "share": {
     "title": "",
     "description": "Маршруты, встречи и продукты проекта 13 MIRRORS — каждый месяц на одной странице.",
-    "image": null
+    "image": "media/17a8c18026c7540c0a99.jpg"
   },
   "contacts": {
     "telegram": "RaElena",
@@ -56,5 +56,16 @@
     "accent": "#ecd3a3",
     "font": "Cormorant Garamond"
   },
-  "eventsLink": true
+  "eventsLink": true,
+  "grimoire": {
+    "image": "media/699c222909140d9267b8.webp",
+    "eyebrow": "Гримуар",
+    "title": "Калейдоскоп твоих миров",
+    "lead": "Книга пишется.",
+    "text": "Здесь рождается Книга, в которой живут миры людей. Каждый, кто прошёл свой путь в 13 MIRRORS, сможет оставить в ней свой след — историю, стихи, рисунки.\n\nМир Тринадцати Зеркал один — большой и живой. Но без человека он отражает пустоту. Поэтому когда Ты оставляешь свои следы Калейдоскоп вплетает их в большой узор.",
+    "note": "Здесь появится твой мир.",
+    "open": true,
+    "onHome": true,
+    "homeLink": "Гримуар · Калейдоскоп Твоих Миров"
+  }
 }
