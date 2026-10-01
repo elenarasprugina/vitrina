@@ -407,14 +407,15 @@
   // 'line' — прямой (тонкие лучи, вилочка из трёх веточек, крупная серединка); 'wave' — то же на изгибе (mirror — зеркально).
   // Геометрия утверждена ею 30.09.2026 (эскизы — docs/dandelions.js).
   var DAND = {};
+  // 'flower' — цветок без стебля: головка одуванчика из логотипа (те же 12 лучей и кисточки), квадратный значок.
   function dandSVG(kind, mirror) {
-    kind = kind === 'line' || kind === 'wave' ? kind : 'logo';
+    kind = kind === 'line' || kind === 'wave' || kind === 'flower' ? kind : 'logo';
     var key = kind + (kind === 'wave' && mirror ? '-m' : '');
     if (DAND[key]) return DAND[key];
     function xy(x, y) { return x.toFixed(2) + ' ' + y.toFixed(2); }
     function dot(x, y, k) { return 'M' + xy(x - k, y) + 'a' + k + ' ' + k + ' 0 1 0 ' + 2 * k + ' 0a' + k + ' ' + k + ' 0 1 0 ' + -2 * k + ' 0'; }
     var w = '', t = '', d = '', i, a, sa, ca;
-    if (kind === 'logo') {
+    if (kind === 'logo' || kind === 'flower') {
       for (i = 0; i < 12; i++) {
         a = (15 + 30 * i) * Math.PI / 180; sa = Math.sin(a); ca = Math.cos(a);
         var ex = 50 + sa * 34, ey = 42 - ca * 34;
@@ -425,9 +426,9 @@
           t += 'M' + xy(ex, ey) + 'L' + xy(qx, qy); d += dot(qx, qy, 1.3);
         });
       }
-      return (DAND[key] = '<svg viewBox="0 0 100 124" aria-hidden="true"><path fill="currentColor" d="' + w + '"/>' +
+      return (DAND[key] = '<svg viewBox="' + (kind === 'flower' ? '10 2 80 80' : '0 0 100 124') + '" aria-hidden="true"><path fill="currentColor" d="' + w + '"/>' +
         '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width=".8" d="' + t + '"/><path fill="currentColor" d="' + d + '"/>' +
-        '<circle cx="50" cy="42" r="4.6" fill="currentColor"/><rect x="47" y="69" width="6" height="53" fill="currentColor"/></svg>');
+        '<circle cx="50" cy="42" r="4.6" fill="currentColor"/>' + (kind === 'flower' ? '' : '<rect x="47" y="69" width="6" height="53" fill="currentColor"/>') + '</svg>');
     }
     var k = 1.5;
     for (i = 0; i < 12; i++) {
@@ -1677,7 +1678,7 @@
   var LB = { open: false, list: [], i: 0 };
   function lightboxHTML() {
     return '<div class="m13-lb" id="m13-lb" role="dialog" aria-modal="true" aria-label="Картинка">' +
-      '<img class="m13-lb-img" id="m13-lb-img" alt="">' +
+      '<div class="m13-lb-fig"><img class="m13-lb-img" id="m13-lb-img" alt=""><span class="m13-gl-box" id="m13-lb-gl"></span></div>' +
       '<button type="button" class="m13-lb-nav m13-lb-prev" id="m13-lb-prev" aria-label="Предыдущая">‹</button>' +
       '<button type="button" class="m13-lb-nav m13-lb-next" id="m13-lb-next" aria-label="Следующая">›</button>' +
       '<div class="m13-lb-cap" id="m13-lb-cap"></div>' +
@@ -1686,21 +1687,25 @@
   }
   // Галерея: до 10 картинок с подписями. mode 'row' — ряд маленьких (оборот карточки),
   // 'feature' — первая крупно с подписью, остальные рядом под ней (страницы). Крупно — в просмотрщике, с подписью.
-  // gl — стекло с надписью поверх первой картинки (главная картинка события)
-  function galleryHTML(list, mode, gl) {
+  // ov — что поверх картинок (только в 'feature'): строка — стекло с надписью на первой картинке; или {gl, gllb, wm, wmlb} (glassOver / markParts):
+  // gl — стекло на первой (главной) картинке, gllb — что на ней в просмотрщике; wm — водяной знак на остальных фото, wmlb — на них в просмотрщике
+  function galleryHTML(list, mode, ov) {
     var imgs = (list || []).filter(function (m) { return m && m.visible !== false && m.src; }).slice(0, 10);
     if (!imgs.length) return '';
-    var g = S.lb.push(imgs.map(function (m) { return { src: media(m.src), caption: String(m.caption || '').trim() }; })) - 1;
-    function btn(m, k, cls) {
-      return '<button type="button" class="' + cls + '" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
-        '<img src="' + esc(media(m.src)) + '" alt="' + esc(m.caption || '') + '" loading="lazy"></button>';
+    ov = typeof ov === 'string' ? { gl: ov, gllb: ov } : mode === 'feature' && ov ? ov : {};
+    var gl = ov.gl || '', wm = ov.wm || '';
+    var g = S.lb.push(imgs.map(function (m, k) {
+      return { src: media(m.src), caption: String(m.caption || '').trim(), gl: k === 0 && gl ? ov.gllb || '' : wm ? ov.wmlb || '' : '' };
+    })) - 1;
+    function btn(m, k, cls, over) {
+      return '<button type="button" class="' + cls + (over ? ' m13-has-mk' : '') + '" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
+        '<img src="' + esc(media(m.src)) + '" alt="' + esc(m.caption || '') + '" loading="lazy">' + (over ? '<span class="m13-gl-box">' + over + '</span>' : '') + '</button>';
     }
     function cap(m) { var c = String(m.caption || '').trim(); return c ? '<figcaption class="m13-cap">' + esc(c) + '</figcaption>' : ''; }
     if (mode === 'feature') {
-      var first = btn(imgs[0], 0, 'm13-fig-img' + (gl ? ' m13-gl-fig' : ''));
-      if (gl) first = first.replace(/<\/button>$/, '<span class="m13-gl-box">' + gl + '</span></button>');
-      return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + first + cap(imgs[0]) + '</figure>' +
-        (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item'); }).join('') + '</div>' : '') + '</div>';
+      var top = gl || wm;
+      return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + btn(imgs[0], 0, 'm13-fig-img' + (top ? ' m13-gl-fig' : ''), top) + cap(imgs[0]) + '</figure>' +
+        (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item', wm); }).join('') + '</div>' : '') + '</div>';
     }
     return '<div class="m13-gallery">' + imgs.map(function (m, k) { return btn(m, k, 'm13-gallery-item'); }).join('') + '</div>';
   }
@@ -1714,6 +1719,8 @@
     var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length, it = LB.list[LB.i];
     q('#m13-lb-img').src = typeof it === 'string' ? it : it.src;
     var c = q('#m13-lb-cap'); if (c) c.textContent = (it && it.caption) || '';
+    // надпись и значки поверх картинки крупно (как выбрано в оформлении: «При увеличении»)
+    var gb = q('#m13-lb-gl'); if (gb) gb.innerHTML = (it && it.gl) || '';
     q('#m13-lb-count').textContent = n > 1 ? (LB.i + 1) + ' / ' + n : '';
     q('#m13-lb-prev').hidden = q('#m13-lb-next').hidden = n < 2;
   }
@@ -1921,9 +1928,10 @@
     }
     return B;
   };
-  function sbBlockHTML(b, ctx) {
+  // ov — водяной знак на фото раздела {wm, wmlb} (markParts), у событий и маршрутов в архиве
+  function sbBlockHTML(b, ctx, ov) {
     if (!b || b.visible === false) return '';
-    if (b.kind === 'images') return galleryHTML(b.images, 'feature');
+    if (b.kind === 'images') return galleryHTML(b.images, 'feature', ov && ov.wm ? { wm: ov.wm, wmlb: ov.wmlb } : null);
     if (b.kind === 'hosts') return hostsHTML(b, ctx && typeof ctx === 'object' && !Array.isArray(ctx) ? ctx : null);
     if (b.kind === 'program') return programHTML(b);
     var text = String(b.text || '').trim(); if (!text) return '';
@@ -2027,13 +2035,13 @@
   // c = {id, img, fit, color, top, title, line, text, nested}; fit 'whole' — картинка целиком;
   // nested — обложка внутри страницы (пример дня внутри маршрута архива)
   function coverHTML(c) {
-    var whole = c.img && c.fit === 'whole';
+    var whole = c.img && c.fit === 'whole', mk = c.gl && !glText(c.gl);
     return '<button type="button" class="m13-cover' + (c.color ? ' m13-rc' : '') + (c.img ? '' : ' m13-cover--noimg') + (c.gl ? ' m13-cover--gl' : '') + '" ' +
       (c.nested ? 'data-sub' : 'data-open') + '="' + esc(c.id) + '"' + rcStyle(c.color) + '>' +
       '<span class="m13-cover-img' + (whole ? ' m13-fit-whole' : '') + '">' + (c.img ? fitImgHTML(c.img, whole, true)
         : '<span class="m13-cover-ph">' + esc(c.ph || c.title || '') + '</span>') + (c.gl ? '<span class="m13-gl-box">' + c.gl + '</span>' : '') + '</span>' +
       // Со стеклом надпись и название уже на картинке — под ней только «Коротко»
-      (c.gl ? (c.text ? '<span class="m13-cover-txt"><span class="m13-cover-sub">' + esc(c.text) + '</span></span>' : '') + '</button>' :
+      (c.gl && !mk ? (c.text ? '<span class="m13-cover-txt"><span class="m13-cover-sub">' + esc(c.text) + '</span></span>' : '') + '</button>' :
       '<span class="m13-cover-txt">' + (c.top ? '<span class="m13-cover-top">' + esc(c.top) + '</span>' : '') +
       '<span class="m13-cover-title">' + esc(c.title || '') + '</span>' +
       (c.line ? '<span class="m13-cover-line">' + esc(c.line) + '</span>' : '') +
@@ -2047,7 +2055,7 @@
       var rest = (h.meta || []).slice(h.gl.kin ? 1 : 0);
       return '<header class="m13-read-glass' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
         '<h3 class="m13-sr">' + esc([h.top, h.title, h.line].filter(Boolean).join(' · ')) + '</h3>' +
-        galleryHTML([{ src: h.img, caption: '' }], 'feature', h.gl.html) +
+        galleryHTML([{ src: h.img, caption: '' }], 'feature', { gl: h.gl.html, gllb: h.gl.lb == null ? h.gl.html : h.gl.lb }) +
         (rest.length ? '<div class="m13-panel-meta">' + rest.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') + '</header>';
     }
     var g = h.img ? S.lb.push([{ src: media(h.img), caption: '' }]) - 1 : -1;
@@ -2217,7 +2225,7 @@
       else { h.top = [r.title, dayN].filter(Boolean).join(' · '); h.title = it.title; }
     } else { h.top = r.title || ''; h.title = it.name; }
     var gf = glassFor(t, it);
-    if (gf.g) h.gl = { html: glassMake(t, it, gf.g), kin: glassHas(gf.g, 'kin', 'кин') && t === 'days' && !!opt(it.kin) };
+    if (gf.g) { var ov = glassOver(t, it, gf.g); h.gl = { html: ov.gl, lb: ov.gllb, kin: glassHas(gf.g, 'kin', 'кин') && t === 'days' && !!opt(it.kin) }; }
     return '<article class="m13-panel m13-read-panel">' + readHeadHTML(h) + blocks +
       shareBtnHTML([h.title, h.line].filter(Boolean).join(' · '), libUrl('sandbox', it.id, t + '/' + encodeURIComponent(it.id))) + '</article>';
   }
@@ -2364,6 +2372,39 @@
   // Где стекло по умолчанию: у событий — снизу, у картинок маршрутов и Карт-Отражений — полосой по нижнему краю
   var GL_POS_DEF = { event: 'bottom', days: 'band', chronicles: 'band', route: 'band', kin: 'band' };
   M13.GLASS_POS_DEF = GL_POS_DEF;
+  /* Значки на картинке — два места: g.mark1, g.mark2 = {on, kind, mirror, at, pt, size, color, fade, all}.
+     kind: dandelion (из логотипа) | dandelion2 (прямой) | dandelion3 (на изгибе; mirror — зеркально) | flower (без стебля) | logo (13 MIRRORS).
+     at: 'text' — рядом с надписью, на стекле | 'free' — отдельно, в одной из девяти точек pt (по умолчанию справа снизу), без стекла, с лёгкой тенью.
+     size s | m | l; color — пусто: цвет надписи; fade — прозрачность 0–90 % (по умолчанию: отдельно 60, рядом с надписью 0);
+     all — водяной знак: и на всех фото объекта (галерея события, фото маршрута в архиве). Старое g.mark ('dandelion' | 'logo') = место 1 рядом с надписью. */
+  var MK_KIND = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave', flower: 'flower', logo: '' };
+  var MK_DEF = [{ kind: 'dandelion', at: 'text' }, { kind: 'logo', at: 'free' }];
+  // Размер: множитель; высота значка в долях размера шрифта (рядом с надписью — от строки даты, отдельно — от ширины картинки)
+  var MK = { k: { s: 0.75, m: 1, l: 1.4 }, near: { dand: 2.1, flower: 1.7, logo: 1.15 }, free: { dand: 2.6, flower: 2, logo: 1 }, fs: [6, 3.4, 34], off: [6, 3, 36] };
+  M13.MARK = MK; M13.MARK_DEF = MK_DEF;
+  function mkType(kind) { return kind === 'logo' || kind === 'flower' ? kind : 'dand'; }
+  function marksOf(g) {
+    var L = [];
+    if (!g) return L;
+    [g.mark1, g.mark2].forEach(function (m, i) {
+      if (!m || !m.on) return;
+      var d = MK_DEF[i], at = m.at === 'text' || m.at === 'free' ? m.at : d.at;
+      var fade = m.fade == null || m.fade === '' || isNaN(+m.fade) ? (at === 'free' ? 60 : 0) : Math.max(0, Math.min(90, +m.fade));
+      L.push({ kind: MK_KIND[m.kind] != null ? m.kind : d.kind, mirror: !!m.mirror, at: at, pt: GL_PT[m.pt] ? m.pt : 'br', size: MK.k[m.size] ? m.size : 'm',
+        color: /^#[0-9a-f]{6}$/i.test(m.color || '') ? m.color : '', fade: fade, all: at === 'free' && !!m.all });
+    });
+    if (g.mark1 == null && g.mark2 == null && (g.mark === 'dandelion' || g.mark === 'logo')) L.push({ kind: g.mark, at: 'text', pt: 'br', size: 'm', color: '', fade: 0, all: false });
+    return L;
+  }
+  function markSVG(m) { return m.kind === 'logo' ? logoHTML({}) : dandSVG(MK_KIND[m.kind], m.mirror); }
+  // col — цвет надписи (значок без своего цвета — им же); free — значок отдельно, поверх картинки
+  function markHTML(m, col, free) {
+    var c = m.color || col, st = ['color:' + c];
+    if (m.fade) st.push('opacity:' + (1 - m.fade / 100).toFixed(2));
+    if (free) st.push('--mk-sh:' + (lum(hexRgb(/^#[0-9a-f]{6}$/i.test(c) ? c : GL_DEF.color)) < 110 ? 'rgba(255,248,235,.55)' : 'rgba(0,0,0,.38)'));
+    return '<span class="' + (free ? 'm13-mk m13-mk--' + m.pt : 'm13-gl-mk') + ' m13-mk-t-' + mkType(m.kind) + ' m13-mk-sz-' + m.size + '" style="' + esc(st.join(';')) + '">' + markSVG(m) + '</span>';
+  }
+  M13.marksOf = marksOf; M13.markSVG = markSVG;
   function glv(g, k) { return g[k] == null || g[k] === '' ? GL_DEF[k] : g[k]; }
   // Образец d (on: false — выключен) и своё у объекта f = {mode: '' (как у всех) | 'off' | 'own', …}
   function glassPick(d, f) { d = d || {}; f = f || {}; return f.mode === 'own' ? f : f.mode === 'off' ? null : d.on !== false ? d : null; }
@@ -2462,12 +2503,14 @@
     var rim = g.rim === 'none' || g.rim === 'glow' ? g.rim : 'line', sz = g.size === 's' || g.size === 'l' ? g.size : 'm';
     var back = g.back === 'none' || g.back === 'rim' ? g.back : 'glass';
     if (back === 'rim' && rim === 'none') rim = 'line';
-    var mark = g.mark === 'dandelion' ? '<span class="m13-gl-mk m13-gl-mk--dand">' + dandSVG('logo') + '</span>'
-      : g.mark === 'logo' ? '<span class="m13-gl-mk m13-gl-mk--logo">' + logoHTML({}) + '</span>' : '';
-    if (rows ? !rows.length && !mark : !Ls.top && !Ls.title && !Ls.meta.length && !Ls.extra && !mark) return '';
+    // значки: рядом с надписью — в строке на стекле; отдельно — поверх картинки в своих точках (после стекла)
+    var col = g.color || GL_DEF.color, MKS = marksOf(g);
+    var mark = MKS.filter(function (m) { return m.at === 'text'; }).map(function (m) { return markHTML(m, col); }).join('');
+    var free = MKS.filter(function (m) { return m.at === 'free'; }).map(function (m) { return markHTML(m, col, true); }).join('');
+    if (rows ? !rows.length && !mark : !Ls.top && !Ls.title && !Ls.meta.length && !Ls.extra && !mark) return free;
     if (FONTS[font]) ensureFont(font);
     var ty = (FONTS[font] ? ["font-family:'" + font + "',Georgia,serif"] : []).concat(typeCss(font, glv(g, 'weight')));
-    var col = g.color || GL_DEF.color, rc = /^#[0-9a-f]{6}$/i.test(g.rimColor || '') ? g.rimColor : '';
+    var rc = /^#[0-9a-f]{6}$/i.test(g.rimColor || '') ? g.rimColor : '';
     // Тень у букв: под тёмным текстом — светлая дымка, под светлым — тёмная
     var sh = lum(hexRgb(/^#[0-9a-f]{6}$/i.test(col) ? col : GL_DEF.color)) < 110 ? 'rgba(255,248,235,.6)' : 'rgba(0,0,0,.34)';
     var css = '--gl-bg:rgba(' + rgb + ',' + ((100 - a) / 100).toFixed(2) + ');--gl-b:' + bl + 'px;--gl-c:' + col + ';--gl-sh:' + sh +
@@ -2481,17 +2524,32 @@
       if (/^#[0-9a-f]{6}$/i.test(r.color || '')) st.push('color:' + r.color);
       return '<span class="m13-gl-r m13-gl-r--' + (GL_ROW[r.size] ? r.size : 'm') + (r.caps ? ' m13-gl-r--caps' : '') +
         (r.line && i ? ' m13-gl-r--line' : '') + (i && GL_GAP[r.gap] ? ' m13-gl-g-' + r.gap : '') + '" style="' + esc(st.join(';')) + '">' + esc(r.text) + '</span>';
-    }).join('') + (mark ? '<span class="m13-gl-row m13-gl-r-mk">' + mark + '</span>' : '') + '</span>';
+    }).join('') + (mark ? '<span class="m13-gl-row m13-gl-r-mk">' + mark + '</span>' : '') + '</span>' + free;
     return '<span class="' + cls + '" style="' + esc(css) + '">' +
       (Ls.top ? '<span class="m13-gl-top">' + esc(Ls.top) + '</span>' : '') +
       (Ls.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + esc(Ls.title) + '</span>' : '') +
       (Ls.meta.length || mark ? '<span class="m13-gl-row">' + (Ls.meta.length ? '<span class="m13-gl-d">' + esc(Ls.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
-      (Ls.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(Ls.extra) + '</span>' : '') + '</span>';
+      (Ls.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(Ls.extra) + '</span>' : '') + '</span>' + free;
   }
   // Стекло целиком (строки само из полей или свои)
   function glassMake(kind, x, g) { return glassBox(glassLinesOf(kind, x, g), g, kind, glassRowsOf(kind, x, g)); }
   function glassHTML(e, g) { return glassMake('event', e, g); }
   function glassOn(kind, x) { var f = glassFor(kind, x); return f.g ? glassMake(kind, x, f.g) : ''; }
+  /* Значки отдельно от надписи: free — все, что стоят в своих точках; wm — водяной знак (на остальных фото объекта);
+     g.zoom — картинка крупно: '' — с надписью и значками | 'mark' — только значки, что стоят отдельно | 'plain' — как есть */
+  function markParts(g) {
+    var col = (g && g.color) || GL_DEF.color, fr = marksOf(g).filter(function (m) { return m.at === 'free'; });
+    function h(L) { return L.map(function (m) { return markHTML(m, col, true); }).join(''); }
+    var wm = h(fr.filter(function (m) { return m.all; }));
+    return { free: h(fr), wm: wm, wmlb: g && g.zoom === 'plain' ? '' : wm };
+  }
+  // Для galleryHTML: стекло на главной картинке (gl) и что на ней крупно (gllb); водяной знак на остальных фото (wm) и крупно (wmlb)
+  function glassOver(kind, x, g) {
+    var mp = markParts(g), gl = glassMake(kind, x, g);
+    return { gl: gl, gllb: g.zoom === 'plain' ? '' : g.zoom === 'mark' ? mp.free : gl, wm: mp.wm, wmlb: mp.wmlb };
+  }
+  // Есть ли на картинке надпись (а не только значки в углу)
+  function glText(html) { return String(html || '').indexOf('class="m13-gl ') >= 0; }
   // «Одинаковая высота у всех»: в каждой сетке обложек / Карт-Отражений плашки получают высоту самой высокой
   function evenGlass(root) {
     root = root || S.root; if (!root) return;
@@ -2537,7 +2595,8 @@
     return btns ? '<div class="m13-actions m13-ev-actions' + (acts.length > 2 ? ' m13-actions--grid' : '') + '">' + btns + '</div>' : '';
   }
   function evRead(e) {
-    var g = e.cover ? glassOf(e) : null, gl = g ? glassHTML(e, g) : '';
+    // g0 — стекло события (даже без главной картинки: от него водяной знак на фото галереи)
+    var g0 = glassOf(e), g = e.cover ? g0 : null, ov = g ? glassOver('event', e, g) : null, gl = ov ? ov.gl : '', wm = g0 ? markParts(g0) : null;
     // Что уже написано на стекле, над картинкой не повторяется (название остаётся для читалок экрана)
     var TOK = { top: 'тип', title: 'название', date: 'дата', place: 'место', price: 'цена' };
     var on = function (k) { return !gl || !glassHas(g, k, TOK[k]); };
@@ -2551,12 +2610,12 @@
     }).slice(0, 4).map(function (a) { return a.kind === 'calendar' ? Object.assign({}, a, { cal: evCal(e, a) }) : a; });
     return '<article class="m13-panel m13-ev">' +
       (gl ? (on('top') ? '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div>' : '') +
-        '<h3' + (on('title') ? '' : ' class="m13-sr"') + '>' + esc(e.title || '') + '</h3>' + galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', gl)
+        '<h3' + (on('title') ? '' : ' class="m13-sr"') + '>' + esc(e.title || '') + '</h3>' + galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', ov)
       : '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div><h3>' + esc(e.title || '') + '</h3>') +
       (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
-      (e.cover && !gl ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature') : '') +
+      (e.cover && !gl ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', wm) : '') +
       (e.summary ? '<div class="m13-block"><div class="m13-rich">' + rich(e.summary) + '</div></div>' : '') +
-      (e.blocks || []).map(function (b) { return sbBlockHTML(b, e); }).join('') +
+      (e.blocks || []).map(function (b) { return sbBlockHTML(b, e, wm); }).join('') +
       actionsHTML(acts, { card: e.title, price: e.price || '', url: eventUrl(e), tplKey: 'offer' }) +
       '</article>';
   }
@@ -2586,12 +2645,12 @@
       return L.length ? '<section class="m13-read-sec"><div class="m13-block-title">' + esc(title) + '</div><div class="m13-covers m13-covers--mini">' +
         L.map(function (it) { return coverHTML(sbCover(t, it, true)); }).join('') + '</div></section>' : '';
     }
-    var gr = glassFor('route', r);
+    var gr = glassFor('route', r), rov = gr.g ? glassOver('route', r, gr.g) : null, g0 = routeGlassOf(r), wm = g0 ? markParts(g0) : null;
     return '<article class="m13-panel m13-read-panel m13-ev">' +
       readHeadHTML({ img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [],
-        gl: gr.g ? { html: glassMake('route', r, gr.g), kin: glassHas(gr.g, 'kin', 'кин') } : null }) +
+        gl: rov ? { html: rov.gl, lb: rov.gllb, kin: glassHas(gr.g, 'kin', 'кин') } : null }) +
       (String(r.description || '').trim() ? '<div class="m13-block"><div class="m13-rich">' + rich(r.description) + '</div></div>' : '') +
-      (r.archiveBlocks || []).map(sbBlockHTML).join('') +
+      (r.archiveBlocks || []).map(function (b) { return sbBlockHTML(b, null, wm); }).join('') +
       actionsHTML(acts, { card: r.title, url: libUrl('events', r.id, encodeURIComponent(r.id)), routeUrl: r.routeUrl, tplKey: 'route' }) +
       sec((sb.tabs || {}).days || 'Примеры дней', 'days', days) + sec((sb.tabs || {}).chronicles || 'Летописи', 'chronicles', chr) +
       '</article>';
@@ -2650,8 +2709,8 @@
       '<div class="m13-examples">' + items.map(function (it) {
         // Со стеклом: название (и, если включено, Kin) — на стекле, под картинкой не повторяются.
         // Нажатие на карту открывает её крупно, целиком.
-        var gf = glassFor('kin', it), gl = gf.g ? glassMake('kin', it, gf.g) : '';
-        var lb = it.image ? S.lb.push([{ src: media(it.image), caption: '' }]) - 1 : -1;
+        var gf = glassFor('kin', it), ov = gf.g ? glassOver('kin', it, gf.g) : null, gl = ov ? ov.gl : '';
+        var lb = it.image ? S.lb.push([{ src: media(it.image), caption: '', gl: ov ? ov.gllb : '' }]) - 1 : -1;
         return '<div class="m13-example' + (gl ? ' m13-example--gl' : '') + '">' +
           (it.image ? '<button type="button" class="m13-ex-img' + (gl ? ' m13-fit-whole' : '') + '" data-m13-lb="' + lb + ':0" aria-label="' + esc((it.title ? it.title + ' — ' : '') + 'открыть крупно') + '">' +
               (gl ? fitImgHTML(it.image, true, true) + '<span class="m13-gl-box">' + gl + '</span>' : '<img src="' + esc(media(it.image)) + '" alt="' + esc(it.title) + '" loading="lazy">') + '</button>'

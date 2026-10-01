@@ -324,6 +324,7 @@ select.a-input{padding-right:28px}
 .a-gl-tokens{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-4px 0 10px}
 .a-gl-tokens .a-hint{margin:0}
 .a-gl-rows{display:grid;gap:6px}
+.a-gl-mark{display:grid;gap:8px;padding:10px 12px;margin:0 0 10px;border:1px solid rgba(0,0,0,.08);border-radius:10px;background:rgba(0,0,0,.015)}
 /* Ведущие: круглое фото с выбором, где лицо */
 .a-face-row{display:grid;grid-template-columns:112px minmax(0,1fr);gap:16px;align-items:start}
 .a-face{width:112px;height:112px;border-radius:50%;background:#eee center/cover no-repeat;display:grid;place-items:center;font-size:12px;color:#888;box-shadow:0 0 0 1px #ddd}
