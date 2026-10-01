@@ -2140,6 +2140,25 @@
     festival: [['О фестивале'], ['Программа'], ['Ведущие'], ['Как добраться']], trip: [['О поездке'], ['Маршрут поездки'], ['Что включено'], ['Проживание']],
     practice: [['О практике'], ['Как проходит'], ['Для кого']], case: [['Запрос'], ['Как шла работа'], ['Что изменилось']], other: [['Описание']]
   };
+  // Разделы с этими заголовками в заготовке нового события — не текст, а «Ведущие» / «Программа»
+  var EV_KIND = { 'Ведущая': 'hosts', 'Ведущие': 'hosts', 'Программа': 'program' };
+  function evBlock(kind, title) {
+    if (kind === 'hosts') return { id: uid('sb'), kind: 'hosts', visible: true, title: title || 'Ведущие', people: [], layout: 'auto' };
+    return { id: uid('sb'), kind: 'program', visible: true, title: title || 'Программа', rows: [] };
+  }
+  function people() { var ev = DATA.events = DATA.events || EVENTS_DEFAULT(); return ev.people = ev.people || []; }
+  function personName(id) { var p = people().filter(function (x) { return x.id === id; })[0]; return p ? p.name || 'Без имени' : ''; }
+  // Где человек выбран: в разделах «Ведущие» и в строках программы
+  function personUsage(id) {
+    var u = [];
+    ((DATA.events || {}).items || []).forEach(function (e) {
+      (e.blocks || []).some(function (b) {
+        if ((b.kind === 'hosts' && (b.people || []).some(function (x) { return x.id === id; })) ||
+          (b.kind === 'program' && (b.rows || []).some(function (r) { return r.hostId === id; }))) { u.push('«' + (e.title || 'Без названия') + '»'); return true; }
+      });
+    });
+    return u;
+  }
   function evUsage(id) {
     var u = [];
     Object.keys(DATA.showcases).forEach(function (k) {
@@ -2637,7 +2656,7 @@
             el('button', { type: 'button', class: 'a-btn', text: '+ Добавить событие', onclick: function () {
               push({ id: uid('ev'), visible: true, type: sel.t, title: sel.t === 'case' ? 'Пример практики' : 'Новое событие', date: '', dateEnd: '', time: '', duration: 120,
                 place: '', price: '', cover: null, summary: '', archive: true,
-                blocks: (EV_BLOCKS[sel.t] || EV_BLOCKS.other).map(function (b) { return { id: uid('sb'), kind: 'text', visible: true, title: b[0], text: '', collapse: true }; })
+                blocks: (EV_BLOCKS[sel.t] || EV_BLOCKS.other).map(function (b) { return EV_KIND[b[0]] ? evBlock(EV_KIND[b[0]], b[0]) : { id: uid('sb'), kind: 'text', visible: true, title: b[0], text: '', collapse: true }; })
                   .concat([{ id: uid('sb'), kind: 'images', visible: true, images: [] }]),
                 actions: sel.t === 'case' ? [] : [{ kind: 'contact', label: 'Записаться' }, { kind: 'calendar', label: 'Добавить в календарь' }, { kind: 'share', label: 'Поделиться' }] });
             } })]);
@@ -2665,6 +2684,7 @@
             el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть это событие', onclick: function () { openPreview('events', null, e.id); } })])
           ];
         } }),
+      peopleBlock(),
       block('Оформление страницы', lookFields(ev, 'events'), { open: !!ST.eventsLookOpen }),
       block('Шапка страницы и надписи', [
         textIn(ev, 'eyebrow', 'Надпись сверху'), textIn(ev, 'title', 'Заголовок'), textIn(ev, 'intro', 'Вступление', { multi: true, rows: 2 }),
@@ -2804,9 +2824,16 @@
       sub('Разделы'),
       el('p', { class: 'a-hint', text: 'Добавляйте, переименовывайте, переставляйте и скрывайте разделы. В текстах: пустая строка — новый абзац, **жирный**, *курсив*, __подчёркнутый__, строка с «- » — пункт списка.' }),
       collection(x.blocks, { visible: true,
-        title: function (b) { return b.kind === 'images' ? 'Картинки · ' + (b.images || []).length + ' шт.' : (b.title || 'Без заголовка') + (b.text ? ' — ' + String(b.text).replace(/\s+/g, ' ').slice(0, 40) + '…' : ''); },
-        body: function (b) {
+        title: function (b) {
+          if (b.kind === 'images') return 'Картинки · ' + (b.images || []).length + ' шт.';
+          if (b.kind === 'hosts') return (b.title || 'Ведущие') + ' · ' + ((b.people || []).map(function (x) { return personName(x.id); }).filter(Boolean).join(', ') || 'никто не выбран');
+          if (b.kind === 'program') return (b.title || 'Программа') + ' · строк: ' + (b.rows || []).length;
+          return (b.title || 'Без заголовка') + (b.text ? ' — ' + String(b.text).replace(/\s+/g, ' ').slice(0, 40) + '…' : '');
+        },
+        body: function (b, render) {
           if (b.kind === 'images') return [galleryForm(b.images = b.images || [])];
+          if (b.kind === 'hosts') return hostsForm(b, render);
+          if (b.kind === 'program') return programForm(b);
           return [
             textIn(b, 'title', 'Заголовок раздела', { ph: 'Контур дня, Мантра дня, Вкус дня…' }),
             textIn(b, 'text', 'Текст', { multi: true, rows: 6 }),
@@ -2817,10 +2844,82 @@
         },
         addBox: function (push) {
           return el('div', { class: 'a-row a-row--end' }, [
-            selectIn(sel, 'k', 'Добавить раздел', SB_PRESETS.map(function (p) { return [p[0], p[1]]; })),
-            el('button', { type: 'button', class: 'a-btn', text: '+ Добавить', onclick: function () { push(sbPreset(sel.k)); } })]);
+            selectIn(sel, 'k', 'Добавить раздел', SB_PRESETS.map(function (p) { return [p[0], p[1]]; })
+              .concat(tab === 'event' ? [['hosts', 'Ведущие (из общего списка)'], ['program', 'Программа (время · что · кто ведёт)']] : [])),
+            el('button', { type: 'button', class: 'a-btn', text: '+ Добавить', onclick: function () { push(sel.k === 'hosts' || sel.k === 'program' ? evBlock(sel.k) : sbPreset(sel.k)); } })]);
         } })
     ]);
+  }
+  // Раздел «Ведущие» в событии: кого выбрать из общего списка и как показать
+  var HOST_LAYOUTS = [['auto', 'Само: 1–2 человека — рядом, больше — сеткой'], ['side', 'Рядом, крупно (для 1–2 человек)'], ['grid', 'Сеткой (фестиваль)'],
+    ['ring', 'Кругом вокруг главной картинки, со свечением']];
+  function peopleOptions() { return [['', '— выберите —']].concat(people().map(function (p) { return [p.id, p.name || 'Без имени']; })); }
+  function evAccent() { return ((DATA.events || {}).look || {}).accent; }
+  function hostsForm(b, render) {
+    b.people = b.people || [];
+    var ring = b.layout === 'ring';
+    return [
+      textIn(b, 'title', 'Заголовок раздела', { ph: 'Ведущие, Ведущая, Кто ведёт…' }),
+      people().length ? null : el('p', { class: 'a-note', text: 'Общий список пока пуст. Добавьте людей в блоке «Ведущие — общий список» ниже на этой странице (фото, имя, роль, пара строк) — потом выберите их здесь.' }),
+      collection(b.people, { ordered: false,
+        title: function (x) { return (personName(x.id) || '— не выбран —') + (x.note ? ' · ' + x.note : ''); },
+        make: function () { var have = b.people.map(function (x) { return x.id; }); var p = people().filter(function (q) { return have.indexOf(q.id) < 0; })[0]; return { id: p ? p.id : '', note: '' }; },
+        addLabel: '+ Выбрать ведущего', empty: 'Пока никто не выбран.',
+        body: function (x) { return [el('div', { class: 'a-row' }, [selectIn(x, 'id', 'Кто', peopleOptions()),
+          textIn(x, 'note', 'Что ведёт в этом событии', { ph: 'МАК: «Карта моего месяца»', hint: 'Необязательно. Видно под именем (в круге — при нажатии).' })])]; } }),
+      el('p', { class: 'a-hint', text: 'Порядок — стрелками ↑↓. Фото, имя и «пару строк» меняйте в общем списке — поменяются во всех событиях.' }),
+      selectIn(b, 'layout', 'Как показать', HOST_LAYOUTS, { def: 'auto', onChange: function () { render(); } }),
+      ring ? null : switchIn(b, 'about', 'Показывать «пару строк» о человеке', { defTrue: true }),
+      colorOptIn(b, 'ringColor', ring ? 'Цвет свечения' : 'Цвет ободка у фото', { none: 'акцентный цвет страницы', inh: evAccent, inhLabel: 'акцентный цвет страницы', pick: '#ecc46e' }),
+      ring ? el('div', { class: 'a-row' }, [
+        colorOptIn(b, 'ringBg', 'Фон круга', { none: 'без своего фона', pick: '#0e1a44', hint: 'Например, тёмно-синий — как на афише фестиваля: свечение на нём ярче.' }),
+        imageIn(b, 'ringImage', 'Картинка в центре', { max: 1200, hint: 'Пусто — главная картинка события. Лучше квадратная.' })]) : null,
+      ring ? textIn(b, 'ringHint', 'Подсказка под кругом', { ph: 'Нажмите на лицо — появится имя' }) : null
+    ];
+  }
+  function programForm(b) {
+    b.rows = b.rows || [];
+    return [
+      textIn(b, 'title', 'Заголовок раздела', { ph: 'Программа · 25 октября' }),
+      el('p', { class: 'a-hint', text: 'Строка без времени и без ведущего — подзаголовок, например «Суббота, 25 октября».' }),
+      collection(b.rows, { visible: true, ordered: false,
+        title: function (r) { return [r.time, r.what, personName(r.hostId) || r.who].filter(Boolean).join(' · ') || 'Пустая строка'; },
+        make: function () { return { id: uid('pr'), visible: true, time: '', what: '', hostId: '', who: '' }; },
+        addLabel: '+ Добавить строку', empty: 'Пока пусто.',
+        body: function (r, rr) { return [
+          el('div', { class: 'a-row3' }, [textIn(r, 'time', 'Время', { ph: '11:00' }), textIn(r, 'what', 'Что', { ph: 'Открытие и общий круг' }),
+            selectIn(r, 'hostId', 'Кто ведёт', [['', 'своими словами']].concat(people().map(function (p) { return [p.id, p.name || 'Без имени']; })), { def: '', onChange: function () { rr(); } })]),
+          r.hostId ? null : textIn(r, 'who', 'Кто ведёт — своими словами', { ph: 'все ведущие (можно пусто)' })]; } })
+    ];
+  }
+  // Общий список людей (События): фото, имя, роль, пара строк
+  function peopleBlock() {
+    var bk = block('Ведущие — общий список', [
+      el('p', { class: 'a-hint', text: 'Каждого человека вносите один раз. В событии добавьте раздел «Ведущие» и выберите, кто ведёт. Поменяете фото или текст здесь — поменяется во всех событиях.' }),
+      collection(people(), { visible: true, ordered: false,
+        title: function (p) { return [p.name || 'Без имени', p.role].filter(Boolean).join(' · '); },
+        canDelete: function (p) { var u = personUsage(p.id); return u.length ? 'Этот человек выбран в событиях: ' + u.join(', ') + '. Сначала уберите его оттуда — или просто скройте.' : ''; },
+        make: function () { return { id: uid('p'), visible: true, name: '', role: '', about: '', photo: null, photoY: 30 }; },
+        addLabel: '+ Добавить человека', empty: 'Пока никого.',
+        body: function (p) {
+          var face = el('div', { class: 'a-face' });
+          function paint() {
+            face.style.backgroundImage = p.photo ? "url('" + imgSrc(p.photo) + "')" : '';
+            face.style.backgroundPosition = '50% ' + (p.photoY == null ? 30 : p.photoY) + '%';
+            face.textContent = p.photo ? '' : 'нет фото';
+          }
+          paint();
+          return [
+            el('div', { class: 'a-row' }, [textIn(p, 'name', 'Имя', { ph: 'Анна Смирнова' }), textIn(p, 'role', 'Роль', { ph: 'психолог, ведущая МАК' })]),
+            el('div', { class: 'a-face-row' }, [face, el('div', { class: 'a-face-ctl' }, [
+              imageIn(p, 'photo', 'Фото', { max: 900, onChange: paint, hint: 'Лучше квадратное или портрет, лицо крупно. На сайте — в круге.' }),
+              rangeIn(p, 'photoY', 'Где лицо по высоте', { def: 30, step: 5, unit: '%', onChange: function () { paint(); }, hint: '0 — показать верх фото, 100 — низ. Двигайте, пока лицо не встанет в круг.' })])]),
+            textIn(p, 'about', 'Пара строк о человеке', { multi: true, rows: 3, ph: 'Чем занимается, что ведёт, в чём сильна.' })
+          ];
+        } })
+    ], { open: !!ST.peopleOpen });
+    bk.addEventListener('toggle', function () { ST.peopleOpen = bk.open; });
+    return bk;
   }
   var SB_LABELS = { meaning: 'Контур дня', thought: 'Мысль дня', mantra: 'Мантра дня', question: 'Главный вопрос', practice: 'Практика', trace: 'След дня', fragment: 'Фрагмент Летописи' };
   function sbLabel(k) { var l = ((DATA.sandbox || {}).labels || {})[k]; return (l && String(l).trim()) || SB_LABELS[k]; }
