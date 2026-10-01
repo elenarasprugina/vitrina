@@ -1431,7 +1431,9 @@
   var SHARE_SIZE = [1200, 630];
   function siteUrl(D) {
     var u = String((D || DATA).settings.siteUrl || 'https://13mirrors.ru/vitrina/').trim();
-    return u.slice(-1) === '/' ? u : u + '/';
+    u = u.slice(-1) === '/' ? u : u + '/';
+    // Указан только домен (https://13mirrors.ru) — витрина всё равно лежит в папке vitrina/
+    return /^https?:\/\/[^\/]+\/$/.test(u) ? u + 'vitrina/' : u;
   }
   // Итоговые картинка и подписи: своё у месяца, иначе — общее из «Настроек».
   function shareOf(sc, D) {
@@ -1569,9 +1571,37 @@
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n</head>\n<body class="m13-body">\n' +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind] || {}).look || {}).background, base) +
+      '</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
-      '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+      pageData(sc, D) + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+  }
+  // Чтобы страница открывалась без мигания: цвет фона — сразу, картинка фона начинает грузиться вместе со страницей
+  // (узкая — на телефоне, как в vitrina.css: max-aspect-ratio 4/5).
+  function quickStart(bg, base) {
+    bg = bg || {};
+    var out = '', col = /^#[0-9a-f]{6}$/i.test(bg.color || '') ? bg.color : '';
+    if (col && bg.image) {
+      // Под картинкой цвет затемнён так же, как картинка (--m13-dim), — чтобы тон не прыгал
+      var k = Math.max(0, Math.min(90, +bg.dim || 0)) / 100, ink = [6, 4, 2];
+      col = '#' + [1, 3, 5].map(function (i, j) {
+        var v = Math.round(parseInt(col.substr(i, 2), 16) * (1 - k) + ink[j] * k);
+        return (v < 16 ? '0' : '') + v.toString(16);
+      }).join('');
+    }
+    if (col) out += '<style>body.m13-body{background:' + col + '}</style>\n';
+    function href(src) { return /^https?:/.test(src) ? src : base + src; }
+    function pre(src, mq) { return src && !/^(data:|blob:)/.test(src) ? '<link rel="preload" as="image" href="' + escAttr(href(src)) + '"' + (mq ? ' media="' + mq + '">' : '>') + '\n' : ''; }
+    if (bg.image) out += bg.imageTall && bg.imageTall !== bg.image
+      ? pre(bg.image, 'not all and (max-aspect-ratio:4/5)') + pre(bg.imageTall, '(max-aspect-ratio:4/5)') : pre(bg.image);
+    return out;
+  }
+  // Данные прямо в странице (window.M13_DATA — M13.load берёт их оттуда): не нужно ждать загрузки 6–7 файлов data/*.json.
+  // Файлы data/ по-прежнему публикуются (их читает панель). </script> внутри текста безопасен: «<» записан как \u003c.
+  function pageData(sc, D) {
+    var P = { settings: D.settings, routes: D.routes, formats: D.formats, index: D.index, sandbox: D.sandbox, reflection: D.reflection, events: D.events || null, showcases: {} };
+    if (sc) P.showcases[sc.id] = sc;
+    return '<script>window.M13_DATA=' + JSON.stringify(P).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n';
   }
 
 

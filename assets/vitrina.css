@@ -427,6 +427,9 @@ body.m13-locked{overflow:hidden}
   background:var(--m13-bgimg) center/var(--m13-bgsize,cover) no-repeat;filter:blur(var(--m13-blur,0px)) var(--m13-bgf,)}
 /* Увеличение только при размытии — чтобы спрятать размытые края; без размытия картинка лежит как есть */
 .m13-root--blur::before{transform:scale(1.06)}
+/* Пока картинка фона грузится — виден только цвет фона; потом картинка мягко проявляется (bgWait/bgWatch в vitrina.js) */
+.m13-root--img::before{transition:opacity .6s ease}
+.m13-bg-wait::before{opacity:0}
 .m13-root--img::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:rgba(6,4,2,var(--m13-dim,0))}
 @media (max-aspect-ratio:4/5){ .m13-root--img::before{background-image:var(--m13-bgimg-t,var(--m13-bgimg))} }
 
