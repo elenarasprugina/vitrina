@@ -631,6 +631,83 @@
   }
   function sub(t) { return el('div', { class: 'a-sub', text: t }); }
 
+  /* ---------- Свёрнутые группы ----------
+     Каждый заголовок группы (sub) вместе со всем, что под ним до следующего заголовка, сворачивается в одну строку.
+     Работает само для всей панели: после каждой перерисовки (MutationObserver) заголовки оборачиваются в <details>.
+     По умолчанию свёрнуто; раскрытые запоминаются в этом браузере (ключ — раздел, карточка/событие, заголовок). */
+  var FOLD_KEY = 'm13-admin-fold-v1', FOLD = {}, foldBusy = false;
+  try { FOLD = JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') || {}; } catch (e) { FOLD = {}; }
+  function foldSave() { try { localStorage.setItem(FOLD_KEY, JSON.stringify(FOLD)); } catch (e) {} }
+  function foldOwn(n, d) { return n.closest('details.a-fold') === d; }
+  // Что видно в свёрнутой строке: список (сколько и что), иначе первый выбор или переключатель группы
+  function foldInfo(d) {
+    var body = d.lastChild, c = [].filter.call(body.querySelectorAll('.a-coll'), function (x) { return foldOwn(x, d); })[0];
+    if (c) {
+      var names = [].filter.call(c.querySelectorAll('.a-ci-name'), function (x) { return x.closest('.a-coll') === c; }).map(function (x) { return x.textContent; });
+      return names.length ? names.length + ': ' + names.join(', ') : 'пусто';
+    }
+    var f = [].filter.call(body.querySelectorAll('select, input[type=checkbox]'), function (x) { var k = x.closest('.a-coll'); return foldOwn(x, d) && !(k && d.contains(k)); })[0];
+    if (!f) return '';
+    if (f.tagName === 'SELECT') return f.selectedIndex >= 0 ? f.options[f.selectedIndex].text : '';
+    var lb = f.closest('.a-switch'), t = lb && lb.querySelector('.a-switch-text');
+    return (t ? t.firstChild.textContent + ': ' : '') + (f.checked ? 'вкл.' : 'выкл.');
+  }
+  function foldInfoSet(d) {
+    var s = foldInfo(d); if (s.length > 70) s = s.slice(0, 68) + '…';
+    var sm = d.firstChild.lastChild; if (sm.textContent !== s) sm.textContent = s;
+  }
+  function foldKeyOf(d, main) {
+    var t = d.getAttribute('data-ft'), ci = d.parentNode.closest('.a-ci'), scope = ci || main, k = 0;
+    [].forEach.call(scope.querySelectorAll('details.a-fold'), function (x) {
+      if (x === d || x.getAttribute('data-ft') !== t || (x.parentNode.closest('.a-ci') || main) !== scope) return;
+      if (x.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING) k++;
+    });
+    var chain = []; for (var n = ci; n; n = n.parentNode.closest('.a-ci')) chain.unshift(n.getAttribute('data-k') || '');
+    return [ST.section, ST.showcase || '', ST.section === 'sandbox' ? ST.sbTab : ''].concat(chain, [t, k]).join('|');
+  }
+  function foldWrap(s, fresh) {
+    var p = s.parentNode, list = [];
+    for (var n = s.nextSibling; n && !(n.nodeType === 1 && (n.classList.contains('a-sub') || n.classList.contains('a-fold'))); n = n.nextSibling) list.push(n);
+    var d = el('details', { class: 'a-fold', 'data-ft': s.textContent });
+    p.insertBefore(d, s);
+    s.classList.add('a-fold-t');
+    d.appendChild(el('summary', { class: 'a-fold-sum' }, [s, el('span', { class: 'a-fold-info' })]));
+    d.appendChild(el('div', { class: 'a-fold-body' }, list));
+    fresh.push(d);
+  }
+  function foldRun(main) {
+    if (foldBusy) return; foldBusy = true;
+    var fresh = [];
+    [].forEach.call(main.querySelectorAll('.a-sub:not(.a-fold-t)'), function (s) { foldWrap(s, fresh); });
+    fresh.forEach(function (d) {
+      var k = foldKeyOf(d, main);
+      d.setAttribute('data-fk', k);
+      if (FOLD[k]) d.open = true;
+      d.addEventListener('toggle', function () { if (d.open) FOLD[k] = 1; else delete FOLD[k]; foldSave(); });
+      d.addEventListener('input', function () { foldInfoSet(d); });
+      d.addEventListener('change', function () { foldInfoSet(d); });
+    });
+    [].forEach.call(main.querySelectorAll('details.a-fold'), foldInfoSet);
+    var bar = document.getElementById('a-foldbar');
+    if (bar) bar.hidden = !main.querySelector('details.a-fold, details.a-block, .a-ci');
+    foldBusy = false;
+  }
+  function foldWatch(main) {
+    var q = false;
+    new MutationObserver(function () {
+      if (q || foldBusy) return; q = true;
+      Promise.resolve().then(function () { q = false; try { foldRun(main); } catch (e) { foldBusy = false; if (window.console) console.error(e); } });
+    }).observe(main, { childList: true, subtree: true });
+  }
+  // «Свернуть всё»: группы, большие блоки и открытые пункты списков. «Развернуть группы»: только группы в том, что сейчас открыто.
+  function foldAll(open) {
+    var m = document.getElementById('a-main');
+    if (open) { [].forEach.call(m.querySelectorAll('details.a-fold:not([open])'), function (d) { d.open = true; }); return; }
+    [].forEach.call(m.querySelectorAll('details.a-fold[open], details.a-block[open]'), function (d) { d.open = false; });
+    for (var g = 0, t; g < 300 && (t = m.querySelector('.a-ci-title[aria-expanded="true"]')); g++) t.click();
+    window.scrollTo(0, 0);
+  }
+
   /* ---------- Коллекция: список элементов с порядком, видимостью, удалением ---------- */
   // Перетаскивание мышкой (на компьютере): тянем за «⋮⋮» слева. На телефоне ручка скрыта — там стрелки.
   var DRAG = null;
@@ -675,7 +752,7 @@
               CONFIRM.add(it); render(); } })
           ]);
         }
-        var row = el('div', { class: 'a-ci' + (hidden ? ' is-hidden' : '') }, head);
+        var row = el('div', { class: 'a-ci' + (hidden ? ' is-hidden' : ''), 'data-k': it && typeof it === 'object' && it.id ? it.id : String(i) }, head);
         // Тянуть можно за строку-заголовок (в ней нет полей ввода, поэтому выделение текста не ломается).
         head.draggable = true;
         head.addEventListener('dragstart', function (e) {
@@ -746,11 +823,14 @@
       el('div', { class: 'a-toast', id: 'a-toast', role: 'status', 'aria-live': 'polite' })
     ]);
     updateState();
+    foldWatch(document.getElementById('a-main'));
     renderMain();
   }
   function renderMain() {
     var m = document.getElementById('a-main');
-    m.replaceChildren();
+    m.replaceChildren(el('div', { class: 'a-foldbar', id: 'a-foldbar', hidden: true }, [
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Свернуть всё', title: 'Свернуть все группы, блоки и открытые пункты', onclick: function () { foldAll(false); } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Развернуть группы', title: 'Раскрыть группы в том, что сейчас открыто', onclick: function () { foldAll(true); } })]));
     var s = ST.section;
     if (s === 'showcases') add(m, ST.showcase ? viewShowcase() : viewShowcaseList());
     else if (s === 'home') add(m, viewHome());
