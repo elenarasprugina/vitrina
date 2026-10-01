@@ -855,6 +855,26 @@ body.m13-locked{overflow:hidden}
 .m13-evlink:hover{opacity:1}
 .m13-header--tinted .m13-evlink{color:var(--m13-head)}
 @media (max-width:680px){.m13-evlink{font-size:11.5px;padding:5px 11px;margin-top:6px}}
+/* Вид кнопки (Страница месяца → «Кнопка «События и архив»»): стекло, заливка, крупнее, свой цвет */
+.m13-header .m13-evlink--own{color:var(--ev-c)}
+.m13-evlink--glass{opacity:1;background:var(--ev-bg);border-color:color-mix(in srgb,currentColor 65%,transparent);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.25)}
+.m13-header .m13-evlink--fill{opacity:1;background:var(--ev-c);border-color:var(--ev-c);color:var(--ev-ink);box-shadow:0 4px 18px rgba(0,0,0,.22)}
+.m13-evlink--fill:hover,.m13-evlink--glass:hover{filter:brightness(1.08)}
+.m13-evlink--l{font-size:16px;padding:9px 20px;letter-spacing:.02em}
+@media (max-width:680px){.m13-evlink--l{font-size:13.5px;padding:7px 15px;margin-top:8px}}
+/* Окна «Куда написать?» и «Добавить в календарь» на компьютере — просторнее (на телефоне как было) */
+@media (min-width:700px){
+  .m13-modal-box{width:min(470px,92vw);padding:28px 30px}
+  .m13-modal-box h3{font-size:24px;margin-bottom:16px}
+  .m13-modal-box .m13-msg{font-size:15px;padding:12px 14px}
+  .m13-modal-box .m13-msg-label{font-size:11px}
+  .m13-modal-box .m13-channels{gap:12px;margin-top:16px}
+  .m13-modal-box .m13-channel{font-size:15px;padding:14px 12px}
+  .m13-modal-box .m13-cal-when{font-size:15px}
+  .m13-modal-box .m13-hint{font-size:13.5px;margin-top:14px}
+  .m13-modal-box .m13-modal-close{margin-top:16px;padding:12px;font-size:14px}
+}
 
 /* ================= Полупрозрачный оборот, автовыравнивание плашек ================= */
 /* Оборот-стекло: цвет оборота с прозрачностью (--m13-back задаётся в rgba), за ним размытие */

@@ -176,10 +176,18 @@
 
   /* ================= ВИТРИНА ================= */
   // Кнопка «События и архив» в шапке витрины — если есть хоть одно видимое событие или маршрут в архиве (выключается в панели)
-  function eventsLinkHTML() {
+  // Вид — head.evStyle: glass (стекло, по умолчанию) | line (тонкий контур, как было) | fill (заливка); evSize l (по умолчанию) | m;
+  // evColor — свой цвет (пусто — цвет надписей над сеткой)
+  function eventsLinkHTML(hd) {
     var ev = S.D.events || {}, st = S.D.settings || {};
     if (st.eventsLink === false || !((ev.items || []).some(function (e) { return e && e.visible !== false; }) || archRoutes().length)) return '';
-    return '<a class="m13-evlink" href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + esc(T('eventsLink') || 'События и архив') + ' →</a>';
+    hd = hd || {};
+    var kind = hd.evStyle === 'line' || hd.evStyle === 'fill' ? hd.evStyle : 'glass', col = hd.evColor || hd.color || '', css = [];
+    if (hd.evColor) css.push('--ev-c:' + hd.evColor);
+    if (kind === 'glass') css.push('--ev-bg:' + (col && lum(hexRgb(col)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)'));
+    if (kind === 'fill') { var bg = col || '#232323'; css.push('--ev-c:' + bg, '--ev-ink:' + inkFor(bg)); }
+    return '<a class="m13-evlink m13-evlink--' + kind + (hd.evSize === 'm' ? '' : ' m13-evlink--l') + (hd.evColor ? ' m13-evlink--own' : '') + '"' +
+      (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + ' href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + esc(T('eventsLink') || 'События и архив') + ' →</a>';
   }
   function renderShowcase() {
     var sc = S.D.showcase;
@@ -220,7 +228,7 @@
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + esc(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
         : '<h1><span class="m13-gt">' + esc(sc.title) + '</span>' + draft + '</h1>') +
-      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML() + '</header>' +
+      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
       '</section></div>' + foot + '</main>' +
