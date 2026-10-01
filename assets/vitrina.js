@@ -220,7 +220,7 @@
     var tType = typeCss('', hd.topWeight, hd.topItalic);
     var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap m13-logo-wrap--' + (hd.topSize === 's' || hd.topSize === 'l' ? hd.topSize : 'm') + '">' + logoHTML(hd) + '</h2>'
       : top === 'none' ? '' : '<div class="m13-kicker"' + (tType.length ? ' style="' + tType.join(';') + '"' : '') + '><span class="m13-gt">' + esc(topText) + '</span></div>';
-    var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') : '') + '" style="' + esc(rs.join(';')) + '">';
+    var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') + bgWait(bg) : '') + '" style="' + esc(rs.join(';')) + '">';
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '';
     var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
@@ -234,6 +234,7 @@
       '</section></div>' + foot + '</main>' +
       overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
+    bgWatch(S.root);
 
     S.root.querySelectorAll('.m13-thumb[data-card]').forEach(function (b) {
       b.addEventListener('click', function () { openCard(b.getAttribute('data-card')); });
@@ -1795,6 +1796,7 @@
     var lk = pageLook(target === 'sandbox' ? S.D.sandbox.look : target === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     box.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + target + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
       (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back)) + '</div>';
+    bgWatch(box);
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
     else if (target === 'events') bindEvents(box, tab || null, false);
     else { bindActs(box); bindLightbox(box); }
@@ -1816,6 +1818,7 @@
     var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : which === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + which + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' +
       modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
+    bgWatch(S.root);
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
     if (home) home.addEventListener('click', function () { S.onBack(); });
@@ -1844,13 +1847,37 @@
     }).map(function (x) { return x[0] + '(' + (Math.max(30, Math.min(200, +x[1])) / 100) + ')'; });
     return f.length ? ';--m13-bgf:' + f.join(' ') : '';
   }
+  // Картинка фона проявляется мягко, когда загрузится, а не появляется рывком поверх цвета.
+  // Уже есть в памяти браузера (или загружена заранее, <link rel="preload"> при публикации) — сразу, без проявления.
+  function bgUrl(bg) {
+    var tall = window.matchMedia && window.matchMedia('(max-aspect-ratio:4/5)').matches;
+    return media(tall && bg.imageTall ? bg.imageTall : bg.image);
+  }
+  function bgWait(bg) {
+    var im = new Image();
+    im.src = bgUrl(bg);
+    return im.complete ? '' : ' m13-bg-wait';
+  }
+  function bgWatch(scope) {
+    scope.querySelectorAll('.m13-bg-wait').forEach(function (box) {
+      var cs = getComputedStyle(box), tall = window.matchMedia && window.matchMedia('(max-aspect-ratio:4/5)').matches;
+      var m = /url\(['"]?([^'")]+)/.exec(cs.getPropertyValue(tall ? '--m13-bgimg-t' : '--m13-bgimg') || cs.getPropertyValue('--m13-bgimg'));
+      function show() { box.classList.remove('m13-bg-wait'); }
+      if (!m) { show(); return; }
+      var im = new Image();
+      im.onload = im.onerror = show;
+      im.src = m[1];
+      if (im.complete) show();
+      setTimeout(show, 5000);
+    });
+  }
   function pageLook(lk) {
     if (!lk) return { cls: '', css: '' };
     if (lk.titleLine === false) { var r0 = pageLook(Object.assign({}, lk, { titleLine: true })); r0.cls += ' m13-noline'; return r0; }
     var bg = lk.background || {}, css = [], cls = '';
     if (bg.color) css.push('--m13-bgc:' + bg.color);
     if (bg.image) {
-      cls += ' m13-root m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '');
+      cls += ' m13-root m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') + bgWait(bg);
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
         '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg) + bgFx(bg));
     } else if (bg.color) cls += ' m13-root';
