@@ -2890,7 +2890,9 @@
           return (b.title || 'Без заголовка') + (b.text ? ' — ' + String(b.text).replace(/\s+/g, ' ').slice(0, 40) + '…' : '');
         },
         body: function (b, render) {
-          if (b.kind === 'images') return [galleryForm(b.images = b.images || [])];
+          if (b.kind === 'images') return [galleryForm(b.images = b.images || []),
+            selectIn(b, 'thumbs', 'Остальные картинки (под главной)', [['square', 'Мелкими квадратиками — 4 в ряд на телефоне, 6 на компьютере'], ['row', 'Лентой в своих пропорциях']],
+              { def: tab === 'event' ? 'square' : 'row', hint: 'В квадратике видна середина картинки, края обрезаются; при нажатии картинка открывается целиком. Для афиш с надписью по краю лучше «лентой».' })];
           if (b.kind === 'hosts') return hostsForm(b, render);
           if (b.kind === 'program') return programForm(b);
           return [

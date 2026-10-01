@@ -1689,7 +1689,8 @@
   // 'feature' — первая крупно с подписью, остальные рядом под ней (страницы). Крупно — в просмотрщике, с подписью.
   // ov — что поверх картинок (только в 'feature'): строка — стекло с надписью на первой картинке; или {gl, gllb, wm, wmlb} (glassOver / markParts):
   // gl — стекло на первой (главной) картинке, gllb — что на ней в просмотрщике; wm — водяной знак на остальных фото, wmlb — на них в просмотрщике
-  function galleryHTML(list, mode, ov) {
+  // sq — остальные картинки под главной мелкими квадратиками (4 в ряд на телефоне, 6 на компьютере)
+  function galleryHTML(list, mode, ov, sq) {
     var imgs = (list || []).filter(function (m) { return m && m.visible !== false && m.src; }).slice(0, 10);
     if (!imgs.length) return '';
     ov = typeof ov === 'string' ? { gl: ov, gllb: ov } : mode === 'feature' && ov ? ov : {};
@@ -1705,7 +1706,7 @@
     if (mode === 'feature') {
       var top = gl || wm;
       return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + btn(imgs[0], 0, 'm13-fig-img' + (top ? ' m13-gl-fig' : ''), top) + cap(imgs[0]) + '</figure>' +
-        (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item', wm); }).join('') + '</div>' : '') + '</div>';
+        (imgs.length > 1 ? '<div class="m13-gallery m13-gallery--rest' + (sq ? ' m13-gallery--sq' : '') + '">' + imgs.slice(1).map(function (m, k) { return btn(m, k + 1, 'm13-gallery-item', wm); }).join('') + '</div>' : '') + '</div>';
     }
     return '<div class="m13-gallery">' + imgs.map(function (m, k) { return btn(m, k, 'm13-gallery-item'); }).join('') + '</div>';
   }
@@ -1931,8 +1932,10 @@
   // ov — водяной знак на фото раздела {wm, wmlb} (markParts), у событий и маршрутов в архиве
   function sbBlockHTML(b, ctx, ov) {
     if (!b || b.visible === false) return '';
-    if (b.kind === 'images') return galleryHTML(b.images, 'feature', ov && ov.wm ? { wm: ov.wm, wmlb: ov.wmlb } : null);
-    if (b.kind === 'hosts') return hostsHTML(b, ctx && typeof ctx === 'object' && !Array.isArray(ctx) ? ctx : null);
+    // «Остальные картинки»: square — квадратиками, row — лентой; пусто — у событий квадратиками, в остальных местах лентой
+    var isEv = ctx && typeof ctx === 'object' && !Array.isArray(ctx);
+    if (b.kind === 'images') return galleryHTML(b.images, 'feature', ov && ov.wm ? { wm: ov.wm, wmlb: ov.wmlb } : null, b.thumbs ? b.thumbs === 'square' : isEv);
+    if (b.kind === 'hosts') return hostsHTML(b, isEv ? ctx : null);
     if (b.kind === 'program') return programHTML(b);
     var text = String(b.text || '').trim(); if (!text) return '';
     var paras = text.split(/\n\s*\n/), sb = S.D.sandbox || {}, body;
