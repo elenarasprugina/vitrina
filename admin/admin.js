@@ -794,7 +794,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['routes', 'Маршруты'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -834,6 +834,7 @@
     var s = ST.section;
     if (s === 'showcases') add(m, ST.showcase ? viewShowcase() : viewShowcaseList());
     else if (s === 'home') add(m, viewHome());
+    else if (s === 'grimoire') add(m, viewGrimoire());
     else if (s === 'routes') add(m, viewRoutes());
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
@@ -3302,13 +3303,65 @@
     var pv = document.getElementById('a-preview');
     var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Главная страница', src: '/?preview=1' });
     if (phone) fr.style.width = '375px';
-    function send() { try { fr.contentWindow.postMessage({ m13home: DATA.settings.home || {}, contacts: DATA.settings.contacts || {}, monthGen: monthGenNow() }, location.origin); } catch (e) {} }
+    function send() { try { fr.contentWindow.postMessage({ m13home: DATA.settings.home || {}, grimoire: DATA.settings.grimoire || {}, contacts: DATA.settings.contacts || {}, monthGen: monthGenNow() }, location.origin); } catch (e) {} }
     fr.addEventListener('load', function () { send(); setTimeout(send, 400); });
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13homeReady) send(); }
     window.addEventListener('message', onMsg);
     var bar = el('div', { class: 'a-pbar' }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
       el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openHomePreview(!phone); } })]);
+    pv.classList.toggle('is-phone', phone);
+    pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  }
+
+  /* ================= ГРИМУАР: страница-заглушка 13mirrors.ru/grimoire/ =================
+     Пока книги нет, по адресу стоит страница «Книга пишется». Тексты и картинка — settings.grimoire,
+     цвет, шрифт и пометка внизу — как у главной (settings.home). Страница сама читает их из /vitrina/data/settings.json.
+     onHome — показывать ссылку на Гримуар на главной (надпись — homeLink). Пустое поле — как в самой странице. */
+  var GRIM_DEFAULT = {
+    image: null, eyebrow: 'Гримуар', title: 'Калейдоскоп твоих миров', lead: 'Книга пишется.',
+    text: 'Здесь появится книга, в которой живут миры людей. Каждый, кто прошёл свой путь в 13 MIRRORS, сможет оставить в ней свой мир — историю, стихи, рисунки.\n\nМир Тринадцати Зеркал один — большой и живой. Но без человека он отражает пустоту. Поэтому каждый приносит своё, и складывается узор.',
+    note: 'Здесь появится первый мир.', onHome: false, homeLink: 'Гримуар · книга миров'
+  };
+  function viewGrimoire() {
+    var st = DATA.settings, g = st.grimoire = st.grimoire || clone(GRIM_DEFAULT);
+    Object.keys(GRIM_DEFAULT).forEach(function (k) { if (g[k] === undefined) g[k] = GRIM_DEFAULT[k]; });
+    var url = siteUrl().replace(/vitrina\/$/, '') + 'grimoire/';
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'Гримуар' }),
+        el('p', { class: 'a-lead', text: 'Пока книга пишется, по адресу ' + url.replace(/^https?:\/\//, '') + ' стоит страница-заглушка: книга, пара слов о том, что здесь будет, и кнопка в расписание. Изменения появятся на сайте после «Опубликовать».' })]),
+      el('div', { class: 'a-tabs' }, [
+        el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPagePreview('grimoire', false); } }),
+        el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openPagePreview('grimoire', true); } })]),
+      block('Тексты', [
+        el('div', { class: 'a-row' }, [textIn(g, 'eyebrow', 'Надпись над заголовком (прописными)'), textIn(g, 'title', 'Заголовок')]),
+        textIn(g, 'lead', 'Строка с чертой слева (курсивом)', { multi: true, rows: 2 }),
+        textIn(g, 'text', 'Текст', { multi: true, rows: 7, hint: 'Пустая строка между абзацами — новый абзац.' }),
+        textIn(g, 'note', 'Строка под текстом (курсивом)', { hint: 'Чтобы убрать строку совсем — оставьте в поле один пробел.' })
+      ]),
+      block('Картинка', [
+        imageIn(g, 'image', 'Вместо нарисованной книги', { max: 1600, hint: 'Пусто — тёмная книга с золотым обрезом и одуванчиком. По картинке, как и по книге, время от времени пробегает блик.' })
+      ], { open: false }),
+      block('Откуда ведёт ссылка', [
+        switchIn(g, 'onHome', 'Ссылка на главной странице', { hint: 'Под текстом о калейдоскопе, над «Задать вопрос».' }),
+        textIn(g, 'homeLink', 'Надпись ссылки', { hint: 'Стрелка → добавится сама.' }),
+        el('p', { class: 'a-hint', text: 'Из витрины: у карточки или события добавьте кнопку «Ссылка» с адресом ' + url + '. Цвет и шрифт страницы — как у главной (раздел «Главная страница» → «Цвет и шрифт»).' })
+      ])
+    ];
+  }
+  // Предпросмотр отдельной страницы сайта (сейчас — Гримуар): iframe /<путь>/?preview=1, черновик — сообщением
+  function openPagePreview(kind, phone) {
+    var pv = document.getElementById('a-preview');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Гримуар', src: '/grimoire/?preview=1' });
+    if (phone) fr.style.width = '375px';
+    function send() { try { fr.contentWindow.postMessage({ m13grimoire: DATA.settings.grimoire || {}, home: DATA.settings.home || {}, monthGen: monthGenNow() }, location.origin); } catch (e) {} }
+    fr.addEventListener('load', function () { send(); setTimeout(send, 400); });
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13grimoireReady) send(); }
+    window.addEventListener('message', onMsg);
+    var bar = el('div', { class: 'a-pbar' }, [
+      el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openPagePreview(kind, !phone); } })]);
     pv.classList.toggle('is-phone', phone);
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
@@ -3890,8 +3943,8 @@
       var why = !ids.length
         ? 'Ни одна витрина не отмечена как опубликованная, поэтому месяцы на сайт не попадут. Когда месяц будет готов — поставьте ему статус «Опубликована» (раздел «Витрины» → «Страница месяца»).'
         : 'По адресу 13mirrors.ru/vitrina/ открывается «' + (cur ? cur.title : st.currentShowcase) + '», но эта витрина — черновик. Поставьте ей статус «Опубликована» или включите «Открывать по основному адресу» у опубликованного месяца.';
-      dialog({ title: 'Витрину пока не публикуем', body: why + '\n\nМожно опубликовать только главную страницу и настройки — контакты, надписи. Черновики месяцев при этом на сайт не попадут.',
-        buttons: [['home', 'Опубликовать главную и контакты', 'dark'], ['cancel', 'Отмена']] }).then(function (v) { if (v === 'home') publishSettingsOnly(); });
+      dialog({ title: 'Витрину пока не публикуем', body: why + '\n\nМожно опубликовать только главную страницу, Гримуар и настройки — контакты, надписи. Черновики месяцев при этом на сайт не попадут.',
+        buttons: [['home', 'Опубликовать главную, Гримуар и контакты', 'dark'], ['cancel', 'Отмена']] }).then(function (v) { if (v === 'home') publishSettingsOnly(); });
       return;
     }
     var drafts = Object.keys(DATA.showcases).filter(function (id) { return ids.indexOf(id) < 0; });
@@ -3945,7 +3998,7 @@
           });
         }).then(function () {
           busy(null);
-          dialog({ title: 'Опубликовано', body: 'Главная страница и контакты обновятся в течение пары минут: 13mirrors.ru\n\nМесяцы витрины остались как были.' });
+          dialog({ title: 'Опубликовано', body: 'Главная страница, Гримуар и контакты обновятся в течение пары минут: 13mirrors.ru\n\nМесяцы витрины остались как были.' });
         });
     }).catch(fail);
   }
