@@ -14,10 +14,6 @@
       "order": 1,
       "routeId": "blue-hand",
       "day": 10,
-      "kin": {
-        "value": "Kin 36",
-        "show": true
-      },
       "title": "Жёлтый Планетарный Воин",
       "blocks": [
         {
@@ -52,7 +48,7 @@
         }
       ],
       "cover": "media/33775564c97b1749cc77.webp",
-      "shareImage": "media/5f5258f31aba6a227748.jpg"
+      "shareImage": "media/69d89f6813eaff7e9a51.jpg"
     },
     {
       "id": "d-white-wizard-7",
@@ -99,7 +95,7 @@
         }
       ],
       "cover": "media/fc02ad728ab05b4c6490.webp",
-      "shareImage": "media/92a1c54b28292cf180c3.jpg"
+      "shareImage": "media/feb105d04ee15791c079.jpg"
     },
     {
       "id": "d-red-dragon-1",
@@ -142,7 +138,7 @@
         }
       ],
       "cover": "media/a8a178b0984740eec714.webp",
-      "shareImage": "media/51bdc9916c1ceb8afabc.jpg"
+      "shareImage": "media/888103e804b3f5d6aa54.jpg"
     },
     {
       "id": "d-03gd9",
@@ -185,7 +181,7 @@
         }
       ],
       "cover": "media/89d3a6a5da24c36da7ee.webp",
-      "shareImage": "media/cb31dac077534d283410.jpg"
+      "shareImage": "media/bfbbe1ba354d087e5069.jpg"
     },
     {
       "id": "d-3bp34",
@@ -213,7 +209,7 @@
       ],
       "order": 5,
       "cover": "media/8392362a0783ab1c601e.webp",
-      "shareImage": "media/c9cf89ae3ecb2e58be6d.jpg"
+      "shareImage": "media/1ac5b5722aa9c29f0806.jpg"
     },
     {
       "id": "d-zpdr9",
@@ -240,7 +236,7 @@
       ],
       "order": 6,
       "cover": "media/f961aa3d7fa1990e9bd9.webp",
-      "shareImage": "media/b869d3bba3b9ec736318.jpg"
+      "shareImage": "media/616c91c5f84ab1bceab0.jpg"
     }
   ],
   "chronicles": [
@@ -260,7 +256,7 @@
           "collapse": true
         }
       ],
-      "shareImage": "media/35fef6fd96a9b9363647.jpg"
+      "shareImage": "media/b8c0df70325a7c38ccaa.jpg"
     },
     {
       "id": "c-white-wizard-2",
@@ -278,7 +274,7 @@
           "collapse": true
         }
       ],
-      "shareImage": "media/7c5d7b42ae337d0b4daa.jpg"
+      "shareImage": "media/e7c50fcabf941de68231.jpg"
     },
     {
       "id": "c-qv86w",
@@ -296,7 +292,7 @@
         }
       ],
       "order": 3,
-      "shareImage": "media/c69e4981c44b22dbaba4.jpg"
+      "shareImage": "media/0931553cb7ef9f21b015.jpg"
     }
   ],
   "reviews": [
@@ -376,7 +372,11 @@
     "imgGlass": {
       "on": true,
       "mark1": {},
-      "mark2": {}
+      "mark2": {},
+      "fit": "even",
+      "dates": false,
+      "day": false,
+      "kin": true
     },
     "tabs": {
       "active": "glass",

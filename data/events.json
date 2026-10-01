@@ -109,9 +109,9 @@
         },
         {
           "kind": "contact",
-          "label": "Записаться",
+          "label": "Полюбопытствовать",
           "order": 3,
-          "message": "Привет!\nПришли, пожалуйста, ссылку на встречу \"Город МАК\"."
+          "message": "Привет!\nУ меня есть вопрос про встречу \"Город МАК\":"
         }
       ],
       "order": 1,
@@ -167,7 +167,7 @@
         "mark2": {}
       },
       "coverFit": "fill",
-      "shareImage": "media/ee148a8ca003049824f9.jpg"
+      "shareImage": "media/3ddace2c821b65b36063.jpg"
     }
   ],
   "look": {

@@ -160,7 +160,8 @@
       "routeUrl": "",
       "archive": false,
       "archiveBlocks": [],
-      "archiveActions": []
+      "archiveActions": [],
+      "glass": {}
     }
   ]
 }

@@ -475,7 +475,8 @@
           "glow": "off",
           "glowColor": "#6f9df2",
           "glowStrength": "medium",
-          "glowDir": "bottom"
+          "glowDir": "bottom",
+          "lid": {}
         }
       },
       "back": {
@@ -507,9 +508,19 @@
                   "show": true
                 },
                 "action": {
-                  "kind": "contact",
-                  "label": "Пришлите ссылку",
-                  "message": "Здравствуйте! Пришлите, пожалуйста, ссылку на встречу «МАК-карты» 8 октября."
+                  "kind": "event",
+                  "label": "Полюбопытствовать",
+                  "message": "Здравствуйте! Пришлите, пожалуйста, ссылку на встречу «МАК-карты» 8 октября.",
+                  "eventId": "ev-a4g8f"
+                },
+                "calendar": {
+                  "on": true,
+                  "label": "В календарь",
+                  "date": "2026-10-08",
+                  "time": "19:00",
+                  "duration": 100,
+                  "title": "Город МАК",
+                  "place": "Онлайн"
                 }
               }
             ],
