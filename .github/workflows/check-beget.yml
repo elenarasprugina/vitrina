@@ -1,0 +1,117 @@
+# Проверка копии сайта на Beget (шаг 4 переезда). Ничего не меняет ни на Beget, ни в репозиториях:
+# только читает сайт с сервера Beget так, как будто 13mirrors.ru уже смотрит туда,
+# и сравнивает каждый файл с тем, что лежит в main обоих репозиториев.
+name: Проверка копии на Beget
+
+on:
+  push:
+    branches: [claude/bold-gates-3ns2mg]
+    paths: [.github/workflows/check-beget.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BEGET_HOST: evraspyn.beget.tech
+  SITE: 13mirrors.ru
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, path: v }
+      - uses: actions/checkout@v4
+        with: { repository: elenarasprugina/elenarasprugina.github.io, ref: main, path: h }
+
+      - name: Адрес сервера
+        run: |
+          ip=$(getent ahostsv4 "$BEGET_HOST" | awk 'NR==1{print $1}')
+          echo "Beget ($BEGET_HOST): $ip"; echo "BEGET_IP=$ip" >> "$GITHUB_ENV"
+          echo "13mirrors.ru сейчас смотрит на:"; getent ahostsv4 "$SITE" | awk '{print $1}' | sort -u
+
+      - name: Файлы — байт в байт
+        run: |
+          python3 - <<'EOF'
+          import os, hashlib, http.client, urllib.parse
+          ip, site = os.environ['BEGET_IP'], os.environ['SITE']
+          def get(path):
+              c = http.client.HTTPConnection(ip, 80, timeout=30)
+              c.request('GET', urllib.parse.quote(path), headers={'Host': site, 'User-Agent': 'check'})
+              r = c.getresponse(); body = r.read(); c.close()
+              return r.status, dict((k.lower(), v) for k, v in r.getheaders()), body
+          skip = {'.git', '.github', 'README.md', 'CNAME', 'CLAUDE.md'}
+          want = []
+          for root, pref, extra in (('h', '/', {'vitrina'}), ('v', '/vitrina/', {'docs'})):
+              for d, dirs, files in os.walk(root):
+                  rel = os.path.relpath(d, root)
+                  if rel == '.':
+                      dirs[:] = [x for x in dirs if x not in skip | extra]
+                  for f in files:
+                      p = os.path.normpath(os.path.join(rel, f))
+                      if rel == '.' and f in skip: continue
+                      want.append((pref + p, os.path.join(d, f)))
+          ok, bad, types = 0, [], {}
+          for url, local in sorted(want):
+              st, h, body = get(url)
+              mine = open(local, 'rb').read()
+              ext = os.path.splitext(url)[1] or '(нет)'
+              types.setdefault(ext, set()).add(h.get('content-type', '?'))
+              if st == 200 and body == mine: ok += 1
+              else: bad.append('%s  статус %s, размер %d вместо %d' % (url, st, len(body), len(mine)))
+          print('Файлов проверено: %d, совпали байт в байт: %d' % (len(want), ok))
+          for b in bad: print('  НЕ СОВПАЛ:', b)
+          print('\nТипы файлов, которые отдаёт сервер:')
+          for e in sorted(types): print('  %-6s %s' % (e, ', '.join(sorted(types[e]))))
+          print('\nАдреса без имени файла:')
+          for p in ['/', '/grimoire/', '/grimoire', '/vitrina/', '/vitrina', '/vitrina/2026-10/',
+                    '/vitrina/events/', '/vitrina/admin/', '/net-takoj-stranicy/', '/.13mirrors-deploy-root', '/cgi-bin/']:
+              st, h, body = get(p)
+              print('  %-26s %s %s %s' % (p, st, h.get('content-type', ''), ('→ ' + h['location']) if 'location' in h else ''))
+          st, h, body = get('/vitrina/data/events.json')
+          print('\nЗаголовки events.json:')
+          for k in ('server', 'content-type', 'cache-control', 'expires', 'etag', 'last-modified', 'content-encoding'):
+              print('  %s: %s' % (k, h.get(k, '—')))
+          if bad: raise SystemExit(1)
+          EOF
+
+      - name: Страницы в браузере
+        if: always()
+        run: |
+          pip install -q playwright && python3 -m playwright install --with-deps chromium > /dev/null
+          mkdir shots
+          python3 - <<'EOF'
+          import os
+          from playwright.sync_api import sync_playwright
+          ip, site = os.environ['BEGET_IP'], os.environ['SITE']
+          pages = ['/', '/grimoire/', '/vitrina/', '/vitrina/2026-10/', '/vitrina/2026-10/blue/',
+                   '/vitrina/events/', '/vitrina/events/ev-a4g8f/', '/vitrina/reflection/',
+                   '/vitrina/sandbox/', '/vitrina/admin/']
+          with sync_playwright() as p:
+              b = p.chromium.launch(args=['--host-resolver-rules=MAP %s %s, MAP www.%s %s' % (site, ip, site, ip)])
+              for w, h, tag in ((390, 844, 'phone'), (1440, 900, 'pc')):
+                  ctx = b.new_context(viewport={'width': w, 'height': h}, device_scale_factor=2 if w < 500 else 1)
+                  for path in pages:
+                      pg = ctx.new_page(); errs = []
+                      pg.on('console', lambda m: m.type == 'error' and errs.append('консоль: ' + m.text))
+                      pg.on('pageerror', lambda e: errs.append('ошибка: %s' % e))
+                      pg.on('requestfailed', lambda r: errs.append('не загрузилось: ' + r.url))
+                      pg.on('response', lambda r: r.status >= 400 and errs.append('%s: %s' % (r.status, r.url)))
+                      pg.goto('http://%s%s' % (site, path), wait_until='networkidle', timeout=60000)
+                      pg.wait_for_timeout(1500)
+                      n_img = pg.evaluate('Array.prototype.filter.call(document.images,function(i){return i.complete&&i.naturalWidth>0}).length')
+                      n_txt = pg.evaluate('document.body.innerText.length')
+                      print('%-5s %-28s текст %5d букв, картинок %2d, «%s»' % (tag, path, n_txt, n_img, pg.title()))
+                      for e in errs: print('        ' + e)
+                      name = path.strip('/').replace('/', '_') or 'home'
+                      pg.screenshot(path='shots/%s-%s.png' % (tag, name), full_page=(path != '/vitrina/admin/'))
+                      pg.close()
+                  ctx.close()
+              b.close()
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: snimki, path: shots, retention-days: 3 }
