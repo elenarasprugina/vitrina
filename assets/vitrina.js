@@ -1708,6 +1708,7 @@
     scope.querySelectorAll('[data-m13-lb]').forEach(function (b) {
       b.addEventListener('click', function (e) { e.stopPropagation(); var p = b.getAttribute('data-m13-lb').split(':'); openLightbox(+p[0], +p[1]); });
     });
+    bindRings(scope);
   }
   function lbDraw() {
     var q = function (id) { return S.root.querySelector(id); }, n = LB.list.length, it = LB.list[LB.i];
@@ -1920,9 +1921,11 @@
     }
     return B;
   };
-  function sbBlockHTML(b) {
+  function sbBlockHTML(b, ctx) {
     if (!b || b.visible === false) return '';
     if (b.kind === 'images') return galleryHTML(b.images, 'feature');
+    if (b.kind === 'hosts') return hostsHTML(b, ctx && typeof ctx === 'object' && !Array.isArray(ctx) ? ctx : null);
+    if (b.kind === 'program') return programHTML(b);
     var text = String(b.text || '').trim(); if (!text) return '';
     var paras = text.split(/\n\s*\n/), sb = S.D.sandbox || {}, body;
     // «Подробнее» включено у раздела: первый абзац виден, остальное раскрывается — только если текст правда длинный
@@ -1933,6 +1936,81 @@
     } else body = '<div class="m13-rich">' + rich(text) + '</div>';
     var look = b.look === 'thought' ? ' m13-thought' : b.look === 'mantra' ? ' m13-mantra' : '';
     return '<div class="m13-block' + look + '">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + body + '</div>';
+  }
+
+  /* ---------- Ведущие и программа (разделы события) ----------
+     Люди заводятся один раз в общем списке events.people = [{id, visible, photo, photoY (0–100, где лицо по высоте), name, role, about}],
+     в событии — раздел {kind:'hosts', title, people:[{id, note}], layout:'auto'|'side'|'grid'|'ring', about (false — без «пары строк»),
+     ringColor, ringBg, ringImage, ringHint}. Программа — {kind:'program', title, rows:[{time, what, hostId, who}]}. */
+  function personById(id) { return ((S.D.events || {}).people || []).filter(function (p) { return p && p.id === id; })[0] || null; }
+  function hostsOf(b) {
+    return (b.people || []).map(function (x) {
+      var p = x && personById(x.id);
+      return p && p.visible !== false && String(p.name || '').trim() ? Object.assign({}, p, { note: String(x.note || '').trim() }) : null;
+    }).filter(Boolean);
+  }
+  function initials(n) { return String(n || '').trim().split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase(); }
+  function hostFace(p, cls) {
+    var y = p.photoY == null || p.photoY === '' ? 30 : +p.photoY;
+    return p.photo ? '<img class="' + cls + '" src="' + esc(media(p.photo)) + '" alt="" loading="lazy" style="object-position:50% ' + y + '%">'
+      : '<span class="' + cls + ' m13-host-none" aria-hidden="true">' + esc(initials(p.name)) + '</span>';
+  }
+  function hostsHTML(b, e) {
+    var list = hostsOf(b); if (!list.length) return '';
+    var lay = b.layout === 'side' || b.layout === 'grid' || b.layout === 'ring' ? b.layout : (list.length <= 2 ? 'side' : 'grid');
+    var head = b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '';
+    var rc = b.ringColor ? '--rc:' + esc(b.ringColor) + ';' : '';
+    if (lay === 'ring') {
+      var n = list.length, R = n > 1 ? 40 : 0, sz = Math.min(21, Math.max(11, 2 * Math.PI * 40 / n * 0.72));
+      var img = b.ringImage || (e && e.cover) || '';
+      var faces = list.map(function (p, k) {
+        var a = -Math.PI / 2 + 2 * Math.PI * k / n;
+        return '<button type="button" class="m13-ring-p" data-ring="' + k + '" data-name="' + esc(p.name) + '" data-role="' + esc(p.note || p.role || '') + '"' +
+          ' aria-label="' + esc([p.name, p.note || p.role].filter(Boolean).join(' — ')) + '"' +
+          ' style="left:' + (50 + R * Math.cos(a)).toFixed(2) + '%;top:' + (50 + R * Math.sin(a)).toFixed(2) + '%;width:' + sz.toFixed(2) + '%">' + hostFace(p, 'm13-ring-ph') + '</button>';
+      }).join('');
+      return '<div class="m13-block m13-hosts-block">' + head +
+        '<div class="m13-ring-wrap' + (b.ringBg ? ' m13-ring-wrap--bg' : '') + '" style="' + rc + (b.ringBg ? '--ring-bg:' + esc(b.ringBg) + ';' : '') + '">' +
+        '<div class="m13-ring">' + (n > 1 ? '<span class="m13-ring-c">' + (img ? '<img src="' + esc(media(img)) + '" alt="" loading="lazy">' : '<span class="m13-ring-mark">' + M13.dandSVG('logo') + '</span>') + '</span>' : '') + faces + '</div>' +
+        '<p class="m13-ring-name" aria-live="polite">' + esc(String(b.ringHint || '').trim() || 'Нажмите на лицо — появится имя') + '</p></div></div>';
+    }
+    var about = b.about !== false;
+    return '<div class="m13-block m13-hosts-block">' + head + '<div class="m13-hosts m13-hosts--' + lay + (list.length === 1 ? ' m13-hosts--one' : '') + '"' + (rc ? ' style="' + rc + '"' : '') + '>' +
+      list.map(function (p) {
+        return '<div class="m13-host">' + hostFace(p, 'm13-host-ph') +
+          (p.role ? '<div class="m13-host-role">' + esc(p.role) + '</div>' : '') +
+          '<div class="m13-host-name">' + esc(p.name) + '</div>' +
+          (p.note ? '<div class="m13-host-note">' + esc(p.note) + '</div>' : '') +
+          (about && String(p.about || '').trim() ? '<div class="m13-host-about">' + txt(String(p.about).trim()) + '</div>' : '') + '</div>';
+      }).join('') + '</div></div>';
+  }
+  function programHTML(b) {
+    var rows = (b.rows || []).filter(function (r) { return r && r.visible !== false && (String(r.time || '').trim() || String(r.what || '').trim()); });
+    if (!rows.length) return '';
+    return '<div class="m13-block m13-prog-block">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + '<div class="m13-prog">' +
+      rows.map(function (r) {
+        var p = r.hostId ? personById(r.hostId) : null, who = p ? p.name : String(r.who || '').trim();
+        // Строка без времени и без ведущего — подзаголовок (день фестиваля)
+        if (!String(r.time || '').trim() && !who) return '<div class="m13-prog-day">' + esc(r.what) + '</div>';
+        return '<div class="m13-prog-row"><span class="m13-prog-t">' + esc(r.time || '') + '</span><span class="m13-prog-w">' + esc(r.what || '') + '</span>' +
+          (who ? '<span class="m13-prog-who">' + esc(who) + '</span>' : '<span></span>') + '</div>';
+      }).join('') + '</div></div>';
+  }
+  // Круг ведущих: нажатие (на компьютере и наведение) показывает имя и что ведёт
+  function bindRings(scope) {
+    scope.querySelectorAll('.m13-ring-wrap').forEach(function (w) {
+      var cap = w.querySelector('.m13-ring-name');
+      w.querySelectorAll('.m13-ring-p').forEach(function (b) {
+        function show() {
+          w.querySelectorAll('.m13-ring-p.is-on').forEach(function (x) { if (x !== b) x.classList.remove('is-on'); });
+          b.classList.add('is-on');
+          cap.innerHTML = esc(b.getAttribute('data-name')) + (b.getAttribute('data-role') ? '<small>' + esc(b.getAttribute('data-role')) + '</small>' : '');
+        }
+        b.addEventListener('click', function (e) { e.stopPropagation(); show(); });
+        b.addEventListener('mouseenter', show);
+        b.addEventListener('focus', show);
+      });
+    });
   }
 
   /* ---------- Библиотека: обложки → страница чтения (Песочница, События, архив маршрутов) ----------
@@ -2478,7 +2556,7 @@
       (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
       (e.cover && !gl ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature') : '') +
       (e.summary ? '<div class="m13-block"><div class="m13-rich">' + rich(e.summary) + '</div></div>' : '') +
-      (e.blocks || []).map(sbBlockHTML).join('') +
+      (e.blocks || []).map(function (b) { return sbBlockHTML(b, e); }).join('') +
       actionsHTML(acts, { card: e.title, price: e.price || '', url: eventUrl(e), tplKey: 'offer' }) +
       '</article>';
   }
