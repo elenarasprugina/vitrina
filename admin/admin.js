@@ -2916,11 +2916,13 @@
   function evAccent() { return ((DATA.events || {}).look || {}).accent; }
   function hostsForm(b, render) {
     b.people = b.people || [];
-    var ring = b.layout === 'ring';
+    var ring = b.layout === 'ring', list;
+    // Добавили / убрали / переставили человека — пусть заголовок раздела сразу покажет, кто выбран
+    function tell() { if (list) list.dispatchEvent(new Event('change', { bubbles: true })); }
     return [
       textIn(b, 'title', 'Заголовок раздела', { ph: 'Ведущие, Ведущая, Кто ведёт…' }),
       people().length ? null : el('p', { class: 'a-note', text: 'Общий список пока пуст. Добавьте людей в блоке «Ведущие — общий список» ниже на этой странице (фото, имя, роль, пара строк) — потом выберите их здесь.' }),
-      collection(b.people, { ordered: false,
+      list = collection(b.people, { ordered: false, onChange: tell,
         title: function (x) { return (personName(x.id) || '— не выбран —') + (x.note ? ' · ' + x.note : ''); },
         make: function () { var have = b.people.map(function (x) { return x.id; }); var p = people().filter(function (q) { return have.indexOf(q.id) < 0; })[0]; return { id: p ? p.id : '', note: '' }; },
         addLabel: '+ Выбрать ведущего', empty: 'Пока никто не выбран.',

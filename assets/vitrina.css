@@ -1440,6 +1440,12 @@ body.m13-locked{overflow:hidden}
 .m13-host-note{font-size:13.5px;line-height:1.35;color:var(--hx)}
 .m13-host-about{margin-top:2px;font-size:14px;line-height:1.5;color:var(--lk-soft,#555);max-width:36ch}
 .m13-hosts--grid .m13-host-about{font-size:13px}
+/* Строки карточек выровнены по сетке: имена, «кто это», «что ведёт», «пара строк» начинаются на одной высоте */
+@supports (grid-template-rows:subgrid){
+  .m13-hosts--side,.m13-hosts--grid{grid-auto-rows:auto}
+  .m13-hosts--side .m13-host,.m13-hosts--grid .m13-host{display:grid;grid-row:span var(--hr,5);grid-template-rows:subgrid;justify-items:center;align-content:start;row-gap:5px}
+  .m13-host>*{align-self:start}
+}
 .m13-standalone .m13-host-name{font-size:calc(22px * var(--m13-tk,1))}
 .m13-standalone .m13-hosts--grid .m13-host-name{font-size:calc(18px * var(--m13-tk,1))}
 .m13-standalone .m13-host-role{font-size:calc(11px * var(--m13-tk,1))}
@@ -1454,6 +1460,7 @@ body.m13-locked{overflow:hidden}
   .m13-hosts--side.m13-hosts--one .m13-host-ph{width:120px;height:120px}
   .m13-standalone .m13-host-name{font-size:calc(19px * var(--m13-tk,1))}
   .m13-standalone .m13-host-about{font-size:calc(13.5px * var(--m13-tk,1))}
+  .m13-host-role{letter-spacing:.05em;line-height:1.35}
 }
 /* Круг: в центре главная картинка, вокруг светятся ведущие */
 .m13-ring-wrap{display:grid;justify-items:center;gap:8px;padding:14px 4px 6px;border-radius:16px}

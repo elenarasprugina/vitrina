@@ -1983,13 +1983,19 @@
         '<p class="m13-ring-name" aria-live="polite">' + esc(String(b.ringHint || '').trim() || 'Нажмите на лицо — появится имя') + '</p></div></div>';
     }
     var about = b.about !== false;
-    return '<div class="m13-block m13-hosts-block">' + head + '<div class="m13-hosts m13-hosts--' + lay + (list.length === 1 ? ' m13-hosts--one' : '') + '"' + (rc ? ' style="' + rc + '"' : '') + '>' +
+    // Имя сразу под фото; строки «кто это», «что ведёт», «пара строк» — одинаковые у всех карточек
+    // (пустая, если у этого человека нет), чтобы по сетке они начинались на одной высоте
+    var has = function (f) { return list.some(function (p) { return String(p[f] || '').trim(); }); };
+    var rows = [['role', 'm13-host-role'], ['note', 'm13-host-note']].concat(about ? [['about', 'm13-host-about']] : []).filter(function (r) { return has(r[0]); });
+    return '<div class="m13-block m13-hosts-block">' + head + '<div class="m13-hosts m13-hosts--' + lay + (list.length === 1 ? ' m13-hosts--one' : '') + '"' +
+      ' style="--hr:' + (rows.length + 2) + ';' + rc + '">' +
       list.map(function (p) {
         return '<div class="m13-host">' + hostFace(p, 'm13-host-ph') +
-          (p.role ? '<div class="m13-host-role">' + esc(p.role) + '</div>' : '') +
           '<div class="m13-host-name">' + esc(p.name) + '</div>' +
-          (p.note ? '<div class="m13-host-note">' + esc(p.note) + '</div>' : '') +
-          (about && String(p.about || '').trim() ? '<div class="m13-host-about">' + txt(String(p.about).trim()) + '</div>' : '') + '</div>';
+          rows.map(function (r) {
+            var v = String(p[r[0]] || '').trim();
+            return '<div class="' + r[1] + '">' + (!v ? '' : r[0] === 'about' ? txt(v) : esc(v)) + '</div>';
+          }).join('') + '</div>';
       }).join('') + '</div></div>';
   }
   function programHTML(b) {
