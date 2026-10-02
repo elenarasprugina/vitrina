@@ -1,5 +1,8 @@
 # Состояние разработки · 01.10.2026
 
+## Жёлтое Солнце — страница маршрута (обсуждено 01–02.10.2026, кода нет)
+Все решения — в `docs/yellow-sun.md`. Делать только по её команде «делаем».
+
 ## Сделано
 - **Этап 1 — рендерер + данные октября.** `assets/vitrina.js`, `assets/vitrina.css`; страницы `/`, `/2026-10/`, `/sandbox/`, `/reflection/`. Все надписи в данных (settings.texts, sandbox.labels, reflection.placeholder).
   - Карта-Отражение — оборот `offer` с плашками-вариантами (`back.items`, шаблон `messages.offerItem`); у свечей `datesLabel` / `dates` / `datesNote`.
