@@ -2255,7 +2255,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['perms', 'Карты-разрешения'], ['personal', 'Личная карта']];
+  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['perms', 'Карты-разрешения'], ['personal', 'Личная карта']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['permission', 'Карта-разрешение (надпись или картинка)']];
@@ -2424,11 +2424,12 @@
         jBgLive(r)
       ], { open: false }),
       block('Свет кирпичей', [
-        el('p', { class: 'a-hint', text: 'Заработает вместе со спиралью (следующий шаг). Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, пройденные светятся спокойно, будущие — в тени.' }),
+        el('p', { class: 'a-hint', text: 'Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, после нажатия светится ровно; пройденные светятся спокойно, будущие — в тени. Где лежат кирпичи — вкладка «Кирпичи на спирали», там же видно, как светится каждый день.' }),
         colorIn(r.glow, 'color', 'Цвет свечения'),
         rangeIn(r.glow, 'today', 'Сегодняшний кирпич', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }),
         rangeIn(r.glow, 'done', 'Прошедшие дни', { min: 0, max: 100, step: 5, def: 55, unit: ' %' }),
-        rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' })
+        rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' }),
+        rangeIn(r.glow, 'dusk', 'Сумрак на спирали', { min: 0, max: 80, step: 5, def: 35, unit: ' %', hint: 'Насколько притушить камни, которые не светятся: чем больше, тем ярче на их фоне путь. 0 — картинка как есть. До 5 октября спираль показывается без сумрака и без света.' })
       ], { open: false }),
       block('Ключи Путешествия и Погружения', [
         el('p', { class: 'a-hint', text: 'Ключ — слово, которое вы даёте в группе. По нему человек получает свой личный код и узор. Ключи можно менять на каждую волну. Ввод ключа на странице заработает на шаге «колода и код».' }),
@@ -2444,8 +2445,11 @@
         textIn(tx, 'back', 'Ссылка назад', { ph: '← Вернуться на витрину' }),
         el('div', { class: 'a-row' }, [textIn(tx, 'before', 'До начала — крупно', { ph: 'Маршрут начнётся 5 октября' }), textIn(tx, 'beforeNote', 'До начала — строка ниже')]),
         el('div', { class: 'a-row' }, [textIn(tx, 'after', 'После конца — крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'afterNote', 'После конца — строка ниже')]),
-        el('div', { class: 'a-row' }, [textIn(tx, 'today', 'В дни маршрута — строка', { ph: 'Сегодня — день {день}' }), textIn(tx, 'openDay', 'Кнопка Карты дня', { ph: 'Карта дня',
-          hint: 'Пока нет спирали с кирпичами, Карта дня открывается этой кнопкой.' })]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'today', 'В дни маршрута — строка', { ph: 'Сегодня — день {день}' }), textIn(tx, 'tap', 'Подсказка под ней', { ph: 'Коснитесь светящегося камня',
+          hint: 'Видна, пока сегодняшний камень не нажат.' })]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'past', 'Нажали на прошедший день', { ph: 'День {день} пройден' }), textIn(tx, 'future', 'Нажали на будущий день', { ph: 'День {день} откроется {дата}' })]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'final', 'Финал Солнца — заголовок (пока заглушка)', { ph: 'Финал Солнца' }), textIn(tx, 'finalNote', 'Финал Солнца — строка ниже', { ph: 'Здесь скоро откроется финал маршрута.' })]),
+        textIn(tx, 'openDay', 'Кнопка Карты дня (запасная)', { ph: 'Карта дня', hint: 'Появляется вместо камней, только если у картинки спирали нет разметки кирпичей.' }),
         textIn(tx, 'next', 'Подсказка после кнопки-спирали (пока нет выбора карт)', { multi: true, rows: 2 }),
         el('p', { class: 'a-hint', text: jTokensHint(r, false) })
       ], { open: false })
@@ -2493,6 +2497,91 @@
         } })
     ];
   }
+  // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Кружки можно тянуть мышкой или пальцем.
+  // Жёлтые — середины дней, белые — стыки между днями, голубой — центр (день 13) и его края.
+  function jBricks(r) {
+    var st = ST.jbr = ST.jbr || { v: 'desktop', day: 8 };
+    r.zones = r.zones || {};
+    var key = st.v, src = key === 'mobile' ? r.masterMobile : r.masterDesktop;
+    var z = r.zones[key];
+    var tabs = el('div', { class: 'a-tabs' }, [['desktop', '🖥 Компьютер'], ['mobile', '📱 Телефон']].map(function (x) {
+      return el('button', { type: 'button', class: key === x[0] ? 'is-active' : '', text: x[1], onclick: function () { st.v = x[0]; renderMain(); } });
+    }));
+    function fromSite() {
+      var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
+      var oz = o && o.zones && o.zones[key];
+      if (!oz) { toast('На сайте разметки для этой картинки нет.', true); return; }
+      r.zones[key] = clone(oz); changed(); renderMain(); toast('Разметка — как на сайте.');
+    }
+    var head = [el('p', { class: 'a-hint', text: 'Светящаяся полоса каждого дня должна лежать на камнях. Тяните кружки: жёлтые — середины дней, белые — стыки между днями, голубой — центр (день 13), маленькие голубые — его края. Номера — дни. Путь идёт от входа слева по часовой стрелке внутрь. У компьютера и телефона разметка своя. Если поменяете картинку спирали — загляните сюда и подвиньте кружки.' }), tabs];
+    if (!src) return head.concat([el('p', { class: 'a-hint a-hint--warn', text: 'Картинка спирали не загружена (вкладка «Основное»).' })]);
+    if (!z || !z.path || z.path.length < 25 || !z.center) return head.concat([el('p', { class: 'a-hint a-hint--warn', text: 'Для этой картинки разметки нет — на странице вместо камней будет кнопка «Карта дня».' }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Взять разметку с сайта', onclick: fromSite })]);
+    if (z.width == null) z.width = 100;
+    var days = [['0', 'до начала (без света)']];
+    for (var i = 1; i <= r.days.length; i++) days.push([String(i), 'день ' + i + (i === r.days.length ? ' (центр)' : '')]);
+    days.push([String(r.days.length + 1), 'все пройдены']);
+    var pick = el('select', { class: 'a-input' }, days.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+    pick.value = String(st.day);
+    var wrap = el('div', { class: 'a-jbr' + (key === 'mobile' ? ' a-jbr--tall' : '') });
+    var img = el('img', { alt: '' }), ov = null, hs = null, iw = 0, ih = 0, raf = 0;
+    wrap.appendChild(img);
+    function paint() {
+      if (!iw || !window.M13R) return;
+      if (ov) ov.node.remove();
+      var g = r.glow || {};
+      ov = window.M13R.bricksLayer(r, z, iw, ih, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100, zones: 'outline' });
+      if (st.day > 0) ov.paint(window.M13R.lights(r, st.day, false));
+      wrap.insertBefore(ov.node, hs);
+      handles();
+    }
+    function soon() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; paint(); }); }
+    function handles() {
+      var k = iw / (wrap.clientWidth || iw), c = z.center, h = '';
+      function dot(x, y, rr, fill, stroke, id, label) {
+        var cx = (x * iw).toFixed(1), cy = (y * ih).toFixed(1);
+        return '<circle data-h="' + id + '" cx="' + cx + '" cy="' + cy + '" r="' + (rr * k).toFixed(1) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (1.5 * k).toFixed(1) + '"/>' +
+          (label ? '<text x="' + cx + '" y="' + (y * ih + 4 * k).toFixed(1) + '" font-size="' + (11 * k).toFixed(1) + '" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#2a1a05" pointer-events="none">' + label + '</text>' : '');
+      }
+      z.path.forEach(function (p, j) { h += j % 2 ? dot(p[0], p[1], 10, '#ffcf5a', '#2a1a05', j, (j + 1) / 2) : dot(p[0], p[1], 5, '#fff', '#2a1a05', j); });
+      h += dot(c.x, c.y, 11, '#7ff', '#03302f', 'c', r.days.length) + dot(c.x + c.rx, c.y, 5, '#7ff', '#03302f', 'rx') + dot(c.x, c.y + c.ry, 5, '#7ff', '#03302f', 'ry');
+      hs.setAttribute('viewBox', '0 0 ' + iw + ' ' + ih);
+      hs.innerHTML = h;
+    }
+    hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    hs.setAttribute('class', 'a-jbr-h'); hs.setAttribute('preserveAspectRatio', 'none');
+    wrap.appendChild(hs);
+    var drag = null;
+    function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1, (e.clientY - rc.top) / rc.height))]; }
+    function r4(v) { return Math.round(v * 10000) / 10000; }
+    hs.addEventListener('pointerdown', function (e) {
+      var id = e.target.getAttribute && e.target.getAttribute('data-h'); if (id == null) return;
+      e.preventDefault(); drag = id; try { hs.setPointerCapture(e.pointerId); } catch (x) {}
+    });
+    hs.addEventListener('pointermove', function (e) {
+      if (drag == null) return;
+      var p = at(e), c = z.center;
+      if (drag === 'c') { c.x = r4(p[0]); c.y = r4(p[1]); }
+      else if (drag === 'rx') c.rx = r4(Math.max(.005, Math.abs(p[0] - c.x)));
+      else if (drag === 'ry') c.ry = r4(Math.max(.005, Math.abs(p[1] - c.y)));
+      else { z.path[+drag][0] = r4(p[0]); z.path[+drag][1] = r4(p[1]); }
+      soon();
+    });
+    function end() { if (drag == null) return; drag = null; changed(); }
+    hs.addEventListener('pointerup', end); hs.addEventListener('pointercancel', end);
+    img.addEventListener('load', function () { iw = img.naturalWidth; ih = img.naturalHeight; paint(); });
+    img.src = imgSrc(src);
+    pick.addEventListener('change', function () { st.day = +pick.value; paint(); });
+    LIVE.push({ node: wrap, run: function () { if (!drag) paint(); } });
+    return head.concat([
+      el('div', { class: 'a-row a-row--end' }, [field('Как светится в', pick),
+        el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть как на сайте', onclick: function () { if (confirm('Вернуть разметку кирпичей этой картинки как на опубликованном сайте? Ваши передвижения пропадут.')) fromSite(); } })]),
+      // У телефонной картинки спираль внизу — показываем нижние ⅔ крупнее
+      key === 'mobile' ? el('div', { class: 'a-jbr-crop' }, wrap) : wrap,
+      rangeIn(z, 'width', 'Толщина подсветки', { min: 40, max: 200, step: 5, def: 100, unit: ' %', hint: 'Шире или уже светятся все кирпичи этой картинки.' }),
+      el('p', { class: 'a-hint', text: 'Проверить вживую: «Посмотреть страницу» → «Проверка» → выберите день на спирали и «Показать разметку кирпичей».' })
+    ]);
+  }
   function viewJourneys() {
     var r = jRoute(), list = DATA.journeys.items;
     var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Страницы маршрутов' }),
@@ -2514,6 +2603,7 @@
         el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты-разрешения (Путешествие и Погружение). Тексты собираются из шаблонов дня (вкладка «13 дней») и словоформ выпавшей карты. Внизу — «Оставить след» и кнопка-спираль.' }),
         jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
     else if (t === 'days') body = jDays(r);
+    else if (t === 'bricks') body = jBricks(r);
     else if (t === 'perms') body = jPerms(r);
     else body = jMain(r);
     return [head, pick, look, tabs].concat(body);
@@ -3830,6 +3920,11 @@
     D.events = D.events || EVENTS_DEFAULT(); D.events.items = D.events.items || [];
     // Страницы маршрутов (с 02.10.2026): в старом черновике их нет — берём заготовку с сайта
     if (!D.journeys || !D.journeys.items) D.journeys = clone((ORIGINAL && ORIGINAL.journeys) || { items: [] });
+    // Разметка кирпичей (с шага 2): в черновике её нет — берём с сайта
+    D.journeys.items.forEach(function (r) {
+      var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
+      if (!r.zones && o && o.zones) r.zones = clone(o.zones);
+    });
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {
         if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);

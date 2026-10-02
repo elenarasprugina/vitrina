@@ -17,14 +17,39 @@
 .ys-go{font:inherit;font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;letter-spacing:.04em;color:#2a1a05;background:radial-gradient(circle at 50% 35%,#fff3c8,#ffcf5a 60%,#d9921c);border:0;border-radius:999px;padding:12px 30px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 34px rgba(255,200,80,.55);animation:ys-breathe 3.2s ease-in-out infinite}
 @keyframes ys-breathe{0%,100%{box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 22px rgba(255,200,80,.35)}50%{box-shadow:0 0 0 1px rgba(255,236,180,.9),0 0 48px rgba(255,200,80,.8)}}
 .ys-err{padding:40px 20px;text-align:center;color:#f3d9a0}
+.ys-tap{margin:2px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:clamp(17px,1.7vw,21px);color:#ffe7ae;text-shadow:0 1px 14px rgba(0,0,0,.85);animation:ys-hint 3.2s ease-in-out infinite;transition:opacity .5s}
+.ys-tap.is-gone{opacity:0;animation:none}
+@keyframes ys-hint{0%,100%{opacity:.7}50%{opacity:1}}
+
+/* ---------- Кирпичи на спирали (слои света в пикселях картинки) ---------- */
+.ys-bricks,.ys-bricks svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ys-l-glow,.ys-l-today,.ys-l-pulse{mix-blend-mode:screen}
+.ys-l-today{animation:ys-brick 3.2s ease-in-out infinite;will-change:opacity}
+.ys-l-today.is-go{animation:none;opacity:1}
+@keyframes ys-brick{0%,100%{opacity:.4}50%{opacity:1}}
+.ys-l-pulse{transition:opacity 1s ease}
+.ys-l-pulse.is-fade{opacity:0}
+.ys-hit{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;border:0;padding:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ys-hit--c{width:80px;height:56px;margin:-28px 0 0 -40px}
+.ys-hit:focus-visible{outline:2px solid #ffe39a;outline-offset:2px}
+.ys-stage{cursor:default}
+
+/* ---------- Финал Солнца (заглушка) ---------- */
+.ys-final{position:relative;margin:auto;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px 20px;max-width:440px}
+.ys-final-sun{width:min(260px,62vw);height:auto;filter:drop-shadow(0 0 40px rgba(255,200,80,.6));animation:ys-sun 12s linear infinite}
+@keyframes ys-sun{to{transform:rotate(360deg)}}
+.ys-final-t{margin:6px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4vw,44px);color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
+.ys-final-n{margin:0 0 6px;font-size:16px;line-height:1.5;color:#f3d9a0}
+.ys-layer--final{background:radial-gradient(circle at 50% 45%,rgba(90,58,12,.75),rgba(5,3,1,.92))}
 
 /* ---------- Слой поверх спирали ---------- */
 .ys-layer{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;background:radial-gradient(circle at 50% 50%,rgba(40,24,6,.55),rgba(5,3,1,.82));opacity:0;transition:opacity .35s ease}
 .ys-layer.is-in{opacity:1}
 .ys-layer.is-out{opacity:0}
-.ys-layer .ys-card{transform:scale(.18);opacity:0;transition:transform .55s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
-.ys-layer.is-in .ys-card{transform:none;opacity:1}
-.ys-layer.is-out .ys-card{transform:scale(.9);opacity:0;transition-duration:.3s}
+/* Карта появляется из центра спирали: --ys-ox / --ys-oy — где центр относительно середины экрана */
+.ys-layer .ys-card,.ys-layer .ys-final{transform:translate(var(--ys-ox,0px),var(--ys-oy,0px)) scale(.18);opacity:0;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
+.ys-layer.is-in .ys-card,.ys-layer.is-in .ys-final{transform:none;opacity:1}
+.ys-layer.is-out .ys-card,.ys-layer.is-out .ys-final{transform:scale(.9);opacity:0;transition-duration:.3s}
 
 /* ---------- Карта дня и личная карта ---------- */
 .ys-card{position:relative;width:min(460px,100%);margin:auto;color:#f6ead2;border-radius:22px;background:linear-gradient(170deg,rgba(46,30,10,.94),rgba(16,10,4,.96) 60%);box-shadow:0 0 0 1px rgba(255,214,140,.32),0 0 60px rgba(255,190,70,.22),0 30px 80px rgba(0,0,0,.6);overflow:hidden}
@@ -69,8 +94,9 @@
   .ys-c-title{font-size:27px}
 }
 @media (prefers-reduced-motion:reduce){
-  .ys-go,.ys-spiral{animation:none}
-  .ys-layer .ys-card{transition:opacity .2s}
+  .ys-go,.ys-spiral,.ys-tap,.ys-final-sun{animation:none}
+  .ys-l-today{animation:none;opacity:.85}
+  .ys-layer .ys-card,.ys-layer .ys-final{transition:opacity .2s}
 }
 
 /* ---------- Подсказка внизу и режим проверки ---------- */
@@ -83,6 +109,8 @@
 .ys-debug-b select,.ys-debug-b button{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid #ccc;background:#fff}
 .ys-debug-b button{cursor:pointer;background:#2a1a05;color:#fff;border-color:#2a1a05}
 .ys-debug-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.ys-debug-chk{display:flex;align-items:center;gap:6px;cursor:pointer}
+.ys-debug-sep{margin-top:4px;padding-top:8px;border-top:1px solid #ddd;font-weight:700}
 
 /* ---------- Предпросмотр в панели (карта без слоя) ---------- */
 .ys-pv{background:#0d0804;border-radius:14px;padding:18px 12px;display:flex;justify-content:center}
