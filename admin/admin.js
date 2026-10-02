@@ -2497,13 +2497,14 @@
         } })
     ];
   }
-  // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Кружки можно тянуть мышкой или пальцем.
-  // Жёлтые — середины дней, белые — стыки между днями, голубой — центр (день 13) и его края.
+  // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Всё тянется мышкой или пальцем.
+  // Жёлтые кружки — середины дней, белые — стыки между днями, оранжевые квадратики — внешний край камня (ширина полосы),
+  // голубой — центр (день 13) и его края. Можно выбрать один день — тогда видны только его кружки.
   function jBricks(r) {
-    var st = ST.jbr = ST.jbr || { v: 'desktop', day: 8 };
+    var st = ST.jbr = ST.jbr || { v: 'desktop', day: 8, sel: 0, zoom: false };
     r.zones = r.zones || {};
     var key = st.v, src = key === 'mobile' ? r.masterMobile : r.masterDesktop;
-    var z = r.zones[key];
+    var z = r.zones[key], last = r.days.length;
     var tabs = el('div', { class: 'a-tabs' }, [['desktop', '🖥 Компьютер'], ['mobile', '📱 Телефон']].map(function (x) {
       return el('button', { type: 'button', class: key === x[0] ? 'is-active' : '', text: x[1], onclick: function () { st.v = x[0]; renderMain(); } });
     }));
@@ -2513,19 +2514,28 @@
       if (!oz) { toast('На сайте разметки для этой картинки нет.', true); return; }
       r.zones[key] = clone(oz); changed(); renderMain(); toast('Разметка — как на сайте.');
     }
-    var head = [el('p', { class: 'a-hint', text: 'Светящаяся полоса каждого дня должна лежать на камнях. Тяните кружки: жёлтые — середины дней, белые — стыки между днями, голубой — центр (день 13), маленькие голубые — его края. Номера — дни. Путь идёт от входа слева по часовой стрелке внутрь. У компьютера и телефона разметка своя. Если поменяете картинку спирали — загляните сюда и подвиньте кружки.' }), tabs];
+    var head = [el('p', { class: 'a-hint', text: 'Светящаяся полоса каждого дня должна лежать на своих камнях. Путь идёт от входа слева по часовой стрелке к центру. У компьютера и телефона разметка своя. Если поменяете картинку спирали — загляните сюда.' }), tabs];
     if (!src) return head.concat([el('p', { class: 'a-hint a-hint--warn', text: 'Картинка спирали не загружена (вкладка «Основное»).' })]);
     if (!z || !z.path || z.path.length < 25 || !z.center) return head.concat([el('p', { class: 'a-hint a-hint--warn', text: 'Для этой картинки разметки нет — на странице вместо камней будет кнопка «Карта дня».' }),
       el('button', { type: 'button', class: 'a-btn', text: 'Взять разметку с сайта', onclick: fromSite })]);
     if (z.width == null) z.width = 100;
-    var days = [['0', 'до начала (без света)']];
-    for (var i = 1; i <= r.days.length; i++) days.push([String(i), 'день ' + i + (i === r.days.length ? ' (центр)' : '')]);
-    days.push([String(r.days.length + 1), 'все пройдены']);
-    var pick = el('select', { class: 'a-input' }, days.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
-    pick.value = String(st.day);
-    var wrap = el('div', { class: 'a-jbr' + (key === 'mobile' ? ' a-jbr--tall' : '') });
-    var img = el('img', { alt: '' }), ov = null, hs = null, iw = 0, ih = 0, raf = 0;
-    wrap.appendChild(img);
+    function opts(list, val) { var s = el('select', { class: 'a-input' }, list.map(function (o) { return el('option', { value: o[0], text: o[1] }); })); s.value = String(val); return s; }
+    var days = [['0', 'до начала (без света)']], sels = [['0', 'все дни сразу']], i;
+    for (i = 1; i <= last; i++) days.push([String(i), 'день ' + i + (i === last ? ' (центр)' : '')]);
+    days.push([String(last + 1), 'все пройдены']);
+    for (i = 1; i < last; i++) sels.push([String(i), 'день ' + i]);
+    sels.push([String(last), 'центр (день ' + last + ')']);
+    var pick = opts(days, st.day), pickSel = opts(sels, st.sel);
+    var view = el('div', { class: 'a-jbr-view' + (key === 'mobile' ? ' a-jbr-view--tall' : '') });
+    var wrap = el('div', { class: 'a-jbr' + (st.zoom ? ' is-zoom' : '') });
+    var img = el('img', { alt: '' }), ov = null, hs = null, iw = 0, ih = 0, raf = 0, drag = null;
+    wrap.appendChild(img); view.appendChild(wrap);
+    // Старая разметка [x, y, w] → [x, y, ox, oy]: край — по линии к центру
+    z.path.forEach(function (p) {
+      if (p.length >= 4) return;
+      var dx = (p[0] - z.center.x), dy = (p[1] - z.center.y) * 941 / 1672, l = Math.sqrt(dx * dx + dy * dy) || 1, h = (p[2] || .02) / 2;
+      p[2] = r4(dx / l * h); p[3] = r4(dy / l * h * 1672 / 941); p.length = 4;
+    });
     function paint() {
       if (!iw || !window.M13R) return;
       if (ov) ov.node.remove();
@@ -2537,48 +2547,82 @@
     }
     function soon() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; paint(); }); }
     function handles() {
-      var k = iw / (wrap.clientWidth || iw), c = z.center, h = '';
+      var k = iw / (wrap.clientWidth || iw), c = z.center, h = '', m = (z.width == null ? 100 : +z.width) / 100;
+      function pos(x, y) { return 'cx="' + (x * iw).toFixed(1) + '" cy="' + (y * ih).toFixed(1) + '"'; }
       function dot(x, y, rr, fill, stroke, id, label) {
-        var cx = (x * iw).toFixed(1), cy = (y * ih).toFixed(1);
-        return '<circle data-h="' + id + '" cx="' + cx + '" cy="' + cy + '" r="' + (rr * k).toFixed(1) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (1.5 * k).toFixed(1) + '"/>' +
-          (label ? '<text x="' + cx + '" y="' + (y * ih + 4 * k).toFixed(1) + '" font-size="' + (11 * k).toFixed(1) + '" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#2a1a05" pointer-events="none">' + label + '</text>' : '');
+        return '<circle data-h="' + id + '" ' + pos(x, y) + ' r="' + (rr * k).toFixed(1) + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + (1.5 * k).toFixed(1) + '"/>' +
+          (label ? '<text x="' + (x * iw).toFixed(1) + '" y="' + (y * ih + 4 * k).toFixed(1) + '" font-size="' + (11 * k).toFixed(1) + '" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#2a1a05" pointer-events="none">' + label + '</text>' : '');
       }
-      z.path.forEach(function (p, j) { h += j % 2 ? dot(p[0], p[1], 10, '#ffcf5a', '#2a1a05', j, (j + 1) / 2) : dot(p[0], p[1], 5, '#fff', '#2a1a05', j); });
-      h += dot(c.x, c.y, 11, '#7ff', '#03302f', 'c', r.days.length) + dot(c.x + c.rx, c.y, 5, '#7ff', '#03302f', 'rx') + dot(c.x, c.y + c.ry, 5, '#7ff', '#03302f', 'ry');
+      // Край камня: квадратик на конце отрезка от середины
+      function edge(p, j) {
+        var ex = p[0] + p[2] * m, ey = p[1] + p[3] * m, ix = p[0] - p[2] * m, iy = p[1] - p[3] * m, s = 6 * k;
+        return '<line x1="' + (ix * iw).toFixed(1) + '" y1="' + (iy * ih).toFixed(1) + '" x2="' + (ex * iw).toFixed(1) + '" y2="' + (ey * ih).toFixed(1) + '" stroke="#ff9a3c" stroke-width="' + (1.5 * k).toFixed(1) + '" stroke-dasharray="' + (4 * k).toFixed(1) + '" pointer-events="none"/>' +
+          '<rect data-h="e' + j + '" x="' + (ex * iw - s).toFixed(1) + '" y="' + (ey * ih - s).toFixed(1) + '" width="' + (2 * s).toFixed(1) + '" height="' + (2 * s).toFixed(1) + '" rx="' + (2 * k).toFixed(1) + '" fill="#ff9a3c" stroke="#2a1a05" stroke-width="' + (1.5 * k).toFixed(1) + '"/>';
+      }
+      var a = st.sel && st.sel < last ? 2 * (st.sel - 1) : 0, b = st.sel && st.sel < last ? 2 * st.sel : z.path.length - 1;
+      if (st.sel !== last) {
+        for (var j = a; j <= b; j++) h += edge(z.path[j], j);
+        for (j = a; j <= b; j++) { var p = z.path[j]; h += j % 2 ? dot(p[0], p[1], 10, '#ffcf5a', '#2a1a05', j, (j + 1) / 2) : dot(p[0], p[1], 6, '#fff', '#2a1a05', j); }
+      }
+      if (!st.sel || st.sel === last) h += dot(c.x, c.y, 11, '#7ff', '#03302f', 'c', last) + dot(c.x + c.rx, c.y, 6, '#7ff', '#03302f', 'rx') + dot(c.x, c.y + c.ry, 6, '#7ff', '#03302f', 'ry');
       hs.setAttribute('viewBox', '0 0 ' + iw + ' ' + ih);
       hs.innerHTML = h;
     }
     hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     hs.setAttribute('class', 'a-jbr-h'); hs.setAttribute('preserveAspectRatio', 'none');
     wrap.appendChild(hs);
-    var drag = null;
     function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1, (e.clientY - rc.top) / rc.height))]; }
     function r4(v) { return Math.round(v * 10000) / 10000; }
-    hs.addEventListener('pointerdown', function (e) {
-      var id = e.target.getAttribute && e.target.getAttribute('data-h'); if (id == null) return;
-      e.preventDefault(); drag = id; try { hs.setPointerCapture(e.pointerId); } catch (x) {}
-    });
-    hs.addEventListener('pointermove', function (e) {
+    function move(e) {
       if (drag == null) return;
-      var p = at(e), c = z.center;
+      e.preventDefault();
+      var p = at(e), c = z.center, m = (z.width == null ? 100 : +z.width) / 100 || 1;
       if (drag === 'c') { c.x = r4(p[0]); c.y = r4(p[1]); }
       else if (drag === 'rx') c.rx = r4(Math.max(.005, Math.abs(p[0] - c.x)));
       else if (drag === 'ry') c.ry = r4(Math.max(.005, Math.abs(p[1] - c.y)));
+      else if (drag.charAt(0) === 'e') { var q = z.path[+drag.slice(1)]; q[2] = r4((p[0] - q[0]) / m); q[3] = r4((p[1] - q[1]) / m); }
       else { z.path[+drag][0] = r4(p[0]); z.path[+drag][1] = r4(p[1]); }
       soon();
+    }
+    function end() {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+      if (drag == null) return; drag = null; changed();
+    }
+    hs.addEventListener('pointerdown', function (e) {
+      var id = e.target.getAttribute && e.target.getAttribute('data-h'); if (id == null) return;
+      e.preventDefault(); drag = id;
+      window.addEventListener('pointermove', move, { passive: false }); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     });
-    function end() { if (drag == null) return; drag = null; changed(); }
-    hs.addEventListener('pointerup', end); hs.addEventListener('pointercancel', end);
-    img.addEventListener('load', function () { iw = img.naturalWidth; ih = img.naturalHeight; paint(); });
+    img.addEventListener('load', function () {
+      iw = img.naturalWidth; ih = img.naturalHeight; paint(); focus();
+    });
+    // Листаем к спирали: у телефонной картинки она внизу, при «Крупнее» — к середине
+    function focus() {
+      var cy = (key === 'mobile' ? .56 : .45) * wrap.clientHeight;
+      view.scrollTop = Math.max(0, cy - view.clientHeight / 2);
+      view.scrollLeft = Math.max(0, (wrap.clientWidth - view.clientWidth) / 2);
+    }
     img.src = imgSrc(src);
     pick.addEventListener('change', function () { st.day = +pick.value; paint(); });
-    LIVE.push({ node: wrap, run: function () { if (!drag) paint(); } });
+    pickSel.addEventListener('change', function () { st.sel = +pickSel.value; paint(); });
+    var zoomBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее', onclick: function () {
+      st.zoom = !st.zoom; wrap.classList.toggle('is-zoom', st.zoom); zoomBtn.textContent = st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее';
+      setTimeout(function () { paint(); focus(); }, 0);
+    } });
+    LIVE.push({ node: wrap, run: function () { if (drag == null) paint(); } });
     return head.concat([
-      el('div', { class: 'a-row a-row--end' }, [field('Как светится в', pick),
+      el('div', { class: 'a-jbr-help' }, [
+        el('b', { text: 'Как разметить день' }),
+        el('ol', {}, [
+          el('li', { text: 'Выберите день в «Кружки» — останутся только его кружки.' }),
+          el('li', { text: 'Жёлтый (с номером) и белые кружки поставьте по середине камней дня: белые — где день начинается и кончается, жёлтый — посередине.' }),
+          el('li', { text: 'Оранжевый квадратик — внешний край камня. Тяните его до края: полоса станет шире или уже. У каждого кружка свой — камни разной ширины.' }),
+          el('li', { text: 'Центр (день 13): голубой кружок — середина диска, маленькие голубые — его края.' })])]),
+      el('div', { class: 'a-row a-row--end' }, [field('Кружки', pickSel), field('Как светится в', pick)]),
+      el('div', { class: 'a-row a-row--end' }, [zoomBtn,
         el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть как на сайте', onclick: function () { if (confirm('Вернуть разметку кирпичей этой картинки как на опубликованном сайте? Ваши передвижения пропадут.')) fromSite(); } })]),
-      // У телефонной картинки спираль внизу — показываем нижние ⅔ крупнее
-      key === 'mobile' ? el('div', { class: 'a-jbr-crop' }, wrap) : wrap,
-      rangeIn(z, 'width', 'Толщина подсветки', { min: 40, max: 200, step: 5, def: 100, unit: ' %', hint: 'Шире или уже светятся все кирпичи этой картинки.' }),
+      view,
+      rangeIn(z, 'width', 'Толщина подсветки — всех сразу', { min: 40, max: 200, step: 5, def: 100, unit: ' %', hint: 'Шире или уже светятся все кирпичи этой картинки. Ширина каждого камня — оранжевыми квадратиками.' }),
       el('p', { class: 'a-hint', text: 'Проверить вживую: «Посмотреть страницу» → «Проверка» → выберите день на спирали и «Показать разметку кирпичей».' })
     ]);
   }

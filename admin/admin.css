@@ -361,11 +361,14 @@ select.a-input{padding-right:28px}
 .a-jcheck-i{border-top:1px solid var(--a-line);padding-top:10px}
 .a-jcheck-i h4{margin:0 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em}
 .a-jcheck-i p{margin:0 0 6px;font-size:13.5px;line-height:1.45}
-/* Кирпичи на спирали: картинка, свет (route.css) и кружки поверх */
-.a-jbr{position:relative;width:100%;max-width:980px;border-radius:12px;overflow:hidden;background:#0a0604;isolation:isolate;touch-action:none;user-select:none;-webkit-user-select:none}
-.a-jbr-crop{position:relative;width:100%;max-width:620px;aspect-ratio:9/10;overflow:hidden;border-radius:12px;background:#0a0604}
-.a-jbr--tall{position:absolute;left:0;right:0;bottom:0;max-width:none;border-radius:0}
+/* Кирпичи на спирали: картинка, свет (route.css) и кружки поверх; «Крупнее» — картинка вдвое шире, листается */
+.a-jbr-view{position:relative;width:100%;max-width:980px;max-height:78vh;overflow:auto;border-radius:12px;background:#0a0604;-webkit-overflow-scrolling:touch}
+.a-jbr-view--tall{max-width:620px;max-height:min(78vh,700px)}
+.a-jbr{position:relative;width:100%;isolation:isolate;user-select:none;-webkit-user-select:none}
+.a-jbr.is-zoom{width:200%}
 .a-jbr img{display:block;width:100%;height:auto;pointer-events:none}
-.a-jbr-h{position:absolute;inset:0;width:100%;height:100%}
-.a-jbr-h circle{cursor:grab}
-.a-jbr-h circle:active{cursor:grabbing}
+.a-jbr-h{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;touch-action:none}
+.a-jbr-h circle,.a-jbr-h rect{pointer-events:all;cursor:grab;touch-action:none}
+.a-jbr-h circle:active,.a-jbr-h rect:active{cursor:grabbing}
+.a-jbr-help{background:#fff8e8;border:1px solid #f0dfb5;border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.45}
+.a-jbr-help ol{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
