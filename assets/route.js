@@ -220,6 +220,25 @@
     return 'M' + L.join('L') + 'L' + R.join('L') + 'Z';
   }
   function xy(p) { return r1(p.x) + ',' + r1(p.y); }
+  // Цвет свечения дня d: свой у дня (days[d−1].glowColor) или общий glow.color.
+  function hexOk(c) { return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c || ''); }
+  function dayColor(route, d, base) {
+    var day = (route.days || [])[d - 1], g = route.glow || {};
+    return day && hexOk(day.glowColor) ? day.glowColor : hexOk(base) ? base : hexOk(g.color) ? g.color : '#ffcf5a';
+  }
+  // Цвет печати Dreamspell по Kin (красный, белый, синий, жёлтый по кругу); нет Kin — по названию печати. Для кнопки в панели.
+  var SEAL_GLOW = ['#ff5a3c', '#fff1dc', '#4f9dff', '#ffcf5a'];
+  function sealColor(day) {
+    var k = day && +day.kin, s = String(day && (day.seal || day.kinName) || '').toLowerCase();
+    if (k >= 1) return SEAL_GLOW[((k - 1) % 20) % 4];
+    if (/красн/.test(s)) return SEAL_GLOW[0];
+    if (/бел/.test(s)) return SEAL_GLOW[1];
+    if (/син/.test(s)) return SEAL_GLOW[2];
+    if (/ж[её]лт/.test(s)) return SEAL_GLOW[3];
+    return '';
+  }
+  // Сила свечения: 100 % — как было в начале, больше — ярче и шире ореол
+  function glowPower(route) { var g = route.glow || {}; return Math.max(50, Math.min(300, g.power == null || g.power === '' ? 150 : +g.power)) / 100; }
   // Свет кирпичей 0…1: дни 1…12 и центр (последний день). n — сегодняшний день (0 — до начала, больше последнего — после конца).
   // Кирпичи — время маршрута, не личный путь: прошедшие — спокойно, сегодняшний — ярко и «дышит» (после нажатия — ровно), будущие — в тени.
   function lights(route, n, opened) {
@@ -234,7 +253,7 @@
   // o: { color, dusk 0…1, zones — показать контуры и номера ('outline' — только контуры) }
   function bricksLayer(route, z, iw, ih, o) {
     var id = 'ysz' + (++ZID), tr = trace(z, iw, ih), c = z.center;
-    var B = { id: id, iw: iw, ih: ih, trace: tr, color: o.color || '#ffcf5a', center: { cx: c.x * iw, cy: c.y * ih, rx: c.rx * iw, ry: c.ry * ih } };
+    var B = { id: id, iw: iw, ih: ih, trace: tr, color: hexOk(o.color) ? o.color : '#ffcf5a', center: { cx: c.x * iw, cy: c.y * ih, rx: c.rx * iw, ry: c.ry * ih } };
     var vb = ' viewBox="0 0 ' + iw + ' ' + ih + '" preserveAspectRatio="none" aria-hidden="true"';
     var soft = r1(iw * .006), halo = r1(iw * .012), last = daysCount(route), shapes = [];
     var box = el('div', 'ys-bricks');
@@ -243,26 +262,38 @@
       return box.lastChild;
     });
     for (var d = 1; d <= last; d++) shapes[d] = d === last ? null : ribbonPath(daySlice(tr, d), 1);
+    B.colorOf = function (d) { return dayColor(route, d, B.color); };
+    var P = o.power == null ? glowPower(route) : o.power, bloom = r1(iw * .03);
     function shape(d, attrs, grow) {
       var C = B.center, g = grow || 1;
       return d === last ? '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * g) + '" ry="' + r1(C.ry * g) + '" ' + attrs + '/>' : '<path d="' + shapes[d] + '" ' + attrs + '/>';
     }
-    function filt(name, sd) { return '<filter id="' + id + name + '" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="' + sd + '"/></filter>'; }
+    function filt(name, sd, all) {
+      // all — широкий ореол: область фильтра на всю картинку, иначе размытие обрежется у краёв полосы
+      return '<filter id="' + id + name + '"' + (all ? ' filterUnits="userSpaceOnUse" x="0" y="0" width="' + iw + '" height="' + ih + '"' : ' x="-30%" y="-30%" width="160%" height="160%"') + '><feGaussianBlur stdDeviation="' + sd + '"/></filter>';
+    }
+    // Сила P: ярче сама полоса и сердцевина; больше 100 % — ещё широкий ореол (bloom) вокруг светящихся камней
+    function op(x) { return Math.min(1, x).toFixed(2); }
     B.paint = function (st) {
-      var holes = '', glow = '', today = '', col = B.color, d, lv;
+      var holes = '', glow = '', wide = '', today = '', todayWide = '', col, d, lv, pb = Math.max(0, P - 1);
       for (d = 1; d <= last; d++) {
-        lv = st.lv[d] || 0;
+        lv = st.lv[d] || 0; col = B.colorOf(d);
         holes += shape(d, 'fill="#000" fill-opacity="' + Math.min(1, lv * 1.5).toFixed(2) + '"');
-        if (d === st.today && st.calling) today += shape(d, 'fill="' + col + '"') + shape(d, 'fill="#fff4cf" fill-opacity=".55"', .6);
-        else if (lv > 0) glow += shape(d, 'fill="' + col + '" fill-opacity="' + (lv * .62).toFixed(2) + '"');
+        if (d === st.today && st.calling) {
+          today += shape(d, 'fill="' + col + '"' + (P < 1 ? ' fill-opacity="' + op(P) + '"' : '')) + shape(d, 'fill="#fff4cf" fill-opacity="' + op(.55 * Math.sqrt(P)) + '"', .6);
+          if (pb) todayWide += shape(d, 'fill="' + col + '" fill-opacity="' + op(.5 * pb) + '"', 1.15);
+        } else if (lv > 0) {
+          glow += shape(d, 'fill="' + col + '" fill-opacity="' + op(lv * .62 * Math.min(P, 1.6)) + '"');
+          if (pb) wide += shape(d, 'fill="' + col + '" fill-opacity="' + op(lv * .45 * pb) + '"', 1.15);
+        }
       }
       // После конца маршрута в центре — Солнце (заглушка): большой мягкий диск
-      if (st.after) glow += shape(last, 'fill="' + col + '" fill-opacity=".55"', 1.9) + shape(last, 'fill="#fff4cf" fill-opacity=".7"', .9);
+      if (st.after) glow += shape(last, 'fill="' + B.color + '" fill-opacity=".55"', 1.9) + shape(last, 'fill="#fff4cf" fill-opacity=".7"', .9);
       svgs[0].innerHTML = '<defs>' + filt('s', soft) + '<mask id="' + id + 'm" maskUnits="userSpaceOnUse" x="0" y="0" width="' + iw + '" height="' + ih + '">' +
         '<rect width="' + iw + '" height="' + ih + '" fill="#fff"/><g filter="url(#' + id + 's)">' + holes + '</g></mask></defs>' +
         '<rect width="' + iw + '" height="' + ih + '" fill="#070402" fill-opacity="' + (o.dusk == null ? .35 : o.dusk) + '" mask="url(#' + id + 'm)"/>';
-      svgs[1].innerHTML = '<defs>' + filt('h', halo) + '</defs><g filter="url(#' + id + 'h)">' + glow + '</g>';
-      svgs[2].innerHTML = today ? '<defs>' + filt('t', halo) + '</defs><g filter="url(#' + id + 't)">' + today + '</g>' : '';
+      svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') + '<g filter="url(#' + id + 'h)">' + glow + '</g>';
+      svgs[2].innerHTML = today ? '<defs>' + filt('t', halo) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : '';
     };
     if (o.zones) {
       var zs = '', fs = r1(iw * .02);
@@ -289,7 +320,7 @@
   }
   // Световой импульс: от середины кирпича дня d по спирали к центру, вспышка в центре, затем done().
   function pulse(B, d, done) {
-    var tr = B.trace, C = B.center, svg = B.pulse, iw = B.iw, col = B.color, fid = B.id + 'p';
+    var tr = B.trace, C = B.center, svg = B.pulse, iw = B.iw, col = B.colorOf ? B.colorOf(d) : B.color, fid = B.id + 'p';
     var pts = (d <= PATH_DAYS ? tr.slice((2 * d - 1) * SPAN) : []).concat([{ x: C.cx, y: C.cy, w: C.ry * 1.4 }]);
     var acc = [0], L = 0, i, t0 = 0;
     for (i = 1; i < pts.length; i++) { L += dist(pts[i - 1], pts[i]); acc.push(L); }
@@ -1023,6 +1054,6 @@
 
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer,
+    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, permFor: permFor, keyNorm: keyNorm, kaleido: Kaleido, kalSeed: kalSeed };
 })();

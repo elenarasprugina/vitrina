@@ -377,3 +377,16 @@ select.a-input{padding-right:28px}
 .a-jbr-h circle:active,.a-jbr-h rect:active{cursor:grabbing}
 .a-jbr-help{background:#fff8e8;border:1px solid #f0dfb5;border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.45}
 .a-jbr-help ol{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
+/* Свет кирпичей: живой предпросмотр и свой цвет у дней */
+.a-jgl-box{display:grid;gap:8px}
+.a-jgl-crop{position:relative;width:360px;max-width:calc(100vw - 80px);aspect-ratio:1672/941;border-radius:10px;overflow:hidden;background:#0a0604;isolation:isolate}
+.a-jgl-crop--tall{width:200px;max-width:none;aspect-ratio:941/920}
+.a-jgl{position:absolute;left:0;right:0;bottom:0}
+.a-jgl img{display:block;width:100%;height:auto}
+.a-jdc{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
+.a-jdc-cell{position:relative;display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--a-line);border-radius:10px;background:#fff;font-size:13px}
+.a-jdc-cell.is-own{border-color:#d9a63c;background:#fff8e8}
+.a-jdc-cell input[type=color]{width:34px;height:26px;padding:0;border:0;background:none;cursor:pointer;margin-left:auto}
+.a-jdc-n{white-space:nowrap}
+.a-jdc-x{border:0;background:none;font-size:16px;line-height:1;padding:0 2px;cursor:pointer;color:#8a6a3a}
+.a-jdc-x[hidden]{display:none}
