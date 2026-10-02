@@ -198,16 +198,35 @@
     if (f[b.id] != null) return f[b.id] !== false;
     return b.kind === 'small' || b.kind === 'title' || b.kind === 'question';
   }
+  // Шрифты для надписей (как на витрине); грузятся с Google Fonts, только когда выбраны
+  var FONTS = { 'Cormorant Garamond': 'Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500', 'Playfair Display': 'Playfair+Display:ital,wght@0,400;0,600;1,400',
+    'Philosopher': 'Philosopher:ital,wght@0,400;0,700;1,400', 'Lora': 'Lora:ital,wght@0,400;0,600;1,400', 'Montserrat': 'Montserrat:ital,wght@0,300;0,400;0,600;1,400',
+    'Comfortaa': 'Comfortaa:wght@300;400;600', 'Marck Script': 'Marck+Script' }, FONT_ON = {};
+  function ensureFont(name) {
+    if (!name || !FONTS[name] || FONT_ON[name] || name === 'Cormorant Garamond') return;
+    FONT_ON[name] = true;
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + FONTS[name] + '&display=swap';
+    document.head.appendChild(l);
+  }
   // «С чем вы выходите?» — до трёх состояний (можно не выбирать). chosen — уже выбранные (номера), onChange(список)
+  // Вид (route.final.exitView): 'balls' — шарики с подписью (как на входе), 'glass' — настоящие стёклышки (вид — «Стёклышки» → «Состояния»).
+  // Заголовок — своим шрифтом и размером (final.exitFont, final.exitSize, px). Выбранное — мягко светится своим цветом, с золотым ободком.
   function exitPicker(route, chosen, onChange) {
-    var tx = route.texts || {}, L = statesOf(route), box = el('div', 'ys-states ys-exit');
+    var tx = route.texts || {}, f = route.final || {}, L = statesOf(route), glassV = f.exitView === 'glass', box = el('div', 'ys-states ys-exit' + (glassV ? ' ys-exit--glass' : ''));
     chosen = (chosen || []).slice();
-    box.appendChild(el('span', 'ys-c-label', tx.exitTitle || 'С чем вы выходите?'));
+    var NG = neonOf(route, 'glass');
+    var h = el('h3', 'ys-exit-t', tx.exitTitle || 'С чем вы выходите?');
+    if (f.exitFont && FONTS[f.exitFont]) { ensureFont(f.exitFont); h.style.fontFamily = "'" + f.exitFont + "',Georgia,serif"; }
+    if (+f.exitSize) h.style.fontSize = Math.max(16, Math.min(48, +f.exitSize)) + 'px';
+    box.appendChild(h);
     if (tx.exitLead !== '') box.appendChild(el('p', 'ys-exit-lead', tx.exitLead || 'Выберите до трёх стёклышек — они тоже лягут в ваше Солнце. Можно не выбирать.'));
     var wrap = el('div', 'ys-st-list');
     shuffled(L.length).forEach(function (i) {
-      var b = el('button', 'ys-st' + (chosen.indexOf(i) >= 0 ? ' is-on' : '')), dot = el('i', 'ys-st-g'); b.type = 'button';
-      dot.style.setProperty('--c', L[i].color || '#ffcf5a');
+      var b = el('button', 'ys-st' + (glassV ? ' ys-st--glass' : '') + (chosen.indexOf(i) >= 0 ? ' is-on' : '')), dot = el(glassV ? 'canvas' : 'i', 'ys-st-g'); b.type = 'button';
+      var col = L[i].color || '#ffcf5a';
+      dot.style.setProperty('--c', col);
+      b.style.setProperty('--cn', neonHex(col, NG));
+      if (glassV && window.M13K && window.M13K.stone) { var g = stateGlass(route, i); window.M13K.stone(dot, g.c, g.look, 52); }
       b.appendChild(dot); b.appendChild(el('span', null, L[i].name || ''));
       b.setAttribute('aria-pressed', String(chosen.indexOf(i) >= 0));
       b.addEventListener('click', function () {
@@ -222,6 +241,61 @@
     box.classList.toggle('is-full', chosen.length === 3);
     box.appendChild(wrap);
     return box;
+  }
+  /* Кнопка «Собрать маршрут» — спираль из 13 светящихся точек (route.final.gatherStyle: 'spiral' по умолчанию | 'plain' — золотая кнопка).
+     12 точек по виткам — стёклышки 12 дней (их цвета), 13-я в центре — цвета выбранных «С чем вы выходите?» (ничего не выбрано — золото).
+     Вид точек — final.gatherDots: 'dots' (светящиеся точки) | 'glass' (маленькие стёклышки, вид — «Стёклышки» → «Дни»).
+     Ждёт: точки по очереди загораются от края к центру. Нажали: огоньки сбегаются в центр, вспышка — и финал. */
+  function gatherButton(route, exit, onGo) {
+    var tx = route.texts || {}, f = route.final || {}, label = tx.gather || 'Собрать маршрут';
+    if (f.gatherStyle === 'plain') {
+      var pb = el('button', 'ys-key-go ys-gather', label); pb.type = 'button';
+      pb.addEventListener('click', function () { onGo(); });
+      return { node: pb, update: function () {} };
+    }
+    var NB = neonOf(route, 'button'), glassV = f.gatherDots === 'glass', last = daysCount(route), busy = false;
+    var b = el('button', 'ys-gbtn'), sp = el('span', 'ys-gbtn-sp'), pts = [], i, a, r, line = [];
+    b.type = 'button'; b.setAttribute('aria-label', label);
+    // Спираль посолонь от края к центру (как знак спирали), точки — через равные отрезки пути
+    var N = 400, P = [], L = [0];
+    for (i = 0; i <= N; i++) { a = i / N * Math.PI * 2 * 2.3; r = 47 - i / N * 39; P.push([50 + r * Math.cos(a - Math.PI / 2), 50 + r * Math.sin(a - Math.PI / 2)]); }
+    for (i = 1; i <= N; i++) L.push(L[i - 1] + Math.sqrt(Math.pow(P[i][0] - P[i - 1][0], 2) + Math.pow(P[i][1] - P[i - 1][1], 2)));
+    P.forEach(function (q, j) { if (j % 4 === 0) line.push(q[0].toFixed(1) + ',' + q[1].toFixed(1)); });
+    sp.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true"><polyline points="' + line.join(' ') + '" fill="none" stroke="#ffd98a" stroke-opacity=".28" stroke-width="1.1" stroke-linecap="round"/></svg>';
+    for (i = 0; i < last - 1; i++) {
+      var want = L[N] * i / (last - 1) * .97, j = 0;
+      while (j < N && L[j] < want) j++;
+      pts.push(P[j]);
+    }
+    pts.push([50, 50]);
+    var dots = pts.map(function (q, k) {
+      var c = k < last - 1 ? dayGlassColor(route, k + 1) : null, d = el(glassV && c ? 'canvas' : 'i', 'ys-gd' + (c ? '' : ' ys-gd--c'));
+      d.style.left = q[0] + '%'; d.style.top = q[1] + '%';
+      d.style.setProperty('--i', k); d.style.setProperty('--dx', ((50 - q[0]) * 1.12).toFixed(1) + 'px'); d.style.setProperty('--dy', ((50 - q[1]) * 1.12).toFixed(1) + 'px');
+      if (c) {
+        var nc = neonRgb(c, NB); d.style.setProperty('--c', rgbHex(nc));
+        if (glassV && window.M13K && window.M13K.stone) window.M13K.stone(d, c, glassLook(route, 'days'), 22);
+      }
+      sp.appendChild(d);
+      return d;
+    });
+    var center = dots[dots.length - 1];
+    function update(l) {
+      var cs = (l || []).map(function (n) { var g = stateGlass(route, n); return g ? rgbHex(neonRgb(g.c, NB)) : null; }).filter(Boolean);
+      if (!cs.length) cs = ['#ffd76a'];
+      center.style.setProperty('--c', cs[0]);
+      center.style.background = cs.length === 1 ? '' : 'conic-gradient(' + cs.map(function (c, k) { return c + ' ' + Math.round(k / cs.length * 360) + 'deg ' + Math.round((k + 1) / cs.length * 360) + 'deg'; }).join(',') + ')';
+    }
+    update(exit);
+    b.appendChild(sp); b.appendChild(el('span', 'ys-gbtn-t', label));
+    b.addEventListener('click', function () {
+      if (busy) return; busy = true;
+      if (REDUCED) { onGo(); return; }
+      b.classList.add('is-go');
+      setTimeout(function () { b.classList.add('is-flash'); }, 950);
+      setTimeout(function () { onGo(); setTimeout(function () { busy = false; b.classList.remove('is-go', 'is-flash'); }, 800); }, 1300);
+    });
+    return { node: b, update: update };
   }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
@@ -239,11 +313,10 @@
     var foot = el('div', 'ys-c-foot');
     // День 13: у Путешествия и Погружения — «С чем вы выходите?»; внизу — «Собрать маршрут» (финал Солнца)
     if (fin) {
-      var exit = (o.exit || []).slice();
-      if (mode !== 'observation' && statesOf(route).length >= 3 && (route.final || {}).exitOn !== false) inner.appendChild(exitPicker(route, exit, function (l) { exit = l; }));
-      var gb = el('button', 'ys-key-go ys-gather', (route.texts || {}).gather || 'Собрать маршрут'); gb.type = 'button';
-      gb.addEventListener('click', function () { if (o.onGather) o.onGather(exit); else if (o.onSpiral) o.onSpiral(); });
-      foot.appendChild(gb);
+      var exit = (o.exit || []).slice(), gb;
+      if (mode !== 'observation' && statesOf(route).length >= 3 && (route.final || {}).exitOn !== false) inner.appendChild(exitPicker(route, exit, function (l) { exit = l; if (gb) gb.update(l); }));
+      gb = gatherButton(route, exit, function () { if (o.onGather) o.onGather(exit); else if (o.onSpiral) o.onSpiral(); });
+      foot.appendChild(gb.node);
       inner.appendChild(foot); root.appendChild(inner);
       return root;
     }
@@ -339,6 +412,22 @@
     if (/ж[её]лт/.test(s)) return SEAL_GLOW[3];
     return '';
   }
+  /* Неон (route.neon, панель → «Основное» → «Неон»): цвет насыщеннее и светится изнутри, вокруг — цветное сияние.
+     all — общий, 0…150 % (по умолчанию 40); свой у места (пусто — как общий): spiral — камни на спирали в дни маршрута (пусто — 0),
+     lights — огоньки финала и их след, stones — свет камней в финале, disk — центральный диск, button — точки кнопки «Собрать маршрут»,
+     glass — подсветка выбранных стёклышек, mandala — блики на мандале, plants — светящиеся растения. */
+  var NEON_KEYS = ['spiral', 'lights', 'stones', 'disk', 'button', 'glass', 'mandala', 'plants'];
+  function neonOf(route, key) {
+    var N = (route && route.neon) || {}, v = N[key];
+    // Камни на спирали без своего значения — без неона: их золотой свет не меняется, пока она сама не подвинет ползунок
+    if ((v == null || v === '' || isNaN(+v)) && key === 'spiral') v = 0;
+    if (v == null || v === '' || isNaN(+v)) v = N.all;
+    if (v == null || v === '' || isNaN(+v)) v = 40;
+    return Math.max(0, Math.min(150, +v)) / 100;
+  }
+  function neonRgb(c, k) { return window.M13K && window.M13K.neonC ? window.M13K.neonC(c, k) : c; }
+  function rgbHex(c) { return '#' + c.map(function (v) { return ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(''); }
+  function neonHex(h, k) { return k ? rgbHex(neonRgb(hexRgb(h), k)) : h; }
   // Сила свечения: 100 % — как было в начале, больше — ярче и шире ореол
   function glowPower(route) { var g = route.glow || {}; return Math.max(50, Math.min(300, g.power == null || g.power === '' ? 150 : +g.power)) / 100; }
   // Свет кирпичей 0…1: дни 1…12 и центр (последний день). n — сегодняшний день (0 — до начала, больше последнего — после конца).
@@ -364,8 +453,10 @@
       return box.lastChild;
     });
     for (var d = 1; d <= last; d++) shapes[d] = d === last ? null : ribbonPath(daySlice(tr, d), 1);
-    B.colorOf = function (d) { return dayColor(route, d, B.color); };
-    var P = o.power == null ? glowPower(route) : o.power, bloom = r1(iw * .03);
+    var NS = neonOf(route, 'spiral');
+    B.colorOf = function (d) { return neonHex(dayColor(route, d, B.color), NS); };
+    if (NS) { halo = r1(iw * .012 * (1 + NS * .7)); }
+    var P = (o.power == null ? glowPower(route) : o.power) * (1 + NS * .35), bloom = r1(iw * .03 * (1 + NS * .5));
     function shape(d, attrs, grow) {
       var C = B.center, g = grow || 1;
       return d === last ? '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * g) + '" ry="' + r1(C.ry * g) + '" ' + attrs + '/>' : '<path d="' + shapes[d] + '" ' + attrs + '/>';
@@ -565,12 +656,12 @@
   /* ---------- Калейдоскоп: живой узор (assets/kaleido.js, window.M13K) ----------
      12 лучей (6 пар зеркал). Общий узор маршрута — из h32('m13kal|' + id), самоцветы свои у узора.
      Личный — из h32('m13kal|' + код): стёклышки — три состояния входа (цвета — route.states, панель).
-     Стиль — route.kaleido.style: 'rose' витраж-роза, 'gems' самоцветы, 'mix' роза с самоцветами. */
+     Стиль — route.kaleido.style: 'rose' витраж-роза, 'gems' самоцветы, 'mix' роза с самоцветами, 'mandala' мандала. */
   function hexRgb(h) {
     h = String(h || '').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&');
     var n = parseInt(h, 16); return isNaN(n) || h.length !== 6 ? [255, 207, 90] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
-  function kalStyle(route) { var s = (route.kaleido || {}).style; return s === 'rose' || s === 'gems' || s === 'mix' ? s : 'mix'; }
+  function kalStyle(route) { var s = (route.kaleido || {}).style; return s === 'rose' || s === 'gems' || s === 'mix' || s === 'mandala' ? s : 'mix'; }
   function kalSeed(c) { return h32('m13kal|' + (c && c.code ? c.code : String(c || ''))); }
   function routeSeed(route) { return h32('m13kal|' + route.id); }
   /* ---------- Стёклышки узора ----------
@@ -695,7 +786,7 @@
   function q(name) { var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null; }
   // sim — день на спирали из режима проверки (0 — до начала, 14 — после конца), zonesOn — показать разметку кирпичей
   // code — личный код человека ({code, mode, seed}) или null
-  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false, code: null };
+  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false, code: null, plants: null };
 
   function curDay() { return S.sim != null ? S.sim : dayNumber(S.route, nowMsk(S.debugNow)); }
   // Какие дни на этом устройстве уже открывали (сегодняшний кирпич после нажатия светится ровно). Только для света, не для доступа.
@@ -745,15 +836,35 @@
     } catch (e) {}
   }
 
-  function stageFit(stage, img) {
+  /* Картинка спирали на экране. Центр спирали (центр разметки кирпичей) — ровно посередине экрана по ширине,
+     чтобы надписи, печать, луч и Солнце стояли на одной линии. route.stage (панель → «Основное» → «Спираль»):
+     zoom — на компьютере картинка меньше экрана, % (100 — во весь экран, по умолчанию 82: вокруг темно, края растворяются),
+     shiftX / shiftXMobile — подвинуть ещё, % ширины картинки (+ вправо). */
+  function stageCfg(route) { return route.stage || {}; }
+  function stageFit(stage, img, zone) {
     var W = window.innerWidth, H = window.innerHeight, iw = img.naturalWidth || 16, ih = img.naturalHeight || 9;
-    var tall = H / W > 1.25, s, x, y;
-    // Телефон: спираль во всю ширину и прижата к низу (приближать нельзя — обрежется начало пути). Иначе — заполнить экран.
-    if (tall && W / H < iw / ih) { s = W / iw; x = 0; y = H - ih * s; }
-    else { s = Math.max(W / iw, H / ih); x = (W - iw * s) / 2; y = (H - ih * s) / 2; }
+    var tall = H / W > 1.25, sc = stageCfg(S.route || {}), s, x, y, soft = false;
+    var cx = (zone && zone.center ? zone.center.x : .5) * iw;
+    function num(v, def, lo, hi) { v = v == null || v === '' || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
+    if (tall && W / H < iw / ih) {
+      // Телефон: спираль во всю ширину и прижата к низу; чтобы центр встал посередине — чуть крупнее (не больше чем на 8 %)
+      s = W / iw;
+      s = Math.max(s, Math.min(s * 1.08, W / (2 * Math.max(1, cx)), W / (2 * Math.max(1, iw - cx))));
+      x = W / 2 - cx * s + num(sc.shiftXMobile, 0, -15, 15) / 100 * iw * s;
+      x = Math.min(0, Math.max(W - iw * s, x));
+      y = H - ih * s;
+    } else {
+      var z = tall ? 100 : num(sc.zoom, 82, 50, 100);
+      s = Math.max(W / iw, H / ih) * z / 100;
+      x = W / 2 - cx * s + num(sc.shiftX, 0, -15, 15) / 100 * iw * s;
+      // Во весь экран — без тёмных полос по краям; меньше экрана — вокруг темнота, края картинки растворяются
+      if (z >= 100) x = Math.min(0, Math.max(W - iw * s, x)); else soft = true;
+      y = H > ih * s ? (H - ih * s) * .7 : (H - ih * s) / 2;
+    }
     stage.style.width = iw * s + 'px'; stage.style.height = ih * s + 'px';
     stage.style.left = x + 'px'; stage.style.top = y + 'px';
-    stage.classList.toggle('is-gap', y > 1);
+    stage.classList.toggle('is-gap', y > 1 && !soft);
+    stage.classList.toggle('is-soft', soft);
   }
   // Центр спирали на экране — относительно середины окна (из него появляется Карта дня).
   function centerOffset() {
@@ -836,7 +947,7 @@
     var wrap = el('div', 'ys-st-list');
     shuffled(L.length).forEach(function (i) {
       var b = el('button', 'ys-st'), dot = el('i', 'ys-st-g'); b.type = 'button';
-      dot.style.setProperty('--c', L[i].color || '#ffcf5a');
+      dot.style.setProperty('--c', L[i].color || '#ffcf5a'); b.style.setProperty('--cn', neonHex(L[i].color || '#ffcf5a', neonOf(route, 'glass')));
       b.appendChild(dot); b.appendChild(el('span', null, L[i].name || ''));
       b.setAttribute('aria-pressed', 'false');
       b.addEventListener('click', function () {
@@ -1100,7 +1211,41 @@
   function finPersonal() { return !!(S.code && S.mode !== 'observation'); }
   function finSeed() { return finPersonal() ? kalSeed(S.code) : routeSeed(S.route); }
   // Узор Солнца: состояния входа, 12 дней, подарки, состояния выхода; у Наблюдения — общий узор маршрута с 12 днями
-  function finEx() { var r = S.route; return finPersonal() ? kalEx(r, S.code, { days: daysCount(r) - 1, gifts: giftList(S.code), exit: exitList(S.code) }) : kalEx(r, null, { days: daysCount(r) - 1 }); }
+  function finEx() {
+    var r = S.route, ex = finPersonal() ? kalEx(r, S.code, { days: daysCount(r) - 1, gifts: giftList(S.code), exit: exitList(S.code) }) : kalEx(r, null, { days: daysCount(r) - 1 });
+    ex.neon = neonOf(r, 'mandala');
+    return ex;
+  }
+  // Солнце в финале: мандала (по умолчанию) или калейдоскоп маршрута (route.final.sun = 'kaleido')
+  function finStyle() { return finCfg().sun === 'kaleido' ? kalStyle(S.route) : 'mandala'; }
+  function finBeamW(C) { return Math.max(70, Math.min(480, C.rx * 3.1)); }
+  // Звёздочки у строки «Увидимся за поворотом…» — как у подписи на витрине (route.final.star: none | before | after | both, starKind)
+  var STAR_PATH = { spark: 'M12 0C12.9 7.6 16.4 11.1 24 12 16.4 12.9 12.9 16.4 12 24 11.1 16.4 7.6 12.9 0 12 7.6 11.1 11.1 7.6 12 0Z',
+    star: 'M12 1.8l2.8 6.6 7.2.6-5.5 4.7 1.7 7-6.2-3.8-6.2 3.8 1.7-7L2 9l7.2-.6z', moon: 'M19.6 15.8A8.6 8.6 0 0 1 8.2 4.4a8.6 8.6 0 1 0 11.4 11.4z' };
+  function starNode(kind, side) {
+    var i = el('i', 'ys-star ys-star--' + side); i.setAttribute('aria-hidden', 'true');
+    i.innerHTML = '<svg viewBox="0 0 24 24"><path d="' + (STAR_PATH[kind] || STAR_PATH.spark) + '"/></svg>';
+    return i;
+  }
+  function finNoteNode(tx, f) {
+    var p = el('p', 'ys-fin-n'), st = f.star == null ? 'after' : f.star, k = f.starKind;
+    if (st === 'before' || st === 'both') p.appendChild(starNode(k, 'b'));
+    p.appendChild(el('span', null, tx.finNote || 'Увидимся за поворотом…'));
+    if (st === 'after' || st === 'both') p.appendChild(starNode(k, 'a'));
+    return p;
+  }
+  // Подпись внизу: логотип (свой из панели или логотип сайта), надпись или ничего (route.final.brand: logo | text | none)
+  function finLogoSrc() { var f = finCfg(); return f.logo ? imgSrc(S.base, f.logo) : (S.base || '../../') + 'assets/logo.png'; }
+  function finBrandNode(tx, f) {
+    var b = f.brand || 'logo';
+    if (b === 'none' || (b === 'text' && tx.finBrand === '')) return null;
+    if (b === 'text') return el('p', 'ys-fin-brand', tx.finBrand || '13 MIRRORS');
+    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo'); lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
+    lg.style.cssText = "-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--lr:" + (+f.logoRatio || 2454 / 545).toFixed(3);
+    // Пропорции своего логотипа — по самой картинке
+    if (f.logo) { var im = new Image(); im.onload = function () { if (im.naturalHeight) lg.style.setProperty('--lr', (im.naturalWidth / im.naturalHeight).toFixed(3)); }; im.src = u; }
+    return lg;
+  }
   function rgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
   function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
   function toWhite(c, k) { return [c[0] + (255 - c[0]) * k, c[1] + (255 - c[1]) * k, c[2] + (255 - c[2]) * k]; }
@@ -1163,13 +1308,15 @@
       x.beginPath(); poly.forEach(function (q, i) { x[i ? 'lineTo' : 'moveTo'](q[0], q[1]); }); x.closePath(); x.fill();
     }
     x.fillStyle = '#000';
+    col = neonRgb(col, neonOf(S.route, 'stones'));
     shape(rgba(col, .5), pad * .5);
-    shape(rgba(toWhite(col, .4), .3), pad * .25);
+    shape(rgba(toWhite(col, .12), .28), pad * .25);
     return { cv: cv, x: x0 - pad, y: y0 - pad, w: cv.width / dpr, h: cv.height / dpr };
   }
-  // Столб света из центра вверх: тёплый, прозрачный, с лёгкой радугой по краям (как от призмы); рисуется один раз
+  // Столб света из центра вверх: тёплый, прозрачный, с лёгкой радугой по краям (как от призмы); рисуется один раз.
+  // Внизу — шириной с диск печати (bw), кверху чуть шире
   function finBeam(bw, h, dpr) {
-    var tw = bw * 1.6, W = Math.ceil(tw * 1.4), cv = document.createElement('canvas'), x = cv.getContext('2d'), N = Math.max(60, Math.round(h / 4)), i;
+    var tw = bw * 1.45, W = Math.ceil(tw * 1.4), cv = document.createElement('canvas'), x = cv.getContext('2d'), N = Math.max(60, Math.round(h / 4)), i;
     cv.width = Math.ceil(W * dpr); cv.height = Math.ceil(h * dpr);
     // Полосами по высоте (столб чуть шире кверху); границы полос — целые точки экрана, без нахлёста (иначе видны строчки)
     var H = cv.height;
@@ -1182,7 +1329,8 @@
     }
     x.globalCompositeOperation = 'destination-in';
     var v = x.createLinearGradient(0, 0, 0, H);
-    v.addColorStop(0, 'rgba(0,0,0,.22)'); v.addColorStop(.5, 'rgba(0,0,0,.55)'); v.addColorStop(.92, 'rgba(0,0,0,1)'); v.addColorStop(1, 'rgba(0,0,0,.55)');
+    // Низ столба растворяется в светящемся диске — без шва: печать сама становится лучом
+    v.addColorStop(0, 'rgba(0,0,0,.22)'); v.addColorStop(.5, 'rgba(0,0,0,.55)'); v.addColorStop(.86, 'rgba(0,0,0,1)'); v.addColorStop(.95, 'rgba(0,0,0,.5)'); v.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = v; x.fillRect(0, 0, cv.width, H);
     return { cv: cv, w: W, h: h };
   }
@@ -1233,7 +1381,7 @@
       }
       x.fill();
       x.globalCompositeOperation = 'source-over';
-      if (window.M13K) window.M13K.still(x, finSeed(), W / 2, cy, R, kalStyle(r), finEx());
+      if (window.M13K) window.M13K.still(x, finSeed(), W / 2, cy, R, finStyle(), finEx());
       function spaced(t) { return String(t).toUpperCase().split('').join(String.fromCharCode(8202)); }
       x.textAlign = 'center';
       x.fillStyle = '#e9c77e'; x.font = '500 30px "Cormorant Garamond", Georgia, serif';
@@ -1260,6 +1408,99 @@
     if (window.M13K && window.M13K.preload) window.M13K.preload(glassImgs(r), fonts); else fonts();
   }
 
+  /* PDF A4 (книжный) — мандала, чтобы распечатать: line — контур для раскрашивания (чёрные линии на белом), иначе в цвете.
+     Страница рисуется картинкой 2480 × 3508 (300 точек на дюйм) и кладётся в PDF как JPEG — PDF собирается здесь же, без библиотек.
+     Кода на листе нет. */
+  function pdfBytes(jpeg, w, h) {
+    var enc = new TextEncoder(), parts = [], off = 0, xref = [];
+    function put(x) { var b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); off += b.length; }
+    function obj(n, body, stream) {
+      xref[n] = off; put(n + ' 0 obj\n' + body + '\n');
+      if (stream) { put('stream\n'); put(stream); put('\nendstream\n'); }
+      put('endobj\n');
+    }
+    var PW = 595.28, PH = 841.89, cs = enc.encode('q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q');
+    put('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>');
+    obj(4, '<< /Length ' + cs.length + ' >>', cs);
+    obj(5, '<< /Type /XObject /Subtype /Image /Width ' + w + ' /Height ' + h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.length + ' >>', jpeg);
+    var xo = off, t = 'xref\n0 6\n0000000000 65535 f \n';
+    for (var i = 1; i <= 5; i++) t += ('000000000' + xref[i]).slice(-10) + ' 00000 n \n';
+    put(t + 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xo + '\n%%EOF\n');
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+  function saveBlob(blob, name) {
+    try {
+      var f = new File([blob], name, { type: blob.type });
+      if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
+    } catch (e) {}
+    var a = el('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+  // Логотип нужного цвета на холсте (маска логотипа, залитая цветом); done(canvas | null)
+  function logoTint(color, hpx, done) {
+    var im = new Image();
+    im.onload = function () {
+      var w = Math.round(hpx * im.naturalWidth / im.naturalHeight), c = document.createElement('canvas'), x = c.getContext('2d');
+      c.width = w; c.height = hpx; x.drawImage(im, 0, 0, w, hpx); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, w, hpx);
+      done(c);
+    };
+    im.onerror = function () { done(null); };
+    im.src = finLogoSrc();
+  }
+  function sunPdf(line) {
+    var r = S.route, tx = r.texts || {}, f = finCfg(), W = 2480, H = 3508, cv = document.createElement('canvas'), x = cv.getContext('2d'), c = S.code;
+    var ink = line ? '#2a2a2a' : '#5a3a12', soft = line ? '#8a8a8a' : '#9a7a4c', cards = !line && f.saveCards !== false && c;
+    cv.width = W; cv.height = H;
+    function spaced(t) { return String(t).toUpperCase().split('').join(String.fromCharCode(8202)); }
+    function paint(logo) {
+      x.fillStyle = line ? '#fff' : '#fffaf1'; x.fillRect(0, 0, W, H);
+      var cy = line ? 1560 : 1300, R = line ? 1080 : 930;
+      if (!line) {
+        // Мягкое тёплое сияние вокруг мандалы
+        var g = x.createRadialGradient(W / 2, cy, R * .9, W / 2, cy, R * 1.35);
+        g.addColorStop(0, 'rgba(240,196,110,.35)'); g.addColorStop(1, 'rgba(240,196,110,0)');
+        x.fillStyle = g; x.fillRect(0, 0, W, H);
+      }
+      if (window.M13K) {
+        if (line || finStyle() === 'mandala') window.M13K.mandalaStill(x, finSeed(), W / 2, cy, R, finEx(), { line: line });
+        else window.M13K.still(x, finSeed(), W / 2, cy, R, finStyle(), finEx());
+      }
+      x.textAlign = 'center';
+      x.fillStyle = soft; x.font = '500 64px "Cormorant Garamond", Georgia, serif';
+      x.fillText(spaced('13 MIRRORS · ' + (r.title || '')), W / 2, 200);
+      var ty = cy + R + (line ? 250 : 230);
+      x.fillStyle = ink; x.font = '600 ' + (line ? 120 : 150) + 'px "Cormorant Garamond", Georgia, serif';
+      x.fillText(tx.finTitle || 'Маршрут пройден', W / 2, ty);
+      if (tx.finNote !== '') { x.fillStyle = soft; x.font = 'italic 500 ' + (line ? 76 : 90) + 'px "Cormorant Garamond", Georgia, serif'; x.fillText(tx.finNote || 'Увидимся за поворотом…', W / 2, ty + (line ? 115 : 135)); }
+      if (cards) {
+        x.font = '500 62px "Cormorant Garamond", Georgia, serif';
+        for (var i = 1; i < daysCount(r); i++) {
+          var k = cardFor(r, c, i), col = (i - 1) % 3, row = Math.floor((i - 1) / 3), yy = ty + 300 + row * 96;
+          if (!k) continue;
+          x.fillStyle = soft; x.textAlign = 'right'; x.fillText(i + ' ·', 330 + col * 720, yy);
+          x.fillStyle = ink; x.textAlign = 'left'; x.fillText(' ' + (k.quality || ''), 330 + col * 720, yy);
+        }
+        x.textAlign = 'center';
+      }
+      if (logo) x.drawImage(logo, (W - logo.width) / 2, H - 330);
+      x.fillStyle = soft; x.font = '500 54px "Cormorant Garamond", Georgia, serif';
+      x.fillText(spaced([c ? MODE_NAMES[c.mode] || '' : '', datesText(r)].filter(Boolean).join(' · ')), W / 2, H - 150);
+      cv.toBlob(function (b) {
+        if (!b) return;
+        b.arrayBuffer().then(function (buf) { saveBlob(pdfBytes(new Uint8Array(buf), W, H), finFileName(c, line ? '-raskraska' : '-solnce').replace(/\.png$/, '.pdf')); });
+      }, 'image/jpeg', .92);
+    }
+    function fonts() {
+      var go = function () { if ((f.brand || 'logo') === 'logo') logoTint(ink, 90, paint); else paint(null); };
+      if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('600 150px "Cormorant Garamond"'), document.fonts.load('italic 500 90px "Cormorant Garamond"')]).then(go, go); else go();
+    }
+    if (window.M13K && window.M13K.preload) window.M13K.preload(glassImgs(r), fonts); else fonts();
+  }
+
   // o: { instant — сразу последний кадр (после конца маршрута), music — уже запущенная музыка (из нажатия) }
   var FIN = null;
   function finalScene(o) {
@@ -1272,13 +1513,28 @@
     var ui = el('div', 'ys-fin-ui'), sun = el('div', 'ys-fin-sun'), kc = el('canvas', 'ys-fin-kal'), end = el('div', 'ys-fin-end');
     sun.appendChild(el('div', 'ys-fin-corona')); sun.appendChild(kc);
     end.appendChild(el('h2', 'ys-fin-t', tx.finTitle || 'Маршрут пройден'));
-    if (tx.finNote !== '') end.appendChild(el('p', 'ys-fin-n', tx.finNote || 'Увидимся за поворотом…'));
-    if (tx.finBrand !== '') end.appendChild(el('p', 'ys-fin-brand', tx.finBrand || '13 MIRRORS'));
-    var btns = el('div', 'ys-fin-btns');
+    if (tx.finNote !== '') end.appendChild(finNoteNode(tx, f));
+    var brand = finBrandNode(tx, f); if (brand) end.appendChild(brand);
+    var btns = el('div', 'ys-fin-btns'), saveRow = null;
     if (per) {
       var sv = el('button', 'ys-key-go ys-fin-save', tx.finSave || 'Сохранить моё Солнце'); sv.type = 'button';
-      sv.addEventListener('click', function (e) { e.stopPropagation(); sunImage(function (c) { saveCanvas(c, finFileName(S.code, '-solnce')); }); });
+      // «Сохранить моё Солнце»: картинка для телефона; PDF A4 в цвете; PDF A4 для раскрашивания (route.final.pdf = false — только картинка)
+      sv.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (f.pdf === false) { sunImage(function (c) { saveCanvas(c, finFileName(S.code, '-solnce')); }); return; }
+        saveRow.hidden = !saveRow.hidden; sv.setAttribute('aria-expanded', String(!saveRow.hidden));
+      });
       btns.appendChild(sv);
+      if (f.pdf !== false) {
+        saveRow = el('div', 'ys-fin-saves'); saveRow.hidden = true;
+        [[tx.finSavePng || 'Картинка для телефона', function () { sunImage(function (c) { saveCanvas(c, finFileName(S.code, '-solnce')); }); }],
+          [tx.finSavePdf || 'PDF A4 · цветной', function () { sunPdf(false); }],
+          [tx.finSaveLine || 'PDF A4 · для раскрашивания', function () { sunPdf(true); }]].forEach(function (o) {
+          var b = el('button', 'ys-code-b', o[0]); b.type = 'button';
+          b.addEventListener('click', function (e) { e.stopPropagation(); o[1](); });
+          saveRow.appendChild(b);
+        });
+      }
     }
     if (f.review) {
       var rv = el('a', 'ys-code-b ys-fin-review', tx.finReview || 'Оставить отзыв'); rv.href = f.review; rv.target = '_blank'; rv.rel = 'noopener';
@@ -1287,7 +1543,7 @@
     }
     var sp = el('button', 'ys-spiral ys-fin-back'); sp.type = 'button'; sp.setAttribute('aria-label', tx.finBack || 'Вернуться на спираль'); sp.innerHTML = spiralSVG();
     sp.addEventListener('click', function (e) { e.stopPropagation(); close(); });
-    end.appendChild(btns); end.appendChild(sp);
+    end.appendChild(btns); if (saveRow) end.appendChild(saveRow); end.appendChild(sp);
     ui.appendChild(sun); ui.appendChild(end);
     root.appendChild(cv); root.appendChild(ui);
     // Музыка: кнопка «звук», если есть её файл
@@ -1315,8 +1571,9 @@
     sun.style.setProperty('--fx', Math.round(C.x - (rs.left + rs.width / 2)) + 'px');
     sun.style.setProperty('--fy', Math.round(C.y - colH * .35 - (rs.top + rs.height / 2)) + 'px');
     sun.classList.add('is-from');
-    var kal = Kaleido(kc, 0, r), seed = finSeed(), ex = finEx();
+    var kal = window.M13K ? window.M13K.Kaleido(kc, 0, { style: finStyle(), ex: { sym: 6 } }) : null, seed = finSeed(), ex = finEx();
     if (kal) kal.show(seed, ex);
+    sun.classList.toggle('is-mandala', finStyle() === 'mandala');
 
     // Сгустки света: { c, s0 — откуда по пути, t0 — когда, k — вид }
     var lights = [], d, i;
@@ -1330,13 +1587,16 @@
       if (per) exitList(S.code).forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(22 * SPAN + j * 4), t0: 7.1 + j * .34, k: 'state' }); });
     }
     var TA = 2;
-    lights.forEach(function (L) { L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr); L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; });
-    var tw0 = TA + .3, tw1 = tw0 + 2.4, b0 = tw1, sunT = b0 + 2.1, txtT = sunT + 2.5, btnT = txtT + .9, endT = btnT + .7;
+    // Огоньки — неоновым цветом своего стёклышка (route.neon.lights)
+    var NL = neonOf(r, 'lights'), ND = neonOf(r, 'disk');
+    lights.forEach(function (L) { L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr); L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; L.c = neonRgb(L.c, NL); });
+    // fl0 — тёплый свет заливает весь экран, из него раскрывается Солнце
+    var tw0 = TA + .3, tw1 = tw0 + 2.4, b0 = tw1, fl0 = b0 + 1.1, sunT = b0 + 2.6, txtT = sunT + 2.6, btnT = txtT + .9, endT = btnT + .7;
     // Свет на камнях дней
     var stones = [];
     if (S.B && G.rc) for (d = 1; d < last; d++) stones[d] = finStone(G, d, dayGlass(r, d).c, dpr);
     var dayT = []; lights.forEach(function (L) { if (L.k === 'day') dayT[L.d] = L.t0; });
-    var beam = finBeam(Math.max(50, Math.min(300, C.rx * 1.5)), colH + 12, dpr);
+    var beam = finBeam(finBeamW(C), colH + 12, dpr);
     var dust = []; for (i = 0; i < 70; i++) dust.push({ u: Math.random() * 2 - 1, y: Math.random(), v: .015 + Math.random() * .04, s: .5 + Math.random() * 1.3, p: Math.random() * 6.283, w: 1.2 + Math.random() * 2.4 });
 
     // Видео из генератора (необязательно): своё у компьютерной и телефонной картинки, камера неподвижна — ложится ровно на спираль
@@ -1350,14 +1610,15 @@
       }
     }
 
+    // Сгусток света: прозрачный и насыщенный, без белой серединки; сияние вокруг — сильнее с неоном
     function blob(px, py, rad, c, a) {
       if (a < .01) return;
       x.save(); x.translate(px, py + rad * .3); x.scale(1, .5);
       var g = x.createRadialGradient(0, 0, 0, 0, 0, rad * 2.3);
-      g.addColorStop(0, rgba(c, .3 * a)); g.addColorStop(1, rgba(c, 0));
+      g.addColorStop(0, rgba(c, (.2 + .14 * NL) * a)); g.addColorStop(1, rgba(c, 0));
       x.fillStyle = g; x.fillRect(-rad * 2.3, -rad * 2.3, rad * 4.6, rad * 4.6); x.restore();
       g = x.createRadialGradient(px, py, 0, px, py, rad);
-      g.addColorStop(0, rgba(toWhite(c, .55), .9 * a)); g.addColorStop(.32, rgba(c, .6 * a)); g.addColorStop(1, rgba(c, 0));
+      g.addColorStop(0, rgba(toWhite(c, .1), .55 * a)); g.addColorStop(.45, rgba(c, .32 * a)); g.addColorStop(1, rgba(c, 0));
       x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2);
     }
     function oval(px, py, rx, ry, c, a, c2) {
@@ -1390,7 +1651,7 @@
       // Свечение центрального диска — растёт с каждым прилетевшим светом, их цветами
       var got = 0, mixc = [0, 0, 0];
       lights.forEach(function (L) { if (T >= L.arr) { got++; mixc[0] += L.c[0]; mixc[1] += L.c[1]; mixc[2] += L.c[2]; } });
-      var avg = got ? [mixc[0] / got, mixc[1] / got, mixc[2] / got] : GOLD, cg = [(avg[0] + GOLD[0] * 2) / 3, (avg[1] + GOLD[1] * 2) / 3, (avg[2] + GOLD[2] * 2) / 3];
+      var avg = got ? [mixc[0] / got, mixc[1] / got, mixc[2] / got] : GOLD, cg = neonRgb([(avg[0] + GOLD[0] * 2) / 3, (avg[1] + GOLD[1] * 2) / 3, (avg[2] + GOLD[2] * 2) / 3], ND * .7);
       var vfade = vid ? 1 - sm((T - vT) / 1.2) : 1;
       oval(C.x, C.y, C.rx * 1.45, C.ry * 1.45, cg, Math.min(.5, .1 + got * .022 + tw * .25) * (1 - .5 * sm((T - sunT) / 2)) * vfade);
       // Пришедшие огни кружат по диску (в перспективе), потом закручиваются воронкой и сливаются в один
@@ -1424,12 +1685,14 @@
       if (bl > .01 && !vid) {
         var grow = 1 - Math.pow(1 - sm((T - b0) / 1.2), 2), vh = beam.h * grow, sh = .9 + .1 * Math.sin(T * 2.1);
         x.globalAlpha = Math.min(1, bl * sh);
-        x.drawImage(beam.cv, 0, (beam.h - vh) * dpr, beam.cv.width, vh * dpr, C.x - beam.w / 2, C.y + 6 - vh, beam.w, vh);
+        x.drawImage(beam.cv, 0, (beam.h - vh) * dpr, beam.cv.width, vh * dpr, C.x - beam.w / 2, C.y + C.ry * .7 - vh, beam.w, vh);
         // Живые полосы внутри столба
         x.globalAlpha = Math.min(1, bl * .28);
-        for (j = 0; j < 2; j++) { var off = Math.sin(T * (.35 + j * .2) + j * 2) * beam.w * .12, sw = beam.w * (.32 + j * .1); x.drawImage(beam.cv, 0, (beam.h - vh) * dpr, beam.cv.width, vh * dpr, C.x - sw / 2 + off, C.y + 6 - vh, sw, vh); }
+        for (j = 0; j < 2; j++) { var off = Math.sin(T * (.35 + j * .2) + j * 2) * beam.w * .12, sw = beam.w * (.32 + j * .1); x.drawImage(beam.cv, 0, (beam.h - vh) * dpr, beam.cv.width, vh * dpr, C.x - sw / 2 + off, C.y + C.ry * .7 - vh, sw, vh); }
         x.globalAlpha = 1;
-        oval(C.x, C.y, C.rx * 1.2, C.ry * 1.2, GOLD, .5 * bl, [255, 246, 222]);
+        // Сам диск печати светится и переходит в луч
+        oval(C.x, C.y, C.rx * 1.25, C.ry * 1.35, GOLD, .55 * bl, [255, 240, 205]);
+        oval(C.x, C.y - C.ry * .5, C.rx * .95, C.ry * 1.6, GOLD, .3 * bl, [255, 236, 196]);
         // Тёплый свет по всей поляне
         var g = x.createRadialGradient(C.x, C.y, 0, C.x, C.y, Math.max(G.W, G.H) * .7);
         g.addColorStop(0, 'rgba(255,214,150,' + (.16 * bl).toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,214,150,0)');
@@ -1442,14 +1705,25 @@
           x.fillStyle = 'rgba(255,242,210,' + a.toFixed(3) + ')'; x.beginPath(); x.arc(px, py, P.s, 0, 6.283); x.fill();
         });
       }
+      // Тёплый свет заливает весь экран (из него выходит Солнце), потом спокойно оседает тёплым янтарём
+      var fl = T < fl0 ? 0 : sm((T - fl0) / 1.5) * (1 - .55 * sm((T - sunT - .4) / 2.6));
+      if (fl > .01) {
+        var gF = x.createRadialGradient(G.W / 2, G.H * .42, 0, G.W / 2, G.H * .42, Math.max(G.W, G.H) * .75);
+        gF.addColorStop(0, 'rgba(255,214,140,' + (.62 * fl).toFixed(3) + ')'); gF.addColorStop(.55, 'rgba(255,186,90,' + (.36 * fl).toFixed(3) + ')'); gF.addColorStop(1, 'rgba(214,130,40,' + (.22 * fl).toFixed(3) + ')');
+        x.fillStyle = gF; x.fillRect(0, 0, G.W, G.H);
+      }
       x.globalCompositeOperation = 'source-over';
+      // Чтобы надписи читались: под ними — мягкая тень
+      if (fl > .01) { x.fillStyle = 'rgba(20,10,2,' + (.22 * fl).toFixed(3) + ')'; x.fillRect(0, 0, G.W, G.H); }
     }
     var raf = 0, t0 = 0, Tnow = 0, done = false, sunOn = false, txtOn = false, btnOn = false;
     function showSun(fast) {
       if (sunOn) return; sunOn = true;
       if (fast) sun.classList.add('is-fast');
       sun.classList.add('is-on');
-      if (kal) { if (fast || REDUCED) kal.show(seed, ex); kal.idle(seed); }
+      // Мандала раскрывается от центра к краю, потом живёт: поворачивается, по лепесткам пробегают блики
+      if (kal) { if (fast || REDUCED) kal.show(seed, ex); kal.idle(seed); if (!fast && kal.unfold) kal.unfold(2600); }
+      setTimeout(function () { sun.classList.add('is-open'); }, fast || REDUCED ? 0 : 1900);
     }
     function step(ts) {
       if (!t0) t0 = ts;
@@ -1477,7 +1751,7 @@
       showSun(true);
       end.classList.add('is-on', 'is-btns', 'is-fast'); root.classList.add('is-end');
     }
-    function onResize() { G = finGeo(); C = G.C; cv.width = Math.round(G.W * dpr); cv.height = Math.round(G.H * dpr); if (S.B && G.rc) for (d = 1; d < last; d++) stones[d] = finStone(G, d, dayGlass(r, d).c, dpr); beam = finBeam(Math.max(50, Math.min(300, C.rx * 1.5)), Math.max(40, C.y) + 12, dpr); finish(); }
+    function onResize() { G = finGeo(); C = G.C; cv.width = Math.round(G.W * dpr); cv.height = Math.round(G.H * dpr); if (S.B && G.rc) for (d = 1; d < last; d++) stones[d] = finStone(G, d, dayGlass(r, d).c, dpr); beam = finBeam(finBeamW(C), Math.max(40, C.y) + 12, dpr); finish(); }
     function kill() {
       if (raf) cancelAnimationFrame(raf); raf = 0;
       if (kal) kal.stop();
@@ -1507,6 +1781,149 @@
     openDay(last, S.mode);
   }
 
+  /* ---------- Светящиеся растения (живая среда, как в «Аватаре») ----------
+     Тонкие светящиеся нити и бусинки по лианам, светящиеся листики папоротников — поверх картинки спирали, в её координатах.
+     Медленно «дышат»: свет бежит по лиане сверху вниз. Разгораются с каждым днём маршрута: в 1-й день едва заметны, к 13-му — в полную силу.
+     route.plants (панель → «Основное» → «Светящиеся растения»): on (выкл. — false), color (по умолчанию бирюзовый #3fe8d0),
+     power — яркость, % (по умолчанию 100), byDay — разгораться по дням (по умолчанию да); неон — route.neon.plants.
+     Где растения — PLANTS (доли картинки, x и y в %); своя раскладка — route.plants.desktop / .mobile (тот же вид).
+     Если поменять картинку спирали — растения могут не совпасть с её лианами: тогда выключить. */
+  var PLANTS = {
+    mobile: [
+      { k: 'vine', p: [[9.5, 10], [10, 13], [9, 16], [10.5, 19], [9.2, 22], [9.8, 25], [8.4, 28], [9.2, 31], [8.6, 34], [9.6, 37.5]] },
+      { k: 'vine', p: [[6.8, 13], [7.2, 17], [6.3, 21], [7, 25], [6, 29], [6.6, 33]] },
+      { k: 'vine', p: [[12.5, 0], [12.8, 4], [12.2, 8], [12.9, 12]] },
+      { k: 'vine', p: [[72.5, 2], [73.5, 6], [72.6, 9], [73.2, 12], [73.6, 15], [74, 18], [74.2, 21], [74.6, 24], [75.2, 27], [75.8, 30], [76.4, 33], [77, 36]] },
+      { k: 'vine', p: [[80, 1], [80.6, 5], [80.1, 9], [80.9, 14], [81.4, 19], [81.9, 24], [82.4, 29], [82.9, 34]] },
+      { k: 'vine', p: [[52, 0], [52.6, 4], [52, 8], [52.5, 11]] },
+      { k: 'fern', p: [[14, 41], [16.5, 38], [19.5, 36.3], [23, 35.8]] },
+      { k: 'fern', p: [[17, 42], [20.5, 40], [24, 39.3], [27, 40]] },
+      { k: 'fern', p: [[78, 44], [80, 41.5], [83, 40.3], [86, 40.6]] },
+      { k: 'fern', p: [[71, 45], [73.5, 42.5], [76, 41.6]] }
+    ],
+    desktop: [
+      { k: 'fern', p: [[30, 27], [29.8, 22], [29.4, 17], [29.2, 13]] },
+      { k: 'fern', p: [[30.5, 26], [32, 21.5], [34, 17.5]] },
+      { k: 'fern', p: [[29.5, 26], [27.6, 21], [26, 17]] },
+      { k: 'fern', p: [[31, 27], [34, 24.5], [37, 23]] },
+      { k: 'fern', p: [[7, 28], [6, 23], [5, 19]] },
+      { k: 'fern', p: [[8, 28], [10, 24.5], [12, 22]] },
+      { k: 'fern', p: [[82, 25], [81, 20], [80, 15.5]] },
+      { k: 'fern', p: [[83, 25], [86, 21.5], [88, 18.5]] },
+      { k: 'fern', p: [[93, 27], [92.2, 22], [91.6, 18]] },
+      { k: 'vine', p: [[5, 0], [5.5, 5], [4.8, 10], [5.4, 15], [4.9, 19]] },
+      { k: 'vine', p: [[13, 0], [12.6, 4], [13.3, 8], [12.9, 11.5]] },
+      { k: 'vine', p: [[66, 0], [66.5, 4], [65.8, 8], [66.4, 12]] },
+      { k: 'vine', p: [[74, 0], [73.6, 5], [74.3, 10], [73.8, 14], [74.5, 18]] },
+      { k: 'vine', p: [[89, 0], [89.5, 4], [88.8, 8], [89.4, 13]] }
+    ]
+  };
+  function plantsCfg(route) { return route.plants || {}; }
+  function plantsLevel(route) {
+    var n = curDay(), last = daysCount(route);
+    if (plantsCfg(route).byDay === false || n > last) return 1;
+    return n < 1 ? .12 : .15 + .85 * (n - 1) / (last - 1);
+  }
+  function plantsLayer(route, tall) {
+    var P = plantsCfg(route), list = (tall ? P.mobile : P.desktop) || PLANTS[tall ? 'mobile' : 'desktop'];
+    var cv = el('canvas', 'ys-plants'), x = cv.getContext('2d'), W = 0, H = 0, dpr = Math.min(2, window.devicePixelRatio || 1), raf = 0, t0 = 0, lastDraw = 0;
+    var col = neonRgb(hexRgb(hexOk(P.color) ? P.color : '#3fe8d0'), neonOf(route, 'plants')), pw = Math.max(0, Math.min(200, P.power == null || P.power === '' ? 100 : +P.power)) / 100;
+    var NP = neonOf(route, 'plants'), lv = plantsLevel(route), strands = [], stems = null, dot = null;
+    cv.setAttribute('aria-hidden', 'true');
+    // Мягкая точка света (рисуется один раз) — бусинки и кончики листьев
+    function sprite() {
+      var s = 64, c = document.createElement('canvas'), g; c.width = c.height = s; var q = c.getContext('2d');
+      g = q.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      g.addColorStop(0, rgba(toWhite(col, .55), 1)); g.addColorStop(.18, rgba(col, .85)); g.addColorStop(.45, rgba(col, .22)); g.addColorStop(1, rgba(col, 0));
+      q.fillStyle = g; q.fillRect(0, 0, s, s); return c;
+    }
+    function curve(pts) {
+      var out = [], i, s, a, b, c, d;
+      for (i = 0; i < pts.length - 1; i++) {
+        a = pts[i - 1] || pts[i]; b = pts[i]; c = pts[i + 1]; d = pts[i + 2] || pts[i + 1];
+        for (s = 0; s < 8; s++) { var t = s / 8; out.push({ x: cr(a[0], b[0], c[0], d[0], t) / 100 * W, y: cr(a[1], b[1], c[1], d[1], t) / 100 * H }); }
+      }
+      var e = pts[pts.length - 1]; out.push({ x: e[0] / 100 * W, y: e[1] / 100 * H });
+      return out;
+    }
+    function build() {
+      var sc = Math.max(.75, W / 900), R = rng(h32('m13plants|' + route.id + (tall ? 'm' : 'd')));
+      strands = list.map(function (S0, si) {
+        var c = curve(S0.p), len = 0, i, beads = [], leaves = [];
+        for (i = 1; i < c.length; i++) len += dist(c[i - 1], c[i]);
+        // Точки через равные отрезки: у лианы — бусинки-листочки по сторонам, у папоротника — листики к кончику
+        var step = (S0.k === 'vine' ? 8 : 7.5) * sc, acc = 0, j = 0, side = 1;
+        for (i = 1; i < c.length; i++) {
+          var sl = dist(c[i - 1], c[i]);
+          while (acc + sl >= step * (j + 1)) {
+            var f = (step * (j + 1) - acc) / sl, px = c[i - 1].x + (c[i].x - c[i - 1].x) * f, py = c[i - 1].y + (c[i].y - c[i - 1].y) * f;
+            var nx = -(c[i].y - c[i - 1].y) / sl, ny = (c[i].x - c[i - 1].x) / sl, u = step * (j + 1) / len;
+            if (S0.k === 'vine') beads.push({ x: px + nx * side * 2.6 * sc, y: py + ny * side * 2.6 * sc, r: (1.3 + R() * 1.3) * sc, s: step * (j + 1), on: R() });
+            else {
+              var L = (1 - u * .7) * 7.5 * sc, tx = (c[i].x - c[i - 1].x) / sl, ty = (c[i].y - c[i - 1].y) / sl;
+              [1, -1].forEach(function (sd) { leaves.push({ x0: px, y0: py, x1: px + (nx * sd * .85 + tx * .55) * L, y1: py + (ny * sd * .85 + ty * .55) * L, s: step * (j + 1), on: R() }); });
+            }
+            side = -side; j++;
+          }
+          acc += sl;
+        }
+        return { k: S0.k, c: c, len: len, beads: beads, leaves: leaves, ph: R() * 6.283, sp: .8 + R() * .6 };
+      });
+      // Стебли — один раз на отдельном холсте, с мягким ореолом
+      stems = document.createElement('canvas'); stems.width = cv.width; stems.height = cv.height;
+      var q = stems.getContext('2d'); q.scale(dpr, dpr); q.lineCap = 'round'; q.lineJoin = 'round';
+      q.shadowColor = rgba(col, .9); q.shadowBlur = (4 + 6 * NP) * sc;
+      strands.forEach(function (S1) {
+        q.strokeStyle = rgba(col, .38); q.lineWidth = (S1.k === 'vine' ? .9 : .8) * sc;
+        q.beginPath(); S1.c.forEach(function (p, i) { q[i ? 'lineTo' : 'moveTo'](p.x, p.y); }); q.stroke();
+        q.lineWidth = .6 * sc; q.strokeStyle = rgba(col, .3);
+        S1.leaves.forEach(function (L) { if (L.on < .35 + .65 * lv) { q.beginPath(); q.moveTo(L.x0, L.y0); q.quadraticCurveTo((L.x0 + L.x1) / 2 + (L.y1 - L.y0) * .15, (L.y0 + L.y1) / 2, L.x1, L.y1); q.stroke(); } });
+      });
+      dot = sprite();
+    }
+    function draw(T) {
+      x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cv.width, cv.height);
+      if (!stems) return;
+      var base = Math.min(1, (.28 + .72 * lv) * pw);
+      x.globalAlpha = base * (.75 + .25 * Math.sin(T * .5)); x.drawImage(stems, 0, 0); x.globalAlpha = 1;
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.globalCompositeOperation = 'lighter';
+      var sc = Math.max(.75, W / 900);
+      strands.forEach(function (S1) {
+        function glow(px, py, r, s, on) {
+          if (on > .3 + .7 * lv) return;
+          // Свет бежит по растению сверху вниз
+          var w = .5 + .5 * Math.sin(T * S1.sp - s / (34 * sc) + S1.ph), a = Math.min(1, pw * (.2 + .8 * lv) * (.22 + .78 * w * w * w));
+          if (a < .02) return;
+          var d = r * (5 + 3 * NP); x.globalAlpha = a; x.drawImage(dot, px - d / 2, py - d / 2, d, d);
+        }
+        S1.beads.forEach(function (B) { glow(B.x, B.y, B.r, B.s, B.on); });
+        S1.leaves.forEach(function (L) { glow(L.x1, L.y1, 1.2 * sc, L.s, L.on); });
+      });
+      x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    }
+    function loop(ts) {
+      raf = requestAnimationFrame(loop);
+      if (ts - lastDraw < 33) return; lastDraw = ts;
+      if (!t0) t0 = ts;
+      draw((ts - t0) / 1000);
+    }
+    var api = {
+      node: cv,
+      // Положение и размер — как у картинки спирали
+      fit: function (stage) {
+        cv.style.left = stage.style.left; cv.style.top = stage.style.top; cv.style.width = stage.style.width; cv.style.height = stage.style.height;
+        cv.classList.toggle('is-soft', stage.classList.contains('is-soft'));
+        var w = parseFloat(stage.style.width) || 0, h = parseFloat(stage.style.height) || 0;
+        if (!w || (Math.abs(w - W) < 1 && Math.abs(h - H) < 1)) return;
+        W = w; H = h; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+        build(); draw(0);
+        if (!raf && !REDUCED) raf = requestAnimationFrame(loop);
+      },
+      stop: function () { if (raf) cancelAnimationFrame(raf); raf = 0; }
+    };
+    return api;
+  }
+
   // Нажатие на кирпич d. Сегодняшний — импульс к центру и Карта дня; прошедший, будущий — короткая подсказка.
   function tapDay(d) {
     var r = S.route, tx = r.texts || {}, n = curDay(), last = daysCount(r), ctx = ctxOf(r, d);
@@ -1532,6 +1949,7 @@
   function render() {
     var r = S.route, app = document.getElementById('ys'), tx = r.texts || {};
     app.replaceChildren(); S.B = null;
+    if (S.plants) { S.plants.stop(); S.plants = null; }
     var page = el('div', 'ys-page');
     var bg = el('div', 'ys-bgwrap'), stage = el('div', 'ys-stage'), img = el('img', 'ys-master');
     var M = pickMaster(r, window.innerHeight / window.innerWidth > 1.25);
@@ -1540,6 +1958,8 @@
     var dim = el('div', 'ys-dim');
     dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, r.dimTop == null ? 60 : +r.dimTop)) / 100);
     page.appendChild(dim);
+    // Светящиеся растения — поверх затемнения, чтобы светились и вверху
+    if (plantsCfg(r).on !== false && M.src) { S.plants = plantsLayer(r, M.tall); page.appendChild(S.plants.node); }
 
     var back = el('a', 'ys-back', tx.back || '← Вернуться на витрину');
     back.href = S.base || '../../';
@@ -1579,7 +1999,8 @@
     if (S.debug) app.appendChild(debugPanel());
 
     function build() {
-      stageFit(stage, img);
+      stageFit(stage, img, M.zone);
+      if (S.plants && img.naturalWidth) S.plants.fit(stage);
       if (!bricks || S.B || !img.naturalWidth) return;
       var iw = img.naturalWidth, ih = img.naturalHeight, g = r.glow || {};
       var B = S.B = bricksLayer(r, M.zone, iw, ih, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100, zones: S.zonesOn });
@@ -1604,7 +2025,7 @@
     if (img.complete) build();
     window.onresize = function () {
       if (pickMaster(r, window.innerHeight / window.innerWidth > 1.25).src !== M.src) { render(); return; }
-      if (img.complete) stageFit(stage, img);
+      if (img.complete) { stageFit(stage, img, M.zone); if (S.plants) S.plants.fit(stage); }
     };
   }
   // Режим проверки: ?debug=1 — спираль на любой день, все пройдены, центр, финал, сброс; любая карта в любом формате.

@@ -5,7 +5,12 @@
 .ys-bgwrap{position:absolute;inset:0;background:#0a0604}
 .ys-stage{position:absolute;left:0;top:0;width:100%;height:100%}
 .ys-stage.is-gap::before{content:"";position:absolute;left:0;right:0;top:-1px;height:22%;background:linear-gradient(#0a0604,rgba(10,6,4,0))}
+/* Компьютер: картинка меньше экрана — края растворяются в темноте */
+.ys-stage.is-soft{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 12%,#000 90%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 12%,#000 90%,transparent 100%);mask-composite:intersect}
 .ys-master{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
+/* Светящиеся растения: холст ровно поверх картинки спирали (координаты — её) */
+.ys-plants{position:absolute;pointer-events:none;mix-blend-mode:screen}
+.ys-plants.is-soft{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 6%,#000 92%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 6%,#000 92%,transparent 100%);mask-composite:intersect}
 /* Затемнение сверху: от --ys-dim у верха до нуля к середине кадра (приглушает луч, читается надпись) */
 .ys-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(6,4,2,var(--ys-dim,.6)) 0%,rgba(6,4,2,calc(var(--ys-dim,.6)*.55)) 22%,rgba(6,4,2,0) 50%)}
 .ys-back{position:absolute;left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));z-index:3;color:#f6ead2;text-decoration:none;font-size:14px;letter-spacing:.02em;padding:8px 14px;border-radius:999px;background:rgba(12,8,4,.38);border:1px solid rgba(255,214,140,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
@@ -65,6 +70,22 @@
 .ys-fin-t{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4.6vw,46px);line-height:1.1;letter-spacing:.03em;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.85),0 0 30px rgba(255,200,90,.25)}
 .ys-fin-n{margin:2px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:clamp(20px,2.8vw,27px);color:#f1d08a;text-shadow:0 2px 16px rgba(0,0,0,.85)}
 .ys-fin-brand{margin:8px 0 0;font-size:12px;letter-spacing:.34em;color:rgba(233,199,126,.75);text-shadow:0 1px 10px rgba(0,0,0,.8)}
+/* Мандала: свой светлый круг, вокруг — тёплое сияние */
+/* Сияние вокруг круга — когда мандала раскрылась (пока раскрывается, круг меньше холста) */
+.ys-fin-sun.is-mandala .ys-fin-kal{box-shadow:none;transition:box-shadow 1.2s ease}
+.ys-fin-sun.is-mandala.is-open .ys-fin-kal{box-shadow:0 0 36px 6px rgba(255,214,140,.55),0 0 120px 36px rgba(255,180,70,.25)}
+/* Звёздочки у «Увидимся за поворотом…»: тихо мерцают и изредка вспыхивают лучиками (как у подписи на витрине) */
+.ys-fin-n{display:inline-flex;align-items:center;justify-content:center;gap:.4em}
+.ys-star{display:inline-block;flex:none;width:.8em;height:.8em;line-height:0;color:#ffe3a0;opacity:.85;animation:ys-star 6s ease-in-out infinite}
+.ys-star svg{width:100%;height:100%;fill:currentColor;overflow:visible;filter:drop-shadow(0 0 3px currentColor) drop-shadow(0 0 8px rgba(255,200,90,.6))}
+.ys-star--b{animation-delay:-3s}
+@keyframes ys-star{0%,70%,100%{opacity:.7;transform:scale(1) rotate(0)}80%{opacity:1;transform:scale(1.6) rotate(25deg)}90%{opacity:.85;transform:scale(1) rotate(45deg)}}
+/* Логотип 13 MIRRORS: маска логотипа, залитая золотом */
+.ys-fin-logo{display:block;margin:12px auto 0;height:20px;width:calc(20px * var(--lr,4.5));background:#e9c77e;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;filter:drop-shadow(0 1px 8px rgba(0,0,0,.7))}
+/* «Сохранить моё Солнце» → три варианта */
+.ys-fin-saves{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px;pointer-events:auto}
+.ys-fin-saves[hidden]{display:none}
+.ys-fin-saves .ys-code-b{background:rgba(12,8,4,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .ys-fin-btns{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;margin-top:16px}
 .ys-fin-btns:empty{display:none}
 .ys-fin-btns > *,.ys-fin-back{opacity:0;pointer-events:none;transition:opacity 1s ease}
@@ -80,9 +101,36 @@
   .ys-fin-sun{--S:min(68vw,38vh)}
   .ys-fin-btns .ys-key-go{font-size:19px;padding:10px 22px}
 }
-@media (prefers-reduced-motion:reduce){.ys-fin-corona::before,.ys-fin-corona::after{animation:none}}
+@media (prefers-reduced-motion:reduce){.ys-fin-corona::before,.ys-fin-corona::after,.ys-star{animation:none}}
 /* Карта дня 13: «С чем вы выходите?» и «Собрать маршрут» */
-.ys-exit{padding-top:12px;border-top:1px solid rgba(255,214,140,.16);gap:6px}
+.ys-exit{padding-top:14px;border-top:1px solid rgba(255,214,140,.16);gap:8px}
+.ys-exit-t{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:26px;line-height:1.15;letter-spacing:.02em;color:#fff1cf;text-align:center;text-shadow:0 0 18px rgba(255,200,90,.25)}
+/* Вид «стёклышки»: настоящие стёклышки (как в узоре), подпись под ними */
+.ys-exit--glass .ys-st-list{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 6px;width:100%}
+.ys-st--glass{flex-direction:column;gap:3px;padding:8px 2px 7px;border-radius:14px;background:rgba(255,236,190,.035);border-color:rgba(255,214,140,.14);font-size:13px;line-height:1.15}
+.ys-st--glass .ys-st-g{width:44px;height:44px;border-radius:0;background:none;box-shadow:none;transition:transform .25s,filter .25s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.ys-st--glass.is-on .ys-st-g{box-shadow:none;transform:scale(1.12);filter:drop-shadow(0 0 6px var(--cn,#ffd76a)) drop-shadow(0 0 12px var(--cn,#ffd76a))}
+.ys-st--glass span{-webkit-hyphens:auto;hyphens:auto;max-width:100%}
+@media (max-width:480px){.ys-exit--glass .ys-st-list{grid-template-columns:repeat(3,1fr)}}
+/* Кнопка-спираль «Собрать маршрут»: 13 светящихся точек */
+.ys-gbtn{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;padding:4px 10px;background:none;cursor:pointer;color:#ffe7ae;font:inherit;-webkit-tap-highlight-color:transparent}
+.ys-gbtn-sp{position:relative;display:block;width:112px;height:112px}
+.ys-gbtn-sp svg{position:absolute;inset:0;width:100%;height:100%}
+.ys-gd{--c:#ffd76a;position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:radial-gradient(circle at 40% 38%,color-mix(in srgb,var(--c) 55%,#fff) 0,var(--c) 55%,color-mix(in srgb,var(--c) 70%,#000) 100%);box-shadow:0 0 6px 1px color-mix(in srgb,var(--c) 70%,transparent);opacity:.75;animation:ys-gchase 3.9s ease-in-out infinite;animation-delay:calc(var(--i) * .3s);transition:transform .7s cubic-bezier(.5,0,.3,1),opacity .4s}
+canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;background:none;box-shadow:none;filter:drop-shadow(0 0 4px var(--c))}
+.ys-gd--c{width:16px;height:16px;margin:-8px 0 0 -8px;background:radial-gradient(circle at 40% 38%,#fff6d6 0,var(--c) 50%,color-mix(in srgb,var(--c) 60%,#000) 100%);box-shadow:0 0 10px 3px color-mix(in srgb,var(--c) 70%,transparent),0 0 24px 6px color-mix(in srgb,var(--c) 30%,transparent);opacity:1;animation:ys-gcore 3.9s ease-in-out infinite;animation-delay:3.6s}
+@keyframes ys-gchase{0%,100%{opacity:.6;transform:scale(1)}8%{opacity:1;transform:scale(1.55);filter:brightness(1.35)}20%{opacity:.75;transform:scale(1)}}
+@keyframes ys-gcore{0%,100%{transform:scale(1)}10%{transform:scale(1.3);filter:brightness(1.3)}25%{transform:scale(1)}}
+.ys-gbtn-t{font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;letter-spacing:.04em;color:#ffe7ae;text-shadow:0 0 14px rgba(255,200,90,.45)}
+.ys-gbtn:hover .ys-gbtn-t{color:#fff3d0}
+.ys-gbtn:focus-visible{outline:2px solid #ffe39a;outline-offset:4px;border-radius:14px}
+/* Нажали: огоньки сбегаются в центр, вспышка */
+/* Сдвиг к центру — в точках экрана (кнопка 112 × 112) */
+.ys-gbtn.is-go .ys-gd{animation:none;opacity:1;transform:translate(var(--dx),var(--dy));transition-delay:calc(var(--i) * 45ms)}
+.ys-gbtn.is-go .ys-gd--c{transform:scale(1.4)}
+.ys-gbtn.is-flash .ys-gd--c{transform:scale(4);opacity:0;transition:transform .5s ease-out,opacity .5s ease-out}
+.ys-gbtn.is-flash .ys-gd:not(.ys-gd--c){opacity:0}
+@media (prefers-reduced-motion:reduce){.ys-gd,.ys-gd--c{animation:none}}
 .ys-exit .ys-c-label{margin-bottom:0}
 .ys-exit-lead{margin:0;font-size:14.5px;line-height:1.45;color:rgba(246,234,210,.78);text-align:center}
 .ys-exit .ys-st{font-size:14.5px;padding:6px 12px 6px 8px}
@@ -287,9 +335,9 @@
 .ys-st:hover{background:rgba(255,236,190,.12)}
 .ys-st:focus-visible{outline:2px solid #ffe39a;outline-offset:2px}
 .ys-st-g{--c:#ffcf5a;width:18px;height:18px;border-radius:50%;flex:none;background:radial-gradient(circle at 34% 30%,#fff 0,rgba(255,255,255,.7) 10%,transparent 26%),radial-gradient(circle at 62% 66%,color-mix(in srgb,var(--c) 60%,#fff) 0,transparent 55%),radial-gradient(circle at 50% 50%,var(--c) 30%,color-mix(in srgb,var(--c) 45%,#000) 100%);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 0 8px color-mix(in srgb,var(--c) 50%,transparent);opacity:.75;transition:opacity .2s,transform .2s}
-.ys-st.is-on{background:rgba(255,214,140,.2);border-color:#ffd76a;box-shadow:0 0 18px rgba(255,200,80,.25)}
-.ys-st.is-on .ys-st-g{opacity:1;transform:scale(1.15)}
-.ys-states.is-full .ys-st:not(.is-on){opacity:.45}
+.ys-st.is-on{background:color-mix(in srgb,var(--cn,#ffd76a) 12%,rgba(20,12,4,.4));border-color:rgba(255,222,150,.9);box-shadow:0 0 0 1px rgba(255,222,150,.35),0 0 16px color-mix(in srgb,var(--cn,#ffd76a) 55%,transparent),inset 0 0 12px color-mix(in srgb,var(--cn,#ffd76a) 22%,transparent)}
+.ys-st.is-on .ys-st-g{opacity:1;transform:scale(1.15);box-shadow:0 0 10px 2px var(--cn,#ffd76a)}
+.ys-states.is-full .ys-st:not(.is-on){opacity:.72}
 .ys-st-n{margin:0;font-size:13.5px;letter-spacing:.08em;color:rgba(246,234,210,.7)}
 .ys-code-st{margin:0;font-size:15px;font-style:italic;color:#f3e2bd}
 .ys-kal{transition:box-shadow .6s,width .5s ease}
