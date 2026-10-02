@@ -16,7 +16,7 @@
   function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
   function rgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
   function mix(a, b, k) { return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]; }
-  var WHITE = [255, 248, 230], GOLD = [233, 190, 110], GOLD_HI = [255, 236, 190];
+  var WHITE = [255, 248, 230], GOLD = [233, 190, 110], GOLD_HI = [255, 236, 190], GOLD_DEEP = [176, 118, 36], GOLD_DEEP_HI = [236, 190, 104], BRONZE = [92, 54, 14];
   function styleOf(s) { return s === 'lace' ? 'lace' : 'filigree'; }
 
   /* ---------- Геометрия узора (единица — радиус; ось сектора — вдоль x; сектор зеркален по оси) ---------- */
@@ -132,9 +132,11 @@
   function centerAt(D, i, rad) { var n = D.center.length; return i ? P(rad * .118, -Math.PI / 2 + W / 2 + Math.round((i - 1) * N / Math.max(1, n - 1)) * W) : [0, 0]; }
 
   // Один кадр узора (центр — в начале координат). D — данные Солнца: { pat, cols, center, look, slook };
-  // o: { style, mode: 'screen' | 'paper' | 'mask', hint, thick (1 = как есть), back — полупрозрачное напыление; open — раскрытие 0…1 }
+  // o: { style, mode: 'screen' | 'paper' | 'mask', hint, thick (1 = как есть), back — полупрозрачное напыление; open — раскрытие 0…1;
+  //      ground: 'light' — Солнце на светлом фоне (картинка для телефона): золото глубже, кружево без «сложения света» }
   function draw(x, D, rad, o) {
     var style = styleOf(o.style), mode = o.mode || 'screen', paper = mode === 'paper', open = o.open == null ? 1 : o.open;
+    var lite = !paper && o.ground === 'light', GD = lite ? GOLD_DEEP : GOLD, GH = lite ? GOLD_DEEP_HI : GOLD_HI;
     var cols = D.cols, S = D.pat, lw = rad * (style === 'lace' ? .0026 : .0034) * (o.thick || 1), k;
     if (mode === 'mask') { drawMask(x, D, style, rad, lw); return; }
     function vis(r) { return open >= 1 ? 1 : sm((open * 1.15 - r) / .16); }
@@ -166,19 +168,23 @@
         x.save(); if (rot != null) x.rotate(rot);
         strokePts(x, pp, isClosed(s.pts));
         if (paper) { x.strokeStyle = 'rgba(30,22,14,' + (.9 * a) + ')'; x.lineWidth = Math.max(.7, w * 1.1); x.stroke(); }
-        else if (style === 'lace') {
+        else if (style === 'lace' && lite) {
+          if (pass === 0) { x.strokeStyle = rgba(mix(c, WHITE, .5), .45 * a); x.lineWidth = w * 3.2; x.stroke(); }
+          else { x.strokeStyle = rgba(mix(c, BRONZE, .55), .9 * a); x.lineWidth = w * 1.1; x.stroke(); }
+        } else if (style === 'lace') {
           if (pass === 0) { x.strokeStyle = rgba(mix(c, WHITE, .3), .22 * a); x.lineWidth = w * 3.2; x.stroke(); }
           else { x.strokeStyle = rgba(mix(c, WHITE, .72), .95 * a); x.lineWidth = w; x.stroke(); }
-        } else if (pass === 0) { x.strokeStyle = 'rgba(70,40,6,' + (.55 * a) + ')'; x.lineWidth = w * 2.2; x.stroke(); }
-        else { x.strokeStyle = rgba(GOLD, a); x.lineWidth = w * 1.25; x.stroke(); x.strokeStyle = rgba(GOLD_HI, .7 * a); x.lineWidth = w * .45; x.stroke(); }
+        } else if (pass === 0) { x.strokeStyle = 'rgba(70,40,6,' + ((lite ? .7 : .55) * a) + ')'; x.lineWidth = w * 2.2; x.stroke(); }
+        else { x.strokeStyle = rgba(GD, a); x.lineWidth = w * 1.25; x.stroke(); x.strokeStyle = rgba(GH, .7 * a); x.lineWidth = w * .45; x.stroke(); }
         x.restore();
       }
       for (k = 0; k < N; k++) S.sec.forEach(function (s) { one(s, s.fill === 'center' ? D.center[0] : cols[k], -Math.PI / 2 + k * W); });
       S.all.forEach(function (s) { one(s, GOLD); });
     }
     x.lineCap = 'round'; x.lineJoin = 'round';
-    if (style === 'lace' && !paper) { x.globalCompositeOperation = 'lighter'; lines(0); lines(1); x.globalCompositeOperation = 'source-over'; }
+    if (style === 'lace' && !paper && !lite) { x.globalCompositeOperation = 'lighter'; lines(0); lines(1); x.globalCompositeOperation = 'source-over'; }
     else if (paper) lines(1);
+    else if (style === 'lace') { lines(0); lines(1); }
     else { lines(0); lines(1); }
     // Камни: стёклышки дней
     for (k = 0; k < N; k++) S.gems.forEach(function (gm) {
@@ -187,7 +193,7 @@
       x.globalAlpha = a;
       if (paper) { x.strokeStyle = 'rgba(30,22,14,.9)'; x.lineWidth = Math.max(.7, lw); x.beginPath(); x.arc(p[0], p[1], s * .42, 0, TAU); x.stroke(); }
       else {
-        if (style === 'filigree') { x.strokeStyle = rgba(GOLD, .9); x.lineWidth = lw * 1.2; x.beginPath(); x.arc(p[0], p[1], s * .56, 0, TAU); x.stroke(); }
+        if (style === 'filigree') { x.strokeStyle = rgba(GD, .9); x.lineWidth = lw * 1.2; x.beginPath(); x.arc(p[0], p[1], s * .56, 0, TAU); x.stroke(); }
         else { var gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], s * 1.1); gl.addColorStop(0, rgba(c, .35)); gl.addColorStop(1, rgba(c, 0)); x.fillStyle = gl; x.fillRect(p[0] - s * 1.1, p[1] - s * 1.1, s * 2.2, s * 2.2); }
         x.drawImage(gemSprite(c.map(Math.round), gm.k === 'day' ? D.look : { kind: 'cabochon', shine: 100 }, Math.max(8, Math.round(s))), p[0] - s / 2, p[1] - s / 2, s, s);
       }
@@ -200,7 +206,7 @@
       D.center.forEach(function (c, i) {
         var p = centerAt(D, i, rad), s = rad * (i ? .046 : .1);
         if (paper) { x.strokeStyle = 'rgba(30,22,14,.9)'; x.lineWidth = Math.max(.7, lw); x.beginPath(); x.arc(p[0], p[1], s * .45, 0, TAU); x.stroke(); return; }
-        if (style === 'filigree') { x.strokeStyle = rgba(GOLD, .9); x.lineWidth = lw * 1.1; x.beginPath(); x.arc(p[0], p[1], s * .58, 0, TAU); x.stroke(); }
+        if (style === 'filigree') { x.strokeStyle = rgba(GD, .9); x.lineWidth = lw * 1.1; x.beginPath(); x.arc(p[0], p[1], s * .58, 0, TAU); x.stroke(); }
         else { var gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], s); gl.addColorStop(0, rgba(c, .4)); gl.addColorStop(1, rgba(c, 0)); x.fillStyle = gl; x.fillRect(p[0] - s, p[1] - s, s * 2, s * 2); }
         x.drawImage(gemSprite(c.map(Math.round), D.slook, Math.max(8, Math.round(s))), p[0] - s / 2, p[1] - s / 2, s, s);
       });
