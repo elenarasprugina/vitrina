@@ -535,6 +535,18 @@
   }
 
   /* ---------- Страница маршрута ---------- */
+  // Файл пустой или обрезан (сайт как раз обновлялся, или браузер запомнил такую копию) — ещё раз мимо памяти браузера.
+  function getJSON(url, n) {
+    n = n || 0;
+    return fetch(url, { cache: n ? 'reload' : 'no-cache' }).then(function (r) {
+      if (r.status === 404) { var e = new Error(url); e.final = true; throw e; }
+      if (!r.ok) throw new Error(url);
+      return r.json();
+    }).catch(function (e) {
+      if (e.final || n >= 3) throw e;
+      return new Promise(function (ok) { setTimeout(ok, [0, 1500, 4000][n]); }).then(function () { return getJSON(url, n + 1); });
+    });
+  }
   function q(name) { var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null; }
   // sim — день на спирали из режима проверки (0 — до начала, 14 — после конца), zonesOn — показать разметку кирпичей
   // code — личный код человека ({code, mode, seed}) или null
@@ -1000,7 +1012,7 @@
       try { window.parent.postMessage({ m13journeyReady: true }, location.origin); } catch (e) {}
       return;
     }
-    fetch(S.base + 'data/journeys.json', { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(); return r.json(); }).then(function (j) {
+    getJSON(S.base + 'data/journeys.json').then(function (j) {
       var route = (j.items || []).filter(function (x) { return x.id === id; })[0];
       if (!route) throw new Error();
       useRoute(route);
