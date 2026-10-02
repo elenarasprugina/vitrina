@@ -143,7 +143,20 @@
   }
 
   /* ---------- Загрузка ---------- */
-  function getJSON(u) { return fetch(u, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error(u); return r.json(); }); }
+  // Данные сайта — всегда свежие. Файл пустой или обрезан (сайт как раз обновлялся, или браузер запомнил такую копию) —
+  // ещё раз мимо памяти браузера (cache: 'reload' заодно заменяет испорченную копию), потом через 2, 4 и 8 с. Нет файла (404) — без повторов.
+  function getJSON(u, n) {
+    n = n || 0;
+    return fetch(u, { cache: n ? 'reload' : 'no-cache' }).then(function (r) {
+      if (r.status === 404) { var e = new Error(u); e.final = true; throw e; }
+      if (!r.ok) throw new Error(u);
+      return r.json();
+    }).catch(function (e) {
+      if (e.final || n >= 4) throw e;
+      if (n && APP && !DATA) APP.innerHTML = '<p style="padding:40px;color:#6b6b68">Сайт как раз обновляется — пробуем ещё раз…</p>';
+      return new Promise(function (ok) { setTimeout(ok, [0, 2000, 4000, 8000][n]); }).then(function () { return getJSON(u, n + 1); });
+    });
+  }
   function loadSource() {
     if (window.M13_DATA) return Promise.resolve(clone(window.M13_DATA));
     var d = '../data/';
@@ -4590,7 +4603,7 @@
       });
     }).catch(function (e) {
       console.error(e);
-      APP.innerHTML = '<p style="padding:40px">Не получилось загрузить данные витрины. Обновите страницу; если не поможет — напишите, что видите.</p>';
+      APP.innerHTML = '<p style="padding:40px">Не получилось загрузить данные витрины. Подождите минуту и обновите страницу; если не поможет — напишите, что видите.</p>';
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

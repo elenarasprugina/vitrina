@@ -91,10 +91,20 @@ jobs:
           # mirror --delete работает только внутри папки vitrina/: там сервер становится
           # точной копией репозитория (удалённое в репозитории удаляется и там).
           # Служебное (.git, .github, docs, CLAUDE.md, README.md) на сайт не попадает.
-          lftp -c "set cmd:fail-exit yes; set net:max-retries 3; set net:timeout 30;
-                   set sftp:connect-program 'ssh -a -x -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts';
-                   open --env-password -u $BEGET_USER sftp://$BEGET_HOST;
-                   mirror --reverse --delete --parallel=4 --no-perms --verbose=1 \
-                     --exclude-glob .git/ --exclude-glob .github/ --exclude-glob docs/ \
-                     --exclude-glob CLAUDE.md --exclude-glob README.md --exclude-glob CNAME \
-                     . $TARGET"
+          # Каждый файл сначала загружается целиком под временным именем (.up-…) и потом одним движением встаёт на место.
+          # Раньше файл переписывался прямо на месте: кто открывал сайт в эту минуту, получал пустой или обрезанный файл,
+          # а браузер мог его запомнить (02.10.2026 так «сломалась» панель в Chrome). Недогруженные .up-… следующая пересылка удалит сама.
+          # Если сервер не даст заменить файл переименованием — запасной путь: как раньше, прямо на месте (с предупреждением).
+          send() {
+            lftp -c "set cmd:fail-exit yes; set net:max-retries 3; set net:timeout 30; $1
+                     set sftp:connect-program 'ssh -a -x -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts';
+                     open --env-password -u $BEGET_USER sftp://$BEGET_HOST;
+                     mirror --reverse --delete --parallel=4 --no-perms --verbose=1 \
+                       --exclude-glob .git/ --exclude-glob .github/ --exclude-glob docs/ \
+                       --exclude-glob CLAUDE.md --exclude-glob README.md --exclude-glob CNAME \
+                       . $TARGET"
+          }
+          if ! send "set xfer:use-temp-file yes; set xfer:temp-file-name .up-*;"; then
+            echo "::warning::Не получилось заменить файлы через временные — пересылаю как раньше, прямо на месте."
+            send ""
+          fi

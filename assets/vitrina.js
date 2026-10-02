@@ -57,10 +57,17 @@
   function formatById(id) { return (S.D.formats.formats || []).filter(function (f) { return f.id === id; })[0] || null; }
 
   /* ---------- Загрузка данных ---------- */
-  function getJSON(url) {
-    return fetch(url, { cache: 'no-cache' }).then(function (r) {
-      if (!r.ok) throw new Error('Не найден файл ' + url);
+  // Файл пустой или обрезан (сайт как раз обновлялся, или браузер запомнил такую копию) — сразу ещё раз мимо памяти браузера
+  // (cache: 'reload' заодно заменяет испорченную копию), потом через 1,5 и 4 с. Нет файла (404) — без повторов.
+  function getJSON(url, n) {
+    n = n || 0;
+    return fetch(url, { cache: n ? 'reload' : 'no-cache' }).then(function (r) {
+      if (r.status === 404) { var e = new Error('Не найден файл ' + url); e.final = true; throw e; }
+      if (!r.ok) throw new Error('Не загрузился файл ' + url);
       return r.json();
+    }).catch(function (e) {
+      if (e.final || n >= 3) throw e;
+      return new Promise(function (ok) { setTimeout(ok, [0, 1500, 4000][n]); }).then(function () { return getJSON(url, n + 1); });
     });
   }
   M13.load = function (base, showcaseId) {
