@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>13 MIRRORS · Калейдоскоп · пробы</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a0604">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+<!-- Пробная страница живого калейдоскопа: три стиля на выбор. Участникам не показывается (ссылок на неё нет). -->
+<style>
+  :root { --bg: #0a0604; --gold: #e9c77e; --gold2: #f6dfa6; --ink: #f3e7cf; --muted: #b9a582; --line: rgba(233,199,126,.28); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 17px/1.5 "Cormorant Garamond", Georgia, serif; min-height: 100vh;
+    background: radial-gradient(120% 70% at 50% 0%, #2a1906 0%, #0a0604 60%) fixed; }
+  .lab { max-width: 1320px; margin: 0 auto; padding: 22px 16px 48px; overflow-x: hidden; }
+  .lab-back { color: var(--muted); text-decoration: none; font-size: 16px; }
+  .lab-back:hover { color: var(--gold2); }
+  h1 { font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); font-size: 22px; margin: 14px 0 6px; text-align: center; }
+  .lab-lead { text-align: center; color: var(--muted); margin: 0 auto 18px; max-width: 640px; font-style: italic; }
+  .lab-tabs { display: flex; gap: 6px; justify-content: center; margin: 0 0 14px; flex-wrap: wrap; }
+  .lab-tabs button { font: inherit; font-size: 16px; color: var(--ink); background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  .lab-tabs button.is-on { background: rgba(233,199,126,.18); border-color: var(--gold); color: var(--gold2); }
+  .lab-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
+  .lab-k { display: none; margin: 0; text-align: center; }
+  .lab-k.is-on { display: block; }
+  .lab-stage { position: relative; width: min(100%, 520px); margin: 0 auto; aspect-ratio: 1; transition: width .6s, margin .6s; }
+  .is-sun .lab-stage { width: min(72%, 400px); margin: 16% auto; }
+  .lab-stage canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block; border-radius: 50%; }
+  .lab-rays { position: absolute; z-index: 0; inset: -24%; width: 148%; height: 148%; opacity: 0; transition: opacity .8s; pointer-events: none; }
+  .is-sun .lab-rays { opacity: 1; animation: lab-spin 120s linear infinite; }
+  .is-sun .lab-stage canvas { box-shadow: 0 0 60px 14px rgba(255,200,90,.45), 0 0 140px 40px rgba(255,170,60,.22); }
+  @keyframes lab-spin { to { transform: rotate(360deg); } }
+  .lab-k figcaption { margin-top: 12px; }
+  .lab-k figcaption b { display: block; font-weight: 600; color: var(--gold2); font-size: 20px; letter-spacing: .04em; }
+  .lab-k figcaption span { color: var(--muted); font-size: 16px; }
+  .lab-ctl { margin: 26px auto 0; max-width: 720px; border-top: 1px solid var(--line); padding-top: 18px; text-align: center; }
+  .lab-code { font-size: 15px; color: var(--muted); letter-spacing: .06em; }
+  .lab-code b { display: block; font-size: 26px; color: var(--gold2); letter-spacing: .16em; font-weight: 600; margin-top: 2px; }
+  .lab-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0; }
+  .lab-row button { font: inherit; font-size: 17px; color: #1a1004; background: linear-gradient(#f6dfa6, #d9a94f); border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer; }
+  .lab-row button.lab-ghost { color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid var(--line); }
+  .lab-row button.is-on { background: rgba(233,199,126,.22); border-color: var(--gold); color: var(--gold2); }
+  .lab-speed { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 16px; }
+  .lab-speed input { width: 200px; accent-color: #d9a94f; }
+  .lab-note { color: var(--muted); font-size: 15px; font-style: italic; margin-top: 18px; }
+  @media (min-width: 980px) {
+    .lab-tabs { display: none; }
+    .lab-grid { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+    .lab-k { display: block; }
+  }
+</style>
+</head>
+<body>
+<main class="lab">
+  <a class="lab-back" href="./">← К маршруту</a>
+  <h1>Калейдоскоп · пробы</h1>
+  <p class="lab-lead">Три стиля живого узора по образцу витража. Узор у каждого кода свой и всё время перетекает. Выберите стиль — он будет везде: вход по ключу, «Мой код», картинка «Сохранить», Солнце в финале.</p>
+  <div class="lab-tabs" role="tablist">
+    <button type="button" data-k="0" class="is-on">А · Витраж-роза</button>
+    <button type="button" data-k="1">Б · Самоцветы</button>
+    <button type="button" data-k="2">В · Роза с самоцветами</button>
+  </div>
+  <div class="lab-grid">
+    <figure class="lab-k is-on" data-style="rose"><div class="lab-stage"><canvas></canvas></div>
+      <figcaption><b>А · Витраж-роза</b><span>Грани цветного стекла с золотыми прожилками, медленно дышат и меняют цвет</span></figcaption></figure>
+    <figure class="lab-k" data-style="gems"><div class="lab-stage"><canvas></canvas></div>
+      <figcaption><b>Б · Самоцветы</b><span>Гранёные камни пересыпаются между зеркалами — как в настоящей трубке</span></figcaption></figure>
+    <figure class="lab-k" data-style="mix"><div class="lab-stage"><canvas></canvas></div>
+      <figcaption><b>В · Роза с самоцветами</b><span>Витражная основа, поверх плывут и вспыхивают кристаллы</span></figcaption></figure>
+  </div>
+  <section class="lab-ctl">
+    <div class="lab-code">Узор кода<b id="code">—</b></div>
+    <div class="lab-row">
+      <button type="button" id="turn">Повернуть калейдоскоп</button>
+      <button type="button" class="lab-ghost" id="other">Другой код</button>
+      <button type="button" class="lab-ghost" id="common">Общий узор маршрута</button>
+      <button type="button" class="lab-ghost" id="sun">В лучах Солнца</button>
+    </div>
+    <label class="lab-speed">медленнее <input type="range" id="speed" min="0.3" max="2.5" step="0.1" value="1"> быстрее</label>
+    <p class="lab-note">«Повернуть калейдоскоп» — как при входе по ключу: старый узор пересыпается, складывается узор нового кода. «В лучах Солнца» — примерно так узор будет гореть в центре спирали в финале. Это пробная страница, участники её не видят.</p>
+  </section>
+</main>
+<script src="../../assets/kaleido.js?v=20261002k"></script>
+<script>
+(function () {
+  'use strict';
+  var WORDS = ['СОЛНЦЕ', 'ЛУЧ', 'ЗАРЯ', 'СВЕТ', 'ИСКРА', 'ПЛАМЯ', 'ЯНТАРЬ', 'ЗОЛОТО', 'РАССВЕТ', 'ПОЛДЕНЬ', 'ВОСХОД', 'ОГОНЬ', 'КОЛОС', 'ЖАР', 'СИЯНИЕ', 'ТЕПЛО'];
+  var ABC = 'АБВГДЕЖИКЛМНПРСТУФХЦШЭЮЯ23456789';
+  // Для проб — код «как настоящий» (узор считается так же: h32('m13kal|' + код))
+  function fakeCode() {
+    var s = '', i;
+    for (i = 0; i < 4; i++) s += ABC.charAt(Math.floor(Math.random() * ABC.length));
+    return WORDS[Math.floor(Math.random() * WORDS.length)] + '-' + s;
+  }
+  function seedOf(code) { return M13K.h32('m13kal|' + code); }
+  var COMMON = 'Общий узор маршрута', ROUTE_SEED = M13K.h32('m13kal|yellow-sun');
+  var figs = [].slice.call(document.querySelectorAll('.lab-k')), tabs = [].slice.call(document.querySelectorAll('.lab-tabs button'));
+  var K = figs.map(function (f) { var cv = f.querySelector('canvas'); return M13K.Kaleido(cv, 0, { style: f.getAttribute('data-style') }); });
+  var code = fakeCode(), seed = seedOf(code);
+  document.getElementById('code').textContent = code;
+  // На телефоне живёт только видимый (беречь батарею), на компьютере — все три
+  function visible(i) { return figs[i].offsetParent !== null; }
+  function wake() { K.forEach(function (k, i) { if (visible(i)) k.idle(seed); else k.stop(); }); }
+  function setCode(c, s, turn) {
+    code = c; seed = s; document.getElementById('code').textContent = c;
+    K.forEach(function (k, i) { if (!visible(i)) { k.show(seed); k.stop(); return; } if (turn) k.turn(seed); else { k.show(seed); k.idle(seed); } });
+  }
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = +b.getAttribute('data-k');
+      tabs.forEach(function (x, i) { x.classList.toggle('is-on', i === n); });
+      figs.forEach(function (f, i) { f.classList.toggle('is-on', i === n); });
+      wake();
+    });
+  });
+  document.getElementById('turn').addEventListener('click', function () { var c = fakeCode(); setCode(c, seedOf(c), true); });
+  document.getElementById('other').addEventListener('click', function () { var c = fakeCode(); setCode(c, seedOf(c), false); });
+  document.getElementById('common').addEventListener('click', function () { setCode(COMMON, ROUTE_SEED, true); });
+  document.getElementById('sun').addEventListener('click', function () { var on = document.body.classList.toggle('is-sun'); this.classList.toggle('is-on', on); });
+  document.getElementById('speed').addEventListener('input', function () { var v = +this.value; K.forEach(function (k) { k.speed(v); }); });
+  // Лучи Солнца — за узором
+  var rays = '', i, a;
+  for (i = 0; i < 48; i++) { a = i / 48 * Math.PI * 2; rays += '<line x1="' + (100 + 50 * Math.cos(a)).toFixed(1) + '" y1="' + (100 + 50 * Math.sin(a)).toFixed(1) + '" x2="' + (100 + (i % 2 ? 78 : 97) * Math.cos(a)).toFixed(1) + '" y2="' + (100 + (i % 2 ? 78 : 97) * Math.sin(a)).toFixed(1) + '"/>'; }
+  figs.forEach(function (f) {
+    f.querySelector('.lab-stage').insertAdjacentHTML('afterbegin', '<svg class="lab-rays" viewBox="0 0 200 200" aria-hidden="true"><defs><radialGradient id="lr" cx="50%" cy="50%" r="50%"><stop offset=".45" stop-color="#ffd76a" stop-opacity=".55"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient></defs><circle cx="100" cy="100" r="98" fill="url(#lr)"/><g stroke="#ffd76a" stroke-width="2.2" stroke-linecap="round" opacity=".85">' + rays + '</g></svg>');
+  });
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(wake, 200); });
+  wake();
+})();
+</script>
+</body>
+</html>
