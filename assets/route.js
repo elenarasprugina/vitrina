@@ -2,7 +2,7 @@
    Данные — data/journeys.json (настраиваются в панели: «Страницы маршрутов»).
    Здесь же — Карта дня и личная карта: их рисует и сама страница, и панель (предпросмотр).
    Этап 1: фон-спираль, экран ожидания, Карта дня. Этап 2: кирпичи на спирали (свет, импульс к центру), путь Наблюдателя, режим проверки ?debug=1.
-   Колода и код — этап 3. */
+   Этап 3: ключ → калейдоскоп → личный код, колода, выбор карты-разрешения (круг закрытых карт), личная карта. */
 (function () {
   'use strict';
   var MSK = 3, DAY = 864e5;
@@ -325,10 +325,220 @@
     requestAnimationFrame(step);
   }
 
+  /* ---------- Личный код и колода ----------
+     Ключ (слово из группы) проверяется в браузере: на сайте лежит только его отпечаток — SHA-1 от «m13|<маршрут>|ключ»
+     (ключ строчными, без пробелов, ё → е; панель считает так же). Подошёл ключ → один раз случайное число seed → личный код
+     вида ИСКРА-7ЖК4: слово + 4 знака = 24 бита: seed (16) · формат (1 — Погружение) · проверка (7, от маршрута, первого дня, формата и seed).
+     Из кода считаются колода (день d → карта deck[d − 1]) и узор калейдоскопа — на любом устройстве одинаково, без сервера.
+     Что человек нажал в круге карт, на результат не влияет (вариант А, «колода нашей жизни»). */
+  var CODE_ABC = 'АБВГДЕЖИКЛМНПРСТУФХЦШЭЮЯ23456789';
+  var CODE_WORDS = ['СОЛНЦЕ', 'ЛУЧ', 'ЗАРЯ', 'СВЕТ', 'ИСКРА', 'ПЛАМЯ', 'ЯНТАРЬ', 'ЗОЛОТО', 'РАССВЕТ', 'ПОЛДЕНЬ', 'ВОСХОД', 'ОГОНЬ', 'КОЛОС', 'ЖАР', 'СИЯНИЕ', 'ТЕПЛО'];
+  var LAT = { A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У' };
+  function h32(s) {
+    var h = 0x811c9dc5 ^ s.length, i;
+    for (i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    h ^= h >>> 15; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+    return h >>> 0;
+  }
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () { a = (a + 0x6d2b79f5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function codeCheck(route, mode, seed) { return h32('m13code|' + route.id + '|' + (route.start || '') + '|' + mode + '|' + seed) & 127; }
+  function makeCode(route, mode, seed) {
+    seed = seed & 0xffff;
+    var raw = seed * 256 + (mode === 'immersion' ? 128 : 0) + codeCheck(route, mode, seed), tail = raw % 1048576, s = '', i;
+    for (i = 3; i >= 0; i--) s += CODE_ABC.charAt(Math.floor(tail / Math.pow(32, i)) % 32);
+    return CODE_WORDS[Math.floor(raw / 1048576)] + '-' + s;
+  }
+  function newCode(route, mode) {
+    var seed = Math.floor(Math.random() * 65536);
+    try { seed = crypto.getRandomValues(new Uint16Array(1))[0]; } catch (e) {}
+    return readCode(route, makeCode(route, mode, seed));
+  }
+  // Код из того, что набрал человек: регистр, пробелы, дефис, латинские двойники (C, O, X…), ё/й, З вместо 3 — не важны.
+  // Неверный код (опечатка) — null: проверка не сходится.
+  function readCode(route, input) {
+    var s = String(input || '').toUpperCase().replace(/Ё/g, 'Е').replace(/Й/g, 'И').replace(/[ABCEHKMOPTXY]/g, function (c) { return LAT[c]; }).replace(/[^А-Я0-9]/g, '');
+    for (var w = 0; w < CODE_WORDS.length; w++) {
+      var W = CODE_WORDS[w]; if (s.length !== W.length + 4 || s.indexOf(W) !== 0) continue;
+      var tail = s.slice(W.length).replace(/З/g, '3'), t = 0, i, k;
+      for (i = 0; i < 4; i++) { k = CODE_ABC.indexOf(tail.charAt(i)); if (k < 0) return null; t = t * 32 + k; }
+      var raw = w * 1048576 + t, seed = Math.floor(raw / 256), mode = raw & 128 ? 'immersion' : 'journey';
+      if ((raw & 127) !== codeCheck(route, mode, seed)) return null;
+      return { code: W + '-' + tail, mode: mode, seed: seed };
+    }
+    return null;
+  }
+  // Порядок карт-разрешений у человека: перемешаны один раз — от кода. Порядок карт в панели после выдачи кодов не менять.
+  function deckOf(route, c) {
+    var n = (route.permissions || []).length, a = [], i, j, t, R = rng(h32('m13deck|' + route.id + '|' + (route.start || '') + '|' + c.mode + '|' + c.seed));
+    for (i = 0; i < n; i++) a.push(i);
+    for (i = n - 1; i > 0; i--) { j = Math.floor(R() * (i + 1)); t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function permFor(route, c, d) { var dk = c ? deckOf(route, c) : []; return dk.length ? route.permissions[dk[(d - 1) % dk.length]] : null; }
+
+  // Ключ → формат ('journey' | 'immersion' | ''). SHA-1 — браузерный, а где его нет (страница не по https) — свой.
+  function keyNorm(k) { return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ''); }
+  function sha1js(bytes) {
+    var n = bytes.length, words = ((n + 8) >> 6) + 1, w = [], i, j, x = [];
+    for (i = 0; i < words * 16; i++) w[i] = 0;
+    for (i = 0; i < n; i++) w[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
+    w[n >> 2] |= 0x80 << (24 - (n % 4) * 8);
+    w[words * 16 - 1] = (n * 8) >>> 0;
+    var H = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
+    function rol(v, s) { return (v << s) | (v >>> (32 - s)); }
+    for (i = 0; i < w.length; i += 16) {
+      var a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f, k, t;
+      for (j = 0; j < 80; j++) {
+        x[j] = j < 16 ? w[i + j] : rol(x[j - 3] ^ x[j - 8] ^ x[j - 14] ^ x[j - 16], 1);
+        if (j < 20) { f = (b & c) | (~b & d); k = 0x5a827999; } else if (j < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
+        else if (j < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; } else { f = b ^ c ^ d; k = 0xca62c1d6; }
+        t = (rol(a, 5) + f + e + k + x[j]) | 0; e = d; d = c; c = rol(b, 30); b = a; a = t;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0; H[4] = (H[4] + e) | 0;
+    }
+    return H.map(function (h) { return ('0000000' + (h >>> 0).toString(16)).slice(-8); }).join('');
+  }
+  function sha1Hex(str) {
+    var bytes = new TextEncoder().encode(str);
+    if (!(window.crypto && crypto.subtle && crypto.subtle.digest)) return Promise.resolve(sha1js(bytes));
+    return crypto.subtle.digest('SHA-1', bytes).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function keyMode(route, input) {
+    var k = keyNorm(input), keys = route.keys || {};
+    if (!k) return Promise.resolve('');
+    return sha1Hex('m13|' + route.id + '|' + k).then(function (h) { return keys.journey && keys.journey === h ? 'journey' : keys.immersion && keys.immersion === h ? 'immersion' : ''; });
+  }
+
+  /* ---------- Калейдоскоп: личный узор из кода ----------
+     Узор — из числа (h32 от кода): число зеркал (6, 8, 10 или 12), 9–13 стёклышек в одном секторе, два цвета-акцента к солнечным.
+     Сектор отражается по кругу, как в настоящем калейдоскопе. e — насколько стёклышки «легли» (0 — рассыпаны, 1 — узор сложился). */
+  var KAL_SUN = ['#ffcf5a', '#ffe7a3', '#f2a43a', '#fff6dc', '#e98a2a'];
+  var KAL_ACC = ['#ef7a6c', '#5fc7b8', '#a48ae6', '#7fb9f0', '#93d16e', '#f290b8', '#e0b04a'];
+  function kalSeed(c) { return h32('m13kal|' + (c && c.code ? c.code : String(c || ''))); }
+  function kalParts(seed) {
+    var R = rng(seed), sym = [6, 8, 10, 12][Math.floor(R() * 4)], acc = [KAL_ACC[Math.floor(R() * 7)], KAL_ACC[Math.floor(R() * 7)]];
+    var cols = KAL_SUN.concat(acc, acc), parts = [], n = 9 + Math.floor(R() * 5), i;
+    for (i = 0; i < n; i++) parts.push({ k: Math.floor(R() * 6), r: .08 + R() * .84, a: R(), s: .035 + R() * .13, rot: R() * 6.283, c: cols[Math.floor(R() * cols.length)],
+      o: .3 + R() * .5, dr: (R() - .5) * .6, da: (R() - .5) * 2.6, dz: (R() - .5) * 5 });
+    parts.sort(function (a, b) { return b.s - a.s; });
+    return { sym: sym, parts: parts, ring: .34 + R() * .4, beads: 1 + Math.floor(R() * 3), core: cols[Math.floor(R() * 5)] };
+  }
+  function kalShape(ctx, k, s) {
+    ctx.beginPath();
+    if (k === 0) ctx.arc(0, 0, s, 0, 6.2832);
+    else if (k === 1) ctx.ellipse(0, 0, s * 1.7, s * .48, 0, 0, 6.2832);
+    else if (k === 2) { ctx.moveTo(s, 0); ctx.lineTo(0, s * .62); ctx.lineTo(-s, 0); ctx.lineTo(0, -s * .62); ctx.closePath(); }
+    else if (k === 3) { ctx.moveTo(s, 0); ctx.lineTo(-s * .6, s * .75); ctx.lineTo(-s * .6, -s * .75); ctx.closePath(); }
+    else if (k === 4) { ctx.arc(0, 0, s, 0, 6.2832); ctx.lineWidth = s * .26; ctx.stroke(); return; }
+    else { ctx.moveTo(-s * 1.8, 0); ctx.lineTo(s * 1.8, 0); ctx.lineWidth = Math.max(1, s * .14); ctx.lineCap = 'round'; ctx.stroke(); return; }
+    ctx.fill();
+  }
+  function kalLayer(ctx, K, rad, e, alpha) {
+    var W = Math.PI * 2 / K.sym, f = 1 - e, k, i, p;
+    for (k = 0; k < K.sym; k++) {
+      ctx.save();
+      if (k % 2) { ctx.rotate((k + 1) * W); ctx.scale(1, -1); } else ctx.rotate(k * W);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, rad, 0, W); ctx.closePath(); ctx.clip();
+      for (i = 0; i < K.parts.length; i++) {
+        p = K.parts[i];
+        ctx.save();
+        ctx.rotate((p.a + p.da * f) * W); ctx.translate((p.r + p.dr * f) * rad, 0); ctx.rotate(p.rot + p.dz * f);
+        ctx.fillStyle = ctx.strokeStyle = p.c; ctx.globalAlpha = alpha * p.o;
+        kalShape(ctx, p.k, p.s * rad);
+        ctx.restore();
+      }
+      // Бусины на кольце — по одной-три в секторе
+      ctx.globalAlpha = alpha * .8; ctx.fillStyle = K.core;
+      for (i = 0; i < K.beads; i++) { ctx.beginPath(); ctx.arc(Math.cos((i + .5) / K.beads * W) * K.ring * rad, Math.sin((i + .5) / K.beads * W) * K.ring * rad, rad * .016, 0, 6.2832); ctx.fill(); }
+      ctx.restore();
+    }
+  }
+  // Кадр калейдоскопа: list — [[узор, e, прозрачность], …] (при повороте старый узор рассыпается, новый складывается)
+  function kalFrame(ctx, list, cx, cy, rad, rot) {
+    var g, k, W;
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.beginPath(); ctx.arc(0, 0, rad, 0, 6.2832); ctx.clip();
+    g = ctx.createRadialGradient(0, 0, 0, 0, 0, rad); g.addColorStop(0, '#3a2408'); g.addColorStop(.6, '#1a1005'); g.addColorStop(1, '#0a0603');
+    ctx.fillStyle = g; ctx.fillRect(-rad, -rad, rad * 2, rad * 2);
+    ctx.rotate(rot);
+    ctx.globalCompositeOperation = 'lighter';
+    list.forEach(function (x) { if (x[2] > .01) kalLayer(ctx, x[0], rad, x[1], x[2]); });
+    // Зеркала — тонкие лучи между секторами
+    W = list[list.length - 1][0].sym;
+    ctx.globalAlpha = .1; ctx.strokeStyle = '#ffe2a0'; ctx.lineWidth = Math.max(1, rad * .004);
+    for (k = 0; k < W; k++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(k / W * 6.2832) * rad, Math.sin(k / W * 6.2832) * rad); ctx.stroke(); }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    g = ctx.createRadialGradient(0, 0, rad * .08, 0, 0, rad * .2); g.addColorStop(0, 'rgba(255,246,220,.85)'); g.addColorStop(1, 'rgba(255,207,90,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rad * .2, 0, 6.2832); ctx.fill();
+    g = ctx.createRadialGradient(0, 0, rad * .6, 0, 0, rad); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)');
+    ctx.fillStyle = g; ctx.fillRect(-rad, -rad, rad * 2, rad * 2);
+    ctx.restore();
+    ctx.save(); ctx.strokeStyle = 'rgba(255,214,140,.55)'; ctx.lineWidth = Math.max(1, rad * .012);
+    ctx.beginPath(); ctx.arc(cx, cy, rad - ctx.lineWidth / 2, 0, 6.2832); ctx.stroke(); ctx.restore();
+  }
+  // Калейдоскоп на холсте: show — узор сразу, idle — медленно вращается, turn — поворот и новый узор, потом done().
+  function Kaleido(cv, px) {
+    var ctx = cv.getContext('2d'), K = null, raf = 0, rot = 0;
+    function draw(list) {
+      var d = Math.min(2, window.devicePixelRatio || 1), w = Math.round((px || cv.clientWidth || 280) * d);
+      if (cv.width !== w || cv.height !== w) { cv.width = w; cv.height = w; }
+      ctx.clearRect(0, 0, w, w);
+      kalFrame(ctx, list, w / 2, w / 2, w / 2 * .98, rot);
+    }
+    function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
+    return {
+      show: function (seed) { stop(); K = kalParts(seed); draw([[K, 1, 1]]); },
+      idle: function (seed) {
+        stop(); K = kalParts(seed); draw([[K, 1, 1]]);
+        if (REDUCED) return;
+        (function loop() { rot += .0016; draw([[K, 1, 1]]); raf = requestAnimationFrame(loop); })();
+      },
+      turn: function (seed, done) {
+        stop();
+        var A = K, B = kalParts(seed), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 2800;
+        if (!dur) { K = B; draw([[B, 1, 1]]); if (done) done(); return; }
+        raf = requestAnimationFrame(function loop(ts) {
+          if (!t0) t0 = ts;
+          var k = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - k, 3), s = k < .5 ? 2 * k * k : 1 - Math.pow(2 - 2 * k, 2) / 2;
+          rot = r0 + e * Math.PI * 2.2;
+          draw(A ? [[A, Math.max(0, 1 - k * 2.2), Math.max(0, 1 - k * 1.7)], [B, s, Math.min(1, k * 1.6)]] : [[B, s, Math.min(1, .2 + k * 1.6)]]);
+          if (k < 1) { raf = requestAnimationFrame(loop); return; }
+          raf = 0; K = B; if (done) done();
+        });
+      },
+      stop: stop
+    };
+  }
+  // Картинка «узор и код» для сохранения: 1080 × 1350 (как пост), узор, код, маршрут.
+  function patternImage(route, c, cb) {
+    var W = 1080, H = 1350, cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+    cv.width = W; cv.height = H;
+    function paint() {
+      var g = ctx.createRadialGradient(W / 2, 560, 60, W / 2, 560, 900);
+      g.addColorStop(0, '#3b250a'); g.addColorStop(1, '#0a0604');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      kalFrame(ctx, [[kalParts(kalSeed(c)), 1, 1]], W / 2, 560, 420, 0);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#e9c77e';
+      ctx.font = '500 30px "Cormorant Garamond", Georgia, serif';
+      ctx.fillText(('13 MIRRORS · ' + (route.title || '')).toUpperCase().split('').join(String.fromCharCode(8202)), W / 2, 86);
+      ctx.fillText((MODE_NAMES[c.mode] || '').toUpperCase().split('').join(String.fromCharCode(8202)), W / 2, 1080);
+      ctx.fillStyle = '#fff3d6'; ctx.font = '600 104px "Cormorant Garamond", Georgia, serif';
+      ctx.fillText(c.code, W / 2, 1200);
+      cb(cv);
+    }
+    if (document.fonts && document.fonts.load) document.fonts.load('600 104px "Cormorant Garamond"').then(paint, paint); else paint();
+  }
+
   /* ---------- Страница маршрута ---------- */
   function q(name) { var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null; }
   // sim — день на спирали из режима проверки (0 — до начала, 14 — после конца), zonesOn — показать разметку кирпичей
-  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false };
+  // code — личный код человека ({code, mode, seed}) или null
+  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false, code: null };
 
   function curDay() { return S.sim != null ? S.sim : dayNumber(S.route, nowMsk(S.debugNow)); }
   // Какие дни на этом устройстве уже открывали (сегодняшний кирпич после нажатия светится ровно). Только для света, не для доступа.
@@ -339,6 +549,21 @@
     l.push(n); try { localStorage.setItem(storeKey(), JSON.stringify(l)); } catch (e) {}
   }
   function resetOpened() { try { localStorage.removeItem(storeKey()); } catch (e) {} }
+  // Личный код помнит это устройство; на другом человек вводит свой код (не ключ).
+  function codeKey() { return 'm13ys-code-' + S.route.id + '-' + (S.route.start || ''); }
+  function loadCode() { try { return readCode(S.route, localStorage.getItem(codeKey()) || ''); } catch (e) { return null; } }
+  function saveCode(c) { S.code = c; try { if (c) localStorage.setItem(codeKey(), c.code); else localStorage.removeItem(codeKey()); } catch (e) {} }
+  // В какие дни карта уже перевёрнута (выбор окончателен: до 00:00 по кирпичу открывается та же личная карта)
+  function pickKey() { return storeKey() + '-pick-' + (S.code ? S.code.code : ''); }
+  function pickedList() { try { var l = JSON.parse(localStorage.getItem(pickKey()) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+  function markPicked(n) { var l = pickedList(); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(pickKey(), JSON.stringify(l)); } catch (e) {} } }
+  function resetPicks() { try { localStorage.removeItem(pickKey()); } catch (e) {} }
+  function setUrlMode(m) {
+    try {
+      var s = location.search.replace(/([?&])mode=[^&#]*&?/, '$1').replace(/[?&]$/, '');
+      history.replaceState(null, '', location.pathname + s + (s ? '&' : '?') + 'mode=' + m + location.hash);
+    } catch (e) {}
+  }
 
   function stageFit(stage, img) {
     var W = window.innerWidth, H = window.innerHeight, iw = img.naturalWidth || 16, ih = img.naturalHeight || 9;
@@ -357,11 +582,12 @@
     var rc = st.getBoundingClientRect();
     return { x: rc.left + B.center.cx / B.iw * rc.width - window.innerWidth / 2, y: rc.top + B.center.cy / B.ih * rc.height - window.innerHeight / 2 };
   }
-  function layer(node, cls, from) {
+  // sticky — не закрывается щелчком мимо (вход по ключу); onclose — что остановить при закрытии (калейдоскоп)
+  function layer(node, cls, from, sticky) {
     var ov = el('div', 'ys-layer' + (cls ? ' ' + cls : ''));
     if (from) { ov.style.setProperty('--ys-ox', Math.round(from.x) + 'px'); ov.style.setProperty('--ys-oy', Math.round(from.y) + 'px'); }
     ov.appendChild(node);
-    ov.addEventListener('click', function (e) { if (e.target === ov) closeLayer(ov); });
+    ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);
     document.body.classList.add('ys-locked');
     requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('is-in'); }); });
@@ -370,6 +596,7 @@
   function closeLayer(ov) {
     ov = ov || document.querySelector('.ys-layer:not(.is-out)');
     if (!ov) return;
+    if (ov.onclose) { ov.onclose(); ov.onclose = null; }
     ov.classList.remove('is-in'); ov.classList.add('is-out');
     setTimeout(function () { ov.remove(); if (!document.querySelector('.ys-layer')) document.body.classList.remove('ys-locked'); }, 380);
   }
@@ -386,13 +613,193 @@
     var c = card(r, n, mode, 'day', null, { base: S.base, onSpiral: function () {
       if (mode === 'observation') { closeLayer(); return; }
       if (n === daysCount(r)) { openFinal(); return; }
-      note(((r.texts || {}).next) || 'Выбор карты-разрешения появится здесь совсем скоро.');
+      if (!S.code) { openKey(mode); return; }
+      // Карта сегодня уже перевёрнута — сразу та же личная карта, нового выбора нет
+      if (pickedList().indexOf(n) >= 0) openPersonal(n, mode, permFor(r, S.code, n));
+      else openFan(n, mode);
     } });
     layer(c, 'ys-layer--day', from || centerOffset());
   }
   function openPersonal(n, mode, perm) {
     closeLayer();
     layer(card(S.route, n, mode, 'personal', perm, { base: S.base, onSpiral: function () { closeLayer(); } }), 'ys-layer--personal');
+  }
+
+  /* ---------- Вход по ключу: калейдоскоп → узор и код ----------
+     want — формат из адреса (до ввода ключа); show — показать уже полученный код («Мой код»). */
+  function copyText(t, ok) {
+    function old() {
+      var a = el('textarea'); a.value = t; a.setAttribute('readonly', ''); a.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(a); a.select();
+      try { document.execCommand('copy'); ok(); } catch (e) {}
+      a.remove();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, old); else old();
+  }
+  function savePattern(c) {
+    patternImage(S.route, c, function (cv) {
+      cv.toBlob(function (blob) {
+        // Имя файла — латиницей: русские буквы в имени браузер может заменить на «download»
+        var TR = 'A B V G D E ZH I K L M N P R S T U F H C SH E YU YA'.split(' '), name = '13mirrors-' + c.code.replace(/[А-Я]/g, function (ch) {
+          var i = 'АБВГДЕЖИКЛМНПРСТУФХЦШЭЮЯ'.indexOf(ch); return i < 0 ? ({ О: 'O', Ь: '', З: 'Z', Ч: 'CH', Ы: 'Y' })[ch] || '' : TR[i];
+        }) + '.png';
+        // Телефон: «Поделиться» → «Сохранить изображение»; компьютер — файл в загрузки
+        try {
+          var f = new File([blob], name, { type: 'image/png' });
+          if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
+        } catch (e) {}
+        var a = el('a'); a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      }, 'image/png');
+    });
+  }
+  function openKey(want, show) {
+    var r = S.route, tx = r.texts || {}, box = el('div', 'ys-key'), kal = null;
+    var have = !!(show && S.code);
+    var mname = el('p', 'ys-key-mode', MODE_NAMES[have ? S.code.mode : want] || '');
+    var title = el('h2', 'ys-key-t', have ? tx.myCode || 'Мой узор и код' : tx.keyTitle || 'Ключ к маршруту');
+    var cv = el('canvas', 'ys-kal');
+    box.appendChild(mname); box.appendChild(title); box.appendChild(cv);
+    var form = el('form', 'ys-key-form'), res = el('div', 'ys-key-res');
+    form.appendChild(el('p', 'ys-key-lead', tx.keyLead || 'Введите ключ, который Проводник дал в группе. Калейдоскоп повернётся и сложит ваш личный узор и код.'));
+    var inp = el('input', 'ys-key-in');
+    inp.type = 'text'; inp.autocomplete = 'off'; inp.setAttribute('autocapitalize', 'off'); inp.setAttribute('autocorrect', 'off'); inp.spellcheck = false;
+    inp.placeholder = tx.keyPh || 'Ключ или ваш код';
+    var go = el('button', 'ys-key-go', tx.keyGo || 'Повернуть калейдоскоп'); go.type = 'submit';
+    var err = el('p', 'ys-key-err');
+    form.appendChild(inp); form.appendChild(go); form.appendChild(err);
+    form.appendChild(el('p', 'ys-key-note', tx.keyNote || 'Код уже есть? Введите его — на новом телефоне или компьютере нужен код, а не ключ.'));
+    var obs = el('button', 'ys-key-alt', tx.keyObserve || 'Пока просто смотреть — Наблюдение'); obs.type = 'button';
+    obs.addEventListener('click', function () { S.mode = 'observation'; setUrlMode('observation'); closeLayer(); render(); });
+    form.appendChild(obs);
+    function result(c) {
+      res.replaceChildren();
+      res.appendChild(el('p', 'ys-code-l', tx.codeLabel || 'Ваш код'));
+      res.appendChild(el('p', 'ys-code', c.code));
+      res.appendChild(el('p', 'ys-code-n', tx.codeNote || 'Сохраните узор и код и пришлите код Проводнику в личные. На другом устройстве входите по этому коду.'));
+      var row = el('div', 'ys-code-btns');
+      function b(t, f) { var x = el('button', 'ys-code-b', t); x.type = 'button'; x.addEventListener('click', f); row.appendChild(x); return x; }
+      b(tx.save || 'Сохранить узор', function () { savePattern(c); });
+      b(tx.copy || 'Скопировать код', function () { copyText(c.code, function () { note(tx.copied || 'Код скопирован'); }); });
+      var url = r.guide || (r.trace || {}).immersion;
+      if (url) b(tx.send || 'Отправить код Проводнику', function () {
+        copyText(c.code, function () { note(tx.sendNote || 'Код скопирован — вставьте его в сообщение Проводнику'); });
+        window.open(url, '_blank', 'noopener');
+      });
+      res.appendChild(row);
+      var enter = el('button', 'ys-key-go', have ? tx.toSpiral || 'На спираль' : tx.enter || 'Войти на спираль'); enter.type = 'button';
+      enter.addEventListener('click', function () {
+        if (!have) { S.mode = c.mode; setUrlMode(c.mode); }
+        closeLayer(); render();
+      });
+      res.appendChild(enter);
+      if (have) {
+        var other = el('button', 'ys-key-alt', tx.codeOther || 'Ввести другой код'); other.type = 'button';
+        other.addEventListener('click', function () {
+          if (!confirm(tx.codeOtherAsk || 'Забыть этот код на этом устройстве? Запишите его, если ещё не сохранили.')) return;
+          var m = S.code.mode; saveCode(null); closeLayer(); render(); setTimeout(function () { openKey(m); }, 400);
+        });
+        res.appendChild(other);
+      }
+      box.classList.add('is-done');
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = inp.value; err.textContent = '';
+      if (!keyNorm(v)) { inp.focus(); return; }
+      go.disabled = true;
+      var c = readCode(r, v);
+      (c ? Promise.resolve(c) : keyMode(r, v).then(function (m) { return m ? newCode(r, m) : null; })).then(function (c) {
+        if (!c) {
+          go.disabled = false; err.textContent = tx.keyBad || 'Ключ не подошёл. Проверьте, как он написан, — или спросите Проводника.';
+          box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake');
+          return;
+        }
+        saveCode(c); mname.textContent = MODE_NAMES[c.mode]; title.textContent = tx.codeTitle || 'Ваш личный узор';
+        box.classList.add('is-turn'); inp.blur();
+        kal.turn(kalSeed(c), function () { box.classList.remove('is-turn'); result(c); });
+      });
+    });
+    box.appendChild(have ? res : form); if (!have) box.appendChild(res);
+    if (have) result(S.code);
+    closeLayer();
+    var ov = layer(box, 'ys-layer--key', null, !have);
+    kal = Kaleido(cv);
+    // Пока ключа нет — калейдоскоп медленно вращается (общий узор маршрута)
+    requestAnimationFrame(function () { if (have) kal.show(kalSeed(S.code)); else kal.idle(h32('m13kal|' + r.id)); });
+    ov.onclose = function () { kal.stop(); };
+  }
+
+  /* ---------- Выбор карты-разрешения ----------
+     Закрытые карты лучами по кругу, центр пуст; карт столько, сколько осталось дней с выбором (в 1-й день 12, в 12-й — одна).
+     Нажал любую → она выходит в центр и переворачивается (выбор окончателен) → «Открыть» → личная карта.
+     Какая карта откроется, решает колода из кода, а не то, какую нажали. */
+  function backSVG() {
+    var rays = '', i, a;
+    for (i = 0; i < 16; i++) { a = i / 16 * Math.PI * 2; rays += '<line x1="' + r1(45 + 13 * Math.cos(a)) + '" y1="' + r1(60 + 13 * Math.sin(a)) + '" x2="' + r1(45 + (i % 2 ? 19 : 24) * Math.cos(a)) + '" y2="' + r1(60 + (i % 2 ? 19 : 24) * Math.sin(a)) + '"/>'; }
+    return '<svg viewBox="0 0 90 120" preserveAspectRatio="none" aria-hidden="true"><rect x="5" y="5" width="80" height="110" rx="6" fill="none" stroke="#e9c77e" stroke-opacity=".55" stroke-width="1.2"/>' +
+      '<rect x="9" y="9" width="72" height="102" rx="4" fill="none" stroke="#e9c77e" stroke-opacity=".25" stroke-width=".8"/>' +
+      '<g stroke="#ffd76a" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round">' + rays + '</g><circle cx="45" cy="60" r="9" fill="#ffcf5a" fill-opacity=".85"/>' +
+      '<circle cx="45" cy="20" r="1.6" fill="#e9c77e"/><circle cx="45" cy="100" r="1.6" fill="#e9c77e"/></svg>';
+  }
+  function backFace(r) {
+    var b = el('span', 'ys-fc-back');
+    if (r.cardBack) { var img = el('img'); img.src = imgSrc(S.base, r.cardBack); img.alt = ''; img.draggable = false; b.appendChild(img); b.classList.add('has-img'); }
+    else b.innerHTML = backSVG();
+    return b;
+  }
+  function frontFace(perm) {
+    var f = el('span', 'ys-fc-face');
+    if (perm && perm.image) { var img = el('img'); img.src = imgSrc(S.base, perm.image); img.alt = perm.title || ''; f.appendChild(img); f.classList.add('has-img'); }
+    else f.appendChild(el('span', 'ys-fc-t', perm ? perm.title : ''));
+    return f;
+  }
+  function openFan(n, mode) {
+    var r = S.route, tx = r.texts || {}, ctx = ctxOf(r, n), N = Math.max(1, daysCount(r) - n), perm = permFor(r, S.code, n), done = false, i;
+    var box = el('div', 'ys-fan'), ring = el('div', 'ys-fan-ring' + (N === 1 ? ' is-one' : ''));
+    box.appendChild(el('p', 'ys-fan-small', fill(tx.chooseSmall || 'День {день} · {имя кина}', ctx)));
+    var title = el('h2', 'ys-fan-t', fill(tx.choose || 'Выберите карту-разрешение', ctx));
+    box.appendChild(title);
+    var pk = el('div', 'ys-pick'), pin = el('div', 'ys-pick-in');
+    pin.appendChild(backFace(r)); pin.appendChild(frontFace(perm)); pk.appendChild(pin);
+    for (i = 0; i < N; i++) (function (a, i) {
+      var b = el('button', 'ys-fc'); b.type = 'button';
+      b.style.setProperty('--a', a + 'deg'); b.style.transitionDelay = (i * 40) + 'ms';
+      b.setAttribute('aria-label', 'Закрытая карта ' + (i + 1) + ' из ' + N);
+      b.appendChild(backFace(r));
+      b.addEventListener('click', function () { pick(b, a); });
+      ring.appendChild(b);
+    })(i * 360 / N, i);
+    ring.appendChild(pk);
+    box.appendChild(ring);
+    var hint = el('p', 'ys-fan-n', fill(tx.chooseNote || 'Карт столько, сколько дней осталось. Та, что откроется, — ваша на сегодня.', ctx));
+    var open = el('button', 'ys-key-go ys-fan-open', tx.open || 'Открыть'); open.type = 'button';
+    open.addEventListener('click', function () { openPersonal(n, mode, perm); });
+    box.appendChild(hint); box.appendChild(open);
+    function pick(b, a) {
+      if (done) return; done = true;
+      markPicked(n);
+      // Последняя карта (12-й день) лежит в середине круга, крупнее
+      var R = N === 1 ? 0 : ring.offsetWidth / 2 - b.offsetHeight / 2 - 2, k = b.offsetWidth * (N === 1 ? 1.6 : 1) / pk.offsetWidth;
+      pk.style.transition = 'none';
+      pk.style.transform = 'rotate(' + a + 'deg) translateY(' + (-R) + 'px) scale(' + k.toFixed(3) + ')';
+      pk.classList.add('is-on'); b.classList.add('is-gone'); ring.classList.add('is-picked');
+      void pk.offsetWidth;
+      pk.style.transition = '';
+      pk.style.transform = 'rotate(' + (a > 180 ? 360 : 0) + 'deg)';
+      setTimeout(function () { pk.classList.add('is-flip'); }, REDUCED ? 0 : 420);
+      setTimeout(function () {
+        title.textContent = fill(tx.chosen || 'Ваше разрешение на сегодня', ctx);
+        hint.style.visibility = 'hidden'; open.classList.add('is-on'); open.focus();
+      }, REDUCED ? 50 : 1500);
+    }
+    closeLayer();
+    var ov = layer(box, 'ys-layer--fan', centerOffset());
+    requestAnimationFrame(function () { requestAnimationFrame(function () { ring.classList.add('is-in'); }); });
+    // Карты вылетают по очереди; потом задержку убираем, чтобы наведение откликалось сразу
+    setTimeout(function () { [].forEach.call(ring.querySelectorAll('.ys-fc'), function (b) { b.style.transitionDelay = ''; }); }, 1300);
+    return ov;
   }
   // Финал Солнца — пока заглушка. Это заменяемый слой: M13R.finalSunLayer можно подменить целиком, когда придумаем драматургию.
   function sunSVG() {
@@ -422,6 +829,7 @@
     if (d < n) { note(fill(tx.past || 'День {день} пройден', ctx)); return; }
     if (d > n) { note(fill(tx.future || 'День {день} откроется {дата}', ctx)); return; }
     if (S.busy) return;
+    if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
     var first = openedList().indexOf(d) < 0, B = S.B;
     markOpened(d);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
@@ -449,6 +857,12 @@
     var back = el('a', 'ys-back', tx.back || '← Вернуться на витрину');
     back.href = S.base || '../../';
     page.appendChild(back);
+    // Путешествие и Погружение: «Мой код» — узор и код ещё раз (сохранить, отправить, ввести другой)
+    if (S.mode !== 'observation') {
+      var me = el('button', 'ys-me', S.code ? tx.myCodeBtn || 'Мой код' : tx.keyBtn || 'Ввести ключ'); me.type = 'button';
+      me.addEventListener('click', function () { openKey(S.mode, true); });
+      page.appendChild(me);
+    }
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
     var bricks = !!M.zone && n >= 1;
@@ -526,26 +940,48 @@
     var sd = sel(days, String(Math.max(1, Math.min(last, now || 1))));
     var sm = sel(MODES.map(function (m) { return [m, MODE_NAMES[m]]; }), S.mode);
     sm.addEventListener('change', function () { S.mode = sm.value; });
-    var sp = sel((r.permissions || []).map(function (p, k) { return [String(k), (k + 1) + '. ' + (p.title || '')]; }), '0');
+    var sp = sel([['code', 'Карта — по коду (колода)']].concat((r.permissions || []).map(function (p, k) { return [String(k), (k + 1) + '. ' + (p.title || '')]; })), S.code ? 'code' : '0');
+    function permSel(d) { return sp.value === 'code' ? permFor(r, S.code, d) || (r.permissions || [])[0] : (r.permissions || [])[+sp.value]; }
+    function testCode(m) { saveCode(newCode(r, m)); S.mode = m; setUrlMode(m); closeLayer(); render(); note('Код для проверки: ' + S.code.code + ' · ' + MODE_NAMES[m]); }
+    var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') : 'Кода на этом устройстве нет';
     [el('span', null, 'Сейчас по Москве: ' + (S.debugNow ? S.debugNow + ' (подмена)' : 'настоящее время') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
       ss, zl,
-      row([btn('Финал Солнца', openFinal), btn('Сброс', function () { resetOpened(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт.'); })]),
+      row([btn('Финал Солнца', openFinal), btn('Сброс', function () { resetOpened(); resetPicks(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты.'); })]),
+      el('span', 'ys-debug-sep', 'Код и колода'),
+      el('span', null, cinfo),
+      row([btn('Код Путешествия', function () { testCode('journey'); }), btn('Код Погружения', function () { testCode('immersion'); })]),
+      row([btn('Ввод ключа', function () { openKey(S.mode === 'observation' ? 'journey' : S.mode); }), btn('Забыть код', function () { resetPicks(); saveCode(null); closeLayer(); render(); note('Код забыт на этом устройстве.'); })]),
       el('span', 'ys-debug-sep', 'Формат и карты'),
       sm, sd, sp,
       row([btn('Карта дня', function () { openDay(+sd.value, sm.value); }),
-        btn('Личная карта', function () { if (sm.value === 'observation') { note('У Наблюдения личной карты нет — выберите Путешествие или Погружение.'); return; } openPersonal(+sd.value, sm.value, (r.permissions || [])[+sp.value]); })])
+        btn('Личная карта', function () { if (sm.value === 'observation') { note('У Наблюдения личной карты нет — выберите Путешествие или Погружение.'); return; } openPersonal(+sd.value, sm.value, permSel(+sd.value)); })]),
+      btn('Выбор карты (круг)', function () {
+        if (sm.value === 'observation') { note('У Наблюдения выбора карты нет — выберите Путешествие или Погружение.'); return; }
+        if (+sd.value === last) { note('В день ' + last + ' выбора нет — там финал Солнца.'); return; }
+        if (!S.code) { note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return; }
+        var l = pickedList().filter(function (x) { return x !== +sd.value; });
+        try { localStorage.setItem(pickKey(), JSON.stringify(l)); } catch (e) {}
+        openFan(+sd.value, sm.value);
+      })
     ].forEach(function (x) { body.appendChild(x); });
     box.appendChild(head); box.appendChild(body);
     return box;
   }
+  // Формат: Наблюдение — всем; Путешествие и Погружение — по коду (код сам определяет формат). Кода нет — сначала вход по ключу.
   function useRoute(route) {
     S.route = route;
-    var m = q('mode'); S.mode = MODES.indexOf(m) >= 0 ? m : 'observation';
+    S.code = loadCode();
+    var m = q('mode'), gate = false;
+    if (m === 'observation') S.mode = m;
+    else if (m === 'journey' || m === 'immersion') { S.mode = S.code ? S.code.mode : m; gate = !S.code; }
+    else S.mode = S.code ? S.code.mode : 'observation';
     if (route.title) document.title = '13 MIRRORS · ' + route.title;
     render();
     var c = q('card'), n = +q('day') || 1;
     if (c === 'day') openDay(n, S.mode);
-    if (c === 'personal') openPersonal(n, S.mode, (route.permissions || [])[+q('perm') || 0]);
+    else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? permFor(route, S.code, n) : (route.permissions || [])[+q('perm') || 0]);
+    else if (c === 'fan' && S.code) openFan(n, S.mode);
+    else if (gate) openKey(m);
   }
   function boot() {
     var app = document.getElementById('ys'); if (!app) return;
@@ -575,5 +1011,6 @@
 
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer };
+    trace: trace, bricksLayer: bricksLayer, lights: lights, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer,
+    readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, permFor: permFor, keyNorm: keyNorm, kaleido: Kaleido, kalSeed: kalSeed };
 })();
