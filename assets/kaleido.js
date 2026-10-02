@@ -44,7 +44,7 @@
   ];
 
   /* ---------- Узор из числа ---------- */
-  // ex (необязательно): { sym: число пар зеркал (6 = 12 лучей), glass: [{ c: [r, g, b], sh: форма }, …] — узор из заданных стёклышек
+  // ex (необязательно): { sym: число пар зеркал (6 = 12 лучей), glass: [{ c: [r, g, b], look: вид камня (см. «Камни») или старое sh }, …] — узор из заданных стёклышек
   //   (финал маршрута: стёклышки дней, состояния, бонусные); их цвета идут и в витраж }
   function pattern(seed, style, ex) {
     ex = ex || {};
@@ -102,72 +102,215 @@
         sh: gi ? gi.sh || 'brilliant' : shapes[Math.floor(R() * shapes.length)], c: gi ? palIx(gi.c) : 2 + Math.floor(R() * (pal.length - 2)) - (R() < .2 ? 2 : 0),
         w: (.05 + R() * .07) * (1.25 - gr * .5), rot: R() * TAU, wr: (R() - .5) * .5, br: .025 + R() * .03, wb: .1 + R() * .25, pb: R() * TAU,
         sp: R() * TAU, sw: .25 + R() * .4 });
+      // Вид камня (самоцвет, жемчуг, кристалл…), размер и прозрачность — из стёклышка (настройки маршрута)
+      var G = P.gems[i]; G.L = lookOf(gi || { sh: G.sh }); G.s *= G.L.size; G.al = 1 - G.L.clear;
     }
     return P;
   }
 
-  /* ---------- Спрайт камня: огранка рисуется один раз, потом только поворачивается ---------- */
-  var SHAPES = {
-    brilliant: function () { var v = [], i; for (i = 0; i < 8; i++) v.push([Math.cos(i / 8 * TAU + TAU / 16), Math.sin(i / 8 * TAU + TAU / 16)]); return v; },
-    hex: function () { var v = [], i; for (i = 0; i < 6; i++) v.push([Math.cos(i / 6 * TAU), Math.sin(i / 6 * TAU) * .92]); return v; },
-    emerald: function () { return [[1, -.38], [1, .38], [.72, .66], [-.72, .66], [-1, .38], [-1, -.38], [-.72, -.66], [.72, -.66]]; },
-    trillion: function () { var v = [], i, a; for (i = 0; i < 3; i++) { a = i / 3 * TAU - Math.PI / 2; v.push([Math.cos(a - .16) * .98, Math.sin(a - .16) * .98 + .12]); v.push([Math.cos(a + .16) * .98, Math.sin(a + .16) * .98 + .12]); } return v; },
-    marquise: function () { var v = [], i, a; for (i = 0; i < 10; i++) { a = i / 10 * TAU; v.push([Math.cos(a), Math.sin(a) * .46 * Math.pow(Math.abs(Math.sin(a)), .35)]); } return v; }
+  /* ---------- Камни: вид рисуется один раз на маленьком холсте (спрайт), потом только поворачивается ----------
+     Вид камня (look): { kind, cut, shine, clear, size, img }
+       kind — 'gem' гранёный самоцвет · 'cabochon' гладкий кабошон · 'pearl' жемчуг · 'bead' бусина с отверстием ·
+              'crystal' кристалл (горный хрусталь: шестигранная призма с острием) · 'glass' плоское витражное стекло · 'image' своя картинка
+       cut (у самоцвета и стекла) — 'round' круг, 'oval' овал, 'rect' прямоугольник, 'drop' капля, 'marquise' лодочка, 'tri' треугольник, 'hex' шестигранник
+       shine — блик, % (0 — без блика … 150); clear — прозрачность, % (0…70); size — размер в узоре, % (50…200); img — адрес картинки (PNG с прозрачным фоном)
+     Старый вид стёклышка { sh: 'bead' | 'brilliant' | 'hex' | 'emerald' | 'trillion' | 'marquise' } читается так же. */
+  function ring(n, sx, sy, a0) { var v = [], i; for (i = 0; i < n; i++) v.push([Math.cos(i / n * TAU + (a0 || 0)) * sx, Math.sin(i / n * TAU + (a0 || 0)) * sy]); return v; }
+  var CUTS = {
+    round: function () { return ring(10, 1, 1, TAU / 20); },
+    oval: function () { return ring(10, 1, .74, TAU / 20); },
+    rect: function () { return [[1, -.38], [1, .38], [.72, .66], [-.72, .66], [-1, .38], [-1, -.38], [-.72, -.66], [.72, -.66]]; },
+    drop: function () {
+      var v = [[0, -1], [.46, -.42]], i, a;
+      for (i = 0; i <= 6; i++) { a = -.25 + i / 6 * (Math.PI + .5); v.push([Math.cos(a) * .68, .26 + Math.sin(a) * .68]); }
+      v.push([-.46, -.42]); return v;
+    },
+    marquise: function () { var v = [], i, a; for (i = 0; i < 10; i++) { a = i / 10 * TAU; v.push([Math.cos(a), Math.sin(a) * .46 * Math.pow(Math.abs(Math.sin(a)), .35)]); } return v; },
+    tri: function () { var v = [], i, a; for (i = 0; i < 3; i++) { a = i / 3 * TAU - Math.PI / 2; v.push([Math.cos(a - .16) * .98, Math.sin(a - .16) * .98 + .12]); v.push([Math.cos(a + .16) * .98, Math.sin(a + .16) * .98 + .12]); } return v; },
+    hex: function () { return ring(6, 1, .92); }
   };
-  function sprite(P, sh, ci) {
-    var key = sh + ci;
-    if (P.sprites[key]) return P.sprites[key];
-    var S = 112, cv = document.createElement('canvas'), x = cv.getContext('2d'), c = P.pal[ci], h = S / 2, k = h * .92, i, v, t, a, lt, g;
-    cv.width = cv.height = S; x.translate(h, h);
-    if (sh === 'bead') {
-      // Кабошон — гладкий отполированный камень: тёмная кромка, свет проходит насквозь и собирается внизу справа, блик сверху слева
-      var r0 = k * .8;
-      g = x.createRadialGradient(-r0 * .25, -r0 * .3, r0 * .05, 0, 0, r0);
-      g.addColorStop(0, css(shade(c, 1.35))); g.addColorStop(.45, css(shade(c, .95))); g.addColorStop(.85, css(shade(c, .5))); g.addColorStop(1, css(shade(c, .28)));
-      x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
-      g = x.createRadialGradient(r0 * .3, r0 * .38, 0, r0 * .3, r0 * .38, r0 * .62);
-      g.addColorStop(0, css(shade(c, 1.6), .85)); g.addColorStop(1, css(shade(c, 1.2), 0));
-      x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
-      x.strokeStyle = css(shade(c, 1.5), .45); x.lineWidth = r0 * .06; x.beginPath(); x.arc(0, 0, r0 * .93, .25 * Math.PI, .95 * Math.PI); x.stroke();
-      g = x.createRadialGradient(-r0 * .34, -r0 * .4, 0, -r0 * .34, -r0 * .4, r0 * .34);
-      g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(.35, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = g; x.beginPath(); x.ellipse(-r0 * .32, -r0 * .4, r0 * .3, r0 * .18, -.6, 0, TAU); x.fill();
-      x.fillStyle = 'rgba(255,255,255,.5)'; x.beginPath(); x.arc(r0 * .42, -r0 * .5, r0 * .05, 0, TAU); x.fill();
-    } else {
-      v = SHAPES[sh](); t = v.map(function (p) { return [p[0] * .52, p[1] * .52]; });
-      lt = -2.3; // свет сверху слева
-      for (i = 0; i < v.length; i++) {
-        var j = (i + 1) % v.length, mx = (v[i][0] + v[j][0]) / 2, my = (v[i][1] + v[j][1]) / 2;
-        a = Math.atan2(my, mx);
-        x.fillStyle = css(shade(c, .5 + .85 * Math.max(0, Math.cos(a - lt)) + (i % 2) * .12));
-        x.beginPath(); x.moveTo(v[i][0] * k, v[i][1] * k); x.lineTo(v[j][0] * k, v[j][1] * k); x.lineTo(t[j][0] * k, t[j][1] * k); x.lineTo(t[i][0] * k, t[i][1] * k); x.closePath(); x.fill();
-      }
-      g = x.createLinearGradient(-k * .5, -k * .5, k * .5, k * .5);
-      g.addColorStop(0, css(shade(c, 1.55))); g.addColorStop(.5, css(shade(c, 1.05))); g.addColorStop(1, css(shade(c, .7)));
-      x.fillStyle = g; x.beginPath();
-      for (i = 0; i < t.length; i++) x[i ? 'lineTo' : 'moveTo'](t[i][0] * k, t[i][1] * k);
-      x.closePath(); x.fill();
-      // «Огонь» внутри камня: свет, преломлённый нижними гранями, — тёплое пятно под площадкой
-      g = x.createRadialGradient(k * .14, k * .18, 0, k * .14, k * .18, k * .5);
-      g.addColorStop(0, css(shade(c, 1.8), .55)); g.addColorStop(1, css(shade(c, 1.3), 0));
-      x.fillStyle = g; x.beginPath();
-      for (i = 0; i < t.length; i++) x[i ? 'lineTo' : 'moveTo'](t[i][0] * k, t[i][1] * k);
-      x.closePath(); x.fill();
-      // Тёмный поясок по краю — камень читается объёмным, а не плоской наклейкой
-      x.strokeStyle = css(shade(c, .3), .8); x.lineWidth = k * .05; x.beginPath();
-      for (i = 0; i <= v.length; i++) x[i ? 'lineTo' : 'moveTo'](v[i % v.length][0] * k, v[i % v.length][1] * k);
-      x.stroke();
-      // Рёбра огранки — тонкие светлые линии
-      x.strokeStyle = 'rgba(255,250,235,.38)'; x.lineWidth = 1.2; x.lineJoin = 'round';
-      x.beginPath();
-      for (i = 0; i < v.length; i++) { x.moveTo(v[i][0] * k, v[i][1] * k); x.lineTo(t[i][0] * k, t[i][1] * k); }
-      for (i = 0; i <= v.length; i++) x[i ? 'lineTo' : 'moveTo'](v[i % v.length][0] * k, v[i % v.length][1] * k);
-      for (i = 0; i <= t.length; i++) x[i ? 'lineTo' : 'moveTo'](t[i % t.length][0] * k, t[i % t.length][1] * k);
-      x.stroke();
-      x.fillStyle = 'rgba(255,255,255,.55)'; x.beginPath(); x.moveTo(-k * .34, -k * .3); x.lineTo(-k * .12, -k * .36); x.lineTo(-k * .26, -k * .12); x.closePath(); x.fill();
+  var KINDS = ['gem', 'cabochon', 'pearl', 'bead', 'crystal', 'glass', 'image'];
+  var OLD_SH = { bead: ['cabochon'], brilliant: ['gem', 'round'], hex: ['gem', 'hex'], emerald: ['gem', 'rect'], trillion: ['gem', 'tri'], marquise: ['gem', 'marquise'] };
+  function num(v, def, lo, hi) { v = v === '' || v == null || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
+  function lookOf(g) {
+    var L = g && g.look ? g.look : {}, o = OLD_SH[g && g.sh] || ['gem', 'round'];
+    var kind = KINDS.indexOf(L.kind) >= 0 ? L.kind : o[0];
+    if (kind === 'image' && !L.img) kind = 'gem';
+    return { kind: kind, cut: CUTS[L.cut] ? L.cut : o[1] || 'round', shine: num(L.shine, 100, 0, 150) / 100,
+      clear: num(L.clear, 8, 0, 70) / 100, size: num(L.size, 100, 50, 200) / 100, img: kind === 'image' ? L.img : '' };
+  }
+  function lookKey(L) { return [L.kind, L.cut, L.shine, L.img].join('|'); }
+
+  // Картинки камней («своя картинка»): грузятся один раз; когда загрузилась — калейдоскопы на экране перерисовываются
+  var IMGS = {}, WAITERS = [];
+  function imgOf(src) {
+    var im = IMGS[src];
+    if (!im) {
+      im = IMGS[src] = new Image();
+      im.onload = im.onerror = function () { WAITERS = WAITERS.filter(function (f) { return f(); }); };
+      im.src = src;
     }
+    return im.complete && im.naturalWidth ? im : null;
+  }
+  // Загрузить заранее (картинка «Сохранить узор» рисуется один раз): done — когда все готовы (или не загрузились)
+  function preload(srcs, done) {
+    var left = 0;
+    (srcs || []).forEach(function (s) {
+      if (!s) return;
+      var im = IMGS[s]; if (im && im.complete) return;
+      left++; imgOf(s); IMGS[s].addEventListener('load', one); IMGS[s].addEventListener('error', one);
+    });
+    function one() { if (--left === 0 && done) done(); }
+    if (!left && done) done();
+  }
+
+  function poly(x, v, k) { x.beginPath(); for (var i = 0; i < v.length; i++) x[i ? 'lineTo' : 'moveTo'](v[i][0] * k, v[i][1] * k); x.closePath(); }
+  // Гранёный самоцвет: грани вокруг площадки, «огонь» внутри, тёмный поясок, рёбра огранки, блик
+  function paintGem(x, c, v, k, sh) {
+    var t = v.map(function (p) { return [p[0] * .52, p[1] * .52]; }), lt = -2.3, i, j, a, g;
+    for (i = 0; i < v.length; i++) {
+      j = (i + 1) % v.length; a = Math.atan2((v[i][1] + v[j][1]) / 2, (v[i][0] + v[j][0]) / 2);
+      x.fillStyle = css(shade(c, .5 + .85 * Math.max(0, Math.cos(a - lt)) + (i % 2) * .12));
+      x.beginPath(); x.moveTo(v[i][0] * k, v[i][1] * k); x.lineTo(v[j][0] * k, v[j][1] * k); x.lineTo(t[j][0] * k, t[j][1] * k); x.lineTo(t[i][0] * k, t[i][1] * k); x.closePath(); x.fill();
+    }
+    g = x.createLinearGradient(-k * .5, -k * .5, k * .5, k * .5);
+    g.addColorStop(0, css(shade(c, 1.55))); g.addColorStop(.5, css(shade(c, 1.05))); g.addColorStop(1, css(shade(c, .7)));
+    x.fillStyle = g; poly(x, t, k); x.fill();
+    g = x.createRadialGradient(k * .14, k * .18, 0, k * .14, k * .18, k * .5);
+    g.addColorStop(0, css(shade(c, 1.8), .55)); g.addColorStop(1, css(shade(c, 1.3), 0));
+    x.fillStyle = g; poly(x, t, k); x.fill();
+    x.strokeStyle = css(shade(c, .3), .8); x.lineWidth = k * .05; poly(x, v, k); x.stroke();
+    x.strokeStyle = 'rgba(255,250,235,' + (.38 * Math.min(1.2, .4 + sh * .6)) + ')'; x.lineWidth = Math.max(1, k * .022); x.lineJoin = 'round';
+    x.beginPath();
+    for (i = 0; i < v.length; i++) { x.moveTo(v[i][0] * k, v[i][1] * k); x.lineTo(t[i][0] * k, t[i][1] * k); }
+    x.stroke(); poly(x, t, k); x.stroke();
+    if (sh > 0) { x.fillStyle = 'rgba(255,255,255,' + Math.min(.9, .55 * sh) + ')'; x.beginPath(); x.moveTo(-k * .34, -k * .3); x.lineTo(-k * .12, -k * .36); x.lineTo(-k * .26, -k * .12); x.closePath(); x.fill(); }
+  }
+  // Кабошон — гладкий отполированный камень: тёмная кромка, свет проходит насквозь и собирается внизу справа, блик сверху слева
+  function paintCabochon(x, c, k, sh) {
+    var r0 = k * .8, g;
+    g = x.createRadialGradient(-r0 * .25, -r0 * .3, r0 * .05, 0, 0, r0);
+    g.addColorStop(0, css(shade(c, 1.35))); g.addColorStop(.45, css(shade(c, .95))); g.addColorStop(.85, css(shade(c, .5))); g.addColorStop(1, css(shade(c, .28)));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+    g = x.createRadialGradient(r0 * .3, r0 * .38, 0, r0 * .3, r0 * .38, r0 * .62);
+    g.addColorStop(0, css(shade(c, 1.6), .85)); g.addColorStop(1, css(shade(c, 1.2), 0));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+    if (!sh) return;
+    x.strokeStyle = css(shade(c, 1.5), .45 * Math.min(1, sh)); x.lineWidth = r0 * .06; x.beginPath(); x.arc(0, 0, r0 * .93, .25 * Math.PI, .95 * Math.PI); x.stroke();
+    g = x.createRadialGradient(-r0 * .34, -r0 * .4, 0, -r0 * .34, -r0 * .4, r0 * .34);
+    g.addColorStop(0, 'rgba(255,255,255,' + Math.min(1, .95 * sh) + ')'); g.addColorStop(.35, 'rgba(255,255,255,' + Math.min(.8, .55 * sh) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.beginPath(); x.ellipse(-r0 * .32, -r0 * .4, r0 * .3, r0 * .18, -.6, 0, TAU); x.fill();
+    x.fillStyle = 'rgba(255,255,255,' + Math.min(.8, .5 * sh) + ')'; x.beginPath(); x.arc(r0 * .42, -r0 * .5, r0 * .05, 0, TAU); x.fill();
+  }
+  // Жемчуг: матовый мягкий свет, перламутровые отливы (розовый и зеленоватый), размытый блик
+  function paintPearl(x, c, k, sh) {
+    var r0 = k * .78, g;
+    g = x.createRadialGradient(-r0 * .3, -r0 * .35, r0 * .05, 0, 0, r0);
+    g.addColorStop(0, css(shade(c, 1.6))); g.addColorStop(.5, css(shade(c, 1.12))); g.addColorStop(.88, css(shade(c, .74))); g.addColorStop(1, css(shade(c, .52)));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+    [[r0 * .38, r0 * .3, '255,170,210', .28], [-r0 * .25, r0 * .46, '170,255,220', .2], [r0 * .1, -r0 * .5, '190,200,255', .16]].forEach(function (p) {
+      g = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], r0 * .55);
+      g.addColorStop(0, 'rgba(' + p[2] + ',' + p[3] + ')'); g.addColorStop(1, 'rgba(' + p[2] + ',0)');
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+    });
+    x.strokeStyle = css(shade(c, 1.4), .35); x.lineWidth = r0 * .05; x.beginPath(); x.arc(0, 0, r0 * .9, .2 * Math.PI, .9 * Math.PI); x.stroke();
+    if (!sh) return;
+    g = x.createRadialGradient(-r0 * .3, -r0 * .36, 0, -r0 * .3, -r0 * .36, r0 * .5);
+    g.addColorStop(0, 'rgba(255,255,255,' + Math.min(1, .85 * sh) + ')'); g.addColorStop(.4, 'rgba(255,255,255,' + Math.min(.6, .3 * sh) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+  }
+  // Бусина сверху: стеклянный шарик с отверстием посередине, свет проходит и вспыхивает у края отверстия
+  function paintBead(x, c, k, sh) {
+    var r0 = k * .78, h = r0 * .24, g;
+    g = x.createRadialGradient(-r0 * .28, -r0 * .32, r0 * .05, 0, 0, r0);
+    g.addColorStop(0, css(shade(c, 1.4))); g.addColorStop(.5, css(c)); g.addColorStop(.9, css(shade(c, .5))); g.addColorStop(1, css(shade(c, .32)));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+    x.strokeStyle = css(shade(c, 1.35), .3); x.lineWidth = r0 * .1; x.beginPath(); x.arc(0, 0, h * 1.75, 0, TAU); x.stroke();
+    g = x.createRadialGradient(0, 0, 0, 0, 0, h);
+    g.addColorStop(0, css(shade(c, .12))); g.addColorStop(.8, css(shade(c, .22))); g.addColorStop(1, css(shade(c, .45)));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, h, 0, TAU); x.fill();
+    x.strokeStyle = css(shade(c, 1.7), .7); x.lineWidth = h * .22; x.beginPath(); x.arc(0, 0, h * .92, .1 * Math.PI, .8 * Math.PI); x.stroke();
+    if (!sh) return;
+    x.fillStyle = 'rgba(255,255,255,' + Math.min(.95, .75 * sh) + ')'; x.beginPath(); x.ellipse(-r0 * .4, -r0 * .42, r0 * .24, r0 * .12, -.75, 0, TAU); x.fill();
+    x.fillStyle = 'rgba(255,255,255,' + Math.min(.7, .4 * sh) + ')'; x.beginPath(); x.arc(r0 * .5, r0 * .36, r0 * .05, 0, TAU); x.fill();
+  }
+  // Кристалл, как горный хрусталь: шестигранная призма с острием — видны три боковые грани и три грани острия; прозрачный, с прожилками
+  function paintCrystal(x, c, k, sh) {
+    var w = .5, m = .19, yt = -.98, ys = -.5, yi = -.58, b = [.9, .95, .9, .86], i, g;
+    function face(pts, col) { x.fillStyle = col; poly(x, pts, k); x.fill(); }
+    x.save(); x.globalAlpha = .9;
+    face([[-w, ys], [-m, yi], [-m, b[1]], [-w, b[0]]], css(shade(c, .58)));
+    g = x.createLinearGradient(-m * k, 0, m * k, 0);
+    g.addColorStop(0, css(shade(c, 1.3))); g.addColorStop(.6, css(shade(c, 1.02))); g.addColorStop(1, css(shade(c, .82)));
+    face([[-m, yi], [m, yi], [m, b[2]], [-m, b[1]]], g);
+    face([[m, yi], [w, ys], [w, b[3]], [m, b[2]]], css(shade(c, .9)));
+    face([[0, yt], [-w, ys], [-m, yi]], css(shade(c, 1.05)));
+    face([[0, yt], [-m, yi], [m, yi]], css(shade(c, 1.5)));
+    face([[0, yt], [m, yi], [w, ys]], css(shade(c, 1.18)));
+    x.restore();
+    // Прожилки внутри и рёбра
+    x.strokeStyle = 'rgba(255,255,255,.22)'; x.lineWidth = Math.max(1, k * .012);
+    x.beginPath(); x.moveTo(-m * .3 * k, -.2 * k); x.lineTo(m * .5 * k, .35 * k); x.moveTo(-m * .7 * k, .3 * k); x.lineTo(-m * .1 * k, .7 * k); x.stroke();
+    x.strokeStyle = 'rgba(255,252,240,.55)'; x.lineWidth = Math.max(1, k * .02); x.lineJoin = 'round';
+    x.beginPath();
+    [[[-w, ys], [0, yt], [w, ys]], [[-m, yi], [0, yt], [m, yi]], [[-w, ys], [-m, yi], [m, yi], [w, ys]], [[-m, yi], [-m, b[1]]], [[m, yi], [m, b[2]]]].forEach(function (l) {
+      l.forEach(function (p, j) { x[j ? 'lineTo' : 'moveTo'](p[0] * k, p[1] * k); });
+    });
+    x.stroke();
+    x.strokeStyle = css(shade(c, .3), .7); x.lineWidth = Math.max(1, k * .03);
+    poly(x, [[0, yt], [w, ys], [w, b[3]], [m, b[2]], [-m, b[1]], [-w, b[0]], [-w, ys]], k); x.stroke();
+    if (!sh) return;
+    g = x.createLinearGradient(-m * k, 0, -m * .2 * k, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,' + Math.min(.85, .6 * sh) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(-m * k, yi * k + 2, m * .8 * k, (b[1] - yi) * k * .8);
+    x.fillStyle = 'rgba(255,255,255,' + Math.min(.9, .6 * sh) + ')'; x.beginPath(); x.moveTo(0, yt * k + 2); x.lineTo(-m * .5 * k, (yi + .05) * k); x.lineTo(-m * .1 * k, (yi + .02) * k); x.closePath(); x.fill();
+  }
+  // Плоское витражное стекло: цветное стекло с лёгкими разводами в золотой оправе (как кусочек витража)
+  function paintGlass(x, c, v, k, sh) {
+    var g, i;
+    k *= .94;
+    x.save(); poly(x, v, k); x.clip();
+    g = x.createLinearGradient(-k, -k, k, k);
+    g.addColorStop(0, css(shade(c, 1.3), .9)); g.addColorStop(.5, css(c, .84)); g.addColorStop(1, css(shade(c, .62), .9));
+    x.fillStyle = g; x.fillRect(-k, -k, k * 2, k * 2);
+    x.strokeStyle = 'rgba(255,255,255,.1)'; x.lineWidth = k * .05;
+    for (i = 0; i < 4; i++) { x.beginPath(); x.moveTo(-k, (-.6 + i * .4) * k); x.bezierCurveTo(-k * .3, (-.9 + i * .4) * k, k * .3, (-.3 + i * .4) * k, k, (-.6 + i * .4) * k); x.stroke(); }
+    if (sh > 0) {
+      g = x.createLinearGradient(-k, -k, k * .2, k * .2);
+      g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.45, 'rgba(255,255,255,' + Math.min(.6, .38 * sh) + ')'); g.addColorStop(.6, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(-k, -k, k * 2, k * 2);
+    }
+    x.restore();
+    x.lineJoin = 'round';
+    x.strokeStyle = 'rgba(38,22,4,.92)'; x.lineWidth = k * .11; poly(x, v, k); x.stroke();
+    x.strokeStyle = '#c99a45'; x.lineWidth = k * .055; x.stroke();
+    x.strokeStyle = 'rgba(255,240,196,.5)'; x.lineWidth = k * .018; x.stroke();
+  }
+  function sprite(P, L, ci) {
+    var key = lookKey(L) + '|' + ci;
+    if (P.sprites[key]) return P.sprites[key];
+    var im = L.kind === 'image' ? imgOf(L.img) : null;
+    if (L.kind === 'image' && !im) return null;
+    var S = P.spriteSize || 112, cv = document.createElement('canvas'), x = cv.getContext('2d'), c = P.pal[ci], h = S / 2, k = h * .92;
+    cv.width = cv.height = S; x.translate(h, h);
+    if (im) { var q = Math.min(S * .96 / im.naturalWidth, S * .96 / im.naturalHeight); x.drawImage(im, -im.naturalWidth * q / 2, -im.naturalHeight * q / 2, im.naturalWidth * q, im.naturalHeight * q); }
+    else if (L.kind === 'cabochon') paintCabochon(x, c, k, L.shine);
+    else if (L.kind === 'pearl') paintPearl(x, c, k, L.shine);
+    else if (L.kind === 'bead') paintBead(x, c, k, L.shine);
+    else if (L.kind === 'crystal') paintCrystal(x, c, k, L.shine);
+    else if (L.kind === 'glass') paintGlass(x, c, CUTS[L.cut](), k, L.shine);
+    else paintGem(x, c, CUTS[L.cut](), k, L.shine);
     P.sprites[key] = cv;
     return cv;
+  }
+  // Один камень крупно (панель, «стёклышко легло в узор»): холст px × px; c — [r, g, b]; look — вид камня
+  function stone(cv, c, look, px) {
+    var d = Math.min(2, window.devicePixelRatio || 1), S = Math.round((px || cv.clientWidth || 96) * d), L = lookOf({ look: look || {} });
+    var sp = sprite({ pal: [c], sprites: {}, spriteSize: S }, L, 0);
+    cv.width = cv.height = S;
+    var x = cv.getContext('2d'); x.clearRect(0, 0, S, S);
+    if (sp) x.drawImage(sp, 0, 0);
+    else if (L.kind === 'image') WAITERS.push(function () { if (imgOf(L.img)) { stone(cv, c, look, px); return false; } return true; });
   }
   function star(x, cx, cy, s, a) {
     if (a < .02) return;
@@ -215,12 +358,13 @@
       r = G.r + G.br * Math.sin(t * G.wb + G.pb); s = G.s * rad;
       if (a < -G.s * 1.6 / r || a > P.W + G.s * 1.6 / r) continue;
       px = Math.cos(a) * r * rad; py = Math.sin(a) * r * rad;
-      sp = sprite(P, G.sh, G.c);
-      x.save(); x.translate(px, py); x.rotate(G.rot + G.wr * t); x.globalAlpha = .92;
+      sp = sprite(P, G.L, G.c);
+      if (!sp) continue;
+      x.save(); x.translate(px, py); x.rotate(G.rot + G.wr * t); x.globalAlpha = G.al;
       x.drawImage(sp, -s, -s, s * 2, s * 2);
       x.restore();
       x.globalAlpha = 1;
-      star(x, px - s * .3, py - s * .3, s * .9, Math.pow(Math.max(0, Math.sin(t * G.sw + G.sp)), 14) * .9);
+      star(x, px - s * .3, py - s * .3, s * .9, Math.pow(Math.max(0, Math.sin(t * G.sw + G.sp)), 14) * .9 * Math.min(1, G.L.shine));
     }
     x.globalCompositeOperation = 'source-over';
   }
@@ -328,6 +472,8 @@
       raf = requestAnimationFrame(loop);
     }
     function live() { stop(); last = 0; if (REDUCED) return; raf = requestAnimationFrame(loop); }
+    // Загрузилась картинка камня («своя картинка») — перерисовать, если узор сейчас стоит
+    WAITERS.push(function () { if (P && !raf) draw([[P, t, 1]]); return cv.isConnected || !P; });
     var api = {
       // ex (необязательно) — другие стёклышки и число зеркал: { sym, glass } (см. pattern)
       show: function (seed, ex) { stop(); if (ex !== undefined) opts.ex = ex; P = pattern(seed, style, opts.ex); t = 0; draw([[P, 0, 1]]); },
@@ -363,5 +509,5 @@
   // Фирменный кадр узора на любом холсте (картинка «Сохранить», панель): время 0
   function still(ctx, seed, cx, cy, rad, style, ex) { frame(ctx, [[pattern(seed, style || 'mix', ex), 0, 1]], cx, cy, rad, 0, 0); }
 
-  window.M13K = { Kaleido: Kaleido, pattern: pattern, frame: frame, still: still, h32: h32, STYLES: ['rose', 'gems', 'mix'] };
+  window.M13K = { stone: stone, preload: preload, lookOf: lookOf, CUTS: Object.keys(CUTS), KINDS: KINDS, Kaleido: Kaleido, pattern: pattern, frame: frame, still: still, h32: h32, STYLES: ['rose', 'gems', 'mix'] };
 })();

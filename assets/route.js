@@ -530,24 +530,93 @@
   function kalStyle(route) { var s = (route.kaleido || {}).style; return s === 'rose' || s === 'gems' || s === 'mix' ? s : 'mix'; }
   function kalSeed(c) { return h32('m13kal|' + (c && c.code ? c.code : String(c || ''))); }
   function routeSeed(route) { return h32('m13kal|' + route.id); }
-  // Стёклышки узора: состояния входа — гладкие отполированные камни (кабошоны) их цвета
-  function kalEx(route, c) {
-    var L = statesOf(route), glass = [];
-    if (c && c.states) c.states.forEach(function (i) { if (L[i]) glass.push({ c: hexRgb(L[i].color), sh: 'bead' }); });
+  /* ---------- Стёклышки узора ----------
+     Узор человека = три состояния входа (из кода) + стёклышко каждого наступившего дня 1…12 (у всех, пропуск не важен)
+     + подарки Проводника (слово-подарок; хранится только на этом устройстве). Вид камней — route.glass (панель, вкладка «Стёклышки»):
+     glass.states, glass.days, glass.gifts.{axis, spoke, rim, underside} = { kind, cut, color, shine, clear, size, img } (см. kaleido.js, «Камни»).
+     Вид в код не зашит — менять можно в любой момент, коды и подарки не ломаются. */
+  var GIFT_ZONES = ['axis', 'spoke', 'rim', 'underside'];
+  var GLASS_DEF = { states: { kind: 'cabochon' }, days: { kind: 'gem', cut: 'rect' },
+    gifts: { axis: { kind: 'gem', cut: 'round' }, spoke: { kind: 'crystal' }, rim: { kind: 'gem', cut: 'tri' }, underside: { kind: 'gem', cut: 'hex' } } };
+  // Картинки камней: на странице — от корня сайта (S.base), в панели — '../'
+  function glassBase() { return S.route ? S.base : '../'; }
+  function glassLook(route, group, zone) {
+    var g = route.glass || {}, L = group === 'gifts' ? ((g.gifts || {})[zone] || GLASS_DEF.gifts[zone]) : g[group] || GLASS_DEF[group], o = {}, k;
+    for (k in L) o[k] = L[k];
+    if (!o.kind) o.kind = (group === 'gifts' ? GLASS_DEF.gifts[zone] : GLASS_DEF[group]).kind;
+    if (o.img) o.img = imgSrc(glassBase(), o.img);
+    return o;
+  }
+  function mixW(c, k) { return [Math.round(c[0] + (255 - c[0]) * k), Math.round(c[1] + (255 - c[1]) * k), Math.round(c[2] + (255 - c[2]) * k)]; }
+  // Цвет стёклышка дня: свой цвет в «Стёклышках» → цвет камня дня (13 дней) → цвет печати дня
+  function dayGlassColor(route, d) {
+    var L = (route.glass || {}).days || {}, day = (route.days || [])[d - 1];
+    return hexRgb(hexOk(L.color) ? L.color : day && hexOk(day.glowColor) ? day.glowColor : sealColor(day) || dayColor(route, d));
+  }
+  // Подарок: свой цвет зоны → оттенок дня (ось — светлый, почти прозрачный; спица — светлее; обод — как день; изнанка — дымчатый)
+  function giftColor(route, d, z) {
+    var L = ((route.glass || {}).gifts || {})[z] || {}, c = dayGlassColor(route, d);
+    if (hexOk(L.color)) return hexRgb(L.color);
+    return z === 'underside' ? [128, 118, 146] : z === 'axis' ? mixW(c, .62) : z === 'spoke' ? mixW(c, .3) : c;
+  }
+  function dayGlass(route, d) { return { c: dayGlassColor(route, d), look: glassLook(route, 'days') }; }
+  function giftGlass(route, d, z) { return { c: giftColor(route, d, z), look: glassLook(route, 'gifts', z) }; }
+  // Сколько дней уже дали стёклышко: наступившие дни 1…12 (день 13 — само Солнце)
+  function glassDaysOf(route, n) { return Math.max(0, Math.min(daysCount(route) - 1, n)); }
+  // Стёклышки узора. o.days — сколько дней (по умолчанию 0: только состояния), o.gifts — [[день, зона], …]
+  function kalEx(route, c, o) {
+    o = o || {};
+    var L = statesOf(route), glass = [], n = o.days || 0, gifts = o.gifts || [], d;
+    if (c && c.states) c.states.forEach(function (i) { if (L[i]) glass.push({ c: hexRgb(L[i].color), look: glassLook(route, 'states') }); });
+    function giftsOf(d) { gifts.forEach(function (g) { if (g[0] === d && GIFT_ZONES[g[1]]) glass.push(giftGlass(route, d, GIFT_ZONES[g[1]])); }); }
+    for (d = 1; d <= n; d++) { glass.push(dayGlass(route, d)); giftsOf(d); }
+    for (d = n + 1; d < daysCount(route); d++) giftsOf(d);
     return glass.length ? { sym: 6, glass: glass } : { sym: 6 };
+  }
+  // Картинки камней («своя картинка») — загрузить заранее (для «Сохранить узор»)
+  function glassImgs(route) {
+    var g = route.glass || {}, l = [g.states, g.days].concat(GIFT_ZONES.map(function (z) { return (g.gifts || {})[z]; }));
+    return l.filter(function (L) { return L && L.kind === 'image' && L.img; }).map(function (L) { return imgSrc(glassBase(), L.img); });
+  }
+
+  /* ---------- Слово-подарок ----------
+     Проводник выдаёт в панели («Код участника»): код человека + день + зона → слово вида ДАР-К7М2. Подходит только к этому коду
+     (и этому маршруту с этим первым днём). 4 знака = 20 бит: день и зона (6 бит: (день − 1) × 4 + зона) · проверка (14 бит);
+     всё перемешано маской от кода, поэтому у разных людей слова разные. Одно и то же (код, день, зона) — всегда одно и то же слово. */
+  function giftMask(route, c) { return h32('m13giftmask|' + route.id + '|' + (route.start || '') + '|' + c.code) & 0xfffff; }
+  function giftCheck(route, c, p) { return h32('m13gift|' + route.id + '|' + (route.start || '') + '|' + c.code + '|' + p) & 0x3fff; }
+  function makeGift(route, c, day, zone) {
+    var p = (day - 1) * 4 + zone, v = ((p * 16384) + giftCheck(route, c, p)) ^ giftMask(route, c), s = '', i;
+    for (i = 3; i >= 0; i--) s += CODE_ABC.charAt(Math.floor(v / Math.pow(32, i)) % 32);
+    return 'ДАР-' + s;
+  }
+  // Что набрал человек → { day, zone } или null. Регистр, дефис, «ДАР», латинские двойники — не важны.
+  function readGift(route, c, input) {
+    if (!c) return null;
+    var s = String(input || '').toUpperCase().replace(/Ё/g, 'Е').replace(/Й/g, 'И').replace(/[ABCEHKMOPTXY]/g, function (x) { return LAT[x]; }).replace(/[^А-Я0-9]/g, '');
+    if (s.length === 7 && s.indexOf('ДАР') === 0) s = s.slice(3);
+    if (s.length !== 4) return null;
+    s = s.replace(/З/g, '3');
+    var v = 0, i, k;
+    for (i = 0; i < 4; i++) { k = CODE_ABC.indexOf(s.charAt(i)); if (k < 0) return null; v = v * 32 + k; }
+    v = (v ^ giftMask(route, c)) >>> 0;
+    var p = Math.floor(v / 16384), day = Math.floor(p / 4) + 1;
+    if (p > 47 || day > daysCount(route) - 1 || (v & 0x3fff) !== giftCheck(route, c, p)) return null;
+    return { day: day, zone: p % 4 };
   }
   function Kaleido(cv, px, route) { return window.M13K ? window.M13K.Kaleido(cv, px || 0, { style: kalStyle(route || S.route || {}), ex: { sym: 6 } }) : null; }
   // Узор человека сразу (панель «Код участника», «Мой код»)
-  function kalShow(cv, px, route, c) { var k = Kaleido(cv, px, route); if (k) k.show(kalSeed(c), kalEx(route, c)); return k; }
+  // o — какие стёклышки, кроме состояний (см. kalEx)
+  function kalShow(cv, px, route, c, o) { var k = Kaleido(cv, px, route); if (k) k.show(kalSeed(c), kalEx(route, c, o)); return k; }
   // Картинка «узор и код» для сохранения: 1080 × 1350 (как пост), узор, код, маршрут.
-  function patternImage(route, c, cb) {
+  function patternImage(route, c, cb, ex) {
     var W = 1080, H = 1350, cv = document.createElement('canvas'), ctx = cv.getContext('2d');
     cv.width = W; cv.height = H;
     function paint() {
       var g = ctx.createRadialGradient(W / 2, 560, 60, W / 2, 560, 900);
       g.addColorStop(0, '#3b250a'); g.addColorStop(1, '#0a0604');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      if (window.M13K) window.M13K.still(ctx, kalSeed(c), W / 2, 560, 420, kalStyle(route), kalEx(route, c));
+      if (window.M13K) window.M13K.still(ctx, kalSeed(c), W / 2, 560, 420, kalStyle(route), ex || (S.route === route ? myEx(c) : kalEx(route, c)));
       ctx.textAlign = 'center'; ctx.fillStyle = '#e9c77e';
       ctx.font = '500 30px "Cormorant Garamond", Georgia, serif';
       ctx.fillText(('13 MIRRORS · ' + (route.title || '')).toUpperCase().split('').join(String.fromCharCode(8202)), W / 2, 86);
@@ -559,7 +628,8 @@
       ctx.fillText(c.code, W / 2, 1200);
       cb(cv);
     }
-    if (document.fonts && document.fonts.load) document.fonts.load('600 104px "Cormorant Garamond"').then(paint, paint); else paint();
+    function fonts() { if (document.fonts && document.fonts.load) document.fonts.load('600 104px "Cormorant Garamond"').then(paint, paint); else paint(); }
+    if (window.M13K && window.M13K.preload) window.M13K.preload(glassImgs(route), fonts); else fonts();
   }
 
   /* ---------- Страница маршрута ---------- */
@@ -598,6 +668,22 @@
   function pickedList() { try { var l = JSON.parse(localStorage.getItem(pickKey()) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
   function markPicked(n) { var l = pickedList(); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(pickKey(), JSON.stringify(l)); } catch (e) {} } }
   function resetPicks() { try { localStorage.removeItem(pickKey()); } catch (e) {} }
+  // Подарки ([[день, зона], …]) и дни, чьё стёклышко уже показали («легло в узор»), — у каждого кода свои, только на этом устройстве
+  function listOf(key) { try { var l = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+  function giftKey(c) { return storeKey() + '-gift-' + (c ? c.code : ''); }
+  function giftList(c) { return listOf(giftKey(c)).filter(function (g) { return Array.isArray(g) && g.length === 2; }); }
+  function addGift(c, g) {
+    var l = giftList(c);
+    if (l.some(function (x) { return x[0] === g.day && x[1] === g.zone; })) return false;
+    l.push([g.day, g.zone]);
+    try { localStorage.setItem(giftKey(c), JSON.stringify(l)); } catch (e) {}
+    return true;
+  }
+  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); } catch (e) {} }
+  function seenKey() { return storeKey() + '-glass-' + (S.code ? S.code.code : ''); }
+  function markSeen(n) { var l = listOf(seenKey()); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(seenKey(), JSON.stringify(l)); } catch (e) {} } }
+  // Узор человека сейчас: состояния + стёклышки наступивших дней + подарки на этом устройстве. upto — узор «до дня» (без его стёклышка)
+  function myEx(c, upto) { return kalEx(S.route, c, { days: upto != null ? upto : glassDaysOf(S.route, curDay()), gifts: giftList(c) }); }
   function setUrlMode(m) {
     try {
       var s = location.search.replace(/([?&])mode=[^&#]*&?/, '$1').replace(/[?&]$/, '');
@@ -662,7 +748,11 @@
   }
   function openPersonal(n, mode, perm) {
     closeLayer();
-    layer(card(S.route, n, mode, 'personal', perm, { base: S.base, onSpiral: function () { closeLayer(); } }), 'ys-layer--personal');
+    layer(card(S.route, n, mode, 'personal', perm, { base: S.base, onSpiral: function () {
+      // Первый раз за этот день — стёклышко дня ложится в узор
+      if (S.code && mode !== 'observation' && n < daysCount(S.route) && n <= glassDaysOf(S.route, curDay()) && listOf(seenKey()).indexOf(n) < 0) openGlass(n);
+      else closeLayer();
+    } }), 'ys-layer--personal');
   }
 
   /* ---------- Вход по ключу: калейдоскоп → узор и код ----------
@@ -728,13 +818,45 @@
     upd();
     return box;
   }
-  function openKey(want, show) {
+  // Стёклышко крупно над калейдоскопом → уменьшается в центр → калейдоскоп поворачивается и пересобирает узор уже с ним
+  function kalWrap(cv) { var w = el('div', 'ys-kal-wrap'), sc = el('canvas', 'ys-drop'); w.appendChild(cv); w.appendChild(sc); return w; }
+  function dropGlass(wrap, g, after) {
+    var sc = wrap.querySelector('.ys-drop');
+    if (window.M13K && window.M13K.stone) window.M13K.stone(sc, g.c, g.look, Math.round((wrap.clientWidth || 300) * .46));
+    if (REDUCED) { after(); return; }
+    wrap.classList.remove('is-fall'); wrap.classList.add('is-drop');
+    setTimeout(function () { wrap.classList.remove('is-drop'); wrap.classList.add('is-fall'); }, 1500);
+    setTimeout(after, 1900);
+    setTimeout(function () { wrap.classList.remove('is-fall'); }, 2600);
+  }
+  // «Стёклышко дня легло в ваш узор» — один раз за день, после личной карты (Путешествие, Погружение)
+  function openGlass(n) {
+    var r = S.route, tx = r.texts || {}, ctx = ctxOf(r, n), c = S.code, box = el('div', 'ys-key ys-glass'), cv = el('canvas', 'ys-kal'), wrap = kalWrap(cv);
+    box.appendChild(el('p', 'ys-key-mode', fill(tx.glassSmall || 'День {день} · {имя кина}', ctx)));
+    box.appendChild(el('h2', 'ys-key-t', fill(tx.glassDay || 'Стёклышко дня {день} легло в ваш узор', ctx)));
+    box.appendChild(wrap);
+    if (tx.glassNote !== '') box.appendChild(el('p', 'ys-key-note', fill(tx.glassNote || 'Каждый день маршрута добавляет в ваш узор своё стёклышко — цвета печати дня. В конце из них сложится ваше Солнце.', ctx)));
+    var go = el('button', 'ys-key-go', tx.glassGo || 'На спираль'); go.type = 'button';
+    go.addEventListener('click', function () { closeLayer(); });
+    box.appendChild(go);
+    markSeen(n);
+    closeLayer();
+    var ov = layer(box, 'ys-layer--key ys-layer--glass'), kal = Kaleido(cv, 0, r);
+    ov.onclose = function () { if (kal) kal.stop(); };
+    if (!kal) return;
+    requestAnimationFrame(function () {
+      kal.show(kalSeed(c), myEx(c, n - 1));
+      setTimeout(function () { dropGlass(wrap, dayGlass(r, n), function () { kal.turn(kalSeed(c), null, myEx(c, Math.max(n, glassDaysOf(r, curDay())))); }); }, 350);
+    });
+  }
+  // gift — слово-подарок, которое сразу вписать («Мой код» по ссылке ?gift= или из режима проверки)
+  function openKey(want, show, gift) {
     var r = S.route, tx = r.texts || {}, box = el('div', 'ys-key'), kal = null;
     var have = !!(show && S.code);
     var mname = el('p', 'ys-key-mode', MODE_NAMES[have ? S.code.mode : want] || '');
     var title = el('h2', 'ys-key-t', have ? tx.myCode || 'Мой узор и код' : tx.keyTitle || 'Ключ к маршруту');
-    var cv = el('canvas', 'ys-kal');
-    box.appendChild(mname); box.appendChild(title); box.appendChild(cv);
+    var cv = el('canvas', 'ys-kal'), wrap = kalWrap(cv);
+    box.appendChild(mname); box.appendChild(title); box.appendChild(wrap);
     var form = el('form', 'ys-key-form'), res = el('div', 'ys-key-res'), stBox = el('div', 'ys-key-st');
     form.appendChild(el('p', 'ys-key-lead', tx.keyLead || 'Введите ключ, который Проводник дал в группе. Потом выберите три состояния — калейдоскоп повернётся и сложит ваш личный узор и код.'));
     var inp = el('input', 'ys-key-in');
@@ -764,6 +886,7 @@
         window.open(url, '_blank', 'noopener');
       });
       res.appendChild(row);
+      if (have) res.appendChild(giftForm(c));
       var enter = el('button', 'ys-key-go', have ? tx.toSpiral || 'На спираль' : tx.enter || 'Войти на спираль'); enter.type = 'button';
       enter.addEventListener('click', function () {
         if (!have) { S.mode = c.mode; setUrlMode(c.mode); }
@@ -781,11 +904,38 @@
       box.classList.remove('is-states');
       box.classList.add('is-done');
     }
-    // Узор складывается: калейдоскоп поворачивается к личному узору (стёклышки — состояния входа)
+    // «Получили стёклышко?» — слово-подарок от Проводника: подходит только к этому коду, хранится на этом устройстве
+    function giftForm(c) {
+      var wrapF = el('div', 'ys-gift'), open = el('button', 'ys-key-alt', tx.giftBtn || 'Получили стёклышко? Ввести слово'); open.type = 'button';
+      var f = el('form', 'ys-gift-f'), gi = el('input', 'ys-key-in'), gok = el('button', 'ys-code-b', tx.giftGo || 'Положить в узор'), gerr = el('p', 'ys-key-err');
+      gi.type = 'text'; gi.autocomplete = 'off'; gi.setAttribute('autocapitalize', 'characters'); gi.setAttribute('autocorrect', 'off'); gi.spellcheck = false;
+      gi.placeholder = tx.giftPh || 'Слово-подарок, например ДАР-К7М2'; gok.type = 'submit'; f.hidden = true;
+      if (tx.giftLead !== '') f.appendChild(el('p', 'ys-key-note', tx.giftLead || 'Проводник прислал слово-подарок — впишите его, и стёклышко ляжет в ваш узор.'));
+      f.appendChild(gi); f.appendChild(gok); f.appendChild(gerr);
+      open.addEventListener('click', function () { f.hidden = false; open.hidden = true; gi.focus(); });
+      f.addEventListener('submit', function (e) {
+        e.preventDefault(); gerr.textContent = '';
+        var g = readGift(r, c, gi.value);
+        if (!g) { gerr.textContent = tx.giftBad || 'Это слово не подходит к вашему коду. Проверьте буквы — или спросите Проводника.'; box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake'); return; }
+        if (!addGift(c, g)) { note(tx.giftHave || 'Это стёклышко уже в вашем узоре.'); return; }
+        gi.value = ''; f.hidden = true; open.hidden = false;
+        var z = GIFT_ZONES[g.zone], was = title.textContent;
+        title.textContent = fill(tx.giftOk || 'Подарок: день {день} · {зона}', { 'день': String(g.day), 'зона': zoneName(r, z) });
+        wrap.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'center' });
+        dropGlass(wrap, giftGlass(r, g.day, z), function () {
+          if (kal) kal.turn(kalSeed(c), null, myEx(c));
+          setTimeout(function () { title.textContent = was; }, 4200);
+        });
+      });
+      wrapF.appendChild(open); wrapF.appendChild(f);
+      if (gift) setTimeout(function () { open.click(); gi.value = gift; f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event('submit', { cancelable: true })); }, 700);
+      return wrapF;
+    }
+    // Узор складывается: калейдоскоп поворачивается к личному узору (стёклышки — состояния входа и наступившие дни)
     function turn(c) {
       saveCode(c); mname.textContent = MODE_NAMES[c.mode]; title.textContent = tx.codeTitle || 'Ваш личный узор';
       box.classList.add('is-turn'); inp.blur();
-      kal.turn(kalSeed(c), function () { box.classList.remove('is-turn'); result(c); }, kalEx(r, c));
+      kal.turn(kalSeed(c), function () { box.classList.remove('is-turn'); result(c); }, myEx(c));
     }
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -814,7 +964,7 @@
     var ov = layer(box, 'ys-layer--key', null, !have);
     kal = Kaleido(cv, 0, r);
     // Пока ключа нет — калейдоскоп живёт общим узором маршрута
-    requestAnimationFrame(function () { if (!kal) return; if (have) kal.idle(kalSeed(S.code), kalEx(r, S.code)); else kal.idle(routeSeed(r), { sym: 6 }); });
+    requestAnimationFrame(function () { if (!kal) return; if (have) kal.idle(kalSeed(S.code), myEx(S.code)); else kal.idle(routeSeed(r), { sym: 6 }); });
     ov.onclose = function () { if (kal) kal.stop(); };
   }
 
@@ -1039,14 +1189,21 @@
     var sp = sel([['code', 'Карта — по коду (колода)']].concat(cardsOf(r).map(function (p, k) { return [String(k), (k + 1) + '. ' + (p.quality || '')]; })), S.code ? 'code' : '0');
     function permSel(d) { return sp.value === 'code' ? cardFor(r, S.code, d) || cardsOf(r)[0] : cardsOf(r)[+sp.value]; }
     function testCode(m) { saveCode(newCode(r, m)); S.mode = m; setUrlMode(m); closeLayer(); render(); note('Код для проверки: ' + S.code.code + ' · ' + MODE_NAMES[m]); }
-    var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · вошли с: ' + (statesText(r, S.code) || '—') + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') : 'Кода на этом устройстве нет';
+    var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · вошли с: ' + (statesText(r, S.code) || '—') + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') +
+      ' · подарки: ' + (giftList(S.code).map(function (g) { return g[0] + ' ' + zoneName(r, GIFT_ZONES[g[1]]).toLowerCase(); }).join(', ') || 'нет') : 'Кода на этом устройстве нет';
+    function needCode() { if (!S.code) note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return !!S.code; }
     [el('span', null, 'Сейчас по Москве: ' + (S.debugNow ? S.debugNow + ' (подмена)' : 'настоящее время') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
       ss, zl,
-      row([btn('Финал Солнца', openFinal), btn('Сброс', function () { resetOpened(); resetPicks(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты.'); })]),
+      row([btn('Финал Солнца', openFinal), btn('Сброс', function () { resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, подарков нет.'); })]),
       el('span', 'ys-debug-sep', 'Код и колода'),
       el('span', null, cinfo),
       row([btn('Код Путешествия', function () { testCode('journey'); }), btn('Код Погружения', function () { testCode('immersion'); })]),
-      row([btn('Ввод ключа', function () { openKey(S.mode === 'observation' ? 'journey' : S.mode); }), btn('Забыть код', function () { resetPicks(); saveCode(null); closeLayer(); render(); note('Код забыт на этом устройстве.'); })]),
+      row([btn('Ввод ключа', function () { openKey(S.mode === 'observation' ? 'journey' : S.mode); }), btn('Забыть код', function () { resetPicks(); resetGlass(); saveCode(null); closeLayer(); render(); note('Код забыт на этом устройстве.'); })]),
+      row([btn('Стёклышко дня', function () {
+        if (!needCode()) return;
+        if (+sd.value >= last) { note('У дня ' + last + ' своего стёклышка нет — это само Солнце.'); return; }
+        openGlass(+sd.value);
+      }), btn('Подарок (тест)', function () { if (needCode()) openKey(S.code.mode, true, makeGift(r, S.code, Math.min(+sd.value, last - 1), Math.floor(Math.random() * 4))); })]),
       el('span', 'ys-debug-sep', 'Формат и карты'),
       sm, sd, sp,
       row([btn('Карта дня', function () { openDay(+sd.value, sm.value); }),
@@ -1077,7 +1234,9 @@
     if (c === 'day') openDay(n, S.mode);
     else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? cardFor(route, S.code, n) : cardsOf(route)[+q('perm') || 0]);
     else if (c === 'fan' && S.code) openFan(n, S.mode);
+    else if (q('gift') && S.code) openKey(S.code.mode, true, q('gift'));
     else if (gate) openKey(m);
+    if (q('gift') && !S.code) setTimeout(function () { note((route.texts || {}).giftNeed || 'Чтобы положить подарок в узор, сначала войдите своим кодом.'); }, 600);
   }
   function boot() {
     var app = document.getElementById('ys'); if (!app) return;
@@ -1110,5 +1269,6 @@
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
-    wheelNode: wheelNode, zoneName: zoneName, CARD_TOKENS: CARD_TOKENS };
+    wheelNode: wheelNode, zoneName: zoneName, CARD_TOKENS: CARD_TOKENS,
+    GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift };
 })();

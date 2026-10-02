@@ -490,6 +490,16 @@
       "kaleido": {
         "style": "mix"
       },
+      "glass": {
+        "states": { "kind": "cabochon", "shine": 100, "clear": 8, "size": 100 },
+        "days": { "kind": "gem", "cut": "rect", "color": "", "shine": 100, "clear": 8, "size": 100 },
+        "gifts": {
+          "axis": { "kind": "gem", "cut": "round", "color": "", "shine": 100, "clear": 8, "size": 100 },
+          "spoke": { "kind": "crystal", "color": "", "shine": 100, "clear": 8, "size": 110 },
+          "rim": { "kind": "gem", "cut": "tri", "color": "", "shine": 100, "clear": 8, "size": 100 },
+          "underside": { "kind": "gem", "cut": "hex", "color": "", "shine": 100, "clear": 8, "size": 100 }
+        }
+      },
       "states": {
         "items": [
           {

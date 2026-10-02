@@ -2268,7 +2268,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['codes', 'Код участника']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['wheel', 'Лицо карты — колесо'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
@@ -2286,6 +2286,9 @@
     var D = r.deck = r.deck || {}; D.cards = D.cards || []; D.zones = D.zones || {}; D.sides = D.sides || {}; D.wayBack = D.wayBack || {};
     D.cards.forEach(function (k) { k.less = k.less || {}; k.more = k.more || {}; });
     r.states = r.states || {}; r.states.items = r.states.items || []; r.kaleido = r.kaleido || {};
+    var G = r.glass = r.glass || {}; G.gifts = G.gifts || {};
+    if (window.M13R) { var GD = window.M13R.GLASS_DEF; if (!G.states) G.states = clone(GD.states); if (!G.days) G.days = clone(GD.days);
+      window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.gifts[z]) G.gifts[z] = clone(GD.gifts[z]); }); }
     for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
     r.days.forEach(function (d) { d.texts = d.texts || {}; });
     return r;
@@ -2660,6 +2663,94 @@
       ], { open: false })
     ];
   }
+  /* ---------- Стёклышки: как выглядят камни в узоре ----------
+     route.glass = { states, days, gifts: { axis, spoke, rim, underside } }, у каждого: kind (вид), cut (огранка), color (пусто — само),
+     shine (блик, %), clear (прозрачность, %), size (размер в узоре, %), img (своя картинка). Рисует kaleido.js (M13K.stone, узор). */
+  var STONE_KINDS = [['gem', 'Самоцвет — гранёный'], ['cabochon', 'Кабошон — гладкий отполированный'], ['pearl', 'Жемчуг'], ['bead', 'Бусина с отверстием'],
+    ['crystal', 'Кристалл — как горный хрусталь'], ['glass', 'Плоское витражное стекло'], ['image', 'Своя картинка']];
+  var STONE_CUTS = [['round', 'Круг'], ['oval', 'Овал'], ['rect', 'Прямоугольник'], ['drop', 'Капля'], ['marquise', 'Лодочка (маркиза)'], ['tri', 'Треугольник'], ['hex', 'Шестигранник']];
+  function jGlass(r) {
+    var M = window.M13R, G = r.glass, st = ST.jgls = ST.jgls || { days: 6, gifts: true };
+    if (!M || !window.M13K || !window.M13K.stone) return [el('p', { class: 'a-hint a-hint--warn', text: 'Стёклышки не загрузились — обновите страницу.' })];
+    function rgb(h) { return M.hexRgb(h); }
+    // Один вид камня: поля слева, образцы камней справа (меняются сразу)
+    function lookBlock(L, title, lead, samples, colorNone) {
+      var pv = el('div', { class: 'a-jgls-pv' });
+      LIVE.push({ node: pv, run: function () {
+        pv.replaceChildren();
+        samples().forEach(function (x) {
+          var cv = el('canvas', { class: 'a-jgls-st' });
+          pv.appendChild(el('div', { class: 'a-jgls-i' }, [cv, el('span', { text: x[1] })]));
+          window.M13K.stone(cv, x[0].c, x[0].look, 84);
+        });
+      } });
+      var cutF = selectIn(L, 'cut', 'Огранка / форма', STONE_CUTS, { def: 'round', onChange: upd, hint: 'У самоцвета и плоского стекла.' });
+      var imgF = imageIn(L, 'img', 'Картинка камня', { max: 600, onChange: liveSoon,
+        hint: 'PNG с прозрачным фоном, камень по центру, около 600 × 600. В узоре камни поворачиваются и отражаются в зеркалах. Цвет и блик к картинке не применяются.' });
+      var colF = colorNone ? colorOptIn(L, 'color', 'Цвет', { none: colorNone, onChange: liveSoon }) : null;
+      function upd() {
+        cutF.style.display = L.kind === 'gem' || L.kind === 'glass' ? '' : 'none';
+        imgF.style.display = L.kind === 'image' ? '' : 'none';
+        if (colF) colF.style.display = L.kind === 'image' ? 'none' : '';
+        liveSoon();
+      }
+      var form = el('div', { class: 'a-jform' }, [lead ? el('p', { class: 'a-hint', text: lead }) : null,
+        selectIn(L, 'kind', 'Вид', STONE_KINDS, { def: 'gem', onChange: upd }), cutF, imgF, colF,
+        rangeIn(L, 'shine', 'Блик', { min: 0, max: 150, step: 5, unit: ' %', def: 100, onChange: liveSoon, hint: '0 — без блика и без искорок, 100 — как задумано.' }),
+        rangeIn(L, 'clear', 'Прозрачность', { min: 0, max: 70, step: 2, unit: ' %', def: 8, onChange: liveSoon, hint: 'Больше — сквозь камень сильнее просвечивает витраж.' }),
+        rangeIn(L, 'size', 'Размер в узоре', { min: 50, max: 200, step: 5, unit: ' %', def: 100, onChange: liveSoon })]);
+      upd();
+      return block(title, [el('div', { class: 'a-jgls-row' }, [form, pv])], { open: false });
+    }
+    // Пример узора человека: три состояния, дни до выбранного, подарки
+    var cv = el('canvas', { class: 'a-jcode-kal a-jgls-kal' }), kal = null, c = { code: 'ПРИМЕР', states: [0, 4, 8] };
+    function demo() {
+      if (!cv.isConnected) return;
+      if (!kal) kal = M.kaleido(cv, 260, r);
+      kal.style(M.kalStyle(r));
+      kal.idle(M.kalSeed(c), M.kalEx(r, c, { days: st.days, gifts: st.gifts ? [[2, 1], [3, 0], [5, 2], [6, 3]] : [] }));
+    }
+    LIVE.push({ node: cv, run: demo });
+    setTimeout(liveSoon, 0);
+    var iv = setInterval(function () { if (!cv.isConnected) { if (kal) kal.stop(); clearInterval(iv); } }, 1000);
+    var dsel = el('select', { class: 'a-input' }, [0, 1, 2, 3, 4, 6, 8, 10, 12].map(function (n) { return el('option', { value: n, text: n ? 'прошло дней: ' + n : 'до начала (только состояния)' }); }));
+    dsel.value = String(st.days);
+    dsel.addEventListener('change', function () { st.days = +dsel.value; liveSoon(); });
+    var gchk = el('input', { type: 'checkbox', checked: st.gifts });
+    gchk.addEventListener('change', function () { st.gifts = gchk.checked; liveSoon(); });
+    var states = r.states.items, zones = M.GIFT_ZONES;
+    var rose = M.kalStyle(r) === 'rose';
+    return [
+      el('p', { class: 'a-hint', text: 'Из этих стёклышек складывается личный узор человека: три состояния со входа, стёклышко каждого наступившего дня (у всех, даже если день пропущен) и подарки от вас. В конце — его Солнце. Вид камней в коды не зашит: менять можно в любой момент, даже когда маршрут идёт.' }),
+      rose ? el('p', { class: 'a-hint a-hint--warn', text: 'Сейчас стиль узора «А · Витраж-роза»: в нём камней не видно, только их цвета в гранях витража. Чтобы камни были видны, выберите стиль В или Б во вкладке «Калейдоскоп и состояния».' }) : null,
+      el('div', { class: 'a-jgls-demo' }, [cv, el('div', { class: 'a-jform' }, [
+        el('p', { class: 'a-hint', text: 'Пример узора: человек вошёл с тремя состояниями. Узор меняется сразу, когда вы двигаете настройки ниже.' }),
+        field('Сколько дней прошло', dsel),
+        el('label', { class: 'a-jwho-i' }, [gchk, el('span', { text: 'с подарками (по одному каждой зоны)' })])])]),
+      lookBlock(G.states, 'Состояния — 3 на входе (и 3 на выходе)', 'Цвет у каждого состояния свой — во вкладке «Калейдоскоп и состояния».',
+        function () { return states.slice(0, 4).map(function (s) { return [{ c: rgb(s.color), look: M.glassLook(r, 'states') }, s.name]; }); }, null),
+      lookBlock(G.days, 'Стёклышки дней 1–12', 'Цвет «само» — цвет камня дня (вкладка «13 дней» → «Цвет свечения камня»), а если его нет — цвет печати дня.',
+        function () { return [1, 2, 3, 4].map(function (d) { return [M.dayGlass(r, d), 'День ' + d]; }); }, 'само — цвет дня')
+    ].concat(zones.map(function (z) {
+      return lookBlock(G.gifts[z], 'Подарок · ' + M.zoneName(r, z), 'Цвет «само» — оттенок дня, за который подарок' + (z === 'axis' ? ' (светлый, почти прозрачный)' : z === 'spoke' ? ' (светлее)' : z === 'underside' ? ' (у изнанки — дымчатый)' : '') + '.',
+        function () { return [1, 2, 3, 4].map(function (d) { return [M.giftGlass(r, d, z), 'за день ' + d]; }); }, 'само — оттенок дня');
+    }), [
+      block('Стёклышко дня — надписи', [
+        el('p', { class: 'a-hint', text: 'Путешествие и Погружение: после личной карты, один раз за день — стёклышко дня крупно, потом ложится в узор. Метки: {день}, {имя кина}.' }),
+        el('div', { class: 'a-row' }, [textIn(r.texts, 'glassSmall', 'Строка сверху', { ph: 'День {день} · {имя кина}' }), textIn(r.texts, 'glassGo', 'Кнопка', { ph: 'На спираль' })]),
+        textIn(r.texts, 'glassDay', 'Заголовок', { ph: 'Стёклышко дня {день} легло в ваш узор' }),
+        textIn(r.texts, 'glassNote', 'Текст под узором', { multi: true, rows: 2, ph: 'Каждый день маршрута добавляет в ваш узор своё стёклышко — цвета печати дня. В конце из них сложится ваше Солнце.' })
+      ], { open: false }),
+      block('Слово-подарок — надписи', [
+        el('p', { class: 'a-hint', text: 'На странице маршрута: «Мой код» → «Получили стёклышко?». Слова выдаются во вкладке «Код участника».' }),
+        el('div', { class: 'a-row' }, [textIn(r.texts, 'giftBtn', 'Ссылка под кодом', { ph: 'Получили стёклышко? Ввести слово' }), textIn(r.texts, 'giftGo', 'Кнопка', { ph: 'Положить в узор' })]),
+        textIn(r.texts, 'giftLead', 'Текст над полем', { ph: 'Проводник прислал слово-подарок — впишите его, и стёклышко ляжет в ваш узор.' }),
+        el('div', { class: 'a-row' }, [textIn(r.texts, 'giftPh', 'Подсказка в поле', { ph: 'Слово-подарок, например ДАР-К7М2' }), textIn(r.texts, 'giftOk', 'Заголовок, когда подошло', { ph: 'Подарок: день {день} · {зона}' })]),
+        textIn(r.texts, 'giftBad', 'Слово не подошло', { ph: 'Это слово не подходит к вашему коду. Проверьте буквы — или спросите Проводника.' }),
+        el('div', { class: 'a-row' }, [textIn(r.texts, 'giftHave', 'Такое уже есть', { ph: 'Это стёклышко уже в вашем узоре.' }), textIn(r.texts, 'giftNeed', 'Открыли ссылку без кода', { ph: 'Чтобы положить подарок в узор, сначала войдите своим кодом.' })])
+      ], { open: false })
+    ]);
+  }
   // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Всё тянется мышкой или пальцем.
   // Жёлтые кружки — середины дней, белые — стыки между днями, оранжевые квадратики — внешний край камня (ширина полосы),
   // голубой — центр (день 13) и его края. Можно выбрать один день — тогда видны только его кружки.
@@ -2790,6 +2881,37 @@
     ]);
   }
   // Код участника: ввести присланный код → его узор, формат и какая карта выпадет в каждый день.
+  // Слово-подарок: код человека + день + зона → слово ДАР-…; подходит только к этому коду. Нигде не записывается — то же самое слово можно получить заново.
+  function jGift(r, c) {
+    var M = window.M13R, st = ST.jgift = ST.jgift || { day: 1, zone: 0 }, last = r.days.length - 1;
+    st.day = Math.max(1, Math.min(last, st.day));
+    var out = el('div', { class: 'a-jgift-out' });
+    function run() {
+      var w = M.makeGift(r, c, st.day, st.zone), link = siteUrl() + r.path + '?gift=' + encodeURIComponent(w), cv = el('canvas', { class: 'a-jgls-st' });
+      out.replaceChildren(cv, el('div', {}, [el('p', { class: 'a-jcode-c', text: w }),
+        el('p', { class: 'a-hint', text: 'Стёклышко «' + M.zoneName(r, M.GIFT_ZONES[st.zone]) + '» за день ' + st.day + '. Подходит только к коду ' + c.code + '.' }),
+        el('div', { class: 'a-row' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать слово', onclick: function () { copy(w, 'Слово скопировано'); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать ссылку со словом', onclick: function () { copy(link, 'Ссылка скопирована'); } })])]));
+      var g = M.giftGlass(r, st.day, M.GIFT_ZONES[st.zone]);
+      window.M13K.stone(cv, g.c, g.look, 84);
+    }
+    function copy(t, ok) {
+      function old() { var a = el('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast(ok); } catch (e) {} a.remove(); }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { toast(ok); }, old); else old();
+    }
+    var days = [], i;
+    for (i = 1; i <= last; i++) days.push([String(i), 'День ' + i + ' · ' + M.dateOf(r, i)]);
+    var sd = el('select', { class: 'a-input' }, days.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+    var sz = el('select', { class: 'a-input' }, M.GIFT_ZONES.map(function (z, k) { return el('option', { value: k, text: M.zoneName(r, z) }); }));
+    sd.value = String(st.day); sz.value = String(st.zone);
+    sd.addEventListener('change', function () { st.day = +sd.value; run(); });
+    sz.addEventListener('change', function () { st.zone = +sz.value; run(); });
+    run();
+    return el('div', { class: 'a-jgift' }, [sub('Подарить стёклышко'),
+      el('p', { class: 'a-hint', text: 'Выберите день и зону колеса — появится слово-подарок. Отправьте его человеку в Telegram: он вписывает его на странице маршрута («Мой код» → «Получили стёклышко?») или просто открывает ссылку со словом. Стёклышко ляжет в его узор и хранится только на его устройстве. Одно и то же слово можно получить здесь заново — нигде не записывается, кому что подарено.' }),
+      el('div', { class: 'a-row' }, [field('День', sd), field('Зона', sz)]), out]);
+  }
   function jCodes(r) {
     var st = ST.jcode = ST.jcode || { v: '' }, M = window.M13R;
     var out = el('div', { class: 'a-jcode' });
@@ -2806,9 +2928,9 @@
         return el('li', {}, [el('b', { text: 'День ' + (i + 1) + ' · ' + M.dateOf(r, i + 1) + ' — ' }), p ? p.quality || 'Без названия' : '—']);
       });
       add(out, [el('div', { class: 'a-jcode-head' }, [cv, el('div', {}, [el('p', { class: 'a-jcode-c', text: c.code }), el('p', { text: M.MODE_NAMES[c.mode] }),
-        el('p', { class: 'a-hint', text: 'Так выглядит его узор и так выпадут его карты. Что человек нажимает в круге закрытых карт, на это не влияет. Состояния, с которыми он вошёл, здесь не показываются: они — его личное.' })])]),
-        el('ol', { class: 'a-jcode-days' }, rows)]);
-      M.kalShow(cv, 200, r, c);
+        el('p', { class: 'a-hint', text: 'Так выглядит его узор сегодня (три состояния и стёклышки наступивших дней; подарков здесь не видно — они только у него на устройстве) и так выпадут его карты. Что человек нажимает в круге закрытых карт, на это не влияет. Состояния, с которыми он вошёл, здесь не показываются: они — его личное.' })])]),
+        el('ol', { class: 'a-jcode-days' }, rows), jGift(r, c)]);
+      M.kalShow(cv, 200, r, c, { days: M.glassDaysOf(r, M.dayNumber(r, M.nowMsk())) });
     }
     inp.addEventListener('input', run);
     function make(m) { inp.value = M.newCode(r, m).code; run(); }
@@ -2844,6 +2966,7 @@
     else if (t === 'bricks') body = jBricks(r);
     else if (t === 'deck' || t === 'perms') body = jDeck(r);
     else if (t === 'states') body = jStates(r);
+    else if (t === 'glass') body = jGlass(r);
     else if (t === 'codes') body = jCodes(r);
     else body = jMain(r);
     return [head, pick, look, tabs].concat(body);
@@ -4164,6 +4287,8 @@
     D.journeys.items.forEach(function (r) {
       var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
       if (!r.zones && o && o.zones) r.zones = clone(o.zones);
+      // Вид стёклышек (шаг 2, с 02.10): в черновике его нет — берём с сайта
+      if (!r.glass && o && o.glass) r.glass = clone(o.glass);
       // Колода-колесо, состояния и калейдоскоп (с 02.10): в черновике их нет — берём с сайта; старые карты «Мне можно…» убираем
       if (o && !r.deck && o.deck) {
         r.deck = clone(o.deck);
