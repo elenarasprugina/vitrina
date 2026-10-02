@@ -390,3 +390,4 @@ select.a-input{padding-right:28px}
 .a-jdc-n{white-space:nowrap}
 .a-jdc-x{border:0;background:none;font-size:16px;line-height:1;padding:0 2px;cursor:pointer;color:#8a6a3a}
 .a-jdc-x[hidden]{display:none}
+.a-jwheel{background:linear-gradient(170deg,#2e1e0a,#100a04);border-radius:16px;padding:4px 16px 16px;color:#f6ead2;max-width:380px;align-self:start}

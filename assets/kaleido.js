@@ -93,11 +93,13 @@
     var n = style === 'gems' ? 24 + Math.floor(R() * 9) : 9 + Math.floor(R() * 5), shapes = ['brilliant', 'hex', 'emerald', 'trillion', 'marquise', 'bead'];
     P.chamber = W * 2.6; P.gems = [];
     function palIx(c) { for (var k = 0; k < pal.length; k++) if (pal[k][0] === c[0] && pal[k][1] === c[1] && pal[k][2] === c[2]) return k; return 0; }
-    if (glass) n = glass.length;
+    // Мало стёклышек (вход: три состояния) — каждое лежит в камере дважды и крупнее, чтобы камни читались, а не терялись точками
+    var rep = glass && glass.length < 6 ? 2 : 1, big = glass && glass.length < 6 ? 1.5 : 1;
+    if (glass) n = glass.length * rep;
     for (i = 0; i < n; i++) {
-      var gr = .14 + Math.pow(R(), .8) * .9;
-      P.gems.push({ a: glass ? (i + R() * .8) / n * P.chamber : R() * P.chamber, r: gr, s: (.045 + R() * .085) * (.65 + gr * .55) * (style === 'gems' ? 1 : 1.12),
-        sh: glass ? glass[i].sh || 'brilliant' : shapes[Math.floor(R() * shapes.length)], c: glass ? palIx(glass[i].c) : 2 + Math.floor(R() * (pal.length - 2)) - (R() < .2 ? 2 : 0),
+      var gr = .14 + Math.pow(R(), .8) * .9, gi = glass ? glass[i % glass.length] : null;
+      P.gems.push({ a: glass ? (i + R() * .8) / n * P.chamber : R() * P.chamber, r: gr, s: (.045 + R() * .085) * (.65 + gr * .55) * (style === 'gems' ? 1 : 1.12) * big,
+        sh: gi ? gi.sh || 'brilliant' : shapes[Math.floor(R() * shapes.length)], c: gi ? palIx(gi.c) : 2 + Math.floor(R() * (pal.length - 2)) - (R() < .2 ? 2 : 0),
         w: (.05 + R() * .07) * (1.25 - gr * .5), rot: R() * TAU, wr: (R() - .5) * .5, br: .025 + R() * .03, wb: .1 + R() * .25, pb: R() * TAU,
         sp: R() * TAU, sw: .25 + R() * .4 });
     }
@@ -118,10 +120,19 @@
     var S = 112, cv = document.createElement('canvas'), x = cv.getContext('2d'), c = P.pal[ci], h = S / 2, k = h * .92, i, v, t, a, lt, g;
     cv.width = cv.height = S; x.translate(h, h);
     if (sh === 'bead') {
-      g = x.createRadialGradient(-k * .3, -k * .35, k * .05, 0, 0, k);
-      g.addColorStop(0, css(shade(c, 1.75))); g.addColorStop(.35, css(shade(c, 1.1))); g.addColorStop(.85, css(shade(c, .55))); g.addColorStop(1, css(shade(c, .35)));
-      x.fillStyle = g; x.beginPath(); x.arc(0, 0, k * .8, 0, TAU); x.fill();
-      x.fillStyle = 'rgba(255,255,255,.75)'; x.beginPath(); x.ellipse(-k * .28, -k * .32, k * .16, k * .1, -.6, 0, TAU); x.fill();
+      // Кабошон — гладкий отполированный камень: тёмная кромка, свет проходит насквозь и собирается внизу справа, блик сверху слева
+      var r0 = k * .8;
+      g = x.createRadialGradient(-r0 * .25, -r0 * .3, r0 * .05, 0, 0, r0);
+      g.addColorStop(0, css(shade(c, 1.35))); g.addColorStop(.45, css(shade(c, .95))); g.addColorStop(.85, css(shade(c, .5))); g.addColorStop(1, css(shade(c, .28)));
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+      g = x.createRadialGradient(r0 * .3, r0 * .38, 0, r0 * .3, r0 * .38, r0 * .62);
+      g.addColorStop(0, css(shade(c, 1.6), .85)); g.addColorStop(1, css(shade(c, 1.2), 0));
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, r0, 0, TAU); x.fill();
+      x.strokeStyle = css(shade(c, 1.5), .45); x.lineWidth = r0 * .06; x.beginPath(); x.arc(0, 0, r0 * .93, .25 * Math.PI, .95 * Math.PI); x.stroke();
+      g = x.createRadialGradient(-r0 * .34, -r0 * .4, 0, -r0 * .34, -r0 * .4, r0 * .34);
+      g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(.35, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.beginPath(); x.ellipse(-r0 * .32, -r0 * .4, r0 * .3, r0 * .18, -.6, 0, TAU); x.fill();
+      x.fillStyle = 'rgba(255,255,255,.5)'; x.beginPath(); x.arc(r0 * .42, -r0 * .5, r0 * .05, 0, TAU); x.fill();
     } else {
       v = SHAPES[sh](); t = v.map(function (p) { return [p[0] * .52, p[1] * .52]; });
       lt = -2.3; // свет сверху слева
@@ -136,6 +147,16 @@
       x.fillStyle = g; x.beginPath();
       for (i = 0; i < t.length; i++) x[i ? 'lineTo' : 'moveTo'](t[i][0] * k, t[i][1] * k);
       x.closePath(); x.fill();
+      // «Огонь» внутри камня: свет, преломлённый нижними гранями, — тёплое пятно под площадкой
+      g = x.createRadialGradient(k * .14, k * .18, 0, k * .14, k * .18, k * .5);
+      g.addColorStop(0, css(shade(c, 1.8), .55)); g.addColorStop(1, css(shade(c, 1.3), 0));
+      x.fillStyle = g; x.beginPath();
+      for (i = 0; i < t.length; i++) x[i ? 'lineTo' : 'moveTo'](t[i][0] * k, t[i][1] * k);
+      x.closePath(); x.fill();
+      // Тёмный поясок по краю — камень читается объёмным, а не плоской наклейкой
+      x.strokeStyle = css(shade(c, .3), .8); x.lineWidth = k * .05; x.beginPath();
+      for (i = 0; i <= v.length; i++) x[i ? 'lineTo' : 'moveTo'](v[i % v.length][0] * k, v[i % v.length][1] * k);
+      x.stroke();
       // Рёбра огранки — тонкие светлые линии
       x.strokeStyle = 'rgba(255,250,235,.38)'; x.lineWidth = 1.2; x.lineJoin = 'round';
       x.beginPath();
@@ -308,10 +329,16 @@
     }
     function live() { stop(); last = 0; if (REDUCED) return; raf = requestAnimationFrame(loop); }
     var api = {
-      show: function (seed) { stop(); P = pattern(seed, style, opts.ex); t = 0; draw([[P, 0, 1]]); },
-      idle: function (seed) { if (seed != null && (!P || P.seed !== (seed >>> 0) || P.style !== style)) { P = pattern(seed, style, opts.ex); t = 0; } draw([[P, t, 1]]); live(); },
-      turn: function (seed, done) {
+      // ex (необязательно) — другие стёклышки и число зеркал: { sym, glass } (см. pattern)
+      show: function (seed, ex) { stop(); if (ex !== undefined) opts.ex = ex; P = pattern(seed, style, opts.ex); t = 0; draw([[P, 0, 1]]); },
+      idle: function (seed, ex) {
+        if (ex !== undefined) { opts.ex = ex; P = null; }
+        if (seed != null && (!P || P.seed !== (seed >>> 0) || P.style !== style)) { P = pattern(seed, style, opts.ex); t = 0; }
+        draw([[P, t, 1]]); live();
+      },
+      turn: function (seed, done, ex) {
         stop();
+        if (ex !== undefined) opts.ex = ex;
         var A = P, tA = t, B = pattern(seed, style, opts.ex), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 3200, TW = 7;
         if (!dur || !A) { P = B; t = 0; draw([[B, 0, 1]]); if (!REDUCED) live(); if (done) done(); return; }
         raf = requestAnimationFrame(function step(ts) {
