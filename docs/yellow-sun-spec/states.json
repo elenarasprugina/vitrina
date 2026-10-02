@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "status": "approved",
+  "_note": "balanceGroup — служебное поле для баланса набора. Пользователю не показывать; порядок на экране перемешивать при каждом показе.",
+  "screen": {
+    "pickAtEntry": 3,
+    "pickAtExit": 3,
+    "shuffleOrder": true,
+    "showGroupLabels": false,
+    "autoInterpretation": false
+  },
+  "states": [
+    {
+      "id": "ST01",
+      "name": "ясность",
+      "balanceGroup": "light"
+    },
+    {
+      "id": "ST02",
+      "name": "интерес",
+      "balanceGroup": "light"
+    },
+    {
+      "id": "ST03",
+      "name": "радость",
+      "balanceGroup": "light"
+    },
+    {
+      "id": "ST04",
+      "name": "надежда",
+      "balanceGroup": "light"
+    },
+    {
+      "id": "ST05",
+      "name": "умиротворение",
+      "balanceGroup": "light"
+    },
+    {
+      "id": "ST06",
+      "name": "воодушевление",
+      "balanceGroup": "light"
+    },
+    {
+      "id": "ST07",
+      "name": "усталость",
+      "balanceGroup": "muted"
+    },
+    {
+      "id": "ST08",
+      "name": "тревога",
+      "balanceGroup": "muted"
+    },
+    {
+      "id": "ST09",
+      "name": "злость",
+      "balanceGroup": "muted"
+    },
+    {
+      "id": "ST10",
+      "name": "грусть",
+      "balanceGroup": "muted"
+    },
+    {
+      "id": "ST11",
+      "name": "растерянность",
+      "balanceGroup": "muted"
+    },
+    {
+      "id": "ST12",
+      "name": "пустота",
+      "balanceGroup": "muted"
+    }
+  ]
+}

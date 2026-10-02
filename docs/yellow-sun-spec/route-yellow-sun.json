@@ -1,0 +1,223 @@
+{
+  "routeId": "yellow-sun",
+  "version": "1.0",
+  "wave": "Волна Жёлтого Солнца",
+  "kinRange": [
+    40,
+    52
+  ],
+  "levels": [
+    "Путешествие",
+    "Погружение"
+  ],
+  "principle": "Тон задаёт действие, печать — среду, личная карта — материал человека.",
+  "files": {
+    "states": "states.json",
+    "deck": "deck-yellow-sun.json",
+    "tones": "tones.json",
+    "seals": "seals.json"
+  },
+  "kaleidoscope": {
+    "entry": {
+      "pickStates": 3,
+      "from": "states.json",
+      "storage": "выбранные состояния зашиты в код участника"
+    },
+    "perDayGlass": {
+      "auto": true,
+      "color": "цвет печати дня"
+    },
+    "bonusGlass": {
+      "trigger": [
+        "задание выполнено",
+        "обратная связь оставлена"
+      ],
+      "content": "качество с личной карты дня",
+      "zoneGlass": {
+        "axis": "круглое прозрачное",
+        "spoke": "вытянутое",
+        "rim": "острое, сильно гранёное",
+        "underside": "дымчатое, замутнённое или зеркальное"
+      },
+      "zoneGlassRule": "Форма показывает удаление от оси, прозрачность — насколько качество доступно осознанию."
+    },
+    "final": {
+      "day": 13,
+      "pickStates": 3,
+      "screen": [
+        "С чем вы вошли",
+        "С чем вы выходите",
+        "Что вы замечаете?"
+      ],
+      "autoInterpretation": false,
+      "note": "Узор у каждого свой: редкий не хуже плотного."
+    }
+  },
+  "safetyNote": "Маршрут предполагает психологически устойчивое состояние.",
+  "days": [
+    {
+      "day": 1,
+      "kin": 40,
+      "kinName": "Жёлтое Магнитное Солнце",
+      "tone": "T01",
+      "seal": "S20",
+      "glassColor": "yellow",
+      "hasCard": true,
+      "cardOperation": "Где я на этом колесе сейчас",
+      "environment": "жизнь, свет, видимость",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 2,
+      "kin": 41,
+      "kinName": "Красный Лунный Дракон",
+      "tone": "T02",
+      "seal": "S01",
+      "glassColor": "red",
+      "hasCard": true,
+      "cardOperation": "Что в сегодняшней карте особенно цепляет меня через других",
+      "environment": "опора, исток, что питает",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 3,
+      "kin": 42,
+      "kinName": "Белый Электрический Ветер",
+      "tone": "T03",
+      "seal": "S02",
+      "glassColor": "white",
+      "hasCard": true,
+      "cardOperation": "Проверяю: есть ли в моей реакции что-то моё",
+      "environment": "дыхание, голос, слово",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 4,
+      "kin": 43,
+      "kinName": "Синяя Самосущная Ночь",
+      "tone": "T04",
+      "seal": "S03",
+      "glassColor": "blue",
+      "hasCard": true,
+      "cardOperation": "Даю форму неприсвоенной стороне сегодняшнего качества",
+      "environment": "интуиция, сновидение, образ",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 5,
+      "kin": 44,
+      "kinName": "Жёлтое Обертонное Семя",
+      "tone": "T05",
+      "seal": "S04",
+      "glassColor": "yellow",
+      "hasCard": true,
+      "cardOperation": "Нахожу силу, которая прячется на изнанке",
+      "environment": "потенциал, рост, фокус",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 6,
+      "kin": 45,
+      "kinName": "Красный Ритмический Змей",
+      "tone": "T06",
+      "seal": "S05",
+      "glassColor": "red",
+      "hasCard": true,
+      "cardOperation": "Нахожу меру: где ось переходит в спицу",
+      "environment": "тело, инстинкт, жизненная сила",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 7,
+      "kin": 46,
+      "kinName": "Белый Резонансный Мост Миров",
+      "tone": "T07",
+      "seal": "S06",
+      "glassColor": "white",
+      "hasCard": true,
+      "cardOperation": "Слушаю отклик на непривычное качество",
+      "environment": "переход, отпускание старой позиции",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 8,
+      "kin": 47,
+      "kinName": "Синяя Галактическая Рука",
+      "tone": "T08",
+      "seal": "S07",
+      "glassColor": "blue",
+      "hasCard": true,
+      "cardOperation": "С сегодняшней картой ищу возвращение в ось: как могут сосуществовать обе стороны качества",
+      "environment": "знание через делание, забота",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 9,
+      "kin": 48,
+      "kinName": "Жёлтая Солнечная Звезда",
+      "tone": "T09",
+      "seal": "S08",
+      "glassColor": "yellow",
+      "hasCard": true,
+      "cardOperation": "Из встречи с сегодняшним качеством рождается одно намерение",
+      "environment": "красота, гармония",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 10,
+      "kin": 49,
+      "kinName": "Красная Планетарная Луна",
+      "tone": "T10",
+      "seal": "S09",
+      "glassColor": "red",
+      "hasCard": true,
+      "cardOperation": "Один видимый поступок, в котором сегодняшнее качество проявляется ближе к оси",
+      "environment": "поток, движение",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 11,
+      "kin": 50,
+      "kinName": "Белая Спектральная Собака",
+      "tone": "T11",
+      "seal": "S10",
+      "glassColor": "white",
+      "hasCard": true,
+      "cardOperation": "Перестаю делать привычное «слишком»",
+      "environment": "сердце, верность себе",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 12,
+      "kin": 51,
+      "kinName": "Синяя Кристаллическая Обезьяна",
+      "tone": "T12",
+      "seal": "S11",
+      "glassColor": "blue",
+      "hasCard": true,
+      "cardOperation": "Проверяю новое качество в контакте с другим",
+      "environment": "игра, лёгкость пробы",
+      "environmentStatus": "approved"
+    },
+    {
+      "day": 13,
+      "kin": 52,
+      "kinName": "Жёлтый Космический Человек",
+      "tone": "T13",
+      "seal": "S12",
+      "glassColor": "yellow",
+      "hasCard": false,
+      "cardOperation": "Сборка двенадцати встреч и калейдоскоп",
+      "environment": "свободная воля, выбор",
+      "environmentStatus": "approved"
+    }
+  ],
+  "system": "Калейдоскоп отражений 13 MIRRORS",
+  "arcPrinciple": "Каждый день — новая личная карта; дуга описывает развитие метода, а не работу с одним качеством. Дни 2–4 связаны темой, дни 8–10 держат ритм «интеграция → намерение → воплощение».",
+  "checkMatrix": {
+    "days": 12,
+    "cards": 13,
+    "combinations": 156
+  },
+  "terminologyRule": "В продукте только терминология 13 MIRRORS, без названий чужих моделей."
+}
