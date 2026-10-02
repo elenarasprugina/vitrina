@@ -165,9 +165,9 @@
 
   /* ---------- Кирпичи на спирали ----------
      Разметка — route.zones.desktop и route.zones.mobile (своя у каждой картинки; панель → «Кирпичи на спирали»):
-     { path: [[x, y, w] × 25], center: {x, y, rx, ry}, width: 100 }. x, y — доли картинки, w — ширина плиты поперёк витка
-     (по линии к центру спирали) в долях ширины картинки,
-     width — общая толщина подсветки в %. Точки 0, 2 … 24 — стыки дней, 1, 3 … 23 — середины: день d идёт от точки 2(d−1) до 2d.
+     { path: [[x, y, ox, oy] × 25], center: {x, y, rx, ry}, width: 100 }. x, y — доли картинки; ox, oy — от середины плиты
+     до её внешнего края поперёк витка (доли ширины и высоты картинки: сзади витки сжаты перспективой, по бокам — нет);
+     старый вид [x, y, w] — ширина w по линии к центру. width — общая толщина подсветки в %. Точки 0, 2 … 24 — стыки дней, 1, 3 … 23 — середины: день d идёт от точки 2(d−1) до 2d.
      Путь — от входа (внешний край слева) по часовой стрелке внутрь, посолонь; день 13 — диск в центре. */
   var PATH_DAYS = 12, SPAN = 10, ZID = 0;
   var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -184,17 +184,25 @@
   // Сглаженная линия пути (через все точки) с толщиной; у каждой выборки — номер дня. Координаты — пиксели картинки.
   function trace(z, iw, ih) {
     var k = (z.width == null || z.width === '' ? 100 : +z.width) / 100, n = PATH_DAYS * 2, out = [], i, s, t, a, b, c, d;
-    var P = z.path.slice(0, n + 1).map(function (p) { return [p[0] * iw, p[1] * ih, (p[2] || .02) * iw * k]; });
+    var P = z.path.slice(0, n + 1).map(function (p) {
+      return p.length >= 4 ? [p[0] * iw, p[1] * ih, p[2] * iw * k, p[3] * ih * k] : [p[0] * iw, p[1] * ih, (p[2] || .02) * iw * k, null];
+    });
+    var C = { x: z.center.x * iw, y: z.center.y * ih };
     for (i = 0; i < n; i++) {
       a = P[i - 1] || P[i]; b = P[i]; c = P[i + 1]; d = P[i + 2] || P[i + 1];
       for (s = 0; s < SPAN || (i === n - 1 && s === SPAN); s++) {
         t = s / SPAN;
-        out.push({ x: cr(a[0], b[0], c[0], d[0], t), y: cr(a[1], b[1], c[1], d[1], t), w: b[2] + (c[2] - b[2]) * t, day: Math.min(PATH_DAYS, Math.floor(i / 2) + 1) });
+        var q = { x: cr(a[0], b[0], c[0], d[0], t), y: cr(a[1], b[1], c[1], d[1], t), day: Math.min(PATH_DAYS, Math.floor(i / 2) + 1) };
+        if (b[3] != null && c[3] != null) { q.ox = cr(a[2], b[2], c[2], d[2], t); q.oy = cr(a[3], b[3], c[3], d[3], t); }
+        else {
+          // Старая разметка: поперёк витка — по линии к центру (так полоса не заворачивается на крутых изгибах)
+          var h = (b[2] + (c[2] - b[2]) * t) / 2, l = dist(q, C) || 1;
+          q.ox = (q.x - C.x) / l * h; q.oy = (q.y - C.y) / l * h;
+        }
+        q.w = 2 * Math.sqrt(q.ox * q.ox + q.oy * q.oy);
+        out.push(q);
       }
     }
-    // Поперёк витка — по линии к центру: так полоса не заворачивается на крутых изгибах по краям эллипса
-    var C = { x: z.center.x * iw, y: z.center.y * ih };
-    out.forEach(function (p) { var l = dist(p, C) || 1; p.nx = (p.x - C.x) / l; p.ny = (p.y - C.y) / l; });
     return out;
   }
   // Выборки дня d вместе с первой точкой следующего (чтобы полосы стыковались).
@@ -207,8 +215,7 @@
     if (pts.length < 2) return '';
     var L = [], R = [];
     pts.forEach(function (p) {
-      var h = p.w * f / 2;
-      L.push(r1(p.x + p.nx * h) + ',' + r1(p.y + p.ny * h)); R.unshift(r1(p.x - p.nx * h) + ',' + r1(p.y - p.ny * h));
+      L.push(r1(p.x + p.ox * f) + ',' + r1(p.y + p.oy * f)); R.unshift(r1(p.x - p.ox * f) + ',' + r1(p.y - p.oy * f));
     });
     return 'M' + L.join('L') + 'L' + R.join('L') + 'Z';
   }
