@@ -403,3 +403,7 @@ select.a-input{padding-right:28px}
 .a-jgift-out .a-hint{color:#d8c7a6}
 .a-jgift-out p{margin:0 0 6px}
 @media (max-width:760px){ .a-jgls-row{grid-template-columns:1fr} .a-jgls-pv{position:static;order:-1} }
+/* Финал маршрута: какие блоки на Карте дня 13, музыка и видео */
+.a-jfin-bl{display:flex;flex-direction:column;gap:6px}
+.a-media{display:block;width:100%;max-width:440px;border-radius:10px;background:#111}
+audio.a-media{background:none;height:40px}

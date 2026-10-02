@@ -36,22 +36,67 @@
 .ys-hit:focus-visible{outline:2px solid #ffe39a;outline-offset:2px}
 .ys-stage{cursor:default}
 
-/* ---------- Финал Солнца (заглушка) ---------- */
-.ys-final{position:relative;margin:auto;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px 20px;max-width:440px}
-.ys-final-sun{width:min(260px,62vw);height:auto;filter:drop-shadow(0 0 40px rgba(255,200,80,.6));animation:ys-sun 12s linear infinite}
-@keyframes ys-sun{to{transform:rotate(360deg)}}
-.ys-final-t{margin:6px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4vw,44px);color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
-.ys-final-n{margin:0 0 6px;font-size:16px;line-height:1.5;color:#f3d9a0}
-.ys-layer--final{background:radial-gradient(circle at 50% 45%,rgba(90,58,12,.75),rgba(5,3,1,.92))}
+/* ---------- Финал Солнца: всё светом на холсте поверх спирали; Солнце-калейдоскоп выходит к зрителю ---------- */
+.ys-fin{position:fixed;inset:0;z-index:15;cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:0;transition:opacity .8s ease}
+.ys-fin.is-in{opacity:1}
+.ys-fin.is-out{opacity:0;transition-duration:.6s}
+.ys-fin.is-end{cursor:default}
+.ys-fin-on .ys-hud,.ys-fin-on .ys-me,.ys-fin-on .ys-back{opacity:0;pointer-events:none;transition:opacity .6s}
+.ys-fin-fx{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ys-fin-video{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;opacity:0;transition:opacity .9s ease;pointer-events:none}
+.ys-fin-video.is-on{opacity:1}
+.ys-fin-ui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(18px,4vh,40px);padding:calc(28px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom));text-align:center;pointer-events:none;overflow:hidden}
+.ys-fin-sun{--S:min(44vh,400px,74vw);position:relative;flex:none;width:var(--S);height:var(--S);opacity:0;will-change:transform,opacity}
+.ys-fin-sun.is-from{transform:translate(var(--fx,0px),var(--fy,0px)) scale(.05);filter:blur(10px)}
+.ys-fin-sun.is-on{opacity:1;transform:none;filter:none;transition:transform 2.7s cubic-bezier(.16,.7,.2,1),opacity 1.6s ease,filter 2.2s ease}
+.ys-fin-sun.is-fast{transition:none}
+.ys-fin-kal{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;display:block;box-shadow:0 0 40px 8px rgba(255,205,110,.42),0 0 130px 40px rgba(255,170,60,.18)}
+/* Корона: мягкое сияние и лучи (размыты, медленно поворачиваются) */
+.ys-fin-corona{position:absolute;inset:-46%;border-radius:50%;pointer-events:none;background:radial-gradient(circle,rgba(255,232,180,.5) 0,rgba(255,206,120,.26) 30%,rgba(255,176,70,.09) 46%,rgba(255,170,60,0) 66%)}
+.ys-fin-corona::before,.ys-fin-corona::after{content:"";position:absolute;inset:0;border-radius:50%;
+  -webkit-mask-image:radial-gradient(circle,transparent 30%,#000 35%,rgba(0,0,0,.45) 50%,transparent 68%);mask-image:radial-gradient(circle,transparent 30%,#000 35%,rgba(0,0,0,.45) 50%,transparent 68%);
+  filter:blur(2.5px);animation:ys-rays 180s linear infinite}
+.ys-fin-corona::before{background:repeating-conic-gradient(rgba(255,228,170,.3) 0deg 1.1deg,rgba(255,228,170,0) 1.6deg 6.4deg,rgba(255,228,170,.16) 7deg 8deg,rgba(255,228,170,0) 8.6deg 15deg)}
+.ys-fin-corona::after{background:repeating-conic-gradient(from 4deg,rgba(255,214,150,.18) 0deg .8deg,rgba(255,214,150,0) 1.4deg 11deg);animation-duration:260s;animation-direction:reverse;opacity:.8}
+@keyframes ys-rays{to{transform:rotate(360deg)}}
+.ys-fin-end{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:520px;opacity:0;transform:translateY(8px);transition:opacity 1.6s ease,transform 1.6s ease}
+.ys-fin-end.is-on{opacity:1;transform:none}
+.ys-fin-end.is-fast{transition:none}
+.ys-fin-t{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4.6vw,46px);line-height:1.1;letter-spacing:.03em;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.85),0 0 30px rgba(255,200,90,.25)}
+.ys-fin-n{margin:2px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:clamp(20px,2.8vw,27px);color:#f1d08a;text-shadow:0 2px 16px rgba(0,0,0,.85)}
+.ys-fin-brand{margin:8px 0 0;font-size:12px;letter-spacing:.34em;color:rgba(233,199,126,.75);text-shadow:0 1px 10px rgba(0,0,0,.8)}
+.ys-fin-btns{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;margin-top:16px}
+.ys-fin-btns:empty{display:none}
+.ys-fin-btns > *,.ys-fin-back{opacity:0;pointer-events:none;transition:opacity 1s ease}
+.ys-fin-end.is-btns .ys-fin-btns > *,.ys-fin-end.is-btns .ys-fin-back{opacity:1;pointer-events:auto}
+.ys-fin-end.is-fast .ys-fin-btns > *,.ys-fin-end.is-fast .ys-fin-back{transition:none}
+.ys-fin-review{text-decoration:none;font-size:15px;padding:10px 18px;background:rgba(12,8,4,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.ys-fin-back{margin-top:10px}
+.ys-fin-snd{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:2;font:inherit;font-size:13.5px;color:#f6ead2;padding:7px 13px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.4);border:1px solid rgba(255,214,140,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.ys-fin-snd.is-on{border-color:rgba(255,214,140,.55)}
+.ys-fin-snd:focus-visible,.ys-fin-review:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
+@media (max-width:560px){
+  .ys-fin-ui{justify-content:flex-start;padding-top:calc(64px + env(safe-area-inset-top));gap:clamp(22px,5vh,46px)}
+  .ys-fin-sun{--S:min(68vw,38vh)}
+  .ys-fin-btns .ys-key-go{font-size:19px;padding:10px 22px}
+}
+@media (prefers-reduced-motion:reduce){.ys-fin-corona::before,.ys-fin-corona::after{animation:none}}
+/* Карта дня 13: «С чем вы выходите?» и «Собрать маршрут» */
+.ys-exit{padding-top:12px;border-top:1px solid rgba(255,214,140,.16);gap:6px}
+.ys-exit .ys-c-label{margin-bottom:0}
+.ys-exit-lead{margin:0;font-size:14.5px;line-height:1.45;color:rgba(246,234,210,.78);text-align:center}
+.ys-exit .ys-st{font-size:14.5px;padding:6px 12px 6px 8px}
+.ys-gather{animation:ys-breathe 3.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.ys-gather{animation:none}}
 
 /* ---------- Слой поверх спирали ---------- */
 .ys-layer{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;background:radial-gradient(circle at 50% 50%,rgba(40,24,6,.55),rgba(5,3,1,.82));opacity:0;transition:opacity .35s ease}
 .ys-layer.is-in{opacity:1}
 .ys-layer.is-out{opacity:0}
 /* Карта появляется из центра спирали: --ys-ox / --ys-oy — где центр относительно середины экрана */
-.ys-layer .ys-card,.ys-layer .ys-final{transform:translate(var(--ys-ox,0px),var(--ys-oy,0px)) scale(.18);opacity:0;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
-.ys-layer.is-in .ys-card,.ys-layer.is-in .ys-final{transform:none;opacity:1}
-.ys-layer.is-out .ys-card,.ys-layer.is-out .ys-final{transform:scale(.9);opacity:0;transition-duration:.3s}
+.ys-layer .ys-card{transform:translate(var(--ys-ox,0px),var(--ys-oy,0px)) scale(.18);opacity:0;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
+.ys-layer.is-in .ys-card{transform:none;opacity:1}
+.ys-layer.is-out .ys-card{transform:scale(.9);opacity:0;transition-duration:.3s}
 
 /* ---------- Карта дня и личная карта ---------- */
 .ys-card{position:relative;width:min(460px,100%);margin:auto;color:#f6ead2;border-radius:22px;background:linear-gradient(170deg,rgba(46,30,10,.94),rgba(16,10,4,.96) 60%);box-shadow:0 0 0 1px rgba(255,214,140,.32),0 0 60px rgba(255,190,70,.22),0 30px 80px rgba(0,0,0,.6);overflow:hidden}
@@ -123,9 +168,9 @@
   .ys-c-perm{width:min(240px,64%)}
 }
 @media (prefers-reduced-motion:reduce){
-  .ys-go,.ys-spiral,.ys-tap,.ys-final-sun{animation:none}
+  .ys-go,.ys-spiral,.ys-tap{animation:none}
   .ys-l-today{animation:none;opacity:.85}
-  .ys-layer .ys-card,.ys-layer .ys-final{transition:opacity .2s}
+  .ys-layer .ys-card{transition:opacity .2s}
 }
 
 /* ---------- «Мой код» (справа сверху) ---------- */

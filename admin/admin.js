@@ -572,6 +572,40 @@
     draw();
     return box;
   }
+  // Музыка или видео: файл (хранится в черновике, при публикации становится файлом media/…) или ссылка на файл.
+  // o.kind — 'audio' | 'video', o.maxMB — предел размера файла
+  function mediaIn(obj, key, label, o) {
+    o = o || {};
+    var box = el('div', { class: 'a-field' });
+    function draw() {
+      var v = obj[key] || '', isData = /^data:/.test(v), file = el('input', { type: 'file', accept: o.kind + '/*', style: 'display:none' });
+      file.addEventListener('change', function () {
+        var f = file.files && file.files[0]; if (!f) return;
+        if (f.size > (o.maxMB || 8) * 1048576) { toast('Файл ' + (f.size / 1048576).toFixed(1).replace('.', ',') + ' МБ — это много для страницы. Нужно до ' + (o.maxMB || 8) + ' МБ: сожмите или укоротите его.', true); return; }
+        var rd = new FileReader();
+        rd.onload = function () { obj[key] = rd.result; obj[key + 'Name'] = f.name; changed(); draw(); };
+        rd.onerror = function () { toast('Не получилось прочитать файл.', true); };
+        rd.readAsDataURL(f);
+      });
+      var url = el('input', { class: 'a-input', type: 'text', placeholder: 'https://… — или загрузите файл' });
+      url.value = isData ? '' : v;
+      url.addEventListener('input', function () { obj[key] = url.value.trim(); obj[key + 'Name'] = ''; changed(); });
+      var src = isData || /^https?:/.test(v) ? v : v ? '../' + v : '';
+      var play = src ? el(o.kind, { class: 'a-media', src: src, controls: true, preload: 'metadata' }) : null;
+      if (play && o.kind === 'video') { play.muted = true; play.playsInline = true; }
+      box.replaceChildren();
+      add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
+        isData ? el('p', { class: 'a-hint', text: 'Загружен файл' + (obj[key + 'Name'] ? ' «' + obj[key + 'Name'] + '»' : '') + ' · ' + (v.length * .75 / 1048576).toFixed(1).replace('.', ',') + ' МБ' }) : url,
+        play,
+        el('div', { class: 'a-img' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить файл' : 'Загрузить файл', onclick: function () { file.click(); } }),
+          v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать', onclick: function () { obj[key] = ''; obj[key + 'Name'] = ''; changed(); draw(); } }) : null,
+          file]),
+        o.hint ? el('span', { class: 'a-hint', text: o.hint }) : null]);
+    }
+    draw();
+    return box;
+  }
   // Действие кнопки. o.kinds — какие типы можно выбрать (по умолчанию «написать» и «ссылка»).
   var ACTION_KINDS = [
     ['contact', 'Написать — окно «Telegram или VK»', 'Написать'], ['link', 'Открыть страницу (ссылку)', 'Подробнее'],
@@ -2268,7 +2302,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['wheel', 'Лицо карты — колесо'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
@@ -2286,7 +2320,7 @@
     var D = r.deck = r.deck || {}; D.cards = D.cards || []; D.zones = D.zones || {}; D.sides = D.sides || {}; D.wayBack = D.wayBack || {};
     D.cards.forEach(function (k) { k.less = k.less || {}; k.more = k.more || {}; });
     r.states = r.states || {}; r.states.items = r.states.items || []; r.kaleido = r.kaleido || {};
-    var G = r.glass = r.glass || {}; G.gifts = G.gifts || {};
+    var G = r.glass = r.glass || {}; G.gifts = G.gifts || {}; r.final = r.final || {};
     if (window.M13R) { var GD = window.M13R.GLASS_DEF; if (!G.states) G.states = clone(GD.states); if (!G.days) G.days = clone(GD.days);
       window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.gifts[z]) G.gifts[z] = clone(GD.gifts[z]); }); }
     for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
@@ -2354,7 +2388,7 @@
     function run() {
       if (!window.M13R) { box.textContent = 'Предпросмотр не загрузился — обновите страницу.'; return; }
       box.replaceChildren(window.M13R.card(r, st.day, mode(), kind, r.deck.cards[st.perm] || r.deck.cards[0], { base: '../', onSpiral: function () {
-        toast(kind === 'personal' ? 'Кнопка-спираль: назад на спираль.' : mode() === 'observation' ? 'Кнопка-спираль: у Наблюдения — назад на спираль.' : st.day === r.days.length ? 'Кнопка-спираль: финал Солнца (появится позже).' : 'Кнопка-спираль: дальше — выбор карты из колоды.');
+        toast(kind === 'personal' ? 'Кнопка-спираль: назад на спираль.' : mode() === 'observation' ? 'Кнопка-спираль: у Наблюдения — назад на спираль.' : st.day === r.days.length ? '«Собрать маршрут»: дальше финал на спирали — вкладка «Финал» → «Посмотреть финал».' : 'Кнопка-спираль: дальше — выбор карты из колоды.');
       } }));
     }
     function sel(opts, key) {
@@ -2391,16 +2425,17 @@
     }));
     dialog({ title: 'День ' + n + ' со всеми картами', body: body });
   }
-  function openJourneyPage(r, phone) {
+  // extra — что открыть сразу: { mode, q: '&sim=13&card=final' }
+  function openJourneyPage(r, phone, extra) {
     var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' };
-    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../' + r.path + '?preview=1&debug=1&mode=' + st.mode });
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../' + r.path + '?preview=1&debug=1&mode=' + (extra ? extra.mode : st.mode) + (extra ? extra.q : '') });
     if (phone) fr.style.width = '375px';
     function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../' }, location.origin); } catch (e) {} }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady) send(); }
     window.addEventListener('message', onMsg);
     var bar = el('div', { class: 'a-pbar' }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
-      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openJourneyPage(r, !phone); } })]);
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openJourneyPage(r, !phone, extra); } })]);
     pv.classList.toggle('is-phone', phone);
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
@@ -2551,7 +2586,7 @@
         el('div', { class: 'a-row' }, [textIn(tx, 'today', 'В дни маршрута — строка', { ph: 'Сегодня — день {день}' }), textIn(tx, 'tap', 'Подсказка под ней', { ph: 'Коснитесь светящегося камня',
           hint: 'Видна, пока сегодняшний камень не нажат.' })]),
         el('div', { class: 'a-row' }, [textIn(tx, 'past', 'Нажали на прошедший день', { ph: 'День {день} пройден' }), textIn(tx, 'future', 'Нажали на будущий день', { ph: 'День {день} откроется {дата}' })]),
-        el('div', { class: 'a-row' }, [textIn(tx, 'final', 'Финал Солнца — заголовок (пока заглушка)', { ph: 'Финал Солнца' }), textIn(tx, 'finalNote', 'Финал Солнца — строка ниже', { ph: 'Здесь скоро откроется финал маршрута.' })]),
+        textIn(tx, 'tapLast', 'Подсказка в день 13', { ph: 'Коснитесь центра спирали', hint: 'В последний день вместо «Коснитесь светящегося камня». Надписи финала — вкладка «Финал».' }),
         textIn(tx, 'openDay', 'Кнопка Карты дня (запасная)', { ph: 'Карта дня', hint: 'Появляется вместо камней, только если у картинки спирали нет разметки кирпичей.' }),
         el('p', { class: 'a-hint', text: jTokensHint(r, false) })
       ], { open: false }),
@@ -2750,6 +2785,66 @@
         el('div', { class: 'a-row' }, [textIn(r.texts, 'giftHave', 'Такое уже есть', { ph: 'Это стёклышко уже в вашем узоре.' }), textIn(r.texts, 'giftNeed', 'Открыли ссылку без кода', { ph: 'Чтобы положить подарок в узор, сначала войдите своим кодом.' })])
       ], { open: false })
     ]);
+  }
+  // Финал Солнца (день 13): урезанная Карта дня 13 и «С чем вы выходите?», надписи финала, отзыв, музыка, видео, картинка «Сохранить моё Солнце».
+  function jFinal(r) {
+    var F = r.final, tx = r.texts, last = r.days.length, M = window.M13R, st = ST.jfin = ST.jfin || { mode: 'journey' };
+    function look(mode, phone, q) { openJourneyPage(r, phone, { mode: mode, q: q }); }
+    // Какие блоки Карты дня видны на Карте дня 13 (не задано — строки, заголовок и вопрос)
+    var blocks = el('div', { class: 'a-jfin-bl' }, r.dayCard.blocks.map(function (b) {
+      var on = F.blocks && F.blocks[b.id] != null ? F.blocks[b.id] !== false : (b.kind === 'small' || b.kind === 'title' || b.kind === 'question');
+      var cb = el('input', { type: 'checkbox', checked: on });
+      cb.addEventListener('change', function () { F.blocks = F.blocks || {}; F.blocks[b.id] = cb.checked; changed(); });
+      return el('label', { class: 'a-jwho-i' }, [cb, el('span', { text: jBlockTitle(b) + (b.visible === false ? ' — блок скрыт во вкладке «Карта дня»' : '') })]);
+    }));
+    var pv = el('div', { class: 'ys-pv' });
+    LIVE.push({ node: pv, run: function () {
+      if (!M) return;
+      pv.replaceChildren(M.card(r, last, st.mode, 'day', null, { base: '../', exit: [], onGather: function () { toast('«Собрать маршрут» — дальше финал на спирали. Посмотреть его целиком — кнопки «Посмотреть финал» вверху вкладки.'); } }));
+    } });
+    setTimeout(liveSoon, 0);
+    var ms = el('select', { class: 'a-input' }, J_MODES.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
+    ms.value = st.mode; ms.addEventListener('change', function () { st.mode = ms.value; liveSoon(); });
+    return [
+      el('p', { class: 'a-hint', text: 'День 13: нажатие на центр → урезанная Карта дня 13 (у Путешествия и Погружения — «С чем вы выходите?», можно не выбирать) → «Собрать маршрут» → на спирали темнеет, камни загораются по очереди, из каждого выходит сгусток света его стёклышка и плывёт по камням в центр (состояния входа — из начала пути, подарки — со своим днём, состояния выхода — с последнего витка) → центр закручивается, свет уходит столбом вверх → к зрителю выходит Солнце с узором из этих стёклышек → надписи и кнопки. Около 18 секунд, нажатие — сразу к концу. После 17 октября страница открывается сразу на последнем кадре; нажатие на центр — финал ещё раз.' }),
+      el('div', { class: 'a-tabs' }, [
+        el('button', { type: 'button', text: 'Посмотреть финал · Путешествие', onclick: function () { look('journey', false, '&sim=13&card=final'); } }),
+        el('button', { type: 'button', text: '· Наблюдение', onclick: function () { look('observation', false, '&sim=13&card=final'); } }),
+        el('button', { type: 'button', text: '📱 Финал на телефоне', onclick: function () { look('journey', true, '&sim=13&card=final'); } }),
+        el('button', { type: 'button', text: 'Последний кадр', onclick: function () { look('journey', false, '&sim=14&card=finalnow&instant=1'); } })]),
+      el('p', { class: 'a-hint', text: 'В предпросмотре у Путешествия — пробный код со случайными состояниями (каждый раз новый узор). Внизу справа — «Проверка»: «Карта дня 13», «Финал сразу», «Последний кадр».' }),
+      block('Карта дня 13', [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+          el('p', { class: 'a-hint', text: 'Урезанная Карта дня 13: что из блоков Карты дня на ней видно. Тексты — у дня 13 во вкладке «13 дней». Внизу — кнопка «Собрать маршрут».' }),
+          blocks,
+          switchIn(F, 'exitOn', '«С чем вы выходите?» — у Путешествия и Погружения', { defTrue: true, onChange: liveSoon, hint: 'Те же 12 стёклышек-состояний, что на входе; до трёх, можно не выбирать. Ложатся в Солнце. Хранятся только на устройстве человека — в код не попадают, вам не видны.' }),
+          textIn(tx, 'exitTitle', 'Заголовок выбора', { ph: 'С чем вы выходите?' }),
+          textIn(tx, 'exitLead', 'Текст под заголовком', { multi: true, rows: 2, ph: 'Выберите до трёх стёклышек — они тоже лягут в ваше Солнце. Можно не выбирать.' }),
+          textIn(tx, 'gather', 'Кнопка', { ph: 'Собрать маршрут' })]),
+        el('div', { class: 'a-jpv' }, [field('Формат', ms), pv])])]),
+      block('Финал — надписи и кнопки', [
+        el('div', { class: 'a-row' }, [textIn(tx, 'finTitle', 'Крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'finNote', 'Строка ниже', { ph: 'Увидимся за поворотом…', hint: 'Пробел — без строки.' })]),
+        textIn(tx, 'finBrand', 'Подпись мелко', { ph: '13 MIRRORS' }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'finSave', 'Кнопка «Сохранить»', { ph: 'Сохранить моё Солнце', hint: 'Только у Путешествия и Погружения.' }), textIn(tx, 'finReview', 'Кнопка отзыва', { ph: 'Оставить отзыв' })]),
+        textIn(F, 'review', 'Куда ведёт «Оставить отзыв» — одна ссылка на всех', { ph: 'https://…', hint: 'Например, форма или чат в Telegram. Пусто — кнопки нет. «Оставить след» в финале нет.' }),
+        el('p', { class: 'a-hint', text: 'Под кнопками — кнопка-спираль: назад на спираль (она уже золотая, с Солнцем в центре).' })
+      ], { open: false }),
+      block('Музыка', [
+        el('p', { class: 'a-hint', text: 'Только ваша музыка — с правом использования (или свой фрагмент 15–30 секунд). Без файла финал идёт в тишине. Музыка начинается с нажатия «Собрать маршрут»; справа сверху — кнопка «Выключить звук» (браузер запомнит выбор). Лучше MP3 до 2–3 МБ.' }),
+        switchIn(F, 'sound', 'Музыка в финале', { defTrue: true }),
+        mediaIn(F, 'music', 'Файл музыки', { kind: 'audio', maxMB: 6 }),
+        rangeIn(F, 'volume', 'Громкость', { min: 10, max: 100, step: 5, def: 70, unit: ' %', hint: 'На iPhone громкость задаёт сам телефон.' }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'soundOff', 'Кнопка, пока играет', { ph: 'Выключить звук' }), textIn(tx, 'soundOn', 'Кнопка, когда тихо', { ph: 'Включить звук' })])
+      ], { open: false }),
+      block('Видео вместо столба света (необязательно)', [
+        el('p', { class: 'a-hint', text: 'Если есть видео из генератора по вашей картинке спирали — оно встанет вместо столба света: когда огни соберутся в центре, видео плавно проявится поверх спирали, потом выйдет Солнце. Камера должна стоять неподвижно, первый кадр — как картинка спирали; 6–8 секунд; без звука. Два файла: для компьютера 16:9 и для телефона 9:16 (по своей картинке). Нет видео (или не успело загрузиться) — столб света рисуется сам.' }),
+        el('p', { class: 'a-hint', text: 'Подсказка для генератора: «Static camera, no camera movement. The central stone disk of the spiral slowly begins to glow from within, light swirls on it like a gentle vortex, then a soft natural column of warm golden light rises from the center straight up into the sky, with floating dust particles and a faint prismatic rainbow at its edges. Photorealistic, cinematic, keep everything else unchanged.»' }),
+        el('div', { class: 'a-row' }, [mediaIn(F, 'videoDesktop', 'Для компьютера — 16:9', { kind: 'video', maxMB: 12 }), mediaIn(F, 'videoMobile', 'Для телефона — 9:16', { kind: 'video', maxMB: 12 })])
+      ], { open: false }),
+      block('Картинка «Сохранить моё Солнце»', [
+        el('p', { class: 'a-hint', text: 'Картинка 1080 × 1350: Солнце с личным узором, «Маршрут пройден», формат и даты. Кода на ней нет. На телефоне — через «Поделиться» → «Сохранить изображение».' }),
+        switchIn(F, 'saveCards', 'Карты 12 дней на картинке', { defTrue: true, hint: 'Под Солнцем — качества карт, выпавших человеку по дням (из его колоды). Картинка остаётся у него — вам она не приходит.' })
+      ], { open: false })
+    ];
   }
   // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Всё тянется мышкой или пальцем.
   // Жёлтые кружки — середины дней, белые — стыки между днями, оранжевые квадратики — внешний край камня (ширина полосы),
@@ -2967,6 +3062,7 @@
     else if (t === 'deck' || t === 'perms') body = jDeck(r);
     else if (t === 'states') body = jStates(r);
     else if (t === 'glass') body = jGlass(r);
+    else if (t === 'final') body = jFinal(r);
     else if (t === 'codes') body = jCodes(r);
     else body = jMain(r);
     return [head, pick, look, tabs].concat(body);
@@ -4289,6 +4385,10 @@
       if (!r.zones && o && o.zones) r.zones = clone(o.zones);
       // Вид стёклышек (шаг 2, с 02.10): в черновике его нет — берём с сайта
       if (!r.glass && o && o.glass) r.glass = clone(o.glass);
+      // Финал Солнца (шаг 3, с 02.10): надписи заглушки больше не нужны; настройки финала — с сайта, если в черновике их нет
+      if (r.texts && r.texts.final === 'Финал Солнца') delete r.texts.final;
+      if (r.texts && r.texts.finalNote === 'Здесь скоро откроется финал маршрута.') delete r.texts.finalNote;
+      if (!r.final && o && o.final) r.final = clone(o.final);
       // Колода-колесо, состояния и калейдоскоп (с 02.10): в черновике их нет — берём с сайта; старые карты «Мне можно…» убираем
       if (o && !r.deck && o.deck) {
         r.deck = clone(o.deck);
@@ -4671,15 +4771,16 @@
       if (!o || typeof o !== 'object') return;
       Object.keys(o).forEach(function (k) {
         var v = o[k];
-        if (typeof v === 'string' && /^data:image\//.test(v)) { if (!found[v]) { found[v] = true; list.push(v); } }
+        if (typeof v === 'string' && /^data:(image|audio|video)\//.test(v)) { if (!found[v]) { found[v] = true; list.push(v); } }
         else walk(v);
       });
     })(P);
     var map = {}, media = {};
     return Promise.all(list.map(function (uri) {
-      var m = /^data:image\/([a-z+]+);base64,(.*)$/i.exec(uri);
+      var m = /^data:(?:image|audio|video)\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.*)$/i.exec(uri);
       if (!m) return null;
-      var ext = { jpeg: 'jpg', 'svg+xml': 'svg' }[m[1].toLowerCase()] || m[1].toLowerCase();
+      // Музыка и видео финала маршрута — тоже файлами
+      var ext = { jpeg: 'jpg', 'svg+xml': 'svg', mpeg: 'mp3', 'x-m4a': 'm4a', mp4: 'mp4', quicktime: 'mov', 'x-wav': 'wav', wave: 'wav', aac: 'aac', ogg: 'ogg', webm: 'webm' }[m[1].toLowerCase()] || m[1].toLowerCase().replace(/[^a-z0-9]/g, '');
       var bin = atob(m[2]), bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       return sha1(bytes).then(function (h) {
