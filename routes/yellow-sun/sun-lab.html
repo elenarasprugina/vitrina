@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>13 MIRRORS · Солнце · пробы</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a0604">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+<!-- Пробная страница Солнца финала: три стиля на выбор (кружево света, золотая филигрань, витраж-роза).
+     Участникам не показывается (ссылок на неё нет). Цвета — настоящие стёклышки маршрута из data/journeys.json. -->
+<style>
+  :root { --bg: #0a0604; --gold: #e9c77e; --gold2: #f6dfa6; --ink: #f3e7cf; --muted: #b9a582; --line: rgba(233,199,126,.28); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 17px/1.5 "Cormorant Garamond", Georgia, serif; min-height: 100vh; transition: background .8s;
+    background: radial-gradient(120% 70% at 50% 0%, #241505 0%, #0a0604 60%) fixed; }
+  body.is-warm { background: radial-gradient(90% 70% at 50% 40%, #6b4416 0%, #3a220a 45%, #160c03 100%) fixed; }
+  body.is-paper { background: #f4f1ea; color: #2b2116; }
+  .lab { max-width: 1320px; margin: 0 auto; padding: 22px 16px 48px; overflow-x: hidden; }
+  .lab-back { color: var(--muted); text-decoration: none; font-size: 16px; }
+  .lab-back:hover { color: var(--gold2); }
+  h1 { font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); font-size: 22px; margin: 14px 0 6px; text-align: center; }
+  .lab-lead { text-align: center; color: var(--muted); margin: 0 auto 18px; max-width: 680px; font-style: italic; }
+  .is-paper h1, .is-paper .lab-k figcaption b { color: #6b4a14; }
+  .is-paper .lab-lead, .is-paper .lab-k figcaption span, .is-paper .lab-note, .is-paper .lab-back { color: #7a6a52; }
+  .lab-tabs { display: flex; gap: 6px; justify-content: center; margin: 0 0 14px; flex-wrap: wrap; }
+  .lab-tabs button { font: inherit; font-size: 16px; color: var(--ink); background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  .lab-tabs button.is-on { background: rgba(233,199,126,.18); border-color: var(--gold); color: var(--gold2); }
+  .is-paper .lab-tabs button { color: #4a3a24; }
+  .lab-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
+  .lab-k { display: none; margin: 0; text-align: center; }
+  .lab-k.is-on { display: block; }
+  .lab-stage { position: relative; width: min(100%, 440px); margin: 6% auto; aspect-ratio: 1; }
+  .lab-stage canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block; }
+  .lab-halo { position: absolute; z-index: 0; inset: -16%; border-radius: 50%; pointer-events: none; transition: opacity .8s;
+    background: radial-gradient(circle, rgba(255,214,140,.30) 0%, rgba(255,190,100,.14) 42%, rgba(255,170,60,0) 70%); }
+  .is-paper .lab-halo { opacity: 0; }
+  .lab-k figcaption { margin-top: 4px; }
+  .lab-k figcaption b { display: block; font-weight: 600; color: var(--gold2); font-size: 20px; letter-spacing: .04em; }
+  .lab-k figcaption span { color: var(--muted); font-size: 16px; }
+  .lab-ctl { margin: 26px auto 0; max-width: 760px; border-top: 1px solid var(--line); padding-top: 18px; text-align: center; }
+  .lab-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
+  .lab-row button { font: inherit; font-size: 17px; color: #1a1004; background: linear-gradient(#f6dfa6, #d9a94f); border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer; }
+  .lab-row button.lab-ghost { color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid var(--line); }
+  .is-paper .lab-row button.lab-ghost { color: #4a3a24; border-color: #cdbb98; }
+  .lab-row button.is-on { background: rgba(233,199,126,.25); border-color: var(--gold); color: var(--gold2); }
+  .is-paper .lab-row button.is-on { color: #6b4a14; }
+  .lab-who { color: var(--muted); font-size: 16px; }
+  .lab-who i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 3px -1px; box-shadow: 0 0 6px rgba(255,255,255,.25); }
+  [hidden] { display: none !important; }
+  .lab-note { color: var(--muted); font-size: 15px; font-style: italic; margin-top: 18px; }
+  @media (min-width: 980px) {
+    .lab-tabs { display: none; }
+    .lab-grid { grid-template-columns: repeat(3, 1fr); gap: 28px; }
+    .lab-k { display: block; }
+  }
+</style>
+</head>
+<body>
+<main class="lab">
+  <a class="lab-back" href="./">← К маршруту</a>
+  <h1>Солнце · пробы</h1>
+  <p class="lab-lead">Три вида Солнца в финале. У всех — 12 делений (по дню на каждое, цветом стёклышка дня), в центре — стёклышки самого человека. Тонкие линии, полупрозрачный фон, цвет только подкрашивает — «можно раскрасить так, а можно по-своему».</p>
+  <div class="lab-tabs" role="tablist">
+    <button type="button" data-k="0" class="is-on">А · Кружево света</button>
+    <button type="button" data-k="1">Б · Золотая филигрань</button>
+    <button type="button" data-k="2">В · Витраж-роза</button>
+  </div>
+  <div class="lab-grid">
+    <figure class="lab-k is-on" data-style="lace"><div class="lab-stage"><div class="lab-halo"></div><canvas></canvas></div>
+      <figcaption><b>А · Кружево света</b><span>Тончайшие нити света по темноте, эльфийские завитки, камушки в узлах</span></figcaption></figure>
+    <figure class="lab-k" data-style="filigree"><div class="lab-stage"><div class="lab-halo"></div><canvas></canvas></div>
+      <figcaption><b>Б · Золотая филигрань</b><span>Тонкая золотая вязь, как ювелирное украшение, самоцветы в гнёздах</span></figcaption></figure>
+    <figure class="lab-k" data-style="vitrail"><div class="lab-stage"><div class="lab-halo"></div><canvas></canvas></div>
+      <figcaption><b>В · Витраж-роза</b><span>Окно-роза из 12 больших стёкол на просвет, тонкие золотые прожилки</span></figcaption></figure>
+  </div>
+  <section class="lab-ctl">
+    <div class="lab-who" id="who">В центре: —</div>
+    <div class="lab-row">
+      <button type="button" id="again">Раскрыть заново</button>
+      <button type="button" class="lab-ghost" id="other">Другой узор</button>
+    </div>
+    <div class="lab-row">
+      <button type="button" class="lab-ghost is-on" data-bg="dark">Темно</button>
+      <button type="button" class="lab-ghost" data-bg="warm">Тёплый свет (конец финала)</button>
+      <button type="button" class="lab-ghost" data-bg="paper">Как PDF для раскрашивания</button>
+    </div>
+    <div class="lab-row" id="hintRow" hidden>
+      <button type="button" class="lab-ghost is-on" id="hint">Подсказка цвета в раскраске: есть</button>
+    </div>
+    <p class="lab-note">Узор у каждого человека свой (по коду), «Другой узор» показывает, как Солнце выйдет у другого участника. Движение спокойное: раскрывается от центра, очень медленно поворачивается, по одному месту за раз тихо проходит свет.</p>
+  </section>
+</main>
+<script src="../../assets/kaleido.js?v=20261005a"></script>
+<script src="../../assets/route.js?v=20261005a"></script>
+<script>
+(function () {
+  'use strict';
+  var TAU = Math.PI * 2, N = 12, W = TAU / N;
+  var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function rng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6d2b79f5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
+  function rgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + a + ')'; }
+  function mix(a, b, k) { return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]; }
+  var WHITE = [255, 248, 230], GOLD = [233, 190, 110], GOLD_HI = [255, 236, 190], INK = [40, 28, 16];
+
+  /* ---------- Геометрия узора (единица — радиус; ось сектора — вдоль x; сектор зеркален по оси) ---------- */
+  function P(r, a) { return [r * Math.cos(a), r * Math.sin(a)]; }
+  function cub(p0, p1, p2, p3, n) {
+    var o = [], i, t, u;
+    for (i = 0; i <= n; i++) { t = i / n; u = 1 - t; o.push([u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]); }
+    return o;
+  }
+  function flip(pts) { return pts.map(function (p) { return [p[0], -p[1]]; }); }
+  // Замкнутая фигура из верхней половины (от основания к кончику на оси) и её зеркала
+  function closed(up) { return up.concat(flip(up).reverse().slice(1)); }
+  // Лепесток: основание r0, кончик r1, полуширина hw (радианы), b — пузатость, ogee — кончик с перегибом
+  function petal(r0, r1, hw, b, ogee) {
+    var L = r1 - r0, up;
+    if (ogee) up = cub(P(r0, 0), P(r0 + L * .12, hw * 1.05 * b), P(r0 + L * .55, hw * 1.1), P(r0 + L * .72, hw * .45), 14)
+      .concat(cub(P(r0 + L * .72, hw * .45), P(r0 + L * .82, hw * .12), P(r0 + L * .9, hw * .1), P(r1, 0), 10).slice(1));
+    else up = cub(P(r0, 0), P(r0 + L * .2, hw * 1.15 * b), P(r0 + L * .7, hw * .95), P(r1, 0), 22);
+    return closed(up);
+  }
+  // Двулистник-сердечко: две доли и выемка на оси
+  function heart(r0, r1, hw) {
+    var L = r1 - r0;
+    return closed(cub(P(r0, 0), P(r0 + L * .3, hw * 1.25), P(r1 + L * .08, hw * 1.05), P(r1 - L * .18, 0), 24));
+  }
+  // Завиток: от точки a кривой к началу спирали (центр c, радиус rs, угол входа a0, направление dir, витков turns)
+  function curl(a, c, rs, a0, dir, turns, ctrl) {
+    var s = [c[0] + rs * Math.cos(a0), c[1] + rs * Math.sin(a0)], tg = [-Math.sin(a0) * dir, Math.cos(a0) * dir];
+    var k = ctrl || .5, d = Math.sqrt(Math.pow(s[0] - a[0], 2) + Math.pow(s[1] - a[1], 2));
+    var pts = cub(a, [a[0] + (s[0] - a[0]) * .35 + (c[0] - s[0]) * .3, a[1] + (s[1] - a[1]) * .35 + (c[1] - s[1]) * .3], [s[0] - tg[0] * d * k, s[1] - tg[1] * d * k], s, 18), i, t, ang, rr;
+    var n = Math.round(28 * turns);
+    for (i = 1; i <= n; i++) { t = i / n; ang = a0 + dir * turns * TAU * t; rr = rs * (1 - .78 * t); pts.push([c[0] + rr * Math.cos(ang), c[1] + rr * Math.sin(ang)]); }
+    return pts;
+  }
+  function circle(r, n) { var o = [], i; n = n || 160; for (i = 0; i <= n; i++) o.push(P(r, i / n * TAU)); return o; }
+  function circleAt(c, r, n) { var o = [], i; n = n || 24; for (i = 0; i <= n; i++) o.push([c[0] + r * Math.cos(i / n * TAU), c[1] + r * Math.sin(i / n * TAU)]); return o; }
+
+  // Узор: { sec: фигуры одного сектора [{ pts, fill: 'day'|'center'|null, ring, w }], all: фигуры на весь круг, gems: [{ x, y, s, c, k }], glints: места бликов }
+  function build(seed, style) {
+    var R = rng(seed ^ 0x2f6a91c3), sec = [], all = [], i;
+    function add(pts, fill, ring, w, ink) { sec.push({ pts: pts, fill: fill || null, ring: ring, w: w || 1, ink: ink }); }
+    function both(pts, fill, ring, w) { add(pts, fill, ring, w); add(flip(pts), fill, ring, w); }
+    var vA = Math.floor(R() * 3), vB = Math.floor(R() * 3), vC = Math.floor(R() * 3), vE = Math.floor(R() * 2);
+    var bul = .85 + R() * .3, curlT = 1.1 + R() * .5;
+    if (style === 'vitrail') { vB = vB === 2 ? 0 : vB; }
+
+    // Центр: розетка из 12 маленьких лепестков, два тонких кольца
+    add(petal(.035, .15, W * .36, 1), 'center', .1, .8);
+    all.push({ pts: circle(.17), ring: .17, w: .9 }); all.push({ pts: circle(.185), ring: .185, w: .6 });
+
+    // Кольцо А (.19….42): внутренние лепестки
+    if (vA === 0) { add(petal(.2, .42, W * .3, bul, true), 'day', .3); add(petal(.25, .36, W * .15, 1, true), null, .3, .6); add([P(.23, 0), P(.33, 0)], null, .3, .5); }
+    else if (vA === 1) { add(heart(.2, .41, W * .42), 'day', .3); add(circleAt(P(.29, 0), .018), null, .3, .6); add([P(.22, 0), P(.27, 0)], null, .3, .5); }
+    else { add(petal(.2, .41, W * .32, bul), 'day', .3); add(petal(.24, .39, W * .2, bul), null, .3, .6); add(petal(.28, .37, W * .12, 1), 'day', .3, .5); }
+    // между лепестками — капля
+    add(petal(.33, .44, W * .1, 1).map(function (p) { var a = Math.atan2(p[1], p[0]) + W / 2, r = Math.sqrt(p[0] * p[0] + p[1] * p[1]); return P(r, a); }), null, .4, .6);
+    all.push({ pts: circle(.445), ring: .445, w: .7 });
+
+    // Кольцо Б (.45….74): главное — эльфийский мотив
+    if (vB === 0) {
+      // Лист-пламя на оси и два завитка из его основания
+      add(petal(.47, .74, W * .2, bul, true), 'day', .6); add([P(.5, 0), P(.68, 0)], null, .6, .5);
+      both(curl(P(.48, W * .07), P(.6, W * .33), .045, -Math.PI * .1, 1, curlT, .55), null, .6, .9);
+      both(petal(.0, .06, .5, 1).map(function (p) { var b = P(.545, W * .2), a = .9; return [b[0] + p[0] * Math.cos(a) - p[1] * Math.sin(a), b[1] + p[0] * Math.sin(a) + p[1] * Math.cos(a)]; }), 'day', .55, .6);
+    } else if (vB === 1) {
+      // Стрельчатая арка через сектор, внутри — пара завитков с вершины
+      var arch = cub(P(.455, W * .49), P(.6, W * .5), P(.7, W * .22), P(.745, 0), 24);
+      add(closed(cub(P(.455, 0), P(.455, W * .25), P(.455, W * .45), P(.455, W * .49), 6).concat(arch.slice(1))), 'day', .6);
+      both(curl(P(.72, 0), P(.6, W * .2), .04, Math.PI * .55, -1, curlT, .5), null, .6, .8);
+      add(petal(.47, .6, W * .14, 1), null, .53, .6);
+    } else {
+      // Лира: две плавные ветви от основания, наружу и снова внутрь, кончики закручены
+      both(cub(P(.46, 0), P(.52, W * .55), P(.66, W * .5), P(.7, W * .14), 30).concat(curl(P(.7, W * .14), P(.735, W * .2), .028, Math.PI, -1, curlT * .9, .4).slice(1)), null, .6, .9);
+      add(petal(.5, .7, W * .12, 1, true), 'day', .6);
+      both(petal(0, .05, .5, 1).map(function (p) { var b = P(.6, W * .36), a = 1.6; return [b[0] + p[0] * Math.cos(a) - p[1] * Math.sin(a), b[1] + p[0] * Math.sin(a) + p[1] * Math.cos(a)]; }), 'day', .6, .6);
+    }
+
+    // Сквозная вязь: из основания каждого листа — длинная плавная дуга к венцу соседнего дня; дуги перекрещиваются стрельчатыми арками
+    var ie = .74 + R() * .02;
+    both(cub(P(.465, 0), P(.56, W * .04), P(.66, W * (.85 + R() * .2)), P(ie, W), 34), null, .62, .75);
+    if (R() < .6) both(cub(P(.2, 0), P(.27, W * .05), P(.36, W * .8), P(.43, W), 24), null, .32, .6);
+
+    // Кольцо В (.76….93): венец, в нём — стёклышко дня
+    if (vC === 0) { add(closed(cub(P(.76, W * .5), P(.84, W * .48), P(.9, W * .3), P(.92, 0), 24)), 'day', .85); add(closed(cub(P(.79, W * .3), P(.84, W * .28), P(.885, W * .16), P(.895, 0), 16)), null, .85, .6); }
+    else if (vC === 1) { add(petal(.765, .935, W * .3, bul, true), 'day', .85); both(curl(P(.77, W * .3), P(.86, W * .45), .025, -Math.PI * .5, 1, curlT * .8, .5), null, .85, .7); }
+    else { add(heart(.765, .93, W * .36), 'day', .85); both(petal(.78, .87, W * .1, 1).map(function (p) { var a = Math.atan2(p[1], p[0]) + W * .5, r = Math.sqrt(p[0] * p[0] + p[1] * p[1]); return P(r, a); }), null, .85, .6); }
+    all.push({ pts: circle(.755), ring: .755, w: .7 });
+
+    // Край: два тонких кольца и бусины или волна-лоза
+    all.push({ pts: circle(.95), ring: .95, w: .8 }); all.push({ pts: circle(.99), ring: .99, w: .9 });
+    if (vE === 0) for (i = 0; i < N * 6; i++) all.push({ pts: circleAt(P(.97, (i + .5) / (N * 6) * TAU), .006, 10), ring: .97, w: .6, dot: true });
+    else { var wave = [], t; for (i = 0; i <= 720; i++) { t = i / 720 * TAU; wave.push(P(.97 + .011 * Math.sin(t * N * 3), t)); } all.push({ pts: wave, ring: .97, w: .6 }); }
+
+    // Камни: стёклышко дня — в венце на оси; в узлах кружева — маленькие капельки света
+    var gems = [{ r: vC === 1 ? .835 : .845, a: 0, s: .05, k: 'day' }];
+    if (style !== 'vitrail') gems.push({ r: .445, a: W / 2, s: .024, k: 'day2' });
+    // Блики: по одному месту за раз
+    var glints = [.3, .6, .85];
+    return { sec: sec, all: all, gems: gems, glints: glints };
+  }
+
+  /* ---------- Рисование ---------- */
+  var ROUTE = null, DAYS = [], LOOK = { kind: 'gem', cut: 'rect', shine: 100 }, SLOOK = { kind: 'cabochon', shine: 100 };
+  function dayColors() {
+    var o = [], d;
+    for (d = 1; d <= N; d++) o.push(ROUTE && window.M13R ? window.M13R.dayGlass(ROUTE, d).c : [[255, 120, 60], [255, 170, 50], [250, 214, 70], [140, 210, 90], [60, 190, 150], [60, 180, 220], [80, 120, 230], [140, 100, 220], [200, 90, 200], [230, 90, 140], [230, 70, 70], [240, 140, 80]][d - 1]);
+    return o;
+  }
+  var SPR = {};
+  function gemSprite(c, look, px) {
+    var key = c.join(',') + '|' + look.kind + '|' + (look.cut || '') + '|' + px;
+    if (SPR[key]) return SPR[key];
+    var cv = document.createElement('canvas');
+    cv.style.width = px + 'px';
+    if (window.M13K && window.M13K.stone) window.M13K.stone(cv, c, look, px / Math.min(2, window.devicePixelRatio || 1));
+    return (SPR[key] = cv);
+  }
+  function strokePts(x, pts, close) {
+    x.beginPath(); pts.forEach(function (p, i) { x[i ? 'lineTo' : 'moveTo'](p[0], p[1]); }); if (close) x.closePath();
+  }
+  function isClosed(pts) { var a = pts[0], b = pts[pts.length - 1]; return pts.length > 3 && Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6; }
+
+  // Один кадр узора. open — раскрытие 0…1 (от центра к краю); mode: 'screen' | 'paper'; hint — подсказка цвета на бумаге
+  function draw(x, S, style, rad, open, mode, hint) {
+    var cols = S.cols, paper = mode === 'paper', lw = rad * (style === 'lace' ? .0026 : style === 'filigree' ? .0034 : .0042), k;
+    function vis(r) { return open >= 1 ? 1 : sm((open * 1.15 - r) / .16); }
+    function colOf(s, d) { return s.fill === 'center' ? S.center[0] : cols[d]; }
+    // Полупрозрачная подложка: тёплый свет, к краю тише
+    if (!paper) {
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
+      if (style === 'vitrail') { g.addColorStop(0, 'rgba(255,236,190,.34)'); g.addColorStop(.7, 'rgba(255,206,130,.2)'); g.addColorStop(1, 'rgba(120,70,20,.18)'); }
+      else { g.addColorStop(0, 'rgba(255,226,170,.20)'); g.addColorStop(.75, 'rgba(255,200,120,.09)'); g.addColorStop(1, 'rgba(255,190,100,.03)'); }
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, rad * Math.max(.05, Math.min(1, open * 1.15)), 0, TAU); x.fill();
+    } else {
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(0, 0, rad * 1.01, 0, TAU); x.fill();
+    }
+    // Подкраска: цвет лишь ложится на лепесток (у витража — стекло на просвет)
+    var tintA = paper ? (hint ? .16 : 0) : style === 'vitrail' ? .5 : style === 'lace' ? .16 : .13;
+    if (tintA) for (k = 0; k < N; k++) {
+      x.save(); x.rotate(-Math.PI / 2 + k * W);
+      S.P.sec.forEach(function (s) {
+        if (!s.fill) return;
+        var a = vis(s.ring) * tintA * (s.fill === 'center' ? .9 : s.ring > .8 && style !== 'vitrail' ? .6 : 1); if (a < .005) return;
+        var c = colOf(s, k), pp = s.pts.map(function (p) { return [p[0] * rad, p[1] * rad]; });
+        strokePts(x, pp, true);
+        if (style === 'vitrail' && !paper) {
+          var gg = x.createRadialGradient(0, 0, rad * s.ring * .6, 0, 0, rad * (s.ring + .2));
+          gg.addColorStop(0, rgba(mix(c, WHITE, .35), a)); gg.addColorStop(1, rgba(c, a * .8)); x.fillStyle = gg;
+        } else x.fillStyle = rgba(paper ? mix(c, WHITE, .2) : c, a);
+        x.fill();
+      });
+      x.restore();
+    }
+    // Линии
+    function lines(pass) {
+      function one(s, c, rot) {
+        var a = vis(s.ring); if (a < .01) return;
+        var pp = s.pts.map(function (p) { return [p[0] * rad, p[1] * rad]; }), w = lw * (s.w || 1);
+        x.save(); if (rot != null) x.rotate(rot);
+        strokePts(x, pp, isClosed(s.pts));
+        if (paper) { x.strokeStyle = 'rgba(30,22,14,' + (.9 * a) + ')'; x.lineWidth = Math.max(.7, w * 1.1); x.stroke(); }
+        else if (style === 'lace') {
+          if (pass === 0) { x.strokeStyle = rgba(mix(c, WHITE, .3), .22 * a); x.lineWidth = w * 3.2; x.stroke(); }
+          else { x.strokeStyle = rgba(mix(c, WHITE, .72), .95 * a); x.lineWidth = w; x.stroke(); }
+        } else if (style === 'filigree') {
+          if (pass === 0) { x.strokeStyle = 'rgba(70,40,6,' + (.55 * a) + ')'; x.lineWidth = w * 2.2; x.stroke(); }
+          else { x.strokeStyle = rgba(GOLD, a); x.lineWidth = w * 1.25; x.stroke(); x.strokeStyle = rgba(GOLD_HI, .7 * a); x.lineWidth = w * .45; x.stroke(); }
+        } else {
+          if (pass === 0) { x.strokeStyle = 'rgba(60,36,8,' + (.75 * a) + ')'; x.lineWidth = w * 2.4; x.stroke(); }
+          else { x.strokeStyle = rgba(GOLD, .95 * a); x.lineWidth = w * 1.1; x.stroke(); }
+        }
+        x.restore();
+      }
+      for (k = 0; k < N; k++) S.P.sec.forEach(function (s) { one(s, s.fill === 'center' ? S.center[0] : cols[k], -Math.PI / 2 + k * W); });
+      S.P.all.forEach(function (s) { one(s, GOLD); });
+    }
+    if (style === 'lace' && !paper) { x.globalCompositeOperation = 'lighter'; lines(0); lines(1); x.globalCompositeOperation = 'source-over'; }
+    else if (paper) lines(1);
+    else { lines(0); lines(1); }
+    // Камни: стёклышки дней и центр
+    var dpr = S.dpr;
+    for (k = 0; k < N; k++) S.P.gems.forEach(function (gm) {
+      var a = vis(gm.r); if (a < .02) return;
+      var p = P(gm.r * rad, -Math.PI / 2 + k * W + gm.a), s = gm.s * rad * 2, c = gm.k === 'day2' ? mix(cols[k], cols[(k + 1) % N], .5) : cols[k];
+      x.globalAlpha = a;
+      if (paper) { x.strokeStyle = 'rgba(30,22,14,.9)'; x.lineWidth = Math.max(.7, lw); x.beginPath(); x.arc(p[0], p[1], s * .42, 0, TAU); x.stroke(); }
+      else {
+        if (style === 'filigree' || style === 'vitrail') { x.strokeStyle = rgba(GOLD, .9); x.lineWidth = lw * 1.2; x.beginPath(); x.arc(p[0], p[1], s * .56, 0, TAU); x.stroke(); }
+        if (style === 'lace') { var gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], s * 1.1); gl.addColorStop(0, rgba(c, .35)); gl.addColorStop(1, rgba(c, 0)); x.fillStyle = gl; x.fillRect(p[0] - s * 1.1, p[1] - s * 1.1, s * 2.2, s * 2.2); }
+        x.drawImage(gemSprite(c, gm.k === 'day' ? LOOK : { kind: 'cabochon', shine: 100 }, Math.max(8, Math.round(s))), p[0] - s / 2, p[1] - s / 2, s, s);
+      }
+      x.globalAlpha = 1;
+    });
+    // Центр: стёклышки человека — одно в середине, остальные вокруг
+    var cs = S.center, a0 = vis(.05);
+    if (a0 > .02) {
+      x.globalAlpha = a0;
+      cs.forEach(function (c, i) {
+        var big = i === 0, p = big ? [0, 0] : P(rad * .118, -Math.PI / 2 + W / 2 + Math.round((i - 1) * N / (cs.length - 1)) * W), s = rad * (big ? .1 : .046);
+        if (paper) { x.strokeStyle = 'rgba(30,22,14,.9)'; x.lineWidth = Math.max(.7, lw); x.beginPath(); x.arc(p[0], p[1], s * .45, 0, TAU); x.stroke(); return; }
+        if (style !== 'lace') { x.strokeStyle = rgba(GOLD, .9); x.lineWidth = lw * 1.1; x.beginPath(); x.arc(p[0], p[1], s * .58, 0, TAU); x.stroke(); }
+        else { var gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], s); gl.addColorStop(0, rgba(c, .4)); gl.addColorStop(1, rgba(c, 0)); x.fillStyle = gl; x.fillRect(p[0] - s, p[1] - s, s * 2, s * 2); }
+        x.drawImage(gemSprite(c, SLOOK, Math.max(8, Math.round(s))), p[0] - s / 2, p[1] - s / 2, s, s);
+      });
+      x.globalAlpha = 1;
+    }
+  }
+
+  /* ---------- Живое Солнце на холсте ---------- */
+  function Sun(cv, style) {
+    var x = cv.getContext('2d'), S = null, t0 = 0, raf = 0, still = null, mode = 'screen', hint = true, G = null, rot = 0, lastT = 0;
+    function size() {
+      var dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(cv.clientWidth * dpr);
+      if (cv.width !== px) { cv.width = cv.height = px; still = null; }
+      return dpr;
+    }
+    function render(open) {
+      var D = cv.width, rad = D / 2 * .96;
+      x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, D, D);
+      x.translate(D / 2, D / 2); x.rotate(rot);
+      if (open >= 1 && still) { x.drawImage(still, -D / 2, -D / 2); }
+      else draw(x, S, style, rad, open, mode, hint);
+      if (open >= 1 && !still) {
+        still = document.createElement('canvas'); still.width = still.height = D;
+        var y = still.getContext('2d'); y.translate(D / 2, D / 2); draw(y, S, style, rad, 1, mode, hint);
+      }
+      // Блик: одно место за раз — тихо проявилось и ушло
+      if (G && mode !== 'paper') {
+        var k = (lastT - G.t) / G.dur;
+        if (k > 0 && k < 1) {
+          var a = Math.sin(k * Math.PI), p = P(G.r * rad, G.a), rr = rad * .13;
+          var g = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], rr);
+          g.addColorStop(0, rgba(mix(G.c, WHITE, .6), .38 * a)); g.addColorStop(1, rgba(G.c, 0));
+          x.globalCompositeOperation = 'lighter'; x.fillStyle = g; x.fillRect(p[0] - rr, p[1] - rr, rr * 2, rr * 2); x.globalCompositeOperation = 'source-over';
+        }
+      }
+    }
+    function nextGlint(T) {
+      var k = Math.floor(Math.random() * N), r = S.P.glints[Math.floor(Math.random() * S.P.glints.length)];
+      G = { t: T + 1.2 + Math.random() * 2.2, dur: 2.6, a: -Math.PI / 2 + k * W, r: r, c: S.cols[k] };
+    }
+    function step(ts) {
+      raf = requestAnimationFrame(step);
+      // Спрятанная вкладка (телефон) — ждём, пока её покажут; раскрытие начнётся, когда Солнце видно
+      if (!cv.clientWidth) { t0 = 0; return; }
+      if (!t0) { t0 = ts; lastT = 0; }
+      var T = (ts - t0) / 1000, dt = Math.min(.1, T - lastT); lastT = T;
+      size();
+      var open = REDUCED ? 1 : Math.min(1, T / 3.2);
+      rot += REDUCED ? 0 : dt * TAU / 360;
+      if (!G || T > G.t + G.dur) nextGlint(T);
+      render(open);
+    }
+    return {
+      show: function (s) { S = s; S.dpr = Math.min(2, window.devicePixelRatio || 1); still = null; t0 = 0; lastT = 0; G = null; if (!raf) raf = requestAnimationFrame(step); },
+      mode: function (m, h) { mode = m; hint = h; still = null; }
+    };
+  }
+
+  /* ---------- Страница ---------- */
+  var figs = [].slice.call(document.querySelectorAll('.lab-k')), suns = figs.map(function (f) { return Sun(f.querySelector('canvas'), f.getAttribute('data-style')); });
+  var seed = 7, STATES = [];
+  function person(sd) {
+    var R = rng(sd ^ 0x9e3779b9), pool = STATES.slice(), o = [], i, n;
+    function take() { return pool.length ? pool.splice(Math.floor(R() * pool.length), 1)[0] : null; }
+    var exit = [], entry = [];
+    for (i = 0; i < 3; i++) { var s = take(); if (s) entry.push(s); }
+    n = Math.floor(R() * 3); pool = STATES.slice();
+    for (i = 0; i < n; i++) { var e = take(); if (e) exit.push(e); }
+    // Середина — первое состояние выхода (ничего не выбрали — золото), вокруг — вход и подарки
+    o.push(exit[0] ? exit[0].c : [255, 205, 110]);
+    entry.concat(exit.slice(1)).forEach(function (s) { o.push(s.c); });
+    var gifts = Math.floor(R() * 3), cols = dayColors();
+    for (i = 0; i < gifts; i++) o.push(mix(cols[Math.floor(R() * N)], WHITE, .3));
+    return { center: o, names: { entry: entry, exit: exit, gifts: gifts } };
+  }
+  function showAll() {
+    var p = person(seed), cols = dayColors();
+    suns.forEach(function (s, i) { s.show({ P: build(seed, figs[i].getAttribute('data-style')), cols: cols, center: p.center }); });
+    var who = document.getElementById('who');
+    function dots(l) { return l.map(function (s) { return '<i style="background:rgb(' + s.c.join(',') + ')"></i>' + s.name; }).join(' · '); }
+    who.innerHTML = 'Вошли с: ' + (dots(p.names.entry) || '—') + '<br>Выходят с: ' + (dots(p.names.exit) || 'ничего не выбрали — в середине золото') + (p.names.gifts ? '<br>Подарков: ' + p.names.gifts : '');
+  }
+  document.getElementById('again').addEventListener('click', showAll);
+  document.getElementById('other').addEventListener('click', function () { seed = (Math.random() * 1e9) >>> 0; showAll(); });
+  var hint = true, bg = 'dark';
+  function applyMode() { suns.forEach(function (s) { s.mode(bg === 'paper' ? 'paper' : 'screen', hint); }); }
+  [].forEach.call(document.querySelectorAll('[data-bg]'), function (b) {
+    b.addEventListener('click', function () {
+      bg = b.getAttribute('data-bg');
+      [].forEach.call(document.querySelectorAll('[data-bg]'), function (o) { o.classList.toggle('is-on', o === b); });
+      document.body.classList.toggle('is-warm', bg === 'warm'); document.body.classList.toggle('is-paper', bg === 'paper');
+      document.getElementById('hintRow').hidden = bg !== 'paper';
+      applyMode();
+    });
+  });
+  document.getElementById('hint').addEventListener('click', function () { hint = !hint; this.classList.toggle('is-on', hint); this.textContent = 'Подсказка цвета в раскраске: ' + (hint ? 'есть' : 'нет'); applyMode(); });
+  [].forEach.call(document.querySelectorAll('.lab-tabs button'), function (b) {
+    b.addEventListener('click', function () {
+      var k = +b.getAttribute('data-k');
+      [].forEach.call(document.querySelectorAll('.lab-tabs button'), function (o) { o.classList.toggle('is-on', o === b); });
+      figs.forEach(function (f, i) { f.classList.toggle('is-on', i === k); });
+    });
+  });
+  function start(route) {
+    ROUTE = route;
+    if (route && window.M13R) {
+      LOOK = window.M13R.glassLook(route, 'days'); SLOOK = window.M13R.glassLook(route, 'states');
+      STATES = window.M13R.statesOf(route).map(function (s) { return { name: s.name, c: window.M13R.hexRgb(s.color) }; });
+    }
+    if (!STATES.length) STATES = [['ясность', '#bee8ff'], ['интерес', '#ffa03c'], ['радость', '#ffd646'], ['надежда', '#78d682'], ['наполненность', '#f278b6'], ['воодушевление', '#ff6c40']].map(function (s) { return { name: s[0], c: [parseInt(s[1].slice(1, 3), 16), parseInt(s[1].slice(3, 5), 16), parseInt(s[1].slice(5, 7), 16)] }; });
+    showAll();
+  }
+  fetch('../../data/journeys.json', { cache: 'no-cache' }).then(function (r) { return r.json(); })
+    .then(function (j) { start((j.items || []).filter(function (x) { return x.id === 'yellow-sun'; })[0] || null); })
+    .catch(function () { start(null); });
+})();
+</script>
+</body>
+</html>
