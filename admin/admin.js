@@ -2302,7 +2302,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['wheel', 'Лицо карты — колесо'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
@@ -2322,6 +2322,8 @@
     r.states = r.states || {}; r.states.items = r.states.items || []; r.kaleido = r.kaleido || {};
     var G = r.glass = r.glass || {}; G.gifts = G.gifts || {}; r.final = r.final || {};
     r.stage = r.stage || {}; r.neon = r.neon || {}; r.plants = r.plants || {};
+    // Мандалу в финале заменила «Золотая филигрань» (02.10)
+    if (r.final.sun === 'mandala') delete r.final.sun;
     if (window.M13R) { var GD = window.M13R.GLASS_DEF; if (!G.states) G.states = clone(GD.states); if (!G.days) G.days = clone(GD.days);
       window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.gifts[z]) G.gifts[z] = clone(GD.gifts[z]); }); }
     for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
@@ -2556,8 +2558,8 @@
         rangeIn(r, 'dimTop', 'Приглушить свет сверху', { min: 0, max: 90, step: 5, def: 60, unit: ' %', hint: 'Затемнение от верха до середины кадра: чтобы луч не слепил и читалась надпись. 0 — без затемнения.' }),
         jBgLive(r),
         sub('Где спираль на экране'),
-        el('p', { class: 'a-hint', text: 'Центр спирали (печать) сам встаёт ровно посередине экрана — тогда надписи, печать, луч и Солнце на одной линии. На компьютере спираль немного отдалена: вокруг темнота, края картинки растворяются.' }),
-        rangeIn(r.stage, 'zoom', 'Компьютер: насколько крупно', { min: 50, max: 100, step: 2, def: 82, unit: ' %', hint: '100 % — картинка во весь экран (как раньше). Меньше — спираль отдаляется, вокруг темнее. Посмотреть — «Посмотреть страницу».' }),
+        el('p', { class: 'a-hint', text: 'Центр спирали (печать) сам встаёт ровно посередине экрана — тогда надписи, печать, луч и Солнце на одной линии. На компьютере спираль во весь экран.' }),
+        rangeIn(r.stage, 'zoom', 'Компьютер: насколько крупно', { min: 50, max: 100, step: 2, def: 100, unit: ' %', hint: '100 % — картинка во весь экран (так и решили). Меньше — спираль отдаляется, вокруг темнота, края картинки растворяются. Посмотреть — «Посмотреть страницу».' }),
         el('div', { class: 'a-row' }, [
           rangeIn(r.stage, 'shiftX', 'Компьютер: подвинуть вбок', { min: -10, max: 10, step: .5, def: 0, unit: ' %', hint: 'Если глазу кажется, что центр не посередине: минус — влево, плюс — вправо.' }),
           rangeIn(r.stage, 'shiftXMobile', 'Телефон: подвинуть вбок', { min: -10, max: 10, step: .5, def: 0, unit: ' %', hint: 'На телефоне картинка во всю ширину — сдвиг возможен, только пока не откроется край.' })])
@@ -2570,16 +2572,13 @@
         jNeonRow(r, 'disk', 'Центральный диск в финале'),
         jNeonRow(r, 'button', 'Точки кнопки «Собрать маршрут»'),
         jNeonRow(r, 'glass', 'Подсветка выбранных стёклышек'),
-        jNeonRow(r, 'mandala', 'Блики на мандале'),
+        jNeonRow(r, 'mandala', 'Блеск и искорки на Солнце финала'),
         jNeonRow(r, 'plants', 'Светящиеся растения'),
         jNeonRow(r, 'spiral', 'Камни на спирали в дни маршрута', 'Без «своего» — без неона: золотой свет камней как сейчас.')
       ], { open: false }),
       block('Светящиеся растения', [
-        el('p', { class: 'a-hint', text: 'Тонкие светящиеся нити и бусинки по лианам, светящиеся листики папоротников — как в «Аватаре». Свет медленно бежит по ним сверху вниз. Разгораются с каждым днём маршрута: в первый день едва заметны, к 13-му — в полную силу. Лежат на лианах и папоротниках нынешних картинок спирали; если поменяете картинку — проверьте, совпадают ли, или выключите.' }),
-        switchIn(r.plants, 'on', 'Светящиеся растения', { defTrue: true }),
-        el('div', { class: 'a-row' }, [colorOptIn(r.plants, 'color', 'Цвет', { none: 'бирюзовый, как в «Аватаре»', base: '#3fe8d0', pick: '#3fe8d0' }),
-          rangeIn(r.plants, 'power', 'Яркость', { min: 20, max: 200, step: 10, def: 100, unit: ' %' })]),
-        switchIn(r.plants, 'byDay', 'Разгораются по дням', { defTrue: true, hint: 'Выключить — всегда в полную силу.' })
+        el('p', { class: 'a-hint', text: 'Растения теперь — своя вкладка «Растения»: там их можно рисовать прямо по картинке, ставить светящиеся фигурки, менять цвет и яркость или выключить.' }),
+        switchIn(r.plants, 'on', 'Светящиеся растения', { defTrue: true })
       ], { open: false }),
       block('Свет кирпичей', [
         el('p', { class: 'a-hint', text: 'Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, после нажатия светится ровно; пройденные светятся спокойно, будущие — в тени. Где лежат кирпичи — вкладка «Кирпичи на спирали», там же видно, как светится каждый день.' }),
@@ -2826,6 +2825,35 @@
     draw();
     return box;
   }
+  // Живой пример Солнца финала (assets/sun.js): на экране (тёплый тёмный фон) и как PDF для раскрашивания
+  function jSunLive(r) {
+    var st = ST.jsun = ST.jsun || { seed: 7 }, M = window.M13R, S = window.M13S;
+    if (!M || !S) return el('p', { class: 'a-hint', text: 'Пример не загрузился — обновите страницу.' });
+    var cv = el('canvas', { class: 'a-jsun-cv' }), pc = el('canvas', { class: 'a-jsun-cv a-jsun-cv--paper' }), sun = null;
+    function data() {
+      var cols = [], center = [], L = M.statesOf(r), i, R = st.seed;
+      for (i = 1; i <= 12; i++) cols.push(M.dayGlass(r, i).c);
+      center.push(L.length ? M.hexRgb(L[R % L.length].color || '#ffcf5a') : [255, 205, 110]);
+      for (i = 1; i <= 3 && L.length; i++) center.push(M.hexRgb(L[(R * 7 + i * 5) % L.length].color || '#ffcf5a'));
+      return S.data(st.seed * 2654435761 >>> 0, cols, center, M.glassLook(r, 'days'), M.glassLook(r, 'states'));
+    }
+    function opts(mode) { var F = r.final; return { style: F.sun === 'lace' ? 'lace' : 'filigree', thick: (F.sunLine == null || F.sunLine === '' ? 100 : +F.sunLine) / 100, back: F.sunBack === true, mode: mode, hint: F.pdfHint !== false }; }
+    function run() {
+      if (!cv.isConnected) { if (sun) sun.stop(); return; }
+      var D = data();
+      if (!sun) sun = S.Sun(cv, opts('screen')); else sun.opts(opts('screen'));
+      sun.show(D);
+      var d = Math.min(2, window.devicePixelRatio || 1), w = Math.round((pc.clientWidth || 220) * d), x = pc.getContext('2d');
+      pc.width = pc.height = w; x.fillStyle = '#fff'; x.fillRect(0, 0, w, w);
+      S.still(x, D, w / 2, w / 2, w / 2 * .96, opts('paper'));
+    }
+    LIVE.push({ node: cv, run: run });
+    setTimeout(liveSoon, 0);
+    return el('div', { class: 'a-jsun' }, [
+      el('div', { class: 'a-jsun-row' }, [el('div', { class: 'a-jsun-scr' }, [cv]), pc]),
+      el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Другой узор', onclick: function () { st.seed = (Math.random() * 1e6) | 0; liveSoon(); } })]),
+      el('p', { class: 'a-hint', text: 'На тёмном — как на экране (медленно поворачивается, по золоту проходит блеск, камни вспыхивают искоркой), на белом — как в PDF для раскрашивания. В примере — случайные стёклышки состояний.' })]);
+  }
   // Финал Солнца (день 13): урезанная Карта дня 13 и «С чем вы выходите?», надписи финала, отзыв, музыка, видео, картинка «Сохранить моё Солнце».
   function jFinal(r) {
     var F = r.final, tx = r.texts, last = r.days.length, M = window.M13R, st = ST.jfin = ST.jfin || { mode: 'journey' };
@@ -2846,13 +2874,13 @@
     var ms = el('select', { class: 'a-input' }, J_MODES.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
     ms.value = st.mode; ms.addEventListener('change', function () { st.mode = ms.value; liveSoon(); });
     return [
-      el('p', { class: 'a-hint', text: 'День 13: нажатие на центр → урезанная Карта дня 13 (у Путешествия и Погружения — «С чем вы выходите?», можно не выбирать) → кнопка-спираль «Собрать маршрут» (огоньки сбегаются в центр) → на спирали темнеет, камни загораются по очереди, из каждого выходит сгусток света его стёклышка и плывёт по камням в центр (состояния входа — из начала пути, подарки — со своим днём, состояния выхода — с последнего витка) → центр закручивается, сам диск печати становится лучом и уходит вверх → тёплый свет заливает весь экран → из него раскрывается Солнце-мандала из этих стёклышек → надписи и кнопки. Около 20 секунд, нажатие — сразу к концу. После 17 октября страница открывается сразу на последнем кадре; нажатие на центр — финал ещё раз.' }),
+      el('p', { class: 'a-hint', text: 'День 13: нажатие на центр → урезанная Карта дня 13 (у Путешествия и Погружения — «С чем вы выходите?», можно не выбирать) → кнопка-спираль «Собрать маршрут» (огоньки сбегаются в центр) → на спирали темнеет, камни мягко загораются по очереди, из каждого выходит сгусток света его стёклышка и плывёт по камням в центр (состояния входа — из начала пути, подарки — со своим днём, состояния выхода — с последнего витка) → огни тихо кружат по диску; «Костёр»: над печатью поднимаются искры и складываются в луч (или «Медленный водоворот») → Солнце рождается из печати: лежит на диске, раскрывается, поднимается и встаёт лицом к вам → тёплый свет заливает экран → надписи и кнопки. Около 20 секунд, нажатие — сразу к концу. После 17 октября страница открывается сразу на последнем кадре; нажатие на центр — финал ещё раз.' }),
       el('div', { class: 'a-tabs' }, [
-        el('button', { type: 'button', text: 'Посмотреть финал · Путешествие', onclick: function () { look('journey', false, '&sim=13&card=final'); } }),
-        el('button', { type: 'button', text: '· Наблюдение', onclick: function () { look('observation', false, '&sim=13&card=final'); } }),
-        el('button', { type: 'button', text: '📱 Финал на телефоне', onclick: function () { look('journey', true, '&sim=13&card=final'); } }),
+        el('button', { type: 'button', text: 'Посмотреть финал · Путешествие', onclick: function () { look('journey', false, '&sim=13'); } }),
+        el('button', { type: 'button', text: '· Наблюдение', onclick: function () { look('observation', false, '&sim=13'); } }),
+        el('button', { type: 'button', text: '📱 Финал на телефоне', onclick: function () { look('journey', true, '&sim=13'); } }),
         el('button', { type: 'button', text: 'Последний кадр', onclick: function () { look('journey', false, '&sim=14&card=finalnow&instant=1'); } })]),
-      el('p', { class: 'a-hint', text: 'В предпросмотре у Путешествия — пробный код со случайными состояниями (каждый раз новый узор). Внизу справа — «Проверка»: «Карта дня 13», «Финал сразу», «Последний кадр».' }),
+      el('p', { class: 'a-hint', text: 'Откроется спираль в 13-й день — коснитесь центра сами, как участник. У Путешествия — пробный код со случайными состояниями (каждый раз новый узор). Внизу справа — «Проверка»: «Карта дня 13», «Финал сразу», «Последний кадр».' }),
       block('Карта дня 13', [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
           el('p', { class: 'a-hint', text: 'Урезанная Карта дня 13: что из блоков Карты дня на ней видно. Тексты — у дня 13 во вкладке «13 дней». Внизу — кнопка «Собрать маршрут».' }),
           blocks,
@@ -2869,7 +2897,8 @@
           el('div', { class: 'a-row' }, [
             selectIn(F, 'gatherStyle', 'Вид кнопки', [['spiral', 'Спираль из 13 светящихся точек'], ['plain', 'Обычная золотая кнопка']], { def: 'spiral', onChange: liveSoon,
               hint: '12 точек — стёклышки 12 дней их цветами, 13-я в центре — цвета выбранных «С чем вы выходите?». Точки по очереди загораются к центру; после нажатия огоньки сбегаются в центр.' }),
-            selectIn(F, 'gatherDots', 'Точки на спирали', [['dots', 'Светящиеся точки'], ['glass', 'Маленькие стёклышки (вид «Дни»)']], { def: 'dots', onChange: liveSoon })])]),
+            selectIn(F, 'gatherDots', 'Точки на спирали', [['dots', 'Светящиеся точки'], ['glass', 'Маленькие стёклышки (вид «Дни»)']], { def: 'dots', onChange: liveSoon })]),
+          rangeIn(F, 'gatherSpeed', 'Скорость точек', { min: 30, max: 250, step: 10, def: 100, unit: ' %', onChange: liveSoon, hint: 'Точки по очереди загораются к центру, потом пауза. Меньше — медленнее и спокойнее, больше — быстрее.' })]),
         el('div', { class: 'a-jpv' }, [field('Формат', ms), pv])])]),
       block('Финал — надписи и кнопки', [
         el('div', { class: 'a-row' }, [textIn(tx, 'finTitle', 'Крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'finNote', 'Строка ниже', { ph: 'Увидимся за поворотом…', hint: 'Пробел — без строки.' })]),
@@ -2881,8 +2910,7 @@
         el('div', { class: 'a-row' }, [
           imageIn(F, 'logo', 'Свой логотип (необязательно)', { max: 1200, hint: 'PNG с прозрачным фоном: на странице он станет золотым. Пусто — логотип сайта.' }),
           textIn(tx, 'finBrand', 'Надпись (если выбрана «Надпись»)', { ph: '13 MIRRORS' })]),
-        el('div', { class: 'a-row' }, [textIn(tx, 'finSave', 'Кнопка «Сохранить»', { ph: 'Сохранить моё Солнце', hint: 'Только у Путешествия и Погружения. Открывает три варианта — ниже.' }), textIn(tx, 'finReview', 'Кнопка отзыва', { ph: 'Оставить отзыв' })]),
-        el('div', { class: 'a-row3' }, [textIn(tx, 'finSavePng', 'Вариант 1', { ph: 'Картинка для телефона' }), textIn(tx, 'finSavePdf', 'Вариант 2', { ph: 'PDF A4 · цветной' }), textIn(tx, 'finSaveLine', 'Вариант 3', { ph: 'PDF A4 · для раскрашивания' })]),
+        el('div', { class: 'a-row3' }, [textIn(tx, 'finSavePng', 'Кнопка «картинка»', { ph: 'Картинка для телефона', hint: 'Только у Путешествия и Погружения.' }), textIn(tx, 'finSaveLine', 'Кнопка «PDF»', { ph: 'PDF для раскрашивания' }), textIn(tx, 'finReview', 'Кнопка отзыва', { ph: 'Оставить отзыв' })]),
         textIn(F, 'review', 'Куда ведёт «Оставить отзыв» — одна ссылка на всех', { ph: 'https://…', hint: 'Например, форма или чат в Telegram. Пусто — кнопки нет. «Оставить след» в финале нет.' }),
         el('p', { class: 'a-hint', text: 'Под кнопками — кнопка-спираль: назад на спираль (она уже золотая, с Солнцем в центре).' })
       ], { open: false }),
@@ -2898,16 +2926,197 @@
         el('p', { class: 'a-hint', text: 'Подсказка для генератора: «Static camera, no camera movement. The central stone disk of the spiral slowly begins to glow from within, light swirls on it like a gentle vortex, then a soft natural column of warm golden light rises from the center straight up into the sky, with floating dust particles and a faint prismatic rainbow at its edges. Photorealistic, cinematic, keep everything else unchanged.»' }),
         el('div', { class: 'a-row' }, [mediaIn(F, 'videoDesktop', 'Для компьютера — 16:9', { kind: 'video', maxMB: 12 }), mediaIn(F, 'videoMobile', 'Для телефона — 9:16', { kind: 'video', maxMB: 12 })])
       ], { open: false }),
-      block('Солнце в финале', [
-        selectIn(F, 'sun', 'Каким выходит Солнце', [['mandala', 'Мандала'], ['kaleido', 'Калейдоскоп (стиль из вкладки «Калейдоскоп и состояния»)']], { def: 'mandala',
-          hint: 'Мандала — нарисованный узор на тёплом светлом фоне: кольца лепестков, бусин, капель и листьев, цвета — из стёклышек человека (у каждого своя). Раскрывается от центра, медленно поворачивается, по лепесткам пробегают блики (неон бликов — «Основное» → «Неон»).' })
+      block('Как собирается свет', [
+        el('p', { class: 'a-hint', text: 'Когда огоньки дней пришли в центр, они тихо кружат по диску печати — ровно, без разгона. Дальше — на выбор.' }),
+        selectIn(F, 'gather', 'Как свет уходит в луч', [['fire', '«Костёр» — над печатью поднимаются искры и складываются в луч'], ['swirl', '«Медленный водоворот» — огни ровно, по спирали тают к центру']], { def: 'fire' }),
+        rangeIn(F, 'sparkSize', 'Размер искр («Костёр»)', { min: 40, max: 250, step: 10, def: 100, unit: ' %' }),
+        el('div', { class: 'a-row' }, [
+          rangeIn(F, 'lightsPower', 'Яркость огоньков', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: 'Сгустки света, которые плывут по камням к центру.' }),
+          rangeIn(F, 'stoneLight', 'Свет на камнях', { min: 0, max: 200, step: 10, def: 100, unit: ' %', hint: 'Как загораются сами камни дней. 0 — не загораются.' })]),
+        el('p', { class: 'a-hint', text: 'Цвет огоньков — неон: «Основное» → «Неон» → «Огоньки финала», «Свет камней в финале».' })
       ], { open: false }),
-      block('«Сохранить моё Солнце»', [
-        el('p', { class: 'a-hint', text: 'Кнопка открывает три варианта. 1 — картинка 1080 × 1350 для телефона: Солнце с личным узором, «Маршрут пройден», формат и даты. 2 — PDF на лист A4 (книжный), в цвете: мандала, надписи, качества 12 дней, логотип. 3 — PDF A4 для раскрашивания: та же мандала чёрными линиями на белом, чтобы распечатать и раскрасить. Кода нигде нет; файлы создаются прямо на устройстве человека, вам не приходят. На телефоне — через «Поделиться».' }),
-        switchIn(F, 'pdf', 'Варианты PDF (2 и 3)', { defTrue: true, hint: 'Выключить — кнопка сразу сохраняет картинку, без выбора.' }),
+      block('Солнце в финале', [
+        el('p', { class: 'a-hint', text: '12 делений — 12 дней, у каждого цвет его стёклышка. В центре — стёклышки самого человека: в середине — первое «С чем вы выходите?» (ничего не выбрал — золото), вокруг — состояния входа, подарки, остальные выхода. Узор (кольца, завитки, вязь) у каждого свой — по коду. Рядом — пример; «Другой узор» — как выйдет у другого участника.' }),
+        el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+          selectIn(F, 'sun', 'Каким выходит Солнце', [['filigree', 'Б · Золотая филигрань'], ['lace', 'А · Кружево света'], ['kaleido', 'Калейдоскоп (стиль из вкладки «Калейдоскоп и состояния»)']], { def: 'filigree', onChange: liveSoon,
+            hint: 'Филигрань — тонкая золотая вязь, самоцветы в гнёздах, по золоту проходит блеск полировки, камни по одному вспыхивают искоркой. Кружево — тончайшие нити света. Сила блеска — «Основное» → «Неон» → «Блеск и искорки на Солнце».' }),
+          rangeIn(F, 'sunLine', 'Толщина линий', { min: 40, max: 220, step: 5, def: 100, unit: ' %', onChange: liveSoon, hint: 'И на экране, и в картинке, и в PDF для раскрашивания.' }),
+          switchIn(F, 'sunBack', 'Лёгкое напыление под узором', { onChange: liveSoon, hint: 'Выключено — узор на прозрачном (как выбрали). Включить — под линиями тёплая дымка.' })]),
+          jSunLive(r)])
+      ], { open: false }),
+      block('Сохранить Солнце', [
+        el('p', { class: 'a-hint', text: 'Под Солнцем — две маленькие кнопки рядом. «Картинка для телефона» — 1080 × 1350: Солнце с личным узором, «Маршрут пройден», формат и даты. «PDF для раскрашивания» — лист A4 (книжный): то же Солнце чёрными линиями на белом, чтобы распечатать и раскрасить. Кода нигде нет; файлы создаются прямо на устройстве человека, вам не приходят. На телефоне — через «Поделиться».' }),
+        switchIn(F, 'pdf', 'Кнопка «PDF для раскрашивания»', { defTrue: true, hint: 'Выключить — остаётся только картинка.' }),
+        switchIn(F, 'pdfHint', 'Подсказка цвета в PDF', { defTrue: true, hint: 'Лепестки чуть подкрашены цветами стёклышек — «можно так, а можно по-своему». Выключить — только чёрные линии.' }),
         switchIn(F, 'saveCards', 'Карты 12 дней на картинке', { defTrue: true, hint: 'Под Солнцем — качества карт, выпавших человеку по дням (из его колоды). Картинка остаётся у него — вам она не приходит.' })
       ], { open: false })
     ];
+  }
+  /* Светящиеся растения: рисовалка поверх картинки спирали (как разметка кирпичей). Своя раскладка у компьютера и телефона.
+     Инструменты: «Рисовать» от руки (линия сглаживается), «Фигурка» (камушек, улитка, светлячок, грибок, цветок, бабочка, капля, завиток),
+     «Своя картинка», «Выбрать» (подвинуть, размер, поворот, цвет), «Стереть»; «Отменить». Данные — route.plants.desktop / .mobile (см. route.js). */
+  var J_FIGS = [['pebble', 'Камушек'], ['snail', 'Улитка'], ['firefly', 'Светлячок'], ['mushroom', 'Грибок'], ['flower', 'Цветок'], ['butterfly', 'Бабочка'], ['drop', 'Капля'], ['curl', 'Завиток']];
+  var J_PL_KINDS = { vine: 'Лиана', fern: 'Папоротник', line: 'Линия от руки', img: 'Своя картинка' };
+  function jPlants(r) {
+    var M = window.M13R, st = ST.jpl = ST.jpl || { v: 'desktop', tool: 'draw', fig: 'firefly', sel: -1, zoom: false, undo: [] }, P = r.plants;
+    var key = st.v, tall = key === 'mobile', src = tall ? r.masterMobile || r.masterDesktop : r.masterDesktop || r.masterMobile;
+    var tabs = el('div', { class: 'a-tabs' }, [['desktop', '🖥 Компьютер'], ['mobile', '📱 Телефон']].map(function (x) {
+      return el('button', { type: 'button', class: key === x[0] ? 'is-active' : '', text: x[1], onclick: function () { st.v = x[0]; st.sel = -1; renderMain(); } });
+    }));
+    var settings = block('Как светятся', [
+      el('p', { class: 'a-hint', text: 'Тонкие светящиеся нити, бусинки, листики и фигурки — «в глубине» картинки, как в «Аватаре». Медленно проявляются и гаснут по одному. Разгораются с каждым днём маршрута: в первый день едва заметны, к 13-му — в полную силу.' }),
+      switchIn(P, 'on', 'Светящиеся растения', { defTrue: true }),
+      el('div', { class: 'a-row' }, [colorOptIn(P, 'color', 'Цвет — общий', { none: 'бирюзовый, как в «Аватаре»', base: '#3fe8d0', pick: '#3fe8d0', onChange: function () { paint(); } }),
+        rangeIn(P, 'power', 'Яркость', { min: 20, max: 200, step: 10, def: 100, unit: ' %', onChange: function () { paint(); } })]),
+      switchIn(P, 'byDay', 'Разгораются по дням', { defTrue: true, hint: 'Выключить — всегда в полную силу.' }),
+      el('p', { class: 'a-hint', text: 'Неон растений — «Основное» → «Неон».' })
+    ], { open: false });
+    if (!src) return [tabs, settings, el('p', { class: 'a-hint a-hint--warn', text: 'Картинка спирали не загружена (вкладка «Основное»).' })];
+    function list() { return P[key] || (M ? M.PLANTS[key] : []) || []; }
+    function own() { if (!P[key]) P[key] = clone(list()); return P[key]; }
+    function snap() { st.undo.push({ v: key, l: P[key] ? clone(P[key]) : null }); if (st.undo.length > 40) st.undo.shift(); undoBtn.disabled = false; }
+    function r2(v) { return Math.round(v * 100) / 100; }
+    var view = el('div', { class: 'a-jbr-view' + (tall ? ' a-jbr-view--tall' : '') });
+    var wrap = el('div', { class: 'a-jbr a-jpl' + (st.zoom ? ' is-zoom' : '') + ' is-' + st.tool });
+    var img = el('img', { alt: '' }), night = el('div', { class: 'a-jpl-night' }), lay = null;
+    var hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    hs.setAttribute('class', 'a-jbr-h a-jpl-h'); hs.setAttribute('preserveAspectRatio', 'none'); hs.setAttribute('viewBox', '0 0 100 100');
+    wrap.appendChild(img); wrap.appendChild(night); wrap.appendChild(hs); view.appendChild(wrap);
+    var ctl = el('div', { class: 'a-jpl-sel' });
+    function paint() {
+      if (!M || !img.naturalWidth) return;
+      if (lay) { lay.stop(); lay.node.remove(); }
+      lay = M.plantsLayer(r, tall, { still: true });
+      lay.node.style.cssText = 'left:0;top:0;width:100%;height:100%';
+      wrap.insertBefore(lay.node, hs);
+      lay.size(wrap.clientWidth, wrap.clientHeight);
+      marks();
+    }
+    // Контуры: что можно выбрать или стереть; выбранное — ярче
+    function marks(live) {
+      var h = '', A = wrap.clientWidth / (wrap.clientHeight || 1);
+      list().forEach(function (it, i) {
+        var on = i === st.sel, cls = 'a-jpl-m' + (on ? ' is-sel' : '');
+        if (it.k === 'fig' || it.k === 'img') { var s = (+it.s || 3) / 2; h += '<ellipse class="' + cls + '" cx="' + it.x + '" cy="' + it.y + '" rx="' + (s * 1.3) + '" ry="' + (s * 1.3 * A) + '"/>'; }
+        else if (it.p) h += '<polyline class="' + cls + '" points="' + it.p.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>';
+      });
+      if (live && live.length > 1) h += '<polyline class="a-jpl-draw" points="' + live.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '"/>';
+      hs.innerHTML = h;
+    }
+    function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(100, (e.clientX - rc.left) / rc.width * 100)), Math.max(0, Math.min(100, (e.clientY - rc.top) / rc.height * 100))]; }
+    // Что под точкой (в пикселях — так одинаково по ширине и высоте)
+    function hit(p) {
+      var w = wrap.clientWidth, hh = wrap.clientHeight, best = -1, bd = 14;
+      function d(a, b) { var dx = (a[0] - b[0]) / 100 * w, dy = (a[1] - b[1]) / 100 * hh; return Math.sqrt(dx * dx + dy * dy); }
+      list().forEach(function (it, i) {
+        var dd = 1e9;
+        if (it.k === 'fig' || it.k === 'img') dd = Math.max(0, d(p, [it.x, it.y]) - (+it.s || 3) / 100 * w * .6);
+        else if (it.p) it.p.forEach(function (q, j) {
+          if (!j) return; var a = it.p[j - 1], ax = (q[0] - a[0]) / 100 * w, ay = (q[1] - a[1]) / 100 * hh, px = (p[0] - a[0]) / 100 * w, py = (p[1] - a[1]) / 100 * hh;
+          var t = Math.max(0, Math.min(1, (px * ax + py * ay) / ((ax * ax + ay * ay) || 1))), ex = px - ax * t, ey = py - ay * t; dd = Math.min(dd, Math.sqrt(ex * ex + ey * ey));
+        });
+        if (dd < bd) { bd = dd; best = i; }
+      });
+      return best;
+    }
+    // Сглаживание линии от руки: убрать лишние точки (Дуглас — Пейкер), потом мягко усреднить
+    function smooth(pts) {
+      function rdp(a, eps) {
+        if (a.length < 3) return a;
+        var f = a[0], l = a[a.length - 1], dx = l[0] - f[0], dy = l[1] - f[1], L = Math.sqrt(dx * dx + dy * dy) || 1e-6, mi = 0, md = 0, i;
+        for (i = 1; i < a.length - 1; i++) { var dd = Math.abs(dy * a[i][0] - dx * a[i][1] + l[0] * f[1] - l[1] * f[0]) / L; if (dd > md) { md = dd; mi = i; } }
+        return md > eps ? rdp(a.slice(0, mi + 1), eps).slice(0, -1).concat(rdp(a.slice(mi), eps)) : [f, l];
+      }
+      var s = pts.map(function (p, i) { if (!i || i === pts.length - 1) return p; var a = pts[i - 1], b = pts[i + 1]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
+      return rdp(s, .25).map(function (p) { return [r2(p[0]), r2(p[1])]; });
+    }
+    var drag = null;
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      var p = at(e), L, i;
+      e.preventDefault();
+      if (st.tool === 'draw') drag = { draw: [p] };
+      else if (st.tool === 'fig' || (st.tool === 'img' && st.img)) {
+        snap(); L = own();
+        L.push(st.tool === 'fig' ? { k: 'fig', f: st.fig, x: r2(p[0]), y: r2(p[1]), s: st.figS || 3, r: 0 } : { k: 'img', src: st.img, x: r2(p[0]), y: r2(p[1]), s: 8, r: 0 });
+        st.sel = L.length - 1; changed(); paint(); sel();
+      } else if (st.tool === 'img') toast('Сначала загрузите свою картинку — кнопка под рисунком.', true);
+      else if (st.tool === 'erase') { i = hit(p); if (i >= 0) { snap(); own().splice(i, 1); st.sel = -1; changed(); paint(); sel(); } }
+      else { i = hit(p); st.sel = i; sel(); marks(); if (i >= 0) { snap(); drag = { i: i, p: p }; } }
+      if (drag) { try { wrap.setPointerCapture(e.pointerId); } catch (er) {} }
+    });
+    wrap.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var p = at(e);
+      if (drag.draw) { var q = drag.draw[drag.draw.length - 1]; if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .35) { drag.draw.push(p); marks(drag.draw); } return; }
+      var it = own()[drag.i], dx = p[0] - drag.p[0], dy = p[1] - drag.p[1]; drag.p = p; drag.moved = true;
+      if (it.p) it.p = it.p.map(function (q) { return [r2(q[0] + dx), r2(q[1] + dy)]; }); else { it.x = r2(it.x + dx); it.y = r2(it.y + dy); }
+      marks();
+    });
+    function up() {
+      if (!drag) return;
+      var d = drag; drag = null;
+      if (d.draw) { if (d.draw.length >= 3) { snap(); own().push({ k: 'line', p: smooth(d.draw) }); changed(); paint(); } else marks(); return; }
+      if (d.moved) { changed(); paint(); } else st.undo.pop();
+    }
+    wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+    // Выбранное растение: вид, размер, поворот, цвет, удалить
+    function sel() {
+      var it = list()[st.sel];
+      ctl.replaceChildren();
+      if (!it) { add(ctl, [el('p', { class: 'a-hint', text: st.tool === 'select' ? 'Нажмите на растение или фигурку — её можно подвинуть, поменять размер, поворот и цвет.' : '' })]); return; }
+      var rows = [el('b', { text: it.k === 'fig' ? 'Фигурка · ' + ((J_FIGS.filter(function (f) { return f[0] === it.f; })[0] || [])[1] || '') : J_PL_KINDS[it.k] || 'Растение' })];
+      if (it.k === 'fig') rows.push(selectIn(it, 'f', 'Какая', J_FIGS, { onChange: paint }));
+      if (it.k === 'fig' || it.k === 'img') rows.push(el('div', { class: 'a-row' }, [
+        rangeIn(it, 's', 'Размер', { min: .5, max: 20, step: .5, def: 3, unit: ' %', onChange: paint }),
+        rangeIn(it, 'r', 'Поворот', { min: -180, max: 180, step: 5, def: 0, unit: '°', onChange: paint })]));
+      if (it.k !== 'img') rows.push(colorOptIn(it, 'c', 'Цвет', { none: 'общий цвет', inh: function () { return P.color; }, inhLabel: 'общий', base: '#3fe8d0', pick: P.color || '#3fe8d0', onChange: paint }));
+      rows.push(el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Удалить', onclick: function () {
+        snap(); own().splice(st.sel, 1); st.sel = -1; changed(); paint(); sel(); } })]));
+      add(ctl, rows);
+    }
+    function tool(t, label) {
+      return el('button', { type: 'button', class: st.tool === t ? 'is-active' : '', text: label, onclick: function () {
+        st.tool = t; if (t !== 'select') st.sel = -1;
+        [].forEach.call(tools.children, function (b) { b.classList.toggle('is-active', b === this); }, this);
+        wrap.className = 'a-jbr a-jpl' + (st.zoom ? ' is-zoom' : '') + ' is-' + t; figRow.hidden = t !== 'fig'; imgRow.hidden = t !== 'img'; sel(); marks();
+      } });
+    }
+    var tools = el('div', { class: 'a-tabs a-jpl-tools' }, [tool('draw', '✏️ Рисовать'), tool('fig', '✨ Фигурка'), tool('img', '🖼 Своя картинка'), tool('select', '✋ Выбрать'), tool('erase', '🧽 Стереть')]);
+    var figRow = el('div', { class: 'a-row a-row--end' }, [
+      field('Какую ставить', (function () { var s = el('select', { class: 'a-input' }, J_FIGS.map(function (f) { return el('option', { value: f[0], text: f[1] }); })); s.value = st.fig; s.addEventListener('change', function () { st.fig = s.value; }); return s; })(),
+        'Нажмите на картинку — фигурка встанет туда. Размер, поворот и цвет — инструментом «Выбрать».')]);
+    figRow.hidden = st.tool !== 'fig';
+    var holder = { img: st.img || null };
+    var imgRow = el('div', {}, [imageIn(holder, 'img', 'Своя светящаяся картинка', { max: 800, onChange: function () { st.img = holder.img; },
+      hint: 'PNG с прозрачным фоном, светлая на тёмном — тёмное станет прозрачным. Загрузите, потом нажмите на рисунок — встанет туда.' })]);
+    imgRow.hidden = st.tool !== 'img';
+    var undoBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↶ Отменить', onclick: function () {
+      var u = st.undo.pop(); if (!u) return;
+      if (u.l) P[u.v] = u.l; else delete P[u.v];
+      st.sel = -1; changed(); if (u.v === key) { paint(); sel(); } else renderMain();
+      undoBtn.disabled = !st.undo.length;
+    } });
+    undoBtn.disabled = !st.undo.length;
+    var zoomBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее', onclick: function () {
+      st.zoom = !st.zoom; wrap.classList.toggle('is-zoom', st.zoom); zoomBtn.textContent = st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее';
+      setTimeout(paint, 0);
+    } });
+    img.addEventListener('load', paint);
+    img.src = imgSrc(src);
+    LIVE.push({ node: wrap, run: function () { if (!drag) paint(); } });
+    sel();
+    return [tabs,
+      el('p', { class: 'a-hint', text: 'Рисуйте прямо по картинке спирали: по лианам, стволам, краю камней. Линия сама сглаживается, по ней встают светящиеся бусинки. Фигурки — маленькие светящиеся жители поляны. У компьютера и телефона раскладка своя. Посмотреть вживую — «Посмотреть страницу».' }),
+      tools, figRow, imgRow,
+      el('div', { class: 'a-backup-btns' }, [undoBtn, zoomBtn,
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Как было сначала', onclick: function () {
+          if (!confirm('Вернуть растения этой картинки как были сначала (лианы и папоротники)? Ваши рисунки здесь пропадут — «Отменить» вернёт.')) return;
+          snap(); delete P[key]; st.sel = -1; changed(); paint(); sel(); } }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Очистить всё', onclick: function () {
+          if (!confirm('Убрать все растения с этой картинки? «Отменить» вернёт.')) return;
+          snap(); P[key] = []; st.sel = -1; changed(); paint(); sel(); } })]),
+      view, ctl, settings];
   }
   // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Всё тянется мышкой или пальцем.
   // Жёлтые кружки — середины дней, белые — стыки между днями, оранжевые квадратики — внешний край камня (ширина полосы),
@@ -3126,6 +3335,7 @@
     else if (t === 'states') body = jStates(r);
     else if (t === 'glass') body = jGlass(r);
     else if (t === 'final') body = jFinal(r);
+    else if (t === 'plants') body = jPlants(r);
     else if (t === 'codes') body = jCodes(r);
     else body = jMain(r);
     return [head, pick, look, tabs].concat(body);
