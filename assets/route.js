@@ -1270,13 +1270,14 @@
     if (st === 'after' || st === 'both') p.appendChild(starNode(k, 'a'));
     return p;
   }
-  // Подпись внизу: логотип (свой из панели или логотип сайта), надпись или ничего (route.final.brand: logo | text | none)
+  // Подпись внизу: логотип (свой из панели или логотип сайта), надпись или ничего (route.final.brand: logo | text | none);
+  // где — brandAt: end — в самом низу, под кнопкой-спиралью (по умолчанию) | text — в середине, под надписями; размер логотипа — brandSize: s | m | l
   function finLogoSrc() { var f = finCfg(); return f.logo ? imgSrc(S.base, f.logo) : (S.base || '../../') + 'assets/logo.png'; }
   function finBrandNode(tx, f) {
     var b = f.brand || 'logo';
     if (b === 'none' || (b === 'text' && tx.finBrand === '')) return null;
     if (b === 'text') return el('p', 'ys-fin-brand', tx.finBrand || '13 MIRRORS');
-    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo'); lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
+    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo ys-fin-logo--' + (f.brandSize === 'm' || f.brandSize === 'l' ? f.brandSize : 's')); lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
     lg.style.cssText = "-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--lr:" + (+f.logoRatio || 2454 / 545).toFixed(3);
     // Пропорции своего логотипа — по самой картинке
     if (f.logo) { var im = new Image(); im.onload = function () { if (im.naturalHeight) lg.style.setProperty('--lr', (im.naturalWidth / im.naturalHeight).toFixed(3)); }; im.src = u; }
@@ -1406,55 +1407,67 @@
     return a.getUTCMonth() === b.getUTCMonth() ? a.getUTCDate() + '–' + b.getUTCDate() + ' ' + MON_GEN[b.getUTCMonth()] + ' ' + b.getUTCFullYear()
       : a.getUTCDate() + ' ' + MON_GEN[a.getUTCMonth()] + ' — ' + b.getUTCDate() + ' ' + MON_GEN[b.getUTCMonth()] + ' ' + b.getUTCFullYear();
   }
+  /* Фон картинки (route.final.saveBg): warm — тёплый янтарный свет, как в конце финала (по умолчанию), light — светлый сливочный,
+     dark — тёмный (как было до 02.10). На светлых фонах надписи тёмно-коричневые, золото Солнца глубже (M13S: ground 'light'). */
+  var SAVE_BG = {
+    warm: { bg: ['#fff3d6', '#f6d391', '#e3a85a', '#c98840'], glow: 'rgba(255,250,232,', ray: 'rgba(255,248,226,', mode: 'source-over', light: true,
+      kick: '#7a4a14', title: '#3a2006', note: '#7a4a14', num: '#8a5c26', card: '#3f2409', foot: '#6e4416' },
+    light: { bg: ['#fffdf7', '#fff6e4', '#fbe9c8', '#f3dbb0'], glow: 'rgba(240,190,105,', ray: 'rgba(226,170,80,', mode: 'source-over', light: true,
+      kick: '#8a5f2a', title: '#3a2410', note: '#8a5f2a', num: '#a07c4e', card: '#4a3018', foot: '#8a6a40' },
+    dark: { bg: ['#4a2f0b', '#2c1b07', '#170e05', '#070402'], glow: 'rgba(255,214,140,', ray: 'rgba(255,230,170,', mode: 'lighter', light: false,
+      kick: '#e9c77e', title: '#fff3d6', note: '#e9c77e', num: '#b9a582', card: '#f3e2bd', foot: '#b9a582' }
+  };
+  function saveBgOf(f) { return SAVE_BG[f.saveBg] || SAVE_BG.warm; }
   // Картинка «Сохранить моё Солнце»: 1080 × 1350 — Солнце с узором, «Маршрут пройден», по желанию — карты 12 дней (route.final.saveCards)
   function sunImage(cb) {
     var r = S.route, tx = r.texts || {}, f = finCfg(), W = 1080, H = 1350, cv = document.createElement('canvas'), x = cv.getContext('2d'), c = S.code, cards = f.saveCards !== false && c;
+    var P = saveBgOf(f);
     cv.width = W; cv.height = H;
     function paint() {
       var cy = cards ? 470 : 540, R = cards ? 270 : 320, g = x.createRadialGradient(W / 2, cy, 40, W / 2, cy, 1050), i;
-      g.addColorStop(0, '#4a2f0b'); g.addColorStop(.5, '#170e05'); g.addColorStop(1, '#070402');
+      g.addColorStop(0, P.bg[0]); g.addColorStop(.28, P.bg[1]); g.addColorStop(.62, P.bg[2]); g.addColorStop(1, P.bg[3]);
       x.fillStyle = g; x.fillRect(0, 0, W, H);
       // Корона: мягкое сияние и лучи
-      x.globalCompositeOperation = 'lighter';
+      x.globalCompositeOperation = P.mode;
       g = x.createRadialGradient(W / 2, cy, R * .9, W / 2, cy, R * 1.9);
-      g.addColorStop(0, 'rgba(255,214,140,.5)'); g.addColorStop(.35, 'rgba(255,190,90,.18)'); g.addColorStop(1, 'rgba(255,170,60,0)');
+      g.addColorStop(0, P.glow + (P.light ? '.55)' : '.5)')); g.addColorStop(.35, P.glow + (P.light ? '.2)' : '.18)')); g.addColorStop(1, P.glow + '0)');
       x.fillStyle = g; x.fillRect(0, 0, W, H);
       g = x.createRadialGradient(W / 2, cy, R, W / 2, cy, R * 1.85);
-      g.addColorStop(0, 'rgba(255,230,170,.26)'); g.addColorStop(1, 'rgba(255,230,170,0)');
+      g.addColorStop(0, P.ray + (P.light ? '.5)' : '.26)')); g.addColorStop(1, P.ray + '0)');
       x.fillStyle = g; x.beginPath();
       for (i = 0; i < 96; i++) {
         var a = i / 96 * Math.PI * 2, da = (i % 3 ? .006 : .011), len = R * (i % 2 ? 1.55 : 1.85);
         x.moveTo(W / 2 + Math.cos(a - da) * R, cy + Math.sin(a - da) * R); x.lineTo(W / 2 + Math.cos(a) * len, cy + Math.sin(a) * len); x.lineTo(W / 2 + Math.cos(a + da) * R, cy + Math.sin(a + da) * R);
       }
       x.fill();
-      if (finSunStyle() !== 'kaleido') {
-        // Филигрань и кружево — на прозрачном: под ними тёплое свечение
+      if (finSunStyle() !== 'kaleido' && !P.light) {
+        // Филигрань и кружево — на прозрачном: под ними тёплое свечение (на светлом фоне оно не нужно)
         g = x.createRadialGradient(W / 2, cy, 0, W / 2, cy, R * 1.05);
         g.addColorStop(0, 'rgba(255,214,140,.26)'); g.addColorStop(.7, 'rgba(255,190,100,.12)'); g.addColorStop(1, 'rgba(255,170,60,0)');
         x.fillStyle = g; x.fillRect(0, 0, W, H);
       }
       x.globalCompositeOperation = 'source-over';
-      if (finSunStyle() !== 'kaleido') window.M13S.still(x, finSunData(), W / 2, cy, R, finSunOpts('screen'));
+      if (finSunStyle() !== 'kaleido') { var so = finSunOpts('screen'); so.ground = P.light ? 'light' : ''; window.M13S.still(x, finSunData(), W / 2, cy, R, so); }
       else if (window.M13K) window.M13K.still(x, finSeed(), W / 2, cy, R, finStyle(), finEx());
       function spaced(t) { return String(t).toUpperCase().split('').join(String.fromCharCode(8202)); }
       x.textAlign = 'center';
-      x.fillStyle = '#e9c77e'; x.font = '500 30px "Cormorant Garamond", Georgia, serif';
+      x.fillStyle = P.kick; x.font = '500 30px "Cormorant Garamond", Georgia, serif';
       x.fillText(spaced('13 MIRRORS · ' + (r.title || '')), W / 2, 76);
       var ty = cy + R * 1.62;
-      x.fillStyle = '#fff3d6'; x.font = '600 66px "Cormorant Garamond", Georgia, serif';
+      x.fillStyle = P.title; x.font = '600 66px "Cormorant Garamond", Georgia, serif';
       x.fillText(tx.finTitle || 'Маршрут пройден', W / 2, ty);
-      if (tx.finNote !== '') { x.fillStyle = '#e9c77e'; x.font = 'italic 500 40px "Cormorant Garamond", Georgia, serif'; x.fillText(tx.finNote || 'Увидимся за поворотом…', W / 2, ty + 56); }
+      if (tx.finNote !== '') { x.fillStyle = P.note; x.font = 'italic 500 40px "Cormorant Garamond", Georgia, serif'; x.fillText(tx.finNote || 'Увидимся за поворотом…', W / 2, ty + 56); }
       if (cards) {
         x.font = '500 30px "Cormorant Garamond", Georgia, serif';
         for (i = 1; i < daysCount(r); i++) {
           var k = cardFor(r, c, i), col = (i - 1) % 3, row = Math.floor((i - 1) / 3);
           if (!k) continue;
-          x.fillStyle = '#b9a582'; x.textAlign = 'right'; x.fillText(i + ' ·', 120 + col * 320, ty + 138 + row * 46);
-          x.fillStyle = '#f3e2bd'; x.textAlign = 'left'; x.fillText(' ' + (k.quality || ''), 120 + col * 320, ty + 138 + row * 46);
+          x.fillStyle = P.num; x.textAlign = 'right'; x.fillText(i + ' ·', 120 + col * 320, ty + 138 + row * 46);
+          x.fillStyle = P.card; x.textAlign = 'left'; x.fillText(' ' + (k.quality || ''), 120 + col * 320, ty + 138 + row * 46);
         }
         x.textAlign = 'center';
       }
-      x.fillStyle = '#b9a582'; x.font = '500 28px "Cormorant Garamond", Georgia, serif';
+      x.fillStyle = P.foot; x.font = '500 28px "Cormorant Garamond", Georgia, serif';
       x.fillText(spaced([MODE_NAMES[S.mode] || '', datesText(r)].filter(Boolean).join(' · ')), W / 2, H - 44);
       cb(cv);
     }
@@ -1566,7 +1579,8 @@
     sun.appendChild(el('div', 'ys-fin-corona')); sun.appendChild(kc);
     end.appendChild(el('h2', 'ys-fin-t', tx.finTitle || 'Маршрут пройден'));
     if (tx.finNote !== '') end.appendChild(finNoteNode(tx, f));
-    var brand = finBrandNode(tx, f); if (brand) end.appendChild(brand);
+    var brand = finBrandNode(tx, f), brandEnd = f.brandAt !== 'text';
+    if (brand && !brandEnd) end.appendChild(brand);
     var btns = el('div', 'ys-fin-btns'), saveRow = null;
     // Сохранить Солнце — две маленькие кнопки рядом: картинка для телефона и PDF A4 для раскрашивания (route.final.pdf = false — только картинка)
     if (per) {
@@ -1585,6 +1599,7 @@
     var sp = el('button', 'ys-spiral ys-fin-back'); sp.type = 'button'; sp.setAttribute('aria-label', tx.finBack || 'Вернуться на спираль'); sp.innerHTML = spiralSVG();
     sp.addEventListener('click', function (e) { e.stopPropagation(); close(); });
     end.appendChild(btns); if (saveRow) end.appendChild(saveRow); end.appendChild(sp);
+    if (brand && brandEnd) { brand.classList.add('ys-fin-brand-end'); end.appendChild(brand); }
     ui.appendChild(sun); ui.appendChild(end);
     root.appendChild(cv); root.appendChild(ui);
     // Музыка: кнопка «звук», если есть её файл

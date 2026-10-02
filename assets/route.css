@@ -89,7 +89,7 @@
 .ys-star--b{animation-delay:-3s}
 @keyframes ys-star{0%,70%,100%{opacity:.7;transform:scale(1) rotate(0)}80%{opacity:1;transform:scale(1.6) rotate(25deg)}90%{opacity:.85;transform:scale(1) rotate(45deg)}}
 /* Логотип 13 MIRRORS: маска логотипа, залитая золотом */
-.ys-fin-logo{display:block;margin:12px auto 0;height:20px;width:calc(20px * var(--lr,4.5));background:#e9c77e;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;filter:drop-shadow(0 1px 8px rgba(0,0,0,.7))}
+.ys-fin-logo{--lh:20px;display:block;margin:12px auto 0;height:var(--lh);width:calc(var(--lh) * var(--lr,4.5));background:#e9c77e;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;filter:drop-shadow(0 1px 8px rgba(0,0,0,.7))}
 /* Сохранить Солнце — две маленькие кнопки рядом: картинка и PDF для раскрашивания */
 .ys-fin-save{font-size:15px;padding:9px 16px;background:rgba(12,8,4,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .ys-fin-btns{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;margin-top:16px}
@@ -97,6 +97,12 @@
 .ys-fin-btns > *,.ys-fin-back{opacity:0;pointer-events:none;transition:opacity 1s ease}
 .ys-fin-end.is-btns .ys-fin-btns > *,.ys-fin-end.is-btns .ys-fin-back{opacity:1;pointer-events:auto}
 .ys-fin-end.is-fast .ys-fin-btns > *,.ys-fin-end.is-fast .ys-fin-back{transition:none}
+/* Размер логотипа (final.brandSize) и подпись в самом низу (final.brandAt = end): под кнопкой-спиралью, проявляется вместе с кнопками */
+.ys-fin-logo--m{--lh:28px}
+.ys-fin-logo--l{--lh:38px}
+.ys-fin-brand-end{margin-top:22px;opacity:0;transition:opacity 1.4s ease .4s}
+.ys-fin-end.is-btns .ys-fin-brand-end{opacity:.85}
+.ys-fin-end.is-fast .ys-fin-brand-end{transition:none}
 .ys-fin-review{text-decoration:none;font-size:15px;padding:10px 18px;background:rgba(12,8,4,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .ys-fin-back{margin-top:10px}
 .ys-fin-snd{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:2;font:inherit;font-size:13.5px;color:#f6ead2;padding:7px 13px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.4);border:1px solid rgba(255,214,140,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
