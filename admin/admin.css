@@ -407,3 +407,22 @@ select.a-input{padding-right:28px}
 .a-jfin-bl{display:flex;flex-direction:column;gap:6px}
 .a-media{display:block;width:100%;max-width:440px;border-radius:10px;background:#111}
 audio.a-media{background:none;height:40px}
+/* Живой пример Солнца финала */
+.a-jsun-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.a-jsun-scr{flex:1 1 220px;max-width:300px;aspect-ratio:1;border-radius:12px;padding:6%;background:radial-gradient(90% 70% at 50% 45%,#6b4416 0%,#3a220a 45%,#160c03 100%)}
+.a-jsun-cv{display:block;width:100%;aspect-ratio:1}
+.a-jsun-cv--paper{flex:1 1 160px;max-width:220px;width:auto;border-radius:12px;border:1px solid #e3d9c7;background:#fff}
+/* Рисовалка растений */
+.a-jpl{touch-action:none}
+.a-jpl.is-draw,.a-jpl.is-fig,.a-jpl.is-img{cursor:crosshair}
+.a-jpl.is-select{cursor:pointer}
+.a-jpl.is-erase{cursor:cell}
+.a-jpl-night{position:absolute;inset:0;background:rgba(5,3,1,.5);pointer-events:none}
+.a-jpl .ys-plants{position:absolute;pointer-events:none}
+.a-jpl-h .a-jpl-m{fill:none;stroke:rgba(255,255,255,.14);stroke-width:1px;vector-effect:non-scaling-stroke;stroke-dasharray:4 3;pointer-events:none}
+.a-jpl.is-select .a-jpl-m,.a-jpl.is-erase .a-jpl-m{stroke:rgba(255,255,255,.35)}
+.a-jpl.is-erase .a-jpl-m{stroke:rgba(255,140,120,.45)}
+.a-jpl-h .a-jpl-m.is-sel{stroke:#ffcf5a;stroke-width:2px;stroke-dasharray:none}
+.a-jpl-draw{fill:none;stroke:#7ff;stroke-width:2px;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+.a-jpl-tools button.is-active{background:#2a1a05;color:#ffe9b8}
+.a-jpl-sel{margin-top:10px;display:grid;gap:8px}
