@@ -2,7 +2,8 @@
    Данные — data/journeys.json (настраиваются в панели: «Страницы маршрутов»).
    Здесь же — Карта дня и личная карта: их рисует и сама страница, и панель (предпросмотр).
    Этап 1: фон-спираль, экран ожидания, Карта дня. Этап 2: кирпичи на спирали (свет, импульс к центру), путь Наблюдателя, режим проверки ?debug=1.
-   Этап 3: ключ → калейдоскоп → личный код, колода, выбор карты-разрешения (круг закрытых карт), личная карта. */
+   Этап 3: ключ → калейдоскоп → личный код, колода, выбор карты (круг закрытых карт), личная карта.
+   С 02.10: колода-колесо (13 карт: ось, спица, обод, изнанка), вход: ключ → 3 состояния → калейдоскоп (assets/kaleido.js, 12 лучей) → код со состояниями. */
 (function () {
   'use strict';
   var MSK = 3, DAY = 864e5;
@@ -46,17 +47,21 @@
 
   /* ---------- Подстановка в шаблоны ---------- */
   function dayOf(route, n) { return (route.days || [])[n - 1] || { n: n, texts: {} }; }
-  // Метки: {день}, {дата}, {кин}, {имя кина}, {печать}, {тон}; у личной карты — {разрешение} и словоформы карты.
-  function ctxOf(route, n, perm) {
+  // Колода-колесо: 13 карт { id, quality, axis, less: { rim, spoke }, more: { spoke, rim }, image }
+  function cardsOf(route) { return ((route.deck || {}).cards) || []; }
+  // Метки карты и откуда берётся значение. Значение ставится с маленькой буквы; {Качество} с большой — с большой.
+  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['ось', function (k) { return k.axis; }],
+    ['обод-мало', function (k) { return (k.less || {}).rim; }], ['спица-мало', function (k) { return (k.less || {}).spoke; }],
+    ['спица-много', function (k) { return (k.more || {}).spoke; }], ['обод-много', function (k) { return (k.more || {}).rim; }]];
+  function low(s) { s = String(s || ''); return s && s.charAt(1) !== s.charAt(1).toUpperCase() ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
+  // Метки: {день}, {дата}, {кин}, {имя кина}, {печать}, {тон}, {что делаем}, {среда}; у личной карты — метки карты (CARD_TOKENS).
+  function ctxOf(route, n, k) {
     var d = dayOf(route, n), c = {
       'день': String(n), 'дата': dateOf(route, n), 'кин': d.kin == null ? '' : String(d.kin),
-      'имя кина': d.kinName || '', 'печать': d.seal || '', 'тон': d.tone || ''
+      'имя кина': d.kinName || '', 'печать': d.seal || '', 'тон': d.tone || '',
+      'что делаем': d.cardOperation || '', 'среда': d.environment || ''
     };
-    if (perm) {
-      c['разрешение'] = perm.title || '';
-      var f = perm.f || {};
-      Object.keys(f).forEach(function (k) { c[String(k).trim().toLowerCase()] = f[k] || ''; });
-    }
+    if (k) CARD_TOKENS.forEach(function (t) { c[t[0]] = low(t[1](k)); });
     return c;
   }
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
@@ -70,8 +75,8 @@
     });
   }
   function tokens(route) {
-    var t = ['день', 'дата', 'кин', 'имя кина', 'печать', 'тон'];
-    return { day: t, card: ['разрешение'].concat((route.forms || []).map(function (f) { return f.key; })) };
+    var t = ['день', 'дата', 'кин', 'имя кина', 'печать', 'тон', 'что делаем', 'среда'];
+    return { day: t, card: CARD_TOKENS.map(function (x) { return x[0]; }) };
   }
 
   /* ---------- Значки ---------- */
@@ -95,8 +100,65 @@
       '<path d="M0 300 Q320 255 640 300 L640 360 L0 360 Z" fill="#0b0704" fill-opacity=".85"/></svg>';
   }
 
+  /* ---------- Лицо карты — колесо ----------
+     В центре ось (качество вместе с противовесом), через неё линия «слишком мало ↔ слишком много»;
+     по сторонам — спица (ближе) и обод (дальше). За кругом — изнанка: общая для всех карт.
+     Названия зон и подписи — route.deck (zones, sides, underside); пусто — как здесь. */
+  var ZONE_DEF = { axis: 'Ось', spoke: 'Спица', rim: 'Обод', underside: 'Изнанка' };
+  function zoneName(route, z) { var Z = (route.deck || {}).zones || {}; return Z[z] || ZONE_DEF[z]; }
+  function wheelNode(route, k, o) {
+    var D = route.deck || {}, sd = D.sides || {}, box = el('div', 'ys-wheel');
+    if (!k) k = { quality: 'Качество', axis: 'Качество и его противовес', less: { rim: 'обод', spoke: 'спица' }, more: { spoke: 'спица', rim: 'обод' } };
+    if (k.image) {
+      var img = el('img', 'ys-w-img'); img.src = imgSrc(o && o.base, k.image); img.alt = k.quality || ''; box.appendChild(img); box.classList.add('has-img');
+      return box;
+    }
+    box.appendChild(el('p', 'ys-w-q', k.quality || ''));
+    var w = el('div', 'ys-w-box');
+    var rays = '', i, a;
+    for (i = 0; i < 24; i++) { a = i / 24 * Math.PI * 2; rays += '<line x1="' + r1(50 + 17.6 * Math.cos(a)) + '" y1="' + r1(50 + 17.6 * Math.sin(a)) + '" x2="' + r1(50 + 29.6 * Math.cos(a)) + '" y2="' + r1(50 + 29.6 * Math.sin(a)) + '"/>'; }
+    w.innerHTML = '<svg class="ys-w-svg" viewBox="0 0 100 100" aria-hidden="true"><defs>' +
+      '<radialGradient id="yswa" cx="50%" cy="46%" r="55%"><stop offset="0" stop-color="#fff2c4" stop-opacity=".5"/><stop offset=".7" stop-color="#ffcf5a" stop-opacity=".2"/><stop offset="1" stop-color="#ffcf5a" stop-opacity=".08"/></radialGradient>' +
+      '<radialGradient id="ysws" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#d98a2a" stop-opacity=".16"/><stop offset="1" stop-color="#d98a2a" stop-opacity=".05"/></radialGradient>' +
+      '<radialGradient id="yswr" cx="50%" cy="50%" r="50%"><stop offset=".7" stop-color="#a8402a" stop-opacity=".1"/><stop offset="1" stop-color="#a8402a" stop-opacity=".3"/></radialGradient></defs>' +
+      '<circle cx="50" cy="50" r="42" fill="url(#yswr)" stroke="#e9c77e" stroke-opacity=".75" stroke-width=".5"/>' +
+      '<circle cx="50" cy="50" r="29.8" fill="url(#ysws)" stroke="#e9c77e" stroke-opacity=".55" stroke-width=".4"/>' +
+      '<g stroke="#e9c77e" stroke-opacity=".12" stroke-width=".3">' + rays + '</g>' +
+      '<circle cx="50" cy="50" r="17.6" fill="url(#yswa)" stroke="#ffd76a" stroke-opacity=".8" stroke-width=".5"/>' +
+      '<g stroke="#ffd76a" stroke-opacity=".6" stroke-width=".35" fill="none" stroke-linecap="round"><line x1="50" y1="5.5" x2="50" y2="32"/><line x1="50" y1="68" x2="50" y2="94.5"/>' +
+      '<path d="M48.4 7.6 L50 5.5 L51.6 7.6"/><path d="M48.4 92.4 L50 94.5 L51.6 92.4"/></g></svg>';
+    function lab(cls, t) { var x = el('span', cls, t || ''); w.appendChild(x); return x; }
+    lab('ys-w-side ys-w-side--more', sd.more || 'слишком много');
+    lab('ys-w-word ys-w-rim ys-w-top', (k.more || {}).rim);
+    lab('ys-w-word ys-w-spoke ys-w-top', (k.more || {}).spoke);
+    var ax = el('div', 'ys-w-axis'); ax.appendChild(el('small', null, zoneName(route, 'axis'))); ax.appendChild(el('b', null, k.axis || k.quality || '')); w.appendChild(ax);
+    lab('ys-w-word ys-w-spoke ys-w-bot', (k.less || {}).spoke);
+    lab('ys-w-word ys-w-rim ys-w-bot', (k.less || {}).rim);
+    lab('ys-w-side ys-w-side--less', sd.less || 'слишком мало');
+    lab('ys-w-zone ys-w-zl ys-w-z-spoke', zoneName(route, 'spoke')); lab('ys-w-zone ys-w-zr ys-w-z-spoke', zoneName(route, 'spoke'));
+    lab('ys-w-zone ys-w-zl ys-w-z-rim', zoneName(route, 'rim')); lab('ys-w-zone ys-w-zr ys-w-z-rim', zoneName(route, 'rim'));
+    lab('ys-w-zone ys-w-under ys-w-under--tl', zoneName(route, 'underside')); lab('ys-w-zone ys-w-under ys-w-under--br', zoneName(route, 'underside'));
+    box.appendChild(w);
+    var uq = D.undersideQ == null ? 'кто цепляет? → а нет ли этого во мне?' : D.undersideQ;
+    if (uq) { var u = el('p', 'ys-w-uq'); u.appendChild(el('b', null, zoneName(route, 'underside') + ': ')); u.appendChild(document.createTextNode(uq)); box.appendChild(u); }
+    return box;
+  }
+  // Путь назад в ось — по зонам колеса (route.deck.wayBack)
+  function wayBackNode(route, b) {
+    var wb = (route.deck || {}).wayBack || {}, list = el('ul', 'ys-wb-l'), any = false;
+    ['axis', 'spoke', 'rim', 'underside'].forEach(function (z) {
+      if (!wb[z]) return; any = true;
+      var li = el('li'); li.appendChild(el('b', null, zoneName(route, z))); li.appendChild(document.createTextNode(' — ' + wb[z])); list.appendChild(li);
+    });
+    if (!any) return null;
+    var box = el('div', 'ys-c-text ys-wb');
+    box.appendChild(el('span', 'ys-c-label', b.label == null ? 'Путь назад в ось' : b.label));
+    box.appendChild(list);
+    return box;
+  }
+
   /* ---------- Карта дня и личная карта ----------
-     kind: 'day' | 'personal'; mode: observation | journey | immersion; perm — карта-разрешение (для личной).
+     kind: 'day' | 'personal'; mode: observation | journey | immersion; perm — выпавшая карта колоды (для личной).
      o: { base, onSpiral(), traceUrl, traceLabel, preview } */
   function textNode(cls, text) {
     var box = el('div', cls);
@@ -114,12 +176,9 @@
       else fig.innerHTML = dayPlaceholder(n);
       return fig;
     }
-    if (b.kind === 'permission') {
-      var face = el('div', 'ys-c-perm');
-      if (perm && perm.image) { var pi = el('img'); pi.src = imgSrc(o.base, perm.image); pi.alt = perm.title || ''; face.appendChild(pi); face.classList.add('has-img'); }
-      else face.appendChild(el('div', 'ys-c-perm-t', perm ? perm.title : 'Карта-разрешение'));
-      return face;
-    }
+    // Лицо выпавшей карты — колесо ('permission' — старое название блока)
+    if (b.kind === 'wheel' || b.kind === 'permission') return wheelNode(route, perm, o);
+    if (b.kind === 'wayback') return wayBackNode(route, b);
     if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') {
       t = fill(b.text, ctx).trim(); if (!t) return null;
       if (b.kind === 'title') return el('h2', 'ys-c-title', t);
@@ -358,13 +417,16 @@
 
   /* ---------- Личный код и колода ----------
      Ключ (слово из группы) проверяется в браузере: на сайте лежит только его отпечаток — SHA-1 от «m13|<маршрут>|ключ»
-     (ключ строчными, без пробелов, ё → е; панель считает так же). Подошёл ключ → один раз случайное число seed → личный код
-     вида ИСКРА-7ЖК4: слово + 4 знака = 24 бита: seed (16) · формат (1 — Погружение) · проверка (7, от маршрута, первого дня, формата и seed).
-     Из кода считаются колода (день d → карта deck[d − 1]) и узор калейдоскопа — на любом устройстве одинаково, без сервера.
-     Что человек нажал в круге карт, на результат не влияет (вариант А, «колода нашей жизни»). */
+     (ключ строчными, без пробелов, ё → е; панель считает так же). Подошёл ключ → человек выбирает 3 состояния из 12 →
+     один раз случайное число seed → личный код вида ИСКРА-7ЖК-4Б2: слово + 6 знаков = 34 бита:
+     seed (16) · формат (1 — Погружение) · состояния (8: номер тройки из 220) · проверка (9, от маршрута, первого дня, формата, seed и состояний).
+     Состояния живут только в коде — сервера нет. Из кода считаются колода (день d → карта deck[d − 1]) и узор калейдоскопа —
+     на любом устройстве одинаково. Что человек нажал в круге карт, на результат не влияет (вариант А, «колода нашей жизни»).
+     Порядок состояний и карт в панели после выдачи кодов не менять: номера в коде — по этому порядку. */
   var CODE_ABC = 'АБВГДЕЖИКЛМНПРСТУФХЦШЭЮЯ23456789';
   var CODE_WORDS = ['СОЛНЦЕ', 'ЛУЧ', 'ЗАРЯ', 'СВЕТ', 'ИСКРА', 'ПЛАМЯ', 'ЯНТАРЬ', 'ЗОЛОТО', 'РАССВЕТ', 'ПОЛДЕНЬ', 'ВОСХОД', 'ОГОНЬ', 'КОЛОС', 'ЖАР', 'СИЯНИЕ', 'ТЕПЛО'];
   var LAT = { A: 'А', B: 'В', C: 'С', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', T: 'Т', X: 'Х', Y: 'У' };
+  var TAIL = 6, P30 = 1073741824;
   function h32(s) {
     var h = 0x811c9dc5 ^ s.length, i;
     for (i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
@@ -375,40 +437,52 @@
     var a = seed >>> 0;
     return function () { a = (a + 0x6d2b79f5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   }
-  function codeCheck(route, mode, seed) { return h32('m13code|' + route.id + '|' + (route.start || '') + '|' + mode + '|' + seed) & 127; }
-  function makeCode(route, mode, seed) {
-    seed = seed & 0xffff;
-    var raw = seed * 256 + (mode === 'immersion' ? 128 : 0) + codeCheck(route, mode, seed), tail = raw % 1048576, s = '', i;
-    for (i = 3; i >= 0; i--) s += CODE_ABC.charAt(Math.floor(tail / Math.pow(32, i)) % 32);
-    return CODE_WORDS[Math.floor(raw / 1048576)] + '-' + s;
+  // Тройки состояний из 12: номер 0…219 ↔ [a, b, c] (a < b < c — номера в списке состояний)
+  var TRIPLES = (function () { var l = [], a, b, c; for (a = 0; a < 12; a++) for (b = a + 1; b < 12; b++) for (c = b + 1; c < 12; c++) l.push([a, b, c]); return l; })();
+  function tripleNo(st) {
+    var x = (st || []).slice().sort(function (a, b) { return a - b; }).join(',');
+    for (var i = 0; i < TRIPLES.length; i++) if (TRIPLES[i].join(',') === x) return i;
+    return -1;
   }
-  function newCode(route, mode) {
-    var seed = Math.floor(Math.random() * 65536);
+  function statesOf(route) { return ((route.states || {}).items) || []; }
+  function codeCheck(route, mode, seed, st) { return h32('m13code|' + route.id + '|' + (route.start || '') + '|' + mode + '|' + seed + '|' + st) & 511; }
+  function makeCode(route, mode, seed, st) {
+    seed = seed & 0xffff; st = st >= 0 && st < TRIPLES.length ? st : 0;
+    var raw = ((seed * 2 + (mode === 'immersion' ? 1 : 0)) * 256 + st) * 512 + codeCheck(route, mode, seed, st), tail = raw % P30, s = '', i;
+    for (i = TAIL - 1; i >= 0; i--) s += CODE_ABC.charAt(Math.floor(tail / Math.pow(32, i)) % 32);
+    return CODE_WORDS[Math.floor(raw / P30)] + '-' + s.slice(0, 3) + '-' + s.slice(3);
+  }
+  // states — номера трёх состояний (по порядку в панели); нет — случайные (тестовый код)
+  function newCode(route, mode, states) {
+    var seed = Math.floor(Math.random() * 65536), st = tripleNo(states);
     try { seed = crypto.getRandomValues(new Uint16Array(1))[0]; } catch (e) {}
-    return readCode(route, makeCode(route, mode, seed));
+    if (st < 0) st = Math.floor(Math.random() * TRIPLES.length);
+    return readCode(route, makeCode(route, mode, seed, st));
   }
-  // Код из того, что набрал человек: регистр, пробелы, дефис, латинские двойники (C, O, X…), ё/й, З вместо 3 — не важны.
+  // Код из того, что набрал человек: регистр, пробелы, дефисы, латинские двойники (C, O, X…), ё/й, З вместо 3 — не важны.
   // Неверный код (опечатка) — null: проверка не сходится.
   function readCode(route, input) {
     var s = String(input || '').toUpperCase().replace(/Ё/g, 'Е').replace(/Й/g, 'И').replace(/[ABCEHKMOPTXY]/g, function (c) { return LAT[c]; }).replace(/[^А-Я0-9]/g, '');
     for (var w = 0; w < CODE_WORDS.length; w++) {
-      var W = CODE_WORDS[w]; if (s.length !== W.length + 4 || s.indexOf(W) !== 0) continue;
+      var W = CODE_WORDS[w]; if (s.length !== W.length + TAIL || s.indexOf(W) !== 0) continue;
       var tail = s.slice(W.length).replace(/З/g, '3'), t = 0, i, k;
-      for (i = 0; i < 4; i++) { k = CODE_ABC.indexOf(tail.charAt(i)); if (k < 0) return null; t = t * 32 + k; }
-      var raw = w * 1048576 + t, seed = Math.floor(raw / 256), mode = raw & 128 ? 'immersion' : 'journey';
-      if ((raw & 127) !== codeCheck(route, mode, seed)) return null;
-      return { code: W + '-' + tail, mode: mode, seed: seed };
+      for (i = 0; i < TAIL; i++) { k = CODE_ABC.indexOf(tail.charAt(i)); if (k < 0) return null; t = t * 32 + k; }
+      var raw = w * P30 + t, chk = raw % 512, rest = Math.floor(raw / 512), st = rest % 256, ms = Math.floor(rest / 256);
+      var mode = ms % 2 ? 'immersion' : 'journey', seed = Math.floor(ms / 2);
+      if (st >= TRIPLES.length || chk !== codeCheck(route, mode, seed, st)) return null;
+      return { code: W + '-' + tail.slice(0, 3) + '-' + tail.slice(3), mode: mode, seed: seed, states: TRIPLES[st].slice() };
     }
     return null;
   }
-  // Порядок карт-разрешений у человека: перемешаны один раз — от кода. Порядок карт в панели после выдачи кодов не менять.
+  // Порядок карт колоды у человека: перемешаны один раз — от кода. Порядок карт в панели после выдачи кодов не менять.
   function deckOf(route, c) {
-    var n = (route.permissions || []).length, a = [], i, j, t, R = rng(h32('m13deck|' + route.id + '|' + (route.start || '') + '|' + c.mode + '|' + c.seed));
+    var n = cardsOf(route).length, a = [], i, j, t, R = rng(h32('m13deck|' + route.id + '|' + (route.start || '') + '|' + c.mode + '|' + c.seed));
     for (i = 0; i < n; i++) a.push(i);
     for (i = n - 1; i > 0; i--) { j = Math.floor(R() * (i + 1)); t = a[i]; a[i] = a[j]; a[j] = t; }
     return a;
   }
-  function permFor(route, c, d) { var dk = c ? deckOf(route, c) : []; return dk.length ? route.permissions[dk[(d - 1) % dk.length]] : null; }
+  // Карта дня d по коду. 13 карт на 12 дней: последняя в колоде остаётся закрытой, ей ничего не придаём.
+  function cardFor(route, c, d) { var dk = c ? deckOf(route, c) : []; return dk.length ? cardsOf(route)[dk[(d - 1) % dk.length]] : null; }
 
   // Ключ → формат ('journey' | 'immersion' | ''). SHA-1 — браузерный, а где его нет (страница не по https) — свой.
   function keyNorm(k) { return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ''); }
@@ -445,106 +519,26 @@
     return sha1Hex('m13|' + route.id + '|' + k).then(function (h) { return keys.journey && keys.journey === h ? 'journey' : keys.immersion && keys.immersion === h ? 'immersion' : ''; });
   }
 
-  /* ---------- Калейдоскоп: личный узор из кода ----------
-     Узор — из числа (h32 от кода): число зеркал (6, 8, 10 или 12), 9–13 стёклышек в одном секторе, два цвета-акцента к солнечным.
-     Сектор отражается по кругу, как в настоящем калейдоскопе. e — насколько стёклышки «легли» (0 — рассыпаны, 1 — узор сложился). */
-  var KAL_SUN = ['#ffcf5a', '#ffe7a3', '#f2a43a', '#fff6dc', '#e98a2a'];
-  var KAL_ACC = ['#ef7a6c', '#5fc7b8', '#a48ae6', '#7fb9f0', '#93d16e', '#f290b8', '#e0b04a'];
+  /* ---------- Калейдоскоп: живой узор (assets/kaleido.js, window.M13K) ----------
+     12 лучей (6 пар зеркал). Общий узор маршрута — из h32('m13kal|' + id), самоцветы свои у узора.
+     Личный — из h32('m13kal|' + код): стёклышки — три состояния входа (цвета — route.states, панель).
+     Стиль — route.kaleido.style: 'rose' витраж-роза, 'gems' самоцветы, 'mix' роза с самоцветами. */
+  function hexRgb(h) {
+    h = String(h || '').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&');
+    var n = parseInt(h, 16); return isNaN(n) || h.length !== 6 ? [255, 207, 90] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function kalStyle(route) { var s = (route.kaleido || {}).style; return s === 'rose' || s === 'gems' || s === 'mix' ? s : 'mix'; }
   function kalSeed(c) { return h32('m13kal|' + (c && c.code ? c.code : String(c || ''))); }
-  function kalParts(seed) {
-    var R = rng(seed), sym = [6, 8, 10, 12][Math.floor(R() * 4)], acc = [KAL_ACC[Math.floor(R() * 7)], KAL_ACC[Math.floor(R() * 7)]];
-    var cols = KAL_SUN.concat(acc, acc), parts = [], n = 9 + Math.floor(R() * 5), i;
-    for (i = 0; i < n; i++) parts.push({ k: Math.floor(R() * 6), r: .08 + R() * .84, a: R(), s: .035 + R() * .13, rot: R() * 6.283, c: cols[Math.floor(R() * cols.length)],
-      o: .3 + R() * .5, dr: (R() - .5) * .6, da: (R() - .5) * 2.6, dz: (R() - .5) * 5 });
-    parts.sort(function (a, b) { return b.s - a.s; });
-    return { sym: sym, parts: parts, ring: .34 + R() * .4, beads: 1 + Math.floor(R() * 3), core: cols[Math.floor(R() * 5)] };
+  function routeSeed(route) { return h32('m13kal|' + route.id); }
+  // Стёклышки узора: состояния входа — гладкие отполированные камни (кабошоны) их цвета
+  function kalEx(route, c) {
+    var L = statesOf(route), glass = [];
+    if (c && c.states) c.states.forEach(function (i) { if (L[i]) glass.push({ c: hexRgb(L[i].color), sh: 'bead' }); });
+    return glass.length ? { sym: 6, glass: glass } : { sym: 6 };
   }
-  function kalShape(ctx, k, s) {
-    ctx.beginPath();
-    if (k === 0) ctx.arc(0, 0, s, 0, 6.2832);
-    else if (k === 1) ctx.ellipse(0, 0, s * 1.7, s * .48, 0, 0, 6.2832);
-    else if (k === 2) { ctx.moveTo(s, 0); ctx.lineTo(0, s * .62); ctx.lineTo(-s, 0); ctx.lineTo(0, -s * .62); ctx.closePath(); }
-    else if (k === 3) { ctx.moveTo(s, 0); ctx.lineTo(-s * .6, s * .75); ctx.lineTo(-s * .6, -s * .75); ctx.closePath(); }
-    else if (k === 4) { ctx.arc(0, 0, s, 0, 6.2832); ctx.lineWidth = s * .26; ctx.stroke(); return; }
-    else { ctx.moveTo(-s * 1.8, 0); ctx.lineTo(s * 1.8, 0); ctx.lineWidth = Math.max(1, s * .14); ctx.lineCap = 'round'; ctx.stroke(); return; }
-    ctx.fill();
-  }
-  function kalLayer(ctx, K, rad, e, alpha) {
-    var W = Math.PI * 2 / K.sym, f = 1 - e, k, i, p;
-    for (k = 0; k < K.sym; k++) {
-      ctx.save();
-      if (k % 2) { ctx.rotate((k + 1) * W); ctx.scale(1, -1); } else ctx.rotate(k * W);
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, rad, 0, W); ctx.closePath(); ctx.clip();
-      for (i = 0; i < K.parts.length; i++) {
-        p = K.parts[i];
-        ctx.save();
-        ctx.rotate((p.a + p.da * f) * W); ctx.translate((p.r + p.dr * f) * rad, 0); ctx.rotate(p.rot + p.dz * f);
-        ctx.fillStyle = ctx.strokeStyle = p.c; ctx.globalAlpha = alpha * p.o;
-        kalShape(ctx, p.k, p.s * rad);
-        ctx.restore();
-      }
-      // Бусины на кольце — по одной-три в секторе
-      ctx.globalAlpha = alpha * .8; ctx.fillStyle = K.core;
-      for (i = 0; i < K.beads; i++) { ctx.beginPath(); ctx.arc(Math.cos((i + .5) / K.beads * W) * K.ring * rad, Math.sin((i + .5) / K.beads * W) * K.ring * rad, rad * .016, 0, 6.2832); ctx.fill(); }
-      ctx.restore();
-    }
-  }
-  // Кадр калейдоскопа: list — [[узор, e, прозрачность], …] (при повороте старый узор рассыпается, новый складывается)
-  function kalFrame(ctx, list, cx, cy, rad, rot) {
-    var g, k, W;
-    ctx.save(); ctx.translate(cx, cy);
-    ctx.beginPath(); ctx.arc(0, 0, rad, 0, 6.2832); ctx.clip();
-    g = ctx.createRadialGradient(0, 0, 0, 0, 0, rad); g.addColorStop(0, '#3a2408'); g.addColorStop(.6, '#1a1005'); g.addColorStop(1, '#0a0603');
-    ctx.fillStyle = g; ctx.fillRect(-rad, -rad, rad * 2, rad * 2);
-    ctx.rotate(rot);
-    ctx.globalCompositeOperation = 'lighter';
-    list.forEach(function (x) { if (x[2] > .01) kalLayer(ctx, x[0], rad, x[1], x[2]); });
-    // Зеркала — тонкие лучи между секторами
-    W = list[list.length - 1][0].sym;
-    ctx.globalAlpha = .1; ctx.strokeStyle = '#ffe2a0'; ctx.lineWidth = Math.max(1, rad * .004);
-    for (k = 0; k < W; k++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(k / W * 6.2832) * rad, Math.sin(k / W * 6.2832) * rad); ctx.stroke(); }
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-    g = ctx.createRadialGradient(0, 0, rad * .08, 0, 0, rad * .2); g.addColorStop(0, 'rgba(255,246,220,.85)'); g.addColorStop(1, 'rgba(255,207,90,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rad * .2, 0, 6.2832); ctx.fill();
-    g = ctx.createRadialGradient(0, 0, rad * .6, 0, 0, rad); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)');
-    ctx.fillStyle = g; ctx.fillRect(-rad, -rad, rad * 2, rad * 2);
-    ctx.restore();
-    ctx.save(); ctx.strokeStyle = 'rgba(255,214,140,.55)'; ctx.lineWidth = Math.max(1, rad * .012);
-    ctx.beginPath(); ctx.arc(cx, cy, rad - ctx.lineWidth / 2, 0, 6.2832); ctx.stroke(); ctx.restore();
-  }
-  // Калейдоскоп на холсте: show — узор сразу, idle — медленно вращается, turn — поворот и новый узор, потом done().
-  function Kaleido(cv, px) {
-    var ctx = cv.getContext('2d'), K = null, raf = 0, rot = 0;
-    function draw(list) {
-      var d = Math.min(2, window.devicePixelRatio || 1), w = Math.round((px || cv.clientWidth || 280) * d);
-      if (cv.width !== w || cv.height !== w) { cv.width = w; cv.height = w; }
-      ctx.clearRect(0, 0, w, w);
-      kalFrame(ctx, list, w / 2, w / 2, w / 2 * .98, rot);
-    }
-    function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
-    return {
-      show: function (seed) { stop(); K = kalParts(seed); draw([[K, 1, 1]]); },
-      idle: function (seed) {
-        stop(); K = kalParts(seed); draw([[K, 1, 1]]);
-        if (REDUCED) return;
-        (function loop() { rot += .0016; draw([[K, 1, 1]]); raf = requestAnimationFrame(loop); })();
-      },
-      turn: function (seed, done) {
-        stop();
-        var A = K, B = kalParts(seed), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 2800;
-        if (!dur) { K = B; draw([[B, 1, 1]]); if (done) done(); return; }
-        raf = requestAnimationFrame(function loop(ts) {
-          if (!t0) t0 = ts;
-          var k = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - k, 3), s = k < .5 ? 2 * k * k : 1 - Math.pow(2 - 2 * k, 2) / 2;
-          rot = r0 + e * Math.PI * 2.2;
-          draw(A ? [[A, Math.max(0, 1 - k * 2.2), Math.max(0, 1 - k * 1.7)], [B, s, Math.min(1, k * 1.6)]] : [[B, s, Math.min(1, .2 + k * 1.6)]]);
-          if (k < 1) { raf = requestAnimationFrame(loop); return; }
-          raf = 0; K = B; if (done) done();
-        });
-      },
-      stop: stop
-    };
-  }
+  function Kaleido(cv, px, route) { return window.M13K ? window.M13K.Kaleido(cv, px || 0, { style: kalStyle(route || S.route || {}), ex: { sym: 6 } }) : null; }
+  // Узор человека сразу (панель «Код участника», «Мой код»)
+  function kalShow(cv, px, route, c) { var k = Kaleido(cv, px, route); if (k) k.show(kalSeed(c), kalEx(route, c)); return k; }
   // Картинка «узор и код» для сохранения: 1080 × 1350 (как пост), узор, код, маршрут.
   function patternImage(route, c, cb) {
     var W = 1080, H = 1350, cv = document.createElement('canvas'), ctx = cv.getContext('2d');
@@ -553,12 +547,15 @@
       var g = ctx.createRadialGradient(W / 2, 560, 60, W / 2, 560, 900);
       g.addColorStop(0, '#3b250a'); g.addColorStop(1, '#0a0604');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      kalFrame(ctx, [[kalParts(kalSeed(c)), 1, 1]], W / 2, 560, 420, 0);
+      if (window.M13K) window.M13K.still(ctx, kalSeed(c), W / 2, 560, 420, kalStyle(route), kalEx(route, c));
       ctx.textAlign = 'center'; ctx.fillStyle = '#e9c77e';
       ctx.font = '500 30px "Cormorant Garamond", Georgia, serif';
       ctx.fillText(('13 MIRRORS · ' + (route.title || '')).toUpperCase().split('').join(String.fromCharCode(8202)), W / 2, 86);
       ctx.fillText((MODE_NAMES[c.mode] || '').toUpperCase().split('').join(String.fromCharCode(8202)), W / 2, 1080);
-      ctx.fillStyle = '#fff3d6'; ctx.font = '600 104px "Cormorant Garamond", Georgia, serif';
+      // Код длинный (РАССВЕТ-…-…) — шрифт мельче, чтобы влез в ширину картинки
+      var fs = 104; ctx.font = '600 104px "Cormorant Garamond", Georgia, serif';
+      while (fs > 60 && ctx.measureText(c.code).width > W - 110) { fs -= 4; ctx.font = '600 ' + fs + 'px "Cormorant Garamond", Georgia, serif'; }
+      ctx.fillStyle = '#fff3d6';
       ctx.fillText(c.code, W / 2, 1200);
       cb(cv);
     }
@@ -658,7 +655,7 @@
       if (n === daysCount(r)) { openFinal(); return; }
       if (!S.code) { openKey(mode); return; }
       // Карта сегодня уже перевёрнута — сразу та же личная карта, нового выбора нет
-      if (pickedList().indexOf(n) >= 0) openPersonal(n, mode, permFor(r, S.code, n));
+      if (pickedList().indexOf(n) >= 0) openPersonal(n, mode, cardFor(r, S.code, n));
       else openFan(n, mode);
     } });
     layer(c, 'ys-layer--day', from || centerOffset());
@@ -697,6 +694,40 @@
       }, 'image/png');
     });
   }
+  // Состояния кода словами: «ясность · тревога · интерес»
+  function statesText(route, c) { var L = statesOf(route); return ((c && c.states) || []).map(function (i) { return L[i] ? L[i].name : ''; }).filter(Boolean).join(' · '); }
+  // Перемешать (при каждом показе — свой порядок, чтобы никакие группы не считывались)
+  function shuffled(n) { var a = [], i, j, t; for (i = 0; i < n; i++) a.push(i); for (i = n - 1; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  // Выбор трёх состояний: равноправные стёклышки без подписей групп и без толкований. done(список номеров по порядку панели)
+  function statesPicker(route, need, done) {
+    var tx = route.texts || {}, L = statesOf(route), chosen = [], box = el('div', 'ys-states');
+    box.appendChild(el('p', 'ys-key-lead', tx.statesLead || 'Выберите три стёклышка — три состояния, с которыми вы сейчас входите в маршрут.'));
+    var wrap = el('div', 'ys-st-list');
+    shuffled(L.length).forEach(function (i) {
+      var b = el('button', 'ys-st'), dot = el('i', 'ys-st-g'); b.type = 'button';
+      dot.style.setProperty('--c', L[i].color || '#ffcf5a');
+      b.appendChild(dot); b.appendChild(el('span', null, L[i].name || ''));
+      b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', function () {
+        var k = chosen.indexOf(i);
+        if (k >= 0) chosen.splice(k, 1); else if (chosen.length < need) chosen.push(i); else return;
+        b.classList.toggle('is-on', k < 0); b.setAttribute('aria-pressed', String(k < 0));
+        upd();
+      });
+      wrap.appendChild(b);
+    });
+    box.appendChild(wrap);
+    var cnt = el('p', 'ys-st-n'), go = el('button', 'ys-key-go', tx.statesGo || tx.keyGo || 'Повернуть калейдоскоп'); go.type = 'button';
+    function upd() {
+      cnt.textContent = fill(tx.statesCount || 'Выбрано {выбрано} из {нужно}', { 'выбрано': String(chosen.length), 'нужно': String(need) });
+      go.disabled = chosen.length !== need; box.classList.toggle('is-full', chosen.length === need);
+    }
+    go.addEventListener('click', function () { if (chosen.length === need) { go.disabled = true; done(chosen.slice()); } });
+    box.appendChild(cnt); box.appendChild(go);
+    if (tx.statesNote !== '') box.appendChild(el('p', 'ys-key-note', tx.statesNote || 'Стёклышки войдут в ваш узор. Они хранятся только в вашем коде — больше нигде.'));
+    upd();
+    return box;
+  }
   function openKey(want, show) {
     var r = S.route, tx = r.texts || {}, box = el('div', 'ys-key'), kal = null;
     var have = !!(show && S.code);
@@ -704,12 +735,12 @@
     var title = el('h2', 'ys-key-t', have ? tx.myCode || 'Мой узор и код' : tx.keyTitle || 'Ключ к маршруту');
     var cv = el('canvas', 'ys-kal');
     box.appendChild(mname); box.appendChild(title); box.appendChild(cv);
-    var form = el('form', 'ys-key-form'), res = el('div', 'ys-key-res');
-    form.appendChild(el('p', 'ys-key-lead', tx.keyLead || 'Введите ключ, который Проводник дал в группе. Калейдоскоп повернётся и сложит ваш личный узор и код.'));
+    var form = el('form', 'ys-key-form'), res = el('div', 'ys-key-res'), stBox = el('div', 'ys-key-st');
+    form.appendChild(el('p', 'ys-key-lead', tx.keyLead || 'Введите ключ, который Проводник дал в группе. Потом выберите три состояния — калейдоскоп повернётся и сложит ваш личный узор и код.'));
     var inp = el('input', 'ys-key-in');
     inp.type = 'text'; inp.autocomplete = 'off'; inp.setAttribute('autocapitalize', 'off'); inp.setAttribute('autocorrect', 'off'); inp.spellcheck = false;
     inp.placeholder = tx.keyPh || 'Ключ или ваш код';
-    var go = el('button', 'ys-key-go', tx.keyGo || 'Повернуть калейдоскоп'); go.type = 'submit';
+    var go = el('button', 'ys-key-go', tx.keyNext || 'Дальше'); go.type = 'submit';
     var err = el('p', 'ys-key-err');
     form.appendChild(inp); form.appendChild(go); form.appendChild(err);
     form.appendChild(el('p', 'ys-key-note', tx.keyNote || 'Код уже есть? Введите его — на новом телефоне или компьютере нужен код, а не ключ.'));
@@ -719,7 +750,9 @@
     function result(c) {
       res.replaceChildren();
       res.appendChild(el('p', 'ys-code-l', tx.codeLabel || 'Ваш код'));
-      res.appendChild(el('p', 'ys-code', c.code));
+      res.appendChild(el('p', 'ys-code' + (c.code.length > 12 ? ' is-long' : ''), c.code));
+      var sw = statesText(r, c);
+      if (sw && tx.codeStates !== '') res.appendChild(el('p', 'ys-code-st', fill(tx.codeStates || 'Вы вошли с: {состояния}', { 'состояния': sw })));
       res.appendChild(el('p', 'ys-code-n', tx.codeNote || 'Сохраните узор и код и пришлите код Проводнику в личные. На другом устройстве входите по этому коду.'));
       var row = el('div', 'ys-code-btns');
       function b(t, f) { var x = el('button', 'ys-code-b', t); x.type = 'button'; x.addEventListener('click', f); row.appendChild(x); return x; }
@@ -745,7 +778,14 @@
         });
         res.appendChild(other);
       }
+      box.classList.remove('is-states');
       box.classList.add('is-done');
+    }
+    // Узор складывается: калейдоскоп поворачивается к личному узору (стёклышки — состояния входа)
+    function turn(c) {
+      saveCode(c); mname.textContent = MODE_NAMES[c.mode]; title.textContent = tx.codeTitle || 'Ваш личный узор';
+      box.classList.add('is-turn'); inp.blur();
+      kal.turn(kalSeed(c), function () { box.classList.remove('is-turn'); result(c); }, kalEx(r, c));
     }
     form.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -753,29 +793,34 @@
       if (!keyNorm(v)) { inp.focus(); return; }
       go.disabled = true;
       var c = readCode(r, v);
-      (c ? Promise.resolve(c) : keyMode(r, v).then(function (m) { return m ? newCode(r, m) : null; })).then(function (c) {
-        if (!c) {
+      if (c) { turn(c); return; }
+      keyMode(r, v).then(function (m) {
+        if (!m) {
           go.disabled = false; err.textContent = tx.keyBad || 'Ключ не подошёл. Проверьте, как он написан, — или спросите Проводника.';
           box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake');
           return;
         }
-        saveCode(c); mname.textContent = MODE_NAMES[c.mode]; title.textContent = tx.codeTitle || 'Ваш личный узор';
-        box.classList.add('is-turn'); inp.blur();
-        kal.turn(kalSeed(c), function () { box.classList.remove('is-turn'); result(c); });
+        inp.blur(); mname.textContent = MODE_NAMES[m];
+        // Ключ подошёл → три состояния → код
+        if (statesOf(r).length < 3) { turn(newCode(r, m)); return; }
+        title.textContent = tx.statesTitle || 'С чем вы входите?';
+        stBox.replaceChildren(statesPicker(r, 3, function (st) { turn(newCode(r, m, st)); }));
+        box.classList.add('is-states');
       });
     });
-    box.appendChild(have ? res : form); if (!have) box.appendChild(res);
+    box.appendChild(have ? res : form); if (!have) { box.appendChild(stBox); box.appendChild(res); }
     if (have) result(S.code);
     closeLayer();
     var ov = layer(box, 'ys-layer--key', null, !have);
-    kal = Kaleido(cv);
-    // Пока ключа нет — калейдоскоп медленно вращается (общий узор маршрута)
-    requestAnimationFrame(function () { if (have) kal.show(kalSeed(S.code)); else kal.idle(h32('m13kal|' + r.id)); });
-    ov.onclose = function () { kal.stop(); };
+    kal = Kaleido(cv, 0, r);
+    // Пока ключа нет — калейдоскоп живёт общим узором маршрута
+    requestAnimationFrame(function () { if (!kal) return; if (have) kal.idle(kalSeed(S.code), kalEx(r, S.code)); else kal.idle(routeSeed(r), { sym: 6 }); });
+    ov.onclose = function () { if (kal) kal.stop(); };
   }
 
-  /* ---------- Выбор карты-разрешения ----------
-     Закрытые карты лучами по кругу, центр пуст; карт столько, сколько осталось дней с выбором (в 1-й день 12, в 12-й — одна).
+  /* ---------- Выбор карты колоды ----------
+     Закрытые карты лучами по кругу, центр пуст; в колоде 13 карт на 12 дней: в 1-й день 13, каждый день на одну меньше,
+     в 12-й — выбор из двух (последняя остаётся закрытой, ничего с ней не делаем).
      Нажал любую → она выходит в центр и переворачивается (выбор окончателен) → «Открыть» → личная карта.
      Какая карта откроется, решает колода из кода, а не то, какую нажали. */
   function backSVG() {
@@ -792,17 +837,25 @@
     else b.innerHTML = backSVG();
     return b;
   }
-  function frontFace(perm) {
+  // Лицо перевёрнутой карты в круге: качество на маленьком колесе (полное колесо — на личной карте)
+  function frontFace(k) {
     var f = el('span', 'ys-fc-face');
-    if (perm && perm.image) { var img = el('img'); img.src = imgSrc(S.base, perm.image); img.alt = perm.title || ''; f.appendChild(img); f.classList.add('has-img'); }
-    else f.appendChild(el('span', 'ys-fc-t', perm ? perm.title : ''));
+    if (k && k.image) { var img = el('img'); img.src = imgSrc(S.base, k.image); img.alt = k.quality || ''; f.appendChild(img); f.classList.add('has-img'); }
+    else {
+      f.insertAdjacentHTML('beforeend', '<svg class="ys-fc-w" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#e9c77e"><circle cx="50" cy="50" r="46" stroke-opacity=".45"/><circle cx="50" cy="50" r="32" stroke-opacity=".4"/>' +
+        '<circle cx="50" cy="50" r="19" stroke="#ffd76a" stroke-opacity=".7"/><line x1="50" y1="4" x2="50" y2="96" stroke-opacity=".35"/></g></svg>');
+      var t = el('span', 'ys-fc-t', k ? k.quality : '');
+      // Длинное слово («Рассудительность») — мельче, чтобы не рвалось по слогам
+      t.style.setProperty('--fs', Math.min(.056, .66 / Math.max(1, String(k ? k.quality : '').length)).toFixed(4));
+      f.appendChild(t);
+    }
     return f;
   }
   function openFan(n, mode) {
-    var r = S.route, tx = r.texts || {}, ctx = ctxOf(r, n), N = Math.max(1, daysCount(r) - n), perm = permFor(r, S.code, n), done = false, i;
+    var r = S.route, tx = r.texts || {}, ctx = ctxOf(r, n), N = Math.max(1, cardsOf(r).length - (n - 1)), perm = cardFor(r, S.code, n), done = false, i;
     var box = el('div', 'ys-fan'), ring = el('div', 'ys-fan-ring' + (N === 1 ? ' is-one' : ''));
     box.appendChild(el('p', 'ys-fan-small', fill(tx.chooseSmall || 'День {день} · {имя кина}', ctx)));
-    var title = el('h2', 'ys-fan-t', fill(tx.choose || 'Выберите карту-разрешение', ctx));
+    var title = el('h2', 'ys-fan-t', fill(tx.choose || 'Выберите карту', ctx));
     box.appendChild(title);
     var pk = el('div', 'ys-pick'), pin = el('div', 'ys-pick-in');
     pin.appendChild(backFace(r)); pin.appendChild(frontFace(perm)); pk.appendChild(pin);
@@ -816,7 +869,7 @@
     })(i * 360 / N, i);
     ring.appendChild(pk);
     box.appendChild(ring);
-    var hint = el('p', 'ys-fan-n', fill(tx.chooseNote || 'Карт столько, сколько дней осталось. Та, что откроется, — ваша на сегодня.', ctx));
+    var hint = el('p', 'ys-fan-n', fill(tx.chooseNote || 'Карты лежат рубашкой вверх — выбирайте наугад. Та, что откроется, — ваша на сегодня.', ctx));
     var open = el('button', 'ys-key-go ys-fan-open', tx.open || 'Открыть'); open.type = 'button';
     open.addEventListener('click', function () { openPersonal(n, mode, perm); });
     box.appendChild(hint); box.appendChild(open);
@@ -833,7 +886,7 @@
       pk.style.transform = 'rotate(' + (a > 180 ? 360 : 0) + 'deg)';
       setTimeout(function () { pk.classList.add('is-flip'); }, REDUCED ? 0 : 420);
       setTimeout(function () {
-        title.textContent = fill(tx.chosen || 'Ваше разрешение на сегодня', ctx);
+        title.textContent = fill(tx.chosen || 'Ваша карта на сегодня', ctx);
         hint.style.visibility = 'hidden'; open.classList.add('is-on'); open.focus();
       }, REDUCED ? 50 : 1500);
     }
@@ -983,10 +1036,10 @@
     var sd = sel(days, String(Math.max(1, Math.min(last, now || 1))));
     var sm = sel(MODES.map(function (m) { return [m, MODE_NAMES[m]]; }), S.mode);
     sm.addEventListener('change', function () { S.mode = sm.value; });
-    var sp = sel([['code', 'Карта — по коду (колода)']].concat((r.permissions || []).map(function (p, k) { return [String(k), (k + 1) + '. ' + (p.title || '')]; })), S.code ? 'code' : '0');
-    function permSel(d) { return sp.value === 'code' ? permFor(r, S.code, d) || (r.permissions || [])[0] : (r.permissions || [])[+sp.value]; }
+    var sp = sel([['code', 'Карта — по коду (колода)']].concat(cardsOf(r).map(function (p, k) { return [String(k), (k + 1) + '. ' + (p.quality || '')]; })), S.code ? 'code' : '0');
+    function permSel(d) { return sp.value === 'code' ? cardFor(r, S.code, d) || cardsOf(r)[0] : cardsOf(r)[+sp.value]; }
     function testCode(m) { saveCode(newCode(r, m)); S.mode = m; setUrlMode(m); closeLayer(); render(); note('Код для проверки: ' + S.code.code + ' · ' + MODE_NAMES[m]); }
-    var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') : 'Кода на этом устройстве нет';
+    var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · вошли с: ' + (statesText(r, S.code) || '—') + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') : 'Кода на этом устройстве нет';
     [el('span', null, 'Сейчас по Москве: ' + (S.debugNow ? S.debugNow + ' (подмена)' : 'настоящее время') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
       ss, zl,
       row([btn('Финал Солнца', openFinal), btn('Сброс', function () { resetOpened(); resetPicks(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты.'); })]),
@@ -1022,7 +1075,7 @@
     render();
     var c = q('card'), n = +q('day') || 1;
     if (c === 'day') openDay(n, S.mode);
-    else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? permFor(route, S.code, n) : (route.permissions || [])[+q('perm') || 0]);
+    else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? cardFor(route, S.code, n) : cardsOf(route)[+q('perm') || 0]);
     else if (c === 'fan' && S.code) openFan(n, S.mode);
     else if (gate) openKey(m);
   }
@@ -1055,5 +1108,7 @@
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer,
-    readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, permFor: permFor, keyNorm: keyNorm, kaleido: Kaleido, kalSeed: kalSeed };
+    readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
+    kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
+    wheelNode: wheelNode, zoneName: zoneName, CARD_TOKENS: CARD_TOKENS };
 })();

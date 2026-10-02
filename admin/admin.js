@@ -2268,11 +2268,13 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['perms', 'Карты-разрешения'], ['personal', 'Личная карта'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['codes', 'Код участника']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
-    ['note', 'Общий текст (одинаковый во все дни)'], ['permission', 'Карта-разрешение (надпись или картинка)']];
-  var J_KIND_NAMES = {}; J_KINDS.forEach(function (k) { J_KIND_NAMES[k[0]] = k[1]; });
+    ['note', 'Общий текст (одинаковый во все дни)'], ['wheel', 'Лицо карты — колесо'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
+  var J_PERSONAL_ONLY = { wheel: 1, wayback: 1, permission: 1 };
+  var J_KIND_NAMES = { permission: 'Лицо карты — колесо' }; J_KINDS.forEach(function (k) { J_KIND_NAMES[k[0]] = k[1]; });
+  var J_ZONES = [['axis', 'Ось'], ['spoke', 'Спица'], ['rim', 'Обод'], ['underside', 'Изнанка']];
   function jRoute() {
     var J = DATA.journeys = DATA.journeys || { items: [] }, list = J.items = J.items || [];
     var r = list.filter(function (x) { return x.id === ST.journey; })[0] || list[0] || null;
@@ -2280,7 +2282,10 @@
     ST.journey = r.id;
     r.texts = r.texts || {}; r.trace = r.trace || {}; r.keys = r.keys || {}; r._keys = r._keys || {}; r.glow = r.glow || {};
     r.dayCard = r.dayCard || { blocks: [] }; r.personalCard = r.personalCard || { blocks: [] };
-    r.forms = r.forms || []; r.permissions = r.permissions || []; r.days = r.days || [];
+    r.days = r.days || [];
+    var D = r.deck = r.deck || {}; D.cards = D.cards || []; D.zones = D.zones || {}; D.sides = D.sides || {}; D.wayBack = D.wayBack || {};
+    D.cards.forEach(function (k) { k.less = k.less || {}; k.more = k.more || {}; });
+    r.states = r.states || {}; r.states.items = r.states.items || []; r.kaleido = r.kaleido || {};
     for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
     r.days.forEach(function (d) { d.texts = d.texts || {}; });
     return r;
@@ -2293,7 +2298,7 @@
   function jTokensHint(r, personal) {
     var t = window.M13R ? window.M13R.tokens(r) : { day: [], card: [] };
     return 'Метки: ' + t.day.map(function (x) { return '{' + x + '}'; }).join(' ') +
-      (personal ? ' · от карты: ' + t.card.map(function (x) { return '{' + x + '}'; }).join(' ') : '') + '. С большой буквы — {Тон} — подставится с большой.';
+      (personal ? ' · от карты: ' + t.card.map(function (x) { return '{' + x + '}'; }).join(' ') + ' (слова карты встают с маленькой буквы)' : '') + '. С большой буквы — {Качество} — подставится с большой.';
   }
   // Отпечаток ключа: SHA-1 от «m13|<маршрут>|ключ» (ключ — без пробелов, строчными, ё → е). Сам ключ на сайт не попадает.
   function jKeyNorm(k) { return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ''); }
@@ -2315,12 +2320,13 @@
     return (J_KIND_NAMES[b.kind] || b.kind) + (t ? ' · ' + (t.length > 44 ? t.slice(0, 44) + '…' : t) : '');
   }
   function jBlocksForm(r, list, personal) {
-    var kinds = J_KINDS.filter(function (k) { return personal || k[0] !== 'permission'; });
+    var kinds = J_KINDS.filter(function (k) { return personal || !J_PERSONAL_ONLY[k[0]]; });
     return collection(list, { visible: true, ordered: false, title: jBlockTitle,
       body: function (b) {
         var out = [jWho(b, personal)];
         if (b.kind === 'image') out.push(el('p', { class: 'a-hint', text: 'Картинка — у каждого дня своя (вкладка «13 дней»), лучше 16:9, например 1600 × 900. Пока картинки нет — солнце-заглушка с номером дня.' }));
-        if (b.kind === 'permission') out.push(el('p', { class: 'a-hint', text: 'Лицо выпавшей карты: картинка, если она загружена у карты, иначе — надпись (прописными).' }));
+        if (b.kind === 'wheel' || b.kind === 'permission') out.push(el('p', { class: 'a-hint', text: 'Лицо выпавшей карты — колесо: качество, ось в центре, по сторонам спица и обод («слишком мало» внизу, «слишком много» вверху), за кругом — изнанка. Слова — во вкладке «Колода». Если у карты загружена картинка — вместо колеса картинка.' }));
+        if (b.kind === 'wayback') out.push(textIn(b, 'label', 'Подпись над списком', { ph: 'Путь назад в ось', hint: 'Список по зонам колеса: ось, спица, обод, изнанка. Тексты — во вкладке «Колода» → «Путь назад в ось».' }));
         if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') out.push(textIn(b, 'text', b.kind === 'note' ? 'Текст' : 'Строка', { multi: b.kind === 'note', rows: 3,
           hint: 'Одна на все дни, в неё подставляются метки. ' + jTokensHint(r, personal) }));
         if (b.kind === 'text' || b.kind === 'question') out.push(textIn(b, 'label', 'Подпись над текстом', { ph: 'Например, «Практика»', hint: 'Пусто — без подписи. Сам текст у каждого дня свой: вкладка «13 дней».' }));
@@ -2344,31 +2350,32 @@
     function mode() { return kind === 'personal' && st.mode === 'observation' ? 'journey' : st.mode; }
     function run() {
       if (!window.M13R) { box.textContent = 'Предпросмотр не загрузился — обновите страницу.'; return; }
-      box.replaceChildren(window.M13R.card(r, st.day, mode(), kind, r.permissions[st.perm] || r.permissions[0], { base: '../', onSpiral: function () {
-        toast(kind === 'personal' ? 'Кнопка-спираль: назад на спираль.' : mode() === 'observation' ? 'Кнопка-спираль: у Наблюдения — назад на спираль.' : st.day === r.days.length ? 'Кнопка-спираль: финал Солнца (появится позже).' : 'Кнопка-спираль: дальше — выбор карты-разрешения.');
+      box.replaceChildren(window.M13R.card(r, st.day, mode(), kind, r.deck.cards[st.perm] || r.deck.cards[0], { base: '../', onSpiral: function () {
+        toast(kind === 'personal' ? 'Кнопка-спираль: назад на спираль.' : mode() === 'observation' ? 'Кнопка-спираль: у Наблюдения — назад на спираль.' : st.day === r.days.length ? 'Кнопка-спираль: финал Солнца (появится позже).' : 'Кнопка-спираль: дальше — выбор карты из колоды.');
       } }));
     }
     function sel(opts, key) {
       var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
       s.value = String(st[key]);
+      if (s.selectedIndex < 0) s.selectedIndex = 0;
       s.addEventListener('change', function () { st[key] = key === 'mode' ? s.value : +s.value; run(); });
       return s;
     }
     var days = r.days.map(function (d, i) { return [String(i + 1), 'День ' + (i + 1) + (window.M13R ? ' · ' + window.M13R.dateOf(r, i + 1) : '')]; });
     var modes = J_MODES.filter(function (m) { return kind !== 'personal' || m[0] !== 'observation'; });
     var ctrls = el('div', { class: 'a-jpv-ctrl' }, [sel(days, 'day'), sel(modes, 'mode'),
-      kind === 'personal' ? sel(r.permissions.map(function (p, i) { return [String(i), (i + 1) + '. ' + (p.title || 'Без названия')]; }), 'perm') : null]);
+      kind === 'personal' ? sel(r.deck.cards.map(function (p, i) { return [String(i), (i + 1) + '. ' + (p.quality || 'Без названия')]; }), 'perm') : null]);
     LIVE.push({ node: box, run: run });
     run();
     return el('div', { class: 'a-jpv' }, [ctrls, box,
       kind === 'personal' ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Проверить со всеми картами', onclick: function () { jCheckAll(r, st.day); } }) : null,
       el('p', { class: 'a-hint', text: kind === 'personal' ? 'Так выглядит личная карта. Видят её только Путешествие и Погружение.' : 'Так выглядит Карта дня. Формат меняет только то, какие блоки видны.' })]);
   }
-  // 12 вариантов текста дня: подставляем по очереди каждую карту-разрешение. Неизвестные метки — красным.
+  // 13 вариантов текста дня: подставляем по очереди каждую карту колоды. Неизвестные метки — красным.
   function jCheckAll(r, n) {
-    var blocks = (r.personalCard.blocks || []).filter(function (b) { return b.visible !== false && b.kind !== 'image' && b.kind !== 'permission'; });
+    var blocks = (r.personalCard.blocks || []).filter(function (b) { return b.visible !== false && b.kind !== 'image' && !J_PERSONAL_ONLY[b.kind]; });
     var d = r.days[n - 1] || { texts: {} };
-    var body = el('div', { class: 'a-jcheck' }, r.permissions.map(function (p, i) {
+    var body = el('div', { class: 'a-jcheck' }, r.deck.cards.map(function (p, i) {
       var ctx = window.M13R.ctxOf(r, n, p), miss = [];
       var rows = blocks.map(function (b) {
         var tpl = b.kind === 'text' || b.kind === 'question' ? d.texts[b.id] : b.text;
@@ -2376,8 +2383,8 @@
         var t = window.M13R.fill(tpl, ctx, miss);
         return el('p', {}, [b.label ? el('b', { text: b.label + ': ' }) : null, t]);
       });
-      return el('div', { class: 'a-jcheck-i' }, [el('h4', { text: (i + 1) + '. ' + (p.title || 'Без названия') })].concat(rows,
-        miss.length ? [el('p', { class: 'a-hint a-hint--warn', text: 'Нет такой метки: ' + miss.map(function (x) { return '{' + x + '}'; }).join(', ') + ' — проверьте написание или добавьте словоформу во вкладке «Карты-разрешения».' })] : []));
+      return el('div', { class: 'a-jcheck-i' }, [el('h4', { text: (i + 1) + '. ' + (p.quality || 'Без названия') })].concat(rows,
+        miss.length ? [el('p', { class: 'a-hint a-hint--warn', text: 'Нет такой метки: ' + miss.map(function (x) { return '{' + x + '}'; }).join(', ') + ' — проверьте написание. ' + jTokensHint(r, true) })] : []));
     }));
     dialog({ title: 'День ' + n + ' со всеми картами', body: body });
   }
@@ -2523,7 +2530,7 @@
         jDayColors(r)
       ], { open: false }),
       block('Ключи Путешествия и Погружения', [
-        el('p', { class: 'a-hint', text: 'Ключ — слово, которое вы даёте в группе (для Погружения — свой). На странице маршрута человек вводит ключ → калейдоскоп поворачивается → у него личный узор и код (например, ИСКРА-7ЖК4). Код помнит его телефон; на другом устройстве он вводит код, а не ключ. Код сам определяет формат и порядок его карт. Большие/маленькие буквы, пробелы и «ё» в ключе не важны.' }),
+        el('p', { class: 'a-hint', text: 'Ключ — слово, которое вы даёте в группе (для Погружения — свой). На странице маршрута человек вводит ключ → выбирает три состояния → калейдоскоп поворачивается → у него личный узор и код (например, ИСКРА-7ЖК-4Б2; состояния зашиты в код). Код помнит его телефон; на другом устройстве он вводит код, а не ключ. Код сам определяет формат и порядок его карт. Большие/маленькие буквы, пробелы и «ё» в ключе не важны.' }),
         el('div', { class: 'a-row' }, [keyIn('journey', 'Ключ Путешествия'), keyIn('immersion', 'Ключ Погружения')]),
         textIn(r, 'guide', 'Куда присылать код — Проводник в Telegram', { ph: 'https://t.me/RaElena', hint: 'Кнопка «Отправить код Проводнику» под узором: копирует код и открывает эту ссылку. Пусто — ссылка «Оставить след» Погружения.' }),
         el('p', { class: 'a-hint', text: 'Ключ можно поменять в любой момент — уже выданные коды продолжат работать. А вот первый день маршрута после выдачи кодов не меняйте: старые коды перестанут подходить. Проверить присланный код — вкладка «Код участника».' })
@@ -2546,9 +2553,9 @@
         el('p', { class: 'a-hint', text: jTokensHint(r, false) })
       ], { open: false }),
       block('Вход по ключу, узор и код — надписи', [
-        el('p', { class: 'a-hint', text: 'Экран, который видит Путешествие или Погружение без кода: калейдоскоп, поле для ключа. После ключа — личный узор, код и кнопки. Пустое поле — как в подсказке серым.' }),
-        el('div', { class: 'a-row' }, [textIn(tx, 'keyTitle', 'Заголовок', { ph: 'Ключ к маршруту' }), textIn(tx, 'keyGo', 'Кнопка', { ph: 'Повернуть калейдоскоп' })]),
-        textIn(tx, 'keyLead', 'Текст над полем', { multi: true, rows: 2, ph: 'Введите ключ, который Проводник дал в группе. Калейдоскоп повернётся и сложит ваш личный узор и код.' }),
+        el('p', { class: 'a-hint', text: 'Экран, который видит Путешествие или Погружение без кода: калейдоскоп, поле для ключа. После ключа — выбор трёх состояний (надписи — во вкладке «Калейдоскоп и состояния»), потом личный узор, код и кнопки. Пустое поле — как в подсказке серым.' }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'keyTitle', 'Заголовок', { ph: 'Ключ к маршруту' }), textIn(tx, 'keyNext', 'Кнопка', { ph: 'Дальше' })]),
+        textIn(tx, 'keyLead', 'Текст над полем', { multi: true, rows: 2, ph: 'Введите ключ, который Проводник дал в группе. Потом выберите три состояния — калейдоскоп повернётся и сложит ваш личный узор и код.' }),
         el('div', { class: 'a-row' }, [textIn(tx, 'keyPh', 'Серым в пустом поле', { ph: 'Ключ или ваш код' }), textIn(tx, 'keyObserve', 'Ссылка «только смотреть»', { ph: 'Пока просто смотреть — Наблюдение' })]),
         textIn(tx, 'keyNote', 'Под кнопкой', { multi: true, rows: 2, ph: 'Код уже есть? Введите его — на новом телефоне или компьютере нужен код, а не ключ.' }),
         textIn(tx, 'keyBad', 'Если ключ не подошёл', { multi: true, rows: 2, ph: 'Ключ не подошёл. Проверьте, как он написан, — или спросите Проводника.' }),
@@ -2559,11 +2566,11 @@
         el('div', { class: 'a-row' }, [textIn(tx, 'myCodeBtn', 'На спирали справа сверху', { ph: 'Мой код', hint: 'Открывает узор и код ещё раз.' }), textIn(tx, 'myCode', 'Заголовок «Мой код»', { ph: 'Мой узор и код' })]),
         el('div', { class: 'a-row' }, [textIn(tx, 'codeOther', 'Ссылка «другой код»', { ph: 'Ввести другой код' }), textIn(tx, 'toSpiral', 'Кнопка назад', { ph: 'На спираль' })])
       ], { open: false }),
-      block('Выбор карты-разрешения — надписи', [
-        el('p', { class: 'a-hint', text: 'После кнопки-спирали на Карте дня (Путешествие, Погружение): закрытые карты лучами по кругу — в 1-й день 12, дальше на одну меньше. Нажали любую — она выходит в центр и переворачивается. Метки: ' + window.M13R.tokens(r).day.map(function (x) { return '{' + x + '}'; }).join(' ') }),
-        el('div', { class: 'a-row' }, [textIn(tx, 'chooseSmall', 'Строка мелко сверху', { ph: 'День {день} · {имя кина}' }), textIn(tx, 'choose', 'Заголовок', { ph: 'Выберите карту-разрешение' })]),
-        textIn(tx, 'chooseNote', 'Под кругом карт', { multi: true, rows: 2, ph: 'Карт столько, сколько дней осталось. Та, что откроется, — ваша на сегодня.' }),
-        el('div', { class: 'a-row' }, [textIn(tx, 'chosen', 'Заголовок, когда карта перевёрнута', { ph: 'Ваше разрешение на сегодня' }), textIn(tx, 'open', 'Кнопка', { ph: 'Открыть' })])
+      block('Выбор карты — надписи', [
+        el('p', { class: 'a-hint', text: 'После кнопки-спирали на Карте дня (Путешествие, Погружение): закрытые карты лучами по кругу — в 1-й день 13, дальше на одну меньше, в 12-й — выбор из двух. Нажали любую — она выходит в центр и переворачивается. Метки: ' + window.M13R.tokens(r).day.map(function (x) { return '{' + x + '}'; }).join(' ') }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'chooseSmall', 'Строка мелко сверху', { ph: 'День {день} · {имя кина}' }), textIn(tx, 'choose', 'Заголовок', { ph: 'Выберите карту' })]),
+        textIn(tx, 'chooseNote', 'Под кругом карт', { multi: true, rows: 2, ph: 'Карты лежат рубашкой вверх — выбирайте наугад. Та, что откроется, — ваша на сегодня.' }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'chosen', 'Заголовок, когда карта перевёрнута', { ph: 'Ваша карта на сегодня' }), textIn(tx, 'open', 'Кнопка', { ph: 'Открыть' })])
       ], { open: false })
     ];
   }
@@ -2576,7 +2583,9 @@
         var n = i + 1;
         return block('День ' + n + (window.M13R ? ' · ' + window.M13R.dateOf(r, n) : '') + (d.kin ? ' · Kin ' + d.kin : '') + (d.kinName ? ' · ' + d.kinName : ''), [
           el('div', { class: 'a-row' }, [textIn(d, 'kin', 'Kin', { type: 'number' }), textIn(d, 'kinName', 'Имя кина', { ph: 'Красный Ритмический Змей' })]),
-          el('div', { class: 'a-row' }, [textIn(d, 'seal', 'Печать (Dreamspell)', { ph: 'Красный Змей' }), textIn(d, 'tone', 'Тон', { ph: 'Ритмический' })]),
+          el('div', { class: 'a-row' }, [textIn(d, 'seal', 'Печать', { ph: 'Красный Змей' }), textIn(d, 'tone', 'Тон', { ph: 'Ритмический' })]),
+          el('div', { class: 'a-row' }, [textIn(d, 'cardOperation', 'Что делаем с картой — {что делаем}', { multi: true, rows: 2, ph: 'Где я на этом колесе сейчас', hint: 'Тон задаёт действие с картой.' }),
+            textIn(d, 'environment', 'Среда (печать) — {среда}', { multi: true, rows: 2, ph: 'жизнь, свет, видимость', hint: 'Печать задаёт среду, в которой идёт действие.' })]),
           imageIn(d, 'image', 'Картинка дня', { max: 1600, hint: 'Сверху Карты дня, 16:9 (например 1600 × 900). Пусто — солнце-заглушка.' }),
           colorOptIn(d, 'glowColor', 'Цвет свечения камня', { inh: function () { return r.glow.color; }, inhLabel: 'общий', base: '#ffcf5a', hint: 'Пусто — общий цвет из «Основное» → «Свет кирпичей».' }),
           sub('Карта дня — общая для всех')]
@@ -2587,27 +2596,68 @@
           { open: false });
       }));
   }
-  function jPerms(r) {
-    var n = r.permissions.length;
+  // Колода-колесо: 13 карт по 6 полей; названия зон, подписи сторон, изнанка, путь назад в ось; рубашка.
+  // Порядок карт и состояний не переставляется: номера зашиты в коды участников.
+  function jDeck(r) {
+    var D = r.deck, n = D.cards.length;
+    function wheelPv(k) {
+      var box = el('div', { class: 'a-jwheel' });
+      LIVE.push({ node: box, run: function () { if (window.M13R) box.replaceChildren(window.M13R.wheelNode(r, k, { base: '../' })); } });
+      setTimeout(liveSoon, 0);
+      return box;
+    }
     return [
+      el('p', { class: 'a-hint', text: 'Колода — колесо. Каждая карта — одно качество: в центре ось (качество вместе со своим противовесом), через неё линия «слишком мало ↔ слишком много», у каждой стороны своя спица (перекос) и обод (крайность). За кругом — изнанка, общая для всех карт. 13 карт на 12 дней: каждый день человек вслепую тянет одну, в 12-й день — из двух, последняя остаётся закрытой.' }),
       block('Рубашка', [imageIn(r, 'cardBack', 'Рубашка — одна на все карты', { max: 1400, hint: 'Вертикальная, ровно 3:4 (например 900 × 1200). Закрытые карты лучами по кругу и обратная сторона выбранной карты. Пусто — золотое солнышко-заглушка.' })], { open: false }),
-      block('Словоформы — метки для шаблонов', [
-        el('p', { class: 'a-hint', text: 'У каждой карты есть слова в разных формах. В шаблоне дня пишите метку в фигурных скобках: «Найди время для {темы}». Формулировки — без рода («мне можно», не «я готова»).' }),
-        collection(r.forms, { ordered: false, alwaysOpen: true, title: function (f) { return '{' + (f.key || '…') + '}'; },
-          body: function (f) { return [el('div', { class: 'a-row' }, [textIn(f, 'key', 'Метка (без скобок)'), textIn(f, 'hint', 'Подсказка', { ph: 'кого? чего? — злости' })])]; },
-          make: function () { return { key: '', hint: '' }; }, addLabel: '+ Добавить словоформу' })
-      ], { open: false }),
-      sub('Карты-разрешения'),
-      n !== 12 ? el('p', { class: 'a-hint a-hint--warn', text: 'Карт сейчас ' + n + ', а дней с выбором — 12. Нужно ровно 12.' }) : el('p', { class: 'a-hint', text: '12 карт — по одной на каждый день с 1-го по 12-й. Порядок у каждого человека свой: перемешивается один раз, когда он получает код. Когда коды уже выданы, карты не переставляйте и не удаляйте — у людей сместятся карты по дням (надписи и словоформы править можно).' }),
-      collection(r.permissions, { ordered: false, max: 12, title: function (p, i) { return (i + 1) + '. ' + (p.title || 'Без названия'); },
-        make: function () { return { id: uid('p'), title: 'Мне можно …', image: null, f: {} }; }, addLabel: '+ Добавить карту',
-        onChange: function () { if (r.permissions.length !== n) renderMain(); },
-        body: function (p) {
-          p.f = p.f || {};
-          return [textIn(p, 'title', 'Надпись на карте', { ph: 'Мне можно злиться', hint: 'На карте — прописными. В шаблонах — метка {разрешение}.' }),
-            imageIn(p, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, hint: 'Если загрузить — вместо надписи. 3:4.' }),
-            sub('Словоформы')].concat(r.forms.filter(function (f) { return f.key; }).map(function (f) { return textIn(p.f, f.key, '{' + f.key + '}', { ph: f.hint || '' }); }));
-        } })
+      block('Зоны колеса и путь назад в ось', [
+        el('p', { class: 'a-hint', text: 'Названия зон — как их видит участник. «Путь назад в ось» — блок личной карты (вкладка «Личная карта»).' }),
+        el('div', { class: 'a-row' }, J_ZONES.slice(0, 2).map(function (z) { return textIn(D.zones, z[0], 'Название: ' + z[1], { ph: z[1] }); })),
+        el('div', { class: 'a-row' }, J_ZONES.slice(2).map(function (z) { return textIn(D.zones, z[0], 'Название: ' + z[1], { ph: z[1] }); })),
+        el('div', { class: 'a-row' }, [textIn(D.sides, 'less', 'Подпись внизу колеса', { ph: 'слишком мало' }), textIn(D.sides, 'more', 'Подпись вверху колеса', { ph: 'слишком много' })]),
+        textIn(D, 'undersideQ', 'Изнанка — строка под колесом', { ph: 'кто цепляет? → а нет ли этого во мне?', hint: 'Пусто — строки нет.' }),
+        sub('Путь назад в ось')].concat(J_ZONES.map(function (z) { return textIn(D.wayBack, z[0], z[1], { multi: true, rows: 2 }); })), { open: false }),
+      sub('Карты'),
+      n !== 13 ? el('p', { class: 'a-hint a-hint--warn', text: 'Карт сейчас ' + n + ', а нужно 13 (12 дней с выбором и одна остаётся закрытой).' }) :
+        el('p', { class: 'a-hint', text: 'Порядок карт у каждого человека свой: перемешивается от его кода. Поэтому карты здесь не переставляются и не удаляются — иначе у людей сместятся карты по дням. Слова править можно в любой момент. Метки для шаблонов дня: ' + window.M13R.tokens(r).card.map(function (x) { return '{' + x + '}'; }).join(' ') + '.' })
+    ].concat(D.cards.map(function (k, i) {
+      return block((i + 1) + '. ' + (k.quality || 'Без названия'), [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+        el('div', { class: 'a-row' }, [textIn(k, 'quality', 'Качество — {качество}', { ph: 'Решительность' }), textIn(k, 'axis', 'Ось — {ось}', { ph: 'Решительность и терпение', hint: 'Качество вместе с противовесом.' })]),
+        el('div', { class: 'a-row' }, [textIn(k.less, 'spoke', 'Слишком мало · спица — {спица-мало}', { ph: 'Колебания' }), textIn(k.less, 'rim', 'Слишком мало · обод — {обод-мало}', { ph: 'Пассивность' })]),
+        el('div', { class: 'a-row' }, [textIn(k.more, 'spoke', 'Слишком много · спица — {спица-много}', { ph: 'Торопливость' }), textIn(k.more, 'rim', 'Слишком много · обод — {обод-много}', { ph: 'Напористость' })]),
+        imageIn(k, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, hint: 'Если загрузить — вместо колеса. 3:4.' })]), wheelPv(k)])], { open: false });
+    }));
+  }
+  // Калейдоскоп (стиль) и 12 состояний: стёклышки на входе (и на выходе, день 13)
+  function jStates(r) {
+    var L = r.states.items, tx = r.texts, k = r.kaleido;
+    var cv = el('canvas', { class: 'a-jcode-kal' }), kal = null;
+    function demo() {
+      if (!window.M13R || !window.M13K) return;
+      var M = window.M13R, c = { code: 'ПРИМЕР', states: [0, 4, 8] };
+      if (kal) kal.stop();
+      kal = M.kaleido(cv, 200, r); kal.idle(M.kalSeed(c), M.kalEx(r, c));
+    }
+    setTimeout(demo, 0);
+    // Ушли с вкладки — калейдоскоп останавливается
+    var iv = setInterval(function () { if (!cv.isConnected) { if (kal) kal.stop(); clearInterval(iv); } }, 1000);
+    return [
+      block('Калейдоскоп', [
+        selectIn(k, 'style', 'Стиль узора', [['mix', 'В · Роза с самоцветами'], ['rose', 'А · Витраж-роза'], ['gems', 'Б · Самоцветы']], { def: 'mix', onChange: demo,
+          hint: 'Один стиль на весь маршрут: вход по ключу, «Мой код», картинка «Сохранить узор», потом финал. 12 лучей (6 пар зеркал). Ниже — пример узора со стёклышками трёх состояний (ясность, наполненность, злость).' }),
+        cv
+      ]),
+      block('12 состояний — стёклышки', [
+        el('p', { class: 'a-hint', text: 'Человек выбирает 3 из 12 на входе (и 3 на выходе, в день 13). Все равноправны: на сайте порядок перемешивается при каждом показе, групп и толкований нет. Цвет — цвет стёклышка в узоре. Названия и цвета менять можно; порядок здесь не меняется: номера состояний зашиты в коды.' }),
+        L.length !== 12 ? el('p', { class: 'a-hint a-hint--warn', text: 'Состояний сейчас ' + L.length + ', а нужно ровно 12.' }) : null
+      ].concat(L.map(function (st, i) {
+        return el('div', { class: 'a-row a-row--end' }, [textIn(st, 'name', (i + 1) + '. Состояние'), colorIn(st, 'color', 'Цвет стёклышка')]);
+      }))),
+      block('Выбор состояний на входе — надписи', [
+        el('div', { class: 'a-row' }, [textIn(tx, 'statesTitle', 'Заголовок', { ph: 'С чем вы входите?' }), textIn(tx, 'statesGo', 'Кнопка', { ph: 'Повернуть калейдоскоп' })]),
+        textIn(tx, 'statesLead', 'Текст над стёклышками', { multi: true, rows: 2, ph: 'Выберите три стёклышка — три состояния, с которыми вы сейчас входите в маршрут.' }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'statesCount', 'Счётчик', { ph: 'Выбрано {выбрано} из {нужно}' }), textIn(tx, 'codeStates', 'Под кодом', { ph: 'Вы вошли с: {состояния}', hint: 'Видит только сам человек — у себя. Пусто — строки нет.' })]),
+        textIn(tx, 'statesNote', 'Под кнопкой', { multi: true, rows: 2, ph: 'Стёклышки войдут в ваш узор. Они хранятся только в вашем коде — больше нигде.' })
+      ], { open: false })
     ];
   }
   // Кирпичи на спирали: где на картинке лежат 12 дней и центр. Всё тянется мышкой или пальцем.
@@ -2743,7 +2793,7 @@
   function jCodes(r) {
     var st = ST.jcode = ST.jcode || { v: '' }, M = window.M13R;
     var out = el('div', { class: 'a-jcode' });
-    var inp = el('input', { class: 'a-input', type: 'text', autocomplete: 'off', placeholder: 'например, ИСКРА-7ЖК4' });
+    var inp = el('input', { class: 'a-input', type: 'text', autocomplete: 'off', placeholder: 'например, ИСКРА-7ЖК-4Б2' });
     inp.value = st.v;
     function run() {
       st.v = inp.value; out.replaceChildren();
@@ -2752,18 +2802,18 @@
       if (!c) { out.appendChild(el('p', { class: 'a-hint a-hint--warn', text: 'Такого кода нет — проверьте, нет ли опечатки. Большие или маленькие буквы и дефис не важны. Код другой волны (с другим первым днём) здесь не подходит.' })); return; }
       var cv = el('canvas', { class: 'a-jcode-kal' });
       var rows = r.days.slice(0, -1).map(function (d, i) {
-        var p = M.permFor(r, c, i + 1);
-        return el('li', {}, [el('b', { text: 'День ' + (i + 1) + ' · ' + M.dateOf(r, i + 1) + ' — ' }), p ? p.title || 'Без названия' : '—']);
+        var p = M.cardFor(r, c, i + 1);
+        return el('li', {}, [el('b', { text: 'День ' + (i + 1) + ' · ' + M.dateOf(r, i + 1) + ' — ' }), p ? p.quality || 'Без названия' : '—']);
       });
       add(out, [el('div', { class: 'a-jcode-head' }, [cv, el('div', {}, [el('p', { class: 'a-jcode-c', text: c.code }), el('p', { text: M.MODE_NAMES[c.mode] }),
-        el('p', { class: 'a-hint', text: 'Так выглядит его узор и так выпадут его карты. Что человек нажимает в круге закрытых карт, на это не влияет.' })])]),
+        el('p', { class: 'a-hint', text: 'Так выглядит его узор и так выпадут его карты. Что человек нажимает в круге закрытых карт, на это не влияет. Состояния, с которыми он вошёл, здесь не показываются: они — его личное.' })])]),
         el('ol', { class: 'a-jcode-days' }, rows)]);
-      M.kaleido(cv, 200).show(M.kalSeed(c));
+      M.kalShow(cv, 200, r, c);
     }
     inp.addEventListener('input', run);
     function make(m) { inp.value = M.newCode(r, m).code; run(); }
     run();
-    return [el('p', { class: 'a-hint', text: 'Человек получает код на странице маршрута: вводит ключ → калейдоскоп складывает узор → код (его он присылает вам в личные). Введите код — увидите формат, узор и порядок карт по дням.' }),
+    return [el('p', { class: 'a-hint', text: 'Человек получает код на странице маршрута: вводит ключ → выбирает три состояния → калейдоскоп складывает узор → код (его он присылает вам в личные). Введите код — увидите формат, узор и порядок карт по дням.' }),
       field('Код', inp),
       el('div', { class: 'a-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Новый код для проверки — Путешествие', onclick: function () { make('journey'); } }),
         el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Новый код для проверки — Погружение', onclick: function () { make('immersion'); } })]),
@@ -2773,7 +2823,7 @@
   function viewJourneys() {
     var r = jRoute(), list = DATA.journeys.items;
     var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Страницы маршрутов' }),
-      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: спираль, Карта дня, выбор карты-разрешения, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' })]);
+      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: спираль, Карта дня, выбор карты из колоды, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' })]);
     if (!r) return [head];
     var t = ST.jTab || 'main';
     var tabs = el('div', { class: 'a-tabs' }, J_TABS.map(function (x) {
@@ -2785,14 +2835,15 @@
       el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
     var body;
     if (t === 'dayCard') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
-        el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты-разрешения.' }),
+        el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты из колоды.' }),
         jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
     else if (t === 'personal') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
-        el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты-разрешения (Путешествие и Погружение). Тексты собираются из шаблонов дня (вкладка «13 дней») и словоформ выпавшей карты. Внизу — «Оставить след» и кнопка-спираль.' }),
+        el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты из колоды (Путешествие и Погружение). Сверху — колесо выпавшей карты. Тексты собираются из шаблонов дня (вкладка «13 дней») и слов карты (вкладка «Колода»). Внизу — «Оставить след» и кнопка-спираль.' }),
         jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
     else if (t === 'days') body = jDays(r);
     else if (t === 'bricks') body = jBricks(r);
-    else if (t === 'perms') body = jPerms(r);
+    else if (t === 'deck' || t === 'perms') body = jDeck(r);
+    else if (t === 'states') body = jStates(r);
     else if (t === 'codes') body = jCodes(r);
     else body = jMain(r);
     return [head, pick, look, tabs].concat(body);
@@ -4113,6 +4164,36 @@
     D.journeys.items.forEach(function (r) {
       var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
       if (!r.zones && o && o.zones) r.zones = clone(o.zones);
+      // Колода-колесо, состояния и калейдоскоп (с 02.10): в черновике их нет — берём с сайта; старые карты «Мне можно…» убираем
+      if (o && !r.deck && o.deck) {
+        r.deck = clone(o.deck);
+        ['states', 'kaleido'].forEach(function (k) { if (!r[k] && o[k]) r[k] = clone(o[k]); });
+        if (!r.cardBack && o.cardBack) r.cardBack = o.cardBack;
+        delete r.permissions; delete r.forms;
+        // Блоки личной карты: «Карта-разрешение» → колесо; новые блоки с сайта (первый вопрос, путь назад в ось)
+        var pb = (r.personalCard = r.personalCard || { blocks: [] }).blocks = r.personalCard.blocks || [];
+        pb.forEach(function (b) { if (b.kind === 'permission') { b.kind = 'wheel'; b.id = 'wheel'; } });
+        ((o.personalCard || {}).blocks || []).forEach(function (ob, j) {
+          if (!pb.some(function (b) { return b.id === ob.id; })) pb.splice(Math.min(j, pb.length), 0, clone(ob));
+        });
+        // Тексты, которые Карта-разрешение подставляла словоформами («[заготовка]»), — новые заготовки с метками карты
+        (r.days || []).forEach(function (d, i) {
+          var od = (o.days || [])[i] || {}; d.texts = d.texts || {};
+          ['cardOperation', 'environment'].forEach(function (k) { if (d[k] == null && od[k] != null) d[k] = od[k]; });
+          if (od.kinName && /Самосуществующая|Соединитель/.test(d.kinName || '')) d.kinName = od.kinName;
+          if (od.seal && /Соединитель/.test(d.seal || '')) d.seal = od.seal;
+          ['personalQuestion', 'personalPractice', 'closingPoint'].forEach(function (k) {
+            var v = d.texts[k];
+            if (v == null || /^\s*\[заготовка\]/.test(v)) { if ((od.texts || {})[k] != null) d.texts[k] = od.texts[k]; else delete d.texts[k]; }
+          });
+        });
+        ['keyNext', 'statesTitle', 'statesLead', 'statesGo', 'statesCount', 'statesNote', 'codeStates'].forEach(function (k) {
+          r.texts = r.texts || {}; if (r.texts[k] == null && (o.texts || {})[k] != null) r.texts[k] = o.texts[k];
+        });
+        // Старые надписи про «разрешение» — на новые, если она их не меняла
+        var OLD = { choose: 'Выберите карту-разрешение', chosen: 'Ваше разрешение на сегодня', chooseNote: 'Карт столько, сколько дней осталось. Та, что откроется, — ваша на сегодня.' };
+        Object.keys(OLD).forEach(function (k) { if (r.texts && (r.texts[k] == null || r.texts[k] === OLD[k]) && (o.texts || {})[k]) r.texts[k] = o.texts[k]; });
+      }
     });
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {

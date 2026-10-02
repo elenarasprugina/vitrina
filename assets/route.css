@@ -57,7 +57,7 @@
 .ys-card{position:relative;width:min(460px,100%);margin:auto;color:#f6ead2;border-radius:22px;background:linear-gradient(170deg,rgba(46,30,10,.94),rgba(16,10,4,.96) 60%);box-shadow:0 0 0 1px rgba(255,214,140,.32),0 0 60px rgba(255,190,70,.22),0 30px 80px rgba(0,0,0,.6);overflow:hidden}
 .ys-card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,240,200,.25)}
 .ys-card-in{display:flex;flex-direction:column;gap:14px;padding:0 26px 22px}
-.ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm){margin-top:26px}
+.ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm):not(.ys-wheel){margin-top:26px}
 .ys-c-img{margin:0 -26px 2px;aspect-ratio:16/9;background:#140c05;overflow:hidden;position:relative}
 .ys-c-img img,.ys-c-img svg{display:block;width:100%;height:100%;object-fit:cover}
 .ys-c-img::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(to top,rgba(30,19,7,.95),rgba(30,19,7,0))}
@@ -74,6 +74,31 @@
 .ys-c-perm.has-img{padding:0;overflow:hidden}
 .ys-c-perm img{width:100%;height:100%;object-fit:cover;display:block}
 .ys-c-perm-t{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:26px;line-height:1.15;letter-spacing:.06em;text-transform:uppercase;color:#fff0c4;text-shadow:0 0 18px rgba(255,200,80,.5)}
+/* Лицо карты — колесо: ось в центре, линия «слишком мало ↔ слишком много» сверху вниз, спица и обод по сторонам, за кругом — изнанка */
+.ys-wheel{margin:26px auto 2px;width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.ys-wheel.has-img{width:min(260px,74%);aspect-ratio:3/4;border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,214,140,.45),0 0 40px rgba(255,190,70,.3)}
+.ys-w-img{display:block;width:100%;height:100%;object-fit:cover}
+.ys-w-q{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(24px,6.6vw,30px);line-height:1.1;letter-spacing:.07em;text-transform:uppercase;color:#fff0c4;text-shadow:0 0 18px rgba(255,200,80,.5)}
+.ys-w-box{position:relative;width:100%;aspect-ratio:1;container-type:inline-size;border-radius:18px;overflow:hidden;
+  background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 41.5%,rgba(120,116,150,.16) 43%,rgba(70,64,92,.32) 62%,rgba(28,24,40,.5) 80%),linear-gradient(135deg,rgba(190,190,220,.08),rgba(0,0,0,0) 40%,rgba(190,190,220,.06))}
+.ys-w-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ys-w-box > span,.ys-w-axis{position:absolute;left:50%;transform:translate(-50%,-50%);text-shadow:0 0 6px #120b04,0 0 12px #120b04}
+.ys-w-word{max-width:46%;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(14px,4.6cqw,19px);line-height:1.1;color:#fff0cc}
+.ys-w-rim{max-width:52%;color:#ffcfae}
+.ys-w-rim.ys-w-top{top:14.1%}.ys-w-spoke.ys-w-top{top:26.3%}.ys-w-spoke.ys-w-bot{top:73.7%}.ys-w-rim.ys-w-bot{top:85.9%}
+.ys-w-axis{top:50%;width:31%;display:flex;flex-direction:column;align-items:center;gap:1px}
+.ys-w-axis small{font-size:clamp(9px,2.6cqw,11px);letter-spacing:.2em;text-transform:uppercase;color:#7a4c12;text-shadow:none;font-weight:600}
+.ys-w-axis b{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(11.5px,3.5cqw,15px);line-height:1.08;color:#3a2405;text-shadow:0 0 8px rgba(255,240,200,.8)}
+.ys-w-side{top:3.4%;white-space:nowrap;font-size:clamp(10px,2.9cqw,12px);letter-spacing:.16em;text-transform:uppercase;color:#e9c77e}
+.ys-w-side--less{top:96.6%}
+.ys-w-zone{top:50%;white-space:nowrap;font-size:clamp(8.5px,2.5cqw,10.5px);letter-spacing:.14em;text-transform:uppercase;color:rgba(233,199,126,.72)}
+.ys-w-zl.ys-w-z-spoke{left:26.3%}.ys-w-zr.ys-w-z-spoke{left:73.7%}.ys-w-zl.ys-w-z-rim{left:14.1%}.ys-w-zr.ys-w-z-rim{left:85.9%}
+.ys-w-zone.ys-w-under{color:rgba(200,198,230,.75);top:9%;left:13%}
+.ys-w-zone.ys-w-under--br{top:91%;left:87%}
+.ys-w-uq{margin:2px 0 0;font-size:14.5px;line-height:1.45;color:rgba(214,212,240,.88)}
+.ys-w-uq b{font-weight:600;letter-spacing:.06em;color:rgba(214,212,240,.95)}
+.ys-wb-l{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.45}
+.ys-wb-l b{color:#ffd98a;font-weight:600}
 .ys-c-foot{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:6px}
 .ys-c-trace{display:inline-block;padding:10px 22px;border-radius:999px;color:#2a1a05;background:linear-gradient(180deg,#ffe39a,#e9ad3c);text-decoration:none;font-size:15px;letter-spacing:.02em;box-shadow:0 4px 18px rgba(255,190,70,.3)}
 .ys-c-trace[aria-disabled]{opacity:.5;pointer-events:none}
@@ -93,6 +118,7 @@
   .ys-card-in{padding:0 20px calc(26px + env(safe-area-inset-bottom))}
   .ys-c-img{margin:0 -20px 2px}
   .ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm){margin-top:calc(26px + env(safe-area-inset-top))}
+  .ys-wheel:first-child{margin-top:calc(22px + env(safe-area-inset-top))}
   .ys-c-title{font-size:27px}
   .ys-c-perm{width:min(240px,64%)}
 }
@@ -158,6 +184,8 @@
 .ys-fc-back svg,.ys-fc-back img,.ys-fc-face img{display:block;width:100%;height:100%;object-fit:cover}
 .ys-fc-face{transform:rotateY(180deg);padding:12%;text-align:center;background:radial-gradient(circle at 50% 30%,rgba(255,226,150,.3),rgba(255,190,70,.05) 70%),#1d1307;box-shadow:0 0 0 1px rgba(255,214,140,.55),0 0 50px rgba(255,190,70,.4)}
 .ys-fc-face.has-img{padding:0}
+.ys-fc-w{position:absolute;left:8%;top:50%;width:84%;transform:translateY(-50%);pointer-events:none}
+.ys-fc-face .ys-fc-t{position:relative;font-size:calc(var(--D) * var(--fs,.05));letter-spacing:.02em;text-transform:none;hyphens:manual}
 .ys-fc-t{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:calc(var(--D) * .052);line-height:1.15;letter-spacing:.06em;text-transform:uppercase;color:#fff0c4;text-shadow:0 0 18px rgba(255,200,80,.5)}
 .ys-pick{--pw:calc(var(--D) * .46);width:var(--pw);height:calc(var(--pw) * 4 / 3);margin:calc(var(--pw) * -2 / 3) 0 0 calc(var(--pw) / -2);border-radius:calc(var(--pw) * .07);opacity:0;pointer-events:none;z-index:2;perspective:900px;
   transition:transform .8s cubic-bezier(.2,.8,.2,1)}
@@ -201,3 +229,25 @@
 .ys-pv .ys-card-in{padding:0 20px 18px}
 .ys-pv .ys-c-img{margin:0 -20px 2px}
 .ys-pv .ys-c-title{font-size:26px}
+
+/* ---------- Вход: три состояния (стёклышки) ---------- */
+.ys-key-st{display:none;width:100%}
+.ys-key.is-states .ys-key-form{display:none}
+.ys-key.is-states .ys-key-st{display:block;animation:ys-rise .6s ease both}
+.ys-key.is-states .ys-kal{width:min(200px,46vw,26vh)}
+.ys-key.is-turn .ys-key-st{opacity:.25;pointer-events:none;transition:opacity .4s}
+.ys-states{display:flex;flex-direction:column;align-items:center;gap:10px}
+.ys-st-list{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:2px 0}
+.ys-st{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:15.5px;color:#f6ead2;background:rgba(255,236,190,.06);border:1px solid rgba(255,214,140,.28);border-radius:999px;padding:7px 14px 7px 9px;cursor:pointer;transition:background .2s,border-color .2s,opacity .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent}
+.ys-st:hover{background:rgba(255,236,190,.12)}
+.ys-st:focus-visible{outline:2px solid #ffe39a;outline-offset:2px}
+.ys-st-g{--c:#ffcf5a;width:18px;height:18px;border-radius:50%;flex:none;background:radial-gradient(circle at 34% 30%,#fff 0,rgba(255,255,255,.7) 10%,transparent 26%),radial-gradient(circle at 62% 66%,color-mix(in srgb,var(--c) 60%,#fff) 0,transparent 55%),radial-gradient(circle at 50% 50%,var(--c) 30%,color-mix(in srgb,var(--c) 45%,#000) 100%);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 0 8px color-mix(in srgb,var(--c) 50%,transparent);opacity:.75;transition:opacity .2s,transform .2s}
+.ys-st.is-on{background:rgba(255,214,140,.2);border-color:#ffd76a;box-shadow:0 0 18px rgba(255,200,80,.25)}
+.ys-st.is-on .ys-st-g{opacity:1;transform:scale(1.15)}
+.ys-states.is-full .ys-st:not(.is-on){opacity:.45}
+.ys-st-n{margin:0;font-size:13.5px;letter-spacing:.08em;color:rgba(246,234,210,.7)}
+.ys-code-st{margin:0;font-size:15px;font-style:italic;color:#f3e2bd}
+.ys-kal{transition:box-shadow .6s,width .5s ease}
+.ys-key.is-done .ys-key-st{display:none}
+.ys-code{white-space:nowrap}
+.ys-code.is-long{font-size:clamp(24px,6.6vw,40px);letter-spacing:.03em}
