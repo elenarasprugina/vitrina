@@ -1,0 +1,92 @@
+/* 13 MIRRORS · страница маршрута по дням (route.js). Все классы — с ys-, чтобы не мешать витрине и панели. */
+.ys-body{margin:0;background:#0a0604;color:#f6ead2;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;overflow:hidden}
+.ys-body.ys-locked{overflow:hidden}
+.ys-page{position:fixed;inset:0;overflow:hidden}
+.ys-bgwrap{position:absolute;inset:0;background:#0a0604}
+.ys-stage{position:absolute;left:0;top:0;width:100%;height:100%}
+.ys-stage.is-gap::before{content:"";position:absolute;left:0;right:0;top:-1px;height:22%;background:linear-gradient(#0a0604,rgba(10,6,4,0))}
+.ys-master{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
+/* Затемнение сверху: от --ys-dim у верха до нуля к середине кадра (приглушает луч, читается надпись) */
+.ys-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(6,4,2,var(--ys-dim,.6)) 0%,rgba(6,4,2,calc(var(--ys-dim,.6)*.55)) 22%,rgba(6,4,2,0) 50%)}
+.ys-back{position:absolute;left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));z-index:3;color:#f6ead2;text-decoration:none;font-size:14px;letter-spacing:.02em;padding:8px 14px;border-radius:999px;background:rgba(12,8,4,.38);border:1px solid rgba(255,214,140,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.ys-back:hover{background:rgba(12,8,4,.55)}
+.ys-hud{position:absolute;left:0;right:0;top:clamp(64px,13vh,140px);z-index:2;text-align:center;padding:0 20px;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
+.ys-hud > *{pointer-events:auto}
+.ys-h{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4.4vw,54px);line-height:1.08;letter-spacing:.01em;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
+.ys-sub{margin:0;font-size:clamp(14px,1.4vw,17px);letter-spacing:.08em;text-transform:uppercase;color:#f3d9a0;text-shadow:0 1px 12px rgba(0,0,0,.8)}
+.ys-go{font:inherit;font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;letter-spacing:.04em;color:#2a1a05;background:radial-gradient(circle at 50% 35%,#fff3c8,#ffcf5a 60%,#d9921c);border:0;border-radius:999px;padding:12px 30px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 34px rgba(255,200,80,.55);animation:ys-breathe 3.2s ease-in-out infinite}
+@keyframes ys-breathe{0%,100%{box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 22px rgba(255,200,80,.35)}50%{box-shadow:0 0 0 1px rgba(255,236,180,.9),0 0 48px rgba(255,200,80,.8)}}
+.ys-err{padding:40px 20px;text-align:center;color:#f3d9a0}
+
+/* ---------- Слой поверх спирали ---------- */
+.ys-layer{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;background:radial-gradient(circle at 50% 50%,rgba(40,24,6,.55),rgba(5,3,1,.82));opacity:0;transition:opacity .35s ease}
+.ys-layer.is-in{opacity:1}
+.ys-layer.is-out{opacity:0}
+.ys-layer .ys-card{transform:scale(.18);opacity:0;transition:transform .55s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
+.ys-layer.is-in .ys-card{transform:none;opacity:1}
+.ys-layer.is-out .ys-card{transform:scale(.9);opacity:0;transition-duration:.3s}
+
+/* ---------- Карта дня и личная карта ---------- */
+.ys-card{position:relative;width:min(460px,100%);margin:auto;color:#f6ead2;border-radius:22px;background:linear-gradient(170deg,rgba(46,30,10,.94),rgba(16,10,4,.96) 60%);box-shadow:0 0 0 1px rgba(255,214,140,.32),0 0 60px rgba(255,190,70,.22),0 30px 80px rgba(0,0,0,.6);overflow:hidden}
+.ys-card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,240,200,.25)}
+.ys-card-in{display:flex;flex-direction:column;gap:14px;padding:0 26px 22px}
+.ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm){margin-top:26px}
+.ys-c-img{margin:0 -26px 2px;aspect-ratio:16/9;background:#140c05;overflow:hidden;position:relative}
+.ys-c-img img,.ys-c-img svg{display:block;width:100%;height:100%;object-fit:cover}
+.ys-c-img::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(to top,rgba(30,19,7,.95),rgba(30,19,7,0))}
+.ys-c-small{margin:0;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:#e9c77e;text-align:center}
+.ys-c-title{margin:-4px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;line-height:1.12;text-align:center;color:#fff3d6}
+.ys-c-label{display:block;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:#d9b469;margin-bottom:6px}
+.ys-c-body p,.ys-c-note p{margin:0 0 .6em;line-height:1.55;font-size:16px}
+.ys-c-body p:last-child,.ys-c-note p:last-child{margin-bottom:0}
+.ys-c-text{padding-top:12px;border-top:1px solid rgba(255,214,140,.16)}
+.ys-c-note{font-size:15px;opacity:.88;text-align:center}
+.ys-c-q{padding:14px 16px;border-radius:14px;background:rgba(255,200,90,.08);box-shadow:inset 0 0 0 1px rgba(255,214,140,.22)}
+.ys-c-q .ys-c-body p{font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:22px;line-height:1.3;color:#fff0cc}
+.ys-c-perm{margin:26px auto 4px;width:min(260px,74%);aspect-ratio:3/4;border-radius:16px;display:grid;place-items:center;padding:22px 18px;text-align:center;background:radial-gradient(circle at 50% 30%,rgba(255,226,150,.28),rgba(255,190,70,.05) 70%),#1d1307;box-shadow:0 0 0 1px rgba(255,214,140,.45),0 0 40px rgba(255,190,70,.3)}
+.ys-c-perm.has-img{padding:0;overflow:hidden}
+.ys-c-perm img{width:100%;height:100%;object-fit:cover;display:block}
+.ys-c-perm-t{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:26px;line-height:1.15;letter-spacing:.06em;text-transform:uppercase;color:#fff0c4;text-shadow:0 0 18px rgba(255,200,80,.5)}
+.ys-c-foot{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:6px}
+.ys-c-trace{display:inline-block;padding:10px 22px;border-radius:999px;color:#2a1a05;background:linear-gradient(180deg,#ffe39a,#e9ad3c);text-decoration:none;font-size:15px;letter-spacing:.02em;box-shadow:0 4px 18px rgba(255,190,70,.3)}
+.ys-c-trace[aria-disabled]{opacity:.5;pointer-events:none}
+.ys-spiral{width:58px;height:58px;border-radius:50%;border:0;padding:9px;cursor:pointer;color:#ffd86e;background:radial-gradient(circle,rgba(255,210,100,.22),rgba(255,210,100,0) 70%);filter:drop-shadow(0 0 8px rgba(255,200,80,.75));animation:ys-glow 3s ease-in-out infinite;transition:transform .2s}
+.ys-spiral:hover{transform:scale(1.08)}
+.ys-spiral:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
+.ys-spiral svg{display:block;width:100%;height:100%}
+@keyframes ys-glow{0%,100%{filter:drop-shadow(0 0 6px rgba(255,200,80,.55))}50%{filter:drop-shadow(0 0 14px rgba(255,210,100,.95))}}
+.ys-card--personal .ys-card-in{gap:16px}
+
+/* Телефон: карта — свой экран с прокруткой */
+@media (max-width:560px){
+  .ys-layer{padding:0;align-items:stretch;background:#0d0804}
+  .ys-layer .ys-card{width:100%;min-height:100%;border-radius:0;box-shadow:none;display:flex}
+  .ys-layer .ys-card-in{flex:1}
+  .ys-layer .ys-c-foot{margin-top:auto;padding-top:10px}
+  .ys-card-in{padding:0 20px calc(26px + env(safe-area-inset-bottom))}
+  .ys-c-img{margin:0 -20px 2px}
+  .ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm){margin-top:calc(26px + env(safe-area-inset-top))}
+  .ys-c-title{font-size:27px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ys-go,.ys-spiral{animation:none}
+  .ys-layer .ys-card{transition:opacity .2s}
+}
+
+/* ---------- Подсказка внизу и режим проверки ---------- */
+.ys-toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));z-index:40;transform:translate(-50%,-12px);max-width:min(420px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:rgba(20,12,4,.92);color:#f6ead2;font-size:14.5px;line-height:1.4;text-align:center;box-shadow:0 0 0 1px rgba(255,214,140,.3),0 10px 30px rgba(0,0,0,.5);opacity:0;transition:opacity .3s,transform .3s}
+.ys-toast.is-in{opacity:1;transform:translate(-50%,0)}
+.ys-debug{position:fixed;right:12px;bottom:12px;z-index:30;width:min(300px,calc(100% - 24px));background:rgba(255,255,255,.95);color:#222;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:13px}
+.ys-debug-h{display:block;width:100%;text-align:left;font:inherit;font-weight:700;background:none;border:0;padding:9px 12px;cursor:pointer}
+.ys-debug.is-min .ys-debug-b{display:none}
+.ys-debug-b{display:grid;gap:7px;padding:0 12px 12px}
+.ys-debug-b select,.ys-debug-b button{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid #ccc;background:#fff}
+.ys-debug-b button{cursor:pointer;background:#2a1a05;color:#fff;border-color:#2a1a05}
+.ys-debug-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+
+/* ---------- Предпросмотр в панели (карта без слоя) ---------- */
+.ys-pv{background:#0d0804;border-radius:14px;padding:18px 12px;display:flex;justify-content:center}
+.ys-pv .ys-card{width:min(400px,100%)}
+.ys-pv .ys-card-in{padding:0 20px 18px}
+.ys-pv .ys-c-img{margin:0 -20px 2px}
+.ys-pv .ys-c-title{font-size:26px}

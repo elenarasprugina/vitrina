@@ -148,9 +148,9 @@
     if (window.M13_DATA) return Promise.resolve(clone(window.M13_DATA));
     var d = '../data/';
     return Promise.all(['settings', 'routes', 'formats', 'sandbox', 'reflection'].map(function (n) { return getJSON(d + n + '.json'); })
-      .concat([getJSON(d + 'events.json').catch(function () { return EVENTS_DEFAULT(); })]))
+      .concat([getJSON(d + 'events.json').catch(function () { return EVENTS_DEFAULT(); }), getJSON(d + 'journeys.json').catch(function () { return { items: [] }; })]))
       .then(function (r) {
-        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], showcases: {} };
+        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], showcases: {} };
         return getJSON(d + 'showcases/index.json').then(function (idx) {
           out.index = idx;
           return Promise.all(idx.showcases.map(function (s) {
@@ -794,7 +794,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -836,6 +836,7 @@
     else if (s === 'home') add(m, viewHome());
     else if (s === 'grimoire') add(m, viewGrimoire());
     else if (s === 'routes') add(m, viewRoutes());
+    else if (s === 'journeys') add(m, viewJourneys());
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
@@ -2250,6 +2251,274 @@
   }
 
   /* ================= СОБЫТИЯ ================= */
+  /* ================= СТРАНИЦЫ МАРШРУТОВ (по дням: спираль, Карта дня, личная карта) =================
+     Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
+     Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
+     Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
+  var J_TABS = [['main', 'Основное'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['perms', 'Карты-разрешения'], ['personal', 'Личная карта']];
+  var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
+  var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
+    ['note', 'Общий текст (одинаковый во все дни)'], ['permission', 'Карта-разрешение (надпись или картинка)']];
+  var J_KIND_NAMES = {}; J_KINDS.forEach(function (k) { J_KIND_NAMES[k[0]] = k[1]; });
+  function jRoute() {
+    var J = DATA.journeys = DATA.journeys || { items: [] }, list = J.items = J.items || [];
+    var r = list.filter(function (x) { return x.id === ST.journey; })[0] || list[0] || null;
+    if (!r) return null;
+    ST.journey = r.id;
+    r.texts = r.texts || {}; r.trace = r.trace || {}; r.keys = r.keys || {}; r._keys = r._keys || {}; r.glow = r.glow || {};
+    r.dayCard = r.dayCard || { blocks: [] }; r.personalCard = r.personalCard || { blocks: [] };
+    r.forms = r.forms || []; r.permissions = r.permissions || []; r.days = r.days || [];
+    for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
+    r.days.forEach(function (d) { d.texts = d.texts || {}; });
+    return r;
+  }
+  function jEnd(r) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(r.start || ''); if (!m) return '';
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + (r.days.length - 1) * 864e5);
+    return d.getUTCDate() + ' ' + MON_GEN[d.getUTCMonth()];
+  }
+  function jTokensHint(r, personal) {
+    var t = window.M13R ? window.M13R.tokens(r) : { day: [], card: [] };
+    return 'Метки: ' + t.day.map(function (x) { return '{' + x + '}'; }).join(' ') +
+      (personal ? ' · от карты: ' + t.card.map(function (x) { return '{' + x + '}'; }).join(' ') : '') + '. С большой буквы — {Тон} — подставится с большой.';
+  }
+  // Отпечаток ключа: SHA-1 от «m13|<маршрут>|ключ» (ключ — без пробелов, строчными, ё → е). Сам ключ на сайт не попадает.
+  function jKeyNorm(k) { return String(k || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ''); }
+  function jKeyHash(routeId, k) {
+    var n = jKeyNorm(k); if (!n) return Promise.resolve('');
+    return sha1(new TextEncoder().encode('m13|' + routeId + '|' + n)).then(hex);
+  }
+  function jWho(b, personal) {
+    b.who = b.who || {};
+    return el('div', { class: 'a-jwho' }, [el('span', { class: 'a-label', text: 'Кому видно' })].concat(J_MODES.filter(function (m) { return !personal || m[0] !== 'observation'; }).map(function (m) {
+      var cb = el('input', { type: 'checkbox', checked: b.who[m[0]] !== false });
+      cb.addEventListener('change', function () { b.who[m[0]] = cb.checked; changed(); });
+      return el('label', { class: 'a-jwho-i' }, [cb, el('span', { text: m[1] })]);
+    })));
+  }
+  function jBlockTitle(b) {
+    var t = b.kind === 'text' || b.kind === 'question' ? b.label : b.kind === 'small' || b.kind === 'title' || b.kind === 'note' ? b.text : '';
+    t = String(t || '').split('\n')[0].trim();
+    return (J_KIND_NAMES[b.kind] || b.kind) + (t ? ' · ' + (t.length > 44 ? t.slice(0, 44) + '…' : t) : '');
+  }
+  function jBlocksForm(r, list, personal) {
+    var kinds = J_KINDS.filter(function (k) { return personal || k[0] !== 'permission'; });
+    return collection(list, { visible: true, ordered: false, title: jBlockTitle,
+      body: function (b) {
+        var out = [jWho(b, personal)];
+        if (b.kind === 'image') out.push(el('p', { class: 'a-hint', text: 'Картинка — у каждого дня своя (вкладка «13 дней»), лучше 16:9, например 1600 × 900. Пока картинки нет — солнце-заглушка с номером дня.' }));
+        if (b.kind === 'permission') out.push(el('p', { class: 'a-hint', text: 'Лицо выпавшей карты: картинка, если она загружена у карты, иначе — надпись (прописными).' }));
+        if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') out.push(textIn(b, 'text', b.kind === 'note' ? 'Текст' : 'Строка', { multi: b.kind === 'note', rows: 3,
+          hint: 'Одна на все дни, в неё подставляются метки. ' + jTokensHint(r, personal) }));
+        if (b.kind === 'text' || b.kind === 'question') out.push(textIn(b, 'label', 'Подпись над текстом', { ph: 'Например, «Практика»', hint: 'Пусто — без подписи. Сам текст у каждого дня свой: вкладка «13 дней».' }));
+        return out;
+      },
+      addBox: function (push) {
+        var s = el('select', { class: 'a-input' }, kinds.map(function (k) { return el('option', { value: k[0], text: k[1] }); }));
+        s.value = 'text';
+        return el('div', { class: 'a-row a-row--end' }, [field('Добавить блок', s), el('button', { type: 'button', class: 'a-btn a-add', text: '+ Добавить', onclick: function () {
+          var b = { id: uid('t'), kind: s.value, visible: true, who: {} };
+          if (s.value === 'text' || s.value === 'question') b.label = '';
+          if (s.value === 'small' || s.value === 'title' || s.value === 'note') b.text = '';
+          push(b);
+        } })]);
+      } });
+  }
+  // Предпросмотр карты прямо в панели: меняется сразу, пока печатаете.
+  function jPreview(r, kind) {
+    var st = ST.jpv = ST.jpv || { day: 1, mode: 'observation', perm: 0 };
+    var box = el('div', { class: 'ys-pv' });
+    function mode() { return kind === 'personal' && st.mode === 'observation' ? 'journey' : st.mode; }
+    function run() {
+      if (!window.M13R) { box.textContent = 'Предпросмотр не загрузился — обновите страницу.'; return; }
+      box.replaceChildren(window.M13R.card(r, st.day, mode(), kind, r.permissions[st.perm] || r.permissions[0], { base: '../', onSpiral: function () {
+        toast(kind === 'personal' ? 'Кнопка-спираль: назад на спираль.' : mode() === 'observation' ? 'Кнопка-спираль: у Наблюдения — назад на спираль.' : st.day === r.days.length ? 'Кнопка-спираль: финал Солнца (появится позже).' : 'Кнопка-спираль: дальше — выбор карты-разрешения.');
+      } }));
+    }
+    function sel(opts, key) {
+      var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      s.value = String(st[key]);
+      s.addEventListener('change', function () { st[key] = key === 'mode' ? s.value : +s.value; run(); });
+      return s;
+    }
+    var days = r.days.map(function (d, i) { return [String(i + 1), 'День ' + (i + 1) + (window.M13R ? ' · ' + window.M13R.dateOf(r, i + 1) : '')]; });
+    var modes = J_MODES.filter(function (m) { return kind !== 'personal' || m[0] !== 'observation'; });
+    var ctrls = el('div', { class: 'a-jpv-ctrl' }, [sel(days, 'day'), sel(modes, 'mode'),
+      kind === 'personal' ? sel(r.permissions.map(function (p, i) { return [String(i), (i + 1) + '. ' + (p.title || 'Без названия')]; }), 'perm') : null]);
+    LIVE.push({ node: box, run: run });
+    run();
+    return el('div', { class: 'a-jpv' }, [ctrls, box,
+      kind === 'personal' ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Проверить со всеми картами', onclick: function () { jCheckAll(r, st.day); } }) : null,
+      el('p', { class: 'a-hint', text: kind === 'personal' ? 'Так выглядит личная карта. Видят её только Путешествие и Погружение.' : 'Так выглядит Карта дня. Формат меняет только то, какие блоки видны.' })]);
+  }
+  // 12 вариантов текста дня: подставляем по очереди каждую карту-разрешение. Неизвестные метки — красным.
+  function jCheckAll(r, n) {
+    var blocks = (r.personalCard.blocks || []).filter(function (b) { return b.visible !== false && b.kind !== 'image' && b.kind !== 'permission'; });
+    var d = r.days[n - 1] || { texts: {} };
+    var body = el('div', { class: 'a-jcheck' }, r.permissions.map(function (p, i) {
+      var ctx = window.M13R.ctxOf(r, n, p), miss = [];
+      var rows = blocks.map(function (b) {
+        var tpl = b.kind === 'text' || b.kind === 'question' ? d.texts[b.id] : b.text;
+        if (!tpl) return null;
+        var t = window.M13R.fill(tpl, ctx, miss);
+        return el('p', {}, [b.label ? el('b', { text: b.label + ': ' }) : null, t]);
+      });
+      return el('div', { class: 'a-jcheck-i' }, [el('h4', { text: (i + 1) + '. ' + (p.title || 'Без названия') })].concat(rows,
+        miss.length ? [el('p', { class: 'a-hint a-hint--warn', text: 'Нет такой метки: ' + miss.map(function (x) { return '{' + x + '}'; }).join(', ') + ' — проверьте написание или добавьте словоформу во вкладке «Карты-разрешения».' })] : []));
+    }));
+    dialog({ title: 'День ' + n + ' со всеми картами', body: body });
+  }
+  function openJourneyPage(r, phone) {
+    var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' };
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../' + r.path + '?preview=1&debug=1&mode=' + st.mode });
+    if (phone) fr.style.width = '375px';
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../' }, location.origin); } catch (e) {} }
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady) send(); }
+    window.addEventListener('message', onMsg);
+    var bar = el('div', { class: 'a-pbar' }, [
+      el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openJourneyPage(r, !phone); } })]);
+    pv.classList.toggle('is-phone', phone);
+    pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  }
+  function jBgLive(r) {
+    function frame(tall) {
+      var f = el('div', { class: 'a-jbg' + (tall ? ' a-jbg--tall' : '') }, [el('i')]);
+      LIVE.push({ node: f, run: function () {
+        var src = tall ? r.masterMobile || r.masterDesktop : r.masterDesktop || r.masterMobile;
+        f.style.backgroundImage = src ? "url('" + imgSrc(src) + "')" : 'none';
+        f.style.setProperty('--ys-dim', Math.max(0, Math.min(95, r.dimTop == null ? 60 : +r.dimTop)) / 100);
+      } });
+      return f;
+    }
+    setTimeout(liveSoon, 0);
+    return el('div', { class: 'a-bgpvs' }, [
+      el('div', { class: 'a-bgpv-col' }, [frame(false), el('span', { class: 'a-hint', text: 'Компьютер' })]),
+      el('div', { class: 'a-bgpv-col' }, [frame(true), el('span', { class: 'a-hint', text: 'Телефон' })])]);
+  }
+  function jMain(r) {
+    var tx = r.texts;
+    function keyIn(m, label) {
+      var i = el('input', { class: 'a-input', type: 'text', autocomplete: 'off', placeholder: 'например, солнце-путь' });
+      i.value = r._keys[m] || '';
+      var st = el('span', { class: 'a-hint' });
+      function show() { st.textContent = r.keys[m] ? 'Ключ задан. На сайт попадёт только его отпечаток — сам ключ там не виден.' : 'Ключ не задан.'; }
+      i.addEventListener('input', function () {
+        var v = i.value; r._keys[m] = v; changed();
+        jKeyHash(r.id, v).then(function (h) { if (r._keys[m] === v) { r.keys[m] = h; show(); } });
+      });
+      show();
+      return el('label', { class: 'a-field' }, [el('span', { class: 'a-label', text: label }), i, st]);
+    }
+    var when = el('p', { class: 'a-hint' });
+    function showWhen() { when.textContent = jEnd(r) ? r.days.length + ' дней: ' + window.M13R.dateOf(r, 1) + ' — ' + jEnd(r) + '. Новый день начинается в 00:00 по Москве.' : 'Укажите первый день маршрута.'; }
+    showWhen();
+    return [
+      block('Даты', [textIn(r, 'start', 'Первый день', { type: 'date', onInput: showWhen }), when]),
+      block('Спираль (фон страницы)', [
+        el('div', { class: 'a-row' }, [
+          imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { max: 2400, hint: '16:9, лучше 2400 × 1350.', onChange: liveSoon }),
+          imageIn(r, 'masterMobile', 'Для телефона — вертикальная', { max: 2000, hint: '9:16, лучше 1080 × 1920. Спираль на телефоне — во всю ширину.', onChange: liveSoon })]),
+        rangeIn(r, 'dimTop', 'Приглушить свет сверху', { min: 0, max: 90, step: 5, def: 60, unit: ' %', hint: 'Затемнение от верха до середины кадра: чтобы луч не слепил и читалась надпись. 0 — без затемнения.' }),
+        jBgLive(r)
+      ], { open: false }),
+      block('Свет кирпичей', [
+        el('p', { class: 'a-hint', text: 'Заработает вместе со спиралью (следующий шаг). Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, пройденные светятся спокойно, будущие — в тени.' }),
+        colorIn(r.glow, 'color', 'Цвет свечения'),
+        rangeIn(r.glow, 'today', 'Сегодняшний кирпич', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }),
+        rangeIn(r.glow, 'done', 'Прошедшие дни', { min: 0, max: 100, step: 5, def: 55, unit: ' %' }),
+        rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' })
+      ], { open: false }),
+      block('Ключи Путешествия и Погружения', [
+        el('p', { class: 'a-hint', text: 'Ключ — слово, которое вы даёте в группе. По нему человек получает свой личный код и узор. Ключи можно менять на каждую волну. Ввод ключа на странице заработает на шаге «колода и код».' }),
+        el('div', { class: 'a-row' }, [keyIn('journey', 'Ключ Путешествия'), keyIn('immersion', 'Ключ Погружения')])
+      ], { open: false }),
+      block('«Оставить след» — куда ведёт кнопка', [
+        el('div', { class: 'a-row' }, [
+          textIn(r.trace, 'journey', 'Путешествие', { ph: 'https://t.me/…', hint: 'Группа в Telegram.' }),
+          textIn(r.trace, 'immersion', 'Погружение', { ph: 'https://t.me/…', hint: 'Лично Проводнику.' })]),
+        textIn(tx, 'trace', 'Надпись на кнопке', { ph: 'Оставить след' })
+      ], { open: false }),
+      block('Надписи на странице', [
+        textIn(tx, 'back', 'Ссылка назад', { ph: '← Вернуться на витрину' }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'before', 'До начала — крупно', { ph: 'Маршрут начнётся 5 октября' }), textIn(tx, 'beforeNote', 'До начала — строка ниже')]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'after', 'После конца — крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'afterNote', 'После конца — строка ниже')]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'today', 'В дни маршрута — строка', { ph: 'Сегодня — день {день}' }), textIn(tx, 'openDay', 'Кнопка Карты дня', { ph: 'Карта дня',
+          hint: 'Пока нет спирали с кирпичами, Карта дня открывается этой кнопкой.' })]),
+        textIn(tx, 'next', 'Подсказка после кнопки-спирали (пока нет выбора карт)', { multi: true, rows: 2 }),
+        el('p', { class: 'a-hint', text: jTokensHint(r, false) })
+      ], { open: false })
+    ];
+  }
+  function jDays(r) {
+    var dayTexts = r.dayCard.blocks.filter(function (b) { return b.kind === 'text' || b.kind === 'question'; });
+    var perTexts = r.personalCard.blocks.filter(function (b) { return b.kind === 'text' || b.kind === 'question'; });
+    function lbl(b, fallback) { return (b.label || fallback) + (b.visible === false ? ' (блок скрыт)' : ''); }
+    return [el('p', { class: 'a-hint', text: 'У каждого дня — Kin, печать, тон, картинка и тексты. Какие тексты есть — решают блоки во вкладках «Карта дня» и «Личная карта». В личной карте тексты — шаблоны: ' + jTokensHint(r, true) })]
+      .concat(r.days.map(function (d, i) {
+        var n = i + 1;
+        return block('День ' + n + (window.M13R ? ' · ' + window.M13R.dateOf(r, n) : '') + (d.kin ? ' · Kin ' + d.kin : '') + (d.kinName ? ' · ' + d.kinName : ''), [
+          el('div', { class: 'a-row' }, [textIn(d, 'kin', 'Kin', { type: 'number' }), textIn(d, 'kinName', 'Имя кина', { ph: 'Красный Ритмический Змей' })]),
+          el('div', { class: 'a-row' }, [textIn(d, 'seal', 'Печать (Dreamspell)', { ph: 'Красный Змей' }), textIn(d, 'tone', 'Тон', { ph: 'Ритмический' })]),
+          imageIn(d, 'image', 'Картинка дня', { max: 1600, hint: 'Сверху Карты дня, 16:9 (например 1600 × 900). Пусто — солнце-заглушка.' }),
+          sub('Карта дня — общая для всех')]
+          .concat(dayTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: b.kind === 'question' ? 2 : 3 }); }))
+          .concat([sub('Личная карта — шаблоны (Путешествие, Погружение)')])
+          .concat(perTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: 3 }); }))
+          .concat([el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Проверить со всеми картами', onclick: function () { jCheckAll(r, n); } })]),
+          { open: false });
+      }));
+  }
+  function jPerms(r) {
+    var n = r.permissions.length;
+    return [
+      block('Рубашка', [imageIn(r, 'cardBack', 'Рубашка — одна на все карты', { max: 1400, hint: 'Вертикальная, примерно 3:4 (например 900 × 1200). Понадобится на шаге «колода»: закрытые карты лучами по кругу.' })], { open: false }),
+      block('Словоформы — метки для шаблонов', [
+        el('p', { class: 'a-hint', text: 'У каждой карты есть слова в разных формах. В шаблоне дня пишите метку в фигурных скобках: «Найди время для {темы}». Формулировки — без рода («мне можно», не «я готова»).' }),
+        collection(r.forms, { ordered: false, alwaysOpen: true, title: function (f) { return '{' + (f.key || '…') + '}'; },
+          body: function (f) { return [el('div', { class: 'a-row' }, [textIn(f, 'key', 'Метка (без скобок)'), textIn(f, 'hint', 'Подсказка', { ph: 'кого? чего? — злости' })])]; },
+          make: function () { return { key: '', hint: '' }; }, addLabel: '+ Добавить словоформу' })
+      ], { open: false }),
+      sub('Карты-разрешения'),
+      n !== 12 ? el('p', { class: 'a-hint a-hint--warn', text: 'Карт сейчас ' + n + ', а дней с выбором — 12. Нужно ровно 12.' }) : el('p', { class: 'a-hint', text: '12 карт — по одной на каждый день с 1-го по 12-й. Порядок у каждого человека свой (перемешивается, когда он получает код).' }),
+      collection(r.permissions, { ordered: false, max: 12, title: function (p, i) { return (i + 1) + '. ' + (p.title || 'Без названия'); },
+        make: function () { return { id: uid('p'), title: 'Мне можно …', image: null, f: {} }; }, addLabel: '+ Добавить карту',
+        onChange: function () { if (r.permissions.length !== n) renderMain(); },
+        body: function (p) {
+          p.f = p.f || {};
+          return [textIn(p, 'title', 'Надпись на карте', { ph: 'Мне можно злиться', hint: 'На карте — прописными. В шаблонах — метка {разрешение}.' }),
+            imageIn(p, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, hint: 'Если загрузить — вместо надписи. 3:4.' }),
+            sub('Словоформы')].concat(r.forms.filter(function (f) { return f.key; }).map(function (f) { return textIn(p.f, f.key, '{' + f.key + '}', { ph: f.hint || '' }); }));
+        } })
+    ];
+  }
+  function viewJourneys() {
+    var r = jRoute(), list = DATA.journeys.items;
+    var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Страницы маршрутов' }),
+      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: спираль, Карта дня, выбор карты-разрешения, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' })]);
+    if (!r) return [head];
+    var t = ST.jTab || 'main';
+    var tabs = el('div', { class: 'a-tabs' }, J_TABS.map(function (x) {
+      return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () { ST.jTab = x[0]; renderMain(); } });
+    }));
+    var pick = list.length > 1 ? selectIn(ST, 'journey', 'Маршрут', list.map(function (x) { return [x.id, x.title]; }), { onChange: function () { renderMain(); } }) : null;
+    var look = el('div', { class: 'a-tabs' }, [
+      el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openJourneyPage(r, false); } }),
+      el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
+    var body;
+    if (t === 'dayCard') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+        el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты-разрешения.' }),
+        jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
+    else if (t === 'personal') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+        el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты-разрешения (Путешествие и Погружение). Тексты собираются из шаблонов дня (вкладка «13 дней») и словоформ выпавшей карты. Внизу — «Оставить след» и кнопка-спираль.' }),
+        jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
+    else if (t === 'days') body = jDays(r);
+    else if (t === 'perms') body = jPerms(r);
+    else body = jMain(r);
+    return [head, pick, look, tabs].concat(body);
+  }
+
   function EVENTS_DEFAULT() { return { eyebrow: '13 MIRRORS', title: 'События', intro: '', tabs: { soon: 'Скоро', past: 'Как это было', cases: 'Примеры практик' }, items: [] }; }
   var EV_TYPES = [['meeting', 'Встреча'], ['meditation', 'Медитация'], ['festival', 'Фестиваль'], ['trip', 'Поездка'], ['practice', 'Практика'], ['case', 'Пример практики (обезличенно)'], ['other', 'Другое']];
   // Заготовки разделов для каждого типа
@@ -3559,6 +3828,8 @@
   function migrate(D) {
     D.showcases = D.showcases || {};
     D.events = D.events || EVENTS_DEFAULT(); D.events.items = D.events.items || [];
+    // Страницы маршрутов (с 02.10.2026): в старом черновике их нет — берём заготовку с сайта
+    if (!D.journeys || !D.journeys.items) D.journeys = clone((ORIGINAL && ORIGINAL.journeys) || { items: [] });
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {
         if (c.back && c.back.type !== 'static') c.back = window.M13.toBlocks(c.back);
@@ -3680,7 +3951,7 @@
   }
 
   /* ---------- Данные ↔ файлы ---------- */
-  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events'];
+  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events', 'journeys'];
   function jsonText(o) { return JSON.stringify(o, null, 2) + '\n'; }
   function draftFiles(D) {
     var out = {};

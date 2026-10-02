@@ -344,3 +344,20 @@ select.a-input{padding-right:28px}
 .a-face{width:112px;height:112px;border-radius:50%;background:#eee center/cover no-repeat;display:grid;place-items:center;font-size:12px;color:#888;box-shadow:0 0 0 1px #ddd}
 .a-face-ctl{display:grid;gap:10px;min-width:0}
 @media (max-width:560px){ .a-face-row{grid-template-columns:84px minmax(0,1fr)} .a-face{width:84px;height:84px} }
+/* Страницы маршрутов: «кому видно», предпросмотр карты рядом с блоками, фон-спираль, проверка со всеми картами */
+.a-jwho{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.a-jwho .a-label{width:100%}
+.a-jwho-i{display:inline-flex;gap:6px;align-items:center;font-size:13.5px;cursor:pointer}
+.a-jgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:18px;align-items:start}
+.a-jform{display:flex;flex-direction:column;gap:12px;min-width:0}
+.a-jpv{position:sticky;top:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);overflow:auto}
+.a-jpv-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.a-jpv-ctrl select:nth-child(3){grid-column:1 / -1}
+@media (max-width:1180px){ .a-jgrid{grid-template-columns:1fr} .a-jpv{position:static;max-height:none;order:-1} }
+.a-jbg{position:relative;width:250px;aspect-ratio:16/9;border-radius:10px;background:#0a0604 center/cover no-repeat;overflow:hidden}
+.a-jbg--tall{width:84px;aspect-ratio:9/16;background-size:100% auto;background-position:center bottom}
+.a-jbg i{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,4,2,var(--ys-dim,.6)) 0%,rgba(6,4,2,calc(var(--ys-dim,.6)*.55)) 22%,rgba(6,4,2,0) 50%)}
+.a-jcheck{display:grid;gap:12px}
+.a-jcheck-i{border-top:1px solid var(--a-line);padding-top:10px}
+.a-jcheck-i h4{margin:0 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em}
+.a-jcheck-i p{margin:0 0 6px;font-size:13.5px;line-height:1.45}
