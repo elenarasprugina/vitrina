@@ -3,7 +3,8 @@
    Всё — функция (seed, время): на любом устройстве и в панели узор одинаковый; кадр t = 0 — «фирменный» (его и сохраняют).
    Рисуется один сектор (на отдельном холсте), остальные — его зеркальные отражения, как в настоящем калейдоскопе.
    Стили: 'rose' — витраж-роза (грани с золотыми прожилками), 'gems' — самоцветы пересыпаются между зеркалами,
-   'mix' — роза с самоцветами (витражная основа, поверх плывут кристаллы). Образец стиля — docs/yellow-sun-img/kaleidoscope-style.webp */
+   'mix' — роза с самоцветами (витражная основа, поверх плывут кристаллы), 'mandala' — мандала (нарисованный узор на светлом фоне, см. «Мандала»).
+   Образец стиля — docs/yellow-sun-img/kaleidoscope-style.webp */
 (function () {
   'use strict';
   var TAU = Math.PI * 2;
@@ -47,6 +48,7 @@
   // ex (необязательно): { sym: число пар зеркал (6 = 12 лучей), glass: [{ c: [r, g, b], look: вид камня (см. «Камни») или старое sh }, …] — узор из заданных стёклышек
   //   (финал маршрута: стёклышки дней, состояния, бонусные); их цвета идут и в витраж }
   function pattern(seed, style, ex) {
+    if (style === 'mandala') return mandalaPattern(seed, ex);
     ex = ex || {};
     var R = rng(seed >>> 0), sym = [6, 8, 10, 12][Math.floor(R() * 4)], W, i, j, pick = GEMS.slice(), pal = [GOLD, AMBER], glass = ex.glass && ex.glass.length ? ex.glass : null;
     if (ex.sym) sym = ex.sym;
@@ -393,7 +395,8 @@
 
   /* ---------- Кадр: сектор отражается по кругу; поверх — «пуговка» в центре, оправа ---------- */
   // layers — [[узор, время, прозрачность], …]; rot — поворот всего круга; flash — вспышка при повороте (0…1)
-  function frame(ctx, layers, cx, cy, rad, rot, flash) {
+  function frame(ctx, layers, cx, cy, rad, rot, flash, open) {
+    if (layers[layers.length - 1][0].mandala) { mandalaFrame(ctx, layers, cx, cy, rad, rot, flash, open); return; }
     var g, k, L, P, mg, e, n, i;
     ctx.save(); ctx.translate(cx, cy);
     ctx.beginPath(); ctx.arc(0, 0, rad, 0, TAU); ctx.clip();
@@ -446,12 +449,256 @@
     ctx.restore();
   }
 
+  /* ---------- Мандала (стиль 'mandala') ----------
+     Не стёклышки в зеркалах, а нарисованный узор: кольца лепестков, бусин, капель и листьев вокруг центра, на тёплом светлом фоне,
+     цвета — из стёклышек (ex.glass), у каждого кода своя. Живёт так: медленно поворачивается, а отдельные лепестки и кусочки
+     по одному ловят свет и вспыхивают (блики; ex.neon — неон бликов, 0…1,5). Кадр t = 0 — «фирменный».
+     line — контур для раскрашивания (чёрные линии на белом), open — раскрытие от центра к краю (0…1). */
+  function mixC(a, b, k) { return [Math.round(a[0] + (b[0] - a[0]) * k), Math.round(a[1] + (b[1] - a[1]) * k), Math.round(a[2] + (b[2] - a[2]) * k)]; }
+  function lum(c) { return .299 * c[0] + .587 * c[1] + .114 * c[2]; }
+  // Неон: насыщеннее и «изнутри» (к чистому цвету средней светлоты); k 0…1,5
+  function neonC(c, k) {
+    if (!k) return c;
+    var r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, s = 0, h = 0, d = mx - mn;
+    if (d) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; if (h < 0) h += 1;
+    }
+    var q = Math.min(1, k);
+    s = s + (1 - s) * q * (d < .04 ? .25 : 1); l = l + (.58 - l) * q * .75;
+    var C = (1 - Math.abs(2 * l - 1)) * s, X = C * (1 - Math.abs((h * 6) % 2 - 1)), m = l - C / 2, o;
+    var i = Math.floor(h * 6) % 6;
+    o = [[C, X, 0], [X, C, 0], [0, C, X], [0, X, C], [X, 0, C], [C, 0, X]][i];
+    return [Math.round((o[0] + m) * 255), Math.round((o[1] + m) * 255), Math.round((o[2] + m) * 255)];
+  }
+  var M_BIG = ['petals', 'lotus', 'leaves', 'drops', 'scallop'], M_SMALL = ['dots', 'band', 'teeth'];
+  var M_W = { petals: [.15, .2], lotus: [.13, .17], leaves: [.13, .17], drops: [.11, .14], scallop: [.07, .09], dots: [.04, .055], band: [.02, .028], teeth: [.05, .07] };
+  function mandalaPattern(seed, ex) {
+    ex = ex || {};
+    var R = rng((seed >>> 0) ^ 0x5bd1e995), n0 = [8, 12, 12, 16][Math.floor(R() * 4)], pal = [], glass = ex.glass && ex.glass.length ? ex.glass : null, i;
+    if (glass) glass.forEach(function (g) { if (!pal.some(function (c) { return c[0] === g.c[0] && c[1] === g.c[1] && c[2] === g.c[2]; })) pal.push(g.c); });
+    else { var pick = GEMS.slice(); for (i = 0; i < 4; i++) pal.push(pick.splice(Math.floor(R() * pick.length), 1)[0]); }
+    if (pal.length < 3) pal.push(GOLD, AMBER);
+    // Цвета по кольцам — по очереди, чтобы в узор легли все стёклышки
+    var ci = Math.floor(R() * pal.length);
+    function nextC() { var c = ci % pal.length; ci++; return c; }
+    function count(r, w, k) { var n = Math.max(1, Math.round(TAU * r / (w * k) / n0)) * n0; return Math.min(n, n0 * 4); }
+    var rings = [{ t: 'rosette', r0: 0, r1: .12, n: n0, a: nextC(), b: nextC(), off: 0 }], r = .12, last = '', big = true, guard = 0;
+    rings.push({ t: 'band', r0: r, r1: r + .02, n: n0 * 2, a: nextC(), b: nextC(), off: 0 }); r += .02;
+    while (r < .8 && guard++ < 20) {
+      var L = big ? M_BIG : M_SMALL, t = L[Math.floor(R() * L.length)];
+      if (t === last) t = L[(L.indexOf(t) + 1) % L.length];
+      var w = M_W[t][0] + R() * (M_W[t][1] - M_W[t][0]); if (r + w > .86) w = Math.max(M_W[t][0] * .8, .86 - r);
+      var k = t === 'dots' ? 1.25 : t === 'band' ? 1 : t === 'teeth' ? 1.1 : t === 'scallop' ? 2.2 : t === 'petals' || t === 'leaves' ? .85 : t === 'lotus' ? 1.05 : 1;
+      rings.push({ t: t, r0: r, r1: r + w, n: t === 'band' ? n0 * 4 : count(r + w / 2, w, k), a: nextC(), b: nextC(), off: R() < .5 ? .5 : 0 });
+      r += w; last = t; big = !big;
+    }
+    rings.push({ t: 'outer', r0: r, r1: .965, n: count((r + .965) / 2, .965 - r, .95), a: nextC(), b: nextC(), off: .5 });
+    rings.push({ t: 'rim', r0: .965, r1: 1, n: n0 * 6, a: nextC(), b: nextC(), off: 0 });
+    // Блики: часть лепестков и кусочков вспыхивает по очереди
+    var glints = [];
+    rings.forEach(function (g, ri) {
+      if (g.t === 'band' || g.t === 'rim') return;
+      for (var j = 0; j < g.n; j++) if (R() < (g.n > 40 ? .22 : .4)) glints.push({ ri: ri, j: j, w: .16 + R() * .3, p: R() * TAU });
+    });
+    return { mandala: true, seed: seed >>> 0, style: 'mandala', sym: n0, W: Math.PI / n0, pal: pal, rings: rings, glints: glints,
+      spin: (R() < .5 ? -1 : 1) * (.012 + R() * .01), neon: ex.neon == null ? .5 : +ex.neon, cache: null };
+  }
+  // Один элемент кольца g в местных координатах (ось элемента — вдоль x, единица — радиус). Только путь, без заливки.
+  function mPath(x, g, rad, part) {
+    var r0 = g.r0 * rad, r1 = g.r1 * rad, w = r1 - r0, hw = Math.PI / g.n, rm = (r0 + r1) / 2;
+    function P(r, a) { return [r * Math.cos(a), r * Math.sin(a)]; }
+    function mv(p) { x.moveTo(p[0], p[1]); }
+    function bz(c1, c2, p) { x.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], p[0], p[1]); }
+    var t = g.t, s = part === 'in' ? .55 : 1, a, b;
+    x.beginPath();
+    if (t === 'petals' || t === 'outer' || t === 'rosette' || t === 'leaves') {
+      var tilt = t === 'leaves' ? hw * .55 : 0, h = hw * (t === 'outer' ? .96 : .9);
+      a = part === 'in' ? r0 + w * .2 : r0 + (t === 'rosette' ? w * .18 : 0); b = part === 'in' ? r1 - w * .22 : r1;
+      var ww = b - a;
+      mv(P(a, 0));
+      bz(P(a + ww * .3, -h * 1.15 * s), P(a + ww * .78, -h * .75 * s + tilt), P(b, tilt));
+      bz(P(a + ww * .78, h * .75 * s + tilt), P(a + ww * .3, h * 1.15 * s), P(a, 0));
+    } else if (t === 'lotus') {
+      var hl = hw * .98 * s; a = part === 'in' ? r0 + w * .25 : r0; b = part === 'in' ? r1 - w * .18 : r1;
+      mv(P(a, -hl * .55));
+      bz(P(a + (b - a) * .55, -hl * 1.25), P(b, -hl * .75), P(b, 0));
+      bz(P(b, hl * .75), P(a + (b - a) * .55, hl * 1.25), P(a, hl * .55));
+      x.closePath();
+    } else if (t === 'drops') {
+      var dr = Math.min(w * .3, rm * hw * .8) * s, dc = r0 + w * .36;
+      x.arc(dc, 0, dr, Math.PI * .5, Math.PI * 1.5);
+      bz([dc + dr * .2, -dr], [r1 - w * .25 * (part === 'in' ? 1.6 : 1), -dr * .2], [part === 'in' ? r1 - w * .3 : r1, 0]);
+      bz([r1 - w * .25 * (part === 'in' ? 1.6 : 1), dr * .2], [dc + dr * .2, dr], [dc, dr]);
+    } else if (t === 'scallop') {
+      var cr = Math.min(w * .95, r0 * Math.sin(hw) * 1.02) * (part === 'in' ? .58 : 1);
+      x.arc(r0, 0, cr, -Math.PI / 2, Math.PI / 2); x.closePath();
+    } else if (t === 'dots' || t === 'rim') {
+      var rr = Math.min(w * .42, rm * Math.sin(hw) * .8) * (part === 'in' ? .45 : 1);
+      x.arc(rm, 0, rr, 0, TAU);
+    } else if (t === 'teeth') {
+      var ht = hw * .95; mv(P(r0, -ht)); x.lineTo(P(r1, 0)[0], P(r1, 0)[1]); x.lineTo(P(r0, ht)[0], P(r0, ht)[1]); x.closePath();
+    }
+  }
+  // Прожилки, точки и прочие мелочи элемента
+  function mDetail(x, g, rad) {
+    var r0 = g.r0 * rad, r1 = g.r1 * rad, w = r1 - r0, hw = Math.PI / g.n, t = g.t;
+    x.beginPath();
+    if (t === 'petals' || t === 'outer' || t === 'leaves') {
+      var tilt = t === 'leaves' ? hw * .55 : 0;
+      x.moveTo(r0 + w * .12, 0); x.quadraticCurveTo(r0 + w * .6, tilt * (r0 + w * .6) * .5, (r1 - w * .1) * Math.cos(tilt), (r1 - w * .1) * Math.sin(tilt));
+      if (t === 'leaves') for (var i = 1; i <= 3; i++) {
+        var q = r0 + w * (.22 + i * .17), yy = q * tilt * i / 4.5;
+        x.moveTo(q, yy); x.lineTo(q - w * .12, yy - q * hw * .45); x.moveTo(q, yy); x.lineTo(q - w * .12, yy + q * hw * .45);
+      }
+    } else if (t === 'lotus' || t === 'drops') {
+      x.moveTo(r1 - w * .2 + w * .045, 0); x.arc(r1 - w * .2, 0, w * .045, 0, TAU);
+    } else if (t === 'scallop') {
+      x.moveTo(r0 + w * .12, 0); x.arc(r0, 0, w * .12, 0, TAU);
+    }
+  }
+  // Весь узор (вектором). open — раскрытие (0…1): кольца по очереди от центра выходят и разворачиваются
+  function mandalaDraw(x, P, rad, line, open) {
+    var lw = Math.max(.8, rad * (line ? .0042 : .0046)), ink = line ? '#1c1c1c' : 'rgba(74,44,10,.88)', gold = line ? '#1c1c1c' : '#c99a45', N = P.rings.length;
+    if (open == null) open = 1;
+    // Фон: тёплый светлый круг (у раскраски — белый)
+    var g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
+    if (line) { g.addColorStop(0, '#fff'); g.addColorStop(1, '#fff'); }
+    else { g.addColorStop(0, '#fffaf0'); g.addColorStop(.55, '#f8e8c8'); g.addColorStop(1, '#ecd09a'); }
+    // Пока мандала раскрывается, светлый круг растёт вместе с кольцами
+    var rb = rad * (open >= 1 ? 1 : .2 + .8 * smooth(open * 1.3));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.fill();
+    x.lineJoin = 'round'; x.lineCap = 'round';
+    // Пока раскрывается — кольца видны только внутри растущего светлого круга
+    if (open < 1) { x.save(); x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.clip(); }
+    P.rings.forEach(function (R, ri) {
+      var k = open >= 1 ? 1 : smooth((open - ri / N * .72) / .28);
+      if (k < .01) return;
+      x.save();
+      if (k < 1) { x.globalAlpha = k; x.rotate((1 - k) * .6 * (ri % 2 ? -1 : 1)); x.scale(.7 + .3 * k, .7 + .3 * k); }
+      var A = P.pal[R.a], B = P.pal[R.b], j, a0 = R.off * TAU / R.n, GR = {};
+      // Эмаль: у каждого элемента свет от основания к кончику (градиент один на кольцо — элементы рисуются в своих координатах)
+      function grad(c) {
+        var key = c.join(','); if (GR[key]) return GR[key];
+        var cc = lum(c) > 205 ? shade(c, .88) : c, gg = x.createLinearGradient(R.r0 * rad, 0, R.r1 * rad, 0);
+        gg.addColorStop(0, css(shade(cc, 1.3))); gg.addColorStop(.5, css(cc)); gg.addColorStop(1, css(shade(cc, .8)));
+        return (GR[key] = gg);
+      }
+      // У лепестков — второй ряд позади, со сдвигом на полшага: узор плотный, без пустого фона между лепестками
+      if (R.t === 'petals' || R.t === 'outer' || R.t === 'lotus' || R.t === 'rosette' || R.t === 'drops' || R.t === 'leaves') {
+        var BK = { t: R.t === 'drops' || R.t === 'leaves' ? 'petals' : R.t, r0: R.r0, r1: R.r0 + (R.r1 - R.r0) * .78, n: R.n };
+        for (j = 0; j < R.n; j++) {
+          x.save(); x.rotate(a0 + (j + .5) * TAU / R.n);
+          mPath(x, BK, rad);
+          if (!line) { x.fillStyle = css(mixC(B, [120, 70, 16], .12)); x.fill(); }
+          x.strokeStyle = ink; x.lineWidth = lw * .9; x.stroke();
+          x.restore();
+        }
+      }
+      if (R.t === 'band' || R.t === 'rim') {
+        // Полоса: светлая лента между двумя золотыми кругами
+        x.beginPath(); x.arc(0, 0, R.r1 * rad, 0, TAU); x.arc(0, 0, R.r0 * rad, 0, TAU, true);
+        if (!line) { x.fillStyle = css(mixC(A, [255, 246, 226], .55)); x.fill(); }
+        x.strokeStyle = gold; x.lineWidth = lw * (line ? 1 : 1.2);
+        x.beginPath(); x.arc(0, 0, R.r0 * rad, 0, TAU); x.stroke(); x.beginPath(); x.arc(0, 0, R.r1 * rad, 0, TAU); x.stroke();
+      }
+      for (j = 0; j < R.n; j++) {
+        x.save(); x.rotate(a0 + j * TAU / R.n);
+        var c = R.t === 'dots' || R.t === 'teeth' ? (j % 2 ? B : A) : A, c2 = R.t === 'dots' || R.t === 'teeth' ? (j % 2 ? A : B) : B;
+        if (R.t !== 'band') {
+          mPath(x, R, rad);
+          if (!line) { x.fillStyle = R.t === 'rim' ? css(mixC(A, GOLD, .5)) : grad(c); x.fill(); }
+          x.strokeStyle = ink; x.lineWidth = lw; x.stroke();
+          if (R.t !== 'teeth' && R.t !== 'rim') {
+            mPath(x, R, rad, 'in');
+            if (!line) { x.fillStyle = css(mixC(c2, [255, 250, 236], .35)); x.fill(); }
+            x.lineWidth = lw * .8; x.stroke();
+          }
+          mDetail(x, R, rad); x.lineWidth = lw * .7; x.strokeStyle = line ? ink : 'rgba(74,44,10,.6)'; x.stroke();
+        } else if (j % 2 === 0) {
+          x.beginPath(); x.arc((R.r0 + R.r1) / 2 * rad, 0, (R.r1 - R.r0) * rad * .26, 0, TAU);
+          if (!line) { x.fillStyle = gold; x.fill(); } else x.stroke();
+        }
+        x.restore();
+      }
+      x.restore();
+    });
+    if (open < 1) x.restore();
+    // Центр — золотая пуговка
+    var bs = rad * .045;
+    if (line) { x.beginPath(); x.arc(0, 0, bs, 0, TAU); x.strokeStyle = ink; x.lineWidth = lw; x.stroke(); }
+    else {
+      g = x.createRadialGradient(-bs * .3, -bs * .35, bs * .1, 0, 0, bs);
+      g.addColorStop(0, '#fff6d6'); g.addColorStop(.45, '#eabf62'); g.addColorStop(1, '#8a5a16');
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, bs, 0, TAU); x.fill();
+    }
+    if (!line) {
+      // Мягкий свет из середины и лёгкая тень к краю — узор как будто светится изнутри
+      g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
+      g.addColorStop(0, 'rgba(255,248,225,.32)'); g.addColorStop(.5, 'rgba(255,240,205,.08)'); g.addColorStop(.86, 'rgba(120,70,10,0)'); g.addColorStop(1, 'rgba(120,70,10,.22)');
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.fill();
+    }
+    if (open >= 1 || open > .75) { x.globalAlpha = open >= 1 ? 1 : (open - .75) * 4; x.strokeStyle = line ? ink : '#b8862e'; x.lineWidth = lw * 1.6; x.beginPath(); x.arc(0, 0, rad - lw, 0, TAU); x.stroke(); x.globalAlpha = 1; }
+  }
+  // Блики: лепесток вспыхивает своим (неоновым) цветом, на нём искра
+  function mandalaGlints(x, P, rad, t, a) {
+    if (!t || a < .01) return;
+    x.save(); x.globalCompositeOperation = 'lighter';
+    P.glints.forEach(function (G) {
+      var v = Math.pow(Math.max(0, Math.sin(t * G.w + G.p)), 18) * a;
+      if (v < .02) return;
+      var R = P.rings[G.ri], c = neonC(P.pal[R.a], P.neon), ang = R.off * TAU / R.n + G.j * TAU / R.n;
+      x.save(); x.rotate(ang);
+      mPath(x, R, rad);
+      x.shadowColor = css(c, .9 * v); x.shadowBlur = rad * .03 * (1 + P.neon);
+      x.fillStyle = css(mixC(c, [255, 255, 255], .1), .5 * v); x.fill();
+      x.shadowBlur = 0;
+      x.restore();
+      var rm = (R.r0 + R.r1) / 2 * rad;
+      star(x, Math.cos(ang) * rm, Math.sin(ang) * rm, (R.r1 - R.r0) * rad * .45, .6 * v);
+    });
+    x.restore();
+  }
+  // Кадр мандалы: layers — [[узор, время, прозрачность], …] (как у калейдоскопа), open — раскрытие
+  function mandalaFrame(ctx, layers, cx, cy, rad, rot, flash, open) {
+    var n, L, P, d = Math.ceil(rad * 2);
+    ctx.save(); ctx.translate(cx, cy);
+    for (n = 0; n < layers.length; n++) {
+      L = layers[n]; P = L[0];
+      if (L[2] < .01) continue;
+      ctx.save(); ctx.globalAlpha = L[2]; ctx.rotate(rot + P.spin * L[1]);
+      if (open != null && open < 1) mandalaDraw(ctx, P, rad, false, open);
+      else {
+        // Неподвижная часть рисуется один раз, потом только поворачивается
+        if (!P.cache || P.cache.width !== d) {
+          var cv = P.cache = document.createElement('canvas'); cv.width = cv.height = d;
+          var x = cv.getContext('2d'); x.translate(d / 2, d / 2); mandalaDraw(x, P, rad, false, 1);
+        }
+        ctx.drawImage(P.cache, -d / 2, -d / 2);
+        mandalaGlints(ctx, P, rad, L[1], L[2]);
+      }
+      ctx.restore();
+    }
+    if (flash > .01) {
+      ctx.globalCompositeOperation = 'lighter';
+      var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rad);
+      g.addColorStop(0, 'rgba(255,240,200,' + flash * .5 + ')'); g.addColorStop(1, 'rgba(255,220,150,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rad, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+  // Мандала одним кадром на любом холсте (картинка, PDF): o.line — контур для раскрашивания
+  function mandalaStill(ctx, seed, cx, cy, rad, ex, o) {
+    var P = mandalaPattern(seed, ex);
+    ctx.save(); ctx.translate(cx, cy); mandalaDraw(ctx, P, rad, !!(o && o.line), 1); ctx.restore();
+  }
+
   /* ---------- Калейдоскоп на холсте ----------
      show(seed) — узор сразу (фирменный кадр); idle(seed) — живёт; turn(seed, done) — поворот трубки: старый узор пересыпается, складывается новый.
      opts: { style: 'rose'|'gems'|'mix', speed: 1 } */
   function Kaleido(cv, px, opts) {
     opts = opts || {};
-    var ctx = cv.getContext('2d'), P = null, raf = 0, t = 0, rot = 0, last = 0, style = opts.style || 'mix', speed = opts.speed || 1, q = 1, slow = 0, fast = 0;
+    var ctx = cv.getContext('2d'), P = null, raf = 0, t = 0, rot = 0, last = 0, style = opts.style || 'mix', speed = opts.speed || 1, q = 1, slow = 0, fast = 0, openK = 1, openT = 0, openDur = 0;
     function size() {
       var d = Math.min(2, window.devicePixelRatio || 1) * q, w = Math.round((px || cv.clientWidth || 280) * d);
       if (cv.width !== w || cv.height !== w) { cv.width = w; cv.height = w; }
@@ -460,7 +707,7 @@
     function draw(layers, flash) {
       var t0 = window.performance ? performance.now() : 0, w = size();
       ctx.clearRect(0, 0, w, w);
-      frame(ctx, layers, w / 2, w / 2, w / 2 * .985, rot, flash || 0);
+      frame(ctx, layers, w / 2, w / 2, w / 2 * .985, rot, flash || 0, openK);
       // Если телефон не успевает — чуть меньше точек на холсте (узор тот же)
       if (t0) { var dt = performance.now() - t0; if (dt > 22) { slow++; fast = 0; } else if (dt < 9) { fast++; slow = 0; } if (slow > 12 && q > .55) { q *= .85; slow = 0; } if (fast > 90 && q < 1) { q = Math.min(1, q / .85); fast = 0; } }
     }
@@ -468,6 +715,8 @@
     function loop(ts) {
       var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
       t += dt * speed;
+      // Мандала раскрывается от центра (unfold)
+      if (openK < 1) { openT += dt; openK = Math.min(1, openT / openDur); }
       draw([[P, t, 1]]);
       raf = requestAnimationFrame(loop);
     }
@@ -497,6 +746,8 @@
         });
       },
       stop: stop,
+      // Мандала: раскрыться от центра к краю за ms (кольца по очереди выходят и разворачиваются), потом жить
+      unfold: function (ms) { if (REDUCED || !ms) { openK = 1; return; } openK = 0; openT = 0; openDur = ms / 1000; if (P && !raf) live(); },
       style: function (s) { if (s && s !== style) { style = s; if (P) P = pattern(P.seed, style, opts.ex); if (!raf && P) draw([[P, t, 1]]); } return style; },
       speed: function (v) { if (v != null) speed = v; return speed; },
       // Другой набор стёклышек (финал): узор пересобирается из них
@@ -508,6 +759,8 @@
 
   // Фирменный кадр узора на любом холсте (картинка «Сохранить», панель): время 0
   function still(ctx, seed, cx, cy, rad, style, ex) { frame(ctx, [[pattern(seed, style || 'mix', ex), 0, 1]], cx, cy, rad, 0, 0); }
+  function styleOk(s) { return s === 'rose' || s === 'gems' || s === 'mix' || s === 'mandala'; }
 
-  window.M13K = { stone: stone, preload: preload, lookOf: lookOf, CUTS: Object.keys(CUTS), KINDS: KINDS, Kaleido: Kaleido, pattern: pattern, frame: frame, still: still, h32: h32, STYLES: ['rose', 'gems', 'mix'] };
+  window.M13K = { stone: stone, preload: preload, lookOf: lookOf, CUTS: Object.keys(CUTS), KINDS: KINDS, Kaleido: Kaleido, pattern: pattern, frame: frame, still: still, h32: h32,
+    STYLES: ['rose', 'gems', 'mix', 'mandala'], styleOk: styleOk, mandalaStill: mandalaStill, neonC: neonC };
 })();
