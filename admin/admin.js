@@ -2410,6 +2410,75 @@
       el('div', { class: 'a-bgpv-col' }, [frame(false), el('span', { class: 'a-hint', text: 'Компьютер' })]),
       el('div', { class: 'a-bgpv-col' }, [frame(true), el('span', { class: 'a-hint', text: 'Телефон' })])]);
   }
+  // Живой предпросмотр света: спираль компьютера и телефона со светом выбранного дня, меняется вместе с ползунками
+  function jGlowLive(r) {
+    var st = ST.jgl = ST.jgl || { day: 5 }, last = r.days.length, i;
+    function frame(key) {
+      var src = key === 'mobile' ? r.masterMobile : r.masterDesktop, z = r.zones && r.zones[key];
+      if (!src || !z || !z.path || z.path.length < 25 || !z.center) return null;
+      var img = el('img', { alt: '' }), inner = el('div', { class: 'a-jgl' }, [img]), ov = null;
+      var crop = el('div', { class: 'a-jgl-crop' + (key === 'mobile' ? ' a-jgl-crop--tall' : '') }, [inner]);
+      function run() {
+        if (!img.naturalWidth || !window.M13R) return;
+        if (ov) ov.node.remove();
+        var g = r.glow || {};
+        ov = window.M13R.bricksLayer(r, z, img.naturalWidth, img.naturalHeight, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100 });
+        ov.paint(window.M13R.lights(r, st.day, false));
+        inner.appendChild(ov.node);
+      }
+      img.addEventListener('load', run);
+      img.src = imgSrc(src);
+      LIVE.push({ node: crop, run: run });
+      return el('div', { class: 'a-bgpv-col' }, [crop, el('span', { class: 'a-hint', text: key === 'mobile' ? 'Телефон (низ картинки)' : 'Компьютер' })]);
+    }
+    var days = [];
+    for (i = 1; i <= last; i++) days.push([String(i), 'день ' + i + (i === last ? ' (центр)' : '') + ' — сегодня, зовёт']);
+    days.push([String(last + 1), 'все пройдены (после маршрута)']);
+    var pick = el('select', { class: 'a-input' }, days.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+    pick.value = String(st.day);
+    pick.addEventListener('change', function () { st.day = +pick.value; liveSoon(); });
+    var frames = [frame('desktop'), frame('mobile')].filter(Boolean);
+    if (!frames.length) return el('p', { class: 'a-hint', text: 'Предпросмотр света появится, когда есть картинка спирали и разметка кирпичей.' });
+    return el('div', { class: 'a-jgl-box' }, [field('Как светится', pick, 'Сегодняшний камень «дышит», до него — пройденные дни, после — будущие. Двигайте ползунки ниже — свет меняется сразу.'),
+      el('div', { class: 'a-bgpvs' }, frames)]);
+  }
+  // Свой цвет свечения у каждого дня (days[i].glowColor); пусто — общий цвет. Пройденный день светится своим цветом, только спокойнее.
+  function jDayColors(r) {
+    var last = r.days.length, grid = el('div', { class: 'a-jdc' }), cells = [];
+    function hex(x) { return /^#[0-9a-f]{6}$/i.test(x || '') ? x : ''; }
+    function common() { return hex(r.glow.color) || '#ffcf5a'; }
+    function draw() {
+      grid.replaceChildren(); cells = [];
+      r.days.forEach(function (d, i) {
+        var n = i + 1, c = el('input', { type: 'color', 'aria-label': 'Цвет дня ' + n });
+        var cell = el('div', { class: 'a-jdc-cell' }), x;
+        function mark() { var own = !!hex(d.glowColor); cell.classList.toggle('is-own', own); x.hidden = !own; if (!own) c.value = common(); }
+        c.value = hex(d.glowColor) || common();
+        c.addEventListener('input', function () { d.glowColor = c.value; mark(); changed(); });
+        x = el('button', { type: 'button', class: 'a-jdc-x', text: '×', title: 'Общим цветом', 'aria-label': 'День ' + n + ' — общим цветом',
+          onclick: function () { d.glowColor = ''; mark(); changed(); } });
+        add(cell, [el('span', { class: 'a-jdc-n', text: n === last ? n + ' · центр' : 'день ' + n }), c, x]);
+        mark(); cells.push(mark);
+        grid.appendChild(cell);
+      });
+    }
+    draw();
+    LIVE.push({ node: grid, run: function () { cells.forEach(function (m) { m(); }); } });
+    return el('div', {}, [
+      el('p', { class: 'a-hint', text: 'Можно задать камню свой цвет — для будущих маршрутов с разноцветными днями. Не задан (без ×) — светится общим цветом. Пройденный день светится своим цветом, только спокойнее. То же поле — у каждого дня во вкладке «13 дней».' }),
+      grid,
+      el('div', { class: 'a-backup-btns' }, [
+        el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Раскрасить по цвету печати дня', onclick: function () {
+          var k = 0;
+          r.days.forEach(function (d) { var c = window.M13R && window.M13R.sealColor(d); if (c) { d.glowColor = c; k++; } });
+          if (!k) { toast('У дней не указаны Kin или печать — не из чего взять цвет.', true); return; }
+          changed(); draw(); toast('Дни раскрашены по цвету печати: красный, белый, синий, жёлтый. Поправить можно у каждого дня.');
+        } }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Все дни — общим цветом', onclick: function () {
+          r.days.forEach(function (d) { d.glowColor = ''; }); changed(); draw();
+        } })])
+    ]);
+  }
   function jMain(r) {
     var tx = r.texts;
     function keyIn(m, label) {
@@ -2443,11 +2512,15 @@
       ], { open: false }),
       block('Свет кирпичей', [
         el('p', { class: 'a-hint', text: 'Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, после нажатия светится ровно; пройденные светятся спокойно, будущие — в тени. Где лежат кирпичи — вкладка «Кирпичи на спирали», там же видно, как светится каждый день.' }),
-        colorIn(r.glow, 'color', 'Цвет свечения'),
+        jGlowLive(r),
+        colorIn(r.glow, 'color', 'Цвет свечения — общий'),
+        rangeIn(r.glow, 'power', 'Сила свечения', { min: 50, max: 300, step: 10, def: 150, unit: ' %', hint: 'Насколько ярко и широко светятся камни. 100 % — как было в первом варианте; больше — ярче, вокруг камня появляется широкий ореол.' }),
         rangeIn(r.glow, 'today', 'Сегодняшний кирпич', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }),
         rangeIn(r.glow, 'done', 'Прошедшие дни', { min: 0, max: 100, step: 5, def: 55, unit: ' %' }),
         rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' }),
-        rangeIn(r.glow, 'dusk', 'Сумрак на спирали', { min: 0, max: 80, step: 5, def: 35, unit: ' %', hint: 'Насколько притушить камни, которые не светятся: чем больше, тем ярче на их фоне путь. 0 — картинка как есть. До 5 октября спираль показывается без сумрака и без света.' })
+        rangeIn(r.glow, 'dusk', 'Сумрак на спирали', { min: 0, max: 80, step: 5, def: 35, unit: ' %', hint: 'Насколько притушить камни, которые не светятся: чем больше, тем ярче на их фоне путь. 0 — картинка как есть. До 5 октября спираль показывается без сумрака и без света.' }),
+        sub('Свой цвет у каждого дня'),
+        jDayColors(r)
       ], { open: false }),
       block('Ключи Путешествия и Погружения', [
         el('p', { class: 'a-hint', text: 'Ключ — слово, которое вы даёте в группе (для Погружения — свой). На странице маршрута человек вводит ключ → калейдоскоп поворачивается → у него личный узор и код (например, ИСКРА-7ЖК4). Код помнит его телефон; на другом устройстве он вводит код, а не ключ. Код сам определяет формат и порядок его карт. Большие/маленькие буквы, пробелы и «ё» в ключе не важны.' }),
@@ -2505,6 +2578,7 @@
           el('div', { class: 'a-row' }, [textIn(d, 'kin', 'Kin', { type: 'number' }), textIn(d, 'kinName', 'Имя кина', { ph: 'Красный Ритмический Змей' })]),
           el('div', { class: 'a-row' }, [textIn(d, 'seal', 'Печать (Dreamspell)', { ph: 'Красный Змей' }), textIn(d, 'tone', 'Тон', { ph: 'Ритмический' })]),
           imageIn(d, 'image', 'Картинка дня', { max: 1600, hint: 'Сверху Карты дня, 16:9 (например 1600 × 900). Пусто — солнце-заглушка.' }),
+          colorOptIn(d, 'glowColor', 'Цвет свечения камня', { inh: function () { return r.glow.color; }, inhLabel: 'общий', base: '#ffcf5a', hint: 'Пусто — общий цвет из «Основное» → «Свет кирпичей».' }),
           sub('Карта дня — общая для всех')]
           .concat(dayTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: b.kind === 'question' ? 2 : 3 }); }))
           .concat([sub('Личная карта — шаблоны (Путешествие, Погружение)')])
