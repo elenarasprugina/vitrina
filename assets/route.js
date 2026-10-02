@@ -191,19 +191,62 @@
     box.appendChild(textNode('ys-c-body', t));
     return box;
   }
+  // Карта дня 13 — урезанная: какие блоки Карты дня на ней видны (route.final.blocks: { id блока: да/нет });
+  // не задано — строки и заголовок (кин, печать, тон) и вопрос, без картинки и текстов.
+  function finBlock(route, b) {
+    var f = (route.final || {}).blocks || {};
+    if (f[b.id] != null) return f[b.id] !== false;
+    return b.kind === 'small' || b.kind === 'title' || b.kind === 'question';
+  }
+  // «С чем вы выходите?» — до трёх состояний (можно не выбирать). chosen — уже выбранные (номера), onChange(список)
+  function exitPicker(route, chosen, onChange) {
+    var tx = route.texts || {}, L = statesOf(route), box = el('div', 'ys-states ys-exit');
+    chosen = (chosen || []).slice();
+    box.appendChild(el('span', 'ys-c-label', tx.exitTitle || 'С чем вы выходите?'));
+    if (tx.exitLead !== '') box.appendChild(el('p', 'ys-exit-lead', tx.exitLead || 'Выберите до трёх стёклышек — они тоже лягут в ваше Солнце. Можно не выбирать.'));
+    var wrap = el('div', 'ys-st-list');
+    shuffled(L.length).forEach(function (i) {
+      var b = el('button', 'ys-st' + (chosen.indexOf(i) >= 0 ? ' is-on' : '')), dot = el('i', 'ys-st-g'); b.type = 'button';
+      dot.style.setProperty('--c', L[i].color || '#ffcf5a');
+      b.appendChild(dot); b.appendChild(el('span', null, L[i].name || ''));
+      b.setAttribute('aria-pressed', String(chosen.indexOf(i) >= 0));
+      b.addEventListener('click', function () {
+        var k = chosen.indexOf(i);
+        if (k >= 0) chosen.splice(k, 1); else if (chosen.length < 3) chosen.push(i); else return;
+        b.classList.toggle('is-on', k < 0); b.setAttribute('aria-pressed', String(k < 0));
+        box.classList.toggle('is-full', chosen.length === 3);
+        onChange(chosen.slice().sort(function (a, b) { return a - b; }));
+      });
+      wrap.appendChild(b);
+    });
+    box.classList.toggle('is-full', chosen.length === 3);
+    box.appendChild(wrap);
+    return box;
+  }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
     var list = ((kind === 'personal' ? route.personalCard : route.dayCard) || {}).blocks || [];
-    var ctx = ctxOf(route, n, kind === 'personal' ? perm : null);
-    var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : ''));
+    var ctx = ctxOf(route, n, kind === 'personal' ? perm : null), fin = kind === 'day' && n === daysCount(route);
+    var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
     var inner = el('div', 'ys-card-in');
     list.forEach(function (b) {
       if (!b || b.visible === false) return;
       if (b.who && b.who[mode] === false) return;
+      if (fin && !finBlock(route, b)) return;
       var node = blockNode(b, route, n, perm, ctx, o);
       if (node) inner.appendChild(node);
     });
     var foot = el('div', 'ys-c-foot');
+    // День 13: у Путешествия и Погружения — «С чем вы выходите?»; внизу — «Собрать маршрут» (финал Солнца)
+    if (fin) {
+      var exit = (o.exit || []).slice();
+      if (mode !== 'observation' && statesOf(route).length >= 3 && (route.final || {}).exitOn !== false) inner.appendChild(exitPicker(route, exit, function (l) { exit = l; }));
+      var gb = el('button', 'ys-key-go ys-gather', (route.texts || {}).gather || 'Собрать маршрут'); gb.type = 'button';
+      gb.addEventListener('click', function () { if (o.onGather) o.onGather(exit); else if (o.onSpiral) o.onSpiral(); });
+      foot.appendChild(gb);
+      inner.appendChild(foot); root.appendChild(inner);
+      return root;
+    }
     if (kind === 'personal' && mode !== 'observation') {
       var url = ((route.trace || {})[mode]) || '';
       var tr = el('a', 'ys-c-trace', ((route.texts || {}).trace) || 'Оставить след');
@@ -563,14 +606,18 @@
   function giftGlass(route, d, z) { return { c: giftColor(route, d, z), look: glassLook(route, 'gifts', z) }; }
   // Сколько дней уже дали стёклышко: наступившие дни 1…12 (день 13 — само Солнце)
   function glassDaysOf(route, n) { return Math.max(0, Math.min(daysCount(route) - 1, n)); }
-  // Стёклышки узора. o.days — сколько дней (по умолчанию 0: только состояния), o.gifts — [[день, зона], …]
+  // Стёклышки узора. o.days — сколько дней (по умолчанию 0: только состояния), o.gifts — [[день, зона], …],
+  // o.exit — номера состояний выхода (день 13, «С чем вы выходите?»; хранятся только на устройстве)
+  function stateGlass(route, i) { var L = statesOf(route); return L[i] ? { c: hexRgb(L[i].color), look: glassLook(route, 'states') } : null; }
   function kalEx(route, c, o) {
     o = o || {};
-    var L = statesOf(route), glass = [], n = o.days || 0, gifts = o.gifts || [], d;
-    if (c && c.states) c.states.forEach(function (i) { if (L[i]) glass.push({ c: hexRgb(L[i].color), look: glassLook(route, 'states') }); });
+    var glass = [], n = o.days || 0, gifts = o.gifts || [], d;
+    function st(i) { var g = stateGlass(route, i); if (g) glass.push(g); }
+    if (c && c.states) c.states.forEach(st);
     function giftsOf(d) { gifts.forEach(function (g) { if (g[0] === d && GIFT_ZONES[g[1]]) glass.push(giftGlass(route, d, GIFT_ZONES[g[1]])); }); }
     for (d = 1; d <= n; d++) { glass.push(dayGlass(route, d)); giftsOf(d); }
     for (d = n + 1; d < daysCount(route); d++) giftsOf(d);
+    (o.exit || []).forEach(st);
     return glass.length ? { sym: 6, glass: glass } : { sym: 6 };
   }
   // Картинки камней («своя картинка») — загрузить заранее (для «Сохранить узор»)
@@ -679,7 +726,14 @@
     try { localStorage.setItem(giftKey(c), JSON.stringify(l)); } catch (e) {}
     return true;
   }
-  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); } catch (e) {} }
+  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); } catch (e) {} }
+  // День 13: состояния выхода (номера, до трёх) и «финал уже собран» — у каждого кода свои (у Наблюдения — общий), только на этом устройстве
+  function exitKey(c) { return storeKey() + '-exit-' + (c ? c.code : ''); }
+  function exitList(c) { return c ? listOf(exitKey(c)).filter(function (i) { return i === +i && i >= 0 && i < 12; }).slice(0, 3) : []; }
+  function saveExit(c, l) { if (c) try { localStorage.setItem(exitKey(c), JSON.stringify(l || [])); } catch (e) {} }
+  function finKey() { return storeKey() + '-final-' + (S.code && S.mode !== 'observation' ? S.code.code : 'obs'); }
+  function finDone() { try { return localStorage.getItem(finKey()) === '1'; } catch (e) { return false; } }
+  function markFin() { try { localStorage.setItem(finKey(), '1'); } catch (e) {} }
   function seenKey() { return storeKey() + '-glass-' + (S.code ? S.code.code : ''); }
   function markSeen(n) { var l = listOf(seenKey()); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(seenKey(), JSON.stringify(l)); } catch (e) {} } }
   // Узор человека сейчас: состояния + стёклышки наступивших дней + подарки на этом устройстве. upto — узор «до дня» (без его стёклышка)
@@ -736,9 +790,13 @@
   function openDay(n, mode, from) {
     var r = S.route;
     closeLayer();
-    var c = card(r, n, mode, 'day', null, { base: S.base, onSpiral: function () {
+    var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), onGather: function (exit) {
+      // «Собрать маршрут»: состояния выхода — на устройство, дальше финал на спирали
+      if (mode !== 'observation' && S.code) saveExit(S.code, exit);
+      var m = musicStart();
+      closeLayer(); setTimeout(function () { finalScene({ music: m }); }, 300);
+    }, onSpiral: function () {
       if (mode === 'observation') { closeLayer(); return; }
-      if (n === daysCount(r)) { openFinal(); return; }
       if (!S.code) { openKey(mode); return; }
       // Карта сегодня уже перевёрнута — сразу та же личная карта, нового выбора нет
       if (pickedList().indexOf(n) >= 0) openPersonal(n, mode, cardFor(r, S.code, n));
@@ -766,24 +824,7 @@
     }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, old); else old();
   }
-  function savePattern(c) {
-    patternImage(S.route, c, function (cv) {
-      cv.toBlob(function (blob) {
-        // Имя файла — латиницей: русские буквы в имени браузер может заменить на «download»
-        var TR = 'A B V G D E ZH I K L M N P R S T U F H C SH E YU YA'.split(' '), name = '13mirrors-' + c.code.replace(/[А-Я]/g, function (ch) {
-          var i = 'АБВГДЕЖИКЛМНПРСТУФХЦШЭЮЯ'.indexOf(ch); return i < 0 ? ({ О: 'O', Ь: '', З: 'Z', Ч: 'CH', Ы: 'Y' })[ch] || '' : TR[i];
-        }) + '.png';
-        // Телефон: «Поделиться» → «Сохранить изображение»; компьютер — файл в загрузки
-        try {
-          var f = new File([blob], name, { type: 'image/png' });
-          if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
-        } catch (e) {}
-        var a = el('a'); a.href = URL.createObjectURL(blob); a.download = name;
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
-      }, 'image/png');
-    });
-  }
+  function savePattern(c) { patternImage(S.route, c, function (cv) { saveCanvas(cv, finFileName(c)); }); }
   // Состояния кода словами: «ясность · тревога · интерес»
   function statesText(route, c) { var L = statesOf(route); return ((c && c.states) || []).map(function (i) { return L[i] ? L[i].name : ''; }).filter(Boolean).join(' · '); }
   // Перемешать (при каждом показе — свой порядок, чтобы никакие группы не считывались)
@@ -1047,29 +1088,429 @@
     setTimeout(function () { [].forEach.call(ring.querySelectorAll('.ys-fc'), function (b) { b.style.transitionDelay = ''; }); }, 1300);
     return ov;
   }
-  // Финал Солнца — пока заглушка. Это заменяемый слой: M13R.finalSunLayer можно подменить целиком, когда придумаем драматургию.
-  function sunSVG() {
-    var rays = '', i, a;
-    for (i = 0; i < 36; i++) { a = i / 36 * Math.PI * 2; rays += '<line x1="' + r1(100 + 52 * Math.cos(a)) + '" y1="' + r1(100 + 52 * Math.sin(a)) + '" x2="' + r1(100 + (i % 2 ? 76 : 94) * Math.cos(a)) + '" y2="' + r1(100 + (i % 2 ? 76 : 94) * Math.sin(a)) + '"/>'; }
-    return '<svg class="ys-final-sun" viewBox="0 0 200 200" aria-hidden="true"><defs><radialGradient id="ysfs" cx="50%" cy="45%" r="55%"><stop offset="0" stop-color="#fffbe8"/><stop offset=".5" stop-color="#ffd76a"/><stop offset="1" stop-color="#e39a22"/></radialGradient></defs>' +
-      '<g stroke="#ffd76a" stroke-width="3" stroke-linecap="round" opacity=".8">' + rays + '</g><circle cx="100" cy="100" r="44" fill="url(#ysfs)"/></svg>';
+  /* ---------- Финал Солнца (день 13) ----------
+     Урезанная Карта дня 13 («Собрать маршрут»; у Путешествия и Погружения — «С чем вы выходите?») → на спирали, всё светом:
+     темнеет → камни загораются по очереди от входа посолонь, из каждого выходит сгусток света своего стёклышка и плывёт по камням
+     в центр (состояния входа — из начала пути, подарки — вместе со своим днём, состояния выхода — с последнего витка) →
+     центральный диск светится их цветами и закручивается → свет собирается и уходит столбом вверх (или видео route.final.video*) →
+     к зрителю выходит Солнце — калейдоскоп с узором из этих стёклышек → «Маршрут пройден» / «Увидимся за поворотом…» →
+     «Сохранить моё Солнце» (не у Наблюдения), «Оставить отзыв» (route.final.review). Звук — только её музыка (route.final.music).
+     Нажатие во время анимации — сразу к концу. После конца маршрута страница открывается сразу на последнем кадре. */
+  function finCfg() { return S.route.final || {}; }
+  function finPersonal() { return !!(S.code && S.mode !== 'observation'); }
+  function finSeed() { return finPersonal() ? kalSeed(S.code) : routeSeed(S.route); }
+  // Узор Солнца: состояния входа, 12 дней, подарки, состояния выхода; у Наблюдения — общий узор маршрута с 12 днями
+  function finEx() { var r = S.route; return finPersonal() ? kalEx(r, S.code, { days: daysCount(r) - 1, gifts: giftList(S.code), exit: exitList(S.code) }) : kalEx(r, null, { days: daysCount(r) - 1 }); }
+  function rgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
+  function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
+  function toWhite(c, k) { return [c[0] + (255 - c[0]) * k, c[1] + (255 - c[1]) * k, c[2] + (255 - c[2]) * k]; }
+  // Музыка финала — только её файл; запускается прямо в нажатии (иначе телефон не даст играть)
+  function soundPref() { try { return localStorage.getItem('m13ys-sound') !== '0'; } catch (e) { return true; } }
+  function musicStart() {
+    var f = finCfg();
+    if (!f.music || f.sound === false) return null;
+    var a = new Audio(imgSrc(S.base, f.music)), vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100;
+    a.preload = 'auto'; a.m13vol = vol;
+    if (soundPref()) fadeAudio(a, vol, 1800);
+    return a;
   }
-  function finalSunLayer() {
-    var tx = S.route.texts || {}, box = el('div', 'ys-final');
-    box.innerHTML = sunSVG();
-    box.appendChild(el('h2', 'ys-final-t', tx.final || 'Финал Солнца'));
-    box.appendChild(el('p', 'ys-final-n', tx.finalNote || 'Здесь скоро откроется финал маршрута.'));
-    var sp = el('button', 'ys-spiral'); sp.type = 'button'; sp.setAttribute('aria-label', 'Вернуться на спираль'); sp.innerHTML = spiralSVG();
-    sp.addEventListener('click', function () { closeLayer(); });
-    box.appendChild(sp);
-    closeLayer();
-    layer(box, 'ys-layer--final', centerOffset());
+  function fadeAudio(a, to, ms, done) {
+    clearInterval(a.m13fade);
+    if (to > 0 && a.paused) { try { a.volume = 0; } catch (e) {} var p = a.play(); if (p && p.catch) p.catch(function () { if (a.m13upd) a.m13upd(); }); }
+    var from = a.volume, t0 = Date.now();
+    a.m13fade = setInterval(function () {
+      var k = Math.min(1, (Date.now() - t0) / ms);
+      try { a.volume = from + (to - from) * k; } catch (e) {}
+      if (k >= 1) { clearInterval(a.m13fade); if (!to) a.pause(); if (done) done(); }
+    }, 50);
+    if (a.m13upd) a.m13upd();
   }
-  function openFinal() { (window.M13R && window.M13R.finalSunLayer || finalSunLayer)(); }
+  // Где на экране путь по камням и центр (из разметки кирпичей); нет разметки — центр внизу посередине, без пути
+  function finGeo() {
+    var B = S.B, st = B && B.node.parentNode, W = window.innerWidth, H = window.innerHeight, m = Math.min(W, H);
+    if (!st || !st.getBoundingClientRect) return { W: W, H: H, C: { x: W / 2, y: H * .66, rx: m * .1, ry: m * .045 }, pts: [], L: [0], Lt: 0 };
+    var rc = st.getBoundingClientRect(), k = rc.width / B.iw, pts = [], L = [0], i;
+    B.trace.forEach(function (q) { pts.push({ x: rc.left + q.x * k, y: rc.top + q.y * k, w: q.w * k }); });
+    var C = { x: rc.left + B.center.cx * k, y: rc.top + B.center.cy * k, rx: B.center.rx * k, ry: B.center.ry * k };
+    pts.push({ x: C.x, y: C.y, w: C.ry * 1.2 });
+    for (i = 1; i < pts.length; i++) L.push(L[i - 1] + dist(pts[i - 1], pts[i]));
+    return { W: W, H: H, C: C, pts: pts, L: L, Lt: L[L.length - 1], rc: rc, k: k };
+  }
+  function finAt(G, s) {
+    var P = G.pts, L = G.L, lo = 0, hi = L.length - 1, m;
+    if (s <= 0) return P[0];
+    if (s >= G.Lt) return P[P.length - 1];
+    while (hi - lo > 1) { m = (lo + hi) >> 1; if (L[m] <= s) lo = m; else hi = m; }
+    var f = (s - L[lo]) / ((L[hi] - L[lo]) || 1), a = P[lo], b = P[hi];
+    return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, w: a.w + (b.w - a.w) * f };
+  }
+  // Свет на камне дня: мягкое пятно по форме плиты (рисуется один раз; форма — только тенью, без края)
+  function finStone(G, d, col, dpr) {
+    var B = S.B, pts = daySlice(B.trace, d), k = G.k, L = [], R = [], x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, wm = 0;
+    if (pts.length < 2) return null;
+    pts.forEach(function (p) {
+      var X = G.rc.left + p.x * k, Y = G.rc.top + p.y * k, ox = p.ox * k * .72, oy = p.oy * k * .72;
+      L.push([X + ox, Y + oy]); R.unshift([X - ox, Y - oy]); wm = Math.max(wm, p.w * k);
+    });
+    L.concat(R).forEach(function (q) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+    var pad = Math.max(6, wm * .3), cv = document.createElement('canvas'), x = cv.getContext('2d'), OFF = 4000;
+    cv.width = Math.ceil((x1 - x0 + pad * 2) * dpr); cv.height = Math.ceil((y1 - y0 + pad * 2) * dpr);
+    x.scale(dpr, dpr); x.translate(pad - x0 - OFF, pad - y0);
+    var poly = L.concat(R);
+    // Сама плита рисуется далеко за краем холста — на холст попадает только её размытая тень
+    function shape(c, blur) {
+      x.shadowOffsetX = OFF * dpr; x.shadowColor = c; x.shadowBlur = blur * dpr;
+      x.beginPath(); poly.forEach(function (q, i) { x[i ? 'lineTo' : 'moveTo'](q[0], q[1]); }); x.closePath(); x.fill();
+    }
+    x.fillStyle = '#000';
+    shape(rgba(col, .5), pad * .5);
+    shape(rgba(toWhite(col, .4), .3), pad * .25);
+    return { cv: cv, x: x0 - pad, y: y0 - pad, w: cv.width / dpr, h: cv.height / dpr };
+  }
+  // Столб света из центра вверх: тёплый, прозрачный, с лёгкой радугой по краям (как от призмы); рисуется один раз
+  function finBeam(bw, h, dpr) {
+    var tw = bw * 1.6, W = Math.ceil(tw * 1.4), cv = document.createElement('canvas'), x = cv.getContext('2d'), N = Math.max(60, Math.round(h / 4)), i;
+    cv.width = Math.ceil(W * dpr); cv.height = Math.ceil(h * dpr);
+    // Полосами по высоте (столб чуть шире кверху); границы полос — целые точки экрана, без нахлёста (иначе видны строчки)
+    var H = cv.height;
+    for (i = 0; i < N; i++) {
+      var y0 = Math.round(H * i / N), y1 = Math.round(H * (i + 1) / N), f = 1 - (i + .5) / N, w = (bw + (tw - bw) * f) * 1.3 * dpr, cx = W * dpr / 2, g = x.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+      g.addColorStop(0, 'rgba(255,120,90,0)'); g.addColorStop(.13, 'rgba(255,110,90,.05)'); g.addColorStop(.2, 'rgba(255,196,96,.09)');
+      g.addColorStop(.36, 'rgba(255,226,170,.3)'); g.addColorStop(.5, 'rgba(255,244,214,.5)'); g.addColorStop(.64, 'rgba(255,226,170,.3)');
+      g.addColorStop(.8, 'rgba(130,200,255,.08)'); g.addColorStop(.87, 'rgba(170,130,255,.05)'); g.addColorStop(1, 'rgba(170,130,255,0)');
+      x.fillStyle = g; x.fillRect(cx - w / 2, y0, w, y1 - y0);
+    }
+    x.globalCompositeOperation = 'destination-in';
+    var v = x.createLinearGradient(0, 0, 0, H);
+    v.addColorStop(0, 'rgba(0,0,0,.22)'); v.addColorStop(.5, 'rgba(0,0,0,.55)'); v.addColorStop(.92, 'rgba(0,0,0,1)'); v.addColorStop(1, 'rgba(0,0,0,.55)');
+    x.fillStyle = v; x.fillRect(0, 0, cv.width, H);
+    return { cv: cv, w: W, h: h };
+  }
+  function finFileName(c, tail) {
+    var TR = 'A B V G D E ZH I K L M N P R S T U F H C SH E YU YA'.split(' ');
+    return '13mirrors-' + (c ? c.code.replace(/[А-Я]/g, function (ch) {
+      var i = 'АБВГДЕЖИКЛМНПРСТУФХЦШЭЮЯ'.indexOf(ch); return i < 0 ? ({ О: 'O', Ь: '', З: 'Z', Ч: 'CH', Ы: 'Y' })[ch] || '' : TR[i];
+    }) : S.route.id) + (tail || '') + '.png';
+  }
+  function saveCanvas(cv, name) {
+    cv.toBlob(function (blob) {
+      // Телефон: «Поделиться» → «Сохранить изображение»; компьютер — файл в загрузки
+      try {
+        var f = new File([blob], name, { type: 'image/png' });
+        if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
+      } catch (e) {}
+      var a = el('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    }, 'image/png');
+  }
+  // «5–17 октября 2026»
+  function datesText(r) {
+    var s = startOf(r); if (isNaN(s)) return '';
+    var a = new Date(s), b = new Date(s + (daysCount(r) - 1) * DAY);
+    return a.getUTCMonth() === b.getUTCMonth() ? a.getUTCDate() + '–' + b.getUTCDate() + ' ' + MON_GEN[b.getUTCMonth()] + ' ' + b.getUTCFullYear()
+      : a.getUTCDate() + ' ' + MON_GEN[a.getUTCMonth()] + ' — ' + b.getUTCDate() + ' ' + MON_GEN[b.getUTCMonth()] + ' ' + b.getUTCFullYear();
+  }
+  // Картинка «Сохранить моё Солнце»: 1080 × 1350 — Солнце с узором, «Маршрут пройден», по желанию — карты 12 дней (route.final.saveCards)
+  function sunImage(cb) {
+    var r = S.route, tx = r.texts || {}, f = finCfg(), W = 1080, H = 1350, cv = document.createElement('canvas'), x = cv.getContext('2d'), c = S.code, cards = f.saveCards !== false && c;
+    cv.width = W; cv.height = H;
+    function paint() {
+      var cy = cards ? 470 : 540, R = cards ? 270 : 320, g = x.createRadialGradient(W / 2, cy, 40, W / 2, cy, 1050), i;
+      g.addColorStop(0, '#4a2f0b'); g.addColorStop(.5, '#170e05'); g.addColorStop(1, '#070402');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      // Корона: мягкое сияние и лучи
+      x.globalCompositeOperation = 'lighter';
+      g = x.createRadialGradient(W / 2, cy, R * .9, W / 2, cy, R * 1.9);
+      g.addColorStop(0, 'rgba(255,214,140,.5)'); g.addColorStop(.35, 'rgba(255,190,90,.18)'); g.addColorStop(1, 'rgba(255,170,60,0)');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      g = x.createRadialGradient(W / 2, cy, R, W / 2, cy, R * 1.85);
+      g.addColorStop(0, 'rgba(255,230,170,.26)'); g.addColorStop(1, 'rgba(255,230,170,0)');
+      x.fillStyle = g; x.beginPath();
+      for (i = 0; i < 96; i++) {
+        var a = i / 96 * Math.PI * 2, da = (i % 3 ? .006 : .011), len = R * (i % 2 ? 1.55 : 1.85);
+        x.moveTo(W / 2 + Math.cos(a - da) * R, cy + Math.sin(a - da) * R); x.lineTo(W / 2 + Math.cos(a) * len, cy + Math.sin(a) * len); x.lineTo(W / 2 + Math.cos(a + da) * R, cy + Math.sin(a + da) * R);
+      }
+      x.fill();
+      x.globalCompositeOperation = 'source-over';
+      if (window.M13K) window.M13K.still(x, finSeed(), W / 2, cy, R, kalStyle(r), finEx());
+      function spaced(t) { return String(t).toUpperCase().split('').join(String.fromCharCode(8202)); }
+      x.textAlign = 'center';
+      x.fillStyle = '#e9c77e'; x.font = '500 30px "Cormorant Garamond", Georgia, serif';
+      x.fillText(spaced('13 MIRRORS · ' + (r.title || '')), W / 2, 76);
+      var ty = cy + R * 1.62;
+      x.fillStyle = '#fff3d6'; x.font = '600 66px "Cormorant Garamond", Georgia, serif';
+      x.fillText(tx.finTitle || 'Маршрут пройден', W / 2, ty);
+      if (tx.finNote !== '') { x.fillStyle = '#e9c77e'; x.font = 'italic 500 40px "Cormorant Garamond", Georgia, serif'; x.fillText(tx.finNote || 'Увидимся за поворотом…', W / 2, ty + 56); }
+      if (cards) {
+        x.font = '500 30px "Cormorant Garamond", Georgia, serif';
+        for (i = 1; i < daysCount(r); i++) {
+          var k = cardFor(r, c, i), col = (i - 1) % 3, row = Math.floor((i - 1) / 3);
+          if (!k) continue;
+          x.fillStyle = '#b9a582'; x.textAlign = 'right'; x.fillText(i + ' ·', 120 + col * 320, ty + 138 + row * 46);
+          x.fillStyle = '#f3e2bd'; x.textAlign = 'left'; x.fillText(' ' + (k.quality || ''), 120 + col * 320, ty + 138 + row * 46);
+        }
+        x.textAlign = 'center';
+      }
+      x.fillStyle = '#b9a582'; x.font = '500 28px "Cormorant Garamond", Georgia, serif';
+      x.fillText(spaced([MODE_NAMES[S.mode] || '', datesText(r)].filter(Boolean).join(' · ')), W / 2, H - 44);
+      cb(cv);
+    }
+    function fonts() { if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('600 66px "Cormorant Garamond"'), document.fonts.load('italic 500 40px "Cormorant Garamond"')]).then(paint, paint); else paint(); }
+    if (window.M13K && window.M13K.preload) window.M13K.preload(glassImgs(r), fonts); else fonts();
+  }
+
+  // o: { instant — сразу последний кадр (после конца маршрута), music — уже запущенная музыка (из нажатия) }
+  var FIN = null;
+  function finalScene(o) {
+    o = o || {};
+    var r = S.route, tx = r.texts || {}, f = finCfg(), last = daysCount(r), per = finPersonal();
+    if (FIN) FIN.kill();
+    if (!o.instant) markFin();
+    var G = finGeo(), dpr = Math.min(2, window.devicePixelRatio || 1), C = G.C;
+    var root = el('div', 'ys-fin'), cv = el('canvas', 'ys-fin-fx'), x = cv.getContext('2d');
+    var ui = el('div', 'ys-fin-ui'), sun = el('div', 'ys-fin-sun'), kc = el('canvas', 'ys-fin-kal'), end = el('div', 'ys-fin-end');
+    sun.appendChild(el('div', 'ys-fin-corona')); sun.appendChild(kc);
+    end.appendChild(el('h2', 'ys-fin-t', tx.finTitle || 'Маршрут пройден'));
+    if (tx.finNote !== '') end.appendChild(el('p', 'ys-fin-n', tx.finNote || 'Увидимся за поворотом…'));
+    if (tx.finBrand !== '') end.appendChild(el('p', 'ys-fin-brand', tx.finBrand || '13 MIRRORS'));
+    var btns = el('div', 'ys-fin-btns');
+    if (per) {
+      var sv = el('button', 'ys-key-go ys-fin-save', tx.finSave || 'Сохранить моё Солнце'); sv.type = 'button';
+      sv.addEventListener('click', function (e) { e.stopPropagation(); sunImage(function (c) { saveCanvas(c, finFileName(S.code, '-solnce')); }); });
+      btns.appendChild(sv);
+    }
+    if (f.review) {
+      var rv = el('a', 'ys-code-b ys-fin-review', tx.finReview || 'Оставить отзыв'); rv.href = f.review; rv.target = '_blank'; rv.rel = 'noopener';
+      rv.addEventListener('click', function (e) { e.stopPropagation(); });
+      btns.appendChild(rv);
+    }
+    var sp = el('button', 'ys-spiral ys-fin-back'); sp.type = 'button'; sp.setAttribute('aria-label', tx.finBack || 'Вернуться на спираль'); sp.innerHTML = spiralSVG();
+    sp.addEventListener('click', function (e) { e.stopPropagation(); close(); });
+    end.appendChild(btns); end.appendChild(sp);
+    ui.appendChild(sun); ui.appendChild(end);
+    root.appendChild(cv); root.appendChild(ui);
+    // Музыка: кнопка «звук», если есть её файл
+    var mus = o.music || null, sb = null;
+    if (!mus && f.music && f.sound !== false) { mus = new Audio(imgSrc(S.base, f.music)); mus.preload = 'auto'; mus.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100; }
+    if (mus) {
+      sb = el('button', 'ys-fin-snd'); sb.type = 'button';
+      mus.m13upd = function () { var on = !mus.paused; sb.textContent = '♪ ' + (on ? tx.soundOff || 'Выключить звук' : tx.soundOn || 'Включить звук'); sb.classList.toggle('is-on', on); };
+      sb.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var on = mus.paused;
+        try { localStorage.setItem('m13ys-sound', on ? '1' : '0'); } catch (er) {}
+        if (on) { if (mus.ended) mus.currentTime = 0; fadeAudio(mus, mus.m13vol, 900); } else fadeAudio(mus, 0, 500);
+        setTimeout(mus.m13upd, 60);
+      });
+      mus.addEventListener('play', mus.m13upd); mus.addEventListener('pause', mus.m13upd); mus.addEventListener('ended', mus.m13upd);
+      root.appendChild(sb); mus.m13upd();
+    }
+    document.body.appendChild(root);
+    document.body.classList.add('ys-fin-on');
+    cv.width = Math.round(G.W * dpr); cv.height = Math.round(G.H * dpr);
+
+    // Откуда Солнце выходит к зрителю: из столба света над центром
+    var rs = sun.getBoundingClientRect(), colH = Math.max(40, C.y);
+    sun.style.setProperty('--fx', Math.round(C.x - (rs.left + rs.width / 2)) + 'px');
+    sun.style.setProperty('--fy', Math.round(C.y - colH * .35 - (rs.top + rs.height / 2)) + 'px');
+    sun.classList.add('is-from');
+    var kal = Kaleido(kc, 0, r), seed = finSeed(), ex = finEx();
+    if (kal) kal.show(seed, ex);
+
+    // Сгустки света: { c, s0 — откуда по пути, t0 — когда, k — вид }
+    var lights = [], d, i;
+    function at(ix) { return G.L[Math.max(0, Math.min(G.L.length - 2, ix))]; }
+    if (G.pts.length > 2) {
+      if (per) S.code.states.forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(j * 3), t0: 1.3 + j * .38, k: 'state' }); });
+      for (d = 1; d < last; d++) (function (d) {
+        lights.push({ c: dayGlass(r, d).c, s0: at((2 * d - 1) * SPAN), t0: 1.9 + (d - 1) * .42, k: 'day', d: d });
+        if (per) giftList(S.code).forEach(function (g) { if (g[0] === d && GIFT_ZONES[g[1]]) lights.push({ c: giftColor(r, d, GIFT_ZONES[g[1]]), s0: at((2 * d - 1) * SPAN), t0: 1.9 + (d - 1) * .42 + .24, k: 'gift' }); });
+      })(d);
+      if (per) exitList(S.code).forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(22 * SPAN + j * 4), t0: 7.1 + j * .34, k: 'state' }); });
+    }
+    var TA = 2;
+    lights.forEach(function (L) { L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr); L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; });
+    var tw0 = TA + .3, tw1 = tw0 + 2.4, b0 = tw1, sunT = b0 + 2.1, txtT = sunT + 2.5, btnT = txtT + .9, endT = btnT + .7;
+    // Свет на камнях дней
+    var stones = [];
+    if (S.B && G.rc) for (d = 1; d < last; d++) stones[d] = finStone(G, d, dayGlass(r, d).c, dpr);
+    var dayT = []; lights.forEach(function (L) { if (L.k === 'day') dayT[L.d] = L.t0; });
+    var beam = finBeam(Math.max(50, Math.min(300, C.rx * 1.5)), colH + 12, dpr);
+    var dust = []; for (i = 0; i < 70; i++) dust.push({ u: Math.random() * 2 - 1, y: Math.random(), v: .015 + Math.random() * .04, s: .5 + Math.random() * 1.3, p: Math.random() * 6.283, w: 1.2 + Math.random() * 2.4 });
+
+    // Видео из генератора (необязательно): своё у компьютерной и телефонной картинки, камера неподвижна — ложится ровно на спираль
+    var tall = pickMaster(r, window.innerHeight / window.innerWidth > 1.25).tall, vsrc = tall ? f.videoMobile : f.videoDesktop, V = null, vT = 0;
+    if (vsrc && !o.instant && !REDUCED) {
+      var stage = document.querySelector('.ys-stage');
+      if (stage) {
+        V = el('video', 'ys-fin-video'); V.muted = true; V.setAttribute('muted', ''); V.playsInline = true; V.setAttribute('playsinline', ''); V.preload = 'auto';
+        V.src = imgSrc(S.base, vsrc); stage.appendChild(V);
+        V.addEventListener('error', function () { if (V && !V.m13on) { V.remove(); V = null; } });
+      }
+    }
+
+    function blob(px, py, rad, c, a) {
+      if (a < .01) return;
+      x.save(); x.translate(px, py + rad * .3); x.scale(1, .5);
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, rad * 2.3);
+      g.addColorStop(0, rgba(c, .3 * a)); g.addColorStop(1, rgba(c, 0));
+      x.fillStyle = g; x.fillRect(-rad * 2.3, -rad * 2.3, rad * 4.6, rad * 4.6); x.restore();
+      g = x.createRadialGradient(px, py, 0, px, py, rad);
+      g.addColorStop(0, rgba(toWhite(c, .55), .9 * a)); g.addColorStop(.32, rgba(c, .6 * a)); g.addColorStop(1, rgba(c, 0));
+      x.fillStyle = g; x.fillRect(px - rad, py - rad, rad * 2, rad * 2);
+    }
+    function oval(px, py, rx, ry, c, a, c2) {
+      if (a < .01) return;
+      x.save(); x.translate(px, py); x.scale(1, ry / rx);
+      var g = x.createRadialGradient(0, 0, 0, 0, 0, rx);
+      g.addColorStop(0, rgba(c2 || c, a)); g.addColorStop(.45, rgba(c, a * .55)); g.addColorStop(1, rgba(c, 0));
+      x.fillStyle = g; x.fillRect(-rx, -rx, rx * 2, rx * 2); x.restore();
+    }
+    var GOLD = [255, 214, 140], spin = 0, lastT = 0;
+    function draw(T) {
+      var j, dt = Math.max(0, Math.min(.1, T - lastT)); lastT = T;
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, G.W, G.H);
+      var tw = sm((T - tw0) / (tw1 - tw0)), bl = T < b0 ? 0 : sm((T - b0) / .6) * (1 - .82 * sm((T - sunT - .6) / 2.4)), vid = V && V.m13on;
+      // Темно, как в комнате с диафильмом; со столбом света — светлее
+      var dk = .62 * sm(T / 1.2);
+      if (T > tw0) dk += .1 * tw;
+      if (T > b0) dk -= .24 * sm((T - b0) / 1.6);
+      if (vid) dk = dk * (1 - sm((T - vT) / .9)) + .5 * sm((T - sunT) / 1.6);
+      x.fillStyle = 'rgba(5,3,1,' + dk.toFixed(3) + ')'; x.fillRect(0, 0, G.W, G.H);
+      x.globalCompositeOperation = 'lighter';
+      // Камни загораются по очереди, сгусток уходит — камень тихо светится
+      for (d = 1; d < last; d++) {
+        var S0 = stones[d]; if (!S0) continue;
+        var t0 = dayT[d] == null ? 2 : dayT[d], lv = T < t0 ? sm((T - t0 + .45) / .45) : .18 + .82 * Math.exp(-(T - t0) * 1.5);
+        lv *= 1 - .6 * tw;
+        if (T > sunT) lv = lv + (.26 - lv) * sm((T - sunT) / 2);
+        if (lv > .01) { x.globalAlpha = Math.min(1, lv); x.drawImage(S0.cv, S0.x, S0.y, S0.w, S0.h); x.globalAlpha = 1; }
+      }
+      // Свечение центрального диска — растёт с каждым прилетевшим светом, их цветами
+      var got = 0, mixc = [0, 0, 0];
+      lights.forEach(function (L) { if (T >= L.arr) { got++; mixc[0] += L.c[0]; mixc[1] += L.c[1]; mixc[2] += L.c[2]; } });
+      var avg = got ? [mixc[0] / got, mixc[1] / got, mixc[2] / got] : GOLD, cg = [(avg[0] + GOLD[0] * 2) / 3, (avg[1] + GOLD[1] * 2) / 3, (avg[2] + GOLD[2] * 2) / 3];
+      var vfade = vid ? 1 - sm((T - vT) / 1.2) : 1;
+      oval(C.x, C.y, C.rx * 1.45, C.ry * 1.45, cg, Math.min(.5, .1 + got * .022 + tw * .25) * (1 - .5 * sm((T - sunT) / 2)) * vfade);
+      // Пришедшие огни кружат по диску (в перспективе), потом закручиваются воронкой и сливаются в один
+      var w = .8 + 11 * tw * tw, spotA = Math.min(.42, .5 / Math.sqrt(got + 1)); spin += w * dt;
+      if (T < tw1 + .6 && vfade > .01) lights.forEach(function (L) {
+        if (T < L.arr) return;
+        var q = Math.pow(1 - tw, 1.4), a0 = L.a + spin, fa = sm((T - L.arr) / .4) * (1 - .85 * tw) * vfade * spotA, j;
+        var fl = 1 - sm((T - L.arr) / .8);
+        if (fl > 0) oval(C.x, C.y, C.rx * (.5 + .9 * (1 - fl)), C.ry * (.5 + .9 * (1 - fl)), L.c, .35 * fl * vfade);
+        for (j = tw > .05 ? 5 : 0; j >= 0; j--) {
+          var a = a0 - j * .12 * Math.min(4, w / 3), rr = L.rr * q + .04;
+          oval(C.x + Math.cos(a) * C.rx * rr, C.y + Math.sin(a) * C.ry * rr, C.rx * .34, C.ry * .34, L.c, fa * (j ? .55 * (1 - j / 6) : 1), toWhite(L.c, .15));
+        }
+      });
+      // Свет собирается в один сгусток и уходит вверх
+      var cm = sm((T - tw1 + 1) / 1) * (1 - .7 * sm((T - b0 - .2) / 1.4)) * vfade;
+      if (!vid && cm > .01) {
+        var cr = C.rx * (.6 + .4 * cm), g0 = x.createRadialGradient(C.x, C.y - C.ry * .3, 0, C.x, C.y - C.ry * .3, cr);
+        g0.addColorStop(0, rgba(toWhite(cg, .3), .55 * cm)); g0.addColorStop(.35, rgba(cg, .3 * cm)); g0.addColorStop(1, rgba(cg, 0));
+        x.fillStyle = g0; x.fillRect(C.x - cr, C.y - C.ry * .3 - cr, cr * 2, cr * 2);
+      }
+      // Летящие сгустки — по камням к центру, с мягким следом
+      lights.forEach(function (L) {
+        if (T < L.t0 || T >= L.arr) return;
+        var k = (T - L.t0) / L.dur, e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, s = L.s0 + (G.Lt - L.s0) * e, p = finAt(G, s);
+        var rad = Math.max(4, Math.min(26, p.w * (L.k === 'day' ? .3 : .22))), a = sm(k / .1) * (1 - sm((k - .9) / .1) * .5), j;
+        for (j = 6; j >= 1; j--) { var qq = finAt(G, s - j * rad * .5); blob(qq.x, qq.y, rad * (1 - j * .08), L.c, a * (.42 - j * .055)); }
+        blob(p.x, p.y, rad, L.c, a);
+      });
+      // Столб света
+      if (bl > .01 && !vid) {
+        var grow = 1 - Math.pow(1 - sm((T - b0) / 1.2), 2), vh = beam.h * grow, sh = .9 + .1 * Math.sin(T * 2.1);
+        x.globalAlpha = Math.min(1, bl * sh);
+        x.drawImage(beam.cv, 0, (beam.h - vh) * dpr, beam.cv.width, vh * dpr, C.x - beam.w / 2, C.y + 6 - vh, beam.w, vh);
+        // Живые полосы внутри столба
+        x.globalAlpha = Math.min(1, bl * .28);
+        for (j = 0; j < 2; j++) { var off = Math.sin(T * (.35 + j * .2) + j * 2) * beam.w * .12, sw = beam.w * (.32 + j * .1); x.drawImage(beam.cv, 0, (beam.h - vh) * dpr, beam.cv.width, vh * dpr, C.x - sw / 2 + off, C.y + 6 - vh, sw, vh); }
+        x.globalAlpha = 1;
+        oval(C.x, C.y, C.rx * 1.2, C.ry * 1.2, GOLD, .5 * bl, [255, 246, 222]);
+        // Тёплый свет по всей поляне
+        var g = x.createRadialGradient(C.x, C.y, 0, C.x, C.y, Math.max(G.W, G.H) * .7);
+        g.addColorStop(0, 'rgba(255,214,150,' + (.16 * bl).toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,214,150,0)');
+        x.fillStyle = g; x.fillRect(0, 0, G.W, G.H);
+        // Пылинки в луче
+        dust.forEach(function (P) {
+          var yy = (P.y + P.v * T) % 1, py = C.y - yy * vh, half = (beam.w / 2.6) * (1 + yy * .6), px = C.x + P.u * half + Math.sin(T * .3 + P.p) * 5;
+          if (yy * beam.h > vh) return;
+          var a = bl * (.25 + .75 * Math.pow(.5 + .5 * Math.sin(T * P.w + P.p), 3)) * (1 - Math.abs(P.u) * .6) * .75;
+          x.fillStyle = 'rgba(255,242,210,' + a.toFixed(3) + ')'; x.beginPath(); x.arc(px, py, P.s, 0, 6.283); x.fill();
+        });
+      }
+      x.globalCompositeOperation = 'source-over';
+    }
+    var raf = 0, t0 = 0, Tnow = 0, done = false, sunOn = false, txtOn = false, btnOn = false;
+    function showSun(fast) {
+      if (sunOn) return; sunOn = true;
+      if (fast) sun.classList.add('is-fast');
+      sun.classList.add('is-on');
+      if (kal) { if (fast || REDUCED) kal.show(seed, ex); kal.idle(seed); }
+    }
+    function step(ts) {
+      if (!t0) t0 = ts;
+      Tnow = (ts - t0) / 1000;
+      // Видео: когда свет собрался — вместо закручивания и столба, если успело загрузиться
+      if (V && !V.m13on && Tnow >= tw0) {
+        if (V.readyState >= 2) {
+          V.m13on = true; vT = Tnow; var p = V.play(); if (p && p.catch) p.catch(function () {});
+          V.classList.add('is-on');
+          var vd = isFinite(V.duration) && V.duration > 1 ? Math.min(14, V.duration) : 7;
+          sunT = vT + Math.max(2, vd - 1.2); txtT = sunT + 2.5; btnT = txtT + .9; endT = btnT + .7; b0 = 1e9;
+        } else { V.remove(); V = null; }
+      }
+      draw(Tnow);
+      if (Tnow >= sunT) showSun();
+      if (Tnow >= txtT && !txtOn) { txtOn = true; end.classList.add('is-on'); }
+      if (Tnow >= btnT && !btnOn) { btnOn = true; end.classList.add('is-btns'); root.classList.add('is-end'); }
+      if (Tnow < endT) raf = requestAnimationFrame(step); else { raf = 0; done = true; }
+    }
+    // Сразу к концу: последний кадр
+    function finish() {
+      if (raf) cancelAnimationFrame(raf); raf = 0; done = true;
+      if (V) { V.remove(); V = null; }
+      lastT = endT; draw(endT + 3);
+      showSun(true);
+      end.classList.add('is-on', 'is-btns', 'is-fast'); root.classList.add('is-end');
+    }
+    function onResize() { G = finGeo(); C = G.C; cv.width = Math.round(G.W * dpr); cv.height = Math.round(G.H * dpr); if (S.B && G.rc) for (d = 1; d < last; d++) stones[d] = finStone(G, d, dayGlass(r, d).c, dpr); beam = finBeam(Math.max(50, Math.min(300, C.rx * 1.5)), Math.max(40, C.y) + 12, dpr); finish(); }
+    function kill() {
+      if (raf) cancelAnimationFrame(raf); raf = 0;
+      if (kal) kal.stop();
+      if (V) V.remove();
+      if (mus) fadeAudio(mus, 0, 700);
+      window.removeEventListener('resize', onResize);
+      root.remove(); FIN = null;
+    }
+    function close() {
+      root.classList.add('is-out');
+      document.body.classList.remove('ys-fin-on');
+      if (mus) fadeAudio(mus, 0, 700);
+      setTimeout(function () { kill(); }, 650);
+      render();
+    }
+    root.addEventListener('click', function () { if (!done) finish(); });
+    window.addEventListener('resize', onResize);
+    FIN = { kill: kill, finish: finish };
+    if (o.instant || REDUCED) { requestAnimationFrame(function () { root.classList.add('is-in'); finish(); }); return; }
+    requestAnimationFrame(function () { root.classList.add('is-in'); raf = requestAnimationFrame(step); });
+  }
+  // Нажали на центр после конца маршрута (или «Финал Солнца» в проверке): финал уже собирали — сразу финал; нет — Карта дня 13
+  function openFinal() {
+    var r = S.route, last = daysCount(r);
+    if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
+    if (finDone()) { var m = musicStart(); closeLayer(); finalScene({ music: m }); return; }
+    openDay(last, S.mode);
+  }
 
   // Нажатие на кирпич d. Сегодняшний — импульс к центру и Карта дня; прошедший, будущий — короткая подсказка.
   function tapDay(d) {
     var r = S.route, tx = r.texts || {}, n = curDay(), last = daysCount(r), ctx = ctxOf(r, d);
+    // После конца маршрута: центр — финал ещё раз
     if (n > last) { if (d === last) openFinal(); else note(fill(tx.past || 'День {день} пройден', ctx)); return; }
     if (n < 1) return;
     if (d < n) { note(fill(tx.past || 'День {день} пройден', ctx)); return; }
@@ -1111,6 +1552,8 @@
     }
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
+    // Финал собран (день 13) — спираль уже золотая, как после конца маршрута
+    var lit = n === last && finDone() ? last + 1 : n;
     var bricks = !!M.zone && n >= 1;
     var hud = el('div', 'ys-hud');
     var ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
@@ -1122,7 +1565,7 @@
       if (tx.afterNote) hud.appendChild(el('p', 'ys-sub', fill(tx.afterNote, ctx)));
     } else {
       hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
-      if (bricks) { if (!opened) hud.appendChild(el('p', 'ys-tap', fill(tx.tap || 'Коснитесь светящегося камня', ctx))); }
+      if (bricks) { if (!opened) hud.appendChild(el('p', 'ys-tap', fill(n === last ? tx.tapLast || 'Коснитесь центра спирали' : tx.tap || 'Коснитесь светящегося камня', ctx))); }
       else {
         // Нет разметки кирпичей для этой картинки — Карта дня открывается кнопкой
         var go = el('button', 'ys-go', tx.openDay || 'Карта дня');
@@ -1140,7 +1583,7 @@
       if (!bricks || S.B || !img.naturalWidth) return;
       var iw = img.naturalWidth, ih = img.naturalHeight, g = r.glow || {};
       var B = S.B = bricksLayer(r, M.zone, iw, ih, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100, zones: S.zonesOn });
-      B.paint(lights(r, n, opened));
+      B.paint(lights(r, lit, opened));
       stage.appendChild(B.node);
       // Большая невидимая кнопка на сегодняшнем кирпиче (на телефоне плиты внутренних витков маленькие), после конца — на центре
       var hd = n <= last ? n : last;
@@ -1190,11 +1633,14 @@
     function permSel(d) { return sp.value === 'code' ? cardFor(r, S.code, d) || cardsOf(r)[0] : cardsOf(r)[+sp.value]; }
     function testCode(m) { saveCode(newCode(r, m)); S.mode = m; setUrlMode(m); closeLayer(); render(); note('Код для проверки: ' + S.code.code + ' · ' + MODE_NAMES[m]); }
     var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · вошли с: ' + (statesText(r, S.code) || '—') + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') +
-      ' · подарки: ' + (giftList(S.code).map(function (g) { return g[0] + ' ' + zoneName(r, GIFT_ZONES[g[1]]).toLowerCase(); }).join(', ') || 'нет') : 'Кода на этом устройстве нет';
+      ' · подарки: ' + (giftList(S.code).map(function (g) { return g[0] + ' ' + zoneName(r, GIFT_ZONES[g[1]]).toLowerCase(); }).join(', ') || 'нет') +
+      ' · выходят с: ' + (exitList(S.code).map(function (i) { return (statesOf(r)[i] || {}).name; }).join(' · ') || '—') + ' · финал: ' + (finDone() ? 'собран' : 'нет') : 'Кода на этом устройстве нет';
     function needCode() { if (!S.code) note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return !!S.code; }
     [el('span', null, 'Сейчас по Москве: ' + (S.debugNow ? S.debugNow + ' (подмена)' : 'настоящее время') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
       ss, zl,
-      row([btn('Финал Солнца', openFinal), btn('Сброс', function () { resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, подарков нет.'); })]),
+      el('span', 'ys-debug-sep', 'Финал Солнца'),
+      row([btn('Карта дня 13', function () { closeLayer(); if (FIN) FIN.kill(); openDay(last, S.mode); }), btn('Финал сразу', function () { var m = musicStart(); closeLayer(); finalScene({ music: m }); })]),
+      row([btn('Последний кадр', function () { closeLayer(); finalScene({ instant: true }); }), btn('Сброс', function () { if (FIN) FIN.kill(); resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, подарков и финала нет.'); })]),
       el('span', 'ys-debug-sep', 'Код и колода'),
       el('span', null, cinfo),
       row([btn('Код Путешествия', function () { testCode('journey'); }), btn('Код Погружения', function () { testCode('immersion'); })]),
@@ -1229,13 +1675,20 @@
     else if (m === 'journey' || m === 'immersion') { S.mode = S.code ? S.code.mode : m; gate = !S.code; }
     else S.mode = S.code ? S.code.mode : 'observation';
     if (route.title) document.title = '13 MIRRORS · ' + route.title;
+    if (FIN) FIN.kill();
+    // Предпросмотр из панели: Путешествие без кода — временный код (только в памяти), чтобы увидеть личное
+    if (S.preview && /^final/.test(q('card') || '') && S.mode !== 'observation' && !S.code) { S.code = newCode(route, S.mode); gate = false; }
     render();
-    var c = q('card'), n = +q('day') || 1;
-    if (c === 'day') openDay(n, S.mode);
+    var c = q('card'), n = +q('day') || 1, last = daysCount(route);
+    if (c === 'final') openDay(last, S.mode);
+    else if (c === 'finalnow') finalScene({ instant: q('instant') === '1' });
+    else if (c === 'day') openDay(n, S.mode);
     else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? cardFor(route, S.code, n) : cardsOf(route)[+q('perm') || 0]);
     else if (c === 'fan' && S.code) openFan(n, S.mode);
     else if (q('gift') && S.code) openKey(S.code.mode, true, q('gift'));
     else if (gate) openKey(m);
+    // После конца маршрута страница открывается сразу на последнем кадре финала
+    else if (curDay() > last) finalScene({ instant: true });
     if (q('gift') && !S.code) setTimeout(function () { note((route.texts || {}).giftNeed || 'Чтобы положить подарок в узор, сначала войдите своим кодом.'); }, 600);
   }
   function boot() {
@@ -1266,7 +1719,7 @@
 
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalSunLayer: finalSunLayer,
+    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, CARD_TOKENS: CARD_TOKENS,
