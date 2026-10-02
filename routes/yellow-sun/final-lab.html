@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>13 MIRRORS · Финал Солнца · проба</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#050301">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+<!-- Пробная страница финала «Жёлтого Солнца»: стёклышки летят по спирали в Солнце, центр закручивается, щелчок, витражный луч, узор.
+     Участникам не показывается. Разметка камней — копия zones из data/journeys.json (на момент пробы). -->
+<style>
+  :root { color-scheme: dark; --bg: #050301; --gold: #e9c77e; --gold2: #f6dfa6; --ink: #f3e7cf; --muted: #b9a582; --line: rgba(233,199,126,.3); }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body { font: 17px/1.45 "Cormorant Garamond", Georgia, serif; }
+  #bg { position: absolute; max-width: none; user-select: none; pointer-events: none; }
+  #fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Солнце с узором: появляется из центра спирали */
+  .sun { position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; transform: translate(-50%, -50%) scale(.05) rotate(-80deg);
+    transition: opacity 1.6s ease, transform 2.4s cubic-bezier(.2,.8,.2,1); }
+  .sun.is-on { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  .sun.is-fast { transition: none; }
+  .sun canvas { position: absolute; z-index: 1; left: 21%; top: 21%; width: 58%; height: 58%; border-radius: 50%;
+    box-shadow: 0 0 50px 12px rgba(255,205,110,.5), 0 0 120px 40px rgba(255,170,60,.22); }
+  .sun svg { position: absolute; inset: 0; width: 100%; height: 100%; animation: sun-rays 140s linear infinite; }
+  @keyframes sun-rays { to { transform: rotate(360deg); } }
+  .end { position: absolute; left: 16px; right: 16px; text-align: center; opacity: 0; transition: opacity 1.4s ease; pointer-events: none; }
+  .end.is-on { opacity: 1; pointer-events: auto; }
+  .end-t { font-weight: 500; font-size: clamp(26px, 4.4vw, 40px); letter-spacing: .06em; color: var(--gold2); text-shadow: 0 2px 18px rgba(0,0,0,.8); margin: 0; }
+  .end-n { font-style: italic; font-size: clamp(19px, 2.8vw, 26px); color: var(--gold); margin: 2px 0 0; text-shadow: 0 2px 14px rgba(0,0,0,.8); }
+  .end-logo { font-size: 13px; letter-spacing: .32em; color: var(--muted); margin-top: 10px; }
+  .end-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .btn { font: inherit; font-size: 17px; border-radius: 999px; padding: 9px 18px; cursor: pointer; color: #1a1004; background: linear-gradient(#f6dfa6, #d9a94f); border: 0; }
+  .btn.ghost { color: var(--ink); background: rgba(10,6,2,.55); border: 1px solid var(--line); }
+  .btn:focus-visible { outline: 2px solid var(--gold2); outline-offset: 2px; }
+  /* Начало: вместо урезанной Карты дня 13 — одна кнопка */
+  .start { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5,3,1,.45); }
+  .start-box { text-align: center; padding: 22px 22px 20px; max-width: 360px; background: rgba(12,8,3,.82); border: 1px solid var(--line); border-radius: 18px; }
+  .start-box small { display: block; color: var(--muted); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; }
+  .start-box p { margin: 8px 0 16px; font-size: 21px; font-style: italic; color: var(--gold2); }
+  /* Панель проб */
+  .lab { position: absolute; top: 10px; left: 10px; z-index: 5; max-width: calc(100% - 20px); background: rgba(12,8,3,.86); border: 1px solid var(--line); border-radius: 14px; font-size: 15px; }
+  .lab summary { cursor: pointer; padding: 8px 14px; color: var(--gold2); list-style: none; }
+  .lab summary::-webkit-details-marker { display: none; }
+  .lab-in { padding: 0 14px 12px; display: grid; gap: 8px; }
+  .lab-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .lab-row b { font-weight: 600; color: var(--muted); min-width: 64px; }
+  .chip { font: inherit; font-size: 15px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+  .chip.is-on { background: rgba(233,199,126,.22); border-color: var(--gold); color: var(--gold2); }
+  .lab-note { color: var(--muted); font-style: italic; font-size: 14px; max-width: 360px; margin: 0; }
+  .toast { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); background: rgba(12,8,3,.92); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 15px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 6; }
+  .toast.is-on { opacity: 1; }
+</style>
+</head>
+<body>
+<img id="bg" alt="">
+<canvas id="fx"></canvas>
+<div class="sun" id="sun"><canvas id="kal"></canvas></div>
+<div class="end" id="endT"><p class="end-t" id="t1">Маршрут пройден</p><p class="end-n" id="t2">Увидимся за поворотом…</p><div class="end-logo">13 MIRRORS</div></div>
+<div class="end" id="endB"><div class="end-btns"><button class="btn" type="button" id="save">Сохранить моё Солнце</button><button class="btn ghost" type="button" id="review">Оставить отзыв</button></div></div>
+<div class="start" id="start"><div class="start-box"><small>День 13 · Жёлтый Космический Человек</small><p>Что из этого маршрута вы возьмёте с собой?</p><button class="btn" type="button" id="go">Собрать маршрут</button></div></div>
+<details class="lab" id="lab" open>
+  <summary>⚙ Проба финала</summary>
+  <div class="lab-in">
+    <div class="lab-row"><b>Формат</b><button class="chip is-on" data-f="obs">Наблюдение</button><button class="chip" data-f="full">Путешествие · много бонусов</button><button class="chip" data-f="few">Путешествие · 2 бонуса</button></div>
+    <div class="lab-row"><b>Луч</b><button class="chip is-on" data-b="up">вверх, в небо</button><button class="chip" data-b="viewer">к зрителю</button></div>
+    <div class="lab-row"><b>Звук</b><button class="chip is-on" data-s="1">есть</button><button class="chip" data-s="0">нет</button></div>
+    <div class="lab-row"><b>Скорость</b><button class="chip" data-v="0.6">медленнее</button><button class="chip is-on" data-v="1">как задумано</button><button class="chip" data-v="1.6">быстрее</button></div>
+    <p class="lab-note">Нажатие во время анимации — сразу к концу. Летят: стёклышки дней (цвет печати) — у всех; у Путешествия ещё 3 состояния со входа (из начала пути), бонусные (форма — зона колеса) и 3 состояния выхода (с последнего кольца).</p>
+  </div>
+</details>
+<div class="toast" id="toast"></div>
+<script src="../../assets/kaleido.js?v=20261002m"></script>
+<script>
+(function () {
+  'use strict';
+  /* ---------- Данные пробы ---------- */
+  var ZONES = {"desktop":{"width":100,"path":[[0.3447,0.6367,-0.0201,0.0332],[0.1638,0.5604,-0.0465,0.0229],[0.1231,0.4526,-0.0544,0.0078],[0.2279,0.3595,-0.0389,-0.0057],[0.4213,0.3174,-0.009,-0.0124],[0.6141,0.338,0.0225,-0.0094],[0.7259,0.4041,0.0426,0.0003],[0.7191,0.4814,0.0429,0.0117],[0.6105,0.5346,0.0245,0.0195],[0.4585,0.5432,-0.0016,0.021],[0.3332,0.5112,-0.0238,0.0168],[0.2842,0.4523,-0.0331,0.0085],[0.3166,0.3934,-0.0281,0],[0.4083,0.3588,-0.0121,-0.0051],[0.5134,0.3586,0.0071,-0.0052],[0.5849,0.3877,0.0207,-0.0008],[0.5974,0.4307,0.0237,0.0064],[0.56,0.4671,0.0175,0.0132],[0.4905,0.4812,0.0035,0.0164],[0.4233,0.47,-0.0117,0.0152],[0.3871,0.4398,-0.0214,0.0097],[0.3914,0.4047,-0.0219,0.0023],[0.4271,0.3792,-0.0134,-0.004],[0.4755,0.372,0.0011,-0.0063],[0.5138,0.3829,0.0154,-0.0036]],"center":{"x":0.4713,"y":0.423,"rx":0.0586,"ry":0.034}},"mobile":{"width":100,"path":[[0.3075,0.6414,-0.022,0.016],[0.1321,0.6012,-0.0434,0.0105],[0.1031,0.5477,-0.0483,0.0032],[0.2226,0.5037,-0.0337,-0.0029],[0.4301,0.4857,-0.0075,-0.0055],[0.6327,0.498,0.0192,-0.004],[0.747,0.5316,0.0355,0.0003],[0.7336,0.5694,0.0346,0.0051],[0.6104,0.5944,0.0182,0.0082],[0.4399,0.5973,-0.0051,0.0084],[0.2987,0.5807,-0.025,0.0064],[0.2433,0.551,-0.0334,0.0025],[0.2843,0.5214,-0.028,-0.0016],[0.3975,0.5042,-0.0118,-0.004],[0.529,0.5049,0.0078,-0.004],[0.6218,0.5212,0.0224,-0.0017],[0.6416,0.5447,0.0262,0.0018],[0.5911,0.5645,0.0193,0.0049],[0.4967,0.5726,0.0041,0.0063],[0.4031,0.5671,-0.0125,0.0057],[0.3496,0.5513,-0.0231,0.0033],[0.353,0.5327,-0.0237,0.0002],[0.404,0.5192,-0.0142,-0.0023],[0.4769,0.5156,0.0017,-0.0032],[0.5382,0.5218,0.0172,-0.002]],"center":{"x":0.4857,"y":0.5413,"rx":0.0723,"ry":0.0132}}};
+  var IMG = { desktop: 'master-desktop.webp', mobile: 'master-mobile.webp' };
+  var SEAL = { red: [255, 90, 60], white: [255, 241, 220], blue: [79, 157, 255], yellow: [255, 207, 90] };
+  var KIN0 = 40;
+  function sealOf(d) { return ['red', 'white', 'blue', 'yellow'][((KIN0 + d - 2) % 20) % 4]; }
+  // Состояния (цвета — заготовка, в панели будут свои): равноправные, без «светлых» и «тёмных»
+  var STATES = [['ясность', [190, 232, 255]], ['интерес', [255, 160, 60]], ['радость', [255, 214, 70]], ['надежда', [120, 214, 130]], ['наполненность', [242, 120, 182]], ['воодушевление', [255, 108, 64]],
+    ['усталость', [160, 128, 214]], ['тревога', [64, 196, 200]], ['злость', [226, 44, 66]], ['грусть', [72, 112, 226]], ['растерянность', [214, 176, 90]], ['пустота', [228, 228, 250]]];
+  // Бонусное стёклышко: форма = зона колеса
+  var ZONE_SH = { axis: 'brilliant', spoke: 'marquise', rim: 'trillion', under: 'hex' };
+  function tint(c, k) { return [Math.round(c[0] + (255 - c[0]) * k), Math.round(c[1] + (255 - c[1]) * k), Math.round(c[2] + (255 - c[2]) * k)]; }
+  function bonusColor(d, z) { var c = SEAL[sealOf(d)]; return z === 'under' ? [128, 118, 146] : z === 'axis' ? tint(c, .62) : z === 'spoke' ? tint(c, .3) : c; }
+  var SC = {
+    obs: { seed: M13K.h32('m13kal|yellow-sun'), entry: [], exit: [], bonus: [] },
+    full: { seed: M13K.h32('m13kal|ИСКРА-7ЖК4'), entry: [7, 1, 6], exit: [0, 3, 4],
+      bonus: [[1, 'spoke'], [2, 'rim'], [3, 'under'], [4, 'spoke'], [6, 'axis'], [7, 'spoke'], [8, 'rim'], [10, 'axis'], [11, 'spoke'], [12, 'axis']] },
+    few: { seed: M13K.h32('m13kal|ЗАРЯ-К2МП'), entry: [11, 9, 2], exit: [2, 1, 5], bonus: [[3, 'rim'], [9, 'axis']] }
+  };
+  var opt = { f: 'obs', beam: 'up', sound: true, speed: 1 };
+
+  /* ---------- Звук: собран кодом (WebAudio), без файлов ---------- */
+  var AC = null, master = null;
+  function audio() {
+    if (!opt.sound) return null;
+    if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = .55; master.connect(AC.destination); } catch (e) { AC = null; } }
+    if (AC && AC.state === 'suspended') AC.resume();
+    return AC;
+  }
+  function chime(freq, vol) {
+    var a = audio(); if (!a) return;
+    var t = a.currentTime, g = a.createGain(), o1 = a.createOscillator(), o2 = a.createOscillator(), g2 = a.createGain();
+    o1.type = 'sine'; o1.frequency.value = freq; o2.type = 'sine'; o2.frequency.value = freq * 2.76; g2.gain.value = .18;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol || .14, t + .006); g.gain.exponentialRampToValueAtTime(.0005, t + 1.6);
+    o1.connect(g); o2.connect(g2); g2.connect(g); g.connect(master);
+    o1.start(t); o2.start(t); o1.stop(t + 1.7); o2.stop(t + 1.7);
+  }
+  function click() {
+    var a = audio(); if (!a) return;
+    var t = a.currentTime, n = Math.floor(a.sampleRate * .06), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0), i;
+    for (i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    var src = a.createBufferSource(), bp = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 1.4; g.gain.value = .7;
+    src.connect(bp); bp.connect(g); g.connect(master); src.start(t);
+    var o = a.createOscillator(), og = a.createGain(); o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(48, t + .18);
+    og.gain.setValueAtTime(.35, t); og.gain.exponentialRampToValueAtTime(.001, t + .22); o.connect(og); og.connect(master); o.start(t); o.stop(t + .25);
+  }
+  function swell(dur) {
+    var a = audio(); if (!a) return;
+    var t = a.currentTime, lp = a.createBiquadFilter(), g = a.createGain(), fr = [110, 164.8, 220, 329.6, 440], i;
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(260, t); lp.frequency.exponentialRampToValueAtTime(3200, t + dur * .7);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.16, t + 1); g.gain.setValueAtTime(.16, t + dur * .6); g.gain.exponentialRampToValueAtTime(.001, t + dur + 2.5);
+    lp.connect(g); g.connect(master);
+    for (i = 0; i < fr.length; i++) {
+      var o = a.createOscillator(); o.type = i % 2 ? 'triangle' : 'sawtooth'; o.frequency.value = fr[i]; o.detune.value = (i - 2) * 6;
+      var og = a.createGain(); og.gain.value = i < 2 ? .5 : .22; o.connect(og); og.connect(lp); o.start(t); o.stop(t + dur + 2.6);
+    }
+  }
+  // Высота звона — по виду стёклышка (пентатоника, всё созвучно)
+  var NOTE = { red: 880, white: 1318.5, blue: 784, yellow: 1046.5 };
+
+  /* ---------- Сцена ---------- */
+  var bg = document.getElementById('bg'), cv = document.getElementById('fx'), ctx = cv.getContext('2d'), sunEl = document.getElementById('sun'), kcv = document.getElementById('kal');
+  var G = null, dpr = 1, raf = 0, t = 0, last = 0, playing = false, glasses = [], timeline = null, kal = null;
+  function lay() {
+    var W = innerWidth, H = innerHeight, tall = H > W * 1.05, z = tall ? ZONES.mobile : ZONES.desktop, iw = tall ? 941 : 1672, ih = tall ? 1672 : 941, s, ox, oy;
+    if (bg.getAttribute('data-src') !== IMG[tall ? 'mobile' : 'desktop']) { bg.src = IMG[tall ? 'mobile' : 'desktop']; bg.setAttribute('data-src', bg.src && IMG[tall ? 'mobile' : 'desktop']); }
+    if (tall) { s = W / iw; ox = 0; oy = H - ih * s; } else { s = Math.max(W / iw, H / ih); ox = (W - iw * s) / 2; oy = (H - ih * s) / 2; }
+    bg.style.left = ox + 'px'; bg.style.top = oy + 'px'; bg.style.width = iw * s + 'px'; bg.style.height = ih * s + 'px';
+    dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    // Линия пути по камням (Catmull-Rom, как на странице маршрута) с длиной вдоль пути
+    var P = z.path.slice(0, 25).map(function (p) { return [(p[0] * iw * s + ox) * dpr, (p[1] * ih * s + oy) * dpr]; }), pts = [], L = [0], i, k, SP = 14;
+    function cr(a, b, c, d, u) { var u2 = u * u; return .5 * (2 * b + (c - a) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (3 * b - a - 3 * c + d) * u2 * u); }
+    for (i = 0; i < 24; i++) for (k = 0; k < SP || (i === 23 && k === SP); k++) {
+      var a = P[i - 1] || P[i], b = P[i], c = P[i + 1], d = P[i + 2] || P[i + 1], u = k / SP;
+      pts.push([cr(a[0], b[0], c[0], d[0], u), cr(a[1], b[1], c[1], d[1], u)]);
+      if (pts.length > 1) { var q = pts[pts.length - 2], r = pts[pts.length - 1]; L.push(L[L.length - 1] + Math.hypot(r[0] - q[0], r[1] - q[1])); }
+    }
+    var C = [(z.center.x * iw * s + ox) * dpr, (z.center.y * ih * s + oy) * dpr], end = pts[pts.length - 1];
+    var R = (tall ? W * .36 : Math.min(H * .25, W * .22));
+    G = { W: W, H: H, tall: tall, pts: pts, L: L, Lt: L[L.length - 1], dc: Math.hypot(C[0] - end[0], C[1] - end[1]), C: C, SP: SP, rc: Math.max(16 * dpr, z.center.rx * iw * s * dpr), R: R, s: s };
+    // Солнце и надписи
+    var sz = R * 2 / .58;
+    sunEl.style.left = C[0] / dpr + 'px'; sunEl.style.top = C[1] / dpr + 'px'; sunEl.style.width = sz + 'px'; sunEl.style.height = sz + 'px';
+    var eT = document.getElementById('endT'), eB = document.getElementById('endB'), cy = C[1] / dpr;
+    var below = cy + R * 1.08 + 10;
+    if (tall) { eT.style.top = Math.max(56, cy - R * 1.08 - 128) + 'px'; eB.style.top = Math.min(G.H - 60, below + 6) + 'px'; }
+    else { eT.style.top = Math.min(G.H - 170, below) + 'px'; eB.style.top = Math.min(G.H - 56, below + 136) + 'px'; }
+    if (!kal) kal = M13K.Kaleido(kcv, 0, { style: 'mix' });
+  }
+  function at(dist) {
+    var L = G.L, lo = 0, hi = L.length - 1, m, p = G.pts;
+    if (dist >= G.Lt) { var e = p[p.length - 1], k = Math.min(1, (dist - G.Lt) / (G.dc || 1)); return [e[0] + (G.C[0] - e[0]) * k, e[1] + (G.C[1] - e[1]) * k]; }
+    if (dist <= 0) return p[0].slice();
+    while (hi - lo > 1) { m = (lo + hi) >> 1; if (L[m] <= dist) lo = m; else hi = m; }
+    var f = (dist - L[lo]) / ((L[hi] - L[lo]) || 1);
+    return [p[lo][0] + (p[hi][0] - p[lo][0]) * f, p[lo][1] + (p[hi][1] - p[lo][1]) * f];
+  }
+  function distAtPoint(ix) { return G.L[Math.min(G.L.length - 1, Math.round(ix * G.SP))]; }
+  function css(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function ease(k) { return k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; }
+  function clamp(k) { return Math.max(0, Math.min(1, k)); }
+
+  // Стёклышки и расписание
+  function build() {
+    var S = SC[opt.f], list = [], d, i;
+    S.entry.forEach(function (st, j) { list.push({ kind: 'state', c: STATES[st][1], sh: 'bead', s0: 0, t0: 1.7 + j * .32, note: 1568 - j * 196 }); });
+    for (d = 1; d <= 12; d++) {
+      list.push({ kind: 'day', day: d, c: SEAL[sealOf(d)], sh: 'emerald', s0: distAtPoint(2 * d - 1), t0: 2.3 + (d - 1) * .42, note: NOTE[sealOf(d)] });
+      S.bonus.forEach(function (b) { if (b[0] === d) list.push({ kind: 'bonus', day: d, zone: b[1], c: bonusColor(d, b[1]), sh: ZONE_SH[b[1]], s0: distAtPoint(2 * d - 1), t0: 2.3 + (d - 1) * .42 + .2, note: NOTE[sealOf(d)] * 2 }); });
+    }
+    S.exit.forEach(function (st, j) { list.push({ kind: 'state', c: STATES[st][1], sh: 'bead', s0: distAtPoint(21.6 + j * .9), t0: 7.4 + j * .34, note: 1174.7 + j * 220 }); });
+    list.forEach(function (g) {
+      var rem = G.Lt + G.dc - g.s0;
+      g.dur = 1.1 + 2.6 * rem / (G.Lt + G.dc); g.arr = g.t0 + g.dur; g.trail = []; g.done = false; g.ang = Math.random() * 6.283; g.orb = .55 + Math.random() * .6;
+    });
+    var arrive = Math.max.apply(null, list.map(function (g) { return g.arr; }));
+    timeline = { dark: 1.4, twist: arrive + .5, click: arrive + 2.8, beam: arrive + 3.2, open: arrive + 7, text: arrive + 8.8 };
+    timeline.end = timeline.text + 1;
+    glasses = list;
+    // Узор Солнца — из этих же стёклышек (12 лучей)
+    kal.glass({ sym: 6, glass: list.map(function (g) { return { c: g.c, sh: g.sh }; }) }, S.seed);
+    document.getElementById('save').style.display = opt.f === 'obs' ? 'none' : '';
+  }
+
+  function shape(x, sh, r) {
+    x.beginPath();
+    if (sh === 'bead' || sh === 'brilliant') x.arc(0, 0, r * (sh === 'bead' ? .9 : 1), 0, 6.283);
+    else if (sh === 'marquise') x.ellipse(0, 0, r * 1.5, r * .55, 0, 0, 6.283);
+    else if (sh === 'trillion') { x.moveTo(r * 1.2, 0); x.lineTo(-r * .7, r * .95); x.lineTo(-r * .7, -r * .95); x.closePath(); }
+    else if (sh === 'hex') { for (var i = 0; i < 6; i++) x[i ? 'lineTo' : 'moveTo'](Math.cos(i * 1.047) * r, Math.sin(i * 1.047) * r); x.closePath(); }
+    else { x.rect(-r * 1.1, -r * .7, r * 2.2, r * 1.4); }
+  }
+  function drawGlass(x, g, p, a, rot) {
+    var r = (g.kind === 'day' ? 6.5 : 5) * dpr * Math.max(.8, G.s * 1.05), gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], r * 4.5);
+    gl.addColorStop(0, css(g.c, .55 * a)); gl.addColorStop(1, css(g.c, 0));
+    x.fillStyle = gl; x.fillRect(p[0] - r * 4.5, p[1] - r * 4.5, r * 9, r * 9);
+    x.save(); x.translate(p[0], p[1]); x.rotate(rot || 0);
+    shape(x, g.sh, r); x.fillStyle = css(g.c, .95 * a); x.fill();
+    x.lineWidth = Math.max(1, dpr * .8); x.strokeStyle = 'rgba(255,250,230,' + .7 * a + ')'; x.stroke();
+    x.restore();
+  }
+
+  function frame(T) {
+    var x = ctx, W = cv.width, H = cv.height, C = G.C, tl = timeline, i, g, k;
+    x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, W, H);
+    // Темнота «как в комнате с диафильмом»
+    var dark = .66 * clamp(T / tl.dark);
+    if (T > tl.twist) dark = .66 + .2 * clamp((T - tl.twist) / (tl.click - tl.twist));
+    if (T > tl.click) dark = .96;
+    if (T > tl.beam) dark = .9;
+    if (T > tl.open) dark = .9 - .3 * clamp((T - tl.open) / 2.5);
+    x.fillStyle = 'rgba(4,2,1,' + dark + ')'; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = 'lighter';
+    // Камни дней: вспыхивают, когда стёклышко уходит, потом тихо светятся
+    if (T < tl.click || T > tl.open) for (i = 1; i <= 12; i++) {
+      var p = at(distAtPoint(2 * i - 1)), dg = glasses.filter(function (q) { return q.kind === 'day' && q.day === i; })[0];
+      var la = dg ? (T < dg.t0 ? .14 : .14 + .5 * Math.exp(-(T - dg.t0) * 1.6) + .12) : .14;
+      if (T > tl.open) la = .22 * clamp((T - tl.open) / 2);
+      var rr = 22 * dpr * Math.max(.7, G.s), gr = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], rr);
+      gr.addColorStop(0, css(SEAL[sealOf(i)], la)); gr.addColorStop(1, css(SEAL[sealOf(i)], 0));
+      x.fillStyle = gr; x.fillRect(p[0] - rr, p[1] - rr, rr * 2, rr * 2);
+    }
+    // Свечение центра — растёт с каждым прилетевшим стёклышком
+    var got = glasses.filter(function (q) { return T >= q.arr; }).length, cr0 = G.rc * (1.1 + got * .035), cg;
+    if (T < tl.click) {
+      cg = x.createRadialGradient(C[0], C[1], 0, C[0], C[1], cr0);
+      cg.addColorStop(0, 'rgba(255,236,180,' + Math.min(.5, .22 + got * .02) + ')'); cg.addColorStop(1, 'rgba(255,200,110,0)');
+      x.fillStyle = cg; x.fillRect(C[0] - cr0, C[1] - cr0, cr0 * 2, cr0 * 2);
+    }
+    // Полёт по спирали, со шлейфом
+    if (T < tl.click) for (i = 0; i < glasses.length; i++) {
+      g = glasses[i];
+      if (T < g.t0) continue;
+      if (T < g.arr) {
+        k = ease(clamp((T - g.t0) / g.dur));
+        var pos = at(g.s0 + (G.Lt + G.dc - g.s0) * k);
+        g.trail.push(pos); if (g.trail.length > 16) g.trail.shift();
+        for (var j = 1; j < g.trail.length; j++) {
+          x.strokeStyle = css(g.c, .5 * j / g.trail.length); x.lineWidth = (1 + 3 * j / g.trail.length) * dpr; x.lineCap = 'round';
+          x.beginPath(); x.moveTo(g.trail[j - 1][0], g.trail[j - 1][1]); x.lineTo(g.trail[j][0], g.trail[j][1]); x.stroke();
+        }
+        drawGlass(x, g, pos, 1, T * 2 + i);
+      } else {
+        if (!g.done) { g.done = true; chime(g.note, g.kind === 'day' ? .12 : .08); }
+        // Вспышка прилёта
+        var fa = clamp(1 - (T - g.arr) / .6);
+        if (fa > 0) { x.strokeStyle = css(g.c, .8 * fa); x.lineWidth = 2 * dpr; x.beginPath(); x.arc(C[0], C[1], G.rc * (.35 + (1 - fa) * .9), 0, 6.283); x.stroke(); }
+        // Кружат вокруг центра; на «закручивании» — воронка: радиус меньше, скорость больше
+        var tw = T > tl.twist ? clamp((T - tl.twist) / (tl.click - tl.twist)) : 0;
+        var w = 1.3 + 9 * tw * tw, rad = G.rc * (.3 + g.orb * .55) * Math.pow(1 - tw, 1.4) + G.rc * .05;
+        g.ang += w * (1 / 60);
+        var op = [C[0] + Math.cos(g.ang) * rad, C[1] + Math.sin(g.ang) * rad * .7];
+        g.trail.push(op); if (g.trail.length > 6 + Math.round(tw * 26)) g.trail.shift();
+        for (j = 1; j < g.trail.length; j++) {
+          x.strokeStyle = css(g.c, .45 * j / g.trail.length); x.lineWidth = (1 + 2.5 * j / g.trail.length) * dpr;
+          x.beginPath(); x.moveTo(g.trail[j - 1][0], g.trail[j - 1][1]); x.lineTo(g.trail[j][0], g.trail[j][1]); x.stroke();
+        }
+        drawGlass(x, g, op, .9, g.ang * 2);
+      }
+    }
+    // Закручивание: спиральные рукава света в центре
+    if (T > tl.twist && T < tl.click) {
+      var tw2 = clamp((T - tl.twist) / (tl.click - tl.twist)), arms = 4, R0 = G.rc * (1.5 - .9 * tw2), cols = glasses.map(function (q) { return q.c; });
+      for (var a2 = 0; a2 < arms; a2++) {
+        x.beginPath();
+        for (var th = 0; th <= 1; th += .04) {
+          var ang = a2 / arms * 6.283 + th * 5.2 + T * (2 + 10 * tw2 * tw2), rr2 = R0 * (1 - th);
+          x[th ? 'lineTo' : 'moveTo'](C[0] + Math.cos(ang) * rr2, C[1] + Math.sin(ang) * rr2 * .72);
+        }
+        x.strokeStyle = css(cols[(a2 * 5) % cols.length], .35 + .4 * tw2); x.lineWidth = (2 + 3 * tw2) * dpr; x.stroke();
+      }
+    }
+    // Луч
+    if (T > tl.beam && T < tl.open + 2.6) {
+      var bk = clamp((T - tl.beam) / .7) * (T > tl.open ? clamp(1 - (T - tl.open) / 2.6) : 1), colz = uniq(glasses.map(function (q) { return q.c; }));
+      if (opt.beam === 'up') beamUp(x, T, bk, colz); else beamViewer(x, T, bk, colz);
+    }
+    x.globalCompositeOperation = 'source-over';
+  }
+  function uniq(list) { var o = [], seen = {}; list.forEach(function (c) { var k = c.join(','); if (!seen[k]) { seen[k] = 1; o.push(c); } }); return o; }
+  // Столб витражного света из центра в небо: ромбы-стёкла поднимаются вверх
+  function beamUp(x, T, k, cols) {
+    var C = G.C, top = -40 * dpr, len = C[1] - top, wb = 14 * dpr, wt = Math.min(cv.width * .34, 230 * dpr), r, c, n = cols.length;
+    function half(y) { var f = (C[1] - y) / len; return wb + (wt - wb) * Math.pow(f, .8); }
+    var gr = x.createLinearGradient(0, C[1], 0, top);
+    gr.addColorStop(0, 'rgba(255,240,200,' + .4 * k + ')'); gr.addColorStop(.6, 'rgba(255,220,160,' + .12 * k + ')'); gr.addColorStop(1, 'rgba(255,220,160,0)');
+    x.fillStyle = gr; x.beginPath(); x.moveTo(C[0] - wb, C[1]); x.lineTo(C[0] - wt, top); x.lineTo(C[0] + wt, top); x.lineTo(C[0] + wb, C[1]); x.closePath(); x.fill();
+    var rows = Math.ceil(len / (30 * dpr)), cols5 = 5, rh = len / rows, sp = (T - G.beamT0) * 70 * dpr;
+    for (r = 0; r < rows + 1; r++) for (c = 0; c < cols5; c++) {
+      var y = C[1] - ((r * rh + sp) % (len + rh)), h = half(y), cx = C[0] + (c - (cols5 - 1) / 2) * (h * 2 / cols5) + Math.sin(T * .7 + r + c) * h * .06;
+      var f = clamp((C[1] - y) / len), a = k * (.42 - .3 * f) * (.6 + .4 * Math.sin(T * 2.3 + r * 1.7 + c * 2.1)), sz = h / cols5 * .95;
+      if (a <= 0) continue;
+      x.fillStyle = css(cols[(r * 3 + c * 7) % n], a);
+      x.beginPath(); x.moveTo(cx, y - sz * 1.2); x.lineTo(cx + sz, y); x.lineTo(cx, y + sz * 1.2); x.lineTo(cx - sz, y); x.closePath(); x.fill();
+    }
+    var cR = G.rc * 1.3, core = x.createRadialGradient(C[0], C[1], 0, C[0], C[1], cR);
+    core.addColorStop(0, 'rgba(255,250,230,' + .95 * k + ')'); core.addColorStop(.4, 'rgba(255,230,170,' + .4 * k + ')'); core.addColorStop(1, 'rgba(255,220,150,0)');
+    x.fillStyle = core; x.fillRect(C[0] - cR, C[1] - cR, cR * 2, cR * 2);
+  }
+  // Вариант «к зрителю»: витражные лучи из центра на весь экран
+  function beamViewer(x, T, k, cols) {
+    var C = G.C, n = 24, Rm = Math.hypot(cv.width, cv.height), i;
+    for (i = 0; i < n; i++) {
+      var a0 = i / n * 6.283 + T * .08, a1 = a0 + 6.283 / n * .62;
+      x.fillStyle = css(cols[(i * 5) % cols.length], .2 * k * (.6 + .4 * Math.sin(T * 1.7 + i)));
+      x.beginPath(); x.moveTo(C[0], C[1]); x.lineTo(C[0] + Math.cos(a0) * Rm, C[1] + Math.sin(a0) * Rm); x.lineTo(C[0] + Math.cos(a1) * Rm, C[1] + Math.sin(a1) * Rm); x.closePath(); x.fill();
+    }
+    var core = x.createRadialGradient(C[0], C[1], 0, C[0], C[1], G.rc * 6);
+    core.addColorStop(0, 'rgba(255,250,230,' + .9 * k + ')'); core.addColorStop(1, 'rgba(255,220,150,0)');
+    x.fillStyle = core; x.fillRect(C[0] - G.rc * 6, C[1] - G.rc * 6, G.rc * 12, G.rc * 12);
+  }
+
+  var cues = {};
+  function loop(ts) {
+    var dt = last ? Math.min(.05, (ts - last) / 1000) : 0; last = ts;
+    t += dt * opt.speed;
+    var tl = timeline;
+    if (t > tl.click && !cues.click) { cues.click = 1; click(); }
+    if (t > tl.beam && !cues.beam) { cues.beam = 1; G.beamT0 = t; swell((tl.open - tl.beam + 2.6) / opt.speed); }
+    if (t > tl.open && !cues.open) { cues.open = 1; kcv.style.width = ''; kal.idle(SC[opt.f].seed); sunEl.classList.add('is-on'); chime(523.25, .1); chime(783.99, .07); }
+    if (t > tl.text && !cues.text) { cues.text = 1; document.getElementById('endT').classList.add('is-on'); document.getElementById('endB').classList.add('is-on'); }
+    frame(t);
+    if (t < tl.end + 30) raf = requestAnimationFrame(loop); else raf = 0;
+  }
+  function play() {
+    cancelAnimationFrame(raf); lay(); build();
+    t = 0; last = 0; cues = {}; playing = true;
+    sunEl.classList.remove('is-on', 'is-fast'); document.getElementById('endT').classList.remove('is-on'); document.getElementById('endB').classList.remove('is-on');
+    document.getElementById('start').hidden = true;
+    audio();
+    raf = requestAnimationFrame(loop);
+  }
+  // Нажатие во время анимации — сразу к концу
+  function skip() {
+    if (!playing || cues.text) return;
+    t = timeline.end; cues = { click: 1, beam: 1, open: 1, text: 1 }; G.beamT0 = t;
+    glasses.forEach(function (g) { g.done = true; });
+    sunEl.classList.add('is-fast', 'is-on'); kal.idle(SC[opt.f].seed);
+    document.getElementById('endT').classList.add('is-on'); document.getElementById('endB').classList.add('is-on');
+    setTimeout(function () { sunEl.classList.remove('is-fast'); }, 50);
+  }
+  function reset() {
+    cancelAnimationFrame(raf); playing = false; lay();
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    sunEl.classList.remove('is-on'); document.getElementById('endT').classList.remove('is-on'); document.getElementById('endB').classList.remove('is-on');
+    document.getElementById('start').hidden = false;
+  }
+  function toast(s) { var e = document.getElementById('toast'); e.textContent = s; e.classList.add('is-on'); clearTimeout(e._t); e._t = setTimeout(function () { e.classList.remove('is-on'); }, 2400); }
+
+  // Лучи вокруг диска
+  (function () {
+    var s = '', i, a;
+    for (i = 0; i < 48; i++) { a = i / 48 * Math.PI * 2; s += '<line x1="' + (100 + 32 * Math.cos(a)).toFixed(1) + '" y1="' + (100 + 32 * Math.sin(a)).toFixed(1) + '" x2="' + (100 + (i % 2 ? 50 : 62) * Math.cos(a)).toFixed(1) + '" y2="' + (100 + (i % 2 ? 50 : 62) * Math.sin(a)).toFixed(1) + '"/>'; }
+    sunEl.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 200 200" aria-hidden="true"><defs><radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset=".28" stop-color="#ffd76a" stop-opacity=".45"/><stop offset=".7" stop-color="#ffb347" stop-opacity="0"/></radialGradient></defs><circle cx="100" cy="100" r="98" fill="url(#sg)"/><g stroke="#ffd76a" stroke-width="1.1" stroke-linecap="round" opacity=".7">' + s + '</g></svg>');
+  })();
+
+  document.getElementById('go').addEventListener('click', play);
+  cv.addEventListener('click', skip);
+  document.getElementById('save').addEventListener('click', function () { toast('В пробе не сохраняет. На сайте — картинка Солнца с вашим узором.'); });
+  document.getElementById('review').addEventListener('click', function () { toast('На сайте — ссылка из панели: личка или пост для отзывов.'); });
+  [].forEach.call(document.querySelectorAll('.lab .chip'), function (b) {
+    b.addEventListener('click', function () {
+      var row = b.parentNode;
+      [].forEach.call(row.querySelectorAll('.chip'), function (c) { c.classList.toggle('is-on', c === b); });
+      if (b.dataset.f) opt.f = b.dataset.f;
+      if (b.dataset.b) opt.beam = b.dataset.b;
+      if (b.dataset.s) opt.sound = b.dataset.s === '1';
+      if (b.dataset.v) opt.speed = +b.dataset.v;
+      if (b.dataset.f || b.dataset.b) reset();
+    });
+  });
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (!playing) reset(); else { lay(); } }, 200); });
+  reset();
+})();
+</script>
+</body>
+</html>

@@ -44,10 +44,18 @@
   ];
 
   /* ---------- Узор из числа ---------- */
-  function pattern(seed, style) {
-    var R = rng(seed >>> 0), sym = [6, 8, 10, 12][Math.floor(R() * 4)], W = Math.PI / sym, i, j, pick = GEMS.slice(), pal = [GOLD, AMBER];
-    for (i = 0; i < 3; i++) pal.push(pick.splice(Math.floor(R() * pick.length), 1)[0]);
-    if (R() < .35 && pal.indexOf(GEMS[8]) < 0) pal.push(GEMS[8]);
+  // ex (необязательно): { sym: число пар зеркал (6 = 12 лучей), glass: [{ c: [r, g, b], sh: форма }, …] — узор из заданных стёклышек
+  //   (финал маршрута: стёклышки дней, состояния, бонусные); их цвета идут и в витраж }
+  function pattern(seed, style, ex) {
+    ex = ex || {};
+    var R = rng(seed >>> 0), sym = [6, 8, 10, 12][Math.floor(R() * 4)], W, i, j, pick = GEMS.slice(), pal = [GOLD, AMBER], glass = ex.glass && ex.glass.length ? ex.glass : null;
+    if (ex.sym) sym = ex.sym;
+    W = Math.PI / sym;
+    if (glass) glass.forEach(function (g) { if (!pal.some(function (c) { return c[0] === g.c[0] && c[1] === g.c[1] && c[2] === g.c[2]; })) pal.push(g.c); });
+    else {
+      for (i = 0; i < 3; i++) pal.push(pick.splice(Math.floor(R() * pick.length), 1)[0]);
+      if (R() < .35 && pal.indexOf(GEMS[8]) < 0) pal.push(GEMS[8]);
+    }
     var P = { seed: seed >>> 0, style: style || 'mix', sym: sym, W: W, pal: pal, spin: (R() < .5 ? -1 : 1) * (.012 + R() * .012), sprites: {}, off: null };
     function col() { return R() < .16 ? Math.floor(R() * 2) : 2 + Math.floor(R() * (pal.length - 2)); }
 
@@ -84,10 +92,12 @@
     // Самоцветы: «камера» шире сектора; камни медленно плывут по кругу (внутренние быстрее), кувыркаются, входят и выходят через зеркала
     var n = style === 'gems' ? 24 + Math.floor(R() * 9) : 9 + Math.floor(R() * 5), shapes = ['brilliant', 'hex', 'emerald', 'trillion', 'marquise', 'bead'];
     P.chamber = W * 2.6; P.gems = [];
+    function palIx(c) { for (var k = 0; k < pal.length; k++) if (pal[k][0] === c[0] && pal[k][1] === c[1] && pal[k][2] === c[2]) return k; return 0; }
+    if (glass) n = glass.length;
     for (i = 0; i < n; i++) {
       var gr = .14 + Math.pow(R(), .8) * .9;
-      P.gems.push({ a: R() * P.chamber, r: gr, s: (.045 + R() * .085) * (.65 + gr * .55) * (style === 'gems' ? 1 : 1.12),
-        sh: shapes[Math.floor(R() * shapes.length)], c: 2 + Math.floor(R() * (pal.length - 2)) - (R() < .2 ? 2 : 0),
+      P.gems.push({ a: glass ? (i + R() * .8) / n * P.chamber : R() * P.chamber, r: gr, s: (.045 + R() * .085) * (.65 + gr * .55) * (style === 'gems' ? 1 : 1.12),
+        sh: glass ? glass[i].sh || 'brilliant' : shapes[Math.floor(R() * shapes.length)], c: glass ? palIx(glass[i].c) : 2 + Math.floor(R() * (pal.length - 2)) - (R() < .2 ? 2 : 0),
         w: (.05 + R() * .07) * (1.25 - gr * .5), rot: R() * TAU, wr: (R() - .5) * .5, br: .025 + R() * .03, wb: .1 + R() * .25, pb: R() * TAU,
         sp: R() * TAU, sw: .25 + R() * .4 });
     }
@@ -298,11 +308,11 @@
     }
     function live() { stop(); last = 0; if (REDUCED) return; raf = requestAnimationFrame(loop); }
     var api = {
-      show: function (seed) { stop(); P = pattern(seed, style); t = 0; draw([[P, 0, 1]]); },
-      idle: function (seed) { if (seed != null && (!P || P.seed !== (seed >>> 0) || P.style !== style)) { P = pattern(seed, style); t = 0; } draw([[P, t, 1]]); live(); },
+      show: function (seed) { stop(); P = pattern(seed, style, opts.ex); t = 0; draw([[P, 0, 1]]); },
+      idle: function (seed) { if (seed != null && (!P || P.seed !== (seed >>> 0) || P.style !== style)) { P = pattern(seed, style, opts.ex); t = 0; } draw([[P, t, 1]]); live(); },
       turn: function (seed, done) {
         stop();
-        var A = P, tA = t, B = pattern(seed, style), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 3200, TW = 7;
+        var A = P, tA = t, B = pattern(seed, style, opts.ex), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 3200, TW = 7;
         if (!dur || !A) { P = B; t = 0; draw([[B, 0, 1]]); if (!REDUCED) live(); if (done) done(); return; }
         raf = requestAnimationFrame(function step(ts) {
           if (!t0) t0 = ts;
@@ -314,15 +324,17 @@
         });
       },
       stop: stop,
-      style: function (s) { if (s && s !== style) { style = s; if (P) P = pattern(P.seed, style); if (!raf && P) draw([[P, t, 1]]); } return style; },
+      style: function (s) { if (s && s !== style) { style = s; if (P) P = pattern(P.seed, style, opts.ex); if (!raf && P) draw([[P, t, 1]]); } return style; },
       speed: function (v) { if (v != null) speed = v; return speed; },
+      // Другой набор стёклышек (финал): узор пересобирается из них
+      glass: function (ex, seed) { opts.ex = ex; P = pattern(seed != null ? seed : P ? P.seed : 1, style, ex); t = 0; if (!raf) draw([[P, 0, 1]]); },
       seed: function () { return P ? P.seed : null; }
     };
     return api;
   }
 
   // Фирменный кадр узора на любом холсте (картинка «Сохранить», панель): время 0
-  function still(ctx, seed, cx, cy, rad, style) { frame(ctx, [[pattern(seed, style || 'mix'), 0, 1]], cx, cy, rad, 0, 0); }
+  function still(ctx, seed, cx, cy, rad, style, ex) { frame(ctx, [[pattern(seed, style || 'mix', ex), 0, 1]], cx, cy, rad, 0, 0); }
 
   window.M13K = { Kaleido: Kaleido, pattern: pattern, frame: frame, still: still, h32: h32, STYLES: ['rose', 'gems', 'mix'] };
 })();
