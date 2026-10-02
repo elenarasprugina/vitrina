@@ -391,3 +391,15 @@ select.a-input{padding-right:28px}
 .a-jdc-x{border:0;background:none;font-size:16px;line-height:1;padding:0 2px;cursor:pointer;color:#8a6a3a}
 .a-jdc-x[hidden]{display:none}
 .a-jwheel{background:linear-gradient(170deg,#2e1e0a,#100a04);border-radius:16px;padding:4px 16px 16px;color:#f6ead2;max-width:380px;align-self:start}
+/* Стёклышки: вид камней (образцы рядом с полями), пример узора, слово-подарок */
+.a-jgls-demo{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:6px 0 14px}
+.a-jgls-kal{width:260px;height:260px}
+.a-jgls-row{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:18px;align-items:start}
+.a-jgls-pv{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:radial-gradient(120% 120% at 50% 0%,#2a1a0a,#100a05);border-radius:14px;padding:14px;position:sticky;top:12px}
+.a-jgls-i{display:flex;flex-direction:column;align-items:center;gap:4px;color:#f1e3c4;font-size:12.5px;text-align:center}
+.a-jgls-st{width:84px;height:84px;flex:none}
+.a-jgift{display:grid;gap:8px;margin-top:14px}
+.a-jgift-out{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:#1a1109;color:#f6ead2;border-radius:14px;padding:12px 16px}
+.a-jgift-out .a-hint{color:#d8c7a6}
+.a-jgift-out p{margin:0 0 6px}
+@media (max-width:760px){ .a-jgls-row{grid-template-columns:1fr} .a-jgls-pv{position:static;order:-1} }

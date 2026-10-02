@@ -251,3 +251,14 @@
 .ys-key.is-done .ys-key-st{display:none}
 .ys-code{white-space:nowrap}
 .ys-code.is-long{font-size:clamp(24px,6.6vw,40px);letter-spacing:.03em}
+
+/* ---------- Стёклышки: «легло в узор», слово-подарок ---------- */
+.ys-kal-wrap{position:relative;display:grid;place-items:center}
+.ys-drop{position:absolute;left:50%;top:50%;width:46%;aspect-ratio:1;transform:translate(-50%,-50%) scale(.2);opacity:0;pointer-events:none;filter:drop-shadow(0 12px 20px rgba(0,0,0,.75)) drop-shadow(0 0 24px rgba(255,214,140,.35));transition:transform .7s cubic-bezier(.2,.8,.2,1),opacity .5s}
+.ys-kal-wrap.is-drop .ys-drop{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.ys-kal-wrap.is-fall .ys-drop{opacity:0;transform:translate(-50%,-50%) scale(.12);transition:transform .6s ease-in,opacity .6s ease-in}
+.ys-gift{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.ys-gift-f{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%}
+.ys-gift-f[hidden],.ys-gift .ys-key-alt[hidden]{display:none}
+.ys-glass .ys-key-t{font-size:clamp(25px,3.6vw,34px)}
+@media (prefers-reduced-motion:reduce){.ys-drop{transition:none}}
