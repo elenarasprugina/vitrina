@@ -51,6 +51,10 @@
   .lab-who { color: var(--muted); font-size: 16px; }
   .lab-who i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 3px -1px; box-shadow: 0 0 6px rgba(255,255,255,.25); }
   [hidden] { display: none !important; }
+  .lab-thick { align-items: center; color: var(--muted); font-size: 17px; }
+  .lab-thick input { width: min(240px, 60vw); accent-color: #d9a94f; }
+  .lab-thick output { min-width: 4.2em; text-align: left; font-variant-numeric: tabular-nums; }
+  .is-paper .lab-thick { color: #7a6a52; }
   .lab-note { color: var(--muted); font-size: 15px; font-style: italic; margin-top: 18px; }
   @media (min-width: 980px) {
     .lab-tabs { display: none; }
@@ -73,7 +77,7 @@
     <figure class="lab-k is-on" data-style="lace"><div class="lab-stage"><div class="lab-halo"></div><canvas></canvas></div>
       <figcaption><b>А · Кружево света</b><span>Тончайшие нити света по темноте, эльфийские завитки, камушки в узлах</span></figcaption></figure>
     <figure class="lab-k" data-style="filigree"><div class="lab-stage"><div class="lab-halo"></div><canvas></canvas></div>
-      <figcaption><b>Б · Золотая филигрань</b><span>Тонкая золотая вязь, как ювелирное украшение, самоцветы в гнёздах</span></figcaption></figure>
+      <figcaption><b>Б · Золотая филигрань</b><span>Тонкая золотая вязь на прозрачном стекле, самоцветы в гнёздах, по золоту проходит блеск</span></figcaption></figure>
     <figure class="lab-k" data-style="vitrail"><div class="lab-stage"><div class="lab-halo"></div><canvas></canvas></div>
       <figcaption><b>В · Витраж-роза</b><span>Окно-роза из 12 больших стёкол на просвет, тонкие золотые прожилки</span></figcaption></figure>
   </div>
@@ -88,10 +92,18 @@
       <button type="button" class="lab-ghost" data-bg="warm">Тёплый свет (конец финала)</button>
       <button type="button" class="lab-ghost" data-bg="paper">Как PDF для раскрашивания</button>
     </div>
+    <div class="lab-row lab-thick">
+      <label for="thick">Толщина линий</label>
+      <input type="range" id="thick" min="40" max="220" step="5" value="100">
+      <output id="thickV">100 %</output>
+    </div>
+    <div class="lab-row">
+      <button type="button" class="lab-ghost" id="back">Напыление под кружевом и филигранью: нет</button>
+    </div>
     <div class="lab-row" id="hintRow" hidden>
       <button type="button" class="lab-ghost is-on" id="hint">Подсказка цвета в раскраске: есть</button>
     </div>
-    <p class="lab-note">Узор у каждого человека свой (по коду), «Другой узор» показывает, как Солнце выйдет у другого участника. Движение спокойное: раскрывается от центра, очень медленно поворачивается, по одному месту за раз тихо проходит свет.</p>
+    <p class="lab-note">Узор у каждого человека свой (по коду), «Другой узор» показывает, как Солнце выйдет у другого участника. Движение спокойное: раскрывается от центра, очень медленно поворачивается; по золоту наискосок проходит блеск полировки, самоцветы по одному тихо вспыхивают искоркой.</p>
   </section>
 </main>
 <script src="../../assets/kaleido.js?v=20261005a"></script>
@@ -228,17 +240,20 @@
   function isClosed(pts) { var a = pts[0], b = pts[pts.length - 1]; return pts.length > 3 && Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6; }
 
   // Один кадр узора. open — раскрытие 0…1 (от центра к краю); mode: 'screen' | 'paper'; hint — подсказка цвета на бумаге
+  // Настройки пробы: thick — толщина линий (1 = как есть), back — полупрозрачное напыление под кружевом и филигранью
+  var OPT = { thick: 1, back: false };
   function draw(x, S, style, rad, open, mode, hint) {
-    var cols = S.cols, paper = mode === 'paper', lw = rad * (style === 'lace' ? .0026 : style === 'filigree' ? .0034 : .0042), k;
+    var cols = S.cols, paper = mode === 'paper', lw = rad * (style === 'lace' ? .0026 : style === 'filigree' ? .0034 : .0042) * OPT.thick, k;
+    if (mode === 'mask') { drawMask(x, S, style, rad, lw); return; }
     function vis(r) { return open >= 1 ? 1 : sm((open * 1.15 - r) / .16); }
     function colOf(s, d) { return s.fill === 'center' ? S.center[0] : cols[d]; }
     // Полупрозрачная подложка: тёплый свет, к краю тише
-    if (!paper) {
+    if (!paper && (style === 'vitrail' || OPT.back)) {
       var g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
       if (style === 'vitrail') { g.addColorStop(0, 'rgba(255,236,190,.34)'); g.addColorStop(.7, 'rgba(255,206,130,.2)'); g.addColorStop(1, 'rgba(120,70,20,.18)'); }
       else { g.addColorStop(0, 'rgba(255,226,170,.20)'); g.addColorStop(.75, 'rgba(255,200,120,.09)'); g.addColorStop(1, 'rgba(255,190,100,.03)'); }
       x.fillStyle = g; x.beginPath(); x.arc(0, 0, rad * Math.max(.05, Math.min(1, open * 1.15)), 0, TAU); x.fill();
-    } else {
+    } else if (paper) {
       x.fillStyle = '#fff'; x.beginPath(); x.arc(0, 0, rad * 1.01, 0, TAU); x.fill();
     }
     // Подкраска: цвет лишь ложится на лепесток (у витража — стекло на просвет)
@@ -313,12 +328,51 @@
     }
   }
 
+  // Где камни (для мерцания): [x, y, размер] в пикселях узора
+  function gemSpots(S, rad) {
+    var o = [], k;
+    for (k = 0; k < N; k++) S.P.gems.forEach(function (gm) { var p = P(gm.r * rad, -Math.PI / 2 + k * W + gm.a); o.push([p[0], p[1], gm.s * rad * 2]); });
+    S.center.forEach(function (c, i) { var p = i ? P(rad * .118, -Math.PI / 2 + W / 2 + Math.round((i - 1) * N / (S.center.length - 1)) * W) : [0, 0]; o.push([p[0], p[1], rad * (i ? .046 : .1)]); });
+    return o;
+  }
+  // Трафарет золота: только линии и оправы камней — по нему бежит блеск полировки
+  function drawMask(x, S, style, rad, lw) {
+    x.strokeStyle = '#fff'; x.fillStyle = '#fff';
+    function one(s, rot) {
+      var pp = s.pts.map(function (p) { return [p[0] * rad, p[1] * rad]; });
+      x.save(); if (rot != null) x.rotate(rot);
+      strokePts(x, pp, isClosed(s.pts)); x.lineWidth = lw * (s.w || 1) * (style === 'lace' ? 1.6 : 1.4); x.stroke();
+      x.restore();
+    }
+    var k;
+    for (k = 0; k < N; k++) S.P.sec.forEach(function (s) { one(s, -Math.PI / 2 + k * W); });
+    S.P.all.forEach(function (s) { one(s); });
+    gemSpots(S, rad).forEach(function (g) { x.lineWidth = lw * 1.4; x.beginPath(); x.arc(g[0], g[1], g[2] * .56, 0, TAU); x.stroke(); x.globalAlpha = .55; x.beginPath(); x.arc(g[0], g[1], g[2] * .4, 0, TAU); x.fill(); x.globalAlpha = 1; });
+  }
+  // Искорка на камне: тонкие лучи крестом, тихо вспыхивает и гаснет
+  function sparkle(x, px, py, s, a, turn) {
+    x.save(); x.translate(px, py); x.rotate(turn); x.globalCompositeOperation = 'lighter';
+    var g = x.createRadialGradient(0, 0, 0, 0, 0, s * .5);
+    g.addColorStop(0, 'rgba(255,255,255,' + (.75 * a) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(-s * .5, -s * .5, s, s);
+    [[1.5, 0], [1.5, Math.PI / 2], [.75, Math.PI / 4], [.75, -Math.PI / 4]].forEach(function (r) {
+      var L = s * r[0] * (.6 + .4 * a), lg;
+      x.save(); x.rotate(r[1]);
+      lg = x.createLinearGradient(-L, 0, L, 0);
+      lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.5, 'rgba(255,255,255,' + (.95 * a) + ')'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = lg; x.beginPath(); x.moveTo(-L, 0); x.lineTo(0, -s * .045); x.lineTo(L, 0); x.lineTo(0, s * .045); x.closePath(); x.fill();
+      x.restore();
+    });
+    x.restore();
+  }
+
   /* ---------- Живое Солнце на холсте ---------- */
   function Sun(cv, style) {
     var x = cv.getContext('2d'), S = null, t0 = 0, raf = 0, still = null, mode = 'screen', hint = true, G = null, rot = 0, lastT = 0;
+    var mask = null, tmp = document.createElement('canvas'), SH = null, GT = null, spots = [];
     function size() {
       var dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(cv.clientWidth * dpr);
-      if (cv.width !== px) { cv.width = cv.height = px; still = null; }
+      if (cv.width !== px) { cv.width = cv.height = px; still = null; mask = null; }
       return dpr;
     }
     function render(open) {
@@ -330,6 +384,9 @@
       if (open >= 1 && !still) {
         still = document.createElement('canvas'); still.width = still.height = D;
         var y = still.getContext('2d'); y.translate(D / 2, D / 2); draw(y, S, style, rad, 1, mode, hint);
+        mask = document.createElement('canvas'); mask.width = mask.height = D;
+        y = mask.getContext('2d'); y.translate(D / 2, D / 2); draw(y, S, style, rad, 1, 'mask', hint);
+        tmp.width = tmp.height = D; spots = gemSpots(S, rad);
       }
       // Блик: одно место за раз — тихо проявилось и ушло
       if (G && mode !== 'paper') {
@@ -337,8 +394,27 @@
         if (k > 0 && k < 1) {
           var a = Math.sin(k * Math.PI), p = P(G.r * rad, G.a), rr = rad * .13;
           var g = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], rr);
-          g.addColorStop(0, rgba(mix(G.c, WHITE, .6), .38 * a)); g.addColorStop(1, rgba(G.c, 0));
+          g.addColorStop(0, rgba(mix(G.c, WHITE, .6), .2 * a)); g.addColorStop(1, rgba(G.c, 0));
           x.globalCompositeOperation = 'lighter'; x.fillStyle = g; x.fillRect(p[0] - rr, p[1] - rr, rr * 2, rr * 2); x.globalCompositeOperation = 'source-over';
+        }
+      }
+      if (mode === 'paper' || open < 1 || !mask) return;
+      // Самоцвет мерцает: по одному, медленно
+      if (GT) { var q = (lastT - GT.t) / GT.dur; if (q > 0 && q < 1 && spots[GT.i]) { var sp = spots[GT.i]; sparkle(x, sp[0], sp[1], sp[2] * 1.5, Math.pow(Math.sin(q * Math.PI), 1.5), q * .6 - rot); } }
+      // Блеск полировки: светлая полоса медленно проходит по золоту наискосок (как блик на витрине)
+      if (SH) {
+        var f = (lastT - SH.t) / SH.dur;
+        if (f > 0 && f < 1) {
+          var e = f < .5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2, c = 1.6 * e - .3, t = tmp.getContext('2d'), ang = 100 * Math.PI / 180;
+          t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, D, D);
+          t.translate(D / 2, D / 2); t.rotate(rot); t.drawImage(mask, -D / 2, -D / 2); t.setTransform(1, 0, 0, 1, 0, 0);
+          var dx = Math.cos(ang) * D, dy = Math.sin(ang) * D, lg = t.createLinearGradient(D / 2 - dx / 2, D / 2 - dy / 2, D / 2 + dx / 2, D / 2 + dy / 2);
+          var hc = style === 'lace' ? '255,250,235' : '255,238,190';
+          lg.addColorStop(Math.max(0, Math.min(1, c - .17)), 'rgba(' + hc + ',0)');
+          lg.addColorStop(Math.max(0, Math.min(1, c)), 'rgba(' + hc + ',.95)');
+          lg.addColorStop(Math.max(0, Math.min(1, c + .17)), 'rgba(' + hc + ',0)');
+          t.globalCompositeOperation = 'source-in'; t.fillStyle = lg; t.fillRect(0, 0, D, D);
+          x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'lighter'; x.drawImage(tmp, 0, 0); x.drawImage(tmp, 0, 0); x.globalCompositeOperation = 'source-over';
         }
       }
     }
@@ -356,11 +432,16 @@
       var open = REDUCED ? 1 : Math.min(1, T / 3.2);
       rot += REDUCED ? 0 : dt * TAU / 360;
       if (!G || T > G.t + G.dur) nextGlint(T);
+      if (spots.length && (!GT || T > GT.t + GT.dur)) GT = { t: T + .5 + Math.random() * 1.6, dur: 2.2, i: Math.floor(Math.random() * spots.length) };
+      // Первый блеск — сразу как Солнце раскрылось, дальше — раз в 7–11 секунд
+      if (open < 1) SH = { t: 3.6, dur: 3.4 };
+      else if (T > SH.t + SH.dur) SH = { t: T + 4 + Math.random() * 4, dur: 3.4 };
       render(open);
     }
     return {
       show: function (s) { S = s; S.dpr = Math.min(2, window.devicePixelRatio || 1); still = null; t0 = 0; lastT = 0; G = null; if (!raf) raf = requestAnimationFrame(step); },
-      mode: function (m, h) { mode = m; hint = h; still = null; }
+      mode: function (m, h) { mode = m; hint = h; still = null; mask = null; },
+      refresh: function () { still = null; mask = null; }
     };
   }
 
@@ -400,6 +481,13 @@
       document.getElementById('hintRow').hidden = bg !== 'paper';
       applyMode();
     });
+  });
+  var th = document.getElementById('thick'), thv = document.getElementById('thickV');
+  th.addEventListener('input', function () { OPT.thick = +th.value / 100; thv.textContent = th.value + ' %'; suns.forEach(function (s) { s.refresh(); }); });
+  document.getElementById('back').addEventListener('click', function () {
+    OPT.back = !OPT.back; this.classList.toggle('is-on', OPT.back);
+    this.textContent = 'Напыление под кружевом и филигранью: ' + (OPT.back ? 'есть' : 'нет');
+    suns.forEach(function (s) { s.refresh(); });
   });
   document.getElementById('hint').addEventListener('click', function () { hint = !hint; this.classList.toggle('is-on', hint); this.textContent = 'Подсказка цвета в раскраске: ' + (hint ? 'есть' : 'нет'); applyMode(); });
   [].forEach.call(document.querySelectorAll('.lab-tabs button'), function (b) {
