@@ -546,14 +546,18 @@
     if (f[b.id] != null) return f[b.id] !== false;
     return b.kind === 'small' || b.kind === 'title' || b.kind === 'question';
   }
-  // Шрифты для надписей (как на витрине); грузятся с Google Fonts, только когда выбраны
-  var FONTS = { 'Cormorant Garamond': 'Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500', 'Playfair Display': 'Playfair+Display:ital,wght@0,400;0,600;1,400',
-    'Philosopher': 'Philosopher:ital,wght@0,400;0,700;1,400', 'Lora': 'Lora:ital,wght@0,400;0,600;1,400', 'Montserrat': 'Montserrat:ital,wght@0,300;0,400;0,600;1,400',
-    'Comfortaa': 'Comfortaa:wght@300;400;600', 'Marck Script': 'Marck+Script' }, FONT_ON = {};
+  // Шрифты для надписей (как на витрине); лежат на самом сайте (assets/fonts), грузятся, только когда выбраны
+  var FONTS = { 'Cormorant Garamond': 'cormorant-garamond', 'Playfair Display': 'playfair-display', 'Philosopher': 'philosopher', 'Lora': 'lora',
+    'Montserrat': 'montserrat', 'Comfortaa': 'comfortaa', 'Marck Script': 'marck-script' }, FONT_ON = {};
+  var FONT_DIR = (function () {
+    var sc = document.currentScript, src = sc && sc.src;
+    if (!src) { var all = document.getElementsByTagName('script'); for (var i = 0; i < all.length; i++) if (/assets\/route\.js/.test(all[i].src)) src = all[i].src; }
+    return src ? src.replace(/route\.js(\?.*)?$/, 'fonts/') : '../../assets/fonts/';
+  })();
   function ensureFont(name) {
     if (!name || !FONTS[name] || FONT_ON[name] || name === 'Cormorant Garamond') return;
     FONT_ON[name] = true;
-    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + FONTS[name] + '&display=swap';
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = FONT_DIR + FONTS[name] + '.css';
     document.head.appendChild(l);
   }
   // «С чем вы выходите?» — до трёх состояний (можно не выбирать). chosen — уже выбранные (номера), onChange(список)

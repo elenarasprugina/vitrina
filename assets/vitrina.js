@@ -624,14 +624,18 @@
 
 
   /* ---------- Оформление карточки: шрифт, цвет текста, дымка на картинке, свечение ---------- */
-  // Браузер скачивает только те начертания, что реально есть на странице, поэтому курсив и тонкие подключены сразу
+  // Шрифты лежат на самом сайте (assets/fonts/<имя>.css + .woff2, копии с Google Fonts) — к Google браузер не обращается.
+  // Браузер скачивает только те начертания и буквы, что реально есть на странице, поэтому курсив и тонкие подключены сразу
   var FONTS = {
-    'Cormorant Garamond': 'Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700',
-    'Playfair Display': 'Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600;1,700',
-    'Philosopher': 'Philosopher:ital,wght@0,400;0,700;1,400;1,700', 'Lora': 'Lora:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700',
-    'Montserrat': 'Montserrat:ital,wght@0,300;0,400;0,600;0,700;0,800;1,300;1,400;1,600;1,700',
-    'Comfortaa': 'Comfortaa:wght@300;400;600;700', 'Marck Script': 'Marck+Script'
+    'Cormorant Garamond': 'cormorant-garamond', 'Playfair Display': 'playfair-display', 'Philosopher': 'philosopher', 'Lora': 'lora',
+    'Montserrat': 'montserrat', 'Comfortaa': 'comfortaa', 'Marck Script': 'marck-script'
   };
+  // Папка шрифтов — рядом с этим файлом (страницы витрины, маршрута и панель лежат на разной глубине)
+  var FONT_DIR = (function () {
+    var sc = document.currentScript, src = sc && sc.src;
+    if (!src) { var all = document.getElementsByTagName('script'); for (var i = 0; i < all.length; i++) if (/assets\/vitrina\.js/.test(all[i].src)) src = all[i].src; }
+    return src ? src.replace(/vitrina\.js(\?.*)?$/, 'fonts/') : 'assets/fonts/';
+  })();
   M13.FONTS = Object.keys(FONTS);
   // Что умеет шрифт: толщины (300 тонкая, 400 обычная, 600 полужирная, 700 жирная) и курсив. Пусто (обычный шрифт устройства) — всё.
   M13.FONT_CAPS = {
@@ -654,7 +658,7 @@
     fontsLoaded[name] = true;
     var l = document.createElement('link');
     l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=' + FONTS[name] + '&display=swap';
+    l.href = FONT_DIR + FONTS[name] + '.css';
     document.head.appendChild(l);
   }
   M13.ensureFont = ensureFont;
