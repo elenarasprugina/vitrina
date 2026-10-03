@@ -28,7 +28,7 @@
       "visible": true,
       "interactive": true,
       "front": {
-        "image": null,
+        "image": "media/2983bc3d78dad623c245.webp",
         "eyebrow": "Маршрут",
         "title": "Синяя Рука",
         "subtitle": {
@@ -43,30 +43,26 @@
           "value": "3 формата",
           "show": true
         },
-        "phase": {
-          "on": true,
-          "from": "",
-          "to": "",
-          "glow": true,
-          "statusAuto": true,
-          "statusDuring": {
-            "value": "Маршрут идёт · можно наблюдать",
-            "show": true
-          },
-          "statusAfter": {
-            "value": "Маршрут завершён",
-            "show": true
-          }
-        },
         "style": {
           "patternColor": "#cfe0ff",
           "glow": "soft",
-          "glowColor": "#6f9df2",
+          "glowColor": "#027cf0",
           "glowStrength": "medium",
           "glowDir": "bottom",
-          "backBg": "",
-          "backText": "",
-          "lid": {}
+          "lid": {
+            "mode": "",
+            "open": "book",
+            "from": "left",
+            "speed": "slow",
+            "pause": 0.5,
+            "shadow": "deep",
+            "mat": "color",
+            "glass": 35,
+            "blur": 8,
+            "rim": "gold",
+            "feel": "soft"
+          },
+          "glowTempo": "calm"
         }
       },
       "back": {
@@ -148,7 +144,7 @@
                 "kind": "contact",
                 "label": "Задать вопрос",
                 "visible": true,
-                "message": "Здравствуйте!\nУ меня вопрос по Маршруту Синей Руки:\n\n"
+                "message": "Привет!\nУ меня вопрос по Маршруту Синей Руки:\n\n"
               }
             ]
           }
@@ -160,15 +156,11 @@
       "visible": true,
       "interactive": true,
       "front": {
-        "image": null,
+        "image": "media/ab50ba94293e2a22ba6d.webp",
         "eyebrow": "Маршрут",
         "title": "Жёлтое Солнце",
         "subtitle": {
           "value": "05–17.10",
-          "show": true
-        },
-        "status": {
-          "value": "Вход открыт",
           "show": true
         },
         "foot": {
@@ -176,16 +168,18 @@
           "show": true
         },
         "style": {
-          "glow": "off",
+          "glow": "soft",
           "glowStrength": "medium",
           "glowDir": "bottom",
           "patternColor": "#cfe0ff",
-          "glowColor": "#6f9df2"
+          "glowColor": "#eac327",
+          "lid": {},
+          "glowTempo": "calm"
         },
         "phase": {
           "on": true,
-          "from": "",
-          "to": "",
+          "from": "2026-10-05",
+          "to": "2026-10-17",
           "before": {
             "value": "скоро",
             "show": true
@@ -217,12 +211,79 @@
       "back": {
         "type": "blocks",
         "routeId": "yellow-sun",
-        "blocks": [],
-        "stub": {
-          "on": true,
-          "text": "Маршрут начнётся 5 октября. Подробное описание, форматы участия и запись появятся здесь совсем скоро.\n\nЕсли хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.",
-          "sandbox": true
-        }
+        "blocks": [
+          {
+            "id": "b-1akgi2",
+            "kind": "desc",
+            "visible": true,
+            "text": "13 дней о том, что становится видимым, когда света становится больше.\n\nКаждый день открывает новый Kin, новый вопрос и новую точку наблюдения за собой. В Путешествии и Погружении к этому добавляется личная карта — встреча с одним из качеств и с тем, как оно проявляется именно сейчас: устойчиво, с перекосом, на краю или через отражение в других.\n\nЗа дорогой постепенно собирается ваш собственный Калейдоскоп отражений — из состояний, встреч и прожитых дней. На 13-й день весь маршрут складывается в один узор.\n\nЗдесь не нужно становиться «лучшей версией себя». Задача проще и сложнее одновременно: увидеть то, что уже есть."
+          },
+          {
+            "id": "b-3tjbgs",
+            "kind": "day",
+            "visible": true
+          },
+          {
+            "id": "b-6z9uev",
+            "kind": "formats",
+            "visible": true,
+            "formats": [
+              {
+                "formatId": "observe",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать"
+                }
+              },
+              {
+                "formatId": "journey",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать"
+                }
+              },
+              {
+                "formatId": "immersion",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать"
+                }
+              }
+            ],
+            "closed": "dim"
+          },
+          {
+            "id": "b-i4cmo",
+            "kind": "actions",
+            "visible": true,
+            "actions": [
+              {
+                "kind": "contact",
+                "label": "Задать вопрос",
+                "visible": true,
+                "message": "Привет!\nУ меня вопрос по Маршруту Желтого Солнца:"
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -836,7 +897,7 @@
     "btnColor2": "#c49a5a",
     "btnDir": "diag",
     "btnLive": "glint",
-    "rimLive": "run",
+    "rimLive": "none",
     "win": {},
     "lid": {
       "open": "",
