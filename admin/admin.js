@@ -2715,17 +2715,21 @@
     return box;
   }
   /* Диск на личной карте: картинка (и видео-петля), 6 зон касания, которые вы обводите на картинке, названия зон, приглашение, надписи.
-     Разметка — r.deck.disk.areas[зона] = [[x, y], …] (доли картинки). Нет ни одной обводки — круги от середины. */
+     Разметка — r.deck.disk.areas[зона] = [[x, y], …] (доли картинки). Нет ни одной обводки — круги от середины.
+     Овал диска (r.deck.disk.oval) — по нему зоны строятся сами (M13R.ovalAreas) и по нему лежит свет; своя спираль света — r.deck.disk.path. */
   var J_DZ_COLORS = { center: '#ffd76a', flatUp: '#7fd4ff', flatDown: '#4f8dff', edgeUp: '#ff9a3c', edgeDown: '#c77dff', beyond: '#8fe3a8' };
   function jDisk(r) {
-    var M = window.M13R, DK = r.deck.disk, tx = r.texts, st = ST.jdz = ST.jdz || { zone: 'center', tool: 'draw', zoom: false, undo: [] };
+    var M = window.M13R, DK = r.deck.disk, tx = r.texts, st = ST.jdz = ST.jdz || { zone: 'center', tool: 'oval', zoom: false, undo: [] };
     if (!M || !M.diskNode) return [el('p', { class: 'a-hint a-hint--warn', text: 'Диск не загрузился — обновите страницу.' })];
     var Z = M.DISK_ZONES;
     function name(z) { return M.diskName(r, z); }
     function r4(v) { return Math.round(v * 10000) / 10000; }
     // ---- Разметка зон ----
+    // Инструменты: овал диска (зоны строятся сами), точки (подправить зону), от руки, своя спираль света, проверка касания
+    if (['oval', 'edit', 'draw', 'path', 'test'].indexOf(st.tool) < 0) st.tool = 'oval';
+    if (st.soft == null) st.soft = true;
     var view = el('div', { class: 'a-jbr-view a-jdz-view' }), wrap = el('div', { class: 'a-jbr a-jdz' + (st.zoom ? ' is-zoom' : '') + ' is-' + st.tool });
-    var labels = el('div', { class: 'a-jdz-labels' }), hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var labels = el('div', { class: 'a-jdz-labels' }), hd = el('div', { class: 'a-jdz-hd' }), hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     hs.setAttribute('class', 'a-jbr-h a-jdz-h'); hs.setAttribute('viewBox', '0 0 100 100'); hs.setAttribute('preserveAspectRatio', 'none');
     view.appendChild(wrap);
     function pic() {
@@ -2735,42 +2739,90 @@
       else { p = el('div', { class: 'a-jdz-pic' }); p.innerHTML = M.diskPlaceholder(); }
       wrap.insertBefore(p, wrap.firstChild);
     }
-    wrap.appendChild(hs); wrap.appendChild(labels);
+    wrap.appendChild(hs); wrap.appendChild(labels); wrap.appendChild(hd);
     function own() { return M.diskMarked(r); }
+    // Пропорции картинки (высота / ширина) — чтобы наклонённый овал не искажался
+    function ar() { var im = wrap.querySelector('img.a-jdz-pic'); return im && im.naturalWidth ? r4(im.naturalHeight / im.naturalWidth) : 1; }
+    function ov() { return M.ovalOf(r); }
+    function pts(a) { return a.map(function (p) { return (p[0] * 100).toFixed(2) + ',' + (p[1] * 100).toFixed(2); }).join(' '); }
     function marks(live) {
-      var A = M.diskAreas(r), h = '', mine = own();
+      var A = M.diskAreas(r), h = '', mine = own(), v = ov();
       // Снаружи внутрь: за диском → край → плоскость → центр (внутренние поверх)
       Z.slice().reverse().forEach(function (z) {
         if (!A[z]) return;
         var on = z === st.zone, d = 'M' + A[z].map(function (p) { return (p[0] * 100).toFixed(2) + ' ' + (p[1] * 100).toFixed(2); }).join('L') + 'Z';
         h += '<path d="' + d + '" fill="' + J_DZ_COLORS[z] + '" fill-opacity="' + (on ? .34 : .12) + '" stroke="' + J_DZ_COLORS[z] + '" stroke-opacity="' + (on ? 1 : .7) + '" stroke-width="' + (on ? 2.6 : 1.4) + '"' + (mine ? '' : ' stroke-dasharray="5 4"') + ' vector-effect="non-scaling-stroke"/>';
       });
-      if (live && live.length > 1) h += '<polyline points="' + live.map(function (p) { return (p[0] * 100).toFixed(2) + ',' + (p[1] * 100).toFixed(2); }).join(' ') + '" fill="none" stroke="#fff" stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
+      if (st.tool === 'oval') h += '<polyline points="' + pts([M.ovalPt(v, v.split, 1), M.ovalPt(v, v.split + 180, 1)]) + '" fill="none" stroke="#fff" stroke-width="1.6" stroke-dasharray="6 5" vector-effect="non-scaling-stroke"/>' +
+        '<polygon points="' + pts(M.ovalAreas(v).edgeUp.slice(1).concat(M.ovalAreas(v).edgeDown.slice(1))) + '" fill="none" stroke="#fff" stroke-width="2.2" vector-effect="non-scaling-stroke"/>';
+      // Спираль света — пунктиром (по овалу или своя)
+      if (st.tool === 'oval' || st.tool === 'path') h += '<polyline points="' + pts(M.spiralPts(r, 240)) + '" fill="none" stroke="#ffe08a" stroke-width="' + (st.tool === 'path' ? 2.2 : 1.3) + '" stroke-opacity="' + (st.tool === 'path' ? .95 : .6) + '" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>';
+      if (live && live.length > 1) h += '<polyline points="' + pts(live) + '" fill="none" stroke="#fff" stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
       hs.innerHTML = h;
       labels.replaceChildren();
       Z.forEach(function (z) {
-        var a = A[z], x = .06, y = .06;
-        if (a) { x = 0; y = 0; a.forEach(function (p) { x += p[0] / a.length; y += p[1] / a.length; }); }
-        // Верх и низ — подпись ближе к своей половине; за диском без обводки — в углу
-        if (z === 'flatUp' || z === 'edgeUp') y = a ? Math.min.apply(null, a.map(function (p) { return p[1]; })) + (z === 'flatUp' ? .07 : .035) : y;
-        if (z === 'flatDown' || z === 'edgeDown') y = a ? Math.max.apply(null, a.map(function (p) { return p[1]; })) - (z === 'flatDown' ? .07 : .035) : y;
+        var a = A[z], x = .06, y = .06, lp = DK.oval ? ovalLabel(v, z) : null;
+        if (lp) { x = Math.max(.1, Math.min(.9, lp[0])); y = lp[1]; }
+        else {
+          if (a) { x = 0; y = 0; a.forEach(function (p) { x += p[0] / a.length; y += p[1] / a.length; }); }
+          // Верх и низ — подпись ближе к своей половине; за диском без обводки — в углу
+          if (z === 'flatUp' || z === 'edgeUp') y = a ? Math.min.apply(null, a.map(function (p) { return p[1]; })) + (z === 'flatUp' ? .07 : .035) : y;
+          if (z === 'flatDown' || z === 'edgeDown') y = a ? Math.max.apply(null, a.map(function (p) { return p[1]; })) - (z === 'flatDown' ? .07 : .035) : y;
+        }
         if (!a && z !== 'beyond') return;
         var s = el('span', { class: 'a-jdz-l' + (z === st.zone ? ' is-on' : ''), text: name(z) });
         s.style.left = (x * 100) + '%'; s.style.top = (y * 100) + '%'; s.style.setProperty('--c', J_DZ_COLORS[z]);
         labels.appendChild(s);
       });
-      status();
+      handles(); status();
+    }
+    // Подписи зон по овалу: середина своей половины кольца
+    function ovalLabel(v, z) {
+      var mid = (v.core + 1 - v.edge) / 2, rim = 1 - v.edge / 2;
+      if (z === 'center') return [v.x, v.y + v.ry * v.core * .58 / v.ar];
+      if (z === 'flatUp') return M.ovalPt(v, v.split + 90, mid);
+      if (z === 'flatDown') return M.ovalPt(v, v.split + 270, mid);
+      if (z === 'edgeUp') return M.ovalPt(v, v.split + 90, rim);
+      if (z === 'edgeDown') return M.ovalPt(v, v.split + 270, rim);
+      return [v.tx, v.y + (v.ty - v.y) * .55];
+    }
+    // Ручки: у овала — середина, бока, верх и низ, наклон, линия ↑|↓, низ скалы; у «Двигать точки» — точки выбранной зоны
+    var KN = { c: 'Сдвинуть весь овал', l: 'Ширина', r: 'Ширина', t: 'Высота', b: 'Высота', rot: 'Наклон', s: 'Линия между ↑ и ↓ — поворачивайте', tip: 'Низ скалы под диском' };
+    function knob(k, p, cls, txt) {
+      var s = el('span', { class: 'a-jdz-k ' + cls, title: KN[k] || '', text: txt || '' });
+      s.setAttribute('data-h', k); s.style.left = (Math.max(.01, Math.min(.99, p[0])) * 100) + '%'; s.style.top = (Math.max(.01, Math.min(.99, p[1])) * 100) + '%';
+      hd.appendChild(s);
+    }
+    function handles() {
+      hd.replaceChildren();
+      if (st.tool === 'oval') {
+        var v = ov();
+        knob('tip', [v.tx, v.ty], 'a-jdz-k--tip');
+        knob('s', M.ovalPt(v, v.split + 180, 1 - v.edge), 'a-jdz-k--s', '⇅');
+        knob('rot', M.ovalPt(v, 270, (v.ry + .07) / v.ry), 'a-jdz-k--rot', '↻');
+        [['l', 180], ['r', 0], ['t', 270], ['b', 90]].forEach(function (q) { knob(q[0], M.ovalPt(v, q[1], 1), 'a-jdz-k--side'); });
+        knob('c', [v.x, v.y], 'a-jdz-k--c', '✥');
+      }
+      if (st.tool === 'edit' && own() && DK.areas[st.zone]) DK.areas[st.zone].forEach(function (p, i) {
+        var s = el('span', { class: 'a-jdz-p' }); s.setAttribute('data-i', i);
+        s.style.left = (p[0] * 100) + '%'; s.style.top = (p[1] * 100) + '%'; s.style.setProperty('--c', J_DZ_COLORS[st.zone]);
+        hd.appendChild(s);
+      });
     }
     var stat = el('p', { class: 'a-hint' });
     function status() {
-      if (!own()) { stat.className = 'a-hint'; stat.textContent = 'Зоны не размечены — пока работают круги от середины картинки (пунктир). Обведите зоны по своему диску.'; return; }
+      if (!own()) { stat.className = 'a-hint'; stat.textContent = 'Зоны не размечены — пока работают круги от середины картинки (пунктир). Потяните за ручки овала — он ляжет по краю диска, и зоны построятся сами.'; return; }
       var miss = Z.slice(0, 5).filter(function (z) { return !(DK.areas[z] && DK.areas[z].length >= 3); });
       stat.className = 'a-hint' + (miss.length ? ' a-hint--warn' : '');
-      stat.textContent = miss.length ? 'Не обведены: ' + miss.map(name).join(', ') + ' — их на диске нельзя будет выбрать.' : 'Все зоны обведены. «За диском» — всё, что вне остальных зон' + (DK.areas.beyond && DK.areas.beyond.length >= 3 ? ', внутри своей обводки.' : '.');
+      stat.textContent = miss.length ? 'Не размечены: ' + miss.map(name).join(', ') + ' — их на диске нельзя будет выбрать.' :
+        (DK.oval ? 'Зоны построены по овалу диска. ' : 'Все зоны обведены. ') + '«За диском» — ' + (DK.areas.beyond && DK.areas.beyond.length >= 3 ? 'внутри своей обводки (скала); небо вокруг не выбирается.' : 'всё, что вне остальных зон.');
     }
-    function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1, (e.clientY - rc.top) / rc.height))]; }
-    function snap() { st.undo.push(clone(DK.areas || {})); if (st.undo.length > 40) st.undo.shift(); undoBtn.disabled = false; }
-    // Линия от руки → замкнутая обводка: лишние точки убрать (Дуглас — Пейкер), мягко усреднить
+    function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1.2, (e.clientY - rc.top) / rc.height))]; }
+    function snap() {
+      st.undo.push({ areas: clone(DK.areas || {}), oval: DK.oval ? clone(DK.oval) : null, path: DK.path ? clone(DK.path) : null });
+      if (st.undo.length > 40) st.undo.shift(); undoBtn.disabled = false;
+    }
+    // Линия от руки: лишние точки убрать (Дуглас — Пейкер), мягко усреднить
     function smooth(pts) {
       function rdp(a, eps) {
         if (a.length < 3) return a;
@@ -2781,29 +2833,91 @@
       var s = pts.map(function (p, i) { if (!i || i === pts.length - 1) return p; var a = pts[i - 1], b = pts[i + 1]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
       return rdp(s, .0025).map(function (p) { return [r4(p[0]), r4(p[1])]; });
     }
+    // Овал → зоны. Перед первым движением: если зоны правили руками — предупредить (вернуть можно «Отменить»)
+    function ovalSet(v) {
+      var o = {}, k; v = M.ovalFix(v);
+      for (k in v) o[k] = r4(v[k]);
+      o.rot = Math.round(v.rot * 10) / 10; o.split = Math.round(v.split * 10) / 10;
+      DK.oval = o; DK.areas = M.ovalAreas(o);
+    }
+    function ovalStart() {
+      snap();
+      var was = JSON.stringify(DK.areas || {}), fresh = DK.oval ? JSON.stringify(M.ovalAreas(DK.oval)) : '';
+      if (own() && was !== fresh) toast(DK.oval ? 'Зоны перестроены по овалу — правки точек заменились. «↶ Отменить» вернёт.' : 'Зоны построены по овалу — прежние обводки заменились. «↶ Отменить» вернёт.');
+      var v = ov(); v.ar = ar(); return v;
+    }
+    function ovalDrag(d, p) {
+      var v = clone(d.v0), R = v.rot * Math.PI / 180, dx = p[0] - v.x, dy = (p[1] - v.y) * v.ar;
+      var u = dx * Math.cos(R) + dy * Math.sin(R), w = -dx * Math.sin(R) + dy * Math.cos(R);
+      if (d.k === 'c') { var mx = p[0] - d.p0[0], my = p[1] - d.p0[1]; v.x += mx; v.y += my; v.tx += mx; v.ty += my; }
+      else if (d.k === 'l' || d.k === 'r') v.rx = Math.max(.03, Math.abs(u));
+      else if (d.k === 't' || d.k === 'b') v.ry = Math.max(.02, Math.abs(w));
+      else if (d.k === 'rot') v.rot = Math.max(-45, Math.min(45, Math.atan2(dy, dx) * 180 / Math.PI + 90));
+      else if (d.k === 's') v.split = (Math.atan2(w / v.ry, u / v.rx) * 180 / Math.PI + 180 + 360) % 360;
+      else if (d.k === 'tip') { v.tx = p[0]; v.ty = Math.max(v.y + .02, p[1]); }
+      ovalSet(v);
+    }
+    function inOval(p) { var v = ov(), R = v.rot * Math.PI / 180, dx = p[0] - v.x, dy = (p[1] - v.y) * v.ar, u = (dx * Math.cos(R) + dy * Math.sin(R)) / v.rx, w = (-dx * Math.sin(R) + dy * Math.cos(R)) / v.ry; return u * u + w * w <= 1; }
+    // Точки: тянется точка (и мягко — соседние), или вся зона, если взялись внутри неё
+    function pointsStart() {
+      if (!own()) { snap(); Z.forEach(function (z) { if (M.DISK_AREAS_DEF[z]) DK.areas[z] = clone(M.DISK_AREAS_DEF[z]); }); changed(); marks(); return false; }
+      return true;
+    }
+    function pointsMove(d, p) {
+      var a = DK.areas[st.zone], mx = p[0] - d.last[0], my = p[1] - d.last[1], n = a.length;
+      d.last = p;
+      a.forEach(function (q, j) {
+        var k = d.i == null ? 0 : Math.min(Math.abs(j - d.i), n - Math.abs(j - d.i)), wgt = d.i == null ? 1 : !k ? 1 : st.soft && k <= 5 ? Math.exp(-k * k / 6.5) : 0;
+        if (wgt) { q[0] = r4(Math.max(0, Math.min(1, q[0] + mx * wgt))); q[1] = r4(Math.max(0, Math.min(1.2, q[1] + my * wgt))); }
+      });
+    }
     var drag = null;
     wrap.addEventListener('pointerdown', function (e) {
       if (e.button) return;
-      var p = at(e); e.preventDefault();
+      var p = at(e), tg = e.target, k = tg.getAttribute && tg.getAttribute('data-h'), pi = tg.getAttribute && tg.getAttribute('data-i');
+      e.preventDefault();
       if (st.tool === 'test') {
         var z = M.diskHit(M.diskAreas(r), p[0], p[1]);
-        toast(z ? 'Здесь — «' + name(z) + '»' : 'Здесь нет зоны.');
+        toast(z ? 'Здесь — «' + name(z) + '»' : 'Здесь нет зоны (небо вокруг диска не выбирается).');
         if (z) { st.zone = z; chips(); marks(); }
         return;
       }
-      drag = [p];
+      if (st.tool === 'oval') {
+        if (!k && inOval(p)) k = 'c';
+        if (!k) return;
+        drag = { k: k, p0: p, v0: ovalStart() };
+        ovalDrag(drag, p); changed(); marks();
+      } else if (st.tool === 'edit') {
+        if (!pointsStart()) { toast('Зоны стали точками — теперь их можно двигать.'); return; }
+        var a = DK.areas[st.zone];
+        if (pi != null) drag = { pts: 1, i: +pi, last: p };
+        else if (a && a.length >= 3 && inZone(a, p)) drag = { pts: 1, last: p };
+        else {
+          var z2 = M.diskHit(DK.areas, p[0], p[1]);
+          if (z2 && DK.areas[z2]) { st.zone = z2; chips(); marks(); toast('Выбрана зона «' + name(z2) + '» — тяните её точки.'); }
+          return;
+        }
+        snap();
+      } else drag = { line: [p] };
       try { wrap.setPointerCapture(e.pointerId); } catch (er) {}
     });
+    function inZone(a, p) { var ins = false, i, j; for (i = 0, j = a.length - 1; i < a.length; j = i++) if ((a[i][1] > p[1]) !== (a[j][1] > p[1]) && p[0] < (a[j][0] - a[i][0]) * (p[1] - a[i][1]) / (a[j][1] - a[i][1]) + a[i][0]) ins = !ins; return ins; }
     wrap.addEventListener('pointermove', function (e) {
       if (!drag) return;
-      var p = at(e), q = drag[drag.length - 1];
-      if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .004) { drag.push(p); marks(drag); }
+      var p = at(e);
+      if (drag.k) { ovalDrag(drag, p); changed(); marks(); return; }
+      if (drag.pts) { pointsMove(drag, p); changed(); marks(); return; }
+      var q = drag.line[drag.line.length - 1];
+      if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .004) { drag.line.push(p); marks(drag.line); }
     });
     function up() {
       if (!drag) return;
       var d = drag; drag = null;
-      if (d.length < 6) { marks(); toast('Обведите зону одной линией по её краю — не отрывая пальца или мышки.', true); return; }
+      if (!d.line) { marks(); return; }
+      d = d.line;
+      if (d.length < 6) { marks(); toast(st.tool === 'path' ? 'Ведите спираль одной линией, не отрывая пальца или мышки.' : 'Обведите зону одной линией по её краю — не отрывая пальца или мышки.', true); return; }
       snap();
+      if (st.tool === 'path') { DK.path = smooth(d); toast('Своя спираль нарисована — свет побежит по ней.'); pathRow(); lightUI(); changed(); marks(); return; }
       // Первая обводка: остальные зоны — пока кругами, чтобы ни одна не пропала
       if (!own()) Z.forEach(function (z) { if (M.DISK_AREAS_DEF[z]) DK.areas[z] = clone(M.DISK_AREAS_DEF[z]); });
       DK.areas[st.zone] = smooth(d);
@@ -2818,23 +2932,82 @@
         return b;
       }));
     }
+    var toolHelp = el('p', { class: 'a-hint a-jdz-th' }), ovalRow = el('div', { class: 'a-jdz-ovrow' }), softRow = el('div', { class: 'a-jdz-ovrow' });
+    var TH = {
+      oval: 'Потяните белые точки, чтобы овал лёг по краю диска: боковые — ширина, верх и низ — высота, ✥ (или любое место внутри овала) — сдвинуть, ↻ — наклон, ⇅ — линия между ↑ и ↓, нижняя точка — низ скалы. Зоны строятся сами.',
+      edit: 'Выберите зону кнопкой выше и тяните её точки. Взялись внутри зоны, не за точку, — двигается вся зона. Нажали на другую зону — выбирается она.',
+      draw: 'Ведите по краю выбранной зоны одной линией, не отрывая пальца или мышки. Линия сама замкнётся и сгладится; старая обводка этой зоны заменяется.',
+      path: 'Нарисуйте путь света одной линией — например, спиралью от края к солнцу. Неважно, с какого конца начать: куда бежит свет, задаётся в «Приглашение и свет».',
+      test: 'Нажмите на картинку — панель скажет, какая там зона.'
+    };
     function tool(t, label) {
       return el('button', { type: 'button', class: st.tool === t ? 'is-active' : '', text: label, onclick: function () {
         st.tool = t; [].forEach.call(tools.children, function (b) { b.classList.toggle('is-active', b === this); }, this);
-        wrap.className = 'a-jbr a-jdz' + (st.zoom ? ' is-zoom' : '') + ' is-' + t;
+        wrap.className = 'a-jbr a-jdz' + (st.zoom ? ' is-zoom' : '') + ' is-' + t; toolUI(); marks();
       } });
     }
-    var tools = el('div', { class: 'a-tabs a-jpl-tools' }, [tool('draw', '✏️ Обвести выбранную зону'), tool('test', '👆 Проверить касание')]);
+    var tools = el('div', { class: 'a-tabs a-jpl-tools' }, [tool('oval', '⬭ Овал диска'), tool('edit', '✋ Двигать точки'), tool('draw', '✏️ Обвести от руки'), tool('path', '🌀 Своя спираль света'), tool('test', '👆 Проверить касание')]);
+    // Ползунки овала: размер центра и ширина края
+    function ovalRange(key, label, min, max) {
+      var v = ov(), out = el('span', { class: 'a-range-val', text: Math.round(v[key] * 100) + ' %' });
+      var i = el('input', { type: 'range', class: 'a-range', min: min, max: max, step: 1, value: Math.round(v[key] * 100) }), started = false;
+      i.addEventListener('input', function () {
+        if (!started) { started = true; var b = ovalStart(); if (!DK.oval) ovalSet(b); }
+        var w = clone(DK.oval || ov()); w[key] = +i.value / 100; ovalSet(w); out.textContent = i.value + ' %'; changed(); marks();
+      });
+      i.addEventListener('change', function () { started = false; });
+      return field(label, el('div', { class: 'a-range-row' }, [i, out]));
+    }
+    function toolUI() {
+      toolHelp.textContent = TH[st.tool];
+      ovalRow.hidden = st.tool !== 'oval'; softRow.hidden = st.tool !== 'edit';
+      if (st.tool === 'oval') ovalRow.replaceChildren(ovalRange('core', 'Размер центра', 8, 60), ovalRange('edge', 'Ширина края', 8, 60),
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '⇄ Поменять ↑ и ↓ местами', onclick: function () {
+          var v = ovalStart(); v.split = (v.split + 180) % 360; ovalSet(v); changed(); marks(); } }));
+      if (st.tool === 'edit') {
+        var cb = el('input', { type: 'checkbox', checked: st.soft });
+        cb.addEventListener('change', function () { st.soft = cb.checked; });
+        softRow.replaceChildren(el('label', { class: 'a-mini-switch' }, [cb, el('span', { text: 'мягко — вместе с точкой чуть тянутся соседние (край остаётся плавным)' })]));
+      }
+    }
+    var pathBox = el('span');
+    function pathRow() {
+      pathBox.replaceChildren();
+      if (DK.path) pathBox.appendChild(el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать свою спираль', onclick: function () {
+        snap(); delete DK.path; pathRow(); lightUI(); changed(); marks(); } }));
+    }
     var undoBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↶ Отменить', onclick: function () {
       var u = st.undo.pop(); if (!u) return;
-      DK.areas = u; changed(); marks(); undoBtn.disabled = !st.undo.length;
+      if (!u.areas) u = { areas: u };
+      DK.areas = u.areas;
+      if (u.oval) DK.oval = u.oval; else delete DK.oval;
+      if (u.path) DK.path = u.path; else delete DK.path;
+      changed(); pathRow(); lightUI(); toolUI(); marks(); undoBtn.disabled = !st.undo.length;
     } });
     undoBtn.disabled = !st.undo.length;
     var zoomBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее', onclick: function () {
       st.zoom = !st.zoom; wrap.classList.toggle('is-zoom', st.zoom); zoomBtn.textContent = st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее';
     } });
-    pic(); chips(); marks();
+    pic(); chips(); toolUI(); pathRow(); marks();
     LIVE.push({ node: wrap, run: function () { if (!drag) marks(); } });
+    // ---- Свет, пока ничего не выбрано ----
+    var lightBox = el('div', { class: 'a-jdz-light' });
+    function lightUI() {
+      var spiral = !DK.pulse || DK.pulse === 'swave';
+      lightBox.replaceChildren.apply(lightBox, [
+        selectIn(DK, 'pulse', 'Как бежит свет', [['', 'огонёк со следом — по спирали'], ['swave', 'волна по спирали — загорается и гаснет'], ['ring', 'кольца из центра — лежат на диске'], ['zones', 'свет по зонам — от центра наружу']], { def: '', onChange: lightUI }),
+        rangeIn(DK, 'speed', 'Скорость', { min: 30, max: 250, step: 5, def: 100, unit: ' %', hint: '100 % — обычная. Меньше — медленнее и спокойнее, больше — живее.' }),
+        spiral ? el('div', { class: 'a-row' }, [selectIn(DK, 'dir', 'Куда бежит', [['', 'от края к центру'], ['out', 'из центра к краю']]),
+          DK.path ? null : selectIn(DK, 'spin', 'Закрутка', [['', 'по часовой'], ['ccw', 'против часовой']])]) : null,
+        spiral && !DK.path ? rangeIn(DK, 'turns', 'Витков спирали', { min: 1, max: 6, step: .5, def: 3 }) : null,
+        spiral && DK.path ? el('p', { class: 'a-hint', text: 'Свет бежит по вашей спирали (нарисована в разметке ниже, «🌀 Своя спираль света»). Убрать её — там же; тогда спираль снова строится по овалу диска.' }) : null,
+        DK.pulse ? null : rangeIn(DK, 'trail', 'Длина следа', { min: 5, max: 80, step: 1, def: 25, unit: ' %', hint: 'Какая часть спирали светится за огоньком и тает. Короткий след — искорка, длинный — светящаяся дуга: по ней лучше видно, что огонёк бежит по спирали.' }),
+        spiral ? switchIn(DK, 'line', 'Тонкая линия спирали видна всё время', { hint: 'Еле заметная. Выключено — путь показывает только след огонька.' }) : null,
+        spiral || DK.pulse === 'ring' ? el('p', { class: 'a-hint', text: 'Спираль и кольца лежат по овалу диска (разметка ниже, «⬭ Овал диска»).' }) : null,
+        colorOptIn(DK, 'color', 'Цвет света', { none: 'тёплое золото', base: '#ffd77a', pick: '#ffd77a', onChange: liveSoon })
+      ].filter(Boolean));
+    }
+    lightUI();
     // ---- Живой пример: диск с картой и днём ----
     var pst = ST.jdisk = ST.jdisk || { day: 1, card: 0 }, pv = el('div', { class: 'a-jdisk-pv' });
     function pvRun() { var k = r.deck.cards[pst.card] || r.deck.cards[0]; pv.replaceChildren(jDiskCard(r, k, pst.day)); }
@@ -2858,10 +3031,7 @@
           [Z.slice(0, 2), Z.slice(2, 4), Z.slice(4)].map(function (pair) {
             return el('div', { class: 'a-row' }, pair.map(function (z) { return textIn(DK.names, z, 'Зона: ' + M.DISK_DEF[z], { ph: M.DISK_DEF[z], onInput: function () { chips(); marks(); } }); }));
           })), { open: false }),
-        block('Приглашение и свет', [
-          selectIn(DK, 'pulse', 'Пока ничего не выбрано', [['', 'само: по зонам, если они обведены, иначе волна'], ['zones', 'свет по зонам — от центра наружу'], ['ring', 'мягкая волна света из центра']], { def: '', onChange: liveSoon }),
-          colorOptIn(DK, 'color', 'Цвет света зон', { none: 'тёплое золото', base: '#ffd77a', pick: '#ffd77a', onChange: liveSoon })
-        ], { open: false }),
+        block('Приглашение и свет', [lightBox], { open: false }),
         block('Надписи', [
           el('p', { class: 'a-hint', text: 'Пустое поле — как серым в подсказке.' }),
           textIn(tx, 'diskHint', 'Под диском, пока не коснулись', { ph: 'Коснитесь места на диске, где вы сейчас. Можно примерить разные.' }),
@@ -2874,21 +3044,22 @@
         el('p', { class: 'a-hint', text: 'Касайтесь диска — так увидит человек. Здесь выбор не запоминается.' })])]),
       block('Разметка зон на картинке', [
       el('div', { class: 'a-jbr-help' }, [
-        el('b', { text: 'Как обвести зону' }),
+        el('b', { text: 'Как разметить зоны' }),
         el('ol', {}, [
-          el('li', { text: 'Выберите зону кнопкой ниже.' }),
-          el('li', { text: '«✏️ Обвести» — ведите по её краю одной линией, не отрывая пальца или мышки. Линия сама замкнётся и сгладится. Обвели заново — старая обводка этой зоны заменяется.' }),
-          el('li', { text: 'Зоны могут заходить друг на друга: касание засчитывается той, что раньше в списке (центр → плоскость → край). Поэтому плоскость можно обвести вместе с центром, а край — вместе с плоскостью.' }),
-          el('li', { text: '«За диском» можно не обводить — это всё, что вне остальных зон.' }),
-          el('li', { text: '«👆 Проверить касание» — нажмите на картинку, панель скажет, какая там зона.' })])]),
-      chipRow, tools,
+          el('li', { text: '«⬭ Овал диска» — потяните белые точки, чтобы овал лёг по краю диска. Все зоны строятся сами, в наклоне, как на картинке: центр, плоскость ↑ и ↓, край ↑ и ↓, скала под диском («за диском»). Небо вокруг не выбирается.' }),
+          el('li', { text: 'Ползунками подберите размер центра и ширину края; ⇅ поворачивает линию между ↑ и ↓.' }),
+          el('li', { text: '«✋ Двигать точки» — подправить отдельное место у выбранной зоны. Если потом снова тронуть овал, зоны построятся заново (вернёт «Отменить»).' }),
+          el('li', { text: '«✏️ Обвести от руки» — как раньше: зону можно обвести самой.' }),
+          el('li', { text: 'Зоны могут заходить друг на друга: касание засчитывается той, что раньше в списке (центр → плоскость → край → за диском).' }),
+          el('li', { text: '«🌀 Своя спираль света» — по желанию: нарисуйте путь, по которому побежит огонёк. Без неё спираль строится по овалу.' })])]),
+      chipRow, tools, toolHelp, ovalRow, softRow,
       el('div', { class: 'a-backup-btns' }, [undoBtn, zoomBtn,
         el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Стереть эту зону', onclick: function () {
           if (!DK.areas[st.zone]) { toast('У этой зоны нет своей обводки.'); return; }
           snap(); delete DK.areas[st.zone]; changed(); marks(); } }),
         el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать всю разметку (круги)', onclick: function () {
-          if (!confirm('Убрать все обводки? Зоны снова станут кругами от середины картинки. «Отменить» вернёт.')) return;
-          snap(); DK.areas = {}; changed(); marks(); } })]),
+          if (!confirm('Убрать овал и все обводки? Зоны снова станут кругами от середины картинки. «Отменить» вернёт.')) return;
+          snap(); DK.areas = {}; delete DK.oval; changed(); toolUI(); marks(); } }), pathBox]),
       stat, view], { open: true })
     ];
   }

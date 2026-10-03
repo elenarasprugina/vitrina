@@ -164,8 +164,7 @@
      6 зон касания (DISK_ZONES). Разметка — disk.areas[зона] = [[x, y], …] (доли картинки), её обводит Проводник в панели («Диск»);
      нет ни одной — круги от середины картинки. Точка относится к первой зоне по порядку: центр → плоскость → край;
      «за диском» — всё остальное (если её обвели — только внутри обводки).
-     Пока ничего не выбрано — из центра расходится мягкий свет (disk.pulse: 'zones' — по зонам от центра наружу, 'ring' — волна;
-     по умолчанию по зонам, если они размечены). Касание — примерка: зона светится, остальные приглушены, под диском — название зоны,
+     Пока ничего не выбрано — по диску бежит свет (disk.pulse — см. diskPulse; лежит по овалу диска disk.oval, скорость disk.speed, %). Касание — примерка: зона светится, остальные приглушены, под диском — название зоны,
      слово карты и «Узнаю себя, если…» (card.recognize[зона]). После первой примерки — «Здесь»: выбор окончателен (o.onMark),
      зона светится ровно, камушек её формы ложится в узор, под диском — дорога назад в центр (card.road[зона];
      пусто — общий «путь назад в ось» этой зоны колеса). Отметка — только на устройстве (o.mark), в код не входит. */
@@ -196,6 +195,131 @@
     var A = diskCfg(route).areas || {}, own = diskMarked(route), o = {};
     DISK_ZONES.forEach(function (z) { var a = own ? A[z] : DISK_AREAS_DEF[z]; if (areaOk(a)) o[z] = a; });
     return o;
+  }
+  /* Овал диска (disk.oval) — по нему панель строит зоны и по нему лежит свет. x, y — середина (доли картинки), rx, ry — полуоси (доли ширины),
+     rot — наклон (°), ar — высота картинки / ширина, core — размер центра, edge — ширина края (доли полуосей),
+     split — линия между ↑ и ↓ (°; 90 — отвесно, ↑ слева), tx, ty — низ скалы под диском. Овала нет — по обводкам зон или круг. */
+  var OVAL_DEF = { x: .5, y: .5, rx: .47, ry: .47, rot: 0, ar: 1, core: .3, edge: .3, split: 90, tx: .5, ty: .98 };
+  function ovalOk(v) { return !!(v && +v.rx > 0 && +v.ry > 0); }
+  function ovalFix(v) {
+    var o = {}, k;
+    for (k in OVAL_DEF) o[k] = v && v[k] != null && v[k] !== '' && isFinite(+v[k]) ? +v[k] : OVAL_DEF[k];
+    o.ar = o.ar > 0 ? o.ar : 1; o.core = Math.max(.05, Math.min(.8, o.core)); o.edge = Math.max(.05, Math.min(.8, o.edge));
+    if (o.core > .95 - o.edge) o.core = .95 - o.edge;
+    return o;
+  }
+  function ovalOf(route) {
+    var D = diskCfg(route), A = D.areas || {}, xs = [], ys = [];
+    if (ovalOk(D.oval)) return ovalFix(D.oval);
+    if (diskMarked(route)) DISK_ZONES.slice(0, 5).forEach(function (z) { if (areaOk(A[z])) A[z].forEach(function (p) { xs.push(p[0]); ys.push(p[1]); }); });
+    if (xs.length < 3) return ovalFix(null);
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    return ovalFix({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, rx: (x1 - x0) / 2, ry: (y1 - y0) / 2, tx: (x0 + x1) / 2, ty: Math.min(1, y1 + (y1 - y0)) });
+  }
+  // Точка овала: угол a (°; 0 — справа, 90 — ближний край), s — доля полуосей
+  function ovalPt(v, a, s) {
+    var t = a * Math.PI / 180, R = v.rot * Math.PI / 180, u = v.rx * s * Math.cos(t), w = v.ry * s * Math.sin(t);
+    return [v.x + u * Math.cos(R) - w * Math.sin(R), v.y + (u * Math.sin(R) + w * Math.cos(R)) / v.ar];
+  }
+  function q4(p) { return [Math.round(p[0] * 1e4) / 1e4, Math.round(p[1] * 1e4) / 1e4]; }
+  function ovalArc(v, s, a0, a1, n) { var p = [], i; for (i = 0; i <= n; i++) p.push(q4(ovalPt(v, a0 + (a1 - a0) * i / n, s))); return p; }
+  // Зоны по овалу: центр — малый овал; плоскость и край — половины овалов (внутренние зоны важнее, поэтому край — вся половина);
+  // за диском — скала: ближний край овала и вниз к острию (tx, ty)
+  function ovalAreas(v) {
+    v = ovalFix(v);
+    var c = q4([v.x, v.y]), sp = v.split, inn = 1 - v.edge, o = { center: ovalArc(v, v.core, 0, 360, 28).slice(0, -1) };
+    o.flatUp = [c].concat(ovalArc(v, inn, sp, sp + 180, 20)); o.flatDown = [c].concat(ovalArc(v, inn, sp + 180, sp + 360, 20));
+    o.edgeUp = [c].concat(ovalArc(v, 1, sp, sp + 180, 24)); o.edgeDown = [c].concat(ovalArc(v, 1, sp + 180, sp + 360, 24));
+    var L = ovalPt(v, 180, 1), Rr = ovalPt(v, 0, 1), dy = (v.ty - v.y) * .3, T = [v.tx, v.ty], i, b = ovalArc(v, 1, 0, 180, 24);
+    L = [L[0] + (v.tx - L[0]) * .06, L[1] + dy]; Rr = [Rr[0] + (v.tx - Rr[0]) * .06, Rr[1] + dy];
+    for (i = 0; i <= 4; i++) b.push(q4([L[0] + (T[0] - L[0]) * i / 5, L[1] + (T[1] - L[1]) * i / 5]));
+    for (i = 0; i < 5; i++) b.push(q4([T[0] + (Rr[0] - T[0]) * i / 5, T[1] + (Rr[1] - T[1]) * i / 5]));
+    b.push(q4(Rr));
+    o.beyond = b;
+    return o;
+  }
+  /* Спираль света на диске: своя линия (disk.path — нарисована от руки) или по овалу (disk.turns витков, disk.spin: 'cw' — по часовой, 'ccw').
+     Точки — по ходу света (disk.dir: 'in' — от края к центру, 'out' — из центра к краю), на равном расстоянии друг от друга. */
+  function spiralPts(route, n) {
+    var D = diskCfg(route), v = ovalOf(route), raw = [], i, f;
+    n = n || 360;
+    if (D.path && D.path.length >= 2) {
+      raw = D.path.map(function (p) { return [+p[0], +p[1]]; });
+      var e0 = raw[0], e1 = raw[raw.length - 1], d0 = Math.pow(e0[0] - v.x, 2) + Math.pow((e0[1] - v.y) * v.ar, 2), d1 = Math.pow(e1[0] - v.x, 2) + Math.pow((e1[1] - v.y) * v.ar, 2);
+      if (d0 < d1) raw.reverse();
+    } else {
+      var turns = Math.max(.5, Math.min(8, +D.turns || 3)), sg = D.spin === 'ccw' ? -1 : 1;
+      for (i = 0; i <= 600; i++) { f = i / 600; raw.push(ovalPt(v, 90 + sg * turns * 360 * f, .93 - .89 * f)); }
+    }
+    if (D.dir === 'out') raw.reverse();
+    // Равномерно по длине (с учётом пропорций картинки)
+    var L = [0], out = [], j = 1;
+    for (i = 1; i < raw.length; i++) L.push(L[i - 1] + Math.sqrt(Math.pow(raw[i][0] - raw[i - 1][0], 2) + Math.pow((raw[i][1] - raw[i - 1][1]) * v.ar, 2)));
+    var tot = L[L.length - 1] || 1;
+    for (i = 0; i < n; i++) {
+      var want = tot * i / (n - 1);
+      while (j < L.length - 1 && L[j] < want) j++;
+      var a = raw[j - 1], b2 = raw[j], k = (want - L[j - 1]) / ((L[j] - L[j - 1]) || 1);
+      out.push([a[0] + (b2[0] - a[0]) * k, a[1] + (b2[1] - a[1]) * k]);
+    }
+    return out;
+  }
+  // Вид света до выбора: 'spark' — огонёк со следом по спирали (по умолчанию), 'swave' — волна по спирали, 'ring' — кольца по овалу, 'zones' — по зонам
+  function diskPulse(route) { var p = diskCfg(route).pulse; return p === 'swave' || p === 'ring' || p === 'zones' ? p : 'spark'; }
+  function diskSpeed(route) { var s = +diskCfg(route).speed; return s > 0 ? Math.max(.25, Math.min(3, s / 100)) : 1; }
+  /* Огонёк по спирали: рисуется каждый кадр (след — 18 кусочков, тают к хвосту). Останавливается, когда диск убрали со страницы;
+     замирает на время перелистывания и пока зона примеряется или выбрана (тогда слой скрыт). */
+  function diskRun(route, fig, mode) {
+    var D = diskCfg(route), v = ovalOf(route), P = spiralPts(route, 360), M = P.length - 1, N = 18, sp = diskSpeed(route);
+    var trail = Math.max(.03, Math.min(.9, (+D.trail || 25) / 100)) * M, NS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(NS, 'svg'), segs = [], i;
+    svg.setAttribute('class', 'ys-d-run'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('aria-hidden', 'true');
+    function mk(tag, cls) { var e = document.createElementNS(NS, tag); if (cls) e.setAttribute('class', cls); svg.appendChild(e); return e; }
+    var pts = P.map(function (p) { return r1(p[0] * 1000) / 10 + ',' + r1(p[1] * 1000) / 10; });
+    var gid = 'ysdg' + (++ZID);
+    svg.innerHTML = '<defs><radialGradient id="' + gid + '"><stop offset="0" class="ys-d-g0"/><stop offset=".45" class="ys-d-g1"/><stop offset="1" class="ys-d-g2"/></radialGradient></defs>';
+    if (D.line) mk('polyline', 'ys-d-sline').setAttribute('points', pts.join(' '));
+    var cg = mk('ellipse', 'ys-d-core');
+    cg.setAttribute('fill', 'url(#' + gid + ')');
+    cg.setAttribute('cx', r1(v.x * 1000) / 10); cg.setAttribute('cy', r1(v.y * 1000) / 10);
+    for (i = 0; i < N; i++) segs.push([mk('polyline', 'ys-d-t1'), mk('polyline', 'ys-d-t2'), mk('polyline', 'ys-d-t3')]);
+    var halo = mk('ellipse', 'ys-d-halo'), head = mk('ellipse', 'ys-d-head');
+    halo.setAttribute('fill', 'url(#' + gid + ')');
+    fig.appendChild(svg);
+    var T = 6.5 / sp, pause = 1.4 / sp, t = 0, last = 0, seen = false, born = Date.now(), W = 0, H = 0, cyc = -1;
+    function size() { W = fig.clientWidth || 300; H = fig.clientHeight || W; var k = W / 400;
+      svg.style.setProperty('--k', k);
+      cg.setAttribute('rx', r1(v.rx * v.core * 1000) / 10); cg.setAttribute('ry', r1(v.ry * v.core / v.ar * 1000) / 10);
+      head.setAttribute('rx', r1(2.4 * k / W * 1000) / 10); head.setAttribute('ry', r1(2.4 * k / H * 1000) / 10);
+      halo.setAttribute('rx', r1(13 * k / W * 1000) / 10); halo.setAttribute('ry', r1(13 * k / H * 1000) / 10); }
+    function part(a, b) { a = Math.max(0, Math.floor(a)); b = Math.min(M, Math.ceil(b)); return b > a ? pts.slice(a, b + 1).join(' ') : ''; }
+    function frame(now) {
+      if (!svg.isConnected) { if (seen || Date.now() - born > 4000) return; requestAnimationFrame(frame); return; }
+      seen = true;
+      var dt = last ? Math.min(.1, (now - last) / 1000) : 0; last = now;
+      var hide = document.hidden || document.body.classList.contains('ys-sliding') || fig.classList.contains('is-try') || fig.closest('.is-chosen');
+      if (!hide) {
+        t += dt;
+        var drain = mode === 'swave' ? T * .45 : T * trail / M, C = T + drain + pause, ph = t % C, n = Math.floor(t / C);
+        if (n !== cyc) { cyc = n; size(); }
+        var h = ph < T ? ph / T * M : M + (ph - T) / drain * (mode === 'swave' ? 0 : trail), len = mode === 'swave' ? Math.max(1, Math.min(h, M)) : trail;
+        var fade = mode === 'swave' && ph > T ? Math.max(0, 1 - (ph - T) / drain) : 1;
+        if (ph >= T + drain) { h = -1; fade = 0; }
+        for (i = 0; i < N; i++) {
+          var a = h - len * (i + 1) / N, b = h - len * i / N, s = part(a, b), op = Math.pow(1 - i / N, 1.7) * fade;
+          segs[i].forEach(function (e) { e.setAttribute('points', s); e.style.opacity = s ? op : 0; });
+        }
+        var hp = P[Math.max(0, Math.min(M, Math.round(h)))];
+        head.style.opacity = halo.style.opacity = h >= 0 && h <= M && mode !== 'swave' ? 1 : 0;
+        if (hp) [head, halo].forEach(function (e) { e.setAttribute('cx', r1(hp[0] * 1000) / 10); e.setAttribute('cy', r1(hp[1] * 1000) / 10); });
+        // Вспышка в центре — когда свет доходит до центра (от края) или выходит из него (из центра)
+        var at = D.dir === 'out' ? 0 : M, dd = Math.abs(Math.min(h < 0 ? 1e9 : h, M + trail) - at) / (M * .12);
+        cg.style.opacity = (mode === 'swave' ? fade * .6 * (h >= M ? 1 : 0) : Math.max(0, 1 - dd) * .75).toFixed(3);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    return svg;
   }
   function inPoly(p, x, y) {
     var ins = false, i, j;
@@ -263,18 +387,23 @@
       layers += '<g class="ys-d-z" data-z="' + z + '"><rect class="ys-d-dim" x="-1" y="-1" width="102" height="102" mask="url(#' + id + z + 'x)"/>' +
         '<g mask="url(#' + id + z + ')"><path class="ys-d-fill" d="' + zoneD(areas, z) + '"/><path class="ys-d-line" d="' + zoneD(areas, z) + '"/></g></g>';
     });
-    var pulse = D.pulse === 'ring' || D.pulse === 'zones' ? D.pulse : diskMarked(route) ? 'zones' : 'ring';
+    var pulse = diskPulse(route);
     if (pulse === 'zones') [['center'], ['flatUp', 'flatDown'], ['edgeUp', 'edgeDown']].forEach(function (g, j) {
       layers += '<g class="ys-d-wave" style="--j:' + j + '">' + g.map(function (z) { return zoneD(areas, z) ? '<path mask="url(#' + id + z + ')" d="' + zoneD(areas, z) + '"/>' : ''; }).join('') + '</g>';
     });
     var svg = '<svg class="ys-d-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs>' + defs + '</defs>' + layers + '</svg>';
     fig.insertAdjacentHTML('beforeend', svg);
+    fig.style.setProperty('--dsp', diskSpeed(route));
+    // Кольца лежат на диске: овал диска, его наклон
     if (pulse === 'ring') {
-      var rc = el('i', 'ys-d-ring'), c = areas.center, cx = .5, cy = .5;
-      if (c) { cx = 0; cy = 0; c.forEach(function (p) { cx += p[0] / c.length; cy += p[1] / c.length; }); }
-      rc.style.left = (cx * 100) + '%'; rc.style.top = (cy * 100) + '%';
-      fig.appendChild(rc);
+      var ov = ovalOf(route), rb = el('i', 'ys-d-ringbox');
+      rb.style.left = (ov.x * 100) + '%'; rb.style.top = (ov.y * 100) + '%';
+      rb.style.width = (ov.rx * 200) + '%'; rb.style.height = (ov.ry / ov.ar * 200) + '%';
+      if (ov.rot) rb.style.transform = 'translate(-50%,-50%) rotate(' + ov.rot + 'deg)';
+      rb.appendChild(el('i', 'ys-d-ring'));
+      fig.appendChild(rb);
     }
+    if ((pulse === 'spark' || pulse === 'swave') && !REDUCED && !chosen) diskRun(route, fig, pulse);
     if (hexOk(D.color)) fig.style.setProperty('--dc', D.color);
     box.appendChild(fig);
     var hint = el('p', 'ys-d-hint', fill(tx.diskHint || 'Коснитесь места на диске, где вы сейчас. Можно примерить разные.', ctx || {}));
@@ -2508,7 +2637,7 @@
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
-    wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF,
+    wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
     diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
     GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift };
 })();

@@ -226,12 +226,24 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 @keyframes ys-dtry{0%,100%{opacity:.2}50%{opacity:.34}}
 /* Приглашение: пока ничего не выбрано — свет по зонам от центра наружу или мягкая волна из центра */
 .ys-d-wave path{fill:var(--dc);mix-blend-mode:screen}
-.ys-d-wave{opacity:0;animation:ys-dwave 4.2s ease-in-out infinite;animation-delay:calc(var(--j) * .7s)}
+.ys-d-wave{opacity:0;animation:ys-dwave calc(4.2s / var(--dsp,1)) ease-in-out infinite;animation-delay:calc(var(--j) * .7s / var(--dsp,1))}
 @keyframes ys-dwave{0%,100%{opacity:0}22%{opacity:.24}48%{opacity:0}}
-.ys-d-ring{position:absolute;width:96%;aspect-ratio:1;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%) scale(.12);opacity:0;mix-blend-mode:screen;
-  background:radial-gradient(circle,rgba(255,215,122,0) 38%,color-mix(in srgb,var(--dc) 55%,transparent) 58%,rgba(255,215,122,0) 72%);animation:ys-dring 3.8s ease-out infinite}
-@keyframes ys-dring{0%{transform:translate(-50%,-50%) scale(.12);opacity:0}18%{opacity:.85}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
-.ys-d-box.is-try .ys-d-wave,.ys-disk.is-chosen .ys-d-wave,.ys-d-box.is-try .ys-d-ring,.ys-disk.is-chosen .ys-d-ring{display:none}
+/* Кольца — лежат на диске: коробка по овалу диска (наклон — поворот), кольцо растёт из центра */
+.ys-d-ringbox{position:absolute;transform:translate(-50%,-50%);pointer-events:none}
+.ys-d-ring{position:absolute;inset:0;border-radius:50%;transform:scale(.12);opacity:0;mix-blend-mode:screen;
+  background:radial-gradient(closest-side,rgba(255,215,122,0) 54%,color-mix(in srgb,var(--dc) 55%,transparent) 82%,rgba(255,215,122,0) 100%);animation:ys-dring calc(3.8s / var(--dsp,1)) ease-out infinite}
+@keyframes ys-dring{0%{transform:scale(.12);opacity:0}18%{opacity:.85}100%{transform:scale(1);opacity:0}}
+/* Огонёк по спирали: след из кусочков (ореол, свечение, яркая серединка), тает к хвосту; вспышка в центре */
+.ys-d-run{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;mix-blend-mode:screen;--k:1}
+.ys-d-run polyline{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.ys-d-t1{stroke:var(--dc);stroke-width:calc(11px * var(--k));stroke-opacity:.13}
+.ys-d-t2{stroke:var(--dc);stroke-width:calc(5px * var(--k));stroke-opacity:.38}
+.ys-d-t3{stroke:#fff6dc;stroke-width:calc(1.8px * var(--k));stroke-opacity:.9}
+.ys-d-sline{stroke:var(--dc);stroke-width:calc(1.2px * var(--k));stroke-opacity:.16}
+.ys-d-head{fill:#fffaf0}
+.ys-d-g0{stop-color:#fff4d6;stop-opacity:.95}.ys-d-g1{stop-color:var(--dc);stop-opacity:.55}.ys-d-g2{stop-color:var(--dc);stop-opacity:0}
+.ys-d-core{opacity:0}
+.ys-d-box.is-try .ys-d-wave,.ys-disk.is-chosen .ys-d-wave,.ys-d-box.is-try .ys-d-ringbox,.ys-disk.is-chosen .ys-d-ringbox,.ys-d-box.is-try .ys-d-run,.ys-disk.is-chosen .ys-d-run{display:none}
 body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:paused}
 .ys-d-hint{margin:0;font-size:14.5px;line-height:1.45;color:rgba(246,234,210,.72)}
 .ys-d-info:empty{display:none}
@@ -252,7 +264,7 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 @keyframes ys-dstone{0%{transform:scale(2.2) translateY(-18px);opacity:0}45%{opacity:1}100%{transform:none;opacity:1}}
 .ys-d-sr button{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;white-space:nowrap}
 .ys-d-sr button:focus-visible{position:static;width:auto;height:auto;margin:2px;clip:auto;padding:4px 10px;border-radius:999px;font:inherit;font-size:13px;color:#2a1a05;background:#ffe39a}
-@media (prefers-reduced-motion:reduce){.ys-d-wave,.ys-d-ring{display:none}.ys-d-z.is-on .ys-d-fill{animation:none}.ys-d-info,.ys-d-stone.is-new canvas{animation:none}}
+@media (prefers-reduced-motion:reduce){.ys-d-wave,.ys-d-ringbox,.ys-d-run{display:none}.ys-d-z.is-on .ys-d-fill{animation:none}.ys-d-info,.ys-d-stone.is-new canvas{animation:none}}
 .ys-wb-l{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.45}
 .ys-wb-l b{color:#ffd98a;font-weight:600}
 .ys-c-foot{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:6px}
