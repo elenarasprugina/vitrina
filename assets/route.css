@@ -169,6 +169,7 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 .ys-c-small{margin:0;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:#e9c77e;text-align:center}
 .ys-c-title{margin:-4px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;line-height:1.12;text-align:center;color:#fff3d6}
 .ys-c-label{display:block;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:#d9b469;margin-bottom:6px}
+.ys-c-sub{margin:0 0 8px;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:23px;line-height:1.2;color:#fff3d6}
 .ys-c-body p,.ys-c-note p{margin:0 0 .6em;line-height:1.55;font-size:16px}
 .ys-c-body p:last-child,.ys-c-note p:last-child{margin-bottom:0}
 .ys-c-text{padding-top:12px;border-top:1px solid rgba(255,214,140,.16)}
