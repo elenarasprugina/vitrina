@@ -93,12 +93,16 @@
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
   // {Действие} с большой буквы — значение тоже с большой. Неизвестная метка остаётся как есть.
   function fill(tpl, ctx, miss) {
-    return String(tpl == null ? '' : tpl).replace(/\{([^{}\n]{1,40})\}/g, function (all, name) {
+    tpl = String(tpl == null ? '' : tpl);
+    return tpl.replace(/\{([^{}\n]{1,40})\}/g, function (all, name, at) {
       var k = name.trim().toLowerCase();
       if (AL_TAGS[k]) return all;
       if (!Object.prototype.hasOwnProperty.call(ctx, k)) { if (miss) miss.push(name.trim()); return all; }
       var v = ctx[k];
-      return name.trim().charAt(0) !== k.charAt(0) ? cap(v) : v;
+      v = name.trim().charAt(0) !== k.charAt(0) ? cap(v) : v;
+      // Значение с оборотом через запятую («менять способ действия, когда меняется ситуация») посреди фразы — оборот закрывается запятой
+      if (/,/.test(v) && !/[,.:;!?…)»\s]$/.test(v) && /^\s+[A-Za-zА-Яа-яЁё]/.test(tpl.slice(at + all.length))) v += ',';
+      return v;
     });
   }
   function tokens(route) {
@@ -440,7 +444,7 @@
     if ((pulse === 'spark' || pulse === 'swave') && !REDUCED && !chosen) diskRun(route, fig, pulse);
     if (hexOk(D.color)) fig.style.setProperty('--dc', D.color);
     box.appendChild(fig);
-    var hint = el('p', 'ys-d-hint', fill(tx.diskHint || 'Коснитесь места на диске, где вы сейчас. Можно примерить разные.', ctx || {}));
+    var hint = el('p', 'ys-d-hint', fill(tx.diskHint || 'Коснитесь места на диске, где вы были тогда. Можно примерить разные.', ctx || {}));
     var info = el('div', 'ys-d-info'), here = el('button', 'ys-key-go ys-d-here', tx.diskHere || 'Здесь'), hn = el('p', 'ys-d-note', tx.diskHereNote == null ? 'Выбор окончательный — передумать будет нельзя.' : tx.diskHereNote);
     var after = el('div', 'ys-d-after');
     here.type = 'button'; here.hidden = true; hn.hidden = true;
