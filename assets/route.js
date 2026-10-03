@@ -116,7 +116,15 @@
      по сторонам — спица (ближе) и обод (дальше). За кругом — изнанка: общая для всех карт.
      Названия зон и подписи — route.deck (zones, sides, underside); пусто — как здесь. */
   var ZONE_DEF = { axis: 'Ось', spoke: 'Спица', rim: 'Обод', underside: 'Изнанка' };
-  function zoneName(route, z) { var Z = (route.deck || {}).zones || {}; return Z[z] || ZONE_DEF[z]; }
+  // Название зоны колеса (подарки, путь назад). Есть диск — по названиям зон диска: центр, плоскость, край, за диском
+  // (её правило 03.10: «ось, спица, обод, изнанка» — технические слова, участник их не видит)
+  function zoneName(route, z) {
+    if ((route.deck || {}).disk) {
+      var dz = { axis: 'center', spoke: 'flatUp', rim: 'edgeUp', underside: 'beyond' }[z];
+      if (dz) { var nm = String(diskName(route, dz) || ''); return z === 'spoke' || z === 'rim' ? nm.split(',')[0].trim() : nm; }
+    }
+    var Z = (route.deck || {}).zones || {}; return Z[z] || ZONE_DEF[z];
+  }
   function wheelNode(route, k, o) {
     var D = route.deck || {}, sd = D.sides || {}, box = el('div', 'ys-wheel');
     if (!k) k = { quality: 'Качество', axis: 'Качество и его противовес', less: { rim: 'обод', spoke: 'спица' }, more: { spoke: 'спица', rim: 'обод' } };
@@ -163,7 +171,7 @@
     });
     if (!any) return null;
     var box = el('div', 'ys-c-text ys-wb');
-    box.appendChild(el('span', 'ys-c-label', b.label == null ? 'Путь назад в ось' : b.label));
+    box.appendChild(el('span', 'ys-c-label', b.label == null ? 'Дорога в центр' : b.label));
     box.appendChild(list);
     return box;
   }
@@ -727,7 +735,8 @@
     return day && hexOk(day.glowColor) ? day.glowColor : hexOk(base) ? base : hexOk(g.color) ? g.color : '#ffcf5a';
   }
   // Цвет печати Dreamspell по Kin (красный, белый, синий, жёлтый по кругу); нет Kin — по названию печати. Для кнопки в панели.
-  var SEAL_GLOW = ['#ff5a3c', '#fff1dc', '#4f9dff', '#ffcf5a'];
+  // Белая печать — розовый жемчуг (её выбор 03.10: чисто белый огонёк и камень сливались в белое пятно)
+  var SEAL_GLOW = ['#ff5a3c', '#e9cde0', '#4f9dff', '#ffcf5a'];
   function sealColor(day) {
     var k = day && +day.kin, s = String(day && (day.seal || day.kinName) || '').toLowerCase();
     if (k >= 1) return SEAL_GLOW[((k - 1) % 20) % 4];
