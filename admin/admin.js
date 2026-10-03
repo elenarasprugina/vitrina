@@ -1594,6 +1594,9 @@
     var title = tab === 'days' ? [r.title, it.day ? 'День ' + it.day : '', it.title].filter(Boolean).join(' · ') : [it.name, r.title].filter(Boolean).join(' · ');
     return { dir: 'sandbox', hash: tab + '/' + encodeURIComponent(id), title: title, desc: plainShort(first && first.text), img: it.shareImage || it.cover || r.image, sized: !!it.shareImage };
   }
+  // Яндекс Метрика (assets/metrika.js) — на полных страницах. Страницы-превью для Telegram/VK её не имеют и сразу переходят на витрину;
+  // чтобы Метрика видела, откуда пришли (Telegram, VK…), а не «с превью», они передают свой источник через sessionStorage.
+  var REF_KEEP = 'try{sessionStorage.setItem("m13ref",document.referrer)}catch(e){}';
   function pageHTML(kind, id, D, cardId) {
     D = D || DATA;
     var st = D.settings, site = st.siteTitle || '13 MIRRORS';
@@ -1611,7 +1614,7 @@
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ctitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + sc.id + '/' + encodeURIComponent(cardId) + '/', title: ctitle, description: cdesc, image: cimg, sized: sized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
-        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>' + REF_KEEP + 'location.replace(' + JSON.stringify(target) + ');</script>\n' +
         '<a href="' + target + '">' + escAttr(f.title || 'Открыть карточку') + '</a>\n</body>\n</html>\n';
     }
     if (kind === 'event' || kind === 'sbitem' || kind === 'archroute') {
@@ -1626,7 +1629,7 @@
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ptitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + pv.dir + '/' + encodeURIComponent(cardId) + '/', title: ptitle, description: pdesc, image: pimg, sized: psized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + ptarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + pv.dir + '/') + '">\n</head>\n' +
-        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>' + REF_KEEP + 'location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
         '<a href="' + ptarget + '">' + escAttr(pv.title || 'Открыть') + '</a>\n</body>\n</html>\n';
     }
     var base = kind === 'main' ? './' : '../';
@@ -1637,7 +1640,8 @@
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind] || {}).look || {}).background, base) +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' +
+      '<script src="' + base + 'assets/metrika.js" async></script>\n' + quickStart(sc ? sc.background : ((D[kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
       pageData(sc, D) + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
