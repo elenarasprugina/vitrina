@@ -237,8 +237,9 @@
                   "show": true
                 },
                 "action": {
-                  "kind": "contact",
-                  "label": "Написать"
+                  "kind": "link",
+                  "label": "Подробнее",
+                  "url": "https://13mirrors.ru/vitrina/routes/yellow-sun/"
                 }
               },
               {
