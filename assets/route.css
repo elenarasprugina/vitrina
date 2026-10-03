@@ -98,6 +98,7 @@
 .ys-fin-end.is-btns .ys-fin-btns > *,.ys-fin-end.is-btns .ys-fin-back{opacity:1;pointer-events:auto}
 .ys-fin-end.is-fast .ys-fin-btns > *,.ys-fin-end.is-fast .ys-fin-back{transition:none}
 /* Размер логотипа (final.brandSize) и подпись в самом низу (final.brandAt = end): под кнопкой-спиралью, проявляется вместе с кнопками */
+.ys-fin-logo-a{display:block;pointer-events:auto;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .ys-fin-logo--m{--lh:28px}
 .ys-fin-logo--l{--lh:38px}
 .ys-fin-brand-end{margin-top:22px;opacity:0;transition:opacity 1.4s ease .4s}
@@ -433,3 +434,19 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 @media (prefers-reduced-motion:reduce){.ys-drop{transition:none}}
 /* Пока карта выезжает — анимации на спирали и в карте замирают (без рывков) */
 .ys-sliding .ys-l-today,.ys-sliding .ys-gd,.ys-sliding .ys-tap{animation-play-state:paused}
+
+/* Выравнивание текста (её просьба 03.10): у карты и у блока — классы ys-al--*, у строки — ys-ln (метка {по центру} и т. п. в начале строки).
+   В конце файла, чтобы перекрывать выравнивание блоков «как задумано». */
+.ys-ln{display:block}
+.ys-al--left{text-align:left}
+.ys-al--center{text-align:center}
+.ys-al--right{text-align:right}
+.ys-al--justify{text-align:justify;-webkit-hyphens:auto;hyphens:auto}
+.ys-disk.ys-al .ys-d-q{width:100%;margin-inline:auto}
+.ys-disk.ys-al .ys-d-rec{width:100%}
+.ys-disk.ys-al--left .ys-d-q,.ys-disk.ys-al--left .ys-d-rec,.ys-disk.ys-al--left .ys-d-after{text-align:left}
+.ys-disk.ys-al--center .ys-d-q,.ys-disk.ys-al--center .ys-d-rec,.ys-disk.ys-al--center .ys-d-after{text-align:center}
+.ys-disk.ys-al--right .ys-d-q,.ys-disk.ys-al--right .ys-d-rec,.ys-disk.ys-al--right .ys-d-after{text-align:right}
+.ys-disk.ys-al--justify .ys-d-q,.ys-disk.ys-al--justify .ys-d-rec,.ys-disk.ys-al--justify .ys-d-after{text-align:justify;-webkit-hyphens:auto;hyphens:auto}
+.ys-disk .ys-ln.ys-al--left{text-align:left}.ys-disk .ys-ln.ys-al--center{text-align:center}.ys-disk .ys-ln.ys-al--right{text-align:right}.ys-disk .ys-ln.ys-al--justify{text-align:justify}
+.ys-disk.ys-al .ys-d-hint,.ys-disk.ys-al .ys-d-note{text-align:center;-webkit-hyphens:manual;hyphens:manual}

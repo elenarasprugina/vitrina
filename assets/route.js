@@ -20,14 +20,29 @@
   }
   // Надписи: Enter в панели — новая строка; число держится со следующим словом («5 октября»), «5–17» не рвётся на тире
   function glue(s) { return String(s).replace(/(\d)([–—-])(?=\d)/g, '$1\u2060$2\u2060').replace(/(\d)[ \t]+(?=[A-Za-zА-Яа-яЁё«(])/g, '$1\u00a0'); }
+  // Выравнивание строки (её просьба 03.10): метка в начале строки — {слева} {по центру} {справа} {по ширине}
+  // (в панели — кнопки над полем). Есть хоть одна метка — каждая строка становится своим блоком со своим выравниванием.
+  var AL_TAGS = { 'слева': 'left', 'по центру': 'center', 'справа': 'right', 'по ширине': 'justify' }, AL_RE = /^\s*\{(слева|по центру|справа|по ширине)\}[ \t]*/i;
+  function lineAlign(line) { var m = AL_RE.exec(line); return m ? { al: AL_TAGS[m[1].toLowerCase()], text: line.slice(m[0].length) } : null; }
+  function untag(s) { return String(s == null ? '' : s).split('\n').map(function (l) { var m = lineAlign(l); return m ? m.text : l; }).join('\n'); }
   function putText(n, text) {
     n.textContent = '';
-    String(text).split('\n').forEach(function (line, i) { if (i) n.appendChild(document.createElement('br')); n.appendChild(document.createTextNode(glue(line))); });
+    var lines = String(text).split('\n');
+    if (lines.some(lineAlign)) {
+      lines.forEach(function (line) {
+        var m = lineAlign(line), s = document.createElement('span');
+        s.className = 'ys-ln' + (m ? ' ys-al--' + m.al : '');
+        s.appendChild(document.createTextNode(glue(m ? m.text : line) || '\u00a0'));
+        n.appendChild(s);
+      });
+      return n;
+    }
+    lines.forEach(function (line, i) { if (i) n.appendChild(document.createElement('br')); n.appendChild(document.createTextNode(glue(line))); });
     return n;
   }
   function tn(text) { return putText(document.createDocumentFragment(), text); }
   // Для картинок (холст): переносов там нет — строка через пробел
-  function flat(s) { return String(s == null ? '' : s).replace(/\s*\n\s*/g, ' '); }
+  function flat(s) { return untag(s).replace(/\s*\n\s*/g, ' '); }
   function imgSrc(base, v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : (base || '') + v; }
 
   /* ---------- Даты (по Москве) ---------- */
@@ -80,6 +95,7 @@
   function fill(tpl, ctx, miss) {
     return String(tpl == null ? '' : tpl).replace(/\{([^{}\n]{1,40})\}/g, function (all, name) {
       var k = name.trim().toLowerCase();
+      if (AL_TAGS[k]) return all;
       if (!Object.prototype.hasOwnProperty.call(ctx, k)) { if (miss) miss.push(name.trim()); return all; }
       var v = ctx[k];
       return name.trim().charAt(0) !== k.charAt(0) ? cap(v) : v;
@@ -630,9 +646,13 @@
     });
     return { node: b, update: update };
   }
+  // Выравнивание (её просьба 03.10): у карты — для абзацев (route.dayCard.align / personalCard.align: '' как задумано | left | center | right | justify),
+  // у блока — своё (b.align, '' — как у карты; у строк и заголовков '' — по центру, как задумано)
+  var AL_OK = { left: 1, center: 1, right: 1, justify: 1 }, AL_PARA = { text: 1, question: 1, note: 1, disk: 1, wayback: 1 };
+  function blockAlign(b, cardAl) { return AL_OK[b.align] ? b.align : AL_PARA[b.kind] && AL_OK[cardAl] ? cardAl : ''; }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
-    var list = ((kind === 'personal' ? route.personalCard : route.dayCard) || {}).blocks || [];
+    var cfg = (kind === 'personal' ? route.personalCard : route.dayCard) || {}, list = cfg.blocks || [];
     var ctx = ctxOf(route, n, kind === 'personal' ? perm : null), fin = kind === 'day' && n === daysCount(route);
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
     var inner = el('div', 'ys-card-in');
@@ -640,7 +660,8 @@
       if (!b || b.visible === false) return;
       if (b.who && b.who[mode] === false) return;
       if (fin && !finBlock(route, b)) return;
-      var node = blockNode(b, route, n, perm, ctx, o);
+      var node = blockNode(b, route, n, perm, ctx, o), al = blockAlign(b, cfg.align);
+      if (node && al) node.classList.add('ys-al', 'ys-al--' + al);
       if (node) inner.appendChild(node);
     });
     var foot = el('div', 'ys-c-foot');
@@ -1630,18 +1651,21 @@
     if (st === 'after' || st === 'both') p.appendChild(starNode(k, 'a'));
     return p;
   }
-  // Подпись внизу: логотип (свой из панели или логотип сайта), надпись или ничего (route.final.brand: logo | text | none);
-  // где — brandAt: end — в самом низу, под кнопкой-спиралью (по умолчанию) | text — в середине, под надписями; размер логотипа — brandSize: s | m | l
-  function finLogoSrc() { var f = finCfg(); return f.logo ? imgSrc(S.base, f.logo) : (S.base || '../../') + 'assets/logo.png'; }
+  // Подпись внизу: логотип, надпись или ничего (route.final.brand: logo | text | none);
+  // где — brandAt: end — в самом низу, под кнопкой-спиралью (по умолчанию) | text — в середине, под надписями; размер логотипа — brandSize: s | m | l.
+  // Логотип — тот же, что на витрине (её решение 03.10): общий из «Настроек» (settings.logo, S.logo) или обычный; ведёт на главную, как внизу витрины.
+  function finLogoSrc() { return S.logo && S.logo.src ? imgSrc(S.base, S.logo.src) : (S.base || '../../') + 'assets/logo.png'; }
   function finBrandNode(tx, f) {
     var b = f.brand || 'logo';
     if (b === 'none' || (b === 'text' && tx.finBrand === '')) return null;
     if (b === 'text') return el('p', 'ys-fin-brand', tx.finBrand || '13 MIRRORS');
-    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo ys-fin-logo--' + (f.brandSize === 'm' || f.brandSize === 'l' ? f.brandSize : 's')); lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
-    lg.style.cssText = "-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--lr:" + (+f.logoRatio || 2454 / 545).toFixed(3);
-    // Пропорции своего логотипа — по самой картинке
-    if (f.logo) { var im = new Image(); im.onload = function () { if (im.naturalHeight) lg.style.setProperty('--lr', (im.naturalWidth / im.naturalHeight).toFixed(3)); }; im.src = u; }
-    return lg;
+    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo ys-fin-logo--' + (f.brandSize === 'm' || f.brandSize === 'l' ? f.brandSize : 's')), a = el('a', 'ys-fin-logo-a');
+    lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
+    lg.style.cssText = "-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--lr:" + (+(S.logo && S.logo.src && S.logo.ratio) || 2454 / 545).toFixed(3);
+    a.href = (S.base || '../../') + '../'; a.setAttribute('aria-label', '13 MIRRORS — на главную');
+    a.addEventListener('click', function (e) { e.stopPropagation(); });
+    a.appendChild(lg);
+    return a;
   }
   function rgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
   function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
@@ -2650,12 +2674,14 @@
     if (S.preview) {
       window.addEventListener('message', function (e) {
         if (e.origin !== location.origin || !e.data || !e.data.m13journey) return;
-        S.base = e.data.base || S.base;
+        S.base = e.data.base || S.base; if (e.data.logo) S.logo = e.data.logo;
         closeLayer(); useRoute(e.data.m13journey);
       });
       try { window.parent.postMessage({ m13journeyReady: true }, location.origin); } catch (e) {}
       return;
     }
+    // Общий логотип витрины (финал): тихо, без него — обычный
+    getJSON(S.base + 'data/settings.json').then(function (st) { if (st && st.logo) S.logo = { src: st.logo, ratio: st.logoRatio }; }, function () {});
     getJSON(S.base + 'data/journeys.json').then(function (j) {
       var route = (j.items || []).filter(function (x) { return x.id === id; })[0];
       if (!route) throw new Error();
@@ -2668,7 +2694,7 @@
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
-    readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
+    untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
     diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
