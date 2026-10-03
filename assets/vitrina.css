@@ -81,6 +81,11 @@ body.m13-locked{overflow:hidden}
    Календарь всегда открыт оборотом, лицевую сторону у него просто прячем. */
 .m13-big-card:not(.m13-calmode) .m13-face *{-webkit-backface-visibility:hidden;backface-visibility:hidden}
 .m13-big-card.m13-calmode .m13-front{visibility:hidden}
+/* Надёжно для любого браузера: сторона, которая ушла назад, прячется целиком (с полупрозрачным оборотом
+   лицевая сторона просвечивала зеркально даже с правилом выше). Переключение — в момент «ребром» (~0,07 с хода). */
+.m13-big-card .m13-face{transition:visibility 0s .07s}
+.m13-big-card.is-flipped .m13-front,.m13-big-card:not(.is-flipped) .m13-back{visibility:hidden}
+.m13-big-card.m13-noanim .m13-face{transition:none}
 .m13-face{position:absolute;inset:0;overflow:hidden;border:1px solid #bdbdbd;border-radius:22px;background:#fff;
   box-shadow:0 28px 70px rgba(0,0,0,.24);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .m13-front{padding:24px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;background-size:cover;background-position:center}
