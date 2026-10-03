@@ -1630,18 +1630,21 @@
     if (st === 'after' || st === 'both') p.appendChild(starNode(k, 'a'));
     return p;
   }
-  // Подпись внизу: логотип (свой из панели или логотип сайта), надпись или ничего (route.final.brand: logo | text | none);
-  // где — brandAt: end — в самом низу, под кнопкой-спиралью (по умолчанию) | text — в середине, под надписями; размер логотипа — brandSize: s | m | l
-  function finLogoSrc() { var f = finCfg(); return f.logo ? imgSrc(S.base, f.logo) : (S.base || '../../') + 'assets/logo.png'; }
+  // Подпись внизу: логотип, надпись или ничего (route.final.brand: logo | text | none);
+  // где — brandAt: end — в самом низу, под кнопкой-спиралью (по умолчанию) | text — в середине, под надписями; размер логотипа — brandSize: s | m | l.
+  // Логотип — тот же, что на витрине (её решение 03.10): общий из «Настроек» (settings.logo, S.logo) или обычный; ведёт на главную, как внизу витрины.
+  function finLogoSrc() { return S.logo && S.logo.src ? imgSrc(S.base, S.logo.src) : (S.base || '../../') + 'assets/logo.png'; }
   function finBrandNode(tx, f) {
     var b = f.brand || 'logo';
     if (b === 'none' || (b === 'text' && tx.finBrand === '')) return null;
     if (b === 'text') return el('p', 'ys-fin-brand', tx.finBrand || '13 MIRRORS');
-    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo ys-fin-logo--' + (f.brandSize === 'm' || f.brandSize === 'l' ? f.brandSize : 's')); lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
-    lg.style.cssText = "-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--lr:" + (+f.logoRatio || 2454 / 545).toFixed(3);
-    // Пропорции своего логотипа — по самой картинке
-    if (f.logo) { var im = new Image(); im.onload = function () { if (im.naturalHeight) lg.style.setProperty('--lr', (im.naturalWidth / im.naturalHeight).toFixed(3)); }; im.src = u; }
-    return lg;
+    var u = finLogoSrc(), lg = el('span', 'ys-fin-logo ys-fin-logo--' + (f.brandSize === 'm' || f.brandSize === 'l' ? f.brandSize : 's')), a = el('a', 'ys-fin-logo-a');
+    lg.setAttribute('role', 'img'); lg.setAttribute('aria-label', '13 MIRRORS');
+    lg.style.cssText = "-webkit-mask-image:url('" + u + "');mask-image:url('" + u + "');--lr:" + (+(S.logo && S.logo.src && S.logo.ratio) || 2454 / 545).toFixed(3);
+    a.href = (S.base || '../../') + '../'; a.setAttribute('aria-label', '13 MIRRORS — на главную');
+    a.addEventListener('click', function (e) { e.stopPropagation(); });
+    a.appendChild(lg);
+    return a;
   }
   function rgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
   function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
@@ -2650,12 +2653,14 @@
     if (S.preview) {
       window.addEventListener('message', function (e) {
         if (e.origin !== location.origin || !e.data || !e.data.m13journey) return;
-        S.base = e.data.base || S.base;
+        S.base = e.data.base || S.base; if (e.data.logo) S.logo = e.data.logo;
         closeLayer(); useRoute(e.data.m13journey);
       });
       try { window.parent.postMessage({ m13journeyReady: true }, location.origin); } catch (e) {}
       return;
     }
+    // Общий логотип витрины (финал): тихо, без него — обычный
+    getJSON(S.base + 'data/settings.json').then(function (st) { if (st && st.logo) S.logo = { src: st.logo, ratio: st.logoRatio }; }, function () {});
     getJSON(S.base + 'data/journeys.json').then(function (j) {
       var route = (j.items || []).filter(function (x) { return x.id === id; })[0];
       if (!route) throw new Error();

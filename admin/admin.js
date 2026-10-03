@@ -2343,6 +2343,8 @@
     r.stage = r.stage || {}; r.neon = r.neon || {}; r.plants = r.plants || {};
     // Мандалу в финале заменила «Золотая филигрань» (02.10)
     if (r.final.sun === 'mandala') delete r.final.sun;
+    // Свой логотип финала убран (её решение 03.10): в финале — логотип витрины из «Настроек»
+    delete r.final.logo; delete r.final.logoRatio;
     if (window.M13R) { var GD = window.M13R.GLASS_DEF; if (!G.states) G.states = clone(GD.states); if (!G.days) G.days = clone(GD.days);
       window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.gifts[z]) G.gifts[z] = clone(GD.gifts[z]); });
       G.marks = G.marks || {}; window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.marks[z]) G.marks[z] = clone(GD.marks[z]); }); }
@@ -2455,7 +2457,7 @@
     var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' };
     var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../' + r.path + '?preview=1&debug=1&mode=' + (extra ? extra.mode : st.mode) + (extra ? extra.q : '') });
     if (phone) fr.style.width = '375px';
-    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../' }, location.origin); } catch (e) {} }
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: D.settings.logo ? { src: D.settings.logo, ratio: D.settings.logoRatio } : null }, location.origin); } catch (e) {} }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady) send(); }
     window.addEventListener('message', onMsg);
     var bar = el('div', { class: 'a-pbar' }, [
@@ -3326,7 +3328,7 @@
             hint: 'В самом низу логотип проявляется вместе с кнопками.' }),
           selectIn(F, 'brandSize', 'Размер логотипа', [['s', 'Маленький, как подпись'], ['m', 'Средний'], ['l', 'Крупный']], { def: 's' })]),
         el('div', { class: 'a-row' }, [
-          imageIn(F, 'logo', 'Свой логотип (необязательно)', { max: 1200, size: { text: 'до 1200 px по длинной стороне', note: 'PNG с прозрачным фоном' }, hint: 'На странице он станет золотым. Пусто — логотип сайта.' }),
+          el('p', { class: 'a-hint', text: 'Логотип — тот же, что на витрине («Настройки» → «Логотип»), золотом. Нажатие ведёт на главную 13mirrors.ru, как логотип внизу витрины.' }),
           textIn(tx, 'finBrand', 'Надпись (если выбрана «Надпись»)', { ph: '13 MIRRORS' })]),
         el('div', { class: 'a-row3' }, [textIn(tx, 'finSavePng', 'Кнопка «картинка»', { ph: 'Картинка для телефона', hint: 'Только у Путешествия и Погружения.' }), textIn(tx, 'finSaveLine', 'Кнопка «PDF»', { ph: 'PDF для раскрашивания' }), textIn(tx, 'finReview', 'Кнопка отзыва', { ph: 'Оставить отзыв' })]),
         textIn(F, 'review', 'Куда ведёт «Оставить отзыв» — одна ссылка на всех', { ph: 'https://…', hint: 'Например, форма или чат в Telegram. Пусто — кнопки нет. «Оставить след» в финале нет.' }),

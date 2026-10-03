@@ -98,6 +98,7 @@
 .ys-fin-end.is-btns .ys-fin-btns > *,.ys-fin-end.is-btns .ys-fin-back{opacity:1;pointer-events:auto}
 .ys-fin-end.is-fast .ys-fin-btns > *,.ys-fin-end.is-fast .ys-fin-back{transition:none}
 /* Размер логотипа (final.brandSize) и подпись в самом низу (final.brandAt = end): под кнопкой-спиралью, проявляется вместе с кнопками */
+.ys-fin-logo-a{display:block;pointer-events:auto;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .ys-fin-logo--m{--lh:28px}
 .ys-fin-logo--l{--lh:38px}
 .ys-fin-brand-end{margin-top:22px;opacity:0;transition:opacity 1.4s ease .4s}
