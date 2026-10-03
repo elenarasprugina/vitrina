@@ -48,10 +48,10 @@
 
   /* ---------- Подстановка в шаблоны ---------- */
   function dayOf(route, n) { return (route.days || [])[n - 1] || { n: n, texts: {} }; }
-  // Колода-колесо: 13 карт { id, quality, axis, less: { rim, spoke }, more: { spoke, rim }, image }
+  // Колода-колесо: 13 карт { id, quality, axis, way (способ — в начальной форме), less: { rim, spoke }, more: { spoke, rim }, recognize, road, image }
   function cardsOf(route) { return ((route.deck || {}).cards) || []; }
   // Метки карты и откуда берётся значение. Значение ставится с маленькой буквы; {Качество} с большой — с большой.
-  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['ось', function (k) { return k.axis; }],
+  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
     ['обод-мало', function (k) { return (k.less || {}).rim; }], ['спица-мало', function (k) { return (k.less || {}).spoke; }],
     ['спица-много', function (k) { return (k.more || {}).spoke; }], ['обод-много', function (k) { return (k.more || {}).rim; }]];
   function low(s) { s = String(s || ''); return s && s.charAt(1) !== s.charAt(1).toUpperCase() ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -169,7 +169,7 @@
      зона светится ровно, камушек её формы ложится в узор, под диском — дорога назад в центр (card.road[зона];
      пусто — общий «путь назад в ось» этой зоны колеса). Отметка — только на устройстве (o.mark), в код не входит. */
   var DISK_ZONES = ['center', 'flatUp', 'flatDown', 'edgeUp', 'edgeDown', 'beyond'];
-  var DISK_DEF = { center: 'Центр', flatUp: 'Плоскость ↑', flatDown: 'Плоскость ↓', edgeUp: 'Край ↑ · пустыня', edgeDown: 'Край ↓ · болото', beyond: 'За диском' };
+  var DISK_DEF = { center: 'Центр', flatUp: 'Плоскость, ближе к пустыне', flatDown: 'Плоскость, ближе к болоту', edgeUp: 'Край, пустыня', edgeDown: 'Край, туман', beyond: 'За диском' };
   // Зона диска → зона колеса: форма камушка, общий путь назад
   var DISK_FAMILY = { center: 'axis', flatUp: 'spoke', flatDown: 'spoke', edgeUp: 'rim', edgeDown: 'rim', beyond: 'underside' };
   function diskCfg(route) { return (route.deck || {}).disk || {}; }
@@ -445,7 +445,7 @@
       var road = diskText(k, 'road', z) || ((route.deck || {}).wayBack || {})[DISK_FAMILY[z]] || '';
       if (road) {
         var rd = el('div', 'ys-c-text ys-d-road');
-        rd.appendChild(el('span', 'ys-c-label', tx.diskRoad || 'Дорога назад в центр'));
+        rd.appendChild(el('span', 'ys-c-label', tx.diskRoad || 'Дорога в центр'));
         rd.appendChild(textNode('ys-c-body', fill(road, ctx || {})));
         after.appendChild(rd);
       }
