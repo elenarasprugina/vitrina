@@ -4,4 +4,4 @@
 
 - Витрина: `13mirrors.ru/vitrina/`
 - Панель управления: `13mirrors.ru/vitrina/admin/`
-- Архитектура — `docs/brief.md`, что сделано и что дальше — `docs/status.md`.
+- Архитектура — `docs/brief.md`, карта проекта (что где и что дальше) — `docs/karta.md`, история — `docs/arhiv/`.
