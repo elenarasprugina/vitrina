@@ -20,14 +20,29 @@
   }
   // Надписи: Enter в панели — новая строка; число держится со следующим словом («5 октября»), «5–17» не рвётся на тире
   function glue(s) { return String(s).replace(/(\d)([–—-])(?=\d)/g, '$1\u2060$2\u2060').replace(/(\d)[ \t]+(?=[A-Za-zА-Яа-яЁё«(])/g, '$1\u00a0'); }
+  // Выравнивание строки (её просьба 03.10): метка в начале строки — {слева} {по центру} {справа} {по ширине}
+  // (в панели — кнопки над полем). Есть хоть одна метка — каждая строка становится своим блоком со своим выравниванием.
+  var AL_TAGS = { 'слева': 'left', 'по центру': 'center', 'справа': 'right', 'по ширине': 'justify' }, AL_RE = /^\s*\{(слева|по центру|справа|по ширине)\}[ \t]*/i;
+  function lineAlign(line) { var m = AL_RE.exec(line); return m ? { al: AL_TAGS[m[1].toLowerCase()], text: line.slice(m[0].length) } : null; }
+  function untag(s) { return String(s == null ? '' : s).split('\n').map(function (l) { var m = lineAlign(l); return m ? m.text : l; }).join('\n'); }
   function putText(n, text) {
     n.textContent = '';
-    String(text).split('\n').forEach(function (line, i) { if (i) n.appendChild(document.createElement('br')); n.appendChild(document.createTextNode(glue(line))); });
+    var lines = String(text).split('\n');
+    if (lines.some(lineAlign)) {
+      lines.forEach(function (line) {
+        var m = lineAlign(line), s = document.createElement('span');
+        s.className = 'ys-ln' + (m ? ' ys-al--' + m.al : '');
+        s.appendChild(document.createTextNode(glue(m ? m.text : line) || '\u00a0'));
+        n.appendChild(s);
+      });
+      return n;
+    }
+    lines.forEach(function (line, i) { if (i) n.appendChild(document.createElement('br')); n.appendChild(document.createTextNode(glue(line))); });
     return n;
   }
   function tn(text) { return putText(document.createDocumentFragment(), text); }
   // Для картинок (холст): переносов там нет — строка через пробел
-  function flat(s) { return String(s == null ? '' : s).replace(/\s*\n\s*/g, ' '); }
+  function flat(s) { return untag(s).replace(/\s*\n\s*/g, ' '); }
   function imgSrc(base, v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : (base || '') + v; }
 
   /* ---------- Даты (по Москве) ---------- */
@@ -80,6 +95,7 @@
   function fill(tpl, ctx, miss) {
     return String(tpl == null ? '' : tpl).replace(/\{([^{}\n]{1,40})\}/g, function (all, name) {
       var k = name.trim().toLowerCase();
+      if (AL_TAGS[k]) return all;
       if (!Object.prototype.hasOwnProperty.call(ctx, k)) { if (miss) miss.push(name.trim()); return all; }
       var v = ctx[k];
       return name.trim().charAt(0) !== k.charAt(0) ? cap(v) : v;
@@ -630,9 +646,13 @@
     });
     return { node: b, update: update };
   }
+  // Выравнивание (её просьба 03.10): у карты — для абзацев (route.dayCard.align / personalCard.align: '' как задумано | left | center | right | justify),
+  // у блока — своё (b.align, '' — как у карты; у строк и заголовков '' — по центру, как задумано)
+  var AL_OK = { left: 1, center: 1, right: 1, justify: 1 }, AL_PARA = { text: 1, question: 1, note: 1, disk: 1, wayback: 1 };
+  function blockAlign(b, cardAl) { return AL_OK[b.align] ? b.align : AL_PARA[b.kind] && AL_OK[cardAl] ? cardAl : ''; }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
-    var list = ((kind === 'personal' ? route.personalCard : route.dayCard) || {}).blocks || [];
+    var cfg = (kind === 'personal' ? route.personalCard : route.dayCard) || {}, list = cfg.blocks || [];
     var ctx = ctxOf(route, n, kind === 'personal' ? perm : null), fin = kind === 'day' && n === daysCount(route);
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
     var inner = el('div', 'ys-card-in');
@@ -640,7 +660,8 @@
       if (!b || b.visible === false) return;
       if (b.who && b.who[mode] === false) return;
       if (fin && !finBlock(route, b)) return;
-      var node = blockNode(b, route, n, perm, ctx, o);
+      var node = blockNode(b, route, n, perm, ctx, o), al = blockAlign(b, cfg.align);
+      if (node && al) node.classList.add('ys-al', 'ys-al--' + al);
       if (node) inner.appendChild(node);
     });
     var foot = el('div', 'ys-c-foot');
@@ -2673,7 +2694,7 @@
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
-    readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
+    untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
     diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,

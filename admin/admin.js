@@ -191,7 +191,7 @@
   function textIn(obj, key, label, o) {
     o = o || {};
     var grow = !o.multi && LINES && !o.type && !/^(https?:|mailto:|tel:)/.test(o.ph || '');
-    var i = el(o.multi || grow ? 'textarea' : 'input', { class: 'a-input' + (grow ? ' a-grow' : ''), type: o.multi || grow ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : grow ? 1 : null });
+    var i = el(o.multi || grow ? 'textarea' : 'input', { class: 'a-input' + (grow ? ' a-grow' : '') + (LINES && (o.multi || grow) ? ' a-lines' : ''), type: o.multi || grow ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : grow ? 1 : null });
     i.value = obj[key] == null ? '' : obj[key];
     if (grow) growIn(i);
     i.addEventListener('input', function () {
@@ -2381,6 +2381,12 @@
     t = String(t || '').split('\n')[0].trim();
     return (J_KIND_NAMES[b.kind] || b.kind) + (t ? ' · ' + (t.length > 44 ? t.slice(0, 44) + '…' : t) : '');
   }
+  // Выравнивание текста на карте (её просьба 03.10): общее для абзацев; у блока — своё; у строки — метка {по центру} и т. п. (кнопки над полем)
+  var J_ALIGN = [['left', 'Слева'], ['center', 'По центру'], ['right', 'Справа'], ['justify', 'По ширине']];
+  function jCardAlign(c) {
+    return selectIn(c, 'align', 'Выравнивание текста на карте', [['', 'Как задумано — абзацы слева, строки и заголовки по центру']].concat(J_ALIGN), { def: '',
+      hint: 'Для абзацев: фокус, вопрос, практика, тексты диска — все 13 дней сразу. У блока можно своё (раскройте блок ниже). У одной строки — тоже своё: поставьте курсор в строку и нажмите кнопку над полем: ⇤ слева, ≡ по центру, ⇥ справа, ☰ по ширине (в начале строки появится метка, например {по центру}; ✕ — убрать).' });
+  }
   function jBlocksForm(r, list, personal) {
     var kinds = J_KINDS.filter(function (k) { return personal || !J_PERSONAL_ONLY[k[0]]; });
     return collection(list, { visible: true, ordered: false, title: jBlockTitle,
@@ -2393,6 +2399,9 @@
         if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') out.push(textIn(b, 'text', b.kind === 'note' ? 'Текст' : 'Строка', { multi: b.kind === 'note', rows: 3,
           hint: 'Одна на все дни, в неё подставляются метки. ' + jTokensHint(r, personal) }));
         if (b.kind === 'text' || b.kind === 'question') out.push(textIn(b, 'label', 'Подпись над текстом', { ph: 'Например, «Практика»', hint: 'Пусто — без подписи. Сам текст у каждого дня свой: вкладка «13 дней».' }));
+        if (b.kind !== 'image' && b.kind !== 'wheel' && b.kind !== 'permission') out.push(selectIn(b, 'align', 'Выравнивание текста', [
+          ['', b.kind === 'small' || b.kind === 'title' ? 'Как задумано — по центру' : 'Как у всей карты']].concat(J_ALIGN), { def: '',
+          hint: b.kind === 'disk' ? 'Вопрос к диску, «Узнаю себя, если…» и дорога в центр.' : 'Одной строке можно своё: курсор в строку → кнопки ⇤ ≡ ⇥ ☰ над полем.' }));
         return out;
       },
       addBox: function (push) {
@@ -2444,7 +2453,7 @@
       var rows = (hasDisk && d.texts.diskQuestion ? [{ kind: 'question', id: 'diskQuestion', label: 'Вопрос к диску' }] : []).concat(blocks).map(function (b) {
         var tpl = b.kind === 'text' || b.kind === 'question' ? d.texts[b.id] : b.text;
         if (!tpl) return null;
-        var t = window.M13R.fill(tpl, ctx, miss);
+        var t = window.M13R.untag(window.M13R.fill(tpl, ctx, miss));
         return el('p', {}, [b.label ? el('b', { text: b.label + ': ' }) : null, t]);
       });
       return el('div', { class: 'a-jcheck-i' }, [el('h4', { text: (i + 1) + '. ' + (p.quality || 'Без названия') })].concat(rows,
@@ -3749,10 +3758,10 @@
     try {
     if (t === 'dayCard') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты из колоды.' }),
-        jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
+        jCardAlign(r.dayCard), jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
     else if (t === 'personal') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты из колоды (Путешествие и Погружение). Сверху — диск выпавшей карты (вкладка «Диск»). Тексты собираются из шаблонов дня (вкладка «13 дней») и слов карты (вкладка «Колода»). Внизу — «Оставить след» и кнопка-спираль.' }),
-        jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
+        jCardAlign(r.personalCard), jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
     else if (t === 'days') body = jDays(r);
     else if (t === 'bricks') body = jBricks(r);
     else if (t === 'deck' || t === 'perms') body = jDeck(r);
@@ -5038,6 +5047,42 @@
     n.dispatchEvent(new Event('input', { bubbles: true }));
     n.focus();
   }
+  /* ---------- Выравнивание строки (страницы маршрутов): кнопки над полем, в котором пишут ----------
+     Ставят в начало строки, где курсор, метку {слева} {по центру} {справа} {по ширине}; ✕ — убрать. Сайт — route.js (lineAlign). */
+  var AL_BTNS = [['слева', '⇤', 'Строка — слева'], ['по центру', '≡', 'Строка — по центру'], ['справа', '⇥', 'Строка — справа'], ['по ширине', '☰', 'Строка — по ширине'], ['', '✕', 'Убрать выравнивание строки']];
+  var alBar = null, alFor = null;
+  function alPlace() {
+    if (!alFor || !alFor.isConnected) { alBar.hidden = true; alFor = null; return; }
+    var r = alFor.getBoundingClientRect();
+    alBar.style.visibility = r.top < 90 || r.top > window.innerHeight - 30 ? 'hidden' : '';
+    alBar.style.top = (r.top - 27) + 'px'; alBar.style.left = Math.max(8, r.right - alBar.offsetWidth) + 'px';
+  }
+  function alSet(tag) {
+    var n = alFor; if (!n) return;
+    var v = n.value, c = n.selectionStart == null ? v.length : n.selectionStart, a = v.lastIndexOf('\n', c - 1) + 1, b = v.indexOf('\n', c); if (b < 0) b = v.length;
+    var line = v.slice(a, b), m = /^\s*\{(слева|по центру|справа|по ширине)\}[ \t]*/i.exec(line), body = m ? line.slice(m[0].length) : line;
+    var nl = (tag ? '{' + tag + '}' : '') + body, caret = a + nl.length;
+    n.value = v.slice(0, a) + nl + v.slice(b);
+    n.setSelectionRange(caret, caret);
+    n.dispatchEvent(new Event('input', { bubbles: true }));
+    n.focus();
+  }
+  function alInit() {
+    alBar = el('div', { class: 'a-al-bar', hidden: true }, [el('span', { text: 'Строка:' })].concat(AL_BTNS.map(function (x) {
+      return el('button', { type: 'button', text: x[1], title: x[2], onclick: function () { alSet(x[0]); } });
+    })));
+    alBar.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    document.body.appendChild(alBar);
+    document.addEventListener('focusin', function (e) {
+      if (e.target.matches && e.target.matches('textarea.a-lines') && !e.target.closest('.a-preview')) { alFor = e.target; alBar.hidden = false; alPlace(); }
+      else if (!alBar.contains(e.target)) { alBar.hidden = true; alFor = null; }
+    });
+    document.addEventListener('focusout', function () {
+      setTimeout(function () { var a = document.activeElement; if (!(a && a.matches && a.matches('textarea.a-lines')) && !alBar.contains(a)) { alBar.hidden = true; alFor = null; } }, 0);
+    });
+    window.addEventListener('scroll', function () { if (alFor) alPlace(); }, true);
+    window.addEventListener('resize', function () { if (alFor) alPlace(); });
+  }
   function glyphInit() {
     glyphBtn = el('button', { type: 'button', class: 'a-glyph-btn', title: 'Вставить значок', text: '✦', hidden: true });
     glyphPop = el('div', { class: 'a-glyph-pop', hidden: true }, [
@@ -5730,7 +5775,7 @@
 
   function boot() {
     APP = document.getElementById('adm');
-    glyphInit();
+    glyphInit(); alInit();
     APP.innerHTML = '<p style="padding:40px;color:#6b6b68">Загружаем данные…</p>';
     loadSource().then(function (src) {
       ORIGINAL = src;

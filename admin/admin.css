@@ -459,3 +459,8 @@ audio.a-media{background:none;height:40px}
 /* «📐 Лучший размер» у полей с картинками */
 .a-size{align-self:flex-start;font-size:12px;line-height:1.35;color:#5a4614;background:#f7efd9;border:1px solid #eadcb4;border-radius:7px;padding:3px 8px}
 .a-size b{font-weight:700;white-space:nowrap}
+/* Выравнивание строки — кнопки над полем (страницы маршрутов) */
+.a-al-bar{position:fixed;z-index:1199;display:flex;align-items:center;gap:3px;padding:2px 3px;border:1px solid var(--a-line);border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.1);font:11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--a-muted)}
+.a-al-bar span{padding:0 3px 0 4px}
+.a-al-bar button{width:24px;height:20px;border:1px solid var(--a-line);border-radius:6px;background:var(--a-soft);color:#5a4a2a;font-size:13px;line-height:1;cursor:pointer;padding:0}
+.a-al-bar button:hover{background:#fff6e2;border-color:#d9bf85}
