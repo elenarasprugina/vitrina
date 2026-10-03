@@ -16,14 +16,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
-<!-- Страница маршрута. Данные — ../../data/journeys.json (панель → «Страницы маршрутов»). Номер ?v= менять при правке route.js/route.css -->
-<link rel="stylesheet" href="../../assets/route.css?v=20261003c">
+<!-- Страница маршрута. Данные — ../../data/journeys.json (панель → «Страницы маршрутов»). Номер M13RV менять при правке route.js/route.css/kaleido.js/sun.js.
+     Предпросмотр из панели (?preview=1) — всегда свежие файлы: окошко в панели браузер иначе держит со старыми -->
+<script>window.M13RV = /[?&]preview=1/.test(location.search) ? 'p' + Date.now() : '20261003d';
+document.write('<link rel="stylesheet" href="../../assets/route.css?v=' + M13RV + '">');</script>
 </head>
 <body class="ys-body">
 <div id="ys" data-base="../../" data-route="yellow-sun"></div>
-<script src="../../assets/kaleido.js?v=20261002t"></script>
-<script src="../../assets/sun.js?v=20261002t"></script>
-<script src="../../assets/route.js?v=20261003c"></script>
+<script>document.write('<script src="../../assets/kaleido.js?v=' + M13RV + '"><\/script><script src="../../assets/sun.js?v=' + M13RV + '"><\/script><script src="../../assets/route.js?v=' + M13RV + '"><\/script>');</script>
 <script>M13R.boot();</script>
 </body>
 </html>

@@ -2679,7 +2679,10 @@
           imageIn(d, 'image', 'Картинка дня', { max: 1600, size: { w: 1600, h: 900, note: 'горизонтальная, 16:9' }, hint: 'Сверху Карты дня. Пусто — солнце-заглушка.' }),
           colorOptIn(d, 'glowColor', 'Цвет свечения камня', { inh: function () { return r.glow.color; }, inhLabel: 'общий', base: '#ffcf5a', hint: 'Пусто — общий цвет из «Основное» → «Свет кирпичей».' }),
           sub('Карта дня — общая для всех')]
-          .concat(dayTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: b.kind === 'question' ? 2 : 3 }); }))
+          .concat([].concat.apply([], dayTexts.map(function (b) {
+            var f = textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: b.kind === 'question' ? 2 : 3 });
+            return b.kind === 'text' ? [textIn(d.texts, b.id + 'Title', (b.label || 'Текст') + ' — название дня', { ph: 'Свет, который зовёт', hint: 'Строкой крупнее под подписью «' + (b.label || 'Текст') + '». Пусто — без неё.' }), f] : [f];
+          })))
           .concat([sub('Личная карта — шаблоны (Путешествие, Погружение)')])
           .concat(diskB && n < r.days.length ? [textIn(d.texts, 'diskQuestion', 'Вопрос к диску (над диском)' + (diskB.visible === false ? ' (блок скрыт)' : ''), { multi: true, rows: 2,
             ph: 'Вспомните ситуацию, когда жизнь попросила вас {способ}. Отметьте на диске, где вы тогда оказались.', hint: 'Над картинкой диска. {способ} — способ с карты дня; метки карты и дня — как в других шаблонах.' })] : [])
@@ -5150,6 +5153,18 @@
       });
       if (r.texts && r.texts.diskRoad === 'Дорога назад в центр') delete r.texts.diskRoad;
       r.deck.diskTexts = 2;
+    });
+    // Карта дня из её документа (03.10): название дня, фокус дня, главный вопрос — один раз с сайта, только туда, где в черновике пусто или заготовка
+    D.journeys.items.forEach(function (r) {
+      var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
+      if (!o || r.dayTexts >= 1) return;
+      function empty(v) { return v == null || !String(v).trim() || /^\s*\[заготовка\]/.test(v); }
+      (r.days || []).forEach(function (d, i) {
+        var ot = ((o.days || [])[i] || {}).texts || {}; d.texts = d.texts || {};
+        if (empty(d.texts.focus) && !empty(ot.focus)) { d.texts.focus = ot.focus; if (!String(d.texts.focusTitle || '').trim() && ot.focusTitle) d.texts.focusTitle = ot.focusTitle; }
+        if (empty(d.texts.mainQuestion) && !empty(ot.mainQuestion)) d.texts.mainQuestion = ot.mainQuestion;
+      });
+      r.dayTexts = 1;
     });
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {
