@@ -180,10 +180,20 @@
       hint ? el('span', { class: 'a-hint' + (warn ? ' a-hint--warn' : ''), text: hint }) : null
     ]);
   }
+  // LINES — страницы маршрутов: однострочные надписи принимают Enter (поле растёт), кроме ссылок, дат и чисел
+  var LINES = false;
+  function growIn(i) {
+    // высота — по числу строк (работает и в свёрнутом блоке); при наборе — по содержимому
+    i.rows = Math.max(1, String(i.value).split('\n').length);
+    i.addEventListener('input', function () { i.style.height = 'auto'; if (i.scrollHeight) i.style.height = (i.scrollHeight + 2) + 'px'; });
+    return i;
+  }
   function textIn(obj, key, label, o) {
     o = o || {};
-    var i = el(o.multi ? 'textarea' : 'input', { class: 'a-input', type: o.multi ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : null });
+    var grow = !o.multi && LINES && !o.type && !/^(https?:|mailto:|tel:)/.test(o.ph || '');
+    var i = el(o.multi || grow ? 'textarea' : 'input', { class: 'a-input' + (grow ? ' a-grow' : ''), type: o.multi || grow ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : grow ? 1 : null });
     i.value = obj[key] == null ? '' : obj[key];
+    if (grow) growIn(i);
     i.addEventListener('input', function () {
       obj[key] = o.type === 'number' ? (i.value === '' ? null : Number(i.value)) : i.value;
       changed(); if (o.onInput) o.onInput(i.value);
@@ -3708,6 +3718,8 @@
       el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openJourneyPage(r, false); } }),
       el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
     var body;
+    LINES = true;
+    try {
     if (t === 'dayCard') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты из колоды.' }),
         jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
@@ -3724,6 +3736,7 @@
     else if (t === 'plants') body = jPlants(r);
     else if (t === 'codes') body = jCodes(r);
     else body = jMain(r);
+    } finally { LINES = false; }
     return [head, pick, look, tabs].concat(body);
   }
 
@@ -5096,11 +5109,11 @@
         Object.keys(OLD).forEach(function (k) { if (r.texts && (r.texts[k] == null || r.texts[k] === OLD[k]) && (o.texts || {})[k]) r.texts[k] = o.texts[k]; });
       }
     });
-    // Тексты диска из её документа (03.10): способ карты, «Узнаю себя, если…», дорога в центр, вопросы к диску, названия зон —
-    // один раз с сайта: только туда, где в черновике пусто, заготовка или прежнее название; её правки не трогаем
+    // Тексты диска из её документа (03.10): способ карты, «Узнаю себя, если…», дорога в центр, вопросы к диску, названия зон,
+    // практика дня и вечерняя фраза (2-й заход) — один раз с сайта: только туда, где в черновике пусто, заготовка или прежнее название; её правки не трогаем
     D.journeys.items.forEach(function (r) {
       var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
-      if (!o || !o.deck || !r.deck || r.deck.diskTexts >= 1) return;
+      if (!o || !o.deck || !r.deck || r.deck.diskTexts >= 2) return;
       var OLDN = { flatUp: 'Плоскость ↑', flatDown: 'Плоскость ↓', edgeUp: 'Край ↑ · пустыня', edgeDown: 'Край ↓ · болото' };
       var dk = r.deck.disk, on = ((o.deck.disk || {}).names) || {};
       if (dk) { dk.names = dk.names || {}; Object.keys(on).forEach(function (z) { if (!dk.names[z] || dk.names[z] === OLDN[z]) dk.names[z] = on[z]; }); }
@@ -5114,11 +5127,14 @@
         });
       });
       (r.days || []).forEach(function (d, i) {
-        var ot = ((o.days || [])[i] || {}).texts || {}, v = (d.texts = d.texts || {}).diskQuestion;
-        if (ot.diskQuestion != null && (v == null || !String(v).trim() || /^\s*\[заготовка\]/.test(v))) d.texts.diskQuestion = ot.diskQuestion;
+        var ot = ((o.days || [])[i] || {}).texts || {}; d.texts = d.texts || {};
+        ['diskQuestion', 'personalPractice', 'closingPoint'].forEach(function (key) {
+          var v = d.texts[key];
+          if (ot[key] != null && !/^\s*\[заготовка\]/.test(ot[key]) && (v == null || !String(v).trim() || /^\s*\[заготовка\]/.test(v))) d.texts[key] = ot[key];
+        });
       });
       if (r.texts && r.texts.diskRoad === 'Дорога назад в центр') delete r.texts.diskRoad;
-      r.deck.diskTexts = 1;
+      r.deck.diskTexts = 2;
     });
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {

@@ -15,9 +15,19 @@
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
-    if (text != null) n.textContent = text;
+    if (text != null) putText(n, text);
     return n;
   }
+  // Надписи: Enter в панели — новая строка; число держится со следующим словом («5 октября»), «5–17» не рвётся на тире
+  function glue(s) { return String(s).replace(/(\d)([–—-])(?=\d)/g, '$1\u2060$2\u2060').replace(/(\d)[ \t]+(?=[A-Za-zА-Яа-яЁё«(])/g, '$1\u00a0'); }
+  function putText(n, text) {
+    n.textContent = '';
+    String(text).split('\n').forEach(function (line, i) { if (i) n.appendChild(document.createElement('br')); n.appendChild(document.createTextNode(glue(line))); });
+    return n;
+  }
+  function tn(text) { return putText(document.createDocumentFragment(), text); }
+  // Для картинок (холст): переносов там нет — строка через пробел
+  function flat(s) { return String(s == null ? '' : s).replace(/\s*\n\s*/g, ' '); }
   function imgSrc(base, v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : (base || '') + v; }
 
   /* ---------- Даты (по Москве) ---------- */
@@ -141,7 +151,7 @@
     lab('ys-w-zone ys-w-under ys-w-under--tl', zoneName(route, 'underside')); lab('ys-w-zone ys-w-under ys-w-under--br', zoneName(route, 'underside'));
     box.appendChild(w);
     var uq = D.undersideQ == null ? 'кто цепляет? → а нет ли этого во мне?' : D.undersideQ;
-    if (uq) { var u = el('p', 'ys-w-uq'); u.appendChild(el('b', null, zoneName(route, 'underside') + ': ')); u.appendChild(document.createTextNode(uq)); box.appendChild(u); }
+    if (uq) { var u = el('p', 'ys-w-uq'); u.appendChild(el('b', null, zoneName(route, 'underside') + ': ')); u.appendChild(tn(uq)); box.appendChild(u); }
     return box;
   }
   // Путь назад в ось — по зонам колеса (route.deck.wayBack)
@@ -149,7 +159,7 @@
     var wb = (route.deck || {}).wayBack || {}, list = el('ul', 'ys-wb-l'), any = false;
     ['axis', 'spoke', 'rim', 'underside'].forEach(function (z) {
       if (!wb[z]) return; any = true;
-      var li = el('li'); li.appendChild(el('b', null, zoneName(route, z))); li.appendChild(document.createTextNode(' — ' + wb[z])); list.appendChild(li);
+      var li = el('li'); li.appendChild(el('b', null, zoneName(route, z))); li.appendChild(tn(' — ' + wb[z])); list.appendChild(li);
     });
     if (!any) return null;
     var box = el('div', 'ys-c-text ys-wb');
@@ -421,7 +431,7 @@
       info.appendChild(el('span', 'ys-d-zone', diskName(route, z)));
       var w = diskWord(route, k, z); if (w) info.appendChild(el('b', 'ys-d-word' + (z === 'beyond' ? ' is-q' : ''), w));
       var rec = diskText(k, 'recognize', z);
-      if (rec) { var p = el('p', 'ys-d-rec'); p.appendChild(el('i', null, (tx.diskRecognize || 'Узнаю себя, если…') + ' ')); p.appendChild(document.createTextNode(fill(rec, ctx || {}))); info.appendChild(p); }
+      if (rec) { var p = el('p', 'ys-d-rec'); p.appendChild(el('i', null, (tx.diskRecognize || 'Узнаю себя, если…') + ' ')); p.appendChild(tn(fill(rec, ctx || {}))); info.appendChild(p); }
     }
     function light(z, on) { [].forEach.call(fig.querySelectorAll('.ys-d-z'), function (g) { g.classList.toggle('is-on', g.getAttribute('data-z') === z && on); }); fig.classList.toggle('is-try', !!on); }
     function tryZone(z) {
@@ -470,7 +480,7 @@
   function textNode(cls, text) {
     var box = el('div', cls);
     String(text).split(/\n{2,}/).forEach(function (p) {
-      var q = el('p'); p.split('\n').forEach(function (line, i) { if (i) q.appendChild(el('br')); q.appendChild(document.createTextNode(line)); });
+      var q = el('p', null, p);
       box.appendChild(q);
     });
     return box;
@@ -1300,7 +1310,7 @@
     box.appendChild(wrap);
     var cnt = el('p', 'ys-st-n'), go = el('button', 'ys-key-go', tx.statesGo || tx.keyGo || 'Повернуть калейдоскоп'); go.type = 'button';
     function upd() {
-      cnt.textContent = fill(tx.statesCount || 'Выбрано {выбрано} из {нужно}', { 'выбрано': String(chosen.length), 'нужно': String(need) });
+      putText(cnt, fill(tx.statesCount || 'Выбрано {выбрано} из {нужно}', { 'выбрано': String(chosen.length), 'нужно': String(need) }));
       go.disabled = chosen.length !== need; box.classList.toggle('is-full', chosen.length === need);
     }
     go.addEventListener('click', function () { if (chosen.length === need) { go.disabled = true; done(chosen.slice()); } });
@@ -1405,17 +1415,17 @@
       f.appendChild(gi); f.appendChild(gok); f.appendChild(gerr);
       open.addEventListener('click', function () { f.hidden = false; open.hidden = true; gi.focus(); });
       f.addEventListener('submit', function (e) {
-        e.preventDefault(); gerr.textContent = '';
+        e.preventDefault(); putText(gerr, '');
         var g = readGift(r, c, gi.value);
-        if (!g) { gerr.textContent = tx.giftBad || 'Это слово не подходит к вашему коду. Проверьте буквы — или спросите Проводника.'; box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake'); return; }
+        if (!g) { putText(gerr, tx.giftBad || 'Это слово не подходит к вашему коду. Проверьте буквы — или спросите Проводника.'); box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake'); return; }
         if (!addGift(c, g)) { note(tx.giftHave || 'Это стёклышко уже в вашем узоре.'); return; }
         gi.value = ''; f.hidden = true; open.hidden = false;
         var z = GIFT_ZONES[g.zone], was = title.textContent;
-        title.textContent = fill(tx.giftOk || 'Подарок: день {день} · {зона}', { 'день': String(g.day), 'зона': zoneName(r, z) });
+        putText(title, fill(tx.giftOk || 'Подарок: день {день} · {зона}', { 'день': String(g.day), 'зона': zoneName(r, z) }));
         wrap.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'center' });
         dropGlass(wrap, giftGlass(r, g.day, z), function () {
           if (kal) kal.turn(kalSeed(c), null, myEx(c));
-          setTimeout(function () { title.textContent = was; }, 4200);
+          setTimeout(function () { putText(title, was); }, 4200);
         });
       });
       wrapF.appendChild(open); wrapF.appendChild(f);
@@ -1424,27 +1434,27 @@
     }
     // Узор складывается: калейдоскоп поворачивается к личному узору (стёклышки — состояния входа и наступившие дни)
     function turn(c) {
-      saveCode(c); mname.textContent = MODE_NAMES[c.mode]; title.textContent = tx.codeTitle || 'Ваш личный узор';
+      saveCode(c); putText(mname, MODE_NAMES[c.mode]); putText(title, tx.codeTitle || 'Ваш личный узор');
       box.classList.add('is-turn'); inp.blur();
       kal.turn(kalSeed(c), function () { box.classList.remove('is-turn'); result(c); }, myEx(c));
     }
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var v = inp.value; err.textContent = '';
+      var v = inp.value; putText(err, '');
       if (!keyNorm(v)) { inp.focus(); return; }
       go.disabled = true;
       var c = readCode(r, v);
       if (c) { turn(c); return; }
       keyMode(r, v).then(function (m) {
         if (!m) {
-          go.disabled = false; err.textContent = tx.keyBad || 'Ключ не подошёл. Проверьте, как он написан, — или спросите Проводника.';
+          go.disabled = false; putText(err, tx.keyBad || 'Ключ не подошёл. Проверьте, как он написан, — или спросите Проводника.');
           box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake');
           return;
         }
-        inp.blur(); mname.textContent = MODE_NAMES[m];
+        inp.blur(); putText(mname, MODE_NAMES[m]);
         // Ключ подошёл → три состояния → код
         if (statesOf(r).length < 3) { turn(newCode(r, m)); return; }
-        title.textContent = tx.statesTitle || 'С чем вы входите?';
+        putText(title, tx.statesTitle || 'С чем вы входите?');
         stBox.replaceChildren(statesPicker(r, 3, function (st) { turn(newCode(r, m, st)); }));
         box.classList.add('is-states');
       });
@@ -1527,7 +1537,7 @@
       pk.style.transform = 'rotate(' + (a > 180 ? 360 : 0) + 'deg)';
       setTimeout(function () { pk.classList.add('is-flip'); }, REDUCED ? 0 : 420);
       setTimeout(function () {
-        title.textContent = fill(tx.chosen || 'Ваша карта на сегодня', ctx);
+        putText(title, fill(tx.chosen || 'Ваша карта на сегодня', ctx));
         hint.style.visibility = 'hidden'; open.classList.add('is-on'); open.focus();
       }, REDUCED ? 50 : 1500);
     }
@@ -1782,8 +1792,8 @@
       x.fillText(spaced('13 MIRRORS · ' + (r.title || '')), W / 2, 76);
       var ty = cy + R * 1.62;
       x.fillStyle = P.title; x.font = '600 66px "Cormorant Garamond", Georgia, serif';
-      x.fillText(tx.finTitle || 'Маршрут пройден', W / 2, ty);
-      if (tx.finNote !== '') { x.fillStyle = P.note; x.font = 'italic 500 40px "Cormorant Garamond", Georgia, serif'; x.fillText(tx.finNote || 'Увидимся за поворотом…', W / 2, ty + 56); }
+      x.fillText(flat(tx.finTitle || 'Маршрут пройден'), W / 2, ty);
+      if (tx.finNote !== '') { x.fillStyle = P.note; x.font = 'italic 500 40px "Cormorant Garamond", Georgia, serif'; x.fillText(flat(tx.finNote || 'Увидимся за поворотом…'), W / 2, ty + 56); }
       if (cards) {
         x.font = '500 30px "Cormorant Garamond", Georgia, serif';
         for (i = 1; i < daysCount(r); i++) {
@@ -1866,8 +1876,8 @@
       x.fillText(spaced('13 MIRRORS · ' + (r.title || '')), W / 2, 200);
       var ty = cy + R + (line ? 250 : 230);
       x.fillStyle = ink; x.font = '600 ' + (line ? 120 : 150) + 'px "Cormorant Garamond", Georgia, serif';
-      x.fillText(tx.finTitle || 'Маршрут пройден', W / 2, ty);
-      if (tx.finNote !== '') { x.fillStyle = soft; x.font = 'italic 500 ' + (line ? 76 : 90) + 'px "Cormorant Garamond", Georgia, serif'; x.fillText(tx.finNote || 'Увидимся за поворотом…', W / 2, ty + (line ? 115 : 135)); }
+      x.fillText(flat(tx.finTitle || 'Маршрут пройден'), W / 2, ty);
+      if (tx.finNote !== '') { x.fillStyle = soft; x.font = 'italic 500 ' + (line ? 76 : 90) + 'px "Cormorant Garamond", Georgia, serif'; x.fillText(flat(tx.finNote || 'Увидимся за поворотом…'), W / 2, ty + (line ? 115 : 135)); }
       if (cards) {
         x.font = '500 62px "Cormorant Garamond", Georgia, serif';
         for (var i = 1; i < daysCount(r); i++) {
@@ -1934,7 +1944,7 @@
     if (!mus && f.music && f.sound !== false) { mus = new Audio(imgSrc(S.base, f.music)); mus.preload = 'auto'; mus.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100; }
     if (mus) {
       sb = el('button', 'ys-fin-snd'); sb.type = 'button';
-      mus.m13upd = function () { var on = !mus.paused; sb.textContent = '♪ ' + (on ? tx.soundOff || 'Выключить звук' : tx.soundOn || 'Включить звук'); sb.classList.toggle('is-on', on); };
+      mus.m13upd = function () { var on = !mus.paused; putText(sb, '♪ ' + (on ? tx.soundOff || 'Выключить звук' : tx.soundOn || 'Включить звук')); sb.classList.toggle('is-on', on); };
       sb.addEventListener('click', function (e) {
         e.stopPropagation();
         var on = mus.paused;
