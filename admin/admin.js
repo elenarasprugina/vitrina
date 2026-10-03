@@ -413,7 +413,7 @@
             { def: forCard ? 'inherit' : 'none', onChange: redraw }),
           selectIn(stl, 'patternPlace', 'Где узор', inh.concat([['corners', 'В уголках'], ['edge', 'По краю — во всех углах'], ['full', 'По всей карточке']]),
             { def: forCard ? 'inherit' : 'corners', onChange: onChange })]),
-        pat === 'custom' ? imageIn(stl, 'patternImage', 'Картинка узора', { max: 1200, onChange: onChange,
+        pat === 'custom' ? imageIn(stl, 'patternImage', 'Картинка узора', { max: 1200, onChange: onChange, size: { w: 1200, h: 1200, note: 'PNG с прозрачным фоном' },
           hint: 'Лучше PNG с прозрачным фоном. Для «В уголках» и «По краю» — уголок для левого верхнего угла (для остальных углов он отразится сам). Для «По всей карточке» — узор или рамка на всю карточку.' }) : null,
         pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
           rangeOptIn(stl, 'patternOpacity', 'Заметность узора', { min: 5, max: 100, step: 5, unit: '%', def: 80, onChange: onChange }, forCard),
@@ -559,6 +559,13 @@
   // Метка версии для ссылок на vitrina.js/css (опубликованные страницы, предпросмотр телефона): браузер не возьмёт старые из памяти
   var ASSET_V = window.M13V || Date.now();
   function imgSrc(v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : '../' + v; }
+  // Строка «Лучший размер» у поля картинки: o.size = {w, h, note} (ширина × высота) или {text, note}.
+  // Окошко-миниатюра принимает ту же форму — видно, как картинка ляжет.
+  function sizeLine(s) {
+    if (!s) return null;
+    return el('span', { class: 'a-size' }, ['📐 Лучший размер: ', el('b', { text: s.w ? s.w + ' × ' + s.h + ' px' : s.text }), s.note ? ' · ' + s.note : '']);
+  }
+  function sizeShape(s) { return s && s.w ? 'width:auto;aspect-ratio:' + s.w + '/' + s.h + ';' : ''; }
   function imageIn(obj, key, label, o) {
     o = o || {};
     var box = el('div', { class: 'a-field' });
@@ -571,9 +578,9 @@
           .catch(function () { toast('Не получилось открыть эту картинку. Попробуйте файл JPG или PNG.', true); });
       });
       box.replaceChildren();
-      add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
+      add(box, [label ? el('span', { class: 'a-label', text: label }) : null, sizeLine(o.size),
         el('div', { class: 'a-img' }, [
-          el('div', { class: 'a-img-thumb' + (o.crop ? ' a-img-thumb--wide' : ''), style: v ? "background-image:url('" + imgSrc(v) + "')" : null, text: v ? '' : 'нет' }),
+          el('div', { class: 'a-img-thumb' + (o.crop ? ' a-img-thumb--wide' : ''), style: (v ? "background-image:url('" + imgSrc(v) + "');" : '') + sizeShape(o.size) || null, text: v ? '' : 'нет' }),
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить картинку' : 'Загрузить картинку', onclick: function () { file.click(); } }),
           v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать', onclick: function () { obj[key] = null; changed(); draw(); if (o.onChange) o.onChange(); } }) : null,
           file]),
@@ -1055,7 +1062,7 @@
           rangeIn(L, 'blur', 'Размытие под стеклом', { max: 20, unit: ' px', def: 8, hint: 'Насколько размыта карточка, которая просвечивает.' })]) : null,
         own && mat === 'frost' ? el('div', { class: 'a-row' }, [
           rangeIn(L, 'frost', 'Плотность инея', { max: 100, step: 5, unit: '%', def: 60, hint: 'Меньше — лёгкая испарина, сквозь неё видна карточка. Больше — густой иней.' }), el('span')]) : null,
-        own && mat === 'image' ? imageIn(L, 'image', 'Картинка обложки', { max: 1400, hint: 'Ляжет на всю обложку, края обрежутся.' }) : null,
+        own && mat === 'image' ? imageIn(L, 'image', 'Картинка обложки', { max: 1400, size: { w: 1000, h: 1100, note: 'чуть выше, чем шире; главное — в центре' }, hint: 'Ляжет на всю обложку, края обрежутся.' }) : null,
         own ? el('div', { class: 'a-row' }, [
           selectIn(L, 'rim', 'Контур обложки', [['', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный, серебристый'], ['gold', 'Золотой — акцентным цветом']], { def: '', onChange: function () { changed(); draw(); } }),
           L.rim ? colorOptIn(L, 'rimColor', 'Цвет контура', { none: 'как выбрано слева', pick: '#ecd3a3' }) : el('span')]) : null,
@@ -1067,7 +1074,7 @@
           sign === 'text' ? textIn(L, 'text', 'Текст', { multi: true, rows: 2, ph: '13 MIRRORS', hint: 'Например, «Октябрь» или «Открой меня». Можно в две строки.' })
             : DAND_KINDS[sign] ? el('div', {}, [dandIcon(sign, !!L.signMirror),
               sign === 'dandelion3' ? switchIn(L, 'signMirror', 'Зеркально', { onChange: function () { changed(); draw(); } }) : null]) : el('span')]) : null,
-        own && sign === 'image' ? imageIn(L, 'signImg', 'Картинка-значок', { max: 800, hint: 'Лучше PNG с прозрачным фоном. Показывается целиком.' }) : null,
+        own && sign === 'image' ? imageIn(L, 'signImg', 'Картинка-значок', { max: 800, size: { w: 800, h: 800, note: 'PNG с прозрачным фоном' }, hint: 'Показывается целиком.' }) : null,
         own && sign === 'text' ? fontIn(L, 'font', 'Шрифт надписи', fontOptions(false), null, String(L.text || '').trim() || '13 MIRRORS') : null,
         own && sign ? el('div', { class: 'a-row3' }, [
           colorOptIn(L, 'signColor', 'Цвет', { none: 'подберётся сам', pick: '#ecd3a3' }),
@@ -1173,6 +1180,7 @@
       img.src = url;
     });
   }
+  var LOGO_SIZE = { text: '1400 px по длинной стороне', note: 'PNG с прозрачным фоном' };
   function logoIn(obj, key, rKey, label, o) {
     o = o || {};
     var box = el('div', { class: 'a-field' });
@@ -1187,7 +1195,7 @@
         }).catch(function () { toast('Не получилось взять логотип из этой картинки. Нужен PNG с прозрачным фоном.', true); });
       });
       box.replaceChildren();
-      add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
+      add(box, [label ? el('span', { class: 'a-label', text: label }) : null, sizeLine(o.size),
         el('div', { class: 'a-img' }, [
           el('div', { class: 'a-logo-thumb' }, [el('span', { style: "-webkit-mask-image:url('" + shown + "');mask-image:url('" + shown + "');aspect-ratio:" + (+obj[rKey] || (o.fallbackRatio && o.fallbackRatio()) || 4.5) })]),
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить' : 'Загрузить свой', onclick: function () { file.click(); } }),
@@ -1310,7 +1318,7 @@
           selectIn(hd, 'bottomHaze', 'Дымка под подписью', HAZE_OPTS, { def: '', onChange: draw }),
           hd.bottomHaze ? rangeIn(hd, 'bottomHazeK', 'Сила дымки внизу', { max: 100, step: 5, unit: '%', def: 60 }) : el('span')]) : null,
         b !== 'none' ? readWarn(headColor, bgUnder('bottom'), function () { return !!hd.bottomHaze; }, 'Подпись под сеткой') : null,
-        anyLogo ? logoIn(hd, 'logoImg', 'logoRatio', 'Логотип этого месяца', { resetText: 'Как в «Настройках»',
+        anyLogo ? logoIn(hd, 'logoImg', 'logoRatio', 'Логотип этого месяца', { resetText: 'Как в «Настройках»', size: LOGO_SIZE,
           fallback: function () { return st.logo ? imgSrc(st.logo) : '../assets/logo.png'; }, fallbackRatio: function () { return st.logo ? st.logoRatio : 0; },
           hint: 'Пусто — общий логотип из «Настроек». Свой — например, тонкий или жирный вариант для этого месяца. PNG с прозрачным фоном.' }) : null,
         sub('Блики'),
@@ -1446,8 +1454,8 @@
         themeButtons(sc),
         sub('Фон страницы'),
         el('div', { class: 'a-row' }, [
-          imageIn(sc.background, 'image', 'Фоновая картинка', { max: 2400, hint: 'Растягивается на весь экран. Лучше горизонтальная.' }),
-          imageIn(sc.background, 'imageTall', 'Картинка для телефона', { max: 2000, hint: 'Необязательно. Вертикальная; пусто — на телефоне та же, что выше.' })]),
+          imageIn(sc.background, 'image', 'Фоновая картинка', { max: 2400, size: { w: 2400, h: 1350, note: 'горизонтальная, 16:9' }, hint: 'Растягивается на весь экран.' }),
+          imageIn(sc.background, 'imageTall', 'Картинка для телефона', { max: 2000, size: { w: 1080, h: 1920, note: 'вертикальная, 9:16' }, hint: 'Необязательно. Пусто — на телефоне та же, что выше.' })]),
         el('div', { class: 'a-row3' }, [
           colorIn(sc.background, 'color', 'Цвет фона'),
           rangeIn(sc.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Чтобы карточки читались лучше.' }),
@@ -1518,8 +1526,8 @@
     var mockBox = el('div');
     function drawMock() { mockBox.replaceChildren(shareMock(o.resolve())); }
     var fields = el('div', { class: 'a-share-fields' }, [
-      imageIn(obj, 'image', 'Картинка', { crop: SHARE_SIZE, onChange: drawMock,
-        hint: 'Лучше горизонтальная. Обрежется по центру до размера 1200×630 — так её показывают Telegram и VK.' }),
+      imageIn(obj, 'image', 'Картинка', { crop: SHARE_SIZE, onChange: drawMock, size: { w: SHARE_SIZE[0], h: SHARE_SIZE[1], note: 'горизонтальная' },
+        hint: 'Обрежется по центру ровно до этого размера — так её показывают Telegram и VK.' }),
       textIn(obj, 'title', 'Заголовок', { ph: o.titlePh, hint: 'Коротко, до 60 знаков. ' + (o.titleHint || '') }),
       textIn(obj, 'description', 'Подпись', { multi: true, rows: 3, ph: o.descPh, hint: 'Одно-два предложения, до 160 знаков — длиннее обрежется.' })
     ]);
@@ -2209,7 +2217,7 @@
           } })
       ]),
       block('Лицевая сторона', [
-        imageIn(f, 'image', 'Картинка', { hint: 'Можно без картинки. Большие фото уменьшаются автоматически.', onChange: cb.redrawGrid }),
+        imageIn(f, 'image', 'Картинка', { size: { w: 1000, h: 1100, note: 'чуть выше, чем шире; главное — в центре, края обрезаются' }, hint: 'Можно без картинки. Большие фото уменьшаются автоматически.', onChange: cb.redrawGrid }),
         textIn(f, 'eyebrow', 'Надпись сверху (мелко)', { ph: 'Маршрут, Продукт, Живые встречи…' }),
         textIn(f, 'title', 'Название'),
         optIn(f, 'subtitle', 'Подзаголовок', { ph: 'даты или короткая фраза' }),
@@ -2266,7 +2274,7 @@
             textIn(r, 'description', 'Описание', { multi: true, rows: 4 }),
             textIn(r, 'routeUrl', 'Ссылка на страницу маршрута', { ph: 'https://13mirrors.ru/yellow-sun/',
               hint: 'Постоянная страница, где идут дни маршрута. Нужна для кнопки «Пройти маршрут».' }),
-            imageIn(r, 'image', 'Картинка маршрута', { hint: 'Показывается на обложках примеров этого маршрута в Песочнице и в архиве.' }),
+            imageIn(r, 'image', 'Картинка маршрута', { size: { w: 1200, h: 900, note: 'горизонтальная, 4:3' }, hint: 'Показывается на обложках примеров этого маршрута в Песочнице и в архиве.' }),
             fitIn(r, 'coverFit', 'Картинка маршрута на обложках', FIT_HINT + ' Действует у примеров без своей обложки и в архиве.'),
             glassOwnFields(r, 'route', { title: 'Стекло на картинке маршрута', img: function () { return !!r.image; },
               noImg: 'Нет картинки маршрута — стекло будет только у примеров со своей обложкой.', share: !!r.archive }),
@@ -2570,8 +2578,8 @@
       block('Даты', [textIn(r, 'start', 'Первый день', { type: 'date', onInput: showWhen }), when]),
       block('Спираль (фон страницы)', [
         el('div', { class: 'a-row' }, [
-          imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { max: 2400, hint: '16:9, лучше 2400 × 1350.', onChange: liveSoon }),
-          imageIn(r, 'masterMobile', 'Для телефона — вертикальная', { max: 2000, hint: '9:16, лучше 1080 × 1920. Спираль на телефоне — во всю ширину.', onChange: liveSoon })]),
+          imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
+          imageIn(r, 'masterMobile', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Спираль на телефоне — во всю ширину.', onChange: liveSoon })]),
         rangeIn(r, 'dimTop', 'Приглушить свет сверху', { min: 0, max: 90, step: 5, def: 60, unit: ' %', hint: 'Затемнение от верха до середины кадра: чтобы луч не слепил и читалась надпись. 0 — без затемнения.' }),
         jBgLive(r),
         sub('Где спираль на экране'),
@@ -2668,7 +2676,7 @@
           el('div', { class: 'a-row' }, [textIn(d, 'seal', 'Печать', { ph: 'Красный Змей' }), textIn(d, 'tone', 'Тон', { ph: 'Ритмический' })]),
           el('div', { class: 'a-row' }, [textIn(d, 'cardOperation', 'Что делаем с картой — {что делаем}', { multi: true, rows: 2, ph: 'Где я на этом колесе сейчас', hint: 'Тон задаёт действие с картой.' }),
             textIn(d, 'environment', 'Среда (печать) — {среда}', { multi: true, rows: 2, ph: 'жизнь, свет, видимость', hint: 'Печать задаёт среду, в которой идёт действие.' })]),
-          imageIn(d, 'image', 'Картинка дня', { max: 1600, hint: 'Сверху Карты дня, 16:9 (например 1600 × 900). Пусто — солнце-заглушка.' }),
+          imageIn(d, 'image', 'Картинка дня', { max: 1600, size: { w: 1600, h: 900, note: 'горизонтальная, 16:9' }, hint: 'Сверху Карты дня. Пусто — солнце-заглушка.' }),
           colorOptIn(d, 'glowColor', 'Цвет свечения камня', { inh: function () { return r.glow.color; }, inhLabel: 'общий', base: '#ffcf5a', hint: 'Пусто — общий цвет из «Основное» → «Свет кирпичей».' }),
           sub('Карта дня — общая для всех')]
           .concat(dayTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: b.kind === 'question' ? 2 : 3 }); }))
@@ -2700,7 +2708,7 @@
     return [
       el('p', { class: 'a-hint', text: 'На личной карте теперь диск (вкладка «Диск»): 6 зон касания. Центр — ось, плоскость — спица, край — обод (↑ — «слишком много», ↓ — «слишком мало»), за диском — изнанка. Поэтому слова карты остаются прежними, а у каждой карты добавились способ (метка {способ} для вопроса к диску) и тексты для 6 зон: «Узнаю себя, если…» и дорога в центр.' }),
       el('p', { class: 'a-hint', text: 'Колода — колесо. Каждая карта — одно качество: в центре ось (качество вместе со своим противовесом), через неё линия «слишком мало ↔ слишком много», у каждой стороны своя спица (перекос) и обод (крайность). За кругом — изнанка, общая для всех карт. 13 карт на 12 дней: каждый день человек вслепую тянет одну, в 12-й день — из двух, последняя остаётся закрытой.' }),
-      block('Рубашка', [imageIn(r, 'cardBack', 'Рубашка — одна на все карты', { max: 1400, hint: 'Вертикальная, ровно 3:4 (например 900 × 1200). Закрытые карты лучами по кругу и обратная сторона выбранной карты. Пусто — золотое солнышко-заглушка.' })], { open: false }),
+      block('Рубашка', [imageIn(r, 'cardBack', 'Рубашка — одна на все карты', { max: 1400, size: { w: 900, h: 1200, note: 'вертикальная, ровно 3:4' }, hint: 'Закрытые карты лучами по кругу и обратная сторона выбранной карты. Пусто — золотое солнышко-заглушка.' })], { open: false }),
       block('Зоны колеса и путь назад в ось', [
         el('p', { class: 'a-hint', text: 'Названия зон — как их видит участник. «Путь назад в ось» — блок личной карты (вкладка «Личная карта»).' }),
         el('div', { class: 'a-row' }, J_ZONES.slice(0, 2).map(function (z) { return textIn(D.zones, z[0], 'Название: ' + z[1], { ph: z[1] }); })),
@@ -2717,7 +2725,7 @@
         textIn(k, 'way', 'Способ — {способ}', { ph: 'делать выбор и действовать', hint: 'В начальной форме, с маленькой буквы: подставляется в вопрос к диску («…жизнь попросила вас {способ}»).' }),
         el('div', { class: 'a-row' }, [textIn(k.less, 'spoke', 'Слишком мало · спица — {спица-мало}', { ph: 'Колебания' }), textIn(k.less, 'rim', 'Слишком мало · обод — {обод-мало}', { ph: 'Пассивность' })]),
         el('div', { class: 'a-row' }, [textIn(k.more, 'spoke', 'Слишком много · спица — {спица-много}', { ph: 'Торопливость' }), textIn(k.more, 'rim', 'Слишком много · обод — {обод-много}', { ph: 'Напористость' })]),
-        imageIn(k, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, hint: 'Только для прежнего колеса: если загрузить — вместо колеса. 3:4.' })]
+        imageIn(k, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, size: { w: 900, h: 1200, note: 'вертикальная, ровно 3:4' }, hint: 'Только для прежнего колеса: если загрузить — вместо колеса.' })]
         .concat(zoneTexts(k, 'recognize', 'Диск · «Узнаю себя, если…»', 'Появляется под диском, когда человек коснулся зоны (примерка). Пусто — строки нет. Метки дня и карты можно ставить.'),
           zoneTexts(k, 'road', 'Диск · дорога в центр', 'Открывается под диском после «Здесь» — только для выбранной зоны. Пусто — общий «путь назад в ось» этой зоны (блок выше).'))), diskPv(k)])], { open: false });
     }));
@@ -3039,7 +3047,7 @@
       el('p', { class: 'a-hint', text: 'На личной карте вместо колеса — диск. Человек касается диска — зона светится, остальные приглушаются, под диском её название, слово карты и «Узнаю себя, если…». Можно примерить другую зону. После первой примерки — кнопка «Здесь»: выбор окончательный. Тогда зона светится ровно, камушек формы этой зоны ложится в узор (и в финальное Солнце), под диском открывается дорога назад в центр — только для этой зоны. До полуночи открывается та же отметка. Отметка хранится только на устройстве человека, в код не входит.' }),
       el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         block('Картинка и видео', [
-          imageIn(DK, 'image', 'Картинка диска', { max: 1600, onChange: function () { pic(); marks(); liveSoon(); }, hint: 'Квадратная или почти, диск по центру, лучше 1200 × 1200 и больше. PNG/WebP с прозрачностью тоже можно. Пусто — диск, нарисованный кодом. Поменяли картинку — проверьте разметку зон ниже.' }),
+          imageIn(DK, 'image', 'Картинка диска', { max: 1600, size: { w: 1200, h: 1200, note: 'квадрат, диск по центру; можно больше' }, onChange: function () { pic(); marks(); liveSoon(); }, hint: 'PNG/WebP с прозрачностью тоже можно. Пусто — диск, нарисованный кодом. Поменяли картинку — проверьте разметку зон ниже.' }),
           mediaIn(DK, 'video', 'Видео-петля (необязательно)', { kind: 'video', maxMB: 12, hint: 'MP4, без звука, тот же кадр и размер, что у картинки, конец переходит в начало. Пока видео грузится — видна картинка. Если у человека в телефоне включено «уменьшить движение», видео не грузится — остаётся картинка.' })
         ], { open: !DK.image }),
         block('Названия зон', [el('p', { class: 'a-hint', text: 'Так зона подписана под диском. ↑ — сторона «слишком много» (слова карты: спица и обод «много»), ↓ — «слишком мало».' })].concat(
@@ -3133,8 +3141,8 @@
         });
       } });
       var cutF = selectIn(L, 'cut', 'Огранка / форма', STONE_CUTS, { def: 'round', onChange: upd, hint: 'У самоцвета и плоского стекла.' });
-      var imgF = imageIn(L, 'img', 'Картинка камня', { max: 600, onChange: liveSoon,
-        hint: 'PNG с прозрачным фоном, камень по центру, около 600 × 600. В узоре камни поворачиваются и отражаются в зеркалах. Цвет и блик к картинке не применяются.' });
+      var imgF = imageIn(L, 'img', 'Картинка камня', { max: 600, onChange: liveSoon, size: { w: 600, h: 600, note: 'PNG с прозрачным фоном, камень по центру' },
+        hint: 'В узоре камни поворачиваются и отражаются в зеркалах. Цвет и блик к картинке не применяются.' });
       var colF = colorNone ? colorOptIn(L, 'color', 'Цвет', { none: colorNone, onChange: liveSoon }) : null;
       function upd() {
         cutF.style.display = L.kind === 'gem' || L.kind === 'glass' ? '' : 'none';
@@ -3305,7 +3313,7 @@
             hint: 'В самом низу логотип проявляется вместе с кнопками.' }),
           selectIn(F, 'brandSize', 'Размер логотипа', [['s', 'Маленький, как подпись'], ['m', 'Средний'], ['l', 'Крупный']], { def: 's' })]),
         el('div', { class: 'a-row' }, [
-          imageIn(F, 'logo', 'Свой логотип (необязательно)', { max: 1200, hint: 'PNG с прозрачным фоном: на странице он станет золотым. Пусто — логотип сайта.' }),
+          imageIn(F, 'logo', 'Свой логотип (необязательно)', { max: 1200, size: { text: 'до 1200 px по длинной стороне', note: 'PNG с прозрачным фоном' }, hint: 'На странице он станет золотым. Пусто — логотип сайта.' }),
           textIn(tx, 'finBrand', 'Надпись (если выбрана «Надпись»)', { ph: '13 MIRRORS' })]),
         el('div', { class: 'a-row3' }, [textIn(tx, 'finSavePng', 'Кнопка «картинка»', { ph: 'Картинка для телефона', hint: 'Только у Путешествия и Погружения.' }), textIn(tx, 'finSaveLine', 'Кнопка «PDF»', { ph: 'PDF для раскрашивания' }), textIn(tx, 'finReview', 'Кнопка отзыва', { ph: 'Оставить отзыв' })]),
         textIn(F, 'review', 'Куда ведёт «Оставить отзыв» — одна ссылка на всех', { ph: 'https://…', hint: 'Например, форма или чат в Telegram. Пусто — кнопки нет. «Оставить след» в финале нет.' }),
@@ -3487,8 +3495,8 @@
         'Нажмите на картинку — фигурка встанет туда. Размер, поворот и цвет — инструментом «Выбрать».')]);
     figRow.hidden = st.tool !== 'fig';
     var holder = { img: st.img || null };
-    var imgRow = el('div', {}, [imageIn(holder, 'img', 'Своя светящаяся картинка', { max: 800, onChange: function () { st.img = holder.img; },
-      hint: 'PNG с прозрачным фоном, светлая на тёмном — тёмное станет прозрачным. Загрузите, потом нажмите на рисунок — встанет туда.' })]);
+    var imgRow = el('div', {}, [imageIn(holder, 'img', 'Своя светящаяся картинка', { max: 800, onChange: function () { st.img = holder.img; }, size: { w: 800, h: 800, note: 'PNG, светлая на тёмном' },
+      hint: 'Тёмное станет прозрачным. Загрузите, потом нажмите на рисунок — встанет туда.' })]);
     imgRow.hidden = st.tool !== 'img';
     var undoBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↶ Отменить', onclick: function () {
       var u = st.undo.pop(); if (!u) return;
@@ -4340,7 +4348,7 @@
             e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'date', 'Дата', { type: 'date' }), textIn(e, 'dateEnd', 'Последний день (если несколько)', { type: 'date' }), textIn(e, 'time', 'Начало', { ph: '19:00' })]),
             e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'duration', 'Длительность, минут', { type: 'number', ph: '120' }), textIn(e, 'place', 'Где', { ph: 'Онлайн / Москва, …' }), textIn(e, 'price', 'Стоимость', { ph: '1 500 ₽ / свободный вход' })]),
             e.type === 'case' ? null : textIn(e, 'dateText', 'Дата своими словами (необязательно)', { ph: 'Каждый четверг октября', hint: 'Если заполнено — показывается вместо даты.' }),
-            imageIn(e, 'cover', 'Главная картинка', { max: 1800, hint: 'Показывается крупно наверху страницы и маленькой — в списке.' }),
+            imageIn(e, 'cover', 'Главная картинка', { max: 1800, size: { w: 1600, h: 1200, note: 'горизонтальная, 4:3; текст на картинке — не у краёв' }, hint: 'Показывается крупно наверху страницы и маленькой — в списке.' }),
             fitIn(e, 'coverFit', 'Главная картинка в списке', 'Наверху страницы события она всегда целиком. В списке окошко 4:3 — для вертикальной картинки выберите «целиком».'),
             textIn(e, 'coverCaption', 'Подпись под главной картинкой', { ph: 'необязательно' }),
             e.type === 'case' ? null : glassEventFields(e),
@@ -4402,8 +4410,8 @@
         el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть', onclick: function () { openPreview(which); } })]),
       sub('Фон страницы'),
       el('div', { class: 'a-row' }, [
-        imageIn(lk.background, 'image', 'Фоновая картинка', { max: 2400, hint: 'Растягивается на весь экран.' }),
-        imageIn(lk.background, 'imageTall', 'Картинка для телефона', { max: 2000, hint: 'Необязательно. Пусто — та же, что слева.' })]),
+        imageIn(lk.background, 'image', 'Фоновая картинка', { max: 2400, size: { w: 2400, h: 1350, note: 'горизонтальная, 16:9' }, hint: 'Растягивается на весь экран.' }),
+        imageIn(lk.background, 'imageTall', 'Картинка для телефона', { max: 2000, size: { w: 1080, h: 1920, note: 'вертикальная, 9:16' }, hint: 'Необязательно. Пусто — та же, что слева.' })]),
       el('div', { class: 'a-row3' }, [
         colorIn(lk.background, 'color', 'Цвет фона'),
         rangeIn(lk.background, 'dim', 'Затемнение картинки', { max: 90, step: 5, unit: '%', hint: 'Здесь много текста — обычно 45–65%.' }),
@@ -4482,7 +4490,7 @@
   var SB_LOOKS = [['normal', 'Обычный'], ['thought', 'Мысль — курсивом, крупнее'], ['mantra', 'Мантра — по центру, курсивом']];
   function galleryForm(list) {
     return collection(list, { visible: true, max: 10, title: function (m, k) { return (m.caption ? m.caption : 'Картинка ' + (k + 1)); },
-      body: function (m) { return [imageIn(m, 'src', '', { max: 1800 }), textIn(m, 'caption', 'Подпись под картинкой', { ph: 'Работа участницы маршрута «Белый Волшебник»', hint: 'Мелко и бледнее основного текста, как подпись к фото. Можно пусто.' })]; },
+      body: function (m) { return [imageIn(m, 'src', '', { max: 1800, size: { text: 'от 1200 px по длинной стороне', note: 'в одном разделе — одной формы' } }), textIn(m, 'caption', 'Подпись под картинкой', { ph: 'Работа участницы маршрута «Белый Волшебник»', hint: 'Мелко и бледнее основного текста, как подпись к фото. Можно пусто.' })]; },
       make: function () { return { id: uid('img'), src: null, caption: '', visible: true }; }, addLabel: '+ Добавить картинку', empty: 'Пока без картинок.' });
   }
   function sbBlocksForm(x, tab) {
@@ -4548,7 +4556,7 @@
       colorOptIn(b, 'ringColor', ring ? 'Цвет свечения' : 'Цвет ободка у фото', { none: 'акцентный цвет страницы', inh: evAccent, inhLabel: 'акцентный цвет страницы', pick: '#ecc46e' }),
       ring ? el('div', { class: 'a-row' }, [
         colorOptIn(b, 'ringBg', 'Фон круга', { none: 'без своего фона', pick: '#0e1a44', hint: 'Например, тёмно-синий — как на афише фестиваля: свечение на нём ярче.' }),
-        imageIn(b, 'ringImage', 'Картинка в центре', { max: 1200, hint: 'Пусто — главная картинка события. Лучше квадратная.' })]) : null,
+        imageIn(b, 'ringImage', 'Картинка в центре', { max: 1200, size: { w: 1200, h: 1200, note: 'квадрат, на сайте — в круге' }, hint: 'Пусто — главная картинка события.' })]) : null,
       ring ? textIn(b, 'ringHint', 'Подсказка под кругом', { ph: 'Нажмите на лицо — появится имя' }) : null
     ];
   }
@@ -4587,7 +4595,7 @@
           return [
             el('div', { class: 'a-row' }, [textIn(p, 'name', 'Имя', { ph: 'Анна Смирнова' }), textIn(p, 'role', 'Роль', { ph: 'психолог, ведущая МАК' })]),
             el('div', { class: 'a-face-row' }, [face, el('div', { class: 'a-face-ctl' }, [
-              imageIn(p, 'photo', 'Фото', { max: 900, onChange: paint, hint: 'Лучше квадратное или портрет, лицо крупно. На сайте — в круге.' }),
+              imageIn(p, 'photo', 'Фото', { max: 900, onChange: paint, size: { w: 900, h: 900, note: 'квадрат или портрет, лицо крупно' }, hint: 'На сайте — в круге.' }),
               rangeIn(p, 'photoY', 'Где лицо по высоте', { def: 30, step: 5, unit: '%', onChange: function () { paint(); }, hint: '0 — показать верх фото, 100 — низ. Двигайте, пока лицо не встанет в круг.' })])]),
             textIn(p, 'about', 'Пара строк о человеке', { multi: true, rows: 3, ph: 'Чем занимается, что ведёт, в чём сильна.' })
           ];
@@ -4615,7 +4623,7 @@
           el('div', { class: 'a-row' }, [selectIn(x, 'routeId', 'Маршрут', routeOptions()), textIn(x, 'day', 'Номер дня', { type: 'number' })]),
           el('div', { class: 'a-row3' }, [optIn(x, 'kin', 'Кин'), optIn(x, 'tone', 'Тон'), optIn(x, 'seal', 'Печать')]),
           textIn(x, 'title', 'Название дня', { hint: 'Например, «Красный Магнитный Дракон» или «День вне времени».' }),
-          el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
+          el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, size: { w: 1200, h: 900, note: 'горизонтальная, 4:3' }, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
             colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           fitIn(x, 'coverFit', 'Своя обложка в окошке', 'Для вертикальной картинки (паспорт архетипа) — «целиком». Если своей обложки нет — как настроено у картинки маршрута в «Маршрутах».'),
           glassItemShare('days', x),
@@ -4628,7 +4636,7 @@
       addLabel: '+ Добавить Летопись',
       body: function (x) { return [
         el('div', { class: 'a-row' }, [textIn(x, 'name', 'Название или номер'), selectIn(x, 'routeId', 'Маршрут', routeOptions())]),
-        el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
+        el('div', { class: 'a-row' }, [imageIn(x, 'cover', 'Своя обложка', { max: 1400, size: { w: 1200, h: 900, note: 'горизонтальная, 4:3' }, hint: 'Пусто — картинка маршрута. Например, паспорт архетипа.' }),
             colorOptIn(x, 'color', 'Свой цвет', { none: 'как у маршрута', pick: '#c9a14a', inh: routeColorOf(x), inhLabel: 'как у маршрута', hint: 'Если соседние обложки плохо смотрятся рядом.' })]),
           fitIn(x, 'coverFit', 'Своя обложка в окошке', 'Для вертикальной картинки (паспорт архетипа) — «целиком». Если своей обложки нет — как настроено у картинки маршрута в «Маршрутах».'),
           glassItemShare('chronicles', x),
@@ -4691,7 +4699,7 @@
       el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPreview('reflection'); } })]),
       collection(rf.items = rf.items || [], { visible: true, title: function (x) { return x.title; },
         make: function () { return { id: uid('e'), visible: true, image: null, title: 'Новый пример', text: '' }; }, addLabel: '+ Добавить пример',
-        body: function (x) { return [imageIn(x, 'image', 'Изображение', { max: 1400 }), textIn(x, 'meta', 'Kin и название карты', { ph: 'Kin 68 · Жёлтая Электрическая Звезда', hint: 'Мелко над названием. Можно оставить пустым. Если у карты есть стекло — строка Kin на нём по умолчанию выключена.' }), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 }),
+        body: function (x) { return [imageIn(x, 'image', 'Изображение', { max: 1400, size: { w: 1200, h: 1600, note: 'вертикальная, ровно 3:4' } }), textIn(x, 'meta', 'Kin и название карты', { ph: 'Kin 68 · Жёлтая Электрическая Звезда', hint: 'Мелко над названием. Можно оставить пустым. Если у карты есть стекло — строка Kin на нём по умолчанию выключена.' }), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 }),
           glassOwnFields(x, 'kin', { img: function () { return !!x.image; } })]; } }),
       block('Оформление страницы', lookFields(rf, 'reflection'), { open: !!ST.reflectionLookOpen }),
       block('Шапка страницы и кнопка', [
@@ -4744,7 +4752,7 @@
           textIn(st.contacts, 'vk', 'VK', { ph: 'короткий адрес страницы', hint: 'Например: id12345678 или имя из адреса vk.com/…' })])
       ]),
       block('Логотип', [
-        logoIn(st, 'logo', 'logoRatio', 'Логотип витрины', { hint: 'Показывается над сеткой и под ней (если так выбрано в «Странице месяца»). PNG с прозрачным фоном; если фон белый — уберём его сами. Цвет логотипа задаётся в каждом месяце: «Цвет надписей и логотипа». У месяца может быть свой логотип.' })
+        logoIn(st, 'logo', 'logoRatio', 'Логотип витрины', { size: LOGO_SIZE, hint: 'Показывается над сеткой и под ней (если так выбрано в «Странице месяца»). PNG с прозрачным фоном; если фон белый — уберём его сами. Цвет логотипа задаётся в каждом месяце: «Цвет надписей и логотипа». У месяца может быть свой логотип.' })
       ], { open: false, note: 'общий для всех месяцев' }),
       block('Превью ссылки по умолчанию', [
         el('p', { class: 'a-hint', text: 'Картинка и подпись, которые Telegram и VK показывают под ссылкой. Используются для Песочницы, страницы примеров и для месяцев, у которых не задано своё превью.' }),
@@ -4809,8 +4817,8 @@
         el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openHomePreview(true); } })]),
       block('Картинки', [
         el('div', { class: 'a-row' }, [
-          imageIn(h, 'imageWide', 'Для компьютера — горизонтальная', { max: 2400, hint: 'Пусто — дверь, как сейчас. Логотип и текст стоят слева, поэтому левая часть картинки должна быть тёмной и спокойной.' }),
-          imageIn(h, 'imageTall', 'Для телефона — вертикальная', { max: 2000, hint: 'Пусто — вертикальная дверь. Показывается верхняя часть, ниже — тёмный фон с текстом.' })])
+          imageIn(h, 'imageWide', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, hint: 'Пусто — дверь, как сейчас. Логотип и текст стоят слева, поэтому левая часть картинки должна быть тёмной и спокойной.' }),
+          imageIn(h, 'imageTall', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Пусто — вертикальная дверь. Показывается верхняя часть, ниже — тёмный фон с текстом.' })])
       ]),
       block('Тексты', [
         el('div', { class: 'a-row' }, [textIn(h, 'lead1', 'Фраза под логотипом'), textIn(h, 'lead2', 'Вторая строка (курсивом)')]),
@@ -4876,7 +4884,7 @@
         textIn(g, 'note', 'Строка под текстом (курсивом)', { hint: 'Чтобы убрать строку совсем — оставьте в поле один пробел.' })
       ]),
       block('Картинка', [
-        imageIn(g, 'image', 'Вместо нарисованной книги', { max: 1600, hint: 'Пусто — тёмная книга с золотым обрезом и одуванчиком. По картинке, как и по книге, время от времени пробегает блик.' })
+        imageIn(g, 'image', 'Вместо нарисованной книги', { max: 1600, size: { w: 1200, h: 1600, note: 'вертикальная, как книга' }, hint: 'Пусто — тёмная книга с золотым обрезом и одуванчиком. По картинке, как и по книге, время от времени пробегает блик.' })
       ], { open: false }),
       block('Откуда ведёт ссылка', [
         switchIn(g, 'homeBtn', 'Кнопка на главной рядом с «Расписанием»', { hint: 'Вторая кнопка — с золотым контуром, на первом экране. Видна, только пока страница открыта.' }),
