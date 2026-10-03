@@ -1594,9 +1594,6 @@
     var title = tab === 'days' ? [r.title, it.day ? 'День ' + it.day : '', it.title].filter(Boolean).join(' · ') : [it.name, r.title].filter(Boolean).join(' · ');
     return { dir: 'sandbox', hash: tab + '/' + encodeURIComponent(id), title: title, desc: plainShort(first && first.text), img: it.shareImage || it.cover || r.image, sized: !!it.shareImage };
   }
-  // Яндекс Метрика (assets/metrika.js) — на полных страницах. Страницы-превью для Telegram/VK её не имеют и сразу переходят на витрину;
-  // чтобы Метрика видела, откуда пришли (Telegram, VK…), а не «с превью», они передают свой источник через sessionStorage.
-  var REF_KEEP = 'try{sessionStorage.setItem("m13ref",document.referrer)}catch(e){}';
   function pageHTML(kind, id, D, cardId) {
     D = D || DATA;
     var st = D.settings, site = st.siteTitle || '13 MIRRORS';
@@ -1614,7 +1611,7 @@
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ctitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + sc.id + '/' + encodeURIComponent(cardId) + '/', title: ctitle, description: cdesc, image: cimg, sized: sized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
-        '<body style="font-family:sans-serif;padding:24px"><script>' + REF_KEEP + 'location.replace(' + JSON.stringify(target) + ');</script>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
         '<a href="' + target + '">' + escAttr(f.title || 'Открыть карточку') + '</a>\n</body>\n</html>\n';
     }
     if (kind === 'event' || kind === 'sbitem' || kind === 'archroute') {
@@ -1629,7 +1626,7 @@
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ptitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + pv.dir + '/' + encodeURIComponent(cardId) + '/', title: ptitle, description: pdesc, image: pimg, sized: psized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + ptarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + pv.dir + '/') + '">\n</head>\n' +
-        '<body style="font-family:sans-serif;padding:24px"><script>' + REF_KEEP + 'location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
+        '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
         '<a href="' + ptarget + '">' + escAttr(pv.title || 'Открыть') + '</a>\n</body>\n</html>\n';
     }
     var base = kind === 'main' ? './' : '../';
@@ -1640,8 +1637,7 @@
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' +
-      '<script src="' + base + 'assets/metrika.js" async></script>\n' + quickStart(sc ? sc.background : ((D[kind] || {}).look || {}).background, base) +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
       pageData(sc, D) + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
@@ -4820,7 +4816,16 @@
     story: 'Помнишь калейдоскоп? С каждым поворотом в нём рождается новый узор, но сам он ничего не создаёт — лишь меняет угол зрения.\n\nПереступая этот порог, ты не найдёшь готовых ответов, но здесь всегда есть вопрос. Здесь открываются твои миры и продолжается Путь к Себе.',
     scheduleWord: 'Расписание', ask: 'Задать вопрос',
     footer: '© 13 MIRRORS. Все материалы являются частью авторской разработки 13 MIRRORS.\n\nИспользование и воспроизведение — только с указанием авторства и по согласованию с автором.',
-    accent: '#ecd3a3', font: 'Cormorant Garamond'
+    accent: '#ecd3a3', font: 'Cormorant Garamond',
+    // Страница 13mirrors.ru/privacy/ (лежит в репозитории главной); privacyTitle — и заголовок, и надпись ссылки внизу главной и Гримуара
+    privacyTitle: 'Конфиденциальность',
+    privacyText: '13 MIRRORS — пространство для внутренней работы. Всё, что вы здесь проживаете, остаётся вашим.\n\n' +
+      'Сайт не собирает персональные данные. Здесь нет регистрации, анкет и форм — вам не нужно сообщать о себе ни имя, ни телефон, ни почту.\n\n' +
+      'На сайте нет счётчиков посещений, рекламы и систем статистики, сайт не использует cookie. Шрифты и картинки загружаются с самого сайта — без обращения к сторонним сервисам.\n\n' +
+      'То, что вы отмечаете и выбираете на маршрутах, хранится только в браузере вашего устройства. Это не передаётся на сервер и не видно никому, кроме вас. Если очистить данные сайта в браузере, это сотрётся.\n\n' +
+      'Как и любой сайт в интернете, сервер, на котором размещён 13 MIRRORS, ведёт технические журналы обращений (адрес устройства в сети, время, открытая страница). Они нужны для работы сервера, и мы не используем их, чтобы узнавать, кто заходил.\n\n' +
+      'Когда вы пишете нам в Telegram или VK, разговор идёт уже там, по правилам этих сервисов.\n\n' +
+      'Если остались вопросы — напишите нам: ссылка «Задать вопрос» есть на главной странице.'
   };
   var HOME_FONTS = ['Cormorant Garamond', 'Lora', 'Playfair Display', 'Philosopher'];
   var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -4857,6 +4862,14 @@
           textIn(h, 'ask', 'Ссылка в конце', { hint: 'Открывает окошко с Telegram и VK из «Настройки → Контакты».' })]),
         textIn(h, 'footer', 'Пометка внизу страницы', { multi: true, rows: 3 })
       ]),
+      block('Страница «Конфиденциальность»', [
+        el('p', { class: 'a-hint', text: 'Адрес — 13mirrors.ru/privacy/. Ссылка на неё — внизу главной и Гримуара, под пометкой. Цвет, шрифт и пометка внизу — как у главной.' }),
+        textIn(h, 'privacyTitle', 'Заголовок', { hint: 'Он же — надпись ссылки внизу главной.' }),
+        textIn(h, 'privacyText', 'Текст', { multi: true, rows: 14, hint: 'Пустая строка между абзацами — новый абзац. Первый абзац — курсивом, золотым.' }),
+        el('div', { class: 'a-tabs' }, [
+          el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPagePreview('privacy', false); } }),
+          el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openPagePreview('privacy', true); } })])
+      ], { open: false }),
       block('Цвет и шрифт', [
         el('div', { class: 'a-row' }, [
           colorIn(h, 'accent', 'Акцентный цвет — кнопка, курсив, ссылки'),
@@ -4929,11 +4942,16 @@
   // Предпросмотр отдельной страницы сайта (сейчас — Гримуар): iframe /<путь>/?preview=1, черновик — сообщением
   function openPagePreview(kind, phone) {
     var pv = document.getElementById('a-preview');
-    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Гримуар', src: '/grimoire/?preview=1' });
+    // kind: 'grimoire' (13mirrors.ru/grimoire/) или 'privacy' (13mirrors.ru/privacy/ — «Конфиденциальность», тексты в settings.home)
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: kind === 'privacy' ? 'Конфиденциальность' : 'Гримуар', src: '/' + kind + '/?preview=1' });
     if (phone) fr.style.width = '375px';
-    function send() { try { fr.contentWindow.postMessage({ m13grimoire: DATA.settings.grimoire || {}, home: DATA.settings.home || {}, monthGen: monthGenNow() }, location.origin); } catch (e) {} }
+    function send() {
+      var m = { home: DATA.settings.home || {}, monthGen: monthGenNow() };
+      m['m13' + kind] = kind === 'privacy' ? true : DATA.settings.grimoire || {};
+      try { fr.contentWindow.postMessage(m, location.origin); } catch (e) {}
+    }
     fr.addEventListener('load', function () { send(); setTimeout(send, 400); });
-    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13grimoireReady) send(); }
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data['m13' + kind + 'Ready']) send(); }
     window.addEventListener('message', onMsg);
     var bar = el('div', { class: 'a-pbar' }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
