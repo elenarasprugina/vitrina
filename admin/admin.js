@@ -5096,11 +5096,11 @@
         Object.keys(OLD).forEach(function (k) { if (r.texts && (r.texts[k] == null || r.texts[k] === OLD[k]) && (o.texts || {})[k]) r.texts[k] = o.texts[k]; });
       }
     });
-    // Тексты диска из её документа (03.10): способ карты, «Узнаю себя, если…», дорога в центр, вопросы к диску, названия зон —
-    // один раз с сайта: только туда, где в черновике пусто, заготовка или прежнее название; её правки не трогаем
+    // Тексты диска из её документа (03.10): способ карты, «Узнаю себя, если…», дорога в центр, вопросы к диску, названия зон,
+    // практика дня и вечерняя фраза (2-й заход) — один раз с сайта: только туда, где в черновике пусто, заготовка или прежнее название; её правки не трогаем
     D.journeys.items.forEach(function (r) {
       var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
-      if (!o || !o.deck || !r.deck || r.deck.diskTexts >= 1) return;
+      if (!o || !o.deck || !r.deck || r.deck.diskTexts >= 2) return;
       var OLDN = { flatUp: 'Плоскость ↑', flatDown: 'Плоскость ↓', edgeUp: 'Край ↑ · пустыня', edgeDown: 'Край ↓ · болото' };
       var dk = r.deck.disk, on = ((o.deck.disk || {}).names) || {};
       if (dk) { dk.names = dk.names || {}; Object.keys(on).forEach(function (z) { if (!dk.names[z] || dk.names[z] === OLDN[z]) dk.names[z] = on[z]; }); }
@@ -5114,11 +5114,14 @@
         });
       });
       (r.days || []).forEach(function (d, i) {
-        var ot = ((o.days || [])[i] || {}).texts || {}, v = (d.texts = d.texts || {}).diskQuestion;
-        if (ot.diskQuestion != null && (v == null || !String(v).trim() || /^\s*\[заготовка\]/.test(v))) d.texts.diskQuestion = ot.diskQuestion;
+        var ot = ((o.days || [])[i] || {}).texts || {}; d.texts = d.texts || {};
+        ['diskQuestion', 'personalPractice', 'closingPoint'].forEach(function (key) {
+          var v = d.texts[key];
+          if (ot[key] != null && !/^\s*\[заготовка\]/.test(ot[key]) && (v == null || !String(v).trim() || /^\s*\[заготовка\]/.test(v))) d.texts[key] = ot[key];
+        });
       });
       if (r.texts && r.texts.diskRoad === 'Дорога назад в центр') delete r.texts.diskRoad;
-      r.deck.diskTexts = 1;
+      r.deck.diskTexts = 2;
     });
     Object.keys(D.showcases).forEach(function (k) {
       (D.showcases[k].cards || []).forEach(function (c) {
