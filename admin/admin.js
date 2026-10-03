@@ -5067,6 +5067,11 @@
     D.journeys.items.forEach(function (r) {
       var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
       if (!r.zones && o && o.zones) r.zones = clone(o.zones);
+      // Имена кинов 4 и 7 (её ответ 03.10): «Синяя Самосущая Ночь» (тон «Самосущий»), «Белый Резонансный Соединитель Миров» (печать «Белый Соединитель Миров»).
+      // Меняем только старые написания — если она впишет своё, не трогаем
+      var KIN_NEW = { 'Синяя Самосущная Ночь': 'Синяя Самосущая Ночь', 'Синяя Самосуществующая Ночь': 'Синяя Самосущая Ночь', 'Самосуществующий': 'Самосущий',
+        'Белый Резонансный Мост Миров': 'Белый Резонансный Соединитель Миров', 'Белый Мост Миров': 'Белый Соединитель Миров' };
+      (r.days || []).forEach(function (d) { ['kinName', 'seal', 'tone'].forEach(function (k) { if (KIN_NEW[d[k]]) d[k] = KIN_NEW[d[k]]; }); });
       // Вид стёклышек (шаг 2, с 02.10): в черновике его нет — берём с сайта
       if (!r.glass && o && o.glass) r.glass = clone(o.glass);
       // Финал Солнца (шаг 3, с 02.10): надписи заглушки больше не нужны; настройки финала — с сайта, если в черновике их нет
@@ -5106,8 +5111,6 @@
         (r.days || []).forEach(function (d, i) {
           var od = (o.days || [])[i] || {}; d.texts = d.texts || {};
           ['cardOperation', 'environment'].forEach(function (k) { if (d[k] == null && od[k] != null) d[k] = od[k]; });
-          if (od.kinName && /Самосуществующая|Соединитель/.test(d.kinName || '')) d.kinName = od.kinName;
-          if (od.seal && /Соединитель/.test(d.seal || '')) d.seal = od.seal;
           ['personalQuestion', 'personalPractice', 'closingPoint'].forEach(function (k) {
             var v = d.texts[k];
             if (v == null || /^\s*\[заготовка\]/.test(v)) { if ((od.texts || {})[k] != null) d.texts[k] = od.texts[k]; else delete d.texts[k]; }
