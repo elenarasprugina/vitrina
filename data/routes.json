@@ -30,8 +30,9 @@
         "to": "2026-10-17"
       },
       "description": "13 дней о ясности, жизненной силе и о том, куда ты направляешь свой свет.",
-      "image": null,
-      "routeUrl": ""
+      "image": "media/ab50ba94293e2a22ba6d.webp",
+      "routeUrl": "",
+      "glass": {}
     },
     {
       "id": "blue-hand",
@@ -42,7 +43,8 @@
       },
       "description": "13 дней о действии, опыте и завершении начатого. Волна началась в сентябре, а в октябре мы проходим её последние дни.",
       "image": "media/2bf9bfde7fb5689060a6.webp",
-      "routeUrl": "https://elenarasprugina.github.io/13mirrors-blue-hand/"
+      "routeUrl": "https://elenarasprugina.github.io/13mirrors-blue-hand/",
+      "glass": {}
     },
     {
       "id": "white-wizard",
