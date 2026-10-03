@@ -78,6 +78,7 @@ body.a-body{margin:0;background:#f3f3f1}
 .a-hint--warn{color:var(--a-warn)}
 .a-input{width:100%;border:1px solid var(--a-line);border-radius:9px;background:#fff;padding:8px 10px;font-size:14px;min-width:0}
 textarea.a-input{resize:vertical;min-height:62px;line-height:1.4}
+textarea.a-input.a-grow{min-height:0;resize:none;overflow:hidden}
 .a-input:focus{border-color:#8f8f8a;outline:none}
 select.a-input{padding-right:28px}
 .a-opt-head{display:flex;align-items:center;justify-content:space-between;gap:10px}

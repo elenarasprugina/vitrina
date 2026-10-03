@@ -180,10 +180,20 @@
       hint ? el('span', { class: 'a-hint' + (warn ? ' a-hint--warn' : ''), text: hint }) : null
     ]);
   }
+  // LINES — страницы маршрутов: однострочные надписи принимают Enter (поле растёт), кроме ссылок, дат и чисел
+  var LINES = false;
+  function growIn(i) {
+    // высота — по числу строк (работает и в свёрнутом блоке); при наборе — по содержимому
+    i.rows = Math.max(1, String(i.value).split('\n').length);
+    i.addEventListener('input', function () { i.style.height = 'auto'; if (i.scrollHeight) i.style.height = (i.scrollHeight + 2) + 'px'; });
+    return i;
+  }
   function textIn(obj, key, label, o) {
     o = o || {};
-    var i = el(o.multi ? 'textarea' : 'input', { class: 'a-input', type: o.multi ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : null });
+    var grow = !o.multi && LINES && !o.type && !/^(https?:|mailto:|tel:)/.test(o.ph || '');
+    var i = el(o.multi || grow ? 'textarea' : 'input', { class: 'a-input' + (grow ? ' a-grow' : ''), type: o.multi || grow ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : grow ? 1 : null });
     i.value = obj[key] == null ? '' : obj[key];
+    if (grow) growIn(i);
     i.addEventListener('input', function () {
       obj[key] = o.type === 'number' ? (i.value === '' ? null : Number(i.value)) : i.value;
       changed(); if (o.onInput) o.onInput(i.value);
@@ -3708,6 +3718,8 @@
       el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openJourneyPage(r, false); } }),
       el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
     var body;
+    LINES = true;
+    try {
     if (t === 'dayCard') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты из колоды.' }),
         jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
@@ -3724,6 +3736,7 @@
     else if (t === 'plants') body = jPlants(r);
     else if (t === 'codes') body = jCodes(r);
     else body = jMain(r);
+    } finally { LINES = false; }
     return [head, pick, look, tabs].concat(body);
   }
 

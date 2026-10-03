@@ -19,8 +19,8 @@
 .ys-hud > *{pointer-events:auto}
 .ys-hud{transition:opacity .35s}
 .ys-locked .ys-hud{opacity:0}
-.ys-h{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4.4vw,54px);line-height:1.08;letter-spacing:.01em;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
-.ys-sub{margin:0;font-size:clamp(14px,1.4vw,17px);letter-spacing:.08em;text-transform:uppercase;color:#f3d9a0;text-shadow:0 1px 12px rgba(0,0,0,.8)}
+.ys-h{margin:0;text-wrap:balance;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4.4vw,54px);line-height:1.08;letter-spacing:.01em;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
+.ys-sub{margin:0;text-wrap:balance;font-size:clamp(14px,1.4vw,17px);letter-spacing:.08em;text-transform:uppercase;color:#f3d9a0;text-shadow:0 1px 12px rgba(0,0,0,.8)}
 .ys-go{font:inherit;font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;letter-spacing:.04em;color:#2a1a05;background:radial-gradient(circle at 50% 35%,#fff3c8,#ffcf5a 60%,#d9921c);border:0;border-radius:999px;padding:12px 30px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 34px rgba(255,200,80,.55);animation:ys-breathe 3.2s ease-in-out infinite}
 @keyframes ys-breathe{0%,100%{box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 22px rgba(255,200,80,.35)}50%{box-shadow:0 0 0 1px rgba(255,236,180,.9),0 0 48px rgba(255,200,80,.8)}}
 .ys-err{padding:40px 20px;text-align:center;color:#f3d9a0}
