@@ -2302,11 +2302,11 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
-    ['note', 'Общий текст (одинаковый во все дни)'], ['wheel', 'Лицо карты — колесо'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
-  var J_PERSONAL_ONLY = { wheel: 1, wayback: 1, permission: 1 };
+    ['note', 'Общий текст (одинаковый во все дни)'], ['disk', 'Лицо карты — диск (касание зон)'], ['wheel', 'Лицо карты — колесо (прежнее)'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
+  var J_PERSONAL_ONLY = { wheel: 1, wayback: 1, permission: 1, disk: 1 };
   var J_KIND_NAMES = { permission: 'Лицо карты — колесо' }; J_KINDS.forEach(function (k) { J_KIND_NAMES[k[0]] = k[1]; });
   var J_ZONES = [['axis', 'Ось'], ['spoke', 'Спица'], ['rim', 'Обод'], ['underside', 'Изнанка']];
   function jRoute() {
@@ -2318,14 +2318,16 @@
     r.dayCard = r.dayCard || { blocks: [] }; r.personalCard = r.personalCard || { blocks: [] };
     r.days = r.days || [];
     var D = r.deck = r.deck || {}; D.cards = D.cards || []; D.zones = D.zones || {}; D.sides = D.sides || {}; D.wayBack = D.wayBack || {};
-    D.cards.forEach(function (k) { k.less = k.less || {}; k.more = k.more || {}; });
+    D.cards.forEach(function (k) { k.less = k.less || {}; k.more = k.more || {}; k.recognize = k.recognize || {}; k.road = k.road || {}; });
+    var DK = D.disk = D.disk || {}; DK.names = DK.names || {}; DK.areas = DK.areas || {};
     r.states = r.states || {}; r.states.items = r.states.items || []; r.kaleido = r.kaleido || {};
     var G = r.glass = r.glass || {}; G.gifts = G.gifts || {}; r.final = r.final || {};
     r.stage = r.stage || {}; r.neon = r.neon || {}; r.plants = r.plants || {};
     // Мандалу в финале заменила «Золотая филигрань» (02.10)
     if (r.final.sun === 'mandala') delete r.final.sun;
     if (window.M13R) { var GD = window.M13R.GLASS_DEF; if (!G.states) G.states = clone(GD.states); if (!G.days) G.days = clone(GD.days);
-      window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.gifts[z]) G.gifts[z] = clone(GD.gifts[z]); }); }
+      window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.gifts[z]) G.gifts[z] = clone(GD.gifts[z]); });
+      G.marks = G.marks || {}; window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.marks[z]) G.marks[z] = clone(GD.marks[z]); }); }
     for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
     r.days.forEach(function (d) { d.texts = d.texts || {}; });
     return r;
@@ -2366,6 +2368,7 @@
         var out = [jWho(b, personal)];
         if (b.kind === 'image') out.push(el('p', { class: 'a-hint', text: 'Картинка — у каждого дня своя (вкладка «13 дней»), лучше 16:9, например 1600 × 900. Пока картинки нет — солнце-заглушка с номером дня.' }));
         if (b.kind === 'wheel' || b.kind === 'permission') out.push(el('p', { class: 'a-hint', text: 'Лицо выпавшей карты — колесо: качество, ось в центре, по сторонам спица и обод («слишком мало» внизу, «слишком много» вверху), за кругом — изнанка. Слова — во вкладке «Колода». Если у карты загружена картинка — вместо колеса картинка.' }));
+        if (b.kind === 'disk') out.push(el('p', { class: 'a-hint', text: 'Лицо выпавшей карты — диск: качество, над диском вопрос дня к диску (у каждого дня свой — вкладка «13 дней»), картинка диска с 6 зонами касания. Человек примеряет зону → «Здесь» → камушек в узор и дорога назад в центр. Картинка, зоны и надписи — вкладка «Диск», тексты зон у каждой карты — вкладка «Колода».' }));
         if (b.kind === 'wayback') out.push(textIn(b, 'label', 'Подпись над списком', { ph: 'Путь назад в ось', hint: 'Список по зонам колеса: ось, спица, обод, изнанка. Тексты — во вкладке «Колода» → «Путь назад в ось».' }));
         if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') out.push(textIn(b, 'text', b.kind === 'note' ? 'Текст' : 'Строка', { multi: b.kind === 'note', rows: 3,
           hint: 'Одна на все дни, в неё подставляются метки. ' + jTokensHint(r, personal) }));
@@ -2417,7 +2420,8 @@
     var d = r.days[n - 1] || { texts: {} };
     var body = el('div', { class: 'a-jcheck' }, r.deck.cards.map(function (p, i) {
       var ctx = window.M13R.ctxOf(r, n, p), miss = [];
-      var rows = blocks.map(function (b) {
+      var hasDisk = (r.personalCard.blocks || []).some(function (b) { return b.kind === 'disk' && b.visible !== false; });
+      var rows = (hasDisk && d.texts.diskQuestion ? [{ kind: 'question', id: 'diskQuestion', label: 'Вопрос к диску' }] : []).concat(blocks).map(function (b) {
         var tpl = b.kind === 'text' || b.kind === 'question' ? d.texts[b.id] : b.text;
         if (!tpl) return null;
         var t = window.M13R.fill(tpl, ctx, miss);
@@ -2640,6 +2644,7 @@
   function jDays(r) {
     var dayTexts = r.dayCard.blocks.filter(function (b) { return b.kind === 'text' || b.kind === 'question'; });
     var perTexts = r.personalCard.blocks.filter(function (b) { return b.kind === 'text' || b.kind === 'question'; });
+    var diskB = r.personalCard.blocks.filter(function (b) { return b.kind === 'disk'; })[0];
     function lbl(b, fallback) { return (b.label || fallback) + (b.visible === false ? ' (блок скрыт)' : ''); }
     return [el('p', { class: 'a-hint', text: 'У каждого дня — Kin, печать, тон, картинка и тексты. Какие тексты есть — решают блоки во вкладках «Карта дня» и «Личная карта». В личной карте тексты — шаблоны: ' + jTokensHint(r, true) })]
       .concat(r.days.map(function (d, i) {
@@ -2654,6 +2659,8 @@
           sub('Карта дня — общая для всех')]
           .concat(dayTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: b.kind === 'question' ? 2 : 3 }); }))
           .concat([sub('Личная карта — шаблоны (Путешествие, Погружение)')])
+          .concat(diskB && n < r.days.length ? [textIn(d.texts, 'diskQuestion', 'Вопрос к диску (над диском)' + (diskB.visible === false ? ' (блок скрыт)' : ''), { multi: true, rows: 2,
+            ph: 'Где вы сегодня на диске «{качество}»?', hint: 'Над картинкой диска. Метки карты и дня — как в других шаблонах.' })] : [])
           .concat(perTexts.map(function (b) { return textIn(d.texts, b.id, lbl(b, 'Текст'), { multi: true, rows: 3 }); }))
           .concat([el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Проверить со всеми картами', onclick: function () { jCheckAll(r, n); } })]),
           { open: false });
@@ -2662,14 +2669,22 @@
   // Колода-колесо: 13 карт по 6 полей; названия зон, подписи сторон, изнанка, путь назад в ось; рубашка.
   // Порядок карт и состояний не переставляется: номера зашиты в коды участников.
   function jDeck(r) {
-    var D = r.deck, n = D.cards.length;
-    function wheelPv(k) {
-      var box = el('div', { class: 'a-jwheel' });
-      LIVE.push({ node: box, run: function () { if (window.M13R) box.replaceChildren(window.M13R.wheelNode(r, k, { base: '../' })); } });
+    var D = r.deck, n = D.cards.length, DZ = window.M13R ? window.M13R.DISK_ZONES : [];
+    // Справа — диск этой карты: можно касаться зон и смотреть тексты (в панели выбор не запоминается)
+    function diskPv(k) {
+      var box = el('div', { class: 'a-jwheel a-jdisk-pv' });
+      LIVE.push({ node: box, run: function () { if (window.M13R) box.replaceChildren(jDiskCard(r, k)); } });
       setTimeout(liveSoon, 0);
       return box;
     }
+    function zoneTexts(k, key, title, hint) {
+      return [sub(title), el('p', { class: 'a-hint', text: hint })].concat(DZ.map(function (z) {
+        var w = window.M13R.diskWord(r, k, z);
+        return textIn(k[key], z, window.M13R.diskName(r, z) + (w && z !== 'beyond' ? ' · ' + w : ''), { multi: true, rows: 2 });
+      }));
+    }
     return [
+      el('p', { class: 'a-hint', text: 'На личной карте теперь диск (вкладка «Диск»): 6 зон касания. Центр — ось, плоскость — спица, край — обод (↑ — «слишком много», ↓ — «слишком мало»), за диском — изнанка. Поэтому слова карты остаются прежними, а у каждой карты добавились тексты для 6 зон: «Узнаю себя, если…» и дорога назад в центр.' }),
       el('p', { class: 'a-hint', text: 'Колода — колесо. Каждая карта — одно качество: в центре ось (качество вместе со своим противовесом), через неё линия «слишком мало ↔ слишком много», у каждой стороны своя спица (перекос) и обод (крайность). За кругом — изнанка, общая для всех карт. 13 карт на 12 дней: каждый день человек вслепую тянет одну, в 12-й день — из двух, последняя остаётся закрытой.' }),
       block('Рубашка', [imageIn(r, 'cardBack', 'Рубашка — одна на все карты', { max: 1400, hint: 'Вертикальная, ровно 3:4 (например 900 × 1200). Закрытые карты лучами по кругу и обратная сторона выбранной карты. Пусто — золотое солнышко-заглушка.' })], { open: false }),
       block('Зоны колеса и путь назад в ось', [
@@ -2678,7 +2693,7 @@
         el('div', { class: 'a-row' }, J_ZONES.slice(2).map(function (z) { return textIn(D.zones, z[0], 'Название: ' + z[1], { ph: z[1] }); })),
         el('div', { class: 'a-row' }, [textIn(D.sides, 'less', 'Подпись внизу колеса', { ph: 'слишком мало' }), textIn(D.sides, 'more', 'Подпись вверху колеса', { ph: 'слишком много' })]),
         textIn(D, 'undersideQ', 'Изнанка — строка под колесом', { ph: 'кто цепляет? → а нет ли этого во мне?', hint: 'Пусто — строки нет.' }),
-        sub('Путь назад в ось')].concat(J_ZONES.map(function (z) { return textIn(D.wayBack, z[0], z[1], { multi: true, rows: 2 }); })), { open: false }),
+        sub('Путь назад в ось'), el('p', { class: 'a-hint', text: 'На диске — запасной текст: если у карты не написана своя «дорога назад в центр» для зоны, под диском встанет этот (центр — ось, плоскость — спица, край — обод, за диском — изнанка).' })].concat(J_ZONES.map(function (z) { return textIn(D.wayBack, z[0], z[1], { multi: true, rows: 2 }); })), { open: false }),
       sub('Карты'),
       n !== 13 ? el('p', { class: 'a-hint a-hint--warn', text: 'Карт сейчас ' + n + ', а нужно 13 (12 дней с выбором и одна остаётся закрытой).' }) :
         el('p', { class: 'a-hint', text: 'Порядок карт у каждого человека свой: перемешивается от его кода. Поэтому карты здесь не переставляются и не удаляются — иначе у людей сместятся карты по дням. Слова править можно в любой момент. Метки для шаблонов дня: ' + window.M13R.tokens(r).card.map(function (x) { return '{' + x + '}'; }).join(' ') + '.' })
@@ -2687,8 +2702,195 @@
         el('div', { class: 'a-row' }, [textIn(k, 'quality', 'Качество — {качество}', { ph: 'Решительность' }), textIn(k, 'axis', 'Ось — {ось}', { ph: 'Решительность и терпение', hint: 'Качество вместе с противовесом.' })]),
         el('div', { class: 'a-row' }, [textIn(k.less, 'spoke', 'Слишком мало · спица — {спица-мало}', { ph: 'Колебания' }), textIn(k.less, 'rim', 'Слишком мало · обод — {обод-мало}', { ph: 'Пассивность' })]),
         el('div', { class: 'a-row' }, [textIn(k.more, 'spoke', 'Слишком много · спица — {спица-много}', { ph: 'Торопливость' }), textIn(k.more, 'rim', 'Слишком много · обод — {обод-много}', { ph: 'Напористость' })]),
-        imageIn(k, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, hint: 'Если загрузить — вместо колеса. 3:4.' })]), wheelPv(k)])], { open: false });
+        imageIn(k, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, hint: 'Только для прежнего колеса: если загрузить — вместо колеса. 3:4.' })]
+        .concat(zoneTexts(k, 'recognize', 'Диск · «Узнаю себя, если…»', 'Появляется под диском, когда человек коснулся зоны (примерка). Пусто — строки нет. Метки дня и карты можно ставить.'),
+          zoneTexts(k, 'road', 'Диск · дорога назад в центр', 'Открывается под диском после «Здесь» — только для выбранной зоны. Пусто — общий «путь назад в ось» этой зоны (блок выше).'))), diskPv(k)])], { open: false });
     }));
+  }
+  // Диск одной карты в панели (день — из предпросмотра «Диска»): касание зон — примерка, «Здесь» — показать, что откроется
+  function jDiskCard(r, k, day) {
+    var M = window.M13R, n = day || (ST.jdisk && ST.jdisk.day) || 1, box = el('div', { class: 'ys-card ys-card--personal a-jdisk-card' }), inner = el('div', { class: 'ys-card-in' });
+    inner.appendChild(M.diskNode(r, n, k, M.ctxOf(r, n, k), { base: '../', onMark: function () {} }, {}));
+    box.appendChild(inner);
+    return box;
+  }
+  /* Диск на личной карте: картинка (и видео-петля), 6 зон касания, которые вы обводите на картинке, названия зон, приглашение, надписи.
+     Разметка — r.deck.disk.areas[зона] = [[x, y], …] (доли картинки). Нет ни одной обводки — круги от середины. */
+  var J_DZ_COLORS = { center: '#ffd76a', flatUp: '#7fd4ff', flatDown: '#4f8dff', edgeUp: '#ff9a3c', edgeDown: '#c77dff', beyond: '#8fe3a8' };
+  function jDisk(r) {
+    var M = window.M13R, DK = r.deck.disk, tx = r.texts, st = ST.jdz = ST.jdz || { zone: 'center', tool: 'draw', zoom: false, undo: [] };
+    if (!M || !M.diskNode) return [el('p', { class: 'a-hint a-hint--warn', text: 'Диск не загрузился — обновите страницу.' })];
+    var Z = M.DISK_ZONES;
+    function name(z) { return M.diskName(r, z); }
+    function r4(v) { return Math.round(v * 10000) / 10000; }
+    // ---- Разметка зон ----
+    var view = el('div', { class: 'a-jbr-view a-jdz-view' }), wrap = el('div', { class: 'a-jbr a-jdz' + (st.zoom ? ' is-zoom' : '') + ' is-' + st.tool });
+    var labels = el('div', { class: 'a-jdz-labels' }), hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    hs.setAttribute('class', 'a-jbr-h a-jdz-h'); hs.setAttribute('viewBox', '0 0 100 100'); hs.setAttribute('preserveAspectRatio', 'none');
+    view.appendChild(wrap);
+    function pic() {
+      [].forEach.call(wrap.querySelectorAll('.a-jdz-pic'), function (x) { x.remove(); });
+      var p;
+      if (DK.image) { p = el('img', { class: 'a-jdz-pic', alt: '' }); p.src = imgSrc(DK.image); p.addEventListener('load', marks); }
+      else { p = el('div', { class: 'a-jdz-pic' }); p.innerHTML = M.diskPlaceholder(); }
+      wrap.insertBefore(p, wrap.firstChild);
+    }
+    wrap.appendChild(hs); wrap.appendChild(labels);
+    function own() { return M.diskMarked(r); }
+    function marks(live) {
+      var A = M.diskAreas(r), h = '', mine = own();
+      // Снаружи внутрь: за диском → край → плоскость → центр (внутренние поверх)
+      Z.slice().reverse().forEach(function (z) {
+        if (!A[z]) return;
+        var on = z === st.zone, d = 'M' + A[z].map(function (p) { return (p[0] * 100).toFixed(2) + ' ' + (p[1] * 100).toFixed(2); }).join('L') + 'Z';
+        h += '<path d="' + d + '" fill="' + J_DZ_COLORS[z] + '" fill-opacity="' + (on ? .34 : .12) + '" stroke="' + J_DZ_COLORS[z] + '" stroke-opacity="' + (on ? 1 : .7) + '" stroke-width="' + (on ? 2.6 : 1.4) + '"' + (mine ? '' : ' stroke-dasharray="5 4"') + ' vector-effect="non-scaling-stroke"/>';
+      });
+      if (live && live.length > 1) h += '<polyline points="' + live.map(function (p) { return (p[0] * 100).toFixed(2) + ',' + (p[1] * 100).toFixed(2); }).join(' ') + '" fill="none" stroke="#fff" stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
+      hs.innerHTML = h;
+      labels.replaceChildren();
+      Z.forEach(function (z) {
+        var a = A[z], x = .06, y = .06;
+        if (a) { x = 0; y = 0; a.forEach(function (p) { x += p[0] / a.length; y += p[1] / a.length; }); }
+        // Верх и низ — подпись ближе к своей половине; за диском без обводки — в углу
+        if (z === 'flatUp' || z === 'edgeUp') y = a ? Math.min.apply(null, a.map(function (p) { return p[1]; })) + (z === 'flatUp' ? .07 : .035) : y;
+        if (z === 'flatDown' || z === 'edgeDown') y = a ? Math.max.apply(null, a.map(function (p) { return p[1]; })) - (z === 'flatDown' ? .07 : .035) : y;
+        if (!a && z !== 'beyond') return;
+        var s = el('span', { class: 'a-jdz-l' + (z === st.zone ? ' is-on' : ''), text: name(z) });
+        s.style.left = (x * 100) + '%'; s.style.top = (y * 100) + '%'; s.style.setProperty('--c', J_DZ_COLORS[z]);
+        labels.appendChild(s);
+      });
+      status();
+    }
+    var stat = el('p', { class: 'a-hint' });
+    function status() {
+      if (!own()) { stat.className = 'a-hint'; stat.textContent = 'Зоны не размечены — пока работают круги от середины картинки (пунктир). Обведите зоны по своему диску.'; return; }
+      var miss = Z.slice(0, 5).filter(function (z) { return !(DK.areas[z] && DK.areas[z].length >= 3); });
+      stat.className = 'a-hint' + (miss.length ? ' a-hint--warn' : '');
+      stat.textContent = miss.length ? 'Не обведены: ' + miss.map(name).join(', ') + ' — их на диске нельзя будет выбрать.' : 'Все зоны обведены. «За диском» — всё, что вне остальных зон' + (DK.areas.beyond && DK.areas.beyond.length >= 3 ? ', внутри своей обводки.' : '.');
+    }
+    function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1, (e.clientY - rc.top) / rc.height))]; }
+    function snap() { st.undo.push(clone(DK.areas || {})); if (st.undo.length > 40) st.undo.shift(); undoBtn.disabled = false; }
+    // Линия от руки → замкнутая обводка: лишние точки убрать (Дуглас — Пейкер), мягко усреднить
+    function smooth(pts) {
+      function rdp(a, eps) {
+        if (a.length < 3) return a;
+        var f = a[0], l = a[a.length - 1], dx = l[0] - f[0], dy = l[1] - f[1], L = Math.sqrt(dx * dx + dy * dy) || 1e-6, mi = 0, md = 0, i;
+        for (i = 1; i < a.length - 1; i++) { var dd = Math.abs(dy * a[i][0] - dx * a[i][1] + l[0] * f[1] - l[1] * f[0]) / L; if (dd > md) { md = dd; mi = i; } }
+        return md > eps ? rdp(a.slice(0, mi + 1), eps).slice(0, -1).concat(rdp(a.slice(mi), eps)) : [f, l];
+      }
+      var s = pts.map(function (p, i) { if (!i || i === pts.length - 1) return p; var a = pts[i - 1], b = pts[i + 1]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
+      return rdp(s, .0025).map(function (p) { return [r4(p[0]), r4(p[1])]; });
+    }
+    var drag = null;
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      var p = at(e); e.preventDefault();
+      if (st.tool === 'test') {
+        var z = M.diskHit(M.diskAreas(r), p[0], p[1]);
+        toast(z ? 'Здесь — «' + name(z) + '»' : 'Здесь нет зоны.');
+        if (z) { st.zone = z; chips(); marks(); }
+        return;
+      }
+      drag = [p];
+      try { wrap.setPointerCapture(e.pointerId); } catch (er) {}
+    });
+    wrap.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var p = at(e), q = drag[drag.length - 1];
+      if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .004) { drag.push(p); marks(drag); }
+    });
+    function up() {
+      if (!drag) return;
+      var d = drag; drag = null;
+      if (d.length < 6) { marks(); toast('Обведите зону одной линией по её краю — не отрывая пальца или мышки.', true); return; }
+      snap();
+      // Первая обводка: остальные зоны — пока кругами, чтобы ни одна не пропала
+      if (!own()) Z.forEach(function (z) { if (M.DISK_AREAS_DEF[z]) DK.areas[z] = clone(M.DISK_AREAS_DEF[z]); });
+      DK.areas[st.zone] = smooth(d);
+      changed(); marks();
+    }
+    wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+    var chipRow = el('div', { class: 'a-tabs a-jdz-chips' });
+    function chips() {
+      chipRow.replaceChildren.apply(chipRow, Z.map(function (z) {
+        var b = el('button', { type: 'button', class: z === st.zone ? 'is-active' : '', onclick: function () { st.zone = z; chips(); marks(); } }, [el('i', { class: 'a-jdz-dot' }), el('span', { text: name(z) })]);
+        b.style.setProperty('--c', J_DZ_COLORS[z]);
+        return b;
+      }));
+    }
+    function tool(t, label) {
+      return el('button', { type: 'button', class: st.tool === t ? 'is-active' : '', text: label, onclick: function () {
+        st.tool = t; [].forEach.call(tools.children, function (b) { b.classList.toggle('is-active', b === this); }, this);
+        wrap.className = 'a-jbr a-jdz' + (st.zoom ? ' is-zoom' : '') + ' is-' + t;
+      } });
+    }
+    var tools = el('div', { class: 'a-tabs a-jpl-tools' }, [tool('draw', '✏️ Обвести выбранную зону'), tool('test', '👆 Проверить касание')]);
+    var undoBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↶ Отменить', onclick: function () {
+      var u = st.undo.pop(); if (!u) return;
+      DK.areas = u; changed(); marks(); undoBtn.disabled = !st.undo.length;
+    } });
+    undoBtn.disabled = !st.undo.length;
+    var zoomBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее', onclick: function () {
+      st.zoom = !st.zoom; wrap.classList.toggle('is-zoom', st.zoom); zoomBtn.textContent = st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее';
+    } });
+    pic(); chips(); marks();
+    LIVE.push({ node: wrap, run: function () { if (!drag) marks(); } });
+    // ---- Живой пример: диск с картой и днём ----
+    var pst = ST.jdisk = ST.jdisk || { day: 1, card: 0 }, pv = el('div', { class: 'a-jdisk-pv' });
+    function pvRun() { var k = r.deck.cards[pst.card] || r.deck.cards[0]; pv.replaceChildren(jDiskCard(r, k, pst.day)); }
+    function sel(opts, key) {
+      var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      s.value = String(pst[key]); if (s.selectedIndex < 0) s.selectedIndex = 0;
+      s.addEventListener('change', function () { pst[key] = +s.value; pvRun(); });
+      return s;
+    }
+    LIVE.push({ node: pv, run: pvRun });
+    setTimeout(liveSoon, 0);
+    var days = r.days.slice(0, -1).map(function (d, i) { return [String(i + 1), 'День ' + (i + 1) + ' · ' + M.dateOf(r, i + 1)]; });
+    return [
+      el('p', { class: 'a-hint', text: 'На личной карте вместо колеса — диск. Человек касается диска — зона светится, остальные приглушаются, под диском её название, слово карты и «Узнаю себя, если…». Можно примерить другую зону. После первой примерки — кнопка «Здесь»: выбор окончательный. Тогда зона светится ровно, камушек формы этой зоны ложится в узор (и в финальное Солнце), под диском открывается дорога назад в центр — только для этой зоны. До полуночи открывается та же отметка. Отметка хранится только на устройстве человека, в код не входит.' }),
+      el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+        block('Картинка и видео', [
+          imageIn(DK, 'image', 'Картинка диска', { max: 1600, onChange: function () { pic(); marks(); liveSoon(); }, hint: 'Квадратная или почти, диск по центру, лучше 1200 × 1200 и больше. PNG/WebP с прозрачностью тоже можно. Пусто — диск, нарисованный кодом. Поменяли картинку — проверьте разметку зон ниже.' }),
+          mediaIn(DK, 'video', 'Видео-петля (необязательно)', { kind: 'video', maxMB: 12, hint: 'MP4, без звука, тот же кадр и размер, что у картинки, конец переходит в начало. Пока видео грузится — видна картинка. Если у человека в телефоне включено «уменьшить движение», видео не грузится — остаётся картинка.' })
+        ], { open: !DK.image }),
+        block('Названия зон', [el('p', { class: 'a-hint', text: 'Так зона подписана под диском. ↑ — сторона «слишком много» (слова карты: спица и обод «много»), ↓ — «слишком мало».' })].concat(
+          [Z.slice(0, 2), Z.slice(2, 4), Z.slice(4)].map(function (pair) {
+            return el('div', { class: 'a-row' }, pair.map(function (z) { return textIn(DK.names, z, 'Зона: ' + M.DISK_DEF[z], { ph: M.DISK_DEF[z], onInput: function () { chips(); marks(); } }); }));
+          })), { open: false }),
+        block('Приглашение и свет', [
+          selectIn(DK, 'pulse', 'Пока ничего не выбрано', [['', 'само: по зонам, если они обведены, иначе волна'], ['zones', 'свет по зонам — от центра наружу'], ['ring', 'мягкая волна света из центра']], { def: '', onChange: liveSoon }),
+          colorOptIn(DK, 'color', 'Цвет света зон', { none: 'тёплое золото', base: '#ffd77a', pick: '#ffd77a', onChange: liveSoon })
+        ], { open: false }),
+        block('Надписи', [
+          el('p', { class: 'a-hint', text: 'Пустое поле — как серым в подсказке.' }),
+          textIn(tx, 'diskHint', 'Под диском, пока не коснулись', { ph: 'Коснитесь места на диске, где вы сейчас. Можно примерить разные.' }),
+          el('div', { class: 'a-row' }, [textIn(tx, 'diskRecognize', 'Перед текстом зоны', { ph: 'Узнаю себя, если…' }), textIn(tx, 'diskHere', 'Кнопка выбора', { ph: 'Здесь' })]),
+          textIn(tx, 'diskHereNote', 'Под кнопкой', { ph: 'Выбор окончательный — передумать будет нельзя.' }),
+          textIn(tx, 'diskStone', 'После выбора — рядом с камушком', { ph: 'Камушек этой зоны лёг в ваш узор — он войдёт и в ваше Солнце.' }),
+          textIn(tx, 'diskRoad', 'Подпись над дорогой назад', { ph: 'Дорога назад в центр' })
+        ], { open: false })
+      ]), el('div', { class: 'a-jpv' }, [el('div', { class: 'a-jpv-ctrl' }, [sel(days, 'day'), sel(r.deck.cards.map(function (p, i) { return [String(i), (i + 1) + '. ' + (p.quality || 'Без названия')]; }), 'card')]), pv,
+        el('p', { class: 'a-hint', text: 'Касайтесь диска — так увидит человек. Здесь выбор не запоминается.' })])]),
+      block('Разметка зон на картинке', [
+      el('div', { class: 'a-jbr-help' }, [
+        el('b', { text: 'Как обвести зону' }),
+        el('ol', {}, [
+          el('li', { text: 'Выберите зону кнопкой ниже.' }),
+          el('li', { text: '«✏️ Обвести» — ведите по её краю одной линией, не отрывая пальца или мышки. Линия сама замкнётся и сгладится. Обвели заново — старая обводка этой зоны заменяется.' }),
+          el('li', { text: 'Зоны могут заходить друг на друга: касание засчитывается той, что раньше в списке (центр → плоскость → край). Поэтому плоскость можно обвести вместе с центром, а край — вместе с плоскостью.' }),
+          el('li', { text: '«За диском» можно не обводить — это всё, что вне остальных зон.' }),
+          el('li', { text: '«👆 Проверить касание» — нажмите на картинку, панель скажет, какая там зона.' })])]),
+      chipRow, tools,
+      el('div', { class: 'a-backup-btns' }, [undoBtn, zoomBtn,
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Стереть эту зону', onclick: function () {
+          if (!DK.areas[st.zone]) { toast('У этой зоны нет своей обводки.'); return; }
+          snap(); delete DK.areas[st.zone]; changed(); marks(); } }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать всю разметку (круги)', onclick: function () {
+          if (!confirm('Убрать все обводки? Зоны снова станут кругами от середины картинки. «Отменить» вернёт.')) return;
+          snap(); DK.areas = {}; changed(); marks(); } })]),
+      stat, view], { open: true })
+    ];
   }
   // Калейдоскоп (стиль) и 12 состояний: стёклышки на входе (и на выходе, день 13)
   function jStates(r) {
@@ -2768,7 +2970,7 @@
       if (!cv.isConnected) return;
       if (!kal) kal = M.kaleido(cv, 260, r);
       kal.style(M.kalStyle(r));
-      kal.idle(M.kalSeed(c), M.kalEx(r, c, { days: st.days, gifts: st.gifts ? [[2, 1], [3, 0], [5, 2], [6, 3]] : [] }));
+      kal.idle(M.kalSeed(c), M.kalEx(r, c, { days: st.days, gifts: st.gifts ? [[2, 1], [3, 0], [5, 2], [6, 3]] : [], marks: st.gifts ? [[1, 'flatUp'], [2, 'center'], [4, 'edgeDown'], [5, 'beyond']].filter(function (m) { return m[0] <= st.days; }) : [] }));
     }
     LIVE.push({ node: cv, run: demo });
     setTimeout(liveSoon, 0);
@@ -2781,12 +2983,12 @@
     var states = r.states.items, zones = M.GIFT_ZONES;
     var rose = M.kalStyle(r) === 'rose';
     return [
-      el('p', { class: 'a-hint', text: 'Из этих стёклышек складывается личный узор человека: три состояния со входа, стёклышко каждого наступившего дня (у всех, даже если день пропущен) и подарки от вас. В конце — его Солнце. Вид камней в коды не зашит: менять можно в любой момент, даже когда маршрут идёт.' }),
+      el('p', { class: 'a-hint', text: 'Из этих стёклышек складывается личный узор человека: три состояния со входа, стёклышко каждого наступившего дня (у всех, даже если день пропущен), камушки его отметок на диске и подарки от вас. В конце — его Солнце. Вид камней в коды не зашит: менять можно в любой момент, даже когда маршрут идёт.' }),
       rose ? el('p', { class: 'a-hint a-hint--warn', text: 'Сейчас стиль узора «А · Витраж-роза»: в нём камней не видно, только их цвета в гранях витража. Чтобы камни были видны, выберите стиль В или Б во вкладке «Калейдоскоп и состояния».' }) : null,
       el('div', { class: 'a-jgls-demo' }, [cv, el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Пример узора: человек вошёл с тремя состояниями. Узор меняется сразу, когда вы двигаете настройки ниже.' }),
         field('Сколько дней прошло', dsel),
-        el('label', { class: 'a-jwho-i' }, [gchk, el('span', { text: 'с подарками (по одному каждой зоны)' })])])]),
+        el('label', { class: 'a-jwho-i' }, [gchk, el('span', { text: 'с подарками и отметками на диске' })])])]),
       lookBlock(G.states, 'Состояния — 3 на входе (и 3 на выходе)', 'Цвет у каждого состояния свой — во вкладке «Калейдоскоп и состояния».',
         function () { return states.slice(0, 4).map(function (s) { return [{ c: rgb(s.color), look: M.glassLook(r, 'states') }, s.name]; }); }, null),
       lookBlock(G.days, 'Стёклышки дней 1–12', 'Цвет «само» — цвет камня дня (вкладка «13 дней» → «Цвет свечения камня»), а если его нет — цвет печати дня.',
@@ -2794,6 +2996,11 @@
     ].concat(zones.map(function (z) {
       return lookBlock(G.gifts[z], 'Подарок · ' + M.zoneName(r, z), 'Цвет «само» — оттенок дня, за который подарок' + (z === 'axis' ? ' (светлый, почти прозрачный)' : z === 'spoke' ? ' (светлее)' : z === 'underside' ? ' (у изнанки — дымчатый)' : '') + '.',
         function () { return [1, 2, 3, 4].map(function (d) { return [M.giftGlass(r, d, z), 'за день ' + d]; }); }, 'само — оттенок дня');
+    }), zones.map(function (z) {
+      var dz = M.DISK_ZONES.filter(function (x) { return M.DISK_FAMILY[x] === z; });
+      return lookBlock(G.marks[z], 'Отметка на диске · ' + dz.map(function (x) { return M.diskName(r, x); }).join(', '),
+        'Камушек, который ложится в узор, когда человек выбрал эту зону на диске личной карты («Здесь»). Он же — в финальном Солнце. Цвет «само» — оттенок дня' + (z === 'underside' ? ' (дымчатый)' : '') + '.',
+        function () { return [1, 2, 3, 4].map(function (d) { return [M.markGlass(r, d, dz[0]), 'день ' + d]; }); }, 'само — оттенок дня');
     }), [
       block('Стёклышко дня — надписи', [
         el('p', { class: 'a-hint', text: 'Путешествие и Погружение: после личной карты, один раз за день — стёклышко дня крупно, потом ложится в узор. Метки: {день}, {имя кина}.' }),
@@ -3333,11 +3540,12 @@
         el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты из колоды.' }),
         jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
     else if (t === 'personal') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
-        el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты из колоды (Путешествие и Погружение). Сверху — колесо выпавшей карты. Тексты собираются из шаблонов дня (вкладка «13 дней») и слов карты (вкладка «Колода»). Внизу — «Оставить след» и кнопка-спираль.' }),
+        el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты из колоды (Путешествие и Погружение). Сверху — диск выпавшей карты (вкладка «Диск»). Тексты собираются из шаблонов дня (вкладка «13 дней») и слов карты (вкладка «Колода»). Внизу — «Оставить след» и кнопка-спираль.' }),
         jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
     else if (t === 'days') body = jDays(r);
     else if (t === 'bricks') body = jBricks(r);
     else if (t === 'deck' || t === 'perms') body = jDeck(r);
+    else if (t === 'disk') body = jDisk(r);
     else if (t === 'states') body = jStates(r);
     else if (t === 'glass') body = jGlass(r);
     else if (t === 'final') body = jFinal(r);
@@ -4668,6 +4876,23 @@
       if (r.texts && r.texts.final === 'Финал Солнца') delete r.texts.final;
       if (r.texts && r.texts.finalNote === 'Здесь скоро откроется финал маршрута.') delete r.texts.finalNote;
       if (!r.final && o && o.final) r.final = clone(o.final);
+      // Диск вместо колеса (с 03.10): настройки диска — с сайта; блок «колесо» → «диск» (над ним строка дня); «первый вопрос» про колесо и общий
+      // «путь назад в ось» — скрыть (дорога назад теперь под диском); вопрос к диску у дней 1–12; заготовки «где на колесе» — новые
+      if (r.deck && !r.deck.disk && o && o.deck && o.deck.disk) {
+        r.deck.disk = clone(o.deck.disk);
+        var pb2 = ((r.personalCard = r.personalCard || { blocks: [] }).blocks = r.personalCard.blocks || []);
+        pb2.forEach(function (b, j) {
+          if (b.kind === 'wheel' || b.kind === 'permission') { b.kind = 'disk'; b.id = 'disk'; var nx = pb2[j + 1]; if (nx && nx.id === 'line' && nx.kind === 'small') { pb2[j] = nx; pb2[j + 1] = b; } }
+          if (b.id === 'first' && b.kind === 'note' && /колес/.test(b.text || '')) b.visible = false;
+          if (b.kind === 'wayback') b.visible = false;
+        });
+        if (!pb2.some(function (b) { return b.kind === 'disk'; })) pb2.unshift({ id: 'disk', kind: 'disk', visible: true, who: { journey: true, immersion: true } });
+        (r.days || []).forEach(function (d, i) {
+          var od = (o.days || [])[i] || {}, ot = od.texts || {}; d.texts = d.texts || {};
+          if (d.texts.diskQuestion == null && ot.diskQuestion != null) d.texts.diskQuestion = ot.diskQuestion;
+          if (/^\s*\[заготовка\][^\n]*на колесе/.test(d.texts.personalQuestion || '') && ot.personalQuestion != null) d.texts.personalQuestion = ot.personalQuestion;
+        });
+      }
       // Колода-колесо, состояния и калейдоскоп (с 02.10): в черновике их нет — берём с сайта; старые карты «Мне можно…» убираем
       if (o && !r.deck && o.deck) {
         r.deck = clone(o.deck);
