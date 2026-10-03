@@ -2464,7 +2464,7 @@
   }
   // Живой предпросмотр света: спираль компьютера и телефона со светом выбранного дня, меняется вместе с ползунками
   function jGlowLive(r) {
-    var st = ST.jgl = ST.jgl || { day: 5 }, last = r.days.length, i;
+    var st = ST.jgl = ST.jgl || { day: 5 }, last = r.days.length, i, ovs = [];
     function frame(key) {
       var src = key === 'mobile' ? r.masterMobile : r.masterDesktop, z = r.zones && r.zones[key];
       if (!src || !z || !z.path || z.path.length < 25 || !z.center) return null;
@@ -2472,11 +2472,11 @@
       var crop = el('div', { class: 'a-jgl-crop' + (key === 'mobile' ? ' a-jgl-crop--tall' : '') }, [inner]);
       function run() {
         if (!img.naturalWidth || !window.M13R) return;
-        if (ov) ov.node.remove();
+        if (ov) { ov.node.remove(); ovs.splice(ovs.indexOf(ov), 1); }
         var g = r.glow || {};
         ov = window.M13R.bricksLayer(r, z, img.naturalWidth, img.naturalHeight, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100 });
         ov.paint(window.M13R.lights(r, st.day, false));
-        inner.appendChild(ov.node);
+        inner.appendChild(ov.node); ovs.push(ov);
       }
       img.addEventListener('load', run);
       img.src = imgSrc(src);
@@ -2491,7 +2491,10 @@
     pick.addEventListener('change', function () { st.day = +pick.value; liveSoon(); });
     var frames = [frame('desktop'), frame('mobile')].filter(Boolean);
     if (!frames.length) return el('p', { class: 'a-hint', text: 'Предпросмотр света появится, когда есть картинка спирали и разметка кирпичей.' });
-    return el('div', { class: 'a-jgl-box' }, [field('Как светится', pick, 'Сегодняшний камень «дышит», до него — пройденные дни, после — будущие. Двигайте ползунки ниже — свет меняется сразу.'),
+    // «Пустить огонёк»: импульс от сегодняшнего камня к центру, как при нажатии на сайте
+    var go = el('button', { type: 'button', class: 'a-btn', text: '✨ Пустить огонёк' });
+    go.addEventListener('click', function () { ovs.forEach(function (o) { if (o.run) o.run(Math.min(st.day, last)); }); });
+    return el('div', { class: 'a-jgl-box' }, [field('Как светится', pick, 'Сегодняшний камень «дышит», до него — пройденные дни, после — будущие. Двигайте ползунки ниже — свет меняется сразу.'), el('div', null, [go]),
       el('div', { class: 'a-bgpvs' }, frames)]);
   }
   // Свой цвет свечения у каждого дня (days[i].glowColor); пусто — общий цвет. Пройденный день светится своим цветом, только спокойнее.
@@ -2589,6 +2592,7 @@
         jGlowLive(r),
         colorIn(r.glow, 'color', 'Цвет свечения — общий'),
         rangeIn(r.glow, 'power', 'Сила свечения', { min: 50, max: 300, step: 10, def: 150, unit: ' %', hint: 'Насколько ярко и широко светятся камни. 100 % — как было в первом варианте; больше — ярче, вокруг камня появляется широкий ореол.' }),
+        rangeIn(r.glow, 'spark', 'Огонёк к центру — яркость', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: 'Огонёк бежит от камня дня в центр, когда человек нажимает на сегодняшний камень. Он цветом дня, прозрачный, без белой серединки. Посмотреть — кнопка «Пустить огонёк» над картинками.' }),
         rangeIn(r.glow, 'today', 'Сегодняшний кирпич', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }),
         rangeIn(r.glow, 'done', 'Прошедшие дни', { min: 0, max: 100, step: 5, def: 55, unit: ' %' }),
         rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' }),

@@ -811,7 +811,8 @@
       }
       svgs[4].innerHTML = zs;
     }
-    B.node = box; B.pulse = svgs[3]; B.today = svgs[2];
+    B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route);
+    B.run = function (d, done) { pulse(B, d, done || function () {}); };
     return B;
   }
   // Какой кирпич под точкой (x, y в пикселях картинки). tol — запас вокруг полосы; у сегодняшнего (prefer) — запас больше (big).
@@ -825,19 +826,25 @@
     B.trace.forEach(function (q) { var dd = dist(p, q) - q.w / 2; if (dd < bd) { bd = dd; best = q.day; } });
     return bd <= tol ? best : 0;
   }
+  // Огонёк к центру — яркость (glow.spark, 20–200 %, по умолчанию 100 %)
+  function sparkPower(route) { var g = route.glow || {}; return Math.max(20, Math.min(200, g.spark == null || g.spark === '' ? 100 : +g.spark)) / 100; }
   // Световой импульс: от середины кирпича дня d по спирали к центру, вспышка в центре, затем done().
+  // Огонёк — цветом дня, прозрачный и насыщенный, без белой серединки (как огоньки финала); в центре — мягкая цветная вспышка.
   function pulse(B, d, done) {
-    var tr = B.trace, C = B.center, svg = B.pulse, iw = B.iw, col = B.colorOf ? B.colorOf(d) : B.color, fid = B.id + 'p';
+    var tr = B.trace, C = B.center, svg = B.pulse, iw = B.iw, col = B.colorOf ? B.colorOf(d) : B.color, fid = B.id + 'p', k1 = B.spark || 1;
     var pts = (d <= PATH_DAYS ? tr.slice((2 * d - 1) * SPAN) : []).concat([{ x: C.cx, y: C.cy, w: C.ry * 1.4 }]);
     var acc = [0], L = 0, i, t0 = 0;
     for (i = 1; i < pts.length; i++) { L += dist(pts[i - 1], pts[i]); acc.push(L); }
     var dur = pts.length > 1 ? 650 + 1250 * Math.min(1, (pts.length - 1) / (tr.length - SPAN)) : 0;
+    function op(x) { return Math.min(1, x * k1).toFixed(2); }
     svg.classList.remove('is-fade');
-    svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * .005) + '"/></filter></defs>' +
-      '<path fill="none" stroke="' + col + '" stroke-opacity=".6" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>' +
-      '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * 1.15) + '" ry="' + r1(C.ry * 1.15) + '" fill="' + col + '" opacity="0" filter="url(#' + fid + ')"/>' +
-      '<circle fill="' + col + '" filter="url(#' + fid + ')"/><circle fill="#fff6dc"/>';
-    var trail = svg.childNodes[1], flash = svg.childNodes[2], halo = svg.childNodes[3], core = svg.childNodes[4];
+    svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * .005) + '"/></filter>' +
+      '<radialGradient id="' + fid + 'g"><stop offset="0" stop-color="' + col + '" stop-opacity="' + op(1) + '"/><stop offset=".35" stop-color="' + col + '" stop-opacity="' + op(.62) + '"/>' +
+      '<stop offset=".7" stop-color="' + col + '" stop-opacity="' + op(.2) + '"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient></defs>' +
+      '<path fill="none" stroke="' + col + '" stroke-opacity="' + op(.6) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>' +
+      '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * 1.35) + '" ry="' + r1(C.ry * 1.35) + '" fill="url(#' + fid + 'g)" opacity="0"/>' +
+      '<circle fill="url(#' + fid + 'g)"/>';
+    var trail = svg.childNodes[1], flash = svg.childNodes[2], halo = svg.childNodes[3];
     function step(ts) {
       if (!t0) t0 = ts;
       var k = dur ? Math.min(1, (ts - t0) / dur) : 1, e = k < .5 ? 2 * k * k : 1 - Math.pow(2 - 2 * k, 2) / 2, s = e * L, j = 1;
@@ -846,14 +853,13 @@
       var h = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, w = a.w + (b.w - a.w) * f;
       trail.setAttribute('d', 'M' + pts.slice(0, j).map(xy).join('L') + 'L' + xy(h));
       trail.setAttribute('stroke-width', r1(Math.max(w * .22, iw * .004)));
-      halo.setAttribute('cx', r1(h.x)); halo.setAttribute('cy', r1(h.y)); halo.setAttribute('r', r1(Math.max(w * .3, iw * .01)));
-      core.setAttribute('cx', r1(h.x)); core.setAttribute('cy', r1(h.y)); core.setAttribute('r', r1(Math.max(w * .1, iw * .004)));
+      halo.setAttribute('cx', r1(h.x)); halo.setAttribute('cy', r1(h.y)); halo.setAttribute('r', r1(Math.max(w * .5, iw * .016)));
       if (k < 1) { requestAnimationFrame(step); return; }
       var f0 = 0;
       (function fl(ts2) {
         if (!f0) f0 = ts2;
         var q = Math.min(1, (ts2 - f0) / 320);
-        flash.setAttribute('opacity', (q * .95).toFixed(2));
+        flash.setAttribute('opacity', q.toFixed(2)); halo.setAttribute('opacity', (1 - q).toFixed(2));
         if (q < 1) { requestAnimationFrame(fl); return; }
         done();
         svg.classList.add('is-fade');
@@ -2634,7 +2640,7 @@
 
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
+    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
