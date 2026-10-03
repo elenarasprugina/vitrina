@@ -456,3 +456,6 @@ audio.a-media{background:none;height:40px}
 .a-jdisk-pv{max-width:400px}
 .a-jdisk-pv .ys-card{width:100%;margin:0}
 .a-jwheel.a-jdisk-pv{padding:0;background:none}
+/* «📐 Лучший размер» у полей с картинками */
+.a-size{align-self:flex-start;font-size:12px;line-height:1.35;color:#5a4614;background:#f7efd9;border:1px solid #eadcb4;border-radius:7px;padding:3px 8px}
+.a-size b{font-weight:700;white-space:nowrap}
