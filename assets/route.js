@@ -3,7 +3,8 @@
    Здесь же — Карта дня и личная карта: их рисует и сама страница, и панель (предпросмотр).
    Этап 1: фон-спираль, экран ожидания, Карта дня. Этап 2: кирпичи на спирали (свет, импульс к центру), путь Наблюдателя, режим проверки ?debug=1.
    Этап 3: ключ → калейдоскоп → личный код, колода, выбор карты (круг закрытых карт), личная карта.
-   С 02.10: колода-колесо (13 карт: ось, спица, обод, изнанка), вход: ключ → 3 состояния → калейдоскоп (assets/kaleido.js, 12 лучей) → код со состояниями. */
+   С 02.10: колода-колесо (13 карт: ось, спица, обод, изнанка), вход: ключ → 3 состояния → калейдоскоп (assets/kaleido.js, 12 лучей) → код со состояниями.
+   С 03.10: на личной карте вместо колеса — диск (картинка/видео, 6 зон касания, примерка → «Здесь» → камушек в узор, дорога назад в центр). */
 (function () {
   'use strict';
   var MSK = 3, DAY = 864e5;
@@ -157,6 +158,183 @@
     return box;
   }
 
+  /* ---------- Лицо карты — диск (с 03.10, вместо колеса) ----------
+     Картинка диска — route.deck.disk.image (пусто — диск, нарисованный кодом); видео-петля disk.video — поверх картинки:
+     пока видео грузится и если в системе включено «уменьшить движение», видна картинка.
+     6 зон касания (DISK_ZONES). Разметка — disk.areas[зона] = [[x, y], …] (доли картинки), её обводит Проводник в панели («Диск»);
+     нет ни одной — круги от середины картинки. Точка относится к первой зоне по порядку: центр → плоскость → край;
+     «за диском» — всё остальное (если её обвели — только внутри обводки).
+     Пока ничего не выбрано — из центра расходится мягкий свет (disk.pulse: 'zones' — по зонам от центра наружу, 'ring' — волна;
+     по умолчанию по зонам, если они размечены). Касание — примерка: зона светится, остальные приглушены, под диском — название зоны,
+     слово карты и «Узнаю себя, если…» (card.recognize[зона]). После первой примерки — «Здесь»: выбор окончателен (o.onMark),
+     зона светится ровно, камушек её формы ложится в узор, под диском — дорога назад в центр (card.road[зона];
+     пусто — общий «путь назад в ось» этой зоны колеса). Отметка — только на устройстве (o.mark), в код не входит. */
+  var DISK_ZONES = ['center', 'flatUp', 'flatDown', 'edgeUp', 'edgeDown', 'beyond'];
+  var DISK_DEF = { center: 'Центр', flatUp: 'Плоскость ↑', flatDown: 'Плоскость ↓', edgeUp: 'Край ↑ · пустыня', edgeDown: 'Край ↓ · болото', beyond: 'За диском' };
+  // Зона диска → зона колеса: форма камушка, общий путь назад
+  var DISK_FAMILY = { center: 'axis', flatUp: 'spoke', flatDown: 'spoke', edgeUp: 'rim', edgeDown: 'rim', beyond: 'underside' };
+  function diskCfg(route) { return (route.deck || {}).disk || {}; }
+  function diskName(route, z) { var N = diskCfg(route).names || {}; return N[z] || DISK_DEF[z]; }
+  // Слово карты для зоны: центр — ось, плоскость — спица, край — обод (↑ — «слишком много», ↓ — «слишком мало»), за диском — строка изнанки
+  function diskWord(route, k, z) {
+    k = k || {};
+    if (z === 'beyond') { var uq = (route.deck || {}).undersideQ; return uq == null ? 'кто цепляет? → а нет ли этого во мне?' : uq; }
+    return z === 'center' ? k.axis || k.quality : ((z === 'flatUp' || z === 'edgeUp' ? k.more : k.less) || {})[z.indexOf('flat') === 0 ? 'spoke' : 'rim'];
+  }
+  function diskText(k, key, z) { return String(((k || {})[key] || {})[z] || '').trim(); }
+  function ellPts(rx, ry, a0, a1, n) {
+    var p = [], i, a;
+    for (i = 0; i <= n; i++) { a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; p.push([Math.round((.5 + rx * Math.cos(a)) * 1e4) / 1e4, Math.round((.5 + ry * Math.sin(a)) * 1e4) / 1e4]); }
+    return p;
+  }
+  // Без разметки — круги от середины: центр, плоскость, край; верх и низ делит линия через середину
+  var DISK_AREAS_DEF = { center: ellPts(.16, .16, 0, 360, 40), flatUp: ellPts(.32, .32, 180, 360, 40), flatDown: ellPts(.32, .32, 0, 180, 40),
+    edgeUp: ellPts(.47, .47, 180, 360, 48), edgeDown: ellPts(.47, .47, 0, 180, 48) };
+  function areaOk(a) { return !!(a && a.length >= 3); }
+  function diskMarked(route) { var A = diskCfg(route).areas || {}; return DISK_ZONES.some(function (z) { return areaOk(A[z]); }); }
+  function diskAreas(route) {
+    var A = diskCfg(route).areas || {}, own = diskMarked(route), o = {};
+    DISK_ZONES.forEach(function (z) { var a = own ? A[z] : DISK_AREAS_DEF[z]; if (areaOk(a)) o[z] = a; });
+    return o;
+  }
+  function inPoly(p, x, y) {
+    var ins = false, i, j;
+    for (i = 0, j = p.length - 1; i < p.length; j = i++) {
+      if ((p[i][1] > y) !== (p[j][1] > y) && x < (p[j][0] - p[i][0]) * (y - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0]) ins = !ins;
+    }
+    return ins;
+  }
+  function diskHit(areas, x, y) {
+    for (var i = 0; i < DISK_ZONES.length - 1; i++) { var z = DISK_ZONES[i]; if (areas[z] && inPoly(areas[z], x, y)) return z; }
+    return !areas.beyond || inPoly(areas.beyond, x, y) ? 'beyond' : null;
+  }
+  function polyD(a) { return 'M' + a.map(function (p) { return r1(p[0] * 100) + ' ' + r1(p[1] * 100); }).join('L') + 'Z'; }
+  // Форма зоны для SVG: своя обводка (за диском без обводки — весь кадр)
+  function zoneD(areas, z) { return areas[z] ? polyD(areas[z]) : z === 'beyond' ? 'M-1 -1H101V101H-1Z' : ''; }
+  // Маска «только эта зона»: она белым, зоны раньше по порядку — чёрным (у точки одна зона)
+  function zoneMask(areas, z, id, inv) {
+    var k = DISK_ZONES.indexOf(z), h = '<mask id="' + id + '" maskUnits="userSpaceOnUse" x="-1" y="-1" width="102" height="102">';
+    h += inv ? '<rect x="-1" y="-1" width="102" height="102" fill="#fff"/><path d="' + zoneD(areas, z) + '" fill="#000"/>' : '<path d="' + zoneD(areas, z) + '" fill="#fff"/>';
+    DISK_ZONES.slice(0, k).forEach(function (q) { if (areas[q]) h += '<path d="' + zoneD(areas, q) + '" fill="' + (inv ? '#fff' : '#000') + '"/>'; });
+    return h + '</mask>';
+  }
+  // Диск, нарисованный кодом (пока нет картинки): каменный круг с кольцами — как зоны без разметки
+  function diskPlaceholder() {
+    var rays = '', i, a;
+    for (i = 0; i < 36; i++) { a = i / 36 * Math.PI * 2; rays += '<line x1="' + r1(50 + 33 * Math.cos(a)) + '" y1="' + r1(50 + 33 * Math.sin(a)) + '" x2="' + r1(50 + 46 * Math.cos(a)) + '" y2="' + r1(50 + 46 * Math.sin(a)) + '"/>'; }
+    return '<svg class="ys-d-ph" viewBox="0 0 100 100" aria-hidden="true"><defs>' +
+      '<radialGradient id="ysdp1" cx="50%" cy="45%" r="55%"><stop offset="0" stop-color="#6b4a1c"/><stop offset=".6" stop-color="#3a260d"/><stop offset="1" stop-color="#1c1206"/></radialGradient>' +
+      '<radialGradient id="ysdp2" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#ffe9a8"/><stop offset=".55" stop-color="#d9a441"/><stop offset="1" stop-color="#8a5a18"/></radialGradient></defs>' +
+      '<rect width="100" height="100" fill="#0c0804"/>' +
+      '<circle cx="50" cy="50" r="47" fill="url(#ysdp1)" stroke="#e9c77e" stroke-opacity=".55" stroke-width=".5"/>' +
+      '<g stroke="#e9c77e" stroke-opacity=".2" stroke-width=".35">' + rays + '</g>' +
+      '<circle cx="50" cy="50" r="32" fill="#2a1b08" fill-opacity=".55" stroke="#e9c77e" stroke-opacity=".45" stroke-width=".4"/>' +
+      '<line x1="3" y1="50" x2="97" y2="50" stroke="#e9c77e" stroke-opacity=".18" stroke-width=".3" stroke-dasharray="1 1.2"/>' +
+      '<circle cx="50" cy="50" r="16" fill="url(#ysdp2)" fill-opacity=".85" stroke="#ffd76a" stroke-opacity=".8" stroke-width=".5"/></svg>';
+  }
+  // b — блок, n — день, k — карта, ctx — метки дня и карты; o.mark — уже выбранная зона, o.onMark(зона) — «Здесь»
+  function diskNode(route, n, k, ctx, o, b) {
+    o = o || {};
+    var D = diskCfg(route), tx = route.texts || {}, areas = diskAreas(route), id = 'ysd' + (++ZID);
+    var chosen = DISK_ZONES.indexOf(o.mark) >= 0 ? o.mark : null, tried = null;
+    if (!k) k = { quality: 'Качество', axis: 'Качество и его противовес', less: { rim: 'обод', spoke: 'спица' }, more: { spoke: 'спица', rim: 'обод' } };
+    var box = el('div', 'ys-disk' + (chosen ? ' is-chosen' : ''));
+    if (k.quality) box.appendChild(el('p', 'ys-w-q', k.quality));
+    var dq = fill(((dayOf(route, n).texts || {}).diskQuestion) || '', ctx || {}).trim();
+    if (dq) box.appendChild(textNode('ys-d-q', dq));
+    var fig = el('div', 'ys-d-box');
+    if (D.image) { var img = el('img', 'ys-d-img'); img.src = imgSrc(o.base, D.image); img.alt = ''; img.draggable = false; fig.appendChild(img); }
+    else fig.insertAdjacentHTML('beforeend', diskPlaceholder());
+    // Видео-петля: появляется, только когда пошло; при «уменьшить движение» — не грузим, остаётся картинка
+    if (D.video && !REDUCED) {
+      var v = el('video', 'ys-d-vid');
+      v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.setAttribute('muted', ''); v.preload = 'auto';
+      v.addEventListener('playing', function () { v.classList.add('is-on'); });
+      v.src = imgSrc(o.base, D.video);
+      fig.appendChild(v);
+      var tryPlay = function () { var p = v.play && v.play(); if (p && p.catch) p.catch(function () {}); };
+      setTimeout(tryPlay, 0);
+    }
+    // Свет зон: приглушение остальных, свечение выбранной, приглашение (по зонам или волной)
+    var defs = '', layers = '';
+    DISK_ZONES.forEach(function (z) {
+      if (!zoneD(areas, z)) return;
+      defs += zoneMask(areas, z, id + z, false) + zoneMask(areas, z, id + z + 'x', true);
+      layers += '<g class="ys-d-z" data-z="' + z + '"><rect class="ys-d-dim" x="-1" y="-1" width="102" height="102" mask="url(#' + id + z + 'x)"/>' +
+        '<g mask="url(#' + id + z + ')"><path class="ys-d-fill" d="' + zoneD(areas, z) + '"/><path class="ys-d-line" d="' + zoneD(areas, z) + '"/></g></g>';
+    });
+    var pulse = D.pulse === 'ring' || D.pulse === 'zones' ? D.pulse : diskMarked(route) ? 'zones' : 'ring';
+    if (pulse === 'zones') [['center'], ['flatUp', 'flatDown'], ['edgeUp', 'edgeDown']].forEach(function (g, j) {
+      layers += '<g class="ys-d-wave" style="--j:' + j + '">' + g.map(function (z) { return zoneD(areas, z) ? '<path mask="url(#' + id + z + ')" d="' + zoneD(areas, z) + '"/>' : ''; }).join('') + '</g>';
+    });
+    var svg = '<svg class="ys-d-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs>' + defs + '</defs>' + layers + '</svg>';
+    fig.insertAdjacentHTML('beforeend', svg);
+    if (pulse === 'ring') {
+      var rc = el('i', 'ys-d-ring'), c = areas.center, cx = .5, cy = .5;
+      if (c) { cx = 0; cy = 0; c.forEach(function (p) { cx += p[0] / c.length; cy += p[1] / c.length; }); }
+      rc.style.left = (cx * 100) + '%'; rc.style.top = (cy * 100) + '%';
+      fig.appendChild(rc);
+    }
+    if (hexOk(D.color)) fig.style.setProperty('--dc', D.color);
+    box.appendChild(fig);
+    var hint = el('p', 'ys-d-hint', fill(tx.diskHint || 'Коснитесь места на диске, где вы сейчас. Можно примерить разные.', ctx || {}));
+    var info = el('div', 'ys-d-info'), here = el('button', 'ys-key-go ys-d-here', tx.diskHere || 'Здесь'), hn = el('p', 'ys-d-note', tx.diskHereNote == null ? 'Выбор окончательный — передумать будет нельзя.' : tx.diskHereNote);
+    var after = el('div', 'ys-d-after');
+    here.type = 'button'; here.hidden = true; hn.hidden = true;
+    box.appendChild(hint); box.appendChild(info); box.appendChild(here); if (hn.textContent) box.appendChild(hn); box.appendChild(after);
+    // Невидимые кнопки зон — для чтения с экрана и клавиатуры
+    var sr = el('div', 'ys-d-sr');
+    DISK_ZONES.forEach(function (z) { if (!zoneD(areas, z)) return; var x = el('button', null, diskName(route, z)); x.type = 'button'; x.addEventListener('click', function () { tryZone(z); }); sr.appendChild(x); });
+    box.appendChild(sr);
+    function showInfo(z) {
+      info.replaceChildren();
+      if (!z) return;
+      info.appendChild(el('span', 'ys-d-zone', diskName(route, z)));
+      var w = diskWord(route, k, z); if (w) info.appendChild(el('b', 'ys-d-word' + (z === 'beyond' ? ' is-q' : ''), w));
+      var rec = diskText(k, 'recognize', z);
+      if (rec) { var p = el('p', 'ys-d-rec'); p.appendChild(el('i', null, (tx.diskRecognize || 'Узнаю себя, если…') + ' ')); p.appendChild(document.createTextNode(fill(rec, ctx || {}))); info.appendChild(p); }
+    }
+    function light(z, on) { [].forEach.call(fig.querySelectorAll('.ys-d-z'), function (g) { g.classList.toggle('is-on', g.getAttribute('data-z') === z && on); }); fig.classList.toggle('is-try', !!on); }
+    function tryZone(z) {
+      if (chosen || !z) return;
+      tried = z; light(z, true); showInfo(z);
+      hint.hidden = true; here.hidden = false; hn.hidden = false;
+      box.classList.add('is-trying');
+    }
+    function done(z, fresh) {
+      chosen = z; light(z, true); showInfo(z);
+      box.classList.remove('is-trying'); box.classList.add('is-chosen');
+      hint.hidden = true; here.hidden = true; hn.hidden = true;
+      after.replaceChildren();
+      // Камушек формы этой зоны — в узор (вид — «Стёклышки» → «Отметка на диске»)
+      if (n < daysCount(route)) {
+        var st = el('div', 'ys-d-stone' + (fresh ? ' is-new' : '')), cv = el('canvas');
+        if (window.M13K && window.M13K.stone) { var g = markGlass(route, n, z); window.M13K.stone(cv, g.c, g.look, 46); }
+        st.appendChild(cv); st.appendChild(el('span', null, fill(tx.diskStone || 'Камушек этой зоны лёг в ваш узор — он войдёт и в ваше Солнце.', ctx || {})));
+        after.appendChild(st);
+      }
+      var road = diskText(k, 'road', z) || ((route.deck || {}).wayBack || {})[DISK_FAMILY[z]] || '';
+      if (road) {
+        var rd = el('div', 'ys-c-text ys-d-road');
+        rd.appendChild(el('span', 'ys-c-label', tx.diskRoad || 'Дорога назад в центр'));
+        rd.appendChild(textNode('ys-c-body', fill(road, ctx || {})));
+        after.appendChild(rd);
+      }
+    }
+    fig.addEventListener('click', function (e) {
+      if (chosen) return;
+      var rc2 = fig.getBoundingClientRect();
+      tryZone(diskHit(areas, (e.clientX - rc2.left) / rc2.width, (e.clientY - rc2.top) / rc2.height));
+    });
+    here.addEventListener('click', function () {
+      if (!tried || chosen) return;
+      if (o.onMark) o.onMark(tried);
+      done(tried, true);
+    });
+    if (chosen) done(chosen, false);
+    return box;
+  }
+
   /* ---------- Карта дня и личная карта ----------
      kind: 'day' | 'personal'; mode: observation | journey | immersion; perm — выпавшая карта колоды (для личной).
      o: { base, onSpiral(), traceUrl, traceLabel, preview } */
@@ -178,6 +356,7 @@
     }
     // Лицо выпавшей карты — колесо ('permission' — старое название блока)
     if (b.kind === 'wheel' || b.kind === 'permission') return wheelNode(route, perm, o);
+    if (b.kind === 'disk') return diskNode(route, n, perm, ctx, o, b);
     if (b.kind === 'wayback') return wayBackNode(route, b);
     if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') {
       t = fill(b.text, ctx).trim(); if (!t) return null;
@@ -674,16 +853,18 @@
      Узор человека = три состояния входа (из кода) + стёклышко каждого наступившего дня 1…12 (у всех, пропуск не важен)
      + подарки Проводника (слово-подарок; хранится только на этом устройстве). Вид камней — route.glass (панель, вкладка «Стёклышки»):
      glass.states, glass.days, glass.gifts.{axis, spoke, rim, underside} = { kind, cut, color, shine, clear, size, img } (см. kaleido.js, «Камни»).
+     Отметка на диске (с 03.10) — камушек формы зоны: glass.marks.{axis, spoke, rim, underside} (центр — ось, плоскость — спица, край — обод, за диском — изнанка).
      Вид в код не зашит — менять можно в любой момент, коды и подарки не ломаются. */
   var GIFT_ZONES = ['axis', 'spoke', 'rim', 'underside'];
   var GLASS_DEF = { states: { kind: 'cabochon' }, days: { kind: 'gem', cut: 'rect' },
-    gifts: { axis: { kind: 'gem', cut: 'round' }, spoke: { kind: 'crystal' }, rim: { kind: 'gem', cut: 'tri' }, underside: { kind: 'gem', cut: 'hex' } } };
+    gifts: { axis: { kind: 'gem', cut: 'round' }, spoke: { kind: 'crystal' }, rim: { kind: 'gem', cut: 'tri' }, underside: { kind: 'gem', cut: 'hex' } },
+    marks: { axis: { kind: 'cabochon' }, spoke: { kind: 'gem', cut: 'marquise' }, rim: { kind: 'gem', cut: 'drop' }, underside: { kind: 'pearl' } } };
   // Картинки камней: на странице — от корня сайта (S.base), в панели — '../'
   function glassBase() { return S.route ? S.base : '../'; }
   function glassLook(route, group, zone) {
-    var g = route.glass || {}, L = group === 'gifts' ? ((g.gifts || {})[zone] || GLASS_DEF.gifts[zone]) : g[group] || GLASS_DEF[group], o = {}, k;
+    var g = route.glass || {}, z = group === 'gifts' || group === 'marks', L = z ? ((g[group] || {})[zone] || GLASS_DEF[group][zone]) : g[group] || GLASS_DEF[group], o = {}, k;
     for (k in L) o[k] = L[k];
-    if (!o.kind) o.kind = (group === 'gifts' ? GLASS_DEF.gifts[zone] : GLASS_DEF[group]).kind;
+    if (!o.kind) o.kind = (z ? GLASS_DEF[group][zone] : GLASS_DEF[group]).kind;
     if (o.img) o.img = imgSrc(glassBase(), o.img);
     return o;
   }
@@ -694,24 +875,29 @@
     return hexRgb(hexOk(L.color) ? L.color : day && hexOk(day.glowColor) ? day.glowColor : sealColor(day) || dayColor(route, d));
   }
   // Подарок: свой цвет зоны → оттенок дня (ось — светлый, почти прозрачный; спица — светлее; обод — как день; изнанка — дымчатый)
-  function giftColor(route, d, z) {
-    var L = ((route.glass || {}).gifts || {})[z] || {}, c = dayGlassColor(route, d);
+  function giftColor(route, d, z, group) {
+    var L = ((route.glass || {})[group || 'gifts'] || {})[z] || {}, c = dayGlassColor(route, d);
     if (hexOk(L.color)) return hexRgb(L.color);
     return z === 'underside' ? [128, 118, 146] : z === 'axis' ? mixW(c, .62) : z === 'spoke' ? mixW(c, .3) : c;
   }
   function dayGlass(route, d) { return { c: dayGlassColor(route, d), look: glassLook(route, 'days') }; }
   function giftGlass(route, d, z) { return { c: giftColor(route, d, z), look: glassLook(route, 'gifts', z) }; }
+  // Камушек отметки на диске: форма — по зоне (зона диска → зона колеса), цвет — оттенок дня, как у подарка
+  function markGlass(route, d, zone) { var f = DISK_FAMILY[zone] || 'axis'; return { c: giftColor(route, d, f, 'marks'), look: glassLook(route, 'marks', f) }; }
   // Сколько дней уже дали стёклышко: наступившие дни 1…12 (день 13 — само Солнце)
   function glassDaysOf(route, n) { return Math.max(0, Math.min(daysCount(route) - 1, n)); }
   // Стёклышки узора. o.days — сколько дней (по умолчанию 0: только состояния), o.gifts — [[день, зона], …],
-  // o.exit — номера состояний выхода (день 13, «С чем вы выходите?»; хранятся только на устройстве)
+  // o.exit — номера состояний выхода (день 13, «С чем вы выходите?»; хранятся только на устройстве), o.marks — отметки на диске [[день, зона], …]
   function stateGlass(route, i) { var L = statesOf(route); return L[i] ? { c: hexRgb(L[i].color), look: glassLook(route, 'states') } : null; }
   function kalEx(route, c, o) {
     o = o || {};
-    var glass = [], n = o.days || 0, gifts = o.gifts || [], d;
+    var glass = [], n = o.days || 0, gifts = o.gifts || [], marks = o.marks || [], d;
     function st(i) { var g = stateGlass(route, i); if (g) glass.push(g); }
     if (c && c.states) c.states.forEach(st);
-    function giftsOf(d) { gifts.forEach(function (g) { if (g[0] === d && GIFT_ZONES[g[1]]) glass.push(giftGlass(route, d, GIFT_ZONES[g[1]])); }); }
+    function giftsOf(d) {
+      marks.forEach(function (m) { if (m[0] === d && DISK_FAMILY[m[1]]) glass.push(markGlass(route, d, m[1])); });
+      gifts.forEach(function (g) { if (g[0] === d && GIFT_ZONES[g[1]]) glass.push(giftGlass(route, d, GIFT_ZONES[g[1]])); });
+    }
     for (d = 1; d <= n; d++) { glass.push(dayGlass(route, d)); giftsOf(d); }
     for (d = n + 1; d < daysCount(route); d++) giftsOf(d);
     (o.exit || []).forEach(st);
@@ -719,7 +905,7 @@
   }
   // Картинки камней («своя картинка») — загрузить заранее (для «Сохранить узор»)
   function glassImgs(route) {
-    var g = route.glass || {}, l = [g.states, g.days].concat(GIFT_ZONES.map(function (z) { return (g.gifts || {})[z]; }));
+    var g = route.glass || {}, l = [g.states, g.days].concat(GIFT_ZONES.map(function (z) { return (g.gifts || {})[z]; }), GIFT_ZONES.map(function (z) { return (g.marks || {})[z]; }));
     return l.filter(function (L) { return L && L.kind === 'image' && L.img; }).map(function (L) { return imgSrc(glassBase(), L.img); });
   }
 
@@ -823,7 +1009,16 @@
     try { localStorage.setItem(giftKey(c), JSON.stringify(l)); } catch (e) {}
     return true;
   }
-  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); } catch (e) {} }
+  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); localStorage.removeItem(markKey(S.code)); } catch (e) {} }
+  // Отметки на диске личной карты: [[день, зона], …] — у каждого кода свои, только на этом устройстве (в код не входят)
+  function markKey(c) { return storeKey() + '-mark-' + (c ? c.code : ''); }
+  function markList(c) { return c ? listOf(markKey(c)).filter(function (m) { return Array.isArray(m) && m.length === 2 && DISK_FAMILY[m[1]]; }) : []; }
+  function markOf(c, n) { var m = markList(c).filter(function (x) { return x[0] === n; })[0]; return m ? m[1] : null; }
+  function saveMark(c, n, z) {
+    if (!c || markOf(c, n)) return;
+    var l = markList(c); l.push([n, z]);
+    try { localStorage.setItem(markKey(c), JSON.stringify(l)); } catch (e) {}
+  }
   // День 13: состояния выхода (номера, до трёх) и «финал уже собран» — у каждого кода свои (у Наблюдения — общий), только на этом устройстве
   function exitKey(c) { return storeKey() + '-exit-' + (c ? c.code : ''); }
   function exitList(c) { return c ? listOf(exitKey(c)).filter(function (i) { return i === +i && i >= 0 && i < 12; }).slice(0, 3) : []; }
@@ -834,7 +1029,7 @@
   function seenKey() { return storeKey() + '-glass-' + (S.code ? S.code.code : ''); }
   function markSeen(n) { var l = listOf(seenKey()); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(seenKey(), JSON.stringify(l)); } catch (e) {} } }
   // Узор человека сейчас: состояния + стёклышки наступивших дней + подарки на этом устройстве. upto — узор «до дня» (без его стёклышка)
-  function myEx(c, upto) { return kalEx(S.route, c, { days: upto != null ? upto : glassDaysOf(S.route, curDay()), gifts: giftList(c) }); }
+  function myEx(c, upto) { return kalEx(S.route, c, { days: upto != null ? upto : glassDaysOf(S.route, curDay()), gifts: giftList(c), marks: markList(c) }); }
   function setUrlMode(m) {
     try {
       var s = location.search.replace(/([?&])mode=[^&#]*&?/, '$1').replace(/[?&]$/, '');
@@ -931,7 +1126,8 @@
   }
   function openPersonal(n, mode, perm) {
     closeLayer();
-    layer(card(S.route, n, mode, 'personal', perm, { base: S.base, onSpiral: function () {
+    var mk = S.code && mode !== 'observation';
+    layer(card(S.route, n, mode, 'personal', perm, { base: S.base, mark: mk ? markOf(S.code, n) : null, onMark: mk ? function (z) { saveMark(S.code, n, z); } : null, onSpiral: function () {
       // Первый раз за этот день — стёклышко дня ложится в узор
       if (S.code && mode !== 'observation' && n < daysCount(S.route) && n <= glassDaysOf(S.route, curDay()) && listOf(seenKey()).indexOf(n) < 0) openGlass(n);
       else closeLayer();
@@ -1226,7 +1422,7 @@
   function finSeed() { return finPersonal() ? kalSeed(S.code) : routeSeed(S.route); }
   // Узор Солнца: состояния входа, 12 дней, подарки, состояния выхода; у Наблюдения — общий узор маршрута с 12 днями
   function finEx() {
-    var r = S.route, ex = finPersonal() ? kalEx(r, S.code, { days: daysCount(r) - 1, gifts: giftList(S.code), exit: exitList(S.code) }) : kalEx(r, null, { days: daysCount(r) - 1 });
+    var r = S.route, ex = finPersonal() ? kalEx(r, S.code, { days: daysCount(r) - 1, gifts: giftList(S.code), marks: markList(S.code), exit: exitList(S.code) }) : kalEx(r, null, { days: daysCount(r) - 1 });
     ex.neon = neonOf(r, 'mandala');
     return ex;
   }
@@ -1238,7 +1434,7 @@
   function finStyle() { return kalStyle(S.route); }
   function numIn(v, def, lo, hi) { v = v == null || v === '' || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
   // Данные Солнца: 12 делений — цвета стёклышек дней; в центре — стёклышки человека (середина — первое состояние выхода, ничего — золото;
-  // вокруг — состояния входа, остальные выхода, подарки). У Наблюдения в центре только золото.
+  // вокруг — состояния входа, остальные выхода, подарки, отметки на диске). У Наблюдения в центре только золото.
   function finSunData() {
     var r = S.route, last = daysCount(r), cols = [], center = [], d;
     for (d = 1; d <= 12; d++) cols.push(dayGlassColor(r, (d - 1) % Math.max(1, last - 1) + 1));
@@ -1247,6 +1443,8 @@
       center.push(g0 ? g0.c : [255, 205, 110]);
       (S.code.states || []).concat(ex.slice(1)).forEach(function (n) { var g = stateGlass(r, n); if (g) center.push(g.c); });
       giftList(S.code).forEach(function (g) { if (GIFT_ZONES[g[1]]) center.push(giftColor(r, g[0], GIFT_ZONES[g[1]])); });
+      // Отметки на диске — следом, сколько поместится (в узоре калейдоскопа — все)
+      markList(S.code).forEach(function (m) { center.push(markGlass(r, m[0], m[1]).c); });
     }
     return window.M13S.data(finSeed(), cols, center.slice(0, 13), glassLook(r, 'days'), glassLook(r, 'states'));
   }
@@ -1648,6 +1846,7 @@
       if (per) S.code.states.forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(j * 3), t0: 1.3 + j * .38, k: 'state' }); });
       for (d = 1; d < last; d++) (function (d) {
         lights.push({ c: dayGlass(r, d).c, s0: at((2 * d - 1) * SPAN), t0: 1.9 + (d - 1) * .42, k: 'day', d: d });
+        if (per) markList(S.code).forEach(function (m) { if (m[0] === d) lights.push({ c: markGlass(r, d, m[1]).c, s0: at((2 * d - 1) * SPAN), t0: 1.9 + (d - 1) * .42 + .12, k: 'gift' }); });
         if (per) giftList(S.code).forEach(function (g) { if (g[0] === d && GIFT_ZONES[g[1]]) lights.push({ c: giftColor(r, d, GIFT_ZONES[g[1]]), s0: at((2 * d - 1) * SPAN), t0: 1.9 + (d - 1) * .42 + .24, k: 'gift' }); });
       })(d);
       if (per) exitList(S.code).forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(22 * SPAN + j * 4), t0: 7.1 + j * .34, k: 'state' }); });
@@ -2215,6 +2414,7 @@
     function permSel(d) { return sp.value === 'code' ? cardFor(r, S.code, d) || cardsOf(r)[0] : cardsOf(r)[+sp.value]; }
     function testCode(m) { saveCode(newCode(r, m)); S.mode = m; setUrlMode(m); closeLayer(); render(); note('Код для проверки: ' + S.code.code + ' · ' + MODE_NAMES[m]); }
     var cinfo = S.code ? 'Код: ' + S.code.code + ' · ' + MODE_NAMES[S.code.mode] + ' · вошли с: ' + (statesText(r, S.code) || '—') + ' · перевёрнуты дни: ' + (pickedList().sort(function (a, b) { return a - b; }).join(', ') || 'нет') +
+      ' · отметки на диске: ' + (markList(S.code).map(function (m) { return m[0] + ' ' + diskName(r, m[1]).toLowerCase(); }).join(', ') || 'нет') +
       ' · подарки: ' + (giftList(S.code).map(function (g) { return g[0] + ' ' + zoneName(r, GIFT_ZONES[g[1]]).toLowerCase(); }).join(', ') || 'нет') +
       ' · выходят с: ' + (exitList(S.code).map(function (i) { return (statesOf(r)[i] || {}).name; }).join(' · ') || '—') + ' · финал: ' + (finDone() ? 'собран' : 'нет') : 'Кода на этом устройстве нет';
     function needCode() { if (!S.code) note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return !!S.code; }
@@ -2223,7 +2423,7 @@
       el('span', 'ys-debug-sep', 'Финал Солнца'),
       // «Карта дня 13» сама ставит спираль на 13-й день (после «Сброса» дата может быть до начала маршрута)
       row([btn('Карта дня 13', function () { closeLayer(); if (FIN) FIN.kill(); if (curDay() !== last) { S.sim = last; render(); } openDay(last, S.mode); }), btn('Финал сразу', function () { var m = musicStart(); closeLayer(); finalScene({ music: m }); })]),
-      row([btn('Последний кадр', function () { closeLayer(); finalScene({ instant: true }); }), btn('Сброс', function () { if (FIN) FIN.kill(); resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, подарков и финала нет.'); })]),
+      row([btn('Последний кадр', function () { closeLayer(); finalScene({ instant: true }); }), btn('Сброс', function () { if (FIN) FIN.kill(); resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, отметок на диске, подарков и финала нет.'); })]),
       el('span', 'ys-debug-sep', 'Код и колода'),
       el('span', null, cinfo),
       row([btn('Код Путешествия', function () { testCode('journey'); }), btn('Код Погружения', function () { testCode('immersion'); })]),
@@ -2308,6 +2508,7 @@
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
-    wheelNode: wheelNode, zoneName: zoneName, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
+    wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF,
+    diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
     GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift };
 })();

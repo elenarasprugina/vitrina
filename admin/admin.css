@@ -426,3 +426,18 @@ audio.a-media{background:none;height:40px}
 .a-jpl-draw{fill:none;stroke:#7ff;stroke-width:2px;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
 .a-jpl-tools button.is-active{background:#2a1a05;color:#ffe9b8}
 .a-jpl-sel{margin-top:10px;display:grid;gap:8px}
+/* Диск личной карты: разметка 6 зон по картинке, живой пример */
+.a-jdz-view{max-width:720px}
+.a-jdz{touch-action:none}
+.a-jdz.is-draw{cursor:crosshair}
+.a-jdz.is-test{cursor:pointer}
+.a-jdz-pic,.a-jdz-pic svg{display:block;width:100%;height:auto;pointer-events:none}
+.a-jdz-h path,.a-jdz-h polyline{pointer-events:none}
+.a-jdz-labels{position:absolute;inset:0;pointer-events:none}
+.a-jdz-l{position:absolute;transform:translate(-50%,-50%);padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;color:#1a1005;background:color-mix(in srgb,var(--c) 75%,#fff);opacity:.82}
+.a-jdz-l.is-on{opacity:1;box-shadow:0 0 0 2px #fff}
+.a-jdz-chips button{display:inline-flex;align-items:center;gap:6px}
+.a-jdz-dot{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.a-jdisk-pv{max-width:400px}
+.a-jdisk-pv .ys-card{width:100%;margin:0}
+.a-jwheel.a-jdisk-pv{padding:0;background:none}

@@ -162,7 +162,7 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 .ys-card{position:relative;width:min(460px,100%);margin:auto;color:#f6ead2;border-radius:22px;background:linear-gradient(170deg,rgba(46,30,10,.94),rgba(16,10,4,.96) 60%);box-shadow:0 0 0 1px rgba(255,214,140,.32),0 0 60px rgba(255,190,70,.22),0 30px 80px rgba(0,0,0,.6);overflow:hidden}
 .ys-card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,240,200,.25)}
 .ys-card-in{display:flex;flex-direction:column;gap:14px;padding:0 26px 22px}
-.ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm):not(.ys-wheel){margin-top:26px}
+.ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm):not(.ys-wheel):not(.ys-disk){margin-top:26px}
 .ys-c-img{margin:0 -26px 2px;aspect-ratio:16/9;background:#140c05;overflow:hidden;position:relative}
 .ys-c-img img,.ys-c-img svg{display:block;width:100%;height:100%;object-fit:cover}
 .ys-c-img::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(to top,rgba(30,19,7,.95),rgba(30,19,7,0))}
@@ -202,6 +202,57 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 .ys-w-zone.ys-w-under--br{top:91%;left:87%}
 .ys-w-uq{margin:2px 0 0;font-size:14.5px;line-height:1.45;color:rgba(214,212,240,.88)}
 .ys-w-uq b{font-weight:600;letter-spacing:.06em;color:rgba(214,212,240,.95)}
+/* Лицо карты — диск: картинка (видео поверх), 6 зон касания. Примерка — зона светится, остальные приглушены; выбор — светится ровно */
+.ys-disk{margin:2px auto 0;width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;--dc:#ffd77a}
+.ys-card-in > .ys-disk:first-child{margin-top:26px}
+.ys-d-q{max-width:380px}
+.ys-d-q p{margin:0 0 .4em;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:21px;line-height:1.3;color:#fff0cc}
+.ys-d-q p:last-child{margin-bottom:0}
+.ys-d-box{position:relative;width:100%;border-radius:18px;overflow:hidden;cursor:pointer;background:#0c0804;-webkit-tap-highlight-color:transparent;box-shadow:0 0 0 1px rgba(255,214,140,.25),0 0 40px rgba(255,190,70,.16)}
+.ys-disk.is-chosen .ys-d-box{cursor:default}
+.ys-d-img,.ys-d-ph{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none}
+.ys-d-ph{aspect-ratio:1}
+.ys-d-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease;pointer-events:none}
+.ys-d-vid.is-on{opacity:1}
+.ys-d-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.ys-d-dim{fill:#070402;opacity:0;transition:opacity .45s ease}
+.ys-d-fill{fill:var(--dc);opacity:0;mix-blend-mode:screen;transition:opacity .45s ease}
+.ys-d-line{fill:none;stroke:var(--dc);vector-effect:non-scaling-stroke;stroke-width:2.4px;opacity:0;filter:drop-shadow(0 0 4px var(--dc));transition:opacity .45s ease}
+.ys-d-z.is-on .ys-d-dim{opacity:.55}
+.ys-d-z.is-on .ys-d-fill{opacity:.26;animation:ys-dtry 2.6s ease-in-out infinite}
+.ys-d-z.is-on .ys-d-line{opacity:.85}
+.ys-disk.is-chosen .ys-d-z.is-on .ys-d-fill{opacity:.3;animation:none}
+.ys-disk.is-chosen .ys-d-z.is-on .ys-d-dim{opacity:.45}
+@keyframes ys-dtry{0%,100%{opacity:.2}50%{opacity:.34}}
+/* Приглашение: пока ничего не выбрано — свет по зонам от центра наружу или мягкая волна из центра */
+.ys-d-wave path{fill:var(--dc);mix-blend-mode:screen}
+.ys-d-wave{opacity:0;animation:ys-dwave 4.2s ease-in-out infinite;animation-delay:calc(var(--j) * .7s)}
+@keyframes ys-dwave{0%,100%{opacity:0}22%{opacity:.24}48%{opacity:0}}
+.ys-d-ring{position:absolute;width:96%;aspect-ratio:1;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%) scale(.12);opacity:0;mix-blend-mode:screen;
+  background:radial-gradient(circle,rgba(255,215,122,0) 38%,color-mix(in srgb,var(--dc) 55%,transparent) 58%,rgba(255,215,122,0) 72%);animation:ys-dring 3.8s ease-out infinite}
+@keyframes ys-dring{0%{transform:translate(-50%,-50%) scale(.12);opacity:0}18%{opacity:.85}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+.ys-d-box.is-try .ys-d-wave,.ys-disk.is-chosen .ys-d-wave,.ys-d-box.is-try .ys-d-ring,.ys-disk.is-chosen .ys-d-ring{display:none}
+body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:paused}
+.ys-d-hint{margin:0;font-size:14.5px;line-height:1.45;color:rgba(246,234,210,.72)}
+.ys-d-info:empty{display:none}
+.ys-d-info{display:flex;flex-direction:column;align-items:center;gap:4px;max-width:400px;animation:ys-din .4s ease}
+@keyframes ys-din{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.ys-d-zone{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#d9b469}
+.ys-d-word{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:25px;line-height:1.15;color:#fff0cc;text-shadow:0 0 14px rgba(255,200,80,.35)}
+.ys-d-word.is-q{font-size:19px;font-weight:500;font-style:italic;color:rgba(226,222,246,.95);text-shadow:none}
+.ys-d-rec{margin:6px 0 0;font-size:16px;line-height:1.5}
+.ys-d-rec i{color:#ffd98a}
+.ys-d-here{margin-top:4px}
+.ys-d-note{margin:-4px 0 0;font-size:13px;line-height:1.4;color:rgba(246,234,210,.6)}
+.ys-d-after{align-self:stretch;display:flex;flex-direction:column;gap:14px;text-align:left}
+.ys-d-after:empty{display:none}
+.ys-d-stone{display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;line-height:1.4;color:rgba(246,234,210,.82);text-align:left}
+.ys-d-stone canvas{width:46px;height:46px;flex:none}
+.ys-d-stone.is-new canvas{animation:ys-dstone 1.4s cubic-bezier(.2,.8,.2,1)}
+@keyframes ys-dstone{0%{transform:scale(2.2) translateY(-18px);opacity:0}45%{opacity:1}100%{transform:none;opacity:1}}
+.ys-d-sr button{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;white-space:nowrap}
+.ys-d-sr button:focus-visible{position:static;width:auto;height:auto;margin:2px;clip:auto;padding:4px 10px;border-radius:999px;font:inherit;font-size:13px;color:#2a1a05;background:#ffe39a}
+@media (prefers-reduced-motion:reduce){.ys-d-wave,.ys-d-ring{display:none}.ys-d-z.is-on .ys-d-fill{animation:none}.ys-d-info,.ys-d-stone.is-new canvas{animation:none}}
 .ys-wb-l{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.45}
 .ys-wb-l b{color:#ffd98a;font-weight:600}
 .ys-c-foot{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:6px}
@@ -223,7 +274,7 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
   .ys-card-in{padding:0 20px calc(26px + env(safe-area-inset-bottom))}
   .ys-c-img{margin:0 -20px 2px}
   .ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm){margin-top:calc(26px + env(safe-area-inset-top))}
-  .ys-wheel:first-child{margin-top:calc(22px + env(safe-area-inset-top))}
+  .ys-wheel:first-child,.ys-disk:first-child{margin-top:calc(22px + env(safe-area-inset-top))}
   .ys-c-title{font-size:27px}
   .ys-c-perm{width:min(240px,64%)}
 }
