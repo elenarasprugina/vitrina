@@ -361,7 +361,7 @@ select.a-input{padding-right:28px}
 .a-jcheck{display:grid;gap:12px}
 .a-jcode-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:6px 0 10px}
 .a-jcode-head p{margin:0 0 4px}
-.a-jcode-kal{width:200px;height:200px;border-radius:50%;flex:none}
+.a-jcode-kal{width:200px;height:200px;border-radius:50%;flex:none;background:radial-gradient(circle,#2a1a08,#0d0804 72%)}
 .a-jcode-c{font-family:"Cormorant Garamond",Georgia,serif;font-size:30px;font-weight:600;letter-spacing:.05em}
 .a-jcode-days{margin:0;padding-left:0;list-style:none;display:grid;gap:4px}
 .a-jcheck-i{border-top:1px solid var(--a-line);padding-top:10px}

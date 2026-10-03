@@ -453,7 +453,10 @@
      Не стёклышки в зеркалах, а нарисованный узор: кольца лепестков, бусин, капель и листьев вокруг центра, на тёплом светлом фоне,
      цвета — из стёклышек (ex.glass), у каждого кода своя. Живёт так: медленно поворачивается, а отдельные лепестки и кусочки
      по одному ловят свет и вспыхивают (блики; ex.neon — неон бликов, 0…1,5). Кадр t = 0 — «фирменный».
-     line — контур для раскрашивания (чёрные линии на белом), open — раскрытие от центра к краю (0…1). */
+     line — контур для раскрашивания (чёрные линии на белом), open — раскрытие от центра к краю (0…1).
+     Вид (P.look, из настроек маршрута route.kaleido): { mandala: '' — тонкие золотые линии на прозрачном фоне, цвет только
+     подкрашивает (как Солнце финала, её просьба 03.10) | 'enamel' — эмаль на тёплом светлом круге (прежний вид),
+     thick — толщина линий (1 — как задумано), back — лёгкое напыление под тонкими линиями }. */
   function mixC(a, b, k) { return [Math.round(a[0] + (b[0] - a[0]) * k), Math.round(a[1] + (b[1] - a[1]) * k), Math.round(a[2] + (b[2] - a[2]) * k)]; }
   function lum(c) { return .299 * c[0] + .587 * c[1] + .114 * c[2]; }
   // Неон: насыщеннее и «изнутри» (к чистому цвету средней светлоты); k 0…1,5
@@ -559,15 +562,23 @@
   }
   // Весь узор (вектором). open — раскрытие (0…1): кольца по очереди от центра выходят и разворачиваются
   function mandalaDraw(x, P, rad, line, open) {
-    var lw = Math.max(.8, rad * (line ? .0042 : .0046)), ink = line ? '#1c1c1c' : 'rgba(74,44,10,.88)', gold = line ? '#1c1c1c' : '#c99a45', N = P.rings.length;
+    var LK = P.look || {}, fine = !line && LK.mandala !== 'enamel', th = LK.thick > 0 ? LK.thick : 1;
+    var lw = Math.max(fine ? .4 : .8, rad * (line ? .0042 : fine ? .0034 : .0046)) * th, ink = line ? '#1c1c1c' : 'rgba(74,44,10,.88)', gold = line ? '#1c1c1c' : '#c99a45', N = P.rings.length;
     if (open == null) open = 1;
-    // Фон: тёплый светлый круг (у раскраски — белый)
+    // Линия текущего пути. Тонкий вид — золотая нить с бликом посередине (как филигрань Солнца), иначе — цветом strokeStyle
+    function st(w, soft) {
+      if (!fine) { x.lineWidth = w; x.stroke(); return; }
+      x.strokeStyle = soft ? 'rgba(233,190,110,.7)' : 'rgb(233,190,110)'; x.lineWidth = w * 1.25; x.stroke();
+      x.strokeStyle = soft ? 'rgba(255,236,190,.4)' : 'rgba(255,236,190,.7)'; x.lineWidth = w * .45; x.stroke();
+    }
+    // Фон: тёплый светлый круг (у раскраски — белый); у тонкого вида — прозрачный или лёгкое напыление
     var g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
     if (line) { g.addColorStop(0, '#fff'); g.addColorStop(1, '#fff'); }
+    else if (fine) { g.addColorStop(0, 'rgba(255,226,170,.20)'); g.addColorStop(.75, 'rgba(255,200,120,.09)'); g.addColorStop(1, 'rgba(255,190,100,.03)'); }
     else { g.addColorStop(0, '#fffaf0'); g.addColorStop(.55, '#f8e8c8'); g.addColorStop(1, '#ecd09a'); }
     // Пока мандала раскрывается, светлый круг растёт вместе с кольцами
     var rb = rad * (open >= 1 ? 1 : .2 + .8 * smooth(open * 1.3));
-    x.fillStyle = g; x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.fill();
+    if (!fine || LK.back) { x.fillStyle = g; x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.fill(); }
     x.lineJoin = 'round'; x.lineCap = 'round';
     // Пока раскрывается — кольца видны только внутри растущего светлого круга
     if (open < 1) { x.save(); x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.clip(); }
@@ -590,34 +601,34 @@
         for (j = 0; j < R.n; j++) {
           x.save(); x.rotate(a0 + (j + .5) * TAU / R.n);
           mPath(x, BK, rad);
-          if (!line) { x.fillStyle = css(mixC(B, [120, 70, 16], .12)); x.fill(); }
-          x.strokeStyle = ink; x.lineWidth = lw * .9; x.stroke();
+          if (!line) { x.fillStyle = fine ? css(B, .08) : css(mixC(B, [120, 70, 16], .12)); x.fill(); }
+          x.strokeStyle = ink; st(lw * (fine ? .75 : .9), true);
           x.restore();
         }
       }
       if (R.t === 'band' || R.t === 'rim') {
         // Полоса: светлая лента между двумя золотыми кругами
         x.beginPath(); x.arc(0, 0, R.r1 * rad, 0, TAU); x.arc(0, 0, R.r0 * rad, 0, TAU, true);
-        if (!line) { x.fillStyle = css(mixC(A, [255, 246, 226], .55)); x.fill(); }
-        x.strokeStyle = gold; x.lineWidth = lw * (line ? 1 : 1.2);
-        x.beginPath(); x.arc(0, 0, R.r0 * rad, 0, TAU); x.stroke(); x.beginPath(); x.arc(0, 0, R.r1 * rad, 0, TAU); x.stroke();
+        if (!line) { x.fillStyle = fine ? css(A, .1) : css(mixC(A, [255, 246, 226], .55)); x.fill(); }
+        x.strokeStyle = gold;
+        x.beginPath(); x.arc(0, 0, R.r0 * rad, 0, TAU); st(lw * (line || fine ? 1 : 1.2)); x.beginPath(); x.arc(0, 0, R.r1 * rad, 0, TAU); st(lw * (line || fine ? 1 : 1.2));
       }
       for (j = 0; j < R.n; j++) {
         x.save(); x.rotate(a0 + j * TAU / R.n);
         var c = R.t === 'dots' || R.t === 'teeth' ? (j % 2 ? B : A) : A, c2 = R.t === 'dots' || R.t === 'teeth' ? (j % 2 ? A : B) : B;
         if (R.t !== 'band') {
           mPath(x, R, rad);
-          if (!line) { x.fillStyle = R.t === 'rim' ? css(mixC(A, GOLD, .5)) : grad(c); x.fill(); }
-          x.strokeStyle = ink; x.lineWidth = lw; x.stroke();
+          if (!line) { x.fillStyle = fine ? css(R.t === 'rim' ? GOLD : c, R.t === 'rim' ? .25 : .18) : R.t === 'rim' ? css(mixC(A, GOLD, .5)) : grad(c); x.fill(); }
+          x.strokeStyle = ink; st(lw);
           if (R.t !== 'teeth' && R.t !== 'rim') {
             mPath(x, R, rad, 'in');
-            if (!line) { x.fillStyle = css(mixC(c2, [255, 250, 236], .35)); x.fill(); }
-            x.lineWidth = lw * .8; x.stroke();
+            if (!line) { x.fillStyle = fine ? css(c2, .24) : css(mixC(c2, [255, 250, 236], .35)); x.fill(); }
+            x.strokeStyle = ink; st(lw * .8);
           }
-          mDetail(x, R, rad); x.lineWidth = lw * .7; x.strokeStyle = line ? ink : 'rgba(74,44,10,.6)'; x.stroke();
+          mDetail(x, R, rad); x.strokeStyle = line ? ink : 'rgba(74,44,10,.6)'; st(lw * (fine ? .6 : .7), true);
         } else if (j % 2 === 0) {
           x.beginPath(); x.arc((R.r0 + R.r1) / 2 * rad, 0, (R.r1 - R.r0) * rad * .26, 0, TAU);
-          if (!line) { x.fillStyle = gold; x.fill(); } else x.stroke();
+          if (!line) { x.fillStyle = fine ? css(GOLD, .85) : gold; x.fill(); } else x.stroke();
         }
         x.restore();
       }
@@ -632,13 +643,13 @@
       g.addColorStop(0, '#fff6d6'); g.addColorStop(.45, '#eabf62'); g.addColorStop(1, '#8a5a16');
       x.fillStyle = g; x.beginPath(); x.arc(0, 0, bs, 0, TAU); x.fill();
     }
-    if (!line) {
+    if (!line && !fine) {
       // Мягкий свет из середины и лёгкая тень к краю — узор как будто светится изнутри
       g = x.createRadialGradient(0, 0, 0, 0, 0, rad);
       g.addColorStop(0, 'rgba(255,248,225,.32)'); g.addColorStop(.5, 'rgba(255,240,205,.08)'); g.addColorStop(.86, 'rgba(120,70,10,0)'); g.addColorStop(1, 'rgba(120,70,10,.22)');
       x.fillStyle = g; x.beginPath(); x.arc(0, 0, rb, 0, TAU); x.fill();
     }
-    if (open >= 1 || open > .75) { x.globalAlpha = open >= 1 ? 1 : (open - .75) * 4; x.strokeStyle = line ? ink : '#b8862e'; x.lineWidth = lw * 1.6; x.beginPath(); x.arc(0, 0, rad - lw, 0, TAU); x.stroke(); x.globalAlpha = 1; }
+    if (open >= 1 || open > .75) { x.globalAlpha = open >= 1 ? 1 : (open - .75) * 4; x.strokeStyle = line ? ink : '#b8862e'; x.beginPath(); x.arc(0, 0, rad - lw, 0, TAU); st(lw * (fine ? 1.2 : 1.6)); x.globalAlpha = 1; }
   }
   // Блики: лепесток вспыхивает своим (неоновым) цветом, на нём искра
   function mandalaGlints(x, P, rad, t, a) {
@@ -689,13 +700,13 @@
   }
   // Мандала одним кадром на любом холсте (картинка, PDF): o.line — контур для раскрашивания
   function mandalaStill(ctx, seed, cx, cy, rad, ex, o) {
-    var P = mandalaPattern(seed, ex);
+    var P = mandalaPattern(seed, ex); P.look = o && o.look;
     ctx.save(); ctx.translate(cx, cy); mandalaDraw(ctx, P, rad, !!(o && o.line), 1); ctx.restore();
   }
 
   /* ---------- Калейдоскоп на холсте ----------
      show(seed) — узор сразу (фирменный кадр); idle(seed) — живёт; turn(seed, done) — поворот трубки: старый узор пересыпается, складывается новый.
-     opts: { style: 'rose'|'gems'|'mix', speed: 1 } */
+     opts: { style: 'rose'|'gems'|'mix'|'mandala', speed: 1, look — вид мандалы (см. «Мандала»: mandala, thick, back) } */
   function Kaleido(cv, px, opts) {
     opts = opts || {};
     var ctx = cv.getContext('2d'), P = null, raf = 0, t = 0, rot = 0, last = 0, style = opts.style || 'mix', speed = opts.speed || 1, q = 1, slow = 0, fast = 0, openK = 1, openT = 0, openDur = 0;
@@ -712,6 +723,7 @@
       if (t0) { var dt = performance.now() - t0; if (dt > 22) { slow++; fast = 0; } else if (dt < 9) { fast++; slow = 0; } if (slow > 12 && q > .55) { q *= .85; slow = 0; } if (fast > 90 && q < 1) { q = Math.min(1, q / .85); fast = 0; } }
     }
     function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
+    function pat(seed) { var p = pattern(seed, style, opts.ex); p.look = opts.look; return p; }
     function loop(ts) {
       var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
       t += dt * speed;
@@ -725,16 +737,16 @@
     WAITERS.push(function () { if (P && !raf) draw([[P, t, 1]]); return cv.isConnected || !P; });
     var api = {
       // ex (необязательно) — другие стёклышки и число зеркал: { sym, glass } (см. pattern)
-      show: function (seed, ex) { stop(); if (ex !== undefined) opts.ex = ex; P = pattern(seed, style, opts.ex); t = 0; draw([[P, 0, 1]]); },
+      show: function (seed, ex) { stop(); if (ex !== undefined) opts.ex = ex; P = pat(seed); t = 0; draw([[P, 0, 1]]); },
       idle: function (seed, ex) {
         if (ex !== undefined) { opts.ex = ex; P = null; }
-        if (seed != null && (!P || P.seed !== (seed >>> 0) || P.style !== style)) { P = pattern(seed, style, opts.ex); t = 0; }
+        if (seed != null && (!P || P.seed !== (seed >>> 0) || P.style !== style)) { P = pat(seed); t = 0; }
         draw([[P, t, 1]]); live();
       },
       turn: function (seed, done, ex) {
         stop();
         if (ex !== undefined) opts.ex = ex;
-        var A = P, tA = t, B = pattern(seed, style, opts.ex), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 3200, TW = 7;
+        var A = P, tA = t, B = pat(seed), r0 = rot, t0 = 0, dur = REDUCED ? 0 : 3200, TW = 7;
         if (!dur || !A) { P = B; t = 0; draw([[B, 0, 1]]); if (!REDUCED) live(); if (done) done(); return; }
         raf = requestAnimationFrame(function step(ts) {
           if (!t0) t0 = ts;
@@ -748,17 +760,20 @@
       stop: stop,
       // Мандала: раскрыться от центра к краю за ms (кольца по очереди выходят и разворачиваются), потом жить
       unfold: function (ms) { if (REDUCED || !ms) { openK = 1; return; } openK = 0; openT = 0; openDur = ms / 1000; if (P && !raf) live(); },
-      style: function (s) { if (s && s !== style) { style = s; if (P) P = pattern(P.seed, style, opts.ex); if (!raf && P) draw([[P, t, 1]]); } return style; },
+      style: function (s) { if (s && s !== style) { style = s; if (P) P = pat(P.seed); if (!raf && P) draw([[P, t, 1]]); } return style; },
+      // Вид мандалы (тонкие линии / эмаль, толщина, напыление) — узор тот же, перерисовывается
+      look: function (o) { opts.look = o; if (P) { P.look = o; P.cache = null; if (!raf) draw([[P, t, 1]]); } },
       speed: function (v) { if (v != null) speed = v; return speed; },
       // Другой набор стёклышек (финал): узор пересобирается из них
-      glass: function (ex, seed) { opts.ex = ex; P = pattern(seed != null ? seed : P ? P.seed : 1, style, ex); t = 0; if (!raf) draw([[P, 0, 1]]); },
+      glass: function (ex, seed) { opts.ex = ex; P = pat(seed != null ? seed : P ? P.seed : 1); t = 0; if (!raf) draw([[P, 0, 1]]); },
       seed: function () { return P ? P.seed : null; }
     };
     return api;
   }
 
   // Фирменный кадр узора на любом холсте (картинка «Сохранить», панель): время 0
-  function still(ctx, seed, cx, cy, rad, style, ex) { frame(ctx, [[pattern(seed, style || 'mix', ex), 0, 1]], cx, cy, rad, 0, 0); }
+  // look — вид мандалы (см. «Мандала»)
+  function still(ctx, seed, cx, cy, rad, style, ex, look) { var p = pattern(seed, style || 'mix', ex); p.look = look; frame(ctx, [[p, 0, 1]], cx, cy, rad, 0, 0); }
   function styleOk(s) { return s === 'rose' || s === 'gems' || s === 'mix' || s === 'mandala'; }
 
   window.M13K = { stone: stone, preload: preload, lookOf: lookOf, CUTS: Object.keys(CUTS), KINDS: KINDS, Kaleido: Kaleido, pattern: pattern, frame: frame, still: still, h32: h32,
