@@ -470,7 +470,7 @@
           {
             "id": "personalQuestion",
             "kind": "question",
-            "visible": true,
+            "visible": false,
             "who": {
               "journey": true,
               "immersion": true
@@ -495,7 +495,7 @@
               "journey": true,
               "immersion": true
             },
-            "label": "Точка завершения"
+            "label": "Вечерняя практика"
           }
         ]
       },

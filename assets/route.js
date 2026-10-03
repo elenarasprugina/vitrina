@@ -1532,13 +1532,17 @@
     else b.innerHTML = backSVG();
     return b;
   }
-  // Лицо перевёрнутой карты в круге: качество на маленьком колесе (полное колесо — на личной карте)
+  // Лицо перевёрнутой карты в круге: качество на маленьком диске (полный диск — на личной карте; с 03.10 вместо колеса)
   function frontFace(k) {
     var f = el('span', 'ys-fc-face');
     if (k && k.image) { var img = el('img'); img.src = imgSrc(S.base, k.image); img.alt = k.quality || ''; f.appendChild(img); f.classList.add('has-img'); }
     else {
-      f.insertAdjacentHTML('beforeend', '<svg class="ys-fc-w" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#e9c77e"><circle cx="50" cy="50" r="46" stroke-opacity=".45"/><circle cx="50" cy="50" r="32" stroke-opacity=".4"/>' +
-        '<circle cx="50" cy="50" r="19" stroke="#ffd76a" stroke-opacity=".7"/><line x1="50" y1="4" x2="50" y2="96" stroke-opacity=".35"/></g></svg>');
+      // Диск в наклоне: край, плоскость, светлый центр; снизу — скала, как у парящего диска
+      f.insertAdjacentHTML('beforeend', '<svg class="ys-fc-w" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="#e9c77e" stroke-linecap="round">' +
+        '<path d="M10 70v3c1 4 6 6 12 7 5 6 12 10 20 13 5 2 11 2 16 0 8-3 15-7 20-13 6-1 11-3 12-7v-3" stroke-opacity=".36"/>' +
+        '<path d="M24 82v5M37 88v6M63 88v6M76 82v5" stroke-opacity=".2"/>' +
+        '<ellipse cx="50" cy="70" rx="40" ry="11" stroke-opacity=".55"/><ellipse cx="50" cy="70" rx="25" ry="6.8" stroke-opacity=".38"/>' +
+        '<ellipse cx="50" cy="70" rx="10" ry="2.8" stroke="#ffd76a" stroke-opacity=".8" fill="#ffcf5a" fill-opacity=".16"/></g></svg>');
       var t = el('span', 'ys-fc-t', k ? k.quality : '');
       // Длинное слово («Рассудительность») — мельче, чтобы не рвалось по слогам
       t.style.setProperty('--fs', Math.min(.056, .66 / Math.max(1, String(k ? k.quality : '').length)).toFixed(4));
