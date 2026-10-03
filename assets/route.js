@@ -502,10 +502,12 @@
       if (b.kind === 'title') return el('h2', 'ys-c-title', t);
       return b.kind === 'small' ? el('p', 'ys-c-small', t) : textNode('ys-c-note', t);
     }
-    // text / question — у каждого дня свой текст (day.texts[b.id]); в нём тоже можно ставить метки
+    // text / question — у каждого дня свой текст (day.texts[b.id]); в нём тоже можно ставить метки.
+    // Своё название дня под подписью блока (day.texts[b.id + 'Title'], «Фокус дня» → «Свет, который зовёт»)
     t = fill(((d.texts || {})[b.id]) || '', ctx).trim(); if (!t) return null;
-    var box = el('div', b.kind === 'question' ? 'ys-c-q' : 'ys-c-text');
+    var box = el('div', b.kind === 'question' ? 'ys-c-q' : 'ys-c-text'), tt = fill(((d.texts || {})[b.id + 'Title']) || '', ctx).trim();
     if (b.label) box.appendChild(el('span', 'ys-c-label', b.label));
+    if (tt) box.appendChild(el('h3', 'ys-c-sub', tt));
     box.appendChild(textNode('ys-c-body', t));
     return box;
   }
