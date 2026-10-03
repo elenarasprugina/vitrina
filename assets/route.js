@@ -997,12 +997,18 @@
   /* ---------- Калейдоскоп: живой узор (assets/kaleido.js, window.M13K) ----------
      12 лучей (6 пар зеркал). Общий узор маршрута — из h32('m13kal|' + id), самоцветы свои у узора.
      Личный — из h32('m13kal|' + код): стёклышки — три состояния входа (цвета — route.states, панель).
-     Стиль — route.kaleido.style: 'rose' витраж-роза, 'gems' самоцветы, 'mix' роза с самоцветами, 'mandala' мандала. */
+     Стиль — route.kaleido.style: 'rose' витраж-роза, 'gems' самоцветы, 'mix' роза с самоцветами, 'mandala' мандала.
+     Вид мандалы (её просьба 03.10 — тонкие линии, как Солнце финала): route.kaleido.mandala '' — тонкие золотые линии на прозрачном фоне |
+     'enamel' — эмаль на светлом круге (прежний вид); line — толщина линий, % (40…220, по умолчанию 100); back — лёгкое напыление (по умолчанию нет). */
   function hexRgb(h) {
     h = String(h || '').replace('#', ''); if (h.length === 3) h = h.replace(/./g, '$&$&');
     var n = parseInt(h, 16); return isNaN(n) || h.length !== 6 ? [255, 207, 90] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
   function kalStyle(route) { var s = (route.kaleido || {}).style; return s === 'rose' || s === 'gems' || s === 'mix' || s === 'mandala' ? s : 'mix'; }
+  function kalLook(route) {
+    var k = (route && route.kaleido) || {};
+    return { mandala: k.mandala === 'enamel' ? 'enamel' : '', thick: numIn(k.line, 100, 40, 220) / 100, back: k.back === true };
+  }
   function kalSeed(c) { return h32('m13kal|' + (c && c.code ? c.code : String(c || ''))); }
   function routeSeed(route) { return h32('m13kal|' + route.id); }
   /* ---------- Стёклышки узора ----------
@@ -1090,7 +1096,7 @@
     if (p > 47 || day > daysCount(route) - 1 || (v & 0x3fff) !== giftCheck(route, c, p)) return null;
     return { day: day, zone: p % 4 };
   }
-  function Kaleido(cv, px, route) { return window.M13K ? window.M13K.Kaleido(cv, px || 0, { style: kalStyle(route || S.route || {}), ex: { sym: 6 } }) : null; }
+  function Kaleido(cv, px, route) { return window.M13K ? window.M13K.Kaleido(cv, px || 0, { style: kalStyle(route || S.route || {}), look: kalLook(route || S.route), ex: { sym: 6 } }) : null; }
   // Узор человека сразу (панель «Код участника», «Мой код»)
   // o — какие стёклышки, кроме состояний (см. kalEx)
   function kalShow(cv, px, route, c, o) { var k = Kaleido(cv, px, route); if (k) k.show(kalSeed(c), kalEx(route, c, o)); return k; }
@@ -1102,7 +1108,7 @@
       var g = ctx.createRadialGradient(W / 2, 560, 60, W / 2, 560, 900);
       g.addColorStop(0, '#3b250a'); g.addColorStop(1, '#0a0604');
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      if (window.M13K) window.M13K.still(ctx, kalSeed(c), W / 2, 560, 420, kalStyle(route), ex || (S.route === route ? myEx(c) : kalEx(route, c)));
+      if (window.M13K) window.M13K.still(ctx, kalSeed(c), W / 2, 560, 420, kalStyle(route), ex || (S.route === route ? myEx(c) : kalEx(route, c)), kalLook(route));
       ctx.textAlign = 'center'; ctx.fillStyle = '#e9c77e';
       ctx.font = '500 30px "Cormorant Garamond", Georgia, serif';
       ctx.fillText(('13 MIRRORS · ' + (route.title || '')).toUpperCase().split('').join(String.fromCharCode(8202)), W / 2, 86);
@@ -1802,7 +1808,7 @@
       }
       x.globalCompositeOperation = 'source-over';
       if (finSunStyle() !== 'kaleido') { var so = finSunOpts('screen'); so.ground = P.light ? 'light' : ''; window.M13S.still(x, finSunData(), W / 2, cy, R, so); }
-      else if (window.M13K) window.M13K.still(x, finSeed(), W / 2, cy, R, finStyle(), finEx());
+      else if (window.M13K) window.M13K.still(x, finSeed(), W / 2, cy, R, finStyle(), finEx(), kalLook(S.route));
       function spaced(t) { return String(t).toUpperCase().split('').join(String.fromCharCode(8202)); }
       x.textAlign = 'center';
       x.fillStyle = P.kick; x.font = '500 30px "Cormorant Garamond", Georgia, serif';
@@ -1989,7 +1995,7 @@
     sunFrom();
     sun.classList.add('is-from');
     var sunSt = finSunStyle(), kal = null, sunL = null, seed = finSeed(), ex = null, sunD = null;
-    if (sunSt === 'kaleido') { ex = finEx(); kal = window.M13K ? window.M13K.Kaleido(kc, 0, { style: finStyle(), ex: { sym: 6 } }) : null; if (kal) kal.show(seed, ex); }
+    if (sunSt === 'kaleido') { ex = finEx(); kal = window.M13K ? window.M13K.Kaleido(kc, 0, { style: finStyle(), look: kalLook(r), ex: { sym: 6 } }) : null; if (kal) kal.show(seed, ex); }
     else { sunD = finSunData(); sunL = window.M13S.Sun(kc, finSunOpts()); }
     // Камни-картинки («своя картинка» стёклышка) — заранее, чтобы Солнце раскрылось сразу с ними
     if (window.M13K && window.M13K.preload) window.M13K.preload(glassImgs(r), function () { if (sunL && sunOn) sunL.show(sunD); });
@@ -2663,7 +2669,7 @@
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
-    kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
+    kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
     diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
     GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift };
