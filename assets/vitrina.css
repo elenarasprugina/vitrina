@@ -106,12 +106,23 @@ body.m13-locked{overflow:hidden}
 .m13-head h2{font-size:clamp(23px,4vw,34px);line-height:1}
 .m13-meta{margin-top:6px;display:flex;gap:4px 12px;flex-wrap:wrap;color:#606060;font-size:11px}
 .m13-desc{color:#444;font-size:12px;line-height:1.35}
-.m13-close,.m13-unflip{position:absolute;z-index:4;width:40px;height:40px;border:1px solid #bbb;border-radius:50%;
-  background:#fff;box-shadow:0 5px 18px rgba(0,0,0,.16);cursor:pointer;display:grid;place-items:center;padding:0}
-.m13-close{top:-11px;right:-11px;font-size:24px;line-height:1}
-.m13-unflip{top:-11px;right:37px;font-size:17px;line-height:1;display:none}
+/* Значки ✕ и ↺ — прозрачные, внутри правого верхнего угла карточки (как кнопка «открыть оборот»).
+   Форма — у всей витрины: круг (обычно), .m13-ic-square — скруглённый квадрат, .m13-ic-bare — только знак. */
+.m13-close,.m13-unflip{position:absolute;z-index:4;top:12px;width:38px;height:38px;border:1px solid var(--m13-ixl,rgba(255,255,255,.6));border-radius:50%;
+  background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--m13-ixc,#fff);
+  cursor:pointer;display:grid;place-items:center;padding:0;line-height:1;transition:background .2s}
+.m13-close:hover,.m13-unflip:hover{background:rgba(0,0,0,.45)}
+.m13-close{right:12px;font-size:24px}
+.m13-unflip{right:58px;font-size:17px;display:none}
 .m13-big-card.is-flipped ~ .m13-unflip{display:grid}
-.m13-close,.m13-unflip{background:var(--m13-icb,#fff);border-color:var(--m13-icl,#bbb);color:var(--m13-ict,inherit)}
+.m13-ic-square .m13-close,.m13-ic-square .m13-unflip{border-radius:10px}
+.m13-ic-bare .m13-close,.m13-ic-bare .m13-unflip{background:transparent;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
+.m13-ic-bare .m13-close{font-size:30px}.m13-ic-bare .m13-unflip{font-size:21px}
+.m13-back .m13-head{padding-right:96px}
+/* Чтобы верхние надписи не уходили под значок ✕ */
+.m13-front:not(.m13-front--day):not(.m13-front--film) > div:first-child{padding-right:36px}
+.m13-front--day .m13-dc-small,.m13-front--day .m13-dc-title{padding-right:40px}
+.m13-front--film .m13-film-words{right:62px}
 /* Карта сегодняшнего дня на лицевой стороне (пока маршрут идёт) */
 .m13-front.m13-front--day{padding:0;justify-content:flex-start;color:#f6eee2;text-align:left}
 .m13-front.m13-front--day::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(14,10,6,.8),rgba(14,10,6,.9))}
@@ -286,10 +297,10 @@ body.m13-locked{overflow:hidden}
   .m13-item-date + .m13-item-title{font-size:9.5px}
   .m13-item-text,.m13-item-meta,.m13-item-action{font-size:8.5px}.m13-item-price{font-size:11px}
   .m13-items--one .m13-item-price{font-size:14px}
-  .m13-close,.m13-unflip{width:36px;height:36px}
-  .m13-close{font-size:22px;top:-9px;right:-7px}
-  .m13-unflip{top:-9px;right:35px;font-size:15px}
-  .m13-head{padding-right:30px}
+  .m13-close,.m13-unflip{width:34px;height:34px;top:9px}
+  .m13-close{font-size:22px;right:9px}
+  .m13-unflip{right:50px;font-size:15px}
+  .m13-back .m13-head{padding-right:84px}
 
   .m13-ipage{width:calc(100% - 20px);padding-top:8px}
   .m13-tabs{gap:5px}.m13-tab{font-size:10.5px;padding:9px 3px;white-space:nowrap}

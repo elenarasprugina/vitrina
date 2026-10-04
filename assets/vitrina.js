@@ -773,14 +773,14 @@
   function filmsStop(scope) {
     [].forEach.call(scope.querySelectorAll('.m13-film video'), function (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} });
   }
-  // Значки ✕ и ↺ у увеличенной карточки — в светлом оттенке её цвета (свечение, акцент, цвет маршрута)
+  // Значки ✕ и ↺ у увеличенной карточки — рамка и знак в светлом оттенке её цвета (свечение, акцент, цвет маршрута)
   function mixHex(hex, to, k) {
     var a = hexRgb(hex), b = hexRgb(to);
     return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * k); }).join(',') + ')';
   }
   function iconVars(st, r) {
     var hue = [st.glowColor, st.accent, r && r.color, st.rimColor].filter(function (x) { return /^#[0-9a-f]{6}$/i.test(x || ''); })[0];
-    return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-icl:' + mixHex(hue, '#ffffff', .45) + ';--m13-ict:' + mixHex(hue, '#000000', .35) : '';
+    return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#ffffff', .5) + ';--m13-ixc:' + mixHex(hue, '#ffffff', .85) : '';
   }
 
   // Цвет текста на акцентной кнопке: белый на тёмном акценте, почти чёрный на светлом.
@@ -1025,7 +1025,9 @@
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
-    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker');
+    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare');
+    var ish = ((S.D.showcase && S.D.showcase.cardStyle) || {}).iconShape;
+    if (ish === 'square' || ish === 'bare') stage.classList.add('m13-ic-' + ish);
     stage.setAttribute('style', '');
     var cr = c.back && c.back.routeId ? routeById(c.back.routeId) : null;
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }

@@ -344,7 +344,8 @@
       el('div', { class: 'a-row' }, [
         selectIn(stl, 'glowTempo', 'Дыхание живого свечения', inh.concat([['calm', 'Спокойное (вдох 4 с, выдох 5 с)'], ['slow', 'Медленное, медитативное'], ['flicker', 'Мерцающее']]),
           { def: forCard ? 'inherit' : 'calm', onChange: onChange, hint: 'Для «Живого» свечения. Контур, который дышит, дышит в том же ритме.' }),
-        el('span')]),
+        forCard ? el('span') : selectIn(stl, 'iconShape', 'Значки ✕ и ↺ на открытой карточке', [['round', 'Прозрачный круг'], ['square', 'Прозрачный скруглённый квадрат'], ['bare', 'Только знак, без рамки']],
+          { def: 'round', onChange: onChange, hint: 'Стоят в правом верхнем углу карточки, рамка и знак — в оттенке её цвета. Одна форма для всех карточек месяца.' })]),
       glassFields(stl, forCard, onChange, d),
       buttonFields(stl, forCard, onChange, d),
       el('p', { class: 'a-hint', text: forCard
