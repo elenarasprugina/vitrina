@@ -126,9 +126,10 @@ body.m13-locked{overflow:hidden}
 .m13-dc-sub{font-size:19px;line-height:1.2;font-weight:700;margin:4px 0 2px}
 .m13-dc-question .m13-dc-body{font-style:italic;font-size:17px}
 .m13-dc-body p,.m13-dc-note p{margin:6px 0 0}
-.m13-dc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 24px 20px}
-.m13-front--day .m13-flip-hint{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35);color:#f6eee2}
-.m13-front.m13-front--day .m13-dc-go{color:#14100a;background:var(--m13-icb,#ecd3a3);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;text-decoration:none}
+.m13-dc-foot{display:flex;align-items:stretch;gap:8px;padding:10px 18px 16px}
+.m13-front.m13-front--day .m13-dc-foot > *{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;padding:8px 10px;border-radius:999px;line-height:1.15}
+.m13-front--day .m13-dc-foot .m13-flip-hint{align-self:auto;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35);color:#f6eee2}
+.m13-front.m13-front--day .m13-dc-go{color:#14100a;background:var(--m13-icb,#ecd3a3);border:1px solid transparent;font-weight:600;text-decoration:none}
 /* Финальный ролик (после окончания маршрута): на лицевой стороне и наверху страницы маршрута в архиве */
 .m13-front.m13-front--film{padding:0;background:#05060f}
 .m13-front.m13-front--film > .m13-flip-hint{position:absolute;left:18px;bottom:18px;z-index:3;background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.4);color:#f6eee2}
@@ -148,6 +149,8 @@ body.m13-locked{overflow:hidden}
 .m13-film-play{display:none;position:absolute;left:50%;top:50%;z-index:3;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;
   border:1px solid rgba(233,199,126,.7);background:rgba(5,6,15,.55);color:#e9c77e;font-size:26px;cursor:pointer;padding:0 0 0 5px}
 .m13-film.is-tap .m13-film-play{display:block}
+.m13-front--film .m13-film-logo{bottom:76px}
+.m13-front.m13-front--film > .m13-flip-hint,.m13-front.m13-front--day .m13-dc-foot > .m13-flip-hint{font-size:12.5px;zoom:1}
 
 /* Маршрут */
 .m13-day{align-self:flex-start;border:1px solid #d5d5d5;border-radius:999px;padding:5px 10px;background:#fff;font-size:11px;color:#444}
