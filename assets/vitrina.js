@@ -745,6 +745,27 @@
       (url ? '<a class="m13-dc-go" href="' + esc(url) + '">' + esc(T('openRoute') || 'Открыть маршрут') + ' →</a>' : '') +
       '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div></div>';
   }
+  // Карта дня: полосы прокрутки нет; если текст не поместился — низ мягко тает, пока не долистали
+  function dcMore(box) {
+    if (!box) return;
+    function upd() { box.classList.toggle('m13-dc--more', box.scrollHeight - box.scrollTop - box.clientHeight > 4); }
+    box.addEventListener('scroll', upd);
+    [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', upd); });
+    upd(); setTimeout(upd, 60);
+  }
+  // Идёт маршрут — карточка вырастает ровно на столько, сколько не помещается карте дня (не выше 88 % экрана)
+  function dcFit(stage, box) {
+    stage.style.height = '';
+    if (!box || !stage.classList.contains('m13-st-day')) return;
+    var im = box.querySelector('.m13-dc-img');
+    if (im) { im.style.height = ''; im.style.aspectRatio = ''; }
+    var h = stage.offsetHeight, need = box.scrollHeight - box.clientHeight, max = Math.round(window.innerHeight * .88);
+    if (need > 2 && h < max) stage.style.height = Math.min(max, h + need) + 'px';
+    // Экран невысокий — картинка дня ниже (обрезается сверху и снизу, не больше чем вдвое)
+    need = box.scrollHeight - box.clientHeight;
+    if (need > 2 && im && im.offsetHeight) { var ih = im.offsetHeight; im.style.aspectRatio = 'auto'; im.style.height = Math.round(Math.max(ih * .5, ih - need)) + 'px'; }
+    box.dispatchEvent(new Event('scroll'));
+  }
   // Финальный ролик: без звука (так браузер запускает его сам), останавливается на последнем кадре
   function filmHTML(r, cls) {
     // Пока строки не заведены в панели (finalWords) — слова по умолчанию, как на странице Синей Руки
@@ -1025,7 +1046,7 @@
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
-    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare');
+    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-st-day');
     var ish = ((S.D.showcase && S.D.showcase.cardStyle) || {}).iconShape;
     if (ish === 'square' || ish === 'bare') stage.classList.add('m13-ic-' + ish);
     stage.setAttribute('style', '');
@@ -1042,7 +1063,13 @@
       '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + sty.lay;
     // Маршрут идёт — карта сегодняшнего дня; закончился — финальный ролик
     var live = liveOf(c);
-    if (live && live.kind === 'day') { front.classList.add('m13-front--day'); front.innerHTML = dayFrontHTML(live) + sty.lay; }
+    if (live && live.kind === 'day') { front.classList.add('m13-front--day'); stage.classList.add('m13-st-day'); front.innerHTML = dayFrontHTML(live) + sty.lay;
+      (function (box) {
+        function fit() { dcFit(stage, box); }
+        dcMore(box); fit(); [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', fit); });
+        if (!S.dcResize) { S.dcResize = true; window.addEventListener('resize', function () { var st = S.root.querySelector('.m13-big-stage'); dcFit(st, st.querySelector('.m13-front--day .m13-dc')); }); }
+      })(front.querySelector('.m13-dc'));
+    }
     if (live && live.kind === 'final') {
       front.classList.add('m13-front--film'); front.style.backgroundImage = '';
       front.innerHTML = filmHTML(live.r) + '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
