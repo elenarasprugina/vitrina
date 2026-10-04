@@ -729,7 +729,7 @@
       // День 13 — урезанная карта, как на странице маршрута (route.final.blocks)
       if (fin && !(fb[b.id] != null ? fb[b.id] !== false : (b.kind === 'small' || b.kind === 'title' || b.kind === 'question'))) return;
       var t, tt;
-      if (b.kind === 'image') { if (d.image) out += '<div class="m13-dc-img"><img src="' + esc(media(d.image)) + '" alt=""></div>'; return; }
+      if (b.kind === 'image') { if (d.image) out += '<div class="m13-dc-img"><img class="m13-dc-bg" src="' + esc(media(d.image)) + '" alt="" aria-hidden="true"><img src="' + esc(media(d.image)) + '" alt=""></div>'; return; }
       if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') {
         t = jFill(b.text, ctx); if (t) out += '<div class="m13-dc-' + b.kind + '">' + (b.kind === 'note' ? paras(t) : txt(t)) + '</div>';
         return;
@@ -753,17 +753,15 @@
     [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', upd); });
     upd(); setTimeout(upd, 60);
   }
-  // Идёт маршрут — карточка вырастает ровно на столько, сколько не помещается карте дня (не выше 88 % экрана)
+  // Идёт маршрут — карточка вырастает ровно на столько, сколько не помещается карте дня
+  // (не выше экрана минус поля 14 px сверху и снизу). Картинка дня всегда целиком (её просьба 05.10:
+  // обрезанная сверху половина не годится); не влез текст — дочитывается пальцем, низ мягко тает (dcMore).
   function dcFit(stage, box) {
     stage.style.height = '';
     if (!box || !stage.classList.contains('m13-st-day')) return;
-    var im = box.querySelector('.m13-dc-img');
-    if (im) { im.style.height = ''; im.style.aspectRatio = ''; }
-    var h = stage.offsetHeight, need = box.scrollHeight - box.clientHeight, max = Math.round(window.innerHeight * .88);
+    var ih = window.innerHeight, h = stage.offsetHeight, need = box.scrollHeight - box.clientHeight,
+      max = Math.round(Math.max(ih - 28, ih * .88));
     if (need > 2 && h < max) stage.style.height = Math.min(max, h + need) + 'px';
-    // Экран невысокий — картинка дня ниже (обрезается сверху и снизу, не больше чем вдвое)
-    need = box.scrollHeight - box.clientHeight;
-    if (need > 2 && im && im.offsetHeight) { var ih = im.offsetHeight; im.style.aspectRatio = 'auto'; im.style.height = Math.round(Math.max(ih * .5, ih - need)) + 'px'; }
     box.dispatchEvent(new Event('scroll'));
   }
   // Финальный ролик: без звука (так браузер запускает его сам), останавливается на последнем кадре
@@ -1065,8 +1063,16 @@
     var live = liveOf(c);
     if (live && live.kind === 'day') { front.classList.add('m13-front--day'); stage.classList.add('m13-st-day'); front.innerHTML = dayFrontHTML(live) + sty.lay;
       (function (box) {
-        function fit() { dcFit(stage, box); }
+        function fit() { if (document.documentElement.contains(box)) dcFit(stage, box); }
         dcMore(box); fit(); [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', fit); });
+        // Картинка уже 16:9 (квадратная, высокая) — края мягко уходят в размытый фон, без резкого шва
+        [].forEach.call(box.querySelectorAll('.m13-dc-img'), function (wr) {
+          var im = wr.querySelector('img:not(.m13-dc-bg)');
+          function nar() { if (im.naturalWidth && im.naturalWidth / im.naturalHeight < 1.6) wr.classList.add('m13-dc-img--narrow'); }
+          if (im.complete) nar(); else im.addEventListener('load', nar);
+        });
+        // Шрифты догружаются позже — текст меняет высоту; меряем ещё раз (иначе низ «таял» зря или не хватало места)
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit); setTimeout(fit, 400);
         if (!S.dcResize) { S.dcResize = true; window.addEventListener('resize', function () { var st = S.root.querySelector('.m13-big-stage'); dcFit(st, st.querySelector('.m13-front--day .m13-dc')); }); }
       })(front.querySelector('.m13-dc'));
     }
