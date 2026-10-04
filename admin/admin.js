@@ -42,7 +42,10 @@
       del: function () {
         try { localStorage.removeItem(KEY); } catch (e) {}
         return tx('readwrite', function (st) { return st.delete(KEY); }).catch(function () {});
-      }
+      },
+      // Другие записи в том же хранилище (библиотека)
+      getK: function (k) { return tx('readonly', function (st) { return st.get(k); }).catch(function () { return null; }); },
+      setK: function (k, v) { return tx('readwrite', function (st) { return st.put(v, k); }); }
     };
   })();
   function keepLocal() { var t = Date.now(); LOCAL.set({ savedAt: t, data: DATA }).then(function () { savedAt = t; }, function () {}); savedAt = savedAt || t; }
@@ -132,6 +135,7 @@
   }
   function save() {
     syncIndex();
+    libKeep();
     var t = Date.now();
     // Копия в браузере и сохранение в GitHub — независимо: если в браузере не хватит места, в GitHub всё равно сохраним
     LOCAL.set({ savedAt: t, data: DATA }).then(function () { return true; }, function () { return false; }).then(function (ok) {
@@ -859,7 +863,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -902,6 +906,7 @@
     else if (s === 'grimoire') add(m, viewGrimoire());
     else if (s === 'routes') add(m, viewRoutes());
     else if (s === 'journeys') add(m, viewJourneys());
+    else if (s === 'library') add(m, viewLibrary());
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
@@ -4045,6 +4050,704 @@
     return [head, pick, look, tabs].concat(body);
   }
 
+  /* ================= БИБЛИОТЕКА (видит только она) =================
+     Атлас волн, тоны и печати, карточки из «космолёта», её заметки («Моё»). Хранится в этом браузере (IndexedDB, 'm13-library')
+     и в закрытом 13mirrors-content, папка library/ (atlas, signs, cards, mine .json) — пишется вместе с «Сохранить».
+     В DATA не входит: публикация и предпросмотр её не видят, на сайт она не попадает никогда (её решение 04.10, docs/konstruktor.md, 0а). */
+  var LIB_KEY = 'm13-library', LIB_PARTS = ['atlas', 'signs', 'cards', 'mine'], LIB_APP = '13mirrors-library';
+  var LIB = null, LIB_P = null, LIB_OPEN = new WeakSet();
+  function libPath(p) { return 'library/' + p + '.json'; }
+  function libKeep() { if (LIB) LOCAL.setK(LIB_KEY, LIB).catch(function () {}); }
+  function libPending() { return !!LIB && Object.keys(LIB.pending || {}).length > 0; }
+  function libTouch(part, obj) { LIB.pending[part] = 1; if (obj && part === 'cards') obj.edited = true; changed(); }
+  // Копия из браузера; если вошли в GitHub — файлы, которые там новее (и здесь не правились), подтягиваем
+  function libLoad() {
+    if (LIB) return Promise.resolve(LIB);
+    if (LIB_P) return LIB_P;
+    LIB_P = LOCAL.getK(LIB_KEY).then(function (c) {
+      var L = c && c.parts ? c : { parts: {} };
+      L.sha = L.sha || {}; L.pending = L.pending || {};
+      if (!GHS.token || !GHS.contentHead) return L;
+      return treeOf(GH.content, GHS.contentHead).then(function (t) {
+        return Promise.all(LIB_PARTS.map(function (p) {
+          var sha = t.files[libPath(p)];
+          if (!sha || sha === L.sha[libPath(p)] || L.pending[p]) return null;
+          return readText(GH.content, sha).then(function (x) { L.parts[p] = JSON.parse(x); L.sha[libPath(p)] = sha; });
+        }));
+      }).then(function () { return L; }, function (e) {
+        toast('Библиотеку из GitHub загрузить не получилось — открыта копия из этого браузера. ' + ((e && e.message) || ''), true);
+        return L;
+      });
+    }).then(function (L) { LIB = L; LIB_P = null; libKeep(); return L; }, function (e) { LIB_P = null; throw e; });
+    return LIB_P;
+  }
+  // При «Сохранить» в GitHub — только изменённые части
+  function libFiles(files) {
+    if (!LIB) return [];
+    var ps = Object.keys(LIB.pending).filter(function (p) { return LIB.parts[p]; });
+    ps.forEach(function (p) { files[libPath(p)] = { text: jsonText(LIB.parts[p]) }; });
+    return ps;
+  }
+  function libSaved(ps) {
+    if (!LIB || !ps.length) return;
+    ps.forEach(function (p) { delete LIB.pending[p]; if (GHS.lastBlobs && GHS.lastBlobs[libPath(p)]) LIB.sha[libPath(p)] = GHS.lastBlobs[libPath(p)]; });
+    libKeep();
+  }
+  function libAtlas() { return LIB.parts.atlas || null; }
+  function libCards() { return (LIB.parts.cards || {}).cards || []; }
+  function libMine() {
+    var m = LIB.parts.mine = LIB.parts.mine || {};
+    m.kin = m.kin || {}; m.tone = m.tone || {}; m.seal = m.seal || {}; m.lived = m.lived || [];
+    return m;
+  }
+  function libSign(kind, n) {
+    var s = LIB.parts.signs, list = s && (kind === 'T' ? s.tones : s.seals);
+    return (list || []).filter(function (x) { return +x.number === n; })[0] || null;
+  }
+
+  /* ---------- Названия, даты, кины ---------- */
+  function K() { return window.M13KIN; }
+  function libToneName(n) { return K().TONES[n - 1]; }
+  function libSealShort(n) { return K().SEALS[n - 1][0]; }
+  function libSignName(a) { var n = +a.slice(1); return a.charAt(0) === 'T' ? 'Тон ' + n + ' · ' + libToneName(n) : 'Печать ' + n + ' · ' + K().sealName(n); }
+  function libTodayIso() { return new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10); }   // по Москве
+  function libDmy(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : ''; }
+  function libIso(dmy) { var m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(String(dmy || '').trim()); return m ? m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]) : ''; }
+  function libAddDays(iso, n) { return new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+  // Когда этот кин был и будет (год назад — полтора вперёд)
+  function libKinDates(k) {
+    var t = libTodayIso(), out = [];
+    for (var i = -260; i <= 560; i++) { var d = libAddDays(t, i); if (K().kinOf(d) === k) out.push(d); }
+    return out;
+  }
+  function libWaveStart(k) { return k - (K().toneOf(k) - 1); }
+  function libWaveOf(k) {
+    var A = libAtlas();
+    return A ? (A.waves || []).filter(function (w) { return (w.days || []).some(function (d) { return +d.kin === k; }); })[0] || null : null;
+  }
+  // Где кин уже был днём её маршрутов (страницы маршрутов): { kin: [{ r, d, date }] }
+  function libRouteKins() {
+    var map = {};
+    ((DATA.journeys || {}).items || []).forEach(function (r) {
+      (r.days || []).forEach(function (d) {
+        if (!d.kin) return;
+        (map[d.kin] = map[d.kin] || []).push({ r: r, d: d, date: r.start ? libAddDays(r.start, (d.n || 1) - 1) : '' });
+      });
+    });
+    return map;
+  }
+  // Подписи текстов дня маршрута: из блоков его карт, иначе — обычные названия
+  var LIB_DAYT = { focusTitle: 'Заголовок фокуса', focus: 'Фокус дня', mainQuestion: 'Главный вопрос', personalQuestion: 'Личный вопрос', personalPractice: 'Практика',
+    closingPoint: 'Вечерняя практика', diskQuestion: 'Вопрос к диску' };
+  function libDayLabels(r) {
+    var L = Object.assign({}, LIB_DAYT);
+    [].concat((r.dayCard || {}).blocks || [], (r.personalCard || {}).blocks || []).forEach(function (b) { if (b.id && b.label) L[b.id] = b.label; });
+    return L;
+  }
+  function libPlain(s) { return String(s == null ? '' : s).replace(/\*\*?/g, ''); }
+  function libGo(patch) { Object.keys(patch).forEach(function (k) { ST[k] = patch[k]; }); ST.section = 'library'; renderShell(); window.scrollTo(0, 0); }
+
+  /* ---------- Поля библиотеки: правка сразу отмечает часть как изменённую ---------- */
+  function libText(obj, key, label, part, o) {
+    o = o || {};
+    var v = obj[key] == null ? '' : String(obj[key]);
+    var i = el(o.line ? 'input' : 'textarea', { class: 'a-input', placeholder: o.ph || '', rows: o.line ? null : Math.max(o.rows || 2, Math.min(14, Math.ceil(v.length / 85) + v.split('\n').length - 1)) });
+    i.value = v;
+    i.addEventListener('input', function () { obj[key] = i.value; libTouch(part, obj); if (o.onInput) o.onInput(i.value); });
+    return field(label, i, o.hint);
+  }
+  function libSelect(obj, key, label, options, part, o) {
+    o = o || {};
+    var s = el('select', { class: 'a-input' }, options.map(function (op) { return el('option', { value: op[0], text: op[1] }); }));
+    s.value = obj[key] == null ? '' : obj[key];
+    s.addEventListener('change', function () { obj[key] = s.value || null; libTouch(part, obj); if (o.onChange) o.onChange(s.value); });
+    return field(label, s, o.hint);
+  }
+  var LIB_LABELS = {
+    title: 'Название', subtitle: 'Подзаголовок', period: 'Даты', status: 'Статус', core: 'Ядро (слова через запятую)', thesis: 'Тезис',
+    geometry: 'Геометрия волны', movements: 'Движения', point: 'Точка', range: 'Дни', text: 'Текст', summary: 'Итог', note: 'Примечание',
+    sources: 'Источники', label: 'Подпись', url: 'Ссылка', source_note: 'Об источниках', current_context: 'Контекст', project_note: 'Заметка проекта',
+    source_synthesis: 'Синтез источников', comparison_runs: 'Сравнение проходов', comparison_2024_2025: 'Сравнение 2024 ↔ 2025', stable_core: 'Устойчивое ядро',
+    primary: 'Главный источник', primary_2025: 'Главный источник · 2025', sourceA: 'Источник A', source1: 'Источник', secondary: 'Второй источник',
+    sourceB: 'Источник B', tzolkin: 'Tzolkin Ahau', earlier_pass: 'Ранее · прежний проход', earlier_2020: 'Ранее · 2020', earlier_2012: 'Ранее · 2012',
+    previous_reconstruction: 'Ранее собранная реконструкция', frame: 'Рамка дня', comparison: 'Сопоставление', m13: '13 MIRRORS · рабочая гипотеза',
+    provenance_note: 'Примечание о происхождении', synthesis: 'Синтез волны'
+  };
+  function libLabel(k) { return LIB_LABELS[k] || String(k).replace(/_/g, ' '); }
+  // Любое поле атласа: строки — поля ввода, списки слов — через запятую, вложенное — группой
+  function libEdit(obj, part, skip, depth) {
+    depth = depth || 0;
+    var out = [];
+    Object.keys(obj).forEach(function (k) {
+      if (skip && skip.indexOf(k) >= 0) return;
+      var v = obj[k];
+      if (typeof v === 'string') out.push(libText(obj, k, libLabel(k), part, { line: k === 'url' || k === 'label' || k === 'range' || k === 'point' || (k === 'title' && depth > 0) }));
+      else if (Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; })) {
+        var box = { s: v.join(', ') };
+        out.push(libText(box, 's', libLabel(k), part, { line: true, onInput: function (x) { obj[k] = x.split(',').map(function (y) { return y.trim(); }).filter(Boolean); } }));
+      } else if (v && typeof v === 'object') {
+        var kids = [];
+        if (Array.isArray(v)) v.forEach(function (x, i) {
+          if (x && typeof x === 'object') kids.push(el('div', { class: 'a-lib-sub' }, [el('div', { class: 'a-lib-subt', text: '№ ' + (i + 1) })].concat(libEdit(x, part, null, depth + 1))));
+        });
+        else kids = libEdit(v, part, null, depth + 1);
+        if (kids.length) out.push(el('div', { class: 'a-lib-grp' }, [el('div', { class: 'a-lib-grpt', text: libLabel(k) })].concat(kids)));
+      }
+    });
+    return out;
+  }
+
+  /* ---------- Скопировать для чата ---------- */
+  function libCopy(text, what) {
+    function show() {
+      var ta = el('textarea', { class: 'a-input', rows: 14, readonly: true }); ta.value = text;
+      dialog({ title: 'Текст для чата', body: el('div', {}, [el('p', { class: 'a-hint', text: 'Выделите всё (⌘A) и скопируйте (⌘C), затем вставьте в чат.' }), ta]) });
+      setTimeout(function () { ta.focus(); ta.select(); }, 60);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('Скопировано: ' + what + '. Вставьте в чат (⌘V).'); }, show);
+    else show();
+  }
+  function libCardText(c) {
+    return '- [' + (c.cardType === 'Practice' ? 'практика' : 'вопрос') + (c.depth ? ', ' + c.depth : '') + (c.channel ? ', ' + c.channel : '') + '] ' +
+      (c.title ? libPlain(c.title) + ': ' : '') + libPlain(c.content).replace(/\s*\n\s*/g, ' ');
+  }
+  function libSignText(a) {
+    var kind = a.charAt(0), n = +a.slice(1), s = libSign(kind, n), L = ['## ' + libSignName(a)];
+    if (s && s.canonical) {
+      var c = s.canonical;
+      L.push(['Действие: ' + (c.action || ''), 'Суть: ' + (c.essence || ''), 'Сила: ' + (c.power || '')].concat(c.question ? ['Вопрос: ' + c.question] : []).join(' · '));
+    }
+    if (s && (s.workingHypotheses || []).length) { L.push('Рабочие гипотезы:'); s.workingHypotheses.forEach(function (h) { L.push('- ' + libPlain(h.text)); }); }
+    var note = libMine()[kind === 'T' ? 'tone' : 'seal'][n]; if (note) L.push('Моё: ' + note);
+    var cs = libCards().filter(function (c) { return libAnchor(c) === a; });
+    if (cs.length) { L.push('Карточки:'); cs.forEach(function (c) { L.push(libCardText(c)); }); }
+    return L.join('\n');
+  }
+  function libDayText(d) {
+    var L = [];
+    Object.keys(d).forEach(function (k) {
+      if (['day', 'date', 'kin', 'name', 'tone', 'url'].indexOf(k) >= 0) return;
+      var v = d[k];
+      if (typeof v === 'string' && v.trim()) L.push(libLabel(k) + ': ' + v.trim());
+      else if (v && typeof v === 'object') Object.keys(v).forEach(function (x) { if (typeof v[x] === 'string' && v[x].trim()) L.push(libLabel(k) + ' · ' + libLabel(x) + ': ' + v[x].trim()); });
+    });
+    return L;
+  }
+  function libKinText(k) {
+    var I = K().info(k), w = libWaveOf(k), d = w && w.days.filter(function (x) { return +x.kin === k; })[0];
+    var L = ['# Kin ' + k + ' · ' + I.kinName, 'Тон ' + I.toneN + ' · ' + I.tone + '; печать ' + I.sealN + ' · ' + K().sealName(I.sealN) + '; день ' + I.toneN + ' волны ' + K().sealName(K().sealOf(libWaveStart(k))) + '.', ''];
+    L.push(libSignText('S' + I.sealN), '', libSignText('T' + I.toneN), '');
+    if (d) { L.push('## Атлас: ' + w.title + ', день ' + d.day + ' (' + d.date + ')'); L.push.apply(L, libDayText(d)); L.push(''); }
+    (libRouteKins()[k] || []).forEach(function (x) {
+      var lb = libDayLabels(x.r);
+      L.push('## Мой маршрут «' + x.r.title + '», день ' + x.d.n + (x.date ? ' (' + libDmy(x.date) + ')' : ''));
+      Object.keys(x.d.texts || {}).forEach(function (t) { var v = String(x.d.texts[t] || '').trim(); if (v && !/^\[заготовка\]/.test(v)) L.push((lb[t] || t) + ': ' + v); });
+      L.push('');
+    });
+    if (libMine().kin[k]) L.push('## Моё', libMine().kin[k]);
+    return L.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+  }
+  function libWaveText(w) {
+    var L = ['# Волна ' + w.title + (w.period ? ' · ' + w.period : '')];
+    if ((w.core || []).length) L.push('Ядро: ' + w.core.join(', '));
+    var syn = w.synthesis || w.source_synthesis;
+    if (syn && syn.thesis) L.push('', 'Тезис: ' + syn.thesis);
+    (syn && syn.geometry || []).forEach(function (g) { L.push('- точка ' + g.point + ' · ' + g.title + ': ' + g.text); });
+    (syn && syn.movements || []).forEach(function (g) { L.push('- дни ' + g.range + ' · ' + g.title + ': ' + g.text); });
+    (w.days || []).forEach(function (d) { L.push('', '## День ' + d.day + ' · ' + d.date + ' · Kin ' + d.kin + ' · ' + d.name); L.push.apply(L, libDayText(d)); });
+    return L.join('\n') + '\n';
+  }
+
+  /* ---------- Карточки ---------- */
+  var LIB_DEPTH = ['лёгкая', 'средняя', 'глубокая'];
+  var LIB_CHANNEL = ['ментальный', 'телесный', 'действенный', 'образно-символический', 'сенсорный', 'эмоциональный'];
+  // Привязка карточки: 'T4' — тон 4, 'S13' — печать 13, 'U' — общая
+  function libAnchor(c) {
+    var o = c.originContext || {}, m = /^([TS])0*(\d+)/.exec(o.refId || '');
+    return (o.type === 'tone' || o.type === 'seal') && m ? m[1] + (+m[2]) : 'U';
+  }
+  function libSetAnchor(c, a) {
+    c.originContext = a === 'U' ? { type: 'custom' } : { type: a.charAt(0) === 'T' ? 'tone' : 'seal', refId: a.charAt(0) + pad(+a.slice(1)) };
+  }
+  function libAnchorOpts() {
+    var o = [['U', 'Общая']], i;
+    for (i = 1; i <= 13; i++) o.push(['T' + i, libSignName('T' + i)]);
+    for (i = 1; i <= 20; i++) o.push(['S' + i, libSignName('S' + i)]);
+    return o;
+  }
+  function libNewCard(a, type) {
+    var c = { id: 'M-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), cardType: type || 'Question', title: '', content: '',
+      depth: null, channel: null, origin: 'mine', mine: true, created: libTodayIso() };
+    libSetAnchor(c, a || 'U');
+    LIB.parts.cards = LIB.parts.cards || { cards: [] };
+    LIB.parts.cards.cards.unshift(c);
+    LIB_OPEN.add(c); libTouch('cards', c);
+    return c;
+  }
+  function libFilter(cards, F) {
+    var q = String(F.q || '').trim().toLowerCase();
+    return cards.filter(function (c) {
+      if (F.type && c.cardType !== F.type) return false;
+      if (F.depth && c.depth !== F.depth) return false;
+      if (F.channel && c.channel !== F.channel) return false;
+      if (F.mark === 'raw' && c.mine) return false;
+      if (F.mark === 'mine' && !c.mine) return false;
+      if (q && [c.id, c.title, c.content, c.variantNote, c.doNotConclude].join(' ').toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+  function libFilterBar(F, onChange) {
+    function pills(key, opts) {
+      return el('div', { class: 'a-lib-pills' }, opts.map(function (o) {
+        return el('button', { type: 'button', class: (F[key] || '') === o[0] ? 'is-on' : '', text: o[1], onclick: function () { F[key] = o[0]; onChange(); } });
+      }));
+    }
+    var ch = el('select', { class: 'a-input a-lib-sel' }, [['', 'Любой канал']].concat(LIB_CHANNEL.map(function (x) { return [x, x]; })).map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+    ch.value = F.channel || '';
+    ch.addEventListener('change', function () { F.channel = ch.value; onChange(); });
+    var q = el('input', { class: 'a-input a-lib-q', type: 'search', placeholder: 'Найти слово…' });
+    q.value = F.q || '';
+    var qt; q.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { F.q = q.value; onChange(true); }, 250); });
+    return el('div', { class: 'a-lib-filters' }, [
+      pills('type', [['', 'Все'], ['Question', 'Вопросы'], ['Practice', 'Практики']]),
+      pills('depth', [['', 'Любая глубина']].concat(LIB_DEPTH.map(function (x) { return [x, x]; }))),
+      pills('mark', [['', 'Сырые и мои'], ['raw', 'Только сырые'], ['mine', 'Только мои']]),
+      ch, q]);
+  }
+  function libCardForm(c, redraw) {
+    var P = 'cards';
+    var more = ['optic', 'stageCompatibility', 'duration', 'intensity', 'mode', 'formatCompatibility', 'output', 'facilitatorRequired', 'facilitatorCompetency', 'variantNote', 'observerNotes']
+      .filter(function (k) { return c[k] != null && c[k] !== '' && !(Array.isArray(c[k]) && !c[k].length); });
+    var MORE = { optic: 'Оптика', stageCompatibility: 'Этап', duration: 'Длительность', intensity: 'Интенсивность', mode: 'Режим', formatCompatibility: 'Формат (И — индивидуально, Г — группа)',
+      output: 'Что получается', facilitatorRequired: 'Нужна ведущая', facilitatorCompetency: 'Умение ведущей', variantNote: 'Пометка варианта', observerNotes: 'Заметки наблюдателя' };
+    return el('div', { class: 'a-lib-cform' }, [
+      el('div', { class: 'a-row3' }, [
+        libSelect(c, 'cardType', 'Вид', [['Question', 'Вопрос'], ['Practice', 'Практика']], P, { onChange: redraw }),
+        libSelect(c, 'depth', 'Глубина', [['', '—']].concat(LIB_DEPTH.map(function (x) { return [x, x]; })), P, { onChange: redraw }),
+        libSelect(c, 'channel', 'Канал', [['', '—']].concat(LIB_CHANNEL.map(function (x) { return [x, x]; })), P, { onChange: redraw })]),
+      (function () {
+        var box = { a: libAnchor(c) };
+        return selectIn(box, 'a', 'Привязка', libAnchorOpts(), { onChange: function (v) { libSetAnchor(c, v); libTouch(P, c); redraw(); } });
+      })(),
+      libText(c, 'title', 'Название (если есть)', P, { line: true, onInput: function () {} }),
+      libText(c, 'content', 'Текст карточки', P, { rows: 3 }),
+      c.cardType === 'Practice' || c.materials ? libText(c, 'materials', 'Материалы', P, { line: true }) : null,
+      libText(c, 'doNotConclude', 'Чего не заключать', P),
+      c.contraindications || c.cardType === 'Practice' ? libText(c, 'contraindications', 'Противопоказания', P) : null,
+      libText(c, 'facilitatorNotes', 'Заметки для ведущей', P),
+      more.length ? el('div', { class: 'a-lib-more' }, more.map(function (k) {
+        return el('div', {}, [el('b', { text: MORE[k] + ': ' }), Array.isArray(c[k]) ? c[k].join(', ') : String(c[k])]);
+      })) : null,
+      el('div', { class: 'a-lib-cbtns' }, [
+        switchIn(c, 'mine', 'Моя — проверена, беру в работу', { onChange: function () { libTouch(P, c); redraw(); }, hint: 'Без отметки карточка считается сырой.' }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Удалить карточку', onclick: function () {
+          dialog({ title: 'Удалить карточку?', body: 'Карточка «' + (c.title || libPlain(c.content).slice(0, 60) || c.id) + '» уйдёт из библиотеки.',
+            buttons: [['del', 'Удалить', 'danger'], ['no', 'Отмена']] }).then(function (v) {
+            if (v !== 'del') return;
+            var arr = libCards(), i = arr.indexOf(c); if (i >= 0) arr.splice(i, 1);
+            libTouch(P); renderMain();
+          });
+        } }),
+        el('span', { class: 'a-hint', text: c.id + (c.edited ? ' · правилась здесь' : '') })])
+    ]);
+  }
+  function libCardRow(c, redrawList) {
+    var row = el('div', { class: 'a-lc-row' + (c.mine ? ' is-mine' : '') });
+    function draw() {
+      var open = LIB_OPEN.has(c);
+      row.className = 'a-lc-row' + (c.mine ? ' is-mine' : '') + (open ? ' is-open' : '');
+      row.replaceChildren();
+      add(row, [
+        el('button', { type: 'button', class: 'a-lc-head', 'aria-expanded': open ? 'true' : 'false', onclick: function () {
+          if (open) LIB_OPEN.delete(c); else LIB_OPEN.add(c); draw(); } }, [
+          el('span', { class: 'a-lc-type', title: c.cardType === 'Practice' ? 'Практика' : 'Вопрос', text: c.cardType === 'Practice' ? '✦' : '?' }),
+          el('span', { class: 'a-lc-text', text: (c.title ? libPlain(c.title) + ' — ' : '') + (libPlain(c.content) || 'Пустая карточка') }),
+          el('span', { class: 'a-lc-meta' }, [c.depth ? el('span', { text: c.depth }) : null, c.channel ? el('span', { text: c.channel }) : null,
+            el('span', { class: c.mine ? 'is-mine' : 'is-raw', text: c.mine ? 'моя' : 'сырая' })])]),
+        open ? libCardForm(c, function () { draw(); if (redrawList) redrawList(); }) : null]);
+    }
+    draw();
+    return row;
+  }
+  // Список с «Показать ещё» — против лавины: сначала 4
+  function libCardList(cards, o) {
+    o = o || {};
+    var box = el('div', { class: 'a-lc' }), shown = o.limit || 4;
+    function draw() {
+      box.replaceChildren();
+      if (!cards.length) box.appendChild(el('p', { class: 'a-empty', text: o.empty || 'Карточек нет.' }));
+      cards.slice(0, shown).forEach(function (c) { box.appendChild(libCardRow(c)); });
+      var btns = [];
+      if (cards.length > shown) btns.push(el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Показать ещё ' + Math.min(10, cards.length - shown) + ' (всего ' + cards.length + ')', onclick: function () { shown += 10; draw(); } }));
+      if (o.anchor) btns.push(el('button', { type: 'button', class: 'a-btn a-btn--small', text: '＋ Своя карточка', onclick: function () { libNewCard(o.anchor); renderMain(); } }));
+      if (btns.length) box.appendChild(el('div', { class: 'a-lib-cbtns' }, btns));
+    }
+    draw();
+    return box;
+  }
+  function libGroup(title, count, build, o) {
+    var body = el('div', { class: 'a-lg-body' }), built = false;
+    var d = el('details', { class: 'a-lg' + (o && o.sub ? ' a-lg--sub' : ''), open: o && o.open ? true : null }, [
+      el('summary', {}, [el('span', { text: title }), el('small', { text: String(count) })]), body]);
+    function fill() { if (!built && d.open) { built = true; add(body, build()); } }
+    d.addEventListener('toggle', fill); fill();
+    return d;
+  }
+  function libCardsTab() {
+    var all = libCards(), F = ST.libF = ST.libF || { type: '', depth: '', channel: '', mark: '', q: '' };
+    var list = el('div', { class: 'a-lib-list' });
+    function by(cards, a) { return cards.filter(function (c) { return libAnchor(c) === a; }); }
+    function draw() {
+      list.replaceChildren();
+      var hit = libFilter(all, F), mine = all.filter(function (c) { return c.mine; }).length;
+      list.appendChild(el('p', { class: 'a-hint', text: 'Карточек: ' + all.length + ' (вопросов ' + all.filter(function (c) { return c.cardType !== 'Practice'; }).length +
+        ', практик ' + all.filter(function (c) { return c.cardType === 'Practice'; }).length + ') · моих ' + mine + ', сырых ' + (all.length - mine) +
+        (hit.length !== all.length ? ' · подходят под выбор: ' + hit.length : '') }));
+      if (String(F.q || '').trim()) { list.appendChild(libCardList(hit, { limit: 20, empty: 'Ничего не нашлось.' })); return; }
+      var tones = [], seals = [], i;
+      for (i = 1; i <= 13; i++) tones.push('T' + i);
+      for (i = 1; i <= 20; i++) seals.push('S' + i);
+      function grp(keys, title) {
+        var n = keys.reduce(function (s, a) { return s + by(hit, a).length; }, 0);
+        return libGroup(title, n, function () {
+          return keys.map(function (a) {
+            var cs = by(hit, a);
+            return libGroup(libSignName(a), cs.length, function () { return libCardList(cs, { anchor: a }); }, { sub: true });
+          });
+        });
+      }
+      add(list, [
+        libGroup('Общие', by(hit, 'U').length, function () { return libCardList(by(hit, 'U'), { anchor: 'U' }); }),
+        grp(tones, 'Тоны'), grp(seals, 'Печати')]);
+    }
+    draw();
+    return [
+      el('div', { class: 'a-jhead' }, [
+        el('p', { class: 'a-hint', style: 'max-width:640px', text: 'Здесь — оригиналы. Группы свёрнуты, в каждой сначала 4 карточки. Нажмите на строку — карточка раскроется, её можно править. «Моя» — проверена и берётся в работу; остальное — сырое из «космолёта».' }),
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '＋ Новая карточка', onclick: function () { F.q = ''; libNewCard('U'); renderMain(); } })]),
+      libFilterBar(F, draw), list];
+  }
+
+  /* ---------- Тоны и печати ---------- */
+  function libSignBody(a, o) {
+    o = o || {};
+    var kind = a.charAt(0), n = +a.slice(1), s = libSign(kind, n), P = 'signs', out = [];
+    if (!s) out.push(el('p', { class: 'a-hint', text: 'Описания пока нет — загрузите тоны и печати из «космолёта» (вкладка «Файлы»).' }));
+    else {
+      var c = s.canonical = s.canonical || {};
+      if (o.edit) {
+        out.push(el('div', { class: 'a-row3' }, [libText(c, 'action', 'Действие', P, { line: true }), libText(c, 'essence', 'Суть', P, { line: true }), libText(c, 'power', 'Сила', P, { line: true })]));
+        if (kind === 'T') out.push(libText(c, 'question', 'Вопрос тона', P, { line: true }));
+      } else out.push(el('div', { class: 'a-lib-canon' }, [['Действие', c.action], ['Суть', c.essence], ['Сила', c.power], ['Вопрос', c.question]].filter(function (x) { return x[1]; })
+        .map(function (x) { return el('span', {}, [el('small', { text: x[0] }), el('b', { text: x[1] })]); })));
+      var H = s.workingHypotheses = s.workingHypotheses || [];
+      out.push(el('div', { class: 'a-lib-grpt', text: 'Рабочие гипотезы (' + H.length + ')' }));
+      if (o.edit) {
+        H.forEach(function (h, i) {
+          out.push(el('div', { class: 'a-lib-hyp' }, [libText(h, 'text', '', P), el('button', { type: 'button', class: 'a-icon', title: 'Удалить гипотезу', text: '✕', onclick: function () {
+            H.splice(i, 1); libTouch(P); renderMain(); } })]));
+        });
+        out.push(el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: '＋ Гипотеза', onclick: function () {
+          H.push({ id: a + '-M' + Date.now().toString(36), text: '', mine: true }); libTouch(P); renderMain(); } }));
+      } else out.push(el('ul', { class: 'a-lib-ul' }, H.map(function (h) { return el('li', { class: h.exploratoryOrOptional ? 'is-opt' : '', text: libPlain(h.text) }); })));
+    }
+    var cs = libCards().filter(function (x) { return libAnchor(x) === a; });
+    out.push(el('div', { class: 'a-lib-grpt', text: 'Карточки (' + cs.length + ')' }), libCardList(cs, { anchor: a }));
+    return out;
+  }
+  function libSignPage(a) {
+    var kind = a.charAt(0), n = +a.slice(1), m = libMine(), notes = m[kind === 'T' ? 'tone' : 'seal'];
+    var kins = []; for (var k = 1; k <= 260; k++) if ((kind === 'T' ? K().toneOf(k) : K().sealOf(k)) === n) kins.push(k);
+    return [
+      el('div', { class: 'a-tabs' }, [
+        el('button', { type: 'button', text: '← Все тоны и печати', onclick: function () { libGo({ libSign: null }); } }),
+        el('button', { type: 'button', text: 'Скопировать для чата', onclick: function () { libCopy(libSignText(a) + '\n', libSignName(a)); } })]),
+      el('h2', { class: 'a-lib-h2', text: libSignName(a) }),
+      el('div', { class: 'a-card a-lib-stack' }, libSignBody(a, { edit: true })),
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: 'Моё' }), libText(notes, n, '', 'mine', { rows: 3, ph: 'Ваши заметки об ' + (kind === 'T' ? 'этом тоне' : 'этой печати') + ' — видите только вы' })]),
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: 'Кины (' + kins.length + ')' }),
+        el('div', { class: 'a-lib-chips' }, kins.map(function (k) { return el('button', { type: 'button', text: 'Kin ' + k, title: K().kinName(k), onclick: function () { libGo({ libTab: 'tzolkin', libKin: k, libSel: k }); } }); }))])
+    ];
+  }
+  function libSignsTab() {
+    if (ST.libSign) return libSignPage(ST.libSign);
+    function btn(a, color) {
+      var cs = libCards().filter(function (c) { return libAnchor(c) === a; }).length;
+      return el('button', { type: 'button', class: 'a-lib-sign' + (color != null ? ' a-tz-c' + color : ''), onclick: function () { libGo({ libSign: a }); } }, [
+        el('b', { text: a.slice(1) }), el('span', { text: a.charAt(0) === 'T' ? libToneName(+a.slice(1)) : libSealShort(+a.slice(1)) }), el('small', { text: cs ? cs + ' карт.' : '' })]);
+    }
+    var t = [], s = [], i;
+    for (i = 1; i <= 13; i++) t.push(btn('T' + i));
+    for (i = 1; i <= 20; i++) s.push(btn('S' + i, (i - 1) % 4));
+    return [el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '13 тонов' }), el('div', { class: 'a-lib-signs' }, t)]),
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '20 печатей' }), el('div', { class: 'a-lib-signs' }, s)])];
+  }
+
+  /* ---------- Цолькин и страница кина ---------- */
+  function libTzolkin() {
+    var today = K().kinOf(libTodayIso()), sel = ST.libSel || today || 1, w0 = libWaveStart(sel);
+    var used = libRouteKins(), notes = LIB.parts.mine ? libMine().kin : {};
+    var grid = el('div', { class: 'a-tz', role: 'grid', 'aria-label': 'Цолькин: 20 печатей × 13 столбцов' });
+    function cell(k) {
+      var c = (K().sealOf(k) - 1) % 4;
+      return el('button', { type: 'button', class: 'a-tz-k a-tz-c' + c + (k >= w0 && k < w0 + 13 ? ' is-wave' : '') + (k === sel ? ' is-sel' : '') + (k === today ? ' is-today' : '') + (K().toneOf(k) === 1 ? ' is-t1' : ''),
+        title: 'Kin ' + k + ' · ' + K().kinName(k), onclick: function () { if (ST.libSel === k) libGo({ libKin: k }); else { ST.libSel = k; renderMain(); } } }, [
+        String(k), used[k] ? el('i', { class: 'a-tz-r', title: 'Был днём маршрута' }) : null, notes[k] ? el('i', { class: 'a-tz-n', title: 'Есть заметка' }) : null]);
+    }
+    for (var row = 1; row <= 20; row++) {
+      grid.appendChild(el('div', { class: 'a-tz-seal a-tz-c' + ((row - 1) % 4), title: K().sealName(row) }, [el('small', { text: String(row) }), el('span', { text: libSealShort(row) })]));
+      for (var col = 0; col < 13; col++) grid.appendChild(cell(col * 20 + row));
+    }
+    var I = K().info(sel), w = libWaveOf(sel), dates = libKinDates(sel), rs = used[sel] || [], t = libTodayIso();
+    var past = dates.filter(function (d) { return d < t; }).slice(-1), next = dates.filter(function (d) { return d >= t; }).slice(0, 2);
+    var side = el('div', { class: 'a-card a-tz-side' }, [
+      el('div', { class: 'a-lib-kicker', text: 'Kin ' + sel + (sel === today ? ' · сегодня' : '') }),
+      el('h2', { class: 'a-lib-h2', text: I.kinName }),
+      el('p', { class: 'a-hint', text: 'Тон ' + I.toneN + ' · ' + I.tone + ' · печать ' + I.sealN + ' · ' + libSealShort(I.sealN) }),
+      el('p', { class: 'a-hint', text: 'День ' + I.toneN + ' из 13 волны ' + K().sealName(K().sealOf(w0)) + (w && w.period ? ' (' + w.period + ')' : '') }),
+      el('p', { class: 'a-hint', text: (past.length ? 'Был ' + libDmy(past[0]) + '. ' : '') + (next.length ? 'Будет ' + next.map(libDmy).join(', ') + '.' : '') }),
+      rs.length ? el('p', { class: 'a-hint', text: 'В маршрутах: ' + rs.map(function (x) { return '«' + x.r.title + '», день ' + x.d.n; }).join('; ') }) : null,
+      notes[sel] ? el('p', { class: 'a-lib-note', text: notes[sel].length > 160 ? notes[sel].slice(0, 158) + '…' : notes[sel] }) : null,
+      el('div', { class: 'a-lib-cbtns' }, [
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Открыть страницу кина', onclick: function () { libGo({ libKin: sel }); } }),
+        w ? el('button', { type: 'button', class: 'a-btn', text: 'Волна в атласе', onclick: function () { libGo({ libTab: 'atlas', libWave: w.id }); } }) : null,
+        today && sel !== today ? el('button', { type: 'button', class: 'a-btn', text: 'Сегодня: Kin ' + today, onclick: function () { ST.libSel = today; renderMain(); } }) : null])
+    ]);
+    return [
+      el('p', { class: 'a-hint', text: 'Нажмите на кин — подсветится его волна, справа (на телефоне — ниже) коротко о нём; второе нажатие или кнопка — страница кина. Рамка — сегодня, точка — кин уже был днём маршрута, уголок — есть ваша заметка, жирная цифра — начало волны.' }),
+      el('div', { class: 'a-tz-wrap' }, [el('div', { class: 'a-tz-scroll' }, grid), side])];
+  }
+  function libKinPage(k) {
+    var I = K().info(k), w0 = libWaveStart(k), w = libWaveOf(k), d = w && (w.days || []).filter(function (x) { return +x.kin === k; })[0];
+    var rs = libRouteKins()[k] || [], dates = libKinDates(k), m = libMine();
+    var chips = [];
+    for (var i = 0; i < 13; i++) (function (kk, n) {
+      chips.push(el('button', { type: 'button', class: kk === k ? 'is-on' : '', title: K().kinName(kk), onclick: function () { libGo({ libKin: kk, libSel: kk }); } }, [el('small', { text: 'день ' + n }), 'Kin ' + kk]));
+    })(w0 + i, i + 1);
+    var routesBox = rs.length ? rs.map(function (x) {
+      var labels = libDayLabels(x.r);
+      var texts = Object.keys(x.d.texts || {}).filter(function (t) { var v = String(x.d.texts[t] || '').trim(); return v && !/^\[заготовка\]/.test(v); });
+      return el('div', { class: 'a-lib-route' }, [
+        el('div', { class: 'a-lib-grpt', text: '«' + x.r.title + '» · день ' + x.d.n + (x.date ? ' · ' + libDmy(x.date) : '') + (x.r.visible === false ? ' · готовится' : '') }),
+        texts.length ? el('dl', { class: 'a-lib-dl' }, [].concat.apply([], texts.map(function (t) { return [el('dt', { text: labels[t] || t }), el('dd', { text: x.d.texts[t] })]; })))
+          : el('p', { class: 'a-hint', text: 'Тексты дня ещё не написаны.' }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Открыть в «Страницах маршрутов»', onclick: function () {
+          ST.section = 'journeys'; ST.journey = x.r.id; ST.jTab = 'days'; renderShell(); window.scrollTo(0, 0); } })]);
+    }) : [el('p', { class: 'a-hint', text: 'Этот кин ещё не был днём ваших маршрутов (среди «Страниц маршрутов»).' })];
+    return [
+      el('div', { class: 'a-tabs' }, [
+        el('button', { type: 'button', text: '← Цолькин', onclick: function () { libGo({ libKin: null, libSel: k }); } }),
+        el('button', { type: 'button', text: '‹ Kin ' + (k === 1 ? 260 : k - 1), onclick: function () { var x = k === 1 ? 260 : k - 1; libGo({ libKin: x, libSel: x }); } }),
+        el('button', { type: 'button', text: 'Kin ' + (k === 260 ? 1 : k + 1) + ' ›', onclick: function () { var x = k === 260 ? 1 : k + 1; libGo({ libKin: x, libSel: x }); } }),
+        el('button', { type: 'button', text: 'Скопировать для чата', onclick: function () { libCopy(libKinText(k), 'всё о Kin ' + k); } })]),
+      el('div', {}, [el('div', { class: 'a-lib-kicker', text: 'Kin ' + k }), el('h2', { class: 'a-h1', text: I.kinName }),
+        el('p', { class: 'a-lead', text: 'Тон ' + I.toneN + ' · ' + I.tone + ' · печать ' + I.sealN + ' · ' + K().sealName(I.sealN) + '. Даты: ' + dates.map(libDmy).join(', ') + '.' })]),
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: 'Волна ' + K().sealName(K().sealOf(w0)) + (w && w.period ? ' · ' + w.period : '') }),
+        el('div', { class: 'a-lib-chips' }, chips)]),
+      block('Печать · ' + K().sealName(I.sealN), libSignBody('S' + I.sealN).concat([
+        el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Править печать', onclick: function () { libGo({ libTab: 'signs', libSign: 'S' + I.sealN }); } })])),
+      block('Тон · ' + I.tone, libSignBody('T' + I.toneN).concat([
+        el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Править тон', onclick: function () { libGo({ libTab: 'signs', libSign: 'T' + I.toneN }); } })])),
+      block(d ? 'Атлас · ' + w.title + ', день ' + d.day : 'Атлас', d ? libEdit(d, 'atlas', ['day', 'date', 'kin', 'name', 'tone']).concat([
+        el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Вся волна в атласе', onclick: function () { libGo({ libTab: 'atlas', libWave: w.id }); } })])
+        : [el('p', { class: 'a-hint', text: libAtlas() ? 'В атласе этого дня нет.' : 'Атлас пока не загружен (вкладка «Файлы»).' })], { note: d ? d.date : '' }),
+      block('Мои маршруты', routesBox, { note: rs.length ? String(rs.length) : '' }),
+      block('Моё', [libText(m.kin, k, '', 'mine', { rows: 4, ph: 'Ваши заметки, прожитое об этом кине — видите только вы' })])
+    ];
+  }
+
+  /* ---------- Атлас ---------- */
+  function libAtlasTab() {
+    var A = libAtlas();
+    if (!A) return [el('div', { class: 'a-note', text: 'Атлас пока не загружен. Вкладка «Файлы» → «Загрузить файлы…» → файл 13M_WAVES_LIBRARY_MASTER_v12.json.' })];
+    var waves = (A.waves || []).slice().sort(function (a, b) { return ((a.days || [])[0] || {}).kin - ((b.days || [])[0] || {}).kin; });
+    if (ST.libWave) {
+      var w = waves.filter(function (x) { return x.id === ST.libWave; })[0];
+      if (w) return libWavePage(w);
+    }
+    var today = K().kinOf(libTodayIso());
+    return [
+      el('p', { class: 'a-hint', text: (A.title || 'Атлас') + (A.version ? ' · ' + A.version : '') + ' · волн: ' + waves.length + '. Нажмите на волну — откроются её синтез и 13 дней; всё можно править прямо здесь.' }),
+      el('div', { class: 'a-lib-waves' }, waves.map(function (w) {
+        var k1 = +((w.days || [])[0] || {}).kin, now = today && today >= k1 && today < k1 + 13;
+        return el('button', { type: 'button', class: 'a-lib-wave a-tz-c' + ((K().sealOf(k1) - 1) % 4) + (now ? ' is-now' : ''), onclick: function () { libGo({ libWave: w.id }); } }, [
+          el('small', { text: 'Kin ' + k1 + '–' + (k1 + 12) + (now ? ' · идёт сейчас' : '') }), el('b', { text: w.title }), el('span', { text: w.period || '' })]);
+      }))];
+  }
+  function libWavePage(w) {
+    var P = 'atlas';
+    return [
+      el('div', { class: 'a-tabs' }, [
+        el('button', { type: 'button', text: '← Все волны', onclick: function () { libGo({ libWave: null }); } }),
+        el('button', { type: 'button', text: 'Скопировать волну для чата', onclick: function () { libCopy(libWaveText(w), 'волна ' + w.title); } })]),
+      el('div', {}, [el('div', { class: 'a-lib-kicker', text: w.subtitle || '' }), el('h2', { class: 'a-h1', text: w.title }), el('p', { class: 'a-lead', text: w.period || '' })]),
+      block('О волне', libEdit(w, P, ['days', 'id']), { open: false }),
+      el('div', { class: 'a-lib-stack' }, (w.days || []).map(function (d) {
+        return block('День ' + d.day + ' · Kin ' + d.kin + ' · ' + d.name, libEdit(d, P, ['day', 'date', 'kin', 'name', 'tone']).concat([
+          el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Страница Kin ' + d.kin, onclick: function () { libGo({ libTab: 'tzolkin', libKin: +d.kin, libSel: +d.kin }); } })]),
+          { open: false, note: d.date });
+      }))];
+  }
+
+  /* ---------- Моё ---------- */
+  function libMineTab() {
+    var m = libMine(), kins = Object.keys(m.kin).filter(function (k) { return String(m.kin[k] || '').trim(); }).map(Number).sort(function (a, b) { return a - b; });
+    var signs = [].concat(Object.keys(m.tone).filter(function (n) { return String(m.tone[n] || '').trim(); }).map(function (n) { return 'T' + n; }),
+      Object.keys(m.seal).filter(function (n) { return String(m.seal[n] || '').trim(); }).map(function (n) { return 'S' + n; }));
+    return [
+      el('p', { class: 'a-hint', text: 'Ваше прожитое: записи, летописи, наблюдения после маршрутов — вставляйте текстом. Видите только вы.' }),
+      el('div', { class: 'a-card a-lib-stack' }, [
+        el('div', { class: 'a-lib-grpt', text: 'Записи (' + m.lived.length + ')' }),
+        collection(m.lived, { empty: 'Записей пока нет.', ordered: false, onChange: function () { libTouch('mine'); }, addLabel: '＋ Запись',
+          make: function () { return { id: uid('my'), title: '', date: libTodayIso(), kins: '', text: '' }; },
+          title: function (x) { return (x.title || 'Без названия') + (x.date ? ' · ' + libDmy(x.date) : ''); },
+          body: function (x) {
+            return [el('div', { class: 'a-row3' }, [libText(x, 'title', 'Название', 'mine', { line: true }), libText(x, 'date', 'Дата (ГГГГ-ММ-ДД)', 'mine', { line: true }),
+              libText(x, 'kins', 'Кины (номера через запятую)', 'mine', { line: true })]), libText(x, 'text', 'Текст', 'mine', { rows: 8 })];
+          } })]),
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: 'Заметки к кинам (' + kins.length + ')' }),
+        kins.length ? el('div', { class: 'a-lib-chips' }, kins.map(function (k) { return el('button', { type: 'button', text: 'Kin ' + k, title: m.kin[k], onclick: function () { libGo({ libTab: 'tzolkin', libKin: k, libSel: k }); } }); }))
+          : el('p', { class: 'a-hint', text: 'Пока нет. Заметка пишется внизу страницы кина («Моё»).' }),
+        signs.length ? el('div', { class: 'a-lib-grpt', text: 'Заметки к тонам и печатям' }) : null,
+        signs.length ? el('div', { class: 'a-lib-chips' }, signs.map(function (a) { return el('button', { type: 'button', text: libSignName(a), onclick: function () { libGo({ libTab: 'signs', libSign: a }); } }); })) : null])
+    ];
+  }
+
+  /* ---------- Файлы: загрузить и скачать ---------- */
+  function libDownload(obj, name) {
+    var url = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+    var a = el('a', { href: url, download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+  // Названия — к её словарю: имя дня и тона в атласе считаем по номеру кина, название волны — по печати первого дня
+  function libNormAtlas(a) {
+    var bad = [];
+    (a.waves || []).forEach(function (w) {
+      (w.days || []).forEach(function (d) {
+        var k = +d.kin;
+        if (!(k >= 1 && k <= 260)) return;
+        d.name = K().kinName(k); d.tone = libToneName(K().toneOf(k));
+        var iso = libIso(d.date);
+        if (iso && K().kinOf(iso) !== k) bad.push(w.title + ', день ' + d.day);
+      });
+      var k1 = +((w.days || [])[0] || {}).kin;
+      if (k1 >= 1 && k1 <= 260) w.title = K().sealName(K().sealOf(k1));
+    });
+    return bad;
+  }
+  function libNormSigns(list, kind) {
+    list.forEach(function (s) { var n = +s.number; if (n >= 1) s.name = kind === 'T' ? libToneName(n) : libSealShort(n); });
+    return list.slice().sort(function (a, b) { return a.number - b.number; });
+  }
+  // Карточки из «космолёта»: новые — добавить; совпавшие по номеру — заменить, если вы их здесь не правили и не отметили «моя»
+  function libMergeCards(incoming) {
+    LIB.parts.cards = LIB.parts.cards || { cards: [] };
+    var arr = LIB.parts.cards.cards, byId = {}, r = { add: 0, upd: 0, kept: 0 };
+    arr.forEach(function (c, i) { byId[c.id] = i; });
+    incoming.forEach(function (c) {
+      c = clone(c); delete c._source;
+      if (byId[c.id] == null) { arr.push(c); r.add++; return; }
+      var old = arr[byId[c.id]];
+      if (old.mine || old.edited) { r.kept++; return; }
+      arr[byId[c.id]] = c; r.upd++;
+    });
+    return r;
+  }
+  function libImport(files) {
+    var reads = [].map.call(files, function (f) {
+      return new Promise(function (ok) {
+        var r = new FileReader();
+        r.onload = function () { var o = null; try { o = JSON.parse(String(r.result)); } catch (e) {} ok({ name: f.name, obj: o }); };
+        r.onerror = function () { ok({ name: f.name, obj: null }); };
+        r.readAsText(f);
+      });
+    });
+    Promise.all(reads).then(function (got) {
+      var plan = [], lines = [], warn = [];
+      got.forEach(function (g) {
+        var o = g.obj, first = Array.isArray(o) && o[0];
+        if (o && o.app === LIB_APP && o.parts) { plan.push(['all', o.parts]); lines.push('«' + g.name + '» — вся библиотека (копия): заменит всё, что сейчас здесь.'); }
+        else if (o && Array.isArray(o.waves)) { plan.push(['atlas', o]); lines.push('«' + g.name + '» — атлас: волн ' + o.waves.length + '. Заменит атлас целиком' + (libAtlas() ? ' (правки, сделанные здесь в атласе, заменятся файлом)' : '') + '.'); }
+        else if (first && first.cardType) { plan.push(['cards', o]); lines.push('«' + g.name + '» — карточки «космолёта»: ' + o.length + '. Новые добавятся; уже загруженные заменятся, кроме тех, что вы правили или отметили «моя».'); }
+        else if (first && /^T\d/.test(first.id || '')) { plan.push(['tones', o]); lines.push('«' + g.name + '» — тоны: ' + o.length + '.'); }
+        else if (first && /^S\d/.test(first.id || '')) { plan.push(['seals', o]); lines.push('«' + g.name + '» — печати: ' + o.length + '.'); }
+        else warn.push('«' + g.name + '» — не узнан (нужен атлас .json, cards.json, tones.json или seals.json из «космолёта», либо скачанная отсюда копия библиотеки).');
+      });
+      if (!plan.length) { dialog({ title: 'Нечего загрузить', body: warn.join(' ') || 'Файлы не выбраны.' }); return; }
+      return dialog({ title: 'Загрузить в библиотеку?', body: el('div', {}, lines.concat(warn).map(function (x) { return el('p', { style: 'margin-bottom:6px', text: x }); })
+        .concat([el('p', { class: 'a-hint', text: 'Названия тонов, печатей и кинов приводятся к вашему словарю (Самосущий, Соединитель Миров…). Тексты не меняются. Потом нажмите «Сохранить».' })])),
+        buttons: [['go', 'Загрузить', 'dark'], ['no', 'Отмена']] }).then(function (v) {
+        if (v !== 'go') return;
+        var done = [];
+        plan.forEach(function (p) {
+          if (p[0] === 'all') { LIB_PARTS.forEach(function (k) { if (p[1][k]) { LIB.parts[k] = p[1][k]; LIB.pending[k] = 1; } }); done.push('вся библиотека'); }
+          else if (p[0] === 'atlas') {
+            var bad = libNormAtlas(p[1]); LIB.parts.atlas = p[1]; LIB.pending.atlas = 1;
+            done.push('атлас' + (bad.length ? ' (кин не совпадает с датой: ' + bad.slice(0, 4).join('; ') + (bad.length > 4 ? '…' : '') + ')' : ''));
+          } else if (p[0] === 'cards') { var r = libMergeCards(p[1]); LIB.pending.cards = 1; done.push('карточки: новых ' + r.add + ', обновлено ' + r.upd + (r.kept ? ', ваши оставлены как есть: ' + r.kept : '')); }
+          else {
+            var S = LIB.parts.signs = LIB.parts.signs || { tones: [], seals: [] };
+            S[p[0]] = libNormSigns(clone(p[1]), p[0] === 'tones' ? 'T' : 'S'); LIB.pending.signs = 1; done.push(p[0] === 'tones' ? 'тоны' : 'печати');
+          }
+        });
+        changed(); libKeep(); renderMain();
+        dialog({ title: 'Загружено', body: 'Загружено: ' + done.join('; ') + '. Нажмите «Сохранить» — библиотека запишется в закрытый репозиторий черновиков.' });
+      });
+    });
+  }
+  function libFilesTab() {
+    var A = libAtlas(), S = LIB.parts.signs, cs = libCards(), m = LIB.parts.mine;
+    var file = el('input', { type: 'file', accept: '.json,application/json', multiple: true, style: 'display:none' });
+    file.addEventListener('change', function () { var f = file.files; if (f && f.length) libImport([].slice.call(f)); file.value = ''; });
+    function st(p) { return LIB.pending[p] ? 'не сохранено — нажмите «Сохранить»' : LIB.sha[libPath(p)] ? 'сохранено в GitHub' : 'только в этом браузере'; }
+    var rows = [
+      ['Атлас волн', A ? (A.version || '') + ' · волн ' + (A.waves || []).length : 'не загружен', A ? st('atlas') : ''],
+      ['Тоны и печати', S ? 'тонов ' + (S.tones || []).length + ', печатей ' + (S.seals || []).length : 'не загружены', S ? st('signs') : ''],
+      ['Карточки', cs.length ? cs.length + ' (моих ' + cs.filter(function (c) { return c.mine; }).length + ')' : 'не загружены', cs.length ? st('cards') : ''],
+      ['Моё', m ? 'записей ' + (m.lived || []).length + ', заметок к кинам ' + Object.keys(m.kin || {}).filter(function (k) { return m.kin[k]; }).length : 'пусто', m ? st('mine') : '']];
+    var stamp = libTodayIso();
+    return [
+      el('div', { class: 'a-card a-lib-stack' }, [
+        el('div', { class: 'a-lib-grpt', text: 'Что сейчас в библиотеке' }),
+        el('table', { class: 'a-lib-tbl' }, rows.map(function (r) { return el('tr', {}, [el('th', { text: r[0] }), el('td', { text: r[1] }), el('td', { class: 'a-hint', text: r[2] })]); }))]),
+      el('div', { class: 'a-card a-lib-stack' }, [
+        el('div', { class: 'a-lib-grpt', text: 'Загрузить' }),
+        el('p', { class: 'a-hint', text: 'Можно выбрать сразу несколько файлов: атлас (13M_WAVES_LIBRARY_MASTER_v12.json), из папки «космолёта» src/data — cards.json, tones.json, seals.json; или копию библиотеки, скачанную отсюда. Файлы читаются в этом браузере и никуда, кроме вашего закрытого репозитория, не уходят.' }),
+        el('div', { class: 'a-lib-cbtns' }, [el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '↑ Загрузить файлы…', onclick: function () { file.click(); } }), file])]),
+      el('div', { class: 'a-card a-lib-stack' }, [
+        el('div', { class: 'a-lib-grpt', text: 'Скачать' }),
+        el('p', { class: 'a-hint', text: 'Копия всей библиотеки — одним файлом (на всякий случай, или перенести). Атлас — в прежнем виде, для вашей HTML-версии и для работы в чате.' }),
+        el('div', { class: 'a-lib-cbtns' }, [
+          el('button', { type: 'button', class: 'a-btn', text: '↓ Вся библиотека', onclick: function () { libDownload({ app: LIB_APP, version: 1, createdAt: new Date().toISOString(), parts: LIB.parts }, '13mirrors-biblioteka-' + stamp + '.json'); } }),
+          A ? el('button', { type: 'button', class: 'a-btn', text: '↓ Атлас (.json)', onclick: function () { libDownload(A, '13M_WAVES_LIBRARY_' + stamp + '.json'); } }) : null])])
+    ];
+  }
+
+  var LIB_TABS = [['tzolkin', 'Цолькин'], ['signs', 'Тоны и печати'], ['cards', 'Карточки'], ['atlas', 'Атлас волн'], ['mine', 'Моё'], ['files', 'Файлы']];
+  var LIB_SUB = { tzolkin: 'libKin', signs: 'libSign', atlas: 'libWave' };
+  function viewLibrary() {
+    var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Библиотека' }),
+      el('p', { class: 'a-lead', text: 'Видите только вы. Хранится в этом браузере и в закрытом репозитории черновиков (записывается кнопкой «Сохранить»). На сайт не попадает никогда — даже при «Опубликовать».' })]);
+    if (!window.M13KIN) return [head, el('p', { class: 'a-note', text: 'Не загрузился календарь кинов — обновите страницу.' })];
+    if (!LIB) {
+      libLoad().then(function () { if (ST.section === 'library') renderMain(); }, fail);
+      return [head, el('p', { class: 'a-hint', text: 'Открываем библиотеку…' })];
+    }
+    var t = ST.libTab || 'tzolkin';
+    var tabs = el('div', { class: 'a-tabs' }, LIB_TABS.map(function (x) {
+      return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () {
+        if (t === x[0] && LIB_SUB[t]) ST[LIB_SUB[t]] = null;   // повторное нажатие — к началу вкладки
+        ST.libTab = x[0]; renderMain(); window.scrollTo(0, 0); } });
+    }));
+    var empty = !libAtlas() && !LIB.parts.signs && !libCards().length && t !== 'files'
+      ? el('div', { class: 'a-note' }, ['Библиотека пока пустая: Цолькин и календарь работают, а тексты появятся, когда вы загрузите файлы — вкладка ',
+        el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Файлы', onclick: function () { libGo({ libTab: 'files' }); } }), '.']) : null;
+    var body = t === 'signs' ? libSignsTab() : t === 'cards' ? libCardsTab() : t === 'atlas' ? libAtlasTab() : t === 'mine' ? libMineTab() : t === 'files' ? libFilesTab()
+      : ST.libKin ? libKinPage(ST.libKin) : libTzolkin();
+    return [head, tabs, empty].concat(body);
+  }
+
   function EVENTS_DEFAULT() { return { eyebrow: '13 MIRRORS', title: 'События', intro: '', tabs: { soon: 'Скоро', past: 'Как это было', cases: 'Примеры практик' }, items: [] }; }
   var EV_TYPES = [['meeting', 'Встреча'], ['meditation', 'Медитация'], ['festival', 'Фестиваль'], ['trip', 'Поездка'], ['practice', 'Практика'], ['case', 'Пример практики (обезличенно)'], ['other', 'Другое']];
   // Заготовки разделов для каждого типа
@@ -5649,6 +6352,7 @@
       });
     }
     return next(0).then(function () {
+      GHS.lastBlobs = {}; entries.forEach(function (x) { GHS.lastBlobs[x.path] = x.sha; });
       return api('POST', repoPath(repo) + '/git/trees', { base_tree: baseTree, tree: entries }, repo);
     }).then(function (t) {
       if (t.sha === baseTree) return baseSha;
@@ -5779,6 +6483,7 @@
   }
   function useData(D) {
     DATA = D; dirty = false;
+    if (LIB && !libPending()) LIB = null;   // библиотека перечитается при входе в раздел
     keepLocal();
     renderShell();
   }
@@ -5802,11 +6507,14 @@
       return head || initRepo(GH.content);
     }).then(function (head) {
       if (!head) return false;
+      var libParts = [];
       return treeOf(GH.content, head).then(function (t) {
         var files = draftFiles(DATA);
         Object.keys(t.files).forEach(function (p) { if (/^data\/showcases\/\d{4}-\d{2}\.json$/.test(p) && !files[p]) files[p] = null; });
+        libParts = libFiles(files);
         return commitFiles(GH.content, head, t.treeSha, files, 'Черновик: ' + new Date().toLocaleString('ru-RU'));
       }).then(function (sha) {
+        libSaved(libParts);
         GHS.contentHead = sha; GHS.contentTime = new Date().toISOString();
         busy(null); updateState();
         if (!quiet) toast('Сохранено в GitHub. На сайте пока ничего не изменилось — для этого есть «Опубликовать».');
