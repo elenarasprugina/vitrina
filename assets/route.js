@@ -878,7 +878,7 @@
       }
       svgs[4].innerHTML = zs;
     }
-    B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route);
+    B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route); B.sparkSpd = sparkSpeed(route);
     B.run = function (d, done) { pulse(B, d, done || function () {}); };
     return B;
   }
@@ -895,6 +895,8 @@
   }
   // Огонёк к центру — яркость (glow.spark, 20–200 %, по умолчанию 100 %)
   function sparkPower(route) { var g = route.glow || {}; return Math.max(20, Math.min(200, g.spark == null || g.spark === '' ? 100 : +g.spark)) / 100; }
+  // Огонёк к центру — скорость (glow.sparkSpeed, 30–250 %, по умолчанию 100 %: от последнего камня ~0,65 с, от первого ~1,9 с)
+  function sparkSpeed(route) { var g = route.glow || {}, v = g.sparkSpeed; return Math.max(30, Math.min(250, v == null || v === '' || isNaN(+v) ? 100 : +v)) / 100; }
   // Световой импульс: от середины кирпича дня d по спирали к центру, вспышка в центре, затем done().
   // Огонёк — цветом дня, прозрачный и насыщенный, без белой серединки (как огоньки финала); в центре — мягкая цветная вспышка.
   function pulse(B, d, done) {
@@ -902,7 +904,7 @@
     var pts = (d <= PATH_DAYS ? tr.slice((2 * d - 1) * SPAN) : []).concat([{ x: C.cx, y: C.cy, w: C.ry * 1.4 }]);
     var acc = [0], L = 0, i, t0 = 0;
     for (i = 1; i < pts.length; i++) { L += dist(pts[i - 1], pts[i]); acc.push(L); }
-    var dur = pts.length > 1 ? 650 + 1250 * Math.min(1, (pts.length - 1) / (tr.length - SPAN)) : 0;
+    var dur = pts.length > 1 ? (650 + 1250 * Math.min(1, (pts.length - 1) / (tr.length - SPAN))) / (B.sparkSpd || 1) : 0;
     function op(x) { return Math.min(1, x * k1).toFixed(2); }
     svg.classList.remove('is-fade');
     svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * .005) + '"/></filter>' +
@@ -2722,7 +2724,7 @@
 
   window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
+    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
