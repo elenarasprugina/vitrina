@@ -126,7 +126,10 @@ body.m13-locked{overflow:hidden}
 /* Карта сегодняшнего дня на лицевой стороне (пока маршрут идёт) */
 .m13-front.m13-front--day{padding:0;justify-content:flex-start;color:#f6eee2;text-align:left}
 .m13-front.m13-front--day::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(14,10,6,.8),rgba(14,10,6,.9))}
-.m13-dc{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 24px 10px;scrollbar-width:thin}
+.m13-dc{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 24px 10px;scrollbar-width:none;-ms-overflow-style:none}
+.m13-dc::-webkit-scrollbar{display:none;width:0;height:0}
+.m13-dc.m13-dc--more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 46px),transparent)}
+
 .m13-dc > :first-child:not(.m13-dc-img){margin-top:24px}
 .m13-dc-img{margin:0 -24px 14px;aspect-ratio:16/9;overflow:hidden;background:#140c05}
 .m13-dc-img img{display:block;width:100%;height:100%;object-fit:cover}
@@ -141,6 +144,7 @@ body.m13-locked{overflow:hidden}
 .m13-front.m13-front--day .m13-dc-foot > *{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;padding:8px 10px;border-radius:999px;line-height:1.15}
 .m13-front--day .m13-dc-foot .m13-flip-hint{align-self:auto;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35);color:#f6eee2}
 .m13-front.m13-front--day .m13-dc-go{color:#14100a;background:var(--m13-icb,#ecd3a3);border:1px solid transparent;font-weight:600;text-decoration:none}
+.m13-front.m13-front--day .m13-dc-foot > *{text-shadow:none}
 /* Финальный ролик (после окончания маршрута): на лицевой стороне и наверху страницы маршрута в архиве */
 .m13-front.m13-front--film{padding:0;background:#05060f}
 .m13-front.m13-front--film > .m13-flip-hint{position:absolute;left:18px;bottom:18px;z-index:3;background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.4);color:#f6eee2}
@@ -651,7 +655,7 @@ body.m13-locked{overflow:hidden}
 .m13-rim--light{--m13-rc:rgba(255,255,255,.85)}
 .m13-rim--cold{--m13-rc:rgba(214,234,255,.95)}
 .m13-rim--gold{--m13-rc:var(--m13-ac,#ecd3a3)}
-.m13-thumb.m13-has-rim,.m13 .m13-face.m13-has-rim{border-color:transparent}
+.m13-thumb.m13-has-rim,.m13 .m13-face.m13-has-rim{border-width:0}  /* рамка-узор сама стала краем: своя 1-px кромка карточки выглядывала снаружи золота */
 /* Контур только в уголках: мягкие «скобочки» в четырёх углах */
 .m13-rim--corners{-webkit-mask:radial-gradient(30% 28% at 0 0,#000 55%,transparent),radial-gradient(30% 28% at 100% 0,#000 55%,transparent),
     radial-gradient(30% 28% at 0 100%,#000 55%,transparent),radial-gradient(30% 28% at 100% 100%,#000 55%,transparent);
