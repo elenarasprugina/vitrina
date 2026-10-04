@@ -111,6 +111,43 @@ body.m13-locked{overflow:hidden}
 .m13-close{top:-11px;right:-11px;font-size:24px;line-height:1}
 .m13-unflip{top:-11px;right:37px;font-size:17px;line-height:1;display:none}
 .m13-big-card.is-flipped ~ .m13-unflip{display:grid}
+.m13-close,.m13-unflip{background:var(--m13-icb,#fff);border-color:var(--m13-icl,#bbb);color:var(--m13-ict,inherit)}
+/* Карта сегодняшнего дня на лицевой стороне (пока маршрут идёт) */
+.m13-front.m13-front--day{padding:0;justify-content:flex-start;color:#f6eee2;text-align:left}
+.m13-front.m13-front--day::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(14,10,6,.8),rgba(14,10,6,.9))}
+.m13-dc{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 24px 10px;scrollbar-width:thin}
+.m13-dc > :first-child:not(.m13-dc-img){margin-top:24px}
+.m13-dc-img{margin:0 -24px 14px;aspect-ratio:16/9;overflow:hidden;background:#140c05}
+.m13-dc-img img{display:block;width:100%;height:100%;object-fit:cover}
+.m13-dc-small{font-size:12px;letter-spacing:.05em;text-transform:uppercase;opacity:.75;margin:4px 0}
+.m13-dc-title{font-size:clamp(25px,4.6vw,34px);line-height:1.04;font-weight:700;margin:4px 0 6px}
+.m13-dc-note,.m13-dc-text,.m13-dc-question{margin-top:14px;font-size:15px;line-height:1.45}
+.m13-dc-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--m13-icb,#ecd3a3);opacity:.9}
+.m13-dc-sub{font-size:19px;line-height:1.2;font-weight:700;margin:4px 0 2px}
+.m13-dc-question .m13-dc-body{font-style:italic;font-size:17px}
+.m13-dc-body p,.m13-dc-note p{margin:6px 0 0}
+.m13-dc-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 24px 20px}
+.m13-front--day .m13-flip-hint{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35);color:#f6eee2}
+.m13-front.m13-front--day .m13-dc-go{color:#14100a;background:var(--m13-icb,#ecd3a3);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;text-decoration:none}
+/* Финальный ролик (после окончания маршрута): на лицевой стороне и наверху страницы маршрута в архиве */
+.m13-front.m13-front--film{padding:0;background:#05060f}
+.m13-front.m13-front--film > .m13-flip-hint{position:absolute;left:18px;bottom:18px;z-index:3;background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.4);color:#f6eee2}
+.m13-film{position:relative;overflow:hidden;background:#05060f;color:#e9c77e}
+.m13-front.m13-front--film > .m13-film{position:absolute;inset:0;z-index:1}
+.m13-film--read{aspect-ratio:9/16;max-height:78svh;margin:0 auto 14px;border-radius:14px}
+.m13-film-v{display:block;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .5s ease}
+.m13-film.is-on .m13-film-v{opacity:1}
+.m13-film-words{position:absolute;left:7%;right:7%;top:7%;text-align:left;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+.m13-film-l1,.m13-film-l2{opacity:0;transform:translateY(8px);transition:opacity 1.2s ease,transform 1.2s ease}
+.m13-film-l1{font-size:clamp(26px,5.4vw,38px);font-weight:700;line-height:1.1}
+.m13-film-l2{margin:6px 0 0 9%;font-size:clamp(20px,4.2vw,29px);font-style:italic;transition-delay:.7s}
+.m13-film-logo{position:absolute;right:6%;bottom:5%;width:min(50%,220px);opacity:0;transition:opacity 1.4s ease .7s}
+.m13-film-logo .m13-logo{width:100%;display:block}
+.m13-film.is-said .m13-film-l1,.m13-film.is-said .m13-film-l2{opacity:1;transform:none}
+.m13-film.is-said .m13-film-logo{opacity:1}
+.m13-film-play{display:none;position:absolute;left:50%;top:50%;z-index:3;width:72px;height:72px;margin:-36px 0 0 -36px;border-radius:50%;
+  border:1px solid rgba(233,199,126,.7);background:rgba(5,6,15,.55);color:#e9c77e;font-size:26px;cursor:pointer;padding:0 0 0 5px}
+.m13-film.is-tap .m13-film-play{display:block}
 
 /* Маршрут */
 .m13-day{align-self:flex-start;border:1px solid #d5d5d5;border-radius:999px;padding:5px 10px;background:#fff;font-size:11px;color:#444}

@@ -76,16 +76,17 @@
       var id = showcaseId || P.settings.currentShowcase;
       return Promise.resolve({
         settings: P.settings, routes: P.routes, formats: P.formats, index: P.index,
-        sandbox: P.sandbox, reflection: P.reflection, events: P.events || null, showcase: (P.showcases || {})[id] || null
+        sandbox: P.sandbox, reflection: P.reflection, events: P.events || null, journeys: P.journeys || null, showcase: (P.showcases || {})[id] || null
       });
     }
     var d = base + 'data/';
     return Promise.all([
       getJSON(d + 'settings.json'), getJSON(d + 'routes.json'), getJSON(d + 'formats.json'),
       getJSON(d + 'sandbox.json'), getJSON(d + 'reflection.json'),
-      getJSON(d + 'events.json').catch(function () { return null; })   // событий может ещё не быть
+      getJSON(d + 'events.json').catch(function () { return null; }),   // событий может ещё не быть
+      S.view === 'showcase' ? getJSON(d + 'journeys.json').catch(function () { return null; }) : null   // дни маршрутов — для карты дня на карточке
     ]).then(function (r) {
-      var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], index: null, showcase: null };
+      var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], index: null, showcase: null };
       var id = showcaseId || out.settings.currentShowcase;
       if (S.view !== 'showcase') return out;
       return getJSON(d + 'showcases/' + id + '.json').then(function (sc) { out.showcase = sc; return out; });
@@ -686,6 +687,102 @@
     var pill = ((c.front || {}).statusStyle === 'pill');
     return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + esc(st) + '</span>' : esc(st)) + '</div>';
   }
+  /* ---------- Увеличенная карточка маршрута: карта сегодняшнего дня и финальный ролик (её решение 04.10.2026) ----------
+     Пока маршрут идёт и у него есть страница по дням (journeys, тот же routeId) — на лицевой стороне увеличенной карточки
+     карта сегодняшнего дня, как её видит Наблюдение на странице маршрута (те же блоки и выключатели; день по Москве).
+     После последнего дня — финальный ролик маршрута (routes[].finalVideo): играет сам при каждом открытии, ближе к концу
+     проявляются надписи (finalText1/2) и логотип (finalLogo). У карточки можно выключить: front.dayShow / front.finalShow = false. */
+  var MON_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  function mskToday() {
+    if (window.M13_TODAY) return parseDate(window.M13_TODAY);
+    var n = new Date(Date.now() + 3 * 3600e3); return new Date(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
+  }
+  function journeyOf(rid) {
+    return (((S.D.journeys || {}).items) || []).filter(function (j) { return j && j.routeId === rid && (j.days || []).length; })[0] || null;
+  }
+  function liveOf(c) {
+    var f = (c && c.front) || {}, rid = c && c.back && c.back.routeId, r = rid ? routeById(rid) : null;
+    if (!r) return null;
+    var now = mskToday(), to = parseDate((r.dates || {}).to);
+    if (to && now > to) return f.finalShow !== false && r.finalVideo ? { kind: 'final', r: r } : null;
+    var j = f.dayShow !== false ? journeyOf(rid) : null, from = j && parseDate(j.start);
+    if (!from) return null;
+    var n = Math.round((now - from) / 864e5) + 1;
+    return n >= 1 && n <= j.days.length ? { kind: 'day', r: r, j: j, n: n } : null;
+  }
+  // Метки в текстах дня ({день}, {кин}, {имя кина}…) — как на странице маршрута; метки выравнивания строк ({по центру}…) убираются
+  function jFill(tpl, ctx) {
+    return String(tpl == null ? '' : tpl).replace(/\{([^{}\n]{1,40})\}/g, function (all, name) {
+      var k = name.trim().toLowerCase(); if (!Object.prototype.hasOwnProperty.call(ctx, k)) return all;
+      var v = ctx[k]; return v && name.trim().charAt(0) !== k.charAt(0) ? v.charAt(0).toUpperCase() + v.slice(1) : v;
+    }).split('\n').map(function (l) { return l.replace(/^\s*\{(слева|по центру|справа|по ширине)\}[ \t]*/i, ''); }).join('\n').trim();
+  }
+  function paras(t) { return String(t).split(/\n{2,}/).map(function (p) { return '<p>' + txt(p) + '</p>'; }).join(''); }
+  function dayFrontHTML(lv) {
+    var j = lv.j, n = lv.n, d = j.days[n - 1] || {}, fin = n === j.days.length, fb = (j.final || {}).blocks || {};
+    var dt = parseDate(j.start); dt.setDate(dt.getDate() + n - 1);
+    var ctx = { 'день': String(n), 'дата': dt.getDate() + ' ' + MON_GEN[dt.getMonth()], 'кин': d.kin == null ? '' : String(d.kin),
+      'имя кина': d.kinName || '', 'печать': d.seal || '', 'тон': d.tone || '', 'что делаем': d.cardOperation || '', 'среда': d.environment || '' };
+    var out = '';
+    ((j.dayCard || {}).blocks || []).forEach(function (b) {
+      if (!b || b.visible === false || (b.who && b.who.observation === false)) return;
+      // День 13 — урезанная карта, как на странице маршрута (route.final.blocks)
+      if (fin && !(fb[b.id] != null ? fb[b.id] !== false : (b.kind === 'small' || b.kind === 'title' || b.kind === 'question'))) return;
+      var t, tt;
+      if (b.kind === 'image') { if (d.image) out += '<div class="m13-dc-img"><img src="' + esc(media(d.image)) + '" alt=""></div>'; return; }
+      if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') {
+        t = jFill(b.text, ctx); if (t) out += '<div class="m13-dc-' + b.kind + '">' + (b.kind === 'note' ? paras(t) : txt(t)) + '</div>';
+        return;
+      }
+      if (b.kind !== 'text' && b.kind !== 'question') return;   // колесо, диск — только на странице маршрута
+      t = jFill((d.texts || {})[b.id], ctx); if (!t) return;
+      tt = jFill((d.texts || {})[b.id + 'Title'], ctx);
+      out += '<div class="m13-dc-' + b.kind + '">' + (b.label ? '<div class="m13-dc-label">' + esc(b.label) + '</div>' : '') +
+        (tt ? '<div class="m13-dc-sub">' + txt(tt) + '</div>' : '') + '<div class="m13-dc-body">' + paras(t) + '</div></div>';
+    });
+    var url = j.path ? S.base + j.path : lv.r.routeUrl || '';
+    return '<div class="m13-dc">' + out + '</div><div class="m13-dc-foot">' +
+      (url ? '<a class="m13-dc-go" href="' + esc(url) + '">' + esc(T('openRoute') || 'Открыть маршрут') + ' →</a>' : '') +
+      '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div></div>';
+  }
+  // Финальный ролик: без звука (так браузер запускает его сам), останавливается на последнем кадре
+  function filmHTML(r, cls) {
+    // Пока строки не заведены в панели (finalWords) — слова по умолчанию, как на странице Синей Руки
+    var l1 = r.finalText1 == null && !r.finalWords ? 'Маршрут пройден' : opt(r.finalText1),
+      l2 = r.finalText2 == null && !r.finalWords ? 'Увидимся за поворотом…' : opt(r.finalText2);
+    return '<div class="m13-film' + (cls ? ' ' + cls : '') + '">' +
+      '<video class="m13-film-v" muted playsinline preload="auto" src="' + esc(media(r.finalVideo)) + '"></video>' +
+      '<div class="m13-film-words">' + (l1 ? '<div class="m13-film-l1">' + txt(l1) + '</div>' : '') + (l2 ? '<div class="m13-film-l2">' + txt(l2) + '</div>' : '') + '</div>' +
+      (r.finalLogo !== false ? '<div class="m13-film-logo">' + logoHTML(null) + '</div>' : '') +
+      '<button type="button" class="m13-film-play" aria-label="' + esc(T('playFilm') || 'Смотреть ролик') + '">▶</button></div>';
+  }
+  function filmStart(box) {
+    var v = box.querySelector('video'); if (!v || box.m13film) return;
+    box.m13film = true;
+    function say() { box.classList.add('is-said'); }
+    v.muted = true; v.playsInline = true;
+    v.addEventListener('playing', function () { box.classList.add('is-on'); box.classList.remove('is-tap'); });
+    v.addEventListener('timeupdate', function () { if (v.duration && isFinite(v.duration) && v.duration - v.currentTime <= 3.4) say(); });
+    v.addEventListener('ended', say);
+    v.addEventListener('error', function () { box.classList.remove('is-tap'); say(); });
+    box.querySelector('.m13-film-play').addEventListener('click', function (e) { e.stopPropagation(); var q = v.play(); if (q && q.catch) q.catch(say); });
+    // Телефон не дал запустить сам (например, iPhone в режиме энергосбережения) — кнопка ▶
+    var p = v.play(); if (p && p.catch) p.catch(function () { if (!v.error) box.classList.add('is-tap'); });
+  }
+  function filmsStart(scope) { [].forEach.call(scope.querySelectorAll('.m13-film'), filmStart); }
+  function filmsStop(scope) {
+    [].forEach.call(scope.querySelectorAll('.m13-film video'), function (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} });
+  }
+  // Значки ✕ и ↺ у увеличенной карточки — в светлом оттенке её цвета (свечение, акцент, цвет маршрута)
+  function mixHex(hex, to, k) {
+    var a = hexRgb(hex), b = hexRgb(to);
+    return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * k); }).join(',') + ')';
+  }
+  function iconVars(st, r) {
+    var hue = [st.glowColor, st.accent, r && r.color, st.rimColor].filter(function (x) { return /^#[0-9a-f]{6}$/i.test(x || ''); })[0];
+    return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-icl:' + mixHex(hue, '#ffffff', .45) + ';--m13-ict:' + mixHex(hue, '#000000', .35) : '';
+  }
+
   // Цвет текста на акцентной кнопке: белый на тёмном акценте, почти чёрный на светлом.
   function inkFor(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return '#fff';
@@ -889,6 +986,7 @@
     S.root.querySelector('#m13-front').addEventListener('click', function () {
       S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
       var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0;
+      var fv = S.root.querySelector('#m13-front video'); if (fv) fv.pause();
     });
     S.root.querySelector('#m13-unflip').addEventListener('click', function () {
       S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
@@ -929,7 +1027,9 @@
     var stage = S.root.querySelector('.m13-big-stage');
     stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker');
     stage.setAttribute('style', '');
+    var cr = c.back && c.back.routeId ? routeById(c.back.routeId) : null;
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
+    stage.setAttribute('style', [stage.getAttribute('style'), iconVars(sty.st, cr)].filter(Boolean).join(';'));
     if (sty.st.glow === 'live' && TEMPO[sty.st.glowTempo]) stage.classList.add(TEMPO[sty.st.glowTempo]);
     var sub = opt(f.subtitle);
     front.innerHTML = '<div>' +
@@ -938,6 +1038,15 @@
       (sub ? '<div class="m13-hero-date">' + esc(sub) + '</div>' : '') +
       statusHTML(c, 'm13-hero-status') +
       '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + sty.lay;
+    // Маршрут идёт — карта сегодняшнего дня; закончился — финальный ролик
+    var live = liveOf(c);
+    if (live && live.kind === 'day') { front.classList.add('m13-front--day'); front.innerHTML = dayFrontHTML(live) + sty.lay; }
+    if (live && live.kind === 'final') {
+      front.classList.add('m13-front--film'); front.style.backgroundImage = '';
+      front.innerHTML = filmHTML(live.r) + '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
+      filmsStart(front);
+    }
+    [].forEach.call(front.querySelectorAll('.m13-dc-go'), function (a) { a.addEventListener('click', function (e) { e.stopPropagation(); }); });
     // Оборот: тот же узор и кромка (без затемнения под текстом — там свои плашки)
     var back = S.root.querySelector('.m13-back'), blay = decoHTML(sty.st, false);
     back.querySelectorAll(':scope > .m13-lay').forEach(function (n) { n.remove(); });
@@ -995,6 +1104,7 @@
   M13.evenRows = evenRows;
   function closeCardNow() {
     var ov = S.root.querySelector('#m13-overlay');
+    filmsStop(S.root.querySelector('#m13-front'));
     ov.getAnimations && ov.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); });
     ov.style.visibility = '';
     ov.classList.remove('m13-folding');
@@ -2219,7 +2329,7 @@
       st.open = L[i].id; reading(true);
       holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-all>' + esc(o.allLabel) + '</button>' +
         o.read(L[i]) + nav(L, i) + '</div>';
-      bindActs(holder); bindLightbox(holder);
+      bindActs(holder); bindLightbox(holder); filmsStart(holder);
       holder.querySelectorAll('[data-all]').forEach(function (b) {
         b.addEventListener('click', function () { if (st.layer) closeTop(); else { back(); setHash(o.hash(null)); } });
       });
@@ -2737,8 +2847,10 @@
         L.map(function (it) { return coverHTML(sbCover(t, it, true)); }).join('') + '</div></section>' : '';
     }
     var gr = glassFor('route', r), rov = gr.g ? glassOver('route', r, gr.g) : null, g0 = routeGlassOf(r), wm = g0 ? markParts(g0) : null;
-    return '<article class="m13-panel m13-read-panel m13-ev">' +
-      readHeadHTML({ img: r.image || '', fit: r.coverFit || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [],
+    // Финальный ролик маршрута — вместо картинки наверху, играет сам при каждом открытии
+    var film = r.finalVideo ? filmHTML(r, 'm13-film--read') : '';
+    return '<article class="m13-panel m13-read-panel m13-ev">' + film +
+      readHeadHTML({ img: film ? '' : r.image || '', fit: r.coverFit || '', color: r.color || '', top: [T('archiveRoute') || 'Маршрут', routeDates(r)].filter(Boolean).join(' · '), title: r.title, meta: kin ? [kin] : [],
         gl: rov ? { html: rov.gl, lb: rov.gllb, kin: glassHas(gr.g, 'kin', 'кин') } : null }) +
       (String(r.description || '').trim() ? '<div class="m13-block"><div class="m13-rich">' + rich(r.description) + '</div></div>' : '') +
       (r.archiveBlocks || []).map(function (b) { return sbBlockHTML(b, null, wm); }).join('') +
