@@ -549,7 +549,7 @@
           },
           "cardOperation": "Проверяю: есть ли в моей реакции что-то моё",
           "environment": "дыхание, голос, слово",
-          "glowColor": "#e9cde0"
+          "glowColor": "#ffffff"
         },
         {
           "n": 4,
@@ -628,7 +628,7 @@
           },
           "cardOperation": "Слушаю отклик на непривычное качество",
           "environment": "переход, отпускание старой позиции",
-          "glowColor": "#e9cde0"
+          "glowColor": "#ffffff"
         },
         {
           "n": 8,
@@ -707,7 +707,7 @@
           },
           "cardOperation": "Перестаю делать привычное «слишком»",
           "environment": "сердце, верность себе",
-          "glowColor": "#e9cde0"
+          "glowColor": "#ffffff"
         },
         {
           "n": 12,
@@ -2624,7 +2624,8 @@
           }
         ]
       },
-      "dayTexts": 1
+      "dayTexts": 1,
+      "words": {}
     }
   ]
 }

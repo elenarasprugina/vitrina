@@ -66,7 +66,16 @@
       "finalVideo": "media/7825920db8033f327918.mp4",
       "finalVideoName": "day13_namaste.mp4",
       "filmSeed": 1,
-      "shareImage": "media/0236a173e4e6d93b1c97.jpg"
+      "finalWords": 1,
+      "finalText1": {
+        "value": "Маршрут пройден",
+        "show": true
+      },
+      "finalText2": {
+        "value": "Увидимся за поворотом…",
+        "show": true
+      },
+      "shareImage": "media/7ae4cce73acdedb45d7b.jpg"
     },
     {
       "id": "white-wizard",
