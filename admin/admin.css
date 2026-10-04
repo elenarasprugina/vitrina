@@ -464,3 +464,13 @@ audio.a-media{background:none;height:40px}
 .a-al-bar span{padding:0 3px 0 4px}
 .a-al-bar button{width:24px;height:20px;border:1px solid var(--a-line);border-radius:6px;background:var(--a-soft);color:#5a4a2a;font-size:13px;line-height:1;cursor:pointer;padding:0}
 .a-al-bar button:hover{background:#fff6e2;border-color:#d9bf85}
+/* Конструктор маршрутов (04.10): «Новый маршрут», что не заполнено */
+.a-jhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.a-jnew{display:grid;gap:10px;min-width:0}
+.a-jnew .a-input{width:100%;box-sizing:border-box}
+.a-jtodo{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.a-jtodo li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px;border-radius:8px;background:#fbf3e7;font-size:14px}
+.a-jtodo li.is-ok{background:transparent;color:var(--a-muted,#777)}
+.a-jtodo-m{width:16px;text-align:center;font-weight:700;color:var(--a-warn)}
+.a-jtodo li.is-ok .a-jtodo-m{color:#3c8a4f}
+.a-jtodo .a-btn{margin-left:auto}

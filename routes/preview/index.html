@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>13 MIRRORS · предпросмотр маршрута</title>
+<link rel="stylesheet" href="../../assets/fonts/cormorant-garamond.css">
+<!-- Предпросмотр любого маршрута из панели («Посмотреть страницу»): черновик приходит сообщением (?preview=1), свежие файлы каждый раз.
+     Нужна потому, что страница нового маршрута routes/<id>/ появляется только после публикации. -->
+<script>window.M13RV = 'p' + Date.now();
+document.write('<link rel="stylesheet" href="../../assets/route.css?v=' + M13RV + '">');</script>
+</head>
+<body class="ys-body">
+<div id="ys" data-base="../../" data-route=""></div>
+<script>document.write('<script src="../../assets/kaleido.js?v=' + M13RV + '"><\/script><script src="../../assets/sun.js?v=' + M13RV + '"><\/script><script src="../../assets/route.js?v=' + M13RV + '"><\/script>');</script>
+<script>if (!/[?&]preview=1/.test(location.search)) location.replace('../../'); else M13R.boot();</script>
+</body>
+</html>

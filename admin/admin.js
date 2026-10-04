@@ -2385,6 +2385,223 @@
     var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + (r.days.length - 1) * 864e5);
     return d.getUTCDate() + ' ' + MON_GEN[d.getUTCMonth()];
   }
+  /* ---------- Конструктор маршрутов, заход 1 (04.10.2026, docs/konstruktor.md, разделы 0 и 0а) ----------
+     «Новый маршрут» — коробочка: копия вида выбранного маршрута (тексты пустые) или чистый; вид — волна (кины по календарю) или тематический.
+     Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
+     Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
+     (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
+  var ROUTE_V = '20261004a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
+  function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
+  function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
+  // Латиница для адреса: «Красный Небесный Странник» → krasnyy-nebesnyy-strannik
+  function jSlug(s) {
+    var T = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u',
+      ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+    return String(s || '').toLowerCase().split('').map(function (c) { return T[c] != null ? T[c] : c; }).join('').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  }
+  function jCards() { return ((DATA.routes || {}).routes || []).filter(function (c) { return c && c.id; }); }
+  // Кины 13 дней по дате начала (волна). ask — показать «было → станет» и спросить
+  function jKinFill(r, ask, then) {
+    var K = window.M13KIN, list = K ? K.days(r.start, r.days.length) : [];
+    if (!list.length) { toast('Сначала укажите первый день маршрута.', true); return; }
+    var rows = [], diff = 0, hk = [];
+    list.forEach(function (x, i) {
+      var d = r.days[i], was = [d.kin, d.kinName, d.seal, d.tone].join('|'), now = [x.kin, x.kinName || '', x.seal || '', x.tone || ''].join('|');
+      if (x.special === 'hunabku') hk.push(i + 1);
+      if (was !== now) diff++;
+      rows.push(el('p', { class: was !== now ? '' : 'a-hint' }, [el('b', { text: 'День ' + (i + 1) + ' · ' + jDateText(x.date) + ': ' }),
+        x.kin ? 'Kin ' + x.kin + ' · ' + x.kinName : '29 февраля — 0.0 Хунаб Ку, кина нет',
+        d.kinName && was !== now ? el('span', { class: 'a-hint', text: ' (было: ' + (d.kin ? 'Kin ' + d.kin + ' · ' : '') + d.kinName + ')' }) : null,
+        x.special === 'dayout' ? el('span', { class: 'a-hint', text: ' · День вне времени' }) : null]));
+    });
+    function go() {
+      list.forEach(function (x, i) { var d = r.days[i]; d.kin = x.kin; d.kinName = x.kinName || ''; d.seal = x.seal || ''; d.tone = x.tone || ''; });
+      changed(); if (then) then();
+    }
+    if (!ask) { go(); return; }
+    if (!diff) { toast('Кины всех дней уже совпадают с календарём.'); return; }
+    dialog({ title: 'Кины по календарю', body: el('div', { class: 'a-jcheck' }, [
+      el('p', { class: 'a-hint', text: 'По первому дню ' + jDateText(r.start) + ' — Kin, имя кина, печать и тон каждого дня. Изменится дней: ' + diff + '. Тексты дней не трогаются.' })]
+      .concat(hk.length ? [el('p', { class: 'a-hint a-hint--warn', text: 'В дни маршрута попадает 29 февраля (день ' + hk.join(', ') + ') — по Dreamspell у него нет кина, и счёт кинов в этот день стоит.' })] : [], rows)),
+      buttons: [['go', 'Заполнить', 'dark'], ['cancel', 'Отмена']] }).then(function (v) { if (v === 'go') go(); });
+  }
+  // Подсказка у даты: с какого кина начинается маршрут и начало ли это волны
+  function jWaveHint(r) {
+    var K = window.M13KIN; if (!K || r.kind === 'theme') return '';
+    var k = K.kinOf(r.start || ''); if (!k) return r.start ? 'На 29 февраля кина нет — выберите другой день.' : '';
+    var x = K.info(k);
+    if (x.toneN === 1) return 'Первый день — Kin ' + k + ' · ' + x.kinName + ': начало волны ✓';
+    var w = K.waveStart(r.start);
+    return 'Первый день — Kin ' + k + ' · ' + x.kinName + ' (тон ' + x.toneN + '). Ближайшее начало волны — ' + jDateText(w) + ' (Kin ' + K.kinOf(w) + ' · ' + K.info(K.kinOf(w)).kinName + ').';
+  }
+  // Что сейчас стоит в днях не так, как в календаре (для списка «что не заполнено»)
+  function jKinDiff(r) {
+    var K = window.M13KIN; if (!K || r.kind === 'theme' || !r.start) return 0;
+    return K.days(r.start, r.days.length).filter(function (x, i) { var d = r.days[i]; return +d.kin !== +x.kin || d.kinName !== x.kinName; }).length;
+  }
+  // Надпись связана с прежним маршрутом (даты, название, финал) — при копировании её не берём, встанет заготовка
+  function jTied(text, src) {
+    var t = String(text || '').toLowerCase();
+    if (/\d|январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр/.test(t)) return true;
+    var words = String(src.title || '').split(/\s+/).concat([window.M13R ? window.M13R.wordsOf(src).name : 'Солнце']);
+    return words.some(function (w) { w = w.toLowerCase().replace(/[^а-яёa-z]/g, ''); return w.length >= 4 && t.indexOf(w.slice(0, Math.max(4, w.length - 2))) >= 0; });
+  }
+  // Новая коробочка: f = { id, title, routeId, start, kind, base ('' — чистый) }
+  function jMake(f) {
+    var list = DATA.journeys.items, src = list.filter(function (x) { return x.id === f.base; })[0], first = list[0];
+    var r;
+    if (src) {
+      r = clone(src);
+      Object.keys(r.texts || {}).forEach(function (k) { if (typeof r.texts[k] === 'string' && jTied(r.texts[k], src)) delete r.texts[k]; });
+      delete r.guide;
+    } else {
+      // Чистый: только устройство карт (блоки Карты дня и личной карты, состояния), без картинок и оформления
+      r = first ? { dayCard: clone(first.dayCard || { blocks: [] }), personalCard: clone(first.personalCard || { blocks: [] }), states: clone(first.states || {}),
+        deck: { cards: ((first.deck || {}).cards || []).map(function (k) { return { id: k.id }; }) } } : {};
+    }
+    r.id = f.id; r.routeId = f.routeId || ''; r.title = f.title; r.path = 'routes/' + f.id + '/'; r.start = f.start; r.kind = f.kind;
+    r.visible = false; r.autoPage = true; r._from = src ? src.id : '';
+    r.keys = {}; r._keys = {}; r.trace = {};
+    r.days = []; for (var i = 0; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, cardOperation: '', environment: '', texts: {} });
+    if (r.deck) {
+      r.deck.cards = (r.deck.cards || []).map(function (k) { return { id: k.id, quality: '', axis: '', way: '', less: {}, more: {}, recognize: {}, road: {} }; });
+      r.deck.wayBack = {}; delete r.deck.undersideQ;
+    }
+    list.push(r); ST.journey = r.id; ST.jTab = 'main';
+    jRoute();
+    if (f.kind !== 'theme') jKinFill(r, false);
+    changed();
+  }
+  function jNew() {
+    var list = DATA.journeys.items, last = list.slice().sort(function (a, b) { return String(b.start).localeCompare(String(a.start)); })[0];
+    // Волны идут без перерыва: следующая начинается на другой день после последнего дня последней
+    var f = { kind: 'wave', start: last && last.start ? jIsoAdd(last.start, (last.days || []).length || 13) : '', base: last ? last.id : '', title: '', id: '', routeId: '' };
+    var touched = {}, box = el('div', { class: 'a-jnew' }), info = el('p', { class: 'a-hint' });
+    var tIn = el('input', { class: 'a-input', type: 'text', placeholder: 'Красный Небесный Странник' });
+    var iIn = el('input', { class: 'a-input', type: 'text', placeholder: 'red-skywalker' });
+    var dIn = el('input', { class: 'a-input', type: 'date' });
+    var cSel = el('select', { class: 'a-input' }), kSel = el('select', { class: 'a-input' }, J_KIND.map(function (k) { return el('option', { value: k[0], text: k[1] }); }));
+    var bSel = el('select', { class: 'a-input' }, list.map(function (x) { return el('option', { value: x.id, text: 'Как «' + x.title + '» — весь вид, тексты пустые' }); })
+      .concat([el('option', { value: '', text: 'Чистый — без картинок и оформления' })]));
+    var linked = {}; list.forEach(function (x) { if (x.routeId) linked[x.routeId] = x.title; });
+    [['', 'Пока без карточки']].concat(jCards().map(function (c) { return [c.id, (c.title || c.id) + (linked[c.id] ? ' (уже у «' + linked[c.id] + '»)' : '')]; }))
+      .forEach(function (o) { cSel.appendChild(el('option', { value: o[0], text: o[1] })); });
+    dIn.value = f.start; bSel.value = f.base;
+    function auto() {
+      // Пока она сама не трогала поле — подставляем: название по печати первого дня, карточка с тем же названием, адрес
+      if (f.kind === 'wave' && window.M13KIN && !touched.title) {
+        var k = window.M13KIN.kinOf(f.start); f.title = k ? window.M13KIN.sealName(window.M13KIN.sealOf(k)) : ''; tIn.value = f.title;
+      }
+      if (!touched.card) {
+        var c = jCards().filter(function (x) { return !linked[x.id] && String(x.title || '').trim().toLowerCase() === f.title.trim().toLowerCase(); })[0];
+        f.routeId = c ? c.id : ''; cSel.value = f.routeId;
+      }
+      if (!touched.id) { f.id = f.routeId || jSlug(f.title); iIn.value = f.id; }
+      var hint = jWaveHint({ start: f.start, kind: f.kind });
+      info.textContent = (f.start ? '13 дней: ' + jDateText(f.start) + ' — ' + jDateText(jIsoAdd(f.start, 12)) + '. ' : '') + hint;
+    }
+    tIn.addEventListener('input', function () { touched.title = true; f.title = tIn.value; auto(); });
+    iIn.addEventListener('input', function () { touched.id = true; f.id = iIn.value.trim(); });
+    dIn.addEventListener('input', function () { f.start = dIn.value; auto(); });
+    cSel.addEventListener('change', function () { touched.card = true; f.routeId = cSel.value; auto(); });
+    kSel.addEventListener('change', function () { f.kind = kSel.value; auto(); });
+    bSel.addEventListener('change', function () { f.base = bSel.value; });
+    add(box, [field('Вид маршрута', kSel), field('Первый день', dIn), info, field('Название', tIn, 'По печати первого дня — можно поменять.'),
+      field('Карточка на витрине', cSel, 'Карточка из раздела «Маршруты» — на ней в дни маршрута будет Карта дня и ссылка сюда.'),
+      field('Адрес страницы', iIn, 'Латиницей: 13mirrors.ru/vitrina/routes/<адрес>/. После выдачи ключей и кодов не меняется.'),
+      field('Оформление', bSel, 'Копируется вид: спираль и её разметка, свет, рубашка, диск, стёклышки, состояния, финал, блоки карт. Не копируются: кины и тексты 13 дней, слова колоды, ключи, ссылки «Оставить след», надписи с датами и названием.'),
+      el('p', { class: 'a-hint', text: 'Новый маршрут сначала «готовится»: на сайт он не попадает, пока вы не включите «Показывать на сайте» во вкладке «Основное». Страницу по адресу создаст публикация.' })]);
+    auto();
+    dialog({ title: 'Новый маршрут', body: box, buttons: [['go', 'Создать', 'dark'], ['cancel', 'Отмена']] }).then(function (v) {
+      if (v !== 'go') return;
+      var bad = !f.title.trim() ? 'Впишите название маршрута.' : !/^\d{4}-\d{2}-\d{2}$/.test(f.start || '') ? 'Укажите первый день.' :
+        !/^[a-z0-9][a-z0-9-]{1,39}$/.test(f.id) || f.id === 'preview' ? 'Адрес — латинскими буквами, цифрами и дефисом, например red-skywalker.' :
+        list.some(function (x) { return x.id === f.id; }) ? 'Маршрут с адресом «' + f.id + '» уже есть — выберите другой.' : '';
+      if (bad) { dialog({ title: 'Маршрут не создан', body: bad }); return; }
+      f.title = f.title.trim();
+      jMake(f); renderMain(); window.scrollTo(0, 0);
+      toast('Маршрут «' + f.title + '» создан — он готовится и на сайт пока не попадает.');
+    });
+  }
+  // Что не заполнено: строки [готово?, текст, вкладка]
+  function jTodo(r) {
+    var src = DATA.journeys.items.filter(function (x) { return x.id === r._from; })[0], out = [], n = r.days.length;
+    function row(ok, text, tab) { out.push([ok, text, tab]); }
+    function cnt(f) { return r.days.filter(f).length; }
+    function z(k) { var x = r.zones && r.zones[k]; return !!(x && x.path && x.path.length >= 25 && x.center); }
+    var W = window.M13R ? window.M13R.wordsOf(r) : { name: 'Солнце' };
+    row(!!(r.title || '').trim(), 'Название маршрута', 'main');
+    row(/^\d{4}-\d{2}-\d{2}$/.test(r.start || ''), 'Первый день' + (r.start ? ': ' + jDateText(r.start) : ''), 'main');
+    if (r.kind !== 'theme') { var kd = jKinDiff(r); row(!!r.start && !kd, kd ? 'Кины: ' + kd + ' из ' + n + ' дней не совпадают с календарём — «Заполнить кины по календарю»' : 'Кины 13 дней — по календарю', 'days'); }
+    row(!!(r.masterDesktop && r.masterMobile) && !(src && (r.masterDesktop === src.masterDesktop || r.masterMobile === src.masterMobile)),
+      src && (r.masterDesktop === src.masterDesktop || r.masterMobile === src.masterMobile) ? 'Картинка пути — пока та же, что у «' + src.title + '» (своя — «Основное» → «Спираль»)' : 'Картинка пути: для компьютера и для телефона', 'main');
+    var oldZ = src && (r.masterDesktop !== src.masterDesktop || r.masterMobile !== src.masterMobile) && JSON.stringify(r.zones || {}) === JSON.stringify(src.zones || {});
+    row(z('desktop') && z('mobile') && !oldZ, oldZ ? 'Разметка шагов — ещё от картинки «' + src.title + '»: разметьте по новой картинке' : 'Разметка шагов на картинке пути (компьютер и телефон)', 'bricks');
+    row(cnt(function (d) { return !!d.image; }) === n, 'Картинки дней: ' + cnt(function (d) { return !!d.image; }) + ' из ' + n, 'days');
+    var tb = r.dayCard.blocks.filter(function (b) { return (b.kind === 'text' || b.kind === 'question') && b.visible !== false; });
+    var tdone = cnt(function (d) { return tb.length && tb.every(function (b) { return String(d.texts[b.id] || '').trim(); }); });
+    row(tdone === n, 'Тексты Карты дня: заполнены у ' + tdone + ' из ' + n + ' дней', 'days');
+    var kc = (r.deck.cards || []).filter(function (k) { return String(k.quality || '').trim(); }).length;
+    row(kc === (r.deck.cards || []).length && kc > 0, 'Колода: качества у ' + kc + ' из ' + (r.deck.cards || []).length + ' карт', 'deck');
+    row(!!(src ? r.cardBack && r.cardBack !== src.cardBack : r.cardBack), src && r.cardBack === src.cardBack ? 'Рубашка карт — та же, что у «' + src.title + '»' : 'Рубашка карт', 'deck');
+    row(!r.autoPage || !!(r.words && String(r.words.final || '').trim()), 'Название финала: «' + W.name + '»' + (r.words && r.words.final ? '' : ' (как задумано в коде) — поменяйте, если в финале складывается другое'), 'main');
+    row(!!(r.keys.journey && r.keys.immersion && r.keys.journey !== r.keys.immersion), 'Ключи Путешествия и Погружения', 'main');
+    row(!!(r.trace.journey && r.trace.immersion), '«Оставить след» — ссылки Путешествия и Погружения', 'main');
+    var card = jCards().filter(function (c) { return c.id === r.routeId; })[0];
+    row(!!card, card ? 'Карточка на витрине: «' + card.title + '»' : 'Карточка на витрине — не выбрана', 'main');
+    row(r.visible !== false, r.visible === false ? 'Готовится — на сайт не попадает (включите «Показывать на сайте», когда всё готово)' : 'Показывается на сайте после публикации', 'main');
+    return out;
+  }
+  function jTodoBox(r) {
+    var rows = jTodo(r), left = rows.filter(function (x) { return !x[0]; }).length;
+    return block('Что не заполнено' + (left ? ' · ' + left : ' · всё готово'), [el('ul', { class: 'a-jtodo' }, rows.map(function (x) {
+      var tab = J_TABS.filter(function (t) { return t[0] === x[2]; })[0];
+      return el('li', { class: x[0] ? 'is-ok' : '' }, [el('span', { class: 'a-jtodo-m', text: x[0] ? '✓' : '○' }), el('span', { text: x[1] }),
+        tab && x[2] !== (ST.jTab || 'main') ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '→ ' + tab[1], onclick: function () { ST.jTab = x[2]; renderMain(); window.scrollTo(0, 0); } }) : null]);
+    }))], { open: r.visible === false });
+  }
+  // Слова маршрута: название финала и его формы, слово для шагов пути
+  function jWords(r) {
+    var w = r.words = r.words || {}, M = window.M13R, ex = el('div', { class: 'a-hint' });
+    var yourIn, intoIn;
+    function show() {
+      var W = M.wordsOf(r);
+      if (yourIn) yourIn.querySelector('.a-input').placeholder = W.your;
+      if (intoIn) intoIn.querySelector('.a-input').placeholder = W.into;
+      ex.replaceChildren(el('b', { text: 'Как это звучит на странице (если поле надписи пустое):' }),
+        el('br'), '· ' + M.defText(r, 'glassNote'), el('br'), '· ' + M.defText(r, 'exitLead'), el('br'), '· ' + M.defText(r, 'diskStone'));
+    }
+    yourIn = textIn(w, 'finalYour', '…«сложится» что? — ваше …', { onInput: show, hint: 'Пусто — само по названию. Поправьте, если звучит не так.' });
+    intoIn = textIn(w, 'finalInto', '…«лягут» куда? — в ваше …', { onInput: show });
+    var out = [
+      el('p', { class: 'a-hint', text: 'Чтобы у каждого маршрута были свои слова, а не «Солнце» из первого маршрута. Метка {финал} в любых надписях — название финала.' }),
+      textIn(w, 'final', 'Что складывается в финале', { ph: 'Солнце', onInput: show, hint: 'Например: Солнце, Созвездие, Карта неба. Пусто — «Солнце».' }),
+      el('div', { class: 'a-row' }, [yourIn, intoIn]), ex,
+      sub('Шаги пути'),
+      textIn(w, 'step', 'Как называются шаги (во множественном числе)', { ph: 'камни', hint: 'Камни, звёзды, станции, стоянки… Пока — название вкладки в панели; на странице шаги называет подсказка ниже.' }),
+      textIn(r.texts, 'tap', 'Подсказка на пути', { ph: 'Коснитесь светящегося камня', hint: 'Видна, пока сегодняшний шаг не нажат. Та же надпись — в блоке «Надписи на странице».' })];
+    show();
+    return out;
+  }
+  // Страница маршрута routes/<id>/ — создаёт публикация (как страницы карточек)
+  function routePageHTML(r, D) {
+    var u = siteUrl(D), dates = window.M13R ? window.M13R.datesText(r) : '', name = '13 MIRRORS · ' + (r.title || 'Маршрут');
+    var desc = (r.ogText || '') || ((r.days || []).length || 13) + ' дней' + (dates ? ' · ' + dates : '');
+    var img = r.masterDesktop && !/^data:/.test(r.masterDesktop) ? (/^https?:/.test(r.masterDesktop) ? r.masterDesktop : u + r.masterDesktop) : '';
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+      '<title>' + escAttr(name) + '</title>\n<meta name="description" content="' + escAttr('Маршрут «' + r.title + '» · ' + desc) + '">\n' +
+      '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/') + '">\n' +
+      '<meta property="og:title" content="' + escAttr(name) + '">\n<meta property="og:description" content="' + escAttr(desc) + '">\n' +
+      (img ? '<meta property="og:image" content="' + escAttr(img) + '">\n<meta name="twitter:card" content="summary_large_image">\n' : '') +
+      '<meta name="theme-color" content="#0a0604">\n<link rel="stylesheet" href="../../assets/fonts/cormorant-garamond.css">\n' +
+      '<!-- Страница маршрута — создана панелью при публикации (конструктор), пересобирается при каждой публикации. Данные — ../../data/journeys.json. -->\n' +
+      '<script>window.M13RV = /[?&]preview=1/.test(location.search) ? \'p\' + Date.now() : \'' + ROUTE_V + '\';\n' +
+      'document.write(\'<link rel="stylesheet" href="../../assets/route.css?v=\' + M13RV + \'">\');</script>\n</head>\n<body class="ys-body">\n' +
+      '<div id="ys" data-base="../../" data-route="' + escAttr(r.id) + '"></div>\n' +
+      '<script>document.write(\'<script src="../../assets/kaleido.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/sun.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/route.js?v=\' + M13RV + \'"><\\/script>\');</script>\n' +
+      '<script>M13R.boot();</script>\n</body>\n</html>\n';
+  }
   function jTokensHint(r, personal) {
     var t = window.M13R ? window.M13R.tokens(r) : { day: [], card: [] };
     return 'Метки: ' + t.day.map(function (x) { return '{' + x + '}'; }).join(' ') +
@@ -2492,9 +2709,9 @@
   // extra — что открыть сразу: { mode, q: '&sim=13&card=final' }
   function openJourneyPage(r, phone, extra) {
     var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' };
-    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../' + r.path + '?preview=1&debug=1&mode=' + (extra ? extra.mode : st.mode) + (extra ? extra.q : '') });
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../routes/preview/?preview=1&debug=1&mode=' + (extra ? extra.mode : st.mode) + (extra ? extra.q : '') });
     if (phone) fr.style.width = '375px';
-    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: D.settings.logo ? { src: D.settings.logo, ratio: D.settings.logoRatio } : null }, location.origin); } catch (e) {} }
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady) send(); }
     window.addEventListener('message', onMsg);
     var bar = el('div', { class: 'a-pbar' }, [
@@ -2610,11 +2827,29 @@
       show();
       return el('label', { class: 'a-field' }, [el('span', { class: 'a-label', text: label }), i, st]);
     }
-    var when = el('p', { class: 'a-hint' });
-    function showWhen() { when.textContent = jEnd(r) ? r.days.length + ' дней: ' + window.M13R.dateOf(r, 1) + ' — ' + jEnd(r) + '. Новый день начинается в 00:00 по Москве.' : 'Укажите первый день маршрута.'; }
+    var when = el('p', { class: 'a-hint' }), wave = el('p', { class: 'a-hint' });
+    function showWhen() {
+      when.textContent = jEnd(r) ? r.days.length + ' дней: ' + window.M13R.dateOf(r, 1) + ' — ' + jEnd(r) + '. Новый день начинается в 00:00 по Москве.' : 'Укажите первый день маршрута.';
+      wave.textContent = jWaveHint(r);
+    }
     showWhen();
+    var linked = {}; DATA.journeys.items.forEach(function (x) { if (x.routeId && x !== r) linked[x.routeId] = x.title; });
     return [
-      block('Даты', [textIn(r, 'start', 'Первый день', { type: 'date', onInput: showWhen }), when]),
+      jTodoBox(r),
+      block('Маршрут', [
+        textIn(r, 'title', 'Название', { ph: 'Красный Небесный Странник', hint: 'В заголовке вкладки браузера и в превью ссылки.' }),
+        el('div', { class: 'a-row' }, [
+          selectIn(r, 'routeId', 'Карточка на витрине', [['', 'Без карточки']].concat(jCards().map(function (c) { return [c.id, (c.title || c.id) + (linked[c.id] ? ' (уже у «' + linked[c.id] + '»)' : '')]; })),
+            { def: '', hint: 'Карточка из раздела «Маршруты»: в дни маршрута на ней — Карта дня и ссылка на эту страницу.' }),
+          selectIn(r, 'kind', 'Вид маршрута', J_KIND, { def: 'wave', onChange: function () { showWhen(); }, hint: 'У тематического кины не считаются. Число шагов пока у всех 13.' })]),
+        field('Адрес страницы', el('input', { class: 'a-input', type: 'text', value: siteUrl().replace(/^https?:\/\//, '') + r.path, readonly: 'readonly' }), 'Адрес не меняется: от него зависят ключи и коды участников.'),
+        switchIn(r, 'visible', 'Показывать на сайте', { defTrue: true, onChange: function () { renderMain(); },
+          hint: 'Выключено — маршрут готовится: при публикации он не попадает на сайт и его страница не создаётся. Включите, когда всё готово, и опубликуйте.' })
+      ], { open: r.visible === false }),
+      block('Даты', [textIn(r, 'start', 'Первый день', { type: 'date', onInput: showWhen }), when, wave,
+        r.kind === 'theme' ? null : el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Заполнить кины по календарю', onclick: function () { jKinFill(r, true, function () { renderMain(); }); },
+          title: 'Kin, имя кина, печать и тон каждого дня — по первому дню' })])]),
+      block('Слова маршрута', jWords(r), { open: false }),
       block('Спираль (фон страницы)', [
         el('div', { class: 'a-row' }, [
           imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
@@ -2671,7 +2906,7 @@
       ], { open: false }),
       block('Надписи на странице', [
         textIn(tx, 'back', 'Ссылка назад', { ph: '← Вернуться на витрину' }),
-        el('div', { class: 'a-row' }, [textIn(tx, 'before', 'До начала — крупно', { ph: 'Маршрут начнётся 5 октября' }), textIn(tx, 'beforeNote', 'До начала — строка ниже')]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'before', 'До начала — крупно', { ph: 'Маршрут скоро начнётся' }), textIn(tx, 'beforeNote', 'До начала — строка ниже')]),
         el('div', { class: 'a-row' }, [textIn(tx, 'after', 'После конца — крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'afterNote', 'После конца — строка ниже')]),
         el('div', { class: 'a-row' }, [textIn(tx, 'today', 'В дни маршрута — строка', { ph: 'Сегодня — день {день}' }), textIn(tx, 'tap', 'Подсказка под ней', { ph: 'Коснитесь светящегося камня',
           hint: 'Видна, пока сегодняшний камень не нажат.' })]),
@@ -2707,7 +2942,10 @@
     var perTexts = r.personalCard.blocks.filter(function (b) { return b.kind === 'text' || b.kind === 'question'; });
     var diskB = r.personalCard.blocks.filter(function (b) { return b.kind === 'disk'; })[0];
     function lbl(b, fallback) { return (b.label || fallback) + (b.visible === false ? ' (блок скрыт)' : ''); }
-    return [el('p', { class: 'a-hint', text: 'У каждого дня — Kin, печать, тон, картинка и тексты. Какие тексты есть — решают блоки во вкладках «Карта дня» и «Личная карта». В личной карте тексты — шаблоны: ' + jTokensHint(r, true) })]
+    var kd = jKinDiff(r);
+    return [el('p', { class: 'a-hint', text: 'У каждого дня — Kin, печать, тон, картинка и тексты. Какие тексты есть — решают блоки во вкладках «Карта дня» и «Личная карта». В личной карте тексты — шаблоны: ' + jTokensHint(r, true) }),
+      r.kind === 'theme' ? null : el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Заполнить кины по календарю', onclick: function () { jKinFill(r, true, function () { renderMain(); }); } }),
+        el('span', { class: 'a-hint' + (kd ? ' a-hint--warn' : ''), text: !r.start ? 'Сначала укажите первый день («Основное» → «Даты»).' : kd ? 'Не совпадают с календарём: ' + kd + ' дн.' : 'Кины всех дней — по календарю ✓' })])]
       .concat(r.days.map(function (d, i) {
         var n = i + 1;
         return block('День ' + n + (window.M13R ? ' · ' + window.M13R.dateOf(r, n) : '') + (d.kin ? ' · Kin ' + d.kin : '') + (d.kinName ? ' · ' + d.kinName : ''), [
@@ -3103,7 +3341,7 @@
           textIn(tx, 'diskHint', 'Под диском, пока не коснулись', { ph: 'Коснитесь места на диске, где вы были тогда. Можно примерить разные.' }),
           el('div', { class: 'a-row' }, [textIn(tx, 'diskRecognize', 'Перед текстом зоны', { ph: 'Узнаю себя, если…' }), textIn(tx, 'diskHere', 'Кнопка выбора', { ph: 'Здесь' })]),
           textIn(tx, 'diskHereNote', 'Под кнопкой', { ph: 'Выбор окончательный — передумать будет нельзя.' }),
-          textIn(tx, 'diskStone', 'После выбора — рядом с камушком', { ph: 'Камушек этой зоны лёг в ваш узор — он войдёт и в ваше Солнце.' }),
+          textIn(tx, 'diskStone', 'После выбора — рядом с камушком', { ph: window.M13R.defText(r, 'diskStone') }),
           textIn(tx, 'diskRoad', 'Подпись над дорогой в центр', { ph: 'Дорога в центр' })
         ], { open: false })
       ]), el('div', { class: 'a-jpv' }, [el('div', { class: 'a-jpv-ctrl' }, [sel(days, 'day'), sel(r.deck.cards.map(function (p, i) { return [String(i), (i + 1) + '. ' + (p.quality || 'Без названия')]; }), 'card')]), pv,
@@ -3252,7 +3490,7 @@
         el('p', { class: 'a-hint', text: 'Путешествие и Погружение: после личной карты, один раз за день — стёклышко дня крупно, потом ложится в узор. Метки: {день}, {имя кина}.' }),
         el('div', { class: 'a-row' }, [textIn(r.texts, 'glassSmall', 'Строка сверху', { ph: 'День {день} · {имя кина}' }), textIn(r.texts, 'glassGo', 'Кнопка', { ph: 'На спираль' })]),
         textIn(r.texts, 'glassDay', 'Заголовок', { ph: 'Стёклышко дня {день} легло в ваш узор' }),
-        textIn(r.texts, 'glassNote', 'Текст под узором', { multi: true, rows: 2, ph: 'Каждый день маршрута добавляет в ваш узор своё стёклышко — цвета печати дня. В конце из них сложится ваше Солнце.' })
+        textIn(r.texts, 'glassNote', 'Текст под узором', { multi: true, rows: 2, ph: window.M13R.defText(r, 'glassNote') })
       ], { open: false }),
       block('Слово-подарок — надписи', [
         el('p', { class: 'a-hint', text: 'На странице маршрута: «Мой код» → «Получили стёклышко?». Слова выдаются во вкладке «Код участника».' }),
@@ -3342,7 +3580,7 @@
           el('div', { class: 'a-row' }, [
             fontIn(F, 'exitFont', 'Шрифт заголовка', [['', 'Cormorant Garamond (как сейчас)']].concat((window.M13.FONTS || []).filter(function (x) { return x !== 'Cormorant Garamond'; }).map(function (x) { return [x, x]; })), liveSoon, 'С чем вы выходите?'),
             rangeIn(F, 'exitSize', 'Размер заголовка', { min: 16, max: 44, step: 1, def: 26, unit: ' px', onChange: liveSoon })]),
-          textIn(tx, 'exitLead', 'Текст под заголовком', { multi: true, rows: 2, onInput: liveSoon, ph: 'Выберите до трёх стёклышек — они тоже лягут в ваше Солнце. Можно не выбирать.' }),
+          textIn(tx, 'exitLead', 'Текст под заголовком', { multi: true, rows: 2, onInput: liveSoon, ph: window.M13R.defText(r, 'exitLead') }),
           selectIn(F, 'exitView', 'Как выглядят стёклышки', [['balls', 'Шарики с подписью (как на входе)'], ['glass', 'Настоящие стёклышки (как в узоре)']], { def: 'balls', onChange: liveSoon,
             hint: 'Стёклышки берут вид из вкладки «Стёклышки» → «Состояния». Не понравится — верните «Шарики». Выбранное мягко светится своим цветом, с золотым ободком (неон — «Основное» → «Неон»).' }),
           sub('Кнопка «Собрать маршрут»'),
@@ -3770,14 +4008,17 @@
   }
   function viewJourneys() {
     var r = jRoute(), list = DATA.journeys.items;
-    var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Страницы маршрутов' }),
-      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: спираль, Карта дня, выбор карты из колоды, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' })]);
+    var head = el('div', {}, [el('div', { class: 'a-jhead' }, [el('h1', { class: 'a-h1', text: 'Страницы маршрутов' }),
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '＋ Новый маршрут', onclick: jNew })]),
+      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: спираль, Карта дня, выбор карты из колоды, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' }),
+      r && r.visible === false ? el('div', { class: 'a-tags' }, [el('span', { class: 'a-tag a-tag--draft', text: 'Готовится — на сайт не попадает' })]) : null]);
     if (!r) return [head];
     var t = ST.jTab || 'main';
+    var step = String((r.words || {}).step || '').trim();
     var tabs = el('div', { class: 'a-tabs' }, J_TABS.map(function (x) {
-      return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () { ST.jTab = x[0]; renderMain(); } });
+      return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[0] === 'bricks' && step ? step.charAt(0).toUpperCase() + step.slice(1) + ' на пути' : x[1], onclick: function () { ST.jTab = x[0]; renderMain(); } });
     }));
-    var pick = list.length > 1 ? selectIn(ST, 'journey', 'Маршрут', list.map(function (x) { return [x.id, x.title]; }), { onChange: function () { renderMain(); } }) : null;
+    var pick = list.length > 1 ? selectIn(ST, 'journey', 'Маршрут', list.map(function (x) { return [x.id, x.title + (x.start ? ' · ' + jDateText(x.start) : '') + (x.visible === false ? ' · готовится' : '')]; }), { onChange: function () { renderMain(); } }) : null;
     var look = el('div', { class: 'a-tabs' }, [
       el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openJourneyPage(r, false); } }),
       el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
@@ -5688,6 +5929,11 @@
     ((P.routes || {}).routes || []).forEach(function (r) {
       if (r && r.archive && /^[\w-]+$/.test(r.id) && !files['events/' + r.id + '/index.html']) files['events/' + r.id + '/index.html'] = { text: pageHTML('archroute', null, P, r.id) };
     });
+    // Страницы маршрутов, созданных в панели (конструктор): routes/<id>/ — при каждой публикации; свои страницы (Жёлтое Солнце) не трогаем
+    ((P.journeys || {}).items || []).forEach(function (r) {
+      var p = 'routes/' + r.id + '/index.html';
+      if (r && /^[a-z0-9][a-z0-9-]*$/.test(r.id) && r.id !== 'preview' && (r.autoPage || !existing[p])) files[p] = { text: routePageHTML(r, P) };
+    });
     ['days', 'chronicles'].forEach(function (t) {
       ((P.sandbox || {})[t] || []).forEach(function (it) {
         if (it && it.visible !== false && /^[\w-]+$/.test(it.id)) files['sandbox/' + it.id + '/index.html'] = { text: pageHTML('sbitem', null, P, it.id) };
@@ -5713,7 +5959,7 @@
     return { files: files, removed: removed };
   }
   // Для проверки страниц-превью из консоли браузера
-  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas };
+  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas, routePageHTML: routePageHTML, buildSite: buildSite, siteFiles: siteFiles };
   function publish() {
     if (GHS.busy) return;
     if (!GHS.token) {
