@@ -44,7 +44,9 @@
       "description": "13 дней о действии, опыте и завершении начатого. Волна началась в сентябре, а в октябре мы проходим её последние дни.",
       "image": "media/2bf9bfde7fb5689060a6.webp",
       "routeUrl": "https://elenarasprugina.github.io/13mirrors-blue-hand/",
-      "glass": {}
+      "glass": {},
+      "finalVideo": "media/7825920db8033f327918.mp4",
+      "finalVideoName": "day13_namaste.mp4"
     },
     {
       "id": "white-wizard",

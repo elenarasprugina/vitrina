@@ -1664,9 +1664,16 @@
   }
   // Данные прямо в странице (window.M13_DATA — M13.load берёт их оттуда): не нужно ждать загрузки 6–7 файлов data/*.json.
   // Файлы data/ по-прежнему публикуются (их читает панель). </script> внутри текста безопасен: «<» записан как \u003c.
+  // Для карты сегодняшнего дня на карточке маршрута — только то, что нужно витрине (без колоды, кирпичей, финала Солнца)
+  function dayCards(J) {
+    return { items: ((J && J.items) || []).filter(function (j) { return j && j.routeId && j.start && (j.days || []).length; }).map(function (j) {
+      return { id: j.id, routeId: j.routeId, path: j.path, start: j.start, dayCard: j.dayCard || {}, final: { blocks: (j.final || {}).blocks || null },
+        days: j.days.map(function (d) { return { n: d.n, kin: d.kin, kinName: d.kinName, seal: d.seal, tone: d.tone, image: d.image, cardOperation: d.cardOperation, environment: d.environment, texts: d.texts || {} }; }) };
+    }) };
+  }
   function pageData(sc, D) {
     var P = { settings: D.settings, routes: D.routes, formats: D.formats, index: D.index, sandbox: D.sandbox, reflection: D.reflection, events: D.events || null, showcases: {} };
-    if (sc) P.showcases[sc.id] = sc;
+    if (sc) { P.showcases[sc.id] = sc; P.journeys = dayCards(D.journeys); }
     return '<script>window.M13_DATA=' + JSON.stringify(P).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n';
   }
 
@@ -2225,7 +2232,12 @@
           optIn(f, 'status', 'Статус', { ph: 'Вход открыт, Предзаказ, Осталось 3 места…' }),
           selectIn(f, 'statusStyle', 'Как показывать статус', [['line', 'Строкой текста'], ['pill', 'Плашкой (в рамке)']], { onChange: cb.redrawGrid })]),
         optIn(f, 'foot', 'Подпись внизу маленькой карточки', { ph: '3 формата, 4 встречи…' }),
-        phaseFields(c, cb)
+        phaseFields(c, cb),
+        c.back && c.back.routeId ? el('div', { class: 'a-glass' }, [sub('Увеличенная карточка маршрута'),
+          switchIn(f, 'dayShow', 'Пока маршрут идёт — показывать карту сегодняшнего дня', { defTrue: true,
+            hint: 'Если у маршрута есть страница по дням (раздел «Страницы маршрутов»): при открытии карточки — картинка, кин и фокус сегодняшнего дня, как их видит Наблюдение, и кнопка «Открыть маршрут». Оборот — как обычно.' }),
+          switchIn(f, 'finalShow', 'После окончания — играть финальный ролик', { defTrue: true,
+            hint: 'Ролик загружается у маршрута: «Маршруты» → маршрут → «Финальный ролик».' })]) : null
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false }),
@@ -2280,10 +2292,25 @@
               noImg: 'Нет картинки маршрута — стекло будет только у примеров со своей обложкой.', share: !!r.archive }),
             colorOptIn(r, 'color', 'Цвет маршрута', { none: 'без цвета', pick: '#c9a14a',
               hint: 'Лёгкий оттенок и свечение у обложек его примеров, Летописей, отзывов и в архиве. У отдельного примера можно поставить свой.' }),
+            finalFields(r),
             archiveFields(r)
           ];
         } })
     ];
+  }
+  // Финальный ролик маршрута (её решение 04.10.2026): после последнего дня играет сам на увеличенной карточке витрины
+  // и наверху страницы маршрута в архиве; ближе к концу — две строки и логотип поверх последнего кадра
+  function finalFields(r) {
+    // finalWords — строки уже заведены в панели: на сайте скрытая строка (её убирает очистка) не заменяется словами по умолчанию
+    r.finalWords = 1;
+    if (!r.finalText1 || typeof r.finalText1 !== 'object') r.finalText1 = { value: r.finalText1 == null ? 'Маршрут пройден' : String(r.finalText1), show: r.finalText1 !== '' };
+    if (!r.finalText2 || typeof r.finalText2 !== 'object') r.finalText2 = { value: r.finalText2 == null ? 'Увидимся за поворотом…' : String(r.finalText2), show: r.finalText2 !== '' };
+    return el('div', { class: 'a-glass' }, [sub('Финальный ролик — после последнего дня'),
+      el('p', { class: 'a-hint', text: 'Когда маршрут закончится, ролик сам играет при каждом открытии его карточки на витрине и наверху его страницы в архиве (вместо картинки). Без звука — так телефоны запускают видео сами. Ближе к концу проявляются строки и логотип.' }),
+      mediaIn(r, 'finalVideo', 'Ролик', { kind: 'video', maxMB: 12, hint: '📐 Лучший размер: вертикальный 9:16 (например, 810 × 1440), MP4, до 12 МБ. Края по бокам на компьютере могут чуть обрезаться.' }),
+      optIn(r, 'finalText1', 'Первая строка поверх ролика', { ph: 'Маршрут пройден' }),
+      optIn(r, 'finalText2', 'Вторая строка (курсивом)', { ph: 'Увидимся за поворотом…' }),
+      switchIn(r, 'finalLogo', 'Логотип 13 MIRRORS (золотом) в углу', { defTrue: true })]);
   }
   // Архив: галочка «Показывать в архиве» и страница прошедшего маршрута («как это было», фото, кнопки)
   function archiveFields(r) {
@@ -4971,7 +4998,7 @@
   function canPhone() { return window.innerWidth >= 600; }
   function previewData(showcaseId) {
     return { settings: DATA.settings, routes: DATA.routes, formats: DATA.formats, sandbox: DATA.sandbox, reflection: DATA.reflection, events: DATA.events,
-      index: DATA.index, showcase: DATA.showcases[showcaseId] };
+      journeys: DATA.journeys, index: DATA.index, showcase: DATA.showcases[showcaseId] };
   }
   // Окно-«телефон»: пишем в пустой iframe страницу с тем же рендерером и ждём, пока он загрузится.
   // Вызывать, когда iframe уже вставлен в страницу.
@@ -5281,6 +5308,13 @@
     }
     [D.events, D.sandbox, D.reflection].forEach(function (x) { markMig(x && x.look && x.look.imgGlass); });
     [D.events.items, (D.reflection || {}).items, (D.routes || {}).routes].forEach(function (L) { (L || []).forEach(function (x) { markMig(x && x.glass); }); });
+    // Финальный ролик Синей Руки (её решение 04.10.2026) — с сайта в черновик один раз и только в пустое поле
+    ((D.routes || {}).routes || []).forEach(function (r) {
+      var o = ((ORIGINAL && ORIGINAL.routes && ORIGINAL.routes.routes) || []).filter(function (x) { return x.id === r.id; })[0];
+      if (!o || !o.finalVideo || r.filmSeed) return;
+      if (!r.finalVideo) { r.finalVideo = o.finalVideo; r.finalVideoName = o.finalVideoName || ''; }
+      r.filmSeed = 1;
+    });
     // Старый текст «Ссылка на карточку скопирована…» — кнопка есть и у примеров, событий, архива
     var tx = D.settings && D.settings.texts;
     if (tx && tx.shareCopied === 'Ссылка на карточку скопирована — её можно отправить в чат.') tx.shareCopied = 'Ссылка скопирована — её можно отправить в чат.';
