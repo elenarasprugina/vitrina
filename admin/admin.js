@@ -4817,6 +4817,8 @@
     scheduleWord: 'Расписание', ask: 'Задать вопрос',
     footer: '© 13 MIRRORS. Все материалы являются частью авторской разработки 13 MIRRORS.\n\nИспользование и воспроизведение — только с указанием авторства и по согласованию с автором.',
     accent: '#ecd3a3', font: 'Cormorant Garamond',
+    // Строка внизу главной, Гримуара и «Конфиденциальности»; после неё сами встают Telegram и VK (settings.contacts) и ссылка «Конфиденциальность»
+    legal: 'Распругина Елена, самозанятая, ИНН 272498468707',
     // Страница 13mirrors.ru/privacy/ (лежит в репозитории главной); privacyTitle — и заголовок, и надпись ссылки внизу главной и Гримуара
     privacyTitle: 'Конфиденциальность',
     privacyText: '13 MIRRORS — пространство для внутренней работы. Всё, что вы здесь проживаете, остаётся вашим.\n\n' +
@@ -4860,7 +4862,8 @@
         el('div', { class: 'a-row' }, [
           textIn(h, 'scheduleWord', 'Слово на кнопке', { hint: 'Название месяца добавится само: «' + (h.scheduleWord || 'Расписание') + ' ' + monthGenNow() + '».' }),
           textIn(h, 'ask', 'Ссылка в конце', { hint: 'Открывает окошко с Telegram и VK из «Настройки → Контакты».' })]),
-        textIn(h, 'footer', 'Пометка внизу страницы', { multi: true, rows: 3 })
+        textIn(h, 'footer', 'Пометка внизу страницы', { multi: true, rows: 3 }),
+        textIn(h, 'legal', 'Строка с ИНН внизу', { hint: 'Под пометкой — на главной, в Гримуаре и на странице «Конфиденциальность» (на витрине её нет). После неё сами встают Telegram и VK из «Настройки → Контакты по умолчанию» и ссылка «Конфиденциальность». Чтобы убрать строку — оставьте в поле один пробел.' })
       ]),
       block('Страница «Конфиденциальность»', [
         el('p', { class: 'a-hint', text: 'Адрес — 13mirrors.ru/privacy/. Ссылка на неё — внизу главной и Гримуара, под пометкой. Цвет, шрифт и пометка внизу — как у главной.' }),
@@ -4946,7 +4949,7 @@
     var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: kind === 'privacy' ? 'Конфиденциальность' : 'Гримуар', src: '/' + kind + '/?preview=1' });
     if (phone) fr.style.width = '375px';
     function send() {
-      var m = { home: DATA.settings.home || {}, monthGen: monthGenNow() };
+      var m = { home: DATA.settings.home || {}, contacts: DATA.settings.contacts || {}, monthGen: monthGenNow() };
       m['m13' + kind] = kind === 'privacy' ? true : DATA.settings.grimoire || {};
       try { fr.contentWindow.postMessage(m, location.origin); } catch (e) {}
     }
