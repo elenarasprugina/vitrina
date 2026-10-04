@@ -4640,6 +4640,92 @@
     list.forEach(function (s) { var n = +s.number; if (n >= 1) s.name = kind === 'T' ? libToneName(n) : libSealShort(n); });
     return list.slice().sort(function (a, b) { return a.number - b.number; });
   }
+  /* Старые названия внутри текстов — к её словарю (её ответ 04.10: «приводим в порядок»).
+     «Космолёт»: Магнетический, Обертональный, Кристальный, Гроза, Странник неба, Связующий; атлас: Самосущный, Мост Миров.
+     Все падежи и роды. Где слово может быть обычным («кристальная ясность», «магнетическое притяжение», «гроза», «связующая нить»),
+     заменяем, только если это явно название: с большой буквы рядом с цветом или печатью, или перед словом «тон». */
+  var LIB_W = (function () {
+    var HARD = ['ый', 'ого', 'ому', 'ым', 'ом', 'ая', 'ой', 'ую', 'ое', 'ые', 'ых', 'ыми'],
+      KI = ['ий', 'ого', 'ому', 'им', 'ом', 'ая', 'ой', 'ую', 'ое', 'ие', 'их', 'ими'],
+      SH = ['ий', 'его', 'ему', 'им', 'ем', 'ая', 'ей', 'ую', 'ее', 'ие', 'их', 'ими'];
+    function adj(from, fe, to, te, strict) { return { from: from, fe: fe, to: to, te: te, strict: strict }; }
+    return {
+      L: 'А-Яа-яЁё',
+      adj: [adj('магнетическ', KI, 'магнитн', HARD, 1), adj('обертональн', HARD, 'обертонн', HARD, 0),
+        adj('кристальн', HARD, 'кристаллическ', KI, 1), adj('самосуществующ', SH, 'самосущ', SH, 0), adj('самосущн', HARD, 'самосущ', SH, 0)],
+      // [было, стало, хвост после слова (съедаем), только с большой буквы, хвост обязателен, как назвать в отчёте]
+      noun: [
+        [['Странник', 'Странника', 'Страннику', 'Странником', 'Страннике'], ['Небесный Странник', 'Небесного Странника', 'Небесному Страннику', 'Небесным Странником', 'Небесном Страннике'], '\\s+[Нн]еба', 0, 1, 'Странник неба'],
+        [['Мост', 'Моста', 'Мосту', 'Мостом', 'Мосте'], ['Соединитель Миров', 'Соединителя Миров', 'Соединителю Миров', 'Соединителем Миров', 'Соединителе Миров'], '\\s+[Мм]иров', 0, 1, 'Мост Миров'],
+        [['Связующий', 'Связующего', 'Связующему', 'Связующим', 'Связующем'], ['Соединитель Миров', 'Соединителя Миров', 'Соединителю Миров', 'Соединителем Миров', 'Соединителе Миров'], '(?:\\s+[Мм]иров)?', 1, 0, 'Связующий'],
+        [['Гроза', 'Грозы', 'Грозе', 'Грозу', 'Грозой', 'Грозою'], ['Буря', 'Бури', 'Буре', 'Бурю', 'Бурей', 'Бурею'], '', 1, 0, 'Гроза']],
+      // рядом с названием: цвет перед словом или печать/тон после него
+      color: /(?:Красн|Бел|Син|Жёлт|Желт)[а-яё]*\s+$/,
+      next: /^\s+(?:[Тт]он|[А-ЯЁ])/
+    };
+  })();
+  function libCap(model, s) { return model.charAt(0) !== model.charAt(0).toLowerCase() ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+  function libFixWords(s, st) {
+    var L = LIB_W.L, rx = '(^|[^' + L + '])(';
+    function note(k, was, now, str, off) {
+      st.n++; st.by[k] = (st.by[k] || 0) + 1;
+      if (st.ex.length < 6) st.ex.push('«…' + str.slice(Math.max(0, off - 25), off).replace(/\s+/g, ' ') + was + '…» → ' + now);
+    }
+    LIB_W.adj.forEach(function (a) {
+      var ends = a.fe.slice().sort(function (x, y) { return y.length - x.length; });
+      var re = new RegExp(rx + '[' + a.from.charAt(0).toUpperCase() + a.from.charAt(0) + ']' + a.from.slice(1) + ')(' + ends.join('|') + ')(?![' + L + '])', 'g');
+      s = s.replace(re, function (m, pre, stem, end, off, str) {
+        var at = off + pre.length, after = str.slice(at + stem.length + end.length), big = stem.charAt(0) !== stem.charAt(0).toLowerCase();
+        if (a.strict && str.trim() !== stem + end && !/^\s+[Тт]он/.test(after) && !(big && (LIB_W.next.test(after) || LIB_W.color.test(str.slice(0, at))))) { st.left++; if (st.lx.length < 4) st.lx.push('«' + stem + end + after.slice(0, 18).replace(/\s+/g, ' ') + '…»'); return m; }
+        var now = libCap(stem, a.to + a.te[a.fe.indexOf(end)]);
+        note(libCap('А', a.from + a.fe[0]) + ' → ' + libCap('А', a.to + a.te[0]), stem + end, now, str, at);
+        return pre + now;
+      });
+    });
+    LIB_W.noun.forEach(function (w) {
+      var forms = w[0].map(function (f, i) { return [f, i]; }).sort(function (x, y) { return y[0].length - x[0].length; });
+      var alt = forms.map(function (f) { return w[3] ? f[0] : '[' + f[0].charAt(0) + f[0].charAt(0).toLowerCase() + ']' + f[0].slice(1); }).join('|');
+      var re = new RegExp(rx + alt + ')(?![' + L + '])(' + w[2] + ')(?![' + L + '])', 'g');
+      s = s.replace(re, function (m, pre, word, tail, off, str) {
+        if (w[4] && !tail) return m;
+        var i = -1; w[0].forEach(function (f, j) { if (f.toLowerCase() === word.toLowerCase()) i = j; });
+        var now = w[1][i];
+        if (word.charAt(0) === word.charAt(0).toLowerCase()) now = now.toLowerCase();
+        note(w[5] + ' → ' + w[1][0], word + tail, now, str, off + pre.length);
+        return pre + now;
+      });
+    });
+    return s;
+  }
+  // Пройти все строки внутри (атлас, тоны и печати, карточки). «Моё» — её собственные слова — не трогаем.
+  function libFixAll(o, st) {
+    if (Array.isArray(o)) { o.forEach(function (x, i) { if (typeof x === 'string') o[i] = libFixWords(x, st); else if (x && typeof x === 'object') libFixAll(x, st); }); }
+    else if (o && typeof o === 'object') Object.keys(o).forEach(function (k) { var x = o[k]; if (typeof x === 'string') o[k] = libFixWords(x, st); else if (x && typeof x === 'object') libFixAll(x, st); });
+    return st;
+  }
+  function libWordStat() { return { n: 0, by: {}, ex: [], left: 0, lx: [] }; }
+  function libWordReport(st, ahead) {
+    var by = Object.keys(st.by).map(function (k) { return k + ' — ' + st.by[k]; });
+    return (st.n ? (ahead ? 'Будет заменено' : 'Заменено') + ' названий в текстах: ' + st.n + ' (' + by.join('; ') + ').' : 'Старых названий в текстах не нашлось.') +
+      (st.left ? ' Оставлено как обычные слова: ' + st.left + ' (например, ' + st.lx.join(', ') + ').' : '');
+  }
+  // Кнопка в «Файлах»: привести к словарю то, что уже загружено
+  function libFixStored() {
+    var parts = ['atlas', 'signs', 'cards'].filter(function (p) { return LIB.parts[p]; });
+    if (!parts.length) { dialog({ title: 'Нечего приводить в порядок', body: 'Библиотека пока пустая — сначала загрузите файлы.' }); return; }
+    var test = libWordStat(), per = {};
+    parts.forEach(function (p) { var s = libWordStat(); libFixAll(clone(LIB.parts[p]), s); per[p] = s.n; test.n += s.n; test.left += s.left; test.ex = test.ex.concat(s.ex).slice(0, 6); test.lx = test.lx.concat(s.lx).slice(0, 4); Object.keys(s.by).forEach(function (k) { test.by[k] = (test.by[k] || 0) + s.by[k]; }); });
+    if (!test.n) { dialog({ title: 'Всё уже в порядке', body: libWordReport(test) }); return; }
+    dialog({ title: 'Заменить старые названия в текстах?', body: el('div', {}, [el('p', { style: 'margin-bottom:6px', text: libWordReport(test, 1) }), el('p', { class: 'a-hint', style: 'margin-bottom:4px', text: 'Например:' })]
+      .concat(test.ex.map(function (x) { return el('p', { class: 'a-hint', text: x }); }))
+      .concat([el('p', { class: 'a-hint', style: 'margin-top:6px', text: 'Ваши записи во вкладке «Моё» не трогаются. Потом нажмите «Сохранить».' })])),
+      buttons: [['go', 'Заменить', 'dark'], ['no', 'Отмена']] }).then(function (v) {
+      if (v !== 'go') return;
+      parts.forEach(function (p) { if (per[p]) { libFixAll(LIB.parts[p], libWordStat()); LIB.pending[p] = 1; } });
+      changed(); libKeep(); renderMain();
+      toast('Названия в текстах приведены к словарю. Нажмите «Сохранить».');
+    });
+  }
   // Карточки из «космолёта»: новые — добавить; совпавшие по номеру — заменить, если вы их здесь не правили и не отметили «моя»
   function libMergeCards(incoming) {
     LIB.parts.cards = LIB.parts.cards || { cards: [] };
@@ -4676,10 +4762,11 @@
       });
       if (!plan.length) { dialog({ title: 'Нечего загрузить', body: warn.join(' ') || 'Файлы не выбраны.' }); return; }
       return dialog({ title: 'Загрузить в библиотеку?', body: el('div', {}, lines.concat(warn).map(function (x) { return el('p', { style: 'margin-bottom:6px', text: x }); })
-        .concat([el('p', { class: 'a-hint', text: 'Названия тонов, печатей и кинов приводятся к вашему словарю (Самосущий, Соединитель Миров…). Тексты не меняются. Потом нажмите «Сохранить».' })])),
+        .concat([el('p', { class: 'a-hint', text: 'Названия приводятся к вашему словарю — и в именах тонов, печатей и кинов, и внутри текстов («Странник неба» → «Небесный Странник», «Связующий» → «Соединитель Миров», «Мост Миров», «Гроза», «Кристальный»…). Потом нажмите «Сохранить».' })])),
         buttons: [['go', 'Загрузить', 'dark'], ['no', 'Отмена']] }).then(function (v) {
         if (v !== 'go') return;
-        var done = [];
+        var done = [], ws = libWordStat();
+        plan.forEach(function (p) { if (p[0] !== 'all') libFixAll(p[1], ws); });
         plan.forEach(function (p) {
           if (p[0] === 'all') { LIB_PARTS.forEach(function (k) { if (p[1][k]) { LIB.parts[k] = p[1][k]; LIB.pending[k] = 1; } }); done.push('вся библиотека'); }
           else if (p[0] === 'atlas') {
@@ -4692,7 +4779,7 @@
           }
         });
         changed(); libKeep(); renderMain();
-        dialog({ title: 'Загружено', body: 'Загружено: ' + done.join('; ') + '. Нажмите «Сохранить» — библиотека запишется в закрытый репозиторий черновиков.' });
+        dialog({ title: 'Загружено', body: 'Загружено: ' + done.join('; ') + '. ' + libWordReport(ws) + ' Нажмите «Сохранить» — библиотека запишется в закрытый репозиторий черновиков.' });
       });
     });
   }
@@ -4720,7 +4807,11 @@
         el('p', { class: 'a-hint', text: 'Копия всей библиотеки — одним файлом (на всякий случай, или перенести). Атлас — в прежнем виде, для вашей HTML-версии и для работы в чате.' }),
         el('div', { class: 'a-lib-cbtns' }, [
           el('button', { type: 'button', class: 'a-btn', text: '↓ Вся библиотека', onclick: function () { libDownload({ app: LIB_APP, version: 1, createdAt: new Date().toISOString(), parts: LIB.parts }, '13mirrors-biblioteka-' + stamp + '.json'); } }),
-          A ? el('button', { type: 'button', class: 'a-btn', text: '↓ Атлас (.json)', onclick: function () { libDownload(A, '13M_WAVES_LIBRARY_' + stamp + '.json'); } }) : null])])
+          A ? el('button', { type: 'button', class: 'a-btn', text: '↓ Атлас (.json)', onclick: function () { libDownload(A, '13M_WAVES_LIBRARY_' + stamp + '.json'); } }) : null])]),
+      el('div', { class: 'a-card a-lib-stack' }, [
+        el('div', { class: 'a-lib-grpt', text: 'Названия в текстах' }),
+        el('p', { class: 'a-hint', text: 'При загрузке старые названия заменяются сами. Эта кнопка — для уже загруженного: найдёт в атласе, тонах, печатях и карточках «Странник неба», «Связующий», «Мост Миров», «Гроза», «Магнетический», «Обертональный», «Кристальный», «Самосущный» и покажет, что заменит. Ваши записи в «Моё» не трогаются.' }),
+        el('div', { class: 'a-lib-cbtns' }, [el('button', { type: 'button', class: 'a-btn', text: 'Привести названия к словарю…', onclick: libFixStored })])])
     ];
   }
 
