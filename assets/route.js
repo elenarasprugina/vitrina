@@ -85,12 +85,29 @@
     var d = dayOf(route, n), c = {
       'день': String(n), 'дата': dateOf(route, n), 'кин': d.kin == null ? '' : String(d.kin),
       'имя кина': d.kinName || '', 'печать': d.seal || '', 'тон': d.tone || '',
-      'что делаем': d.cardOperation || '', 'среда': d.environment || ''
+      'что делаем': d.cardOperation || '', 'среда': d.environment || '', 'финал': wordsOf(route).name
     };
     if (k) CARD_TOKENS.forEach(function (t) { c[t[0]] = low(t[1](k)); });
     return c;
   }
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+  /* Слова маршрута (панель → «Основное» → «Слова маршрута»; конструктор, 04.10): как называется то, что складывается в финале.
+     route.words: final — «Солнце» (кто? что?), finalYour — «ваше Солнце» («…сложится ваше Солнце»), finalInto — «в ваше Солнце» («…лягут в ваше Солнце»).
+     Пусто — из названия: род угадывается по окончанию (-о/-е — ваше, -а/-я — ваша/вашу, иначе — ваш). Метка {финал} — название. */
+  function wordsOf(route) {
+    var w = (route && route.words) || {}, name = String(w.final || '').trim() || 'Солнце';
+    var g = /[оеё]$/i.test(name.split(' ')[0]) ? 'n' : /[ая]$/i.test(name.split(' ')[0]) ? 'f' : 'm';
+    var acc = g === 'f' ? name.replace(/^(\S*?)а(\s|$)/i, '$1у$2').replace(/^(\S*?)я(\s|$)/i, '$1ю$2') : name;
+    return { name: name, your: String(w.finalYour || '').trim() || (g === 'n' ? 'ваше ' : g === 'f' ? 'ваша ' : 'ваш ') + name,
+      into: String(w.finalInto || '').trim() || 'в ' + (g === 'n' ? 'ваше ' : g === 'f' ? 'вашу ' : 'ваш ') + acc };
+  }
+  // Надписи по умолчанию, в которых есть название финала (панель показывает их серым в пустом поле)
+  function defText(route, key) {
+    var W = wordsOf(route);
+    return { diskStone: 'Камушек этой зоны лёг в ваш узор — он войдёт и ' + W.into + '.',
+      exitLead: 'Выберите до трёх стёклышек — они тоже лягут ' + W.into + '. Можно не выбирать.',
+      glassNote: 'Каждый день маршрута добавляет в ваш узор своё стёклышко — цвета печати дня. В конце из них сложится ' + W.your + '.' }[key] || '';
+  }
   // {Действие} с большой буквы — значение тоже с большой. Неизвестная метка остаётся как есть.
   function fill(tpl, ctx, miss) {
     tpl = String(tpl == null ? '' : tpl);
@@ -106,7 +123,7 @@
     });
   }
   function tokens(route) {
-    var t = ['день', 'дата', 'кин', 'имя кина', 'печать', 'тон', 'что делаем', 'среда'];
+    var t = ['день', 'дата', 'кин', 'имя кина', 'печать', 'тон', 'что делаем', 'среда', 'финал'];
     return { day: t, card: CARD_TOKENS.map(function (x) { return x[0]; }) };
   }
 
@@ -477,7 +494,7 @@
       if (n < daysCount(route)) {
         var st = el('div', 'ys-d-stone' + (fresh ? ' is-new' : '')), cv = el('canvas');
         if (window.M13K && window.M13K.stone) { var g = markGlass(route, n, z); window.M13K.stone(cv, g.c, g.look, 46); }
-        st.appendChild(cv); st.appendChild(el('span', null, fill(tx.diskStone || 'Камушек этой зоны лёг в ваш узор — он войдёт и в ваше Солнце.', ctx || {})));
+        st.appendChild(cv); st.appendChild(el('span', null, fill(tx.diskStone || defText(route, 'diskStone'), ctx || {})));
         after.appendChild(st);
       }
       var road = diskText(k, 'road', z) || ((route.deck || {}).wayBack || {})[DISK_FAMILY[z]] || '';
@@ -571,7 +588,7 @@
     if (f.exitFont && FONTS[f.exitFont]) { ensureFont(f.exitFont); h.style.fontFamily = "'" + f.exitFont + "',Georgia,serif"; }
     if (+f.exitSize) h.style.fontSize = Math.max(16, Math.min(48, +f.exitSize)) + 'px';
     box.appendChild(h);
-    if (tx.exitLead !== '') box.appendChild(el('p', 'ys-exit-lead', tx.exitLead || 'Выберите до трёх стёклышек — они тоже лягут в ваше Солнце. Можно не выбирать.'));
+    if (tx.exitLead !== '') box.appendChild(el('p', 'ys-exit-lead', tx.exitLead || defText(route, 'exitLead')));
     var wrap = el('div', 'ys-st-list');
     shuffled(L.length).forEach(function (i) {
       var b = el('button', 'ys-st' + (glassV ? ' ys-st--glass' : '') + (chosen.indexOf(i) >= 0 ? ' is-on' : '')), dot = el(glassV ? 'canvas' : 'i', 'ys-st-g'); b.type = 'button';
@@ -1388,7 +1405,7 @@
     box.appendChild(el('p', 'ys-key-mode', fill(tx.glassSmall || 'День {день} · {имя кина}', ctx)));
     box.appendChild(el('h2', 'ys-key-t', fill(tx.glassDay || 'Стёклышко дня {день} легло в ваш узор', ctx)));
     box.appendChild(wrap);
-    if (tx.glassNote !== '') box.appendChild(el('p', 'ys-key-note', fill(tx.glassNote || 'Каждый день маршрута добавляет в ваш узор своё стёклышко — цвета печати дня. В конце из них сложится ваше Солнце.', ctx)));
+    if (tx.glassNote !== '') box.appendChild(el('p', 'ys-key-note', fill(tx.glassNote || defText(r, 'glassNote'), ctx)));
     var go = el('button', 'ys-key-go', tx.glassGo || 'На спираль'); go.type = 'button';
     go.addEventListener('click', function () { closeLayer(); });
     box.appendChild(go);
@@ -2569,7 +2586,7 @@
       var hp = hd === last ? { x: B.center.cx, y: B.center.cy } : B.trace[(2 * hd - 1) * SPAN];
       var hit = el('button', 'ys-hit' + (hd === last ? ' ys-hit--c' : ''));
       hit.type = 'button';
-      hit.setAttribute('aria-label', n > last ? 'Солнце в центре' : 'Открыть день ' + hd);
+      hit.setAttribute('aria-label', n > last ? wordsOf(r).name + ' в центре' : 'Открыть день ' + hd);
       hit.style.left = (hp.x / iw * 100) + '%'; hit.style.top = (hp.y / ih * 100) + '%';
       hit.addEventListener('click', function (e) { e.stopPropagation(); tapDay(hd); });
       stage.appendChild(hit);
@@ -2618,7 +2635,7 @@
     function needCode() { if (!S.code) note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return !!S.code; }
     [el('span', null, 'Сейчас по Москве: ' + (S.debugNow ? S.debugNow + ' (подмена)' : 'настоящее время') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
       ss, zl,
-      el('span', 'ys-debug-sep', 'Финал Солнца'),
+      el('span', 'ys-debug-sep', 'Финал · ' + wordsOf(r).name),
       // «Карта дня 13» сама ставит спираль на 13-й день (после «Сброса» дата может быть до начала маршрута)
       row([btn('Карта дня 13', function () { closeLayer(); if (FIN) FIN.kill(); if (curDay() !== last) { S.sim = last; render(); } openDay(last, S.mode); }), btn('Финал сразу', function () { var m = musicStart(); closeLayer(); finalScene({ music: m }); })]),
       row([btn('Последний кадр', function () { closeLayer(); finalScene({ instant: true }); }), btn('Сброс', function () { if (FIN) FIN.kill(); resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, отметок на диске, подарков и финала нет.'); })]),
@@ -2628,7 +2645,7 @@
       row([btn('Ввод ключа', function () { openKey(S.mode === 'observation' ? 'journey' : S.mode); }), btn('Забыть код', function () { resetPicks(); resetGlass(); saveCode(null); closeLayer(); render(); note('Код забыт на этом устройстве.'); })]),
       row([btn('Стёклышко дня', function () {
         if (!needCode()) return;
-        if (+sd.value >= last) { note('У дня ' + last + ' своего стёклышка нет — это само Солнце.'); return; }
+        if (+sd.value >= last) { note('У дня ' + last + ' своего стёклышка нет — это сам финал (' + wordsOf(r).name + ').'); return; }
         openGlass(+sd.value);
       }), btn('Подарок (тест)', function () { if (needCode()) openKey(S.code.mode, true, makeGift(r, S.code, Math.min(+sd.value, last - 1), Math.floor(Math.random() * 4))); })]),
       el('span', 'ys-debug-sep', 'Формат и карты'),
@@ -2637,7 +2654,7 @@
         btn('Личная карта', function () { if (sm.value === 'observation') { note('У Наблюдения личной карты нет — выберите Путешествие или Погружение.'); return; } openPersonal(+sd.value, sm.value, permSel(+sd.value)); })]),
       btn('Выбор карты (круг)', function () {
         if (sm.value === 'observation') { note('У Наблюдения выбора карты нет — выберите Путешествие или Погружение.'); return; }
-        if (+sd.value === last) { note('В день ' + last + ' выбора нет — там финал Солнца.'); return; }
+        if (+sd.value === last) { note('В день ' + last + ' выбора нет — там финал.'); return; }
         if (!S.code) { note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return; }
         var l = pickedList().filter(function (x) { return x !== +sd.value; });
         try { localStorage.setItem(pickKey(), JSON.stringify(l)); } catch (e) {}
@@ -2703,7 +2720,7 @@
     });
   }
 
-  window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
+  window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
