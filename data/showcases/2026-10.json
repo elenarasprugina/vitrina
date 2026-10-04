@@ -43,6 +43,37 @@
           "value": "3 формата",
           "show": true
         },
+        "phase": {
+          "on": true,
+          "from": "2026-09-22",
+          "to": "2026-10-04",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": true,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
+        },
         "style": {
           "patternColor": "#cfe0ff",
           "glow": "soft",

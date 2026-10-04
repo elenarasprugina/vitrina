@@ -45,8 +45,28 @@
       "image": "media/2bf9bfde7fb5689060a6.webp",
       "routeUrl": "https://elenarasprugina.github.io/13mirrors-blue-hand/",
       "glass": {},
+      "archive": true,
+      "archiveBlocks": [
+        {
+          "id": "sb-79fqq",
+          "kind": "text",
+          "visible": true,
+          "title": "Как это было",
+          "text": "",
+          "collapse": true
+        },
+        {
+          "id": "sb-eu114",
+          "kind": "images",
+          "visible": true,
+          "images": []
+        }
+      ],
+      "archiveActions": [],
       "finalVideo": "media/7825920db8033f327918.mp4",
-      "finalVideoName": "day13_namaste.mp4"
+      "finalVideoName": "day13_namaste.mp4",
+      "filmSeed": 1,
+      "shareImage": "media/0236a173e4e6d93b1c97.jpg"
     },
     {
       "id": "white-wizard",
