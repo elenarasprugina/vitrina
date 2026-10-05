@@ -272,6 +272,34 @@
                   "label": "Подробнее",
                   "url": "https://13mirrors.ru/vitrina/routes/yellow-sun/"
                 }
+              },
+              {
+                "formatId": "journey",
+                "visible": true,
+                "availability": "closed",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "link",
+                  "label": "Подробнее",
+                  "url": "https://13mirrors.ru/vitrina/routes/yellow-sun/?mode=journey"
+                }
+              },
+              {
+                "formatId": "immersion",
+                "visible": true,
+                "availability": "closed",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "link",
+                  "label": "Подробнее",
+                  "url": "https://13mirrors.ru/vitrina/routes/yellow-sun/?mode=immersion"
+                }
               }
             ],
             "closed": "dim"
