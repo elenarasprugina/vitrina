@@ -653,6 +653,18 @@
       warn
     ];
   }
+  // «Метка Host» у кнопки: вводится вручную, только латиница, цифры, _ и - (до 64 знаков).
+  // Заполнена — Telegram ведёт в бота Host из «Настроек»: https://t.me/<бот>?start=<метка>
+  function hostIn(obj) {
+    var warn = el('span', { class: 'a-hint', style: 'color:#b3261e' });
+    function check(v) {
+      v = String(v || '').trim();
+      warn.textContent = !v || /^[A-Za-z0-9_-]{1,64}$/.test(v) ? '' : 'Только латинские буквы, цифры, _ и - (до 64 знаков), без пробелов — иначе кнопка поведёт на обычный Telegram.';
+    }
+    check(obj.host);
+    return el('div', {}, [textIn(obj, 'host', 'Метка Host', { type: 'text', ph: 'например: red_skywalker_journey', onInput: check,
+      hint: 'Заполнено — Telegram откроет бота Host (он задан в «Настройках») с этой меткой. Пусто — обычный Telegram-контакт.' }), warn]);
+  }
   function actionIn(obj, key, title, o) {
     o = o || {};
     if (!obj[key]) obj[key] = { kind: 'contact', label: o.defLabel || 'Написать' };
@@ -683,9 +695,10 @@
         k === 'examples' || k === 'sandbox' ? el('p', { class: 'a-hint', text: k === 'sandbox' ? 'Откроется Песочница — «Как устроены маршруты».' : 'Откроется страница примеров Карт-Отражений.' }) : null,
         k === 'contact'
           ? [textIn(a, 'message', 'Текст обращения', { multi: true, rows: 2, ph: o.msgPh || 'Можно оставить пустым — текст соберётся сам', hint: 'Этот текст человек увидит в окне и сможет вставить в чат.' }),
+            hostIn(a),
             el('details', {}, [el('summary', { class: 'a-hint', style: 'cursor:pointer', text: 'Свои контакты для этой кнопки (необязательно)' }),
               el('div', { class: 'a-row', style: 'margin-top:8px' }, [
-                textIn(a, 'telegram', 'Telegram', { ph: 'как в Настройках', hint: 'Для бота с меткой: https://t.me/имя_бота?start=метка (латиница, цифры, _ и -, до 64 знаков).' }),
+                textIn(a, 'telegram', 'Telegram', { ph: 'как в Настройках' }),
                 textIn(a, 'vk', 'VK', { ph: 'как в Настройках' })])])] : null
       ]);
     }
@@ -2003,9 +2016,10 @@
           textIn(st, 'ask', 'Надпись на кнопке', { ph: 'Задать вопрос', hint: 'Откроет окно «Telegram или VK» с готовым текстом «Хочу узнать подробнее про …».' }),
           c.back.routeId ? switchIn(st, 'sandbox', 'Кнопка «Как устроены маршруты 13 MIRRORS»', { defTrue: window.M13.stubSandbox(c, {}),
             hint: 'Если не трогать — как на обычном обороте.' }) : el('span')]) : null,
+        st.on ? hostIn(st) : null,
         st.on ? el('details', {}, [el('summary', { class: 'a-hint', style: 'cursor:pointer', text: 'Свои контакты для кнопки «' + (String(st.ask || '').trim() || 'Задать вопрос') + '» (необязательно)' }),
           el('div', { class: 'a-row', style: 'margin-top:8px' }, [
-            textIn(st, 'telegram', 'Telegram', { ph: 'как в Настройках', hint: 'Для бота с меткой: https://t.me/имя_бота?start=метка (латиница, цифры, _ и -, до 64 знаков).' }),
+            textIn(st, 'telegram', 'Telegram', { ph: 'как в Настройках' }),
             textIn(st, 'vk', 'VK', { ph: 'как в Настройках' })])]) : null,
         st.on ? el('div', { class: 'a-theme' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть текст по умолчанию', onclick: function () { st.text = window.M13.stubText(c, DATA); changed(); draw(); } })]) : null
@@ -5840,8 +5854,10 @@
       block('Контакты по умолчанию', [
         el('p', { class: 'a-hint', text: 'Сюда ведут все кнопки «Записаться», «Заказать» и т. п., если у кнопки не указаны свои контакты.' }),
         el('div', { class: 'a-row' }, [
-          textIn(st.contacts, 'telegram', 'Telegram', { ph: 'имя пользователя без @', hint: 'Например: elena_13mirrors или ссылка t.me/… Бот с меткой: t.me/имя_бота?start=метка' }),
-          textIn(st.contacts, 'vk', 'VK', { ph: 'короткий адрес страницы', hint: 'Например: id12345678 или имя из адреса vk.com/…' })])
+          textIn(st.contacts, 'telegram', 'Telegram', { ph: 'имя пользователя без @', hint: 'Например: elena_13mirrors или ссылка t.me/…' }),
+          textIn(st.contacts, 'vk', 'VK', { ph: 'короткий адрес страницы', hint: 'Например: id12345678 или имя из адреса vk.com/…' })]),
+        textIn(st.contacts, 'host', 'Telegram Host (бот)', { type: 'text', ph: 'thirteenmirrors_host_bot',
+          hint: 'Имя бота без @. Кнопки, у которых заполнена «Метка Host», ведут сюда: https://t.me/<бот>?start=<метка>, без копирования текста обращения.' })
       ]),
       block('Логотип', [
         logoIn(st, 'logo', 'logoRatio', 'Логотип витрины', { size: LOGO_SIZE, hint: 'Показывается над сеткой и под ней (если так выбрано в «Странице месяца»). PNG с прозрачным фоном; если фон белый — уберём его сами. Цвет логотипа задаётся в каждом месяце: «Цвет надписей и логотипа». У месяца может быть свой логотип.' })
@@ -6212,6 +6228,9 @@
 
   // Приводит данные к нынешнему виду (старые обороты → блоки).
   function migrate(D) {
+    // Бот Host (с 05.10.2026): в старом черновике поля нет — берём с сайта; если она его очистила (''), не трогаем
+    var stc = (D.settings || {}).contacts;
+    if (stc && stc.host === undefined) stc.host = ((((ORIGINAL || {}).settings || {}).contacts || {}).host) || '';
     D.showcases = D.showcases || {};
     D.events = D.events || EVENTS_DEFAULT(); D.events.items = D.events.items || [];
     // Страницы маршрутов (с 02.10.2026): в старом черновике их нет — берём заготовку с сайта

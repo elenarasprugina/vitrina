@@ -1521,7 +1521,7 @@
       '<div class="m13-info m13-stub">' + txt(text) + '</div>' +
       '<div class="m13-actions m13-push">' +
       '<button type="button" class="m13-action m13-action--primary"' +
-      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
+      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', host: stub.host || '', message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
       (r && stubSandbox(c, stub) ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
         esc(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
       '</div>';
@@ -1732,13 +1732,22 @@
       b.addEventListener('click', function () { goChannel(b.getAttribute('data-ch')); });
     });
   }
+  function tgName(h) {
+    return String(h || '').trim().replace(/^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\//i, '').replace(/^@/, '').replace(/[\/?#].*$/, '');
+  }
+  // Бот Host: имя — в «Настройках» (contacts.host), метка — у кнопки (action.host), вводится вручную.
+  // Ссылка https://t.me/<бот>?start=<метка>: бот получит метку, когда человек нажмёт «Запустить».
+  function hostUrl(label, bot) {
+    label = String(label || '').trim(); bot = tgName(bot);
+    return bot && /^[A-Za-z0-9_-]{1,64}$/.test(label) ? 'https://t.me/' + encodeURIComponent(bot) + '?start=' + label : '';
+  }
   function contactUrl(ch, handle, message) {
     var h = String(handle || '').trim();
     if (!h) return '';
     if (ch === 'telegram') {
-      // Метка для бота: t.me/имя_бота?start=метка — бот получит её, когда человек нажмёт «Запустить» (текст боту так не передать)
+      // Ссылка на бота с меткой, вписанная целиком (t.me/имя_бота?start=метка), — тоже работает
       var start = (h.match(/[?&]start=([A-Za-z0-9_-]{1,64})/) || [])[1];
-      h = h.replace(/^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\//i, '').replace(/^@/, '').replace(/[\/?#].*$/, '');
+      h = tgName(h);
       if (start) return 'https://t.me/' + encodeURIComponent(h) + '?start=' + start;
       return 'https://t.me/' + encodeURIComponent(h) + (message ? '?text=' + encodeURIComponent(message) : '');
     }
@@ -1768,6 +1777,7 @@
     contactNow = {
       message: message,
       telegram: action.telegram || def.telegram || '',
+      host: hostUrl(action.host, def.host),
       vk: action.vk || def.vk || ''
     };
     var title = [ctx.format || ctx.item || (ctx.tplKey === 'offer' ? action.label : ''), ctx.route || ctx.card]
@@ -1786,8 +1796,10 @@
   }
   function goChannel(ch) {
     if (!contactNow) return;
+    var url = ch === 'telegram' && contactNow.host || contactUrl(ch, contactNow[ch], ch === 'telegram' ? contactNow.message : '');
+    // В бота Host текст не копируем: метка уже говорит, откуда человек пришёл
+    if (ch === 'telegram' && /[?&]start=/.test(url)) { window.open(url, '_blank', 'noopener'); return; }
     var copied = copyText(contactNow.message);
-    var url = contactUrl(ch, contactNow[ch], ch === 'telegram' ? contactNow.message : '');
     var hint = S.root.querySelector('#m13-modal-h');
     var name = ch === 'telegram' ? 'Telegram' : 'VK';
     if (url) {
