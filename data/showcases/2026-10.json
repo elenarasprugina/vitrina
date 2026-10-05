@@ -313,7 +313,13 @@
                 "kind": "contact",
                 "label": "Задать вопрос",
                 "visible": true,
-                "message": "Привет!\nУ меня вопрос по Маршруту Желтого Солнца:"
+                "message": "Привет!\nУ меня вопрос по Маршруту Желтого Солнца:",
+                "telegram": "yellow_sun_question"
+              },
+              {
+                "kind": "contact",
+                "label": "Написать",
+                "visible": true
               }
             ]
           }
@@ -614,6 +620,19 @@
             "max": 10,
             "copyItems": false,
             "tpl": "container"
+          },
+          {
+            "id": "b-tvood",
+            "kind": "actions",
+            "visible": true,
+            "actions": [
+              {
+                "kind": "contact",
+                "label": "Получить ссылку",
+                "visible": true,
+                "telegram": "another_world_gorod_mak"
+              }
+            ]
           }
         ]
       }

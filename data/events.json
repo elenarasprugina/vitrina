@@ -101,7 +101,7 @@
           "label": "Записаться",
           "message": "Привет! \nПришли, пожалуйста, мне ссылку на встречу.",
           "order": 1,
-          "telegram": "https://t.me/thirteenmirrors_host_bot?start=another_world_gorod_mak"
+          "telegram": ""
         },
         {
           "kind": "calendar",

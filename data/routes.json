@@ -32,7 +32,16 @@
       "description": "13 дней о ясности, жизненной силе и о том, куда ты направляешь свой свет.",
       "image": "media/ab50ba94293e2a22ba6d.webp",
       "routeUrl": "",
-      "glass": {}
+      "glass": {},
+      "finalWords": 1,
+      "finalText1": {
+        "value": "Маршрут пройден",
+        "show": true
+      },
+      "finalText2": {
+        "value": "Увидимся за поворотом…",
+        "show": true
+      }
     },
     {
       "id": "blue-hand",
