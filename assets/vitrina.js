@@ -1521,7 +1521,7 @@
       '<div class="m13-info m13-stub">' + txt(text) + '</div>' +
       '<div class="m13-actions m13-push">' +
       '<button type="button" class="m13-action m13-action--primary"' +
-      act({ kind: 'contact', label: label, message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
+      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
       (r && stubSandbox(c, stub) ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
         esc(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
       '</div>';

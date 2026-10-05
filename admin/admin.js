@@ -2003,6 +2003,10 @@
           textIn(st, 'ask', 'Надпись на кнопке', { ph: 'Задать вопрос', hint: 'Откроет окно «Telegram или VK» с готовым текстом «Хочу узнать подробнее про …».' }),
           c.back.routeId ? switchIn(st, 'sandbox', 'Кнопка «Как устроены маршруты 13 MIRRORS»', { defTrue: window.M13.stubSandbox(c, {}),
             hint: 'Если не трогать — как на обычном обороте.' }) : el('span')]) : null,
+        st.on ? el('details', {}, [el('summary', { class: 'a-hint', style: 'cursor:pointer', text: 'Свои контакты для кнопки «' + (String(st.ask || '').trim() || 'Задать вопрос') + '» (необязательно)' }),
+          el('div', { class: 'a-row', style: 'margin-top:8px' }, [
+            textIn(st, 'telegram', 'Telegram', { ph: 'как в Настройках', hint: 'Для бота с меткой: https://t.me/имя_бота?start=метка (латиница, цифры, _ и -, до 64 знаков).' }),
+            textIn(st, 'vk', 'VK', { ph: 'как в Настройках' })])]) : null,
         st.on ? el('div', { class: 'a-theme' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть текст по умолчанию', onclick: function () { st.text = window.M13.stubText(c, DATA); changed(); draw(); } })]) : null
       ]);
