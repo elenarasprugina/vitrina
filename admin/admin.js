@@ -685,7 +685,7 @@
           ? [textIn(a, 'message', 'Текст обращения', { multi: true, rows: 2, ph: o.msgPh || 'Можно оставить пустым — текст соберётся сам', hint: 'Этот текст человек увидит в окне и сможет вставить в чат.' }),
             el('details', {}, [el('summary', { class: 'a-hint', style: 'cursor:pointer', text: 'Свои контакты для этой кнопки (необязательно)' }),
               el('div', { class: 'a-row', style: 'margin-top:8px' }, [
-                textIn(a, 'telegram', 'Telegram', { ph: 'как в Настройках' }),
+                textIn(a, 'telegram', 'Telegram', { ph: 'как в Настройках', hint: 'Для бота с меткой: https://t.me/имя_бота?start=метка (латиница, цифры, _ и -, до 64 знаков).' }),
                 textIn(a, 'vk', 'VK', { ph: 'как в Настройках' })])])] : null
       ]);
     }
@@ -5836,7 +5836,7 @@
       block('Контакты по умолчанию', [
         el('p', { class: 'a-hint', text: 'Сюда ведут все кнопки «Записаться», «Заказать» и т. п., если у кнопки не указаны свои контакты.' }),
         el('div', { class: 'a-row' }, [
-          textIn(st.contacts, 'telegram', 'Telegram', { ph: 'имя пользователя без @', hint: 'Например: elena_13mirrors или ссылка t.me/…' }),
+          textIn(st.contacts, 'telegram', 'Telegram', { ph: 'имя пользователя без @', hint: 'Например: elena_13mirrors или ссылка t.me/… Бот с меткой: t.me/имя_бота?start=метка' }),
           textIn(st.contacts, 'vk', 'VK', { ph: 'короткий адрес страницы', hint: 'Например: id12345678 или имя из адреса vk.com/…' })])
       ]),
       block('Логотип', [

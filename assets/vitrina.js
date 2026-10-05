@@ -1736,7 +1736,10 @@
     var h = String(handle || '').trim();
     if (!h) return '';
     if (ch === 'telegram') {
-      h = h.replace(/^https?:\/\/(www\.)?(t\.me|telegram\.me)\//i, '').replace(/^@/, '').replace(/\/.*$/, '');
+      // Метка для бота: t.me/имя_бота?start=метка — бот получит её, когда человек нажмёт «Запустить» (текст боту так не передать)
+      var start = (h.match(/[?&]start=([A-Za-z0-9_-]{1,64})/) || [])[1];
+      h = h.replace(/^(https?:\/\/)?(www\.)?(t\.me|telegram\.me)\//i, '').replace(/^@/, '').replace(/[\/?#].*$/, '');
+      if (start) return 'https://t.me/' + encodeURIComponent(h) + '?start=' + start;
       return 'https://t.me/' + encodeURIComponent(h) + (message ? '?text=' + encodeURIComponent(message) : '');
     }
     h = h.replace(/^https?:\/\/(m\.)?(vk\.com|vk\.me)\//i, '').replace(/^@/, '').replace(/\/.*$/, '');
