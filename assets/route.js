@@ -1422,10 +1422,11 @@
     });
   }
   // gift — слово-подарок, которое сразу вписать («Мой код» по ссылке ?gift= или из режима проверки)
+  // want = 'observation' — «Мой код» из Наблюдения: без строки формата, выход — «Остаться в Наблюдении», закрывается и щелчком мимо
   function openKey(want, show, gift) {
     var r = S.route, tx = r.texts || {}, box = el('div', 'ys-key'), kal = null;
-    var have = !!(show && S.code);
-    var mname = el('p', 'ys-key-mode', MODE_NAMES[have ? S.code.mode : want] || '');
+    var have = !!(show && S.code), fromObs = !have && want === 'observation';
+    var mname = el('p', 'ys-key-mode', fromObs ? '' : MODE_NAMES[have ? S.code.mode : want] || '');
     var title = el('h2', 'ys-key-t', have ? tx.myCode || 'Мой узор и код' : tx.keyTitle || 'Ключ к маршруту');
     var cv = el('canvas', 'ys-kal'), wrap = kalWrap(cv);
     box.appendChild(mname); box.appendChild(title); box.appendChild(wrap);
@@ -1438,8 +1439,8 @@
     var err = el('p', 'ys-key-err');
     form.appendChild(inp); form.appendChild(go); form.appendChild(err);
     form.appendChild(el('p', 'ys-key-note', tx.keyNote || 'Код уже есть? Введите его — на новом телефоне или компьютере нужен код, а не ключ.'));
-    var obs = el('button', 'ys-key-alt', tx.keyObserve || 'Пока просто смотреть — Наблюдение'); obs.type = 'button';
-    obs.addEventListener('click', function () { S.mode = 'observation'; setUrlMode('observation'); closeLayer(); render(); });
+    var obs = el('button', 'ys-key-alt', fromObs ? tx.keyStay || 'Остаться в Наблюдении' : tx.keyObserve || 'Пока просто смотреть — Наблюдение'); obs.type = 'button';
+    obs.addEventListener('click', function () { if (fromObs) { closeLayer(); return; } S.mode = 'observation'; setUrlMode('observation'); closeLayer(); render(); });
     form.appendChild(obs);
     function result(c) {
       res.replaceChildren();
@@ -1533,7 +1534,7 @@
     box.appendChild(have ? res : form); if (!have) { box.appendChild(stBox); box.appendChild(res); }
     if (have) result(S.code);
     closeLayer();
-    var ov = layer(box, 'ys-layer--key', null, !have);
+    var ov = layer(box, 'ys-layer--key', null, !have && !fromObs);
     kal = Kaleido(cv, 0, r);
     // Пока ключа нет — калейдоскоп живёт общим узором маршрута
     requestAnimationFrame(function () { if (!kal) return; if (have) kal.idle(kalSeed(S.code), myEx(S.code)); else kal.idle(routeSeed(r), { sym: 6 }); });
@@ -2541,12 +2542,12 @@
     var back = el('a', 'ys-back', tx.back || '← Вернуться на витрину');
     back.href = S.base || '../../';
     page.appendChild(back);
-    // Путешествие и Погружение: «Мой код» — узор и код ещё раз (сохранить, отправить, ввести другой)
-    if (S.mode !== 'observation') {
-      var me = el('button', 'ys-me', S.code ? tx.myCodeBtn || 'Мой код' : tx.keyBtn || 'Ввести ключ'); me.type = 'button';
-      me.addEventListener('click', function () { openKey(S.mode, true); });
-      page.appendChild(me);
-    }
+    // «Мой код» справа сверху — во всех форматах: есть код — узор и код ещё раз (сохранить, отправить, ввести другой);
+    // в Наблюдении без кода — окно ввода ключа или кода (из него можно остаться в Наблюдении)
+    var obsMe = S.mode === 'observation' && !S.code;
+    var me = el('button', 'ys-me', S.code || obsMe ? tx.myCodeBtn || 'Мой код' : tx.keyBtn || 'Ввести ключ'); me.type = 'button';
+    me.addEventListener('click', function () { if (obsMe) openKey('observation'); else openKey(S.code ? S.code.mode : S.mode, true); });
+    page.appendChild(me);
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
     // Финал собран (день 13) — спираль уже золотая, как после конца маршрута

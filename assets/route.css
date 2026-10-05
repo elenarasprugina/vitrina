@@ -306,6 +306,7 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-layer--key{background:radial-gradient(circle at 50% 40%,rgba(48,30,8,.78),rgba(5,3,1,.94))}
 .ys-key{position:relative;margin:auto;width:min(420px,100%);display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:8px 4px 18px}
 .ys-key-mode{margin:0;font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:#e9c77e}
+.ys-key-mode:empty{display:none}
 .ys-key-t{margin:-4px 0 4px;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(28px,4vw,38px);line-height:1.1;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
 .ys-kal{display:block;width:min(300px,72vw,42vh);aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 1px rgba(255,214,140,.35),0 0 60px rgba(255,190,70,.28),0 20px 60px rgba(0,0,0,.6);transition:box-shadow .6s}
 .ys-key.is-turn .ys-kal{box-shadow:0 0 0 1px rgba(255,230,170,.7),0 0 90px rgba(255,200,80,.55),0 20px 60px rgba(0,0,0,.6)}
