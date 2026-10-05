@@ -314,12 +314,8 @@
                 "label": "Задать вопрос",
                 "visible": true,
                 "message": "Привет!\nУ меня вопрос по Маршруту Желтого Солнца:",
-                "telegram": "yellow_sun_question"
-              },
-              {
-                "kind": "contact",
-                "label": "Написать",
-                "visible": true
+                "telegram": "",
+                "host": "yellow_sun_question"
               }
             ]
           }
