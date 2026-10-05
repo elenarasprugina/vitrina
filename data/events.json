@@ -100,7 +100,8 @@
           "kind": "contact",
           "label": "Записаться",
           "message": "Привет! \nПришли, пожалуйста, мне ссылку на встречу.",
-          "order": 1
+          "order": 1,
+          "telegram": "https://t.me/thirteenmirrors_host_bot?start=another_world_gorod_mak"
         },
         {
           "kind": "calendar",
@@ -167,7 +168,7 @@
         "mark2": {}
       },
       "coverFit": "fill",
-      "shareImage": "media/39fa5af65ca2ed56ebda.jpg"
+      "shareImage": "media/b1cd7077dc7e3db883c3.jpg"
     }
   ],
   "look": {
