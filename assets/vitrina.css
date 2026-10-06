@@ -186,6 +186,8 @@ body.m13-locked{overflow:hidden}
   background:#232323;color:#fff !important;padding:12px 14px;font-size:15px;font-weight:700;text-decoration:none;cursor:pointer;transition:transform .14s ease}
 .m13-go:hover{transform:translateY(-1px)}
 .m13-formats{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,calc((100% - 14px) / 3)));gap:7px;justify-content:center}
+.m13-howlink{display:block;width:max-content;max-width:100%;margin:8px auto 0;font-size:13px;line-height:1.35;color:inherit;opacity:.78;text-align:center;text-decoration:underline;text-underline-offset:3px;text-decoration-color:currentColor}
+.m13-howlink:hover{opacity:1}
 .m13-format{min-width:0;aspect-ratio:1/1;border:1px solid #d2d2d2;border-radius:12px;background:#fff;padding:7px 5px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:transform .14s ease,box-shadow .14s ease}
 .m13-format:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.08)}

@@ -328,6 +328,19 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-key-err:empty{display:none}
 .ys-key-note{margin:0;font-size:13.5px;line-height:1.45;color:rgba(246,234,210,.7)}
 .ys-key-alt{font:inherit;font-size:14px;color:#e9c77e;background:none;border:0;padding:4px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(233,199,126,.45)}
+/* «Как идти по маршруту»: вопросы этой волны (свёрнуты) и ссылка на общую страницу — внизу окна входа */
+.ys-how{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;margin-top:4px;transition:opacity .4s}
+.ys-key.is-turn .ys-how{opacity:.25;pointer-events:none}
+.ys-how-faq{width:100%;text-align:left;border-top:1px solid rgba(255,214,140,.18);padding-top:6px}
+.ys-how-sum{list-style:none;cursor:pointer;text-align:center;font-size:14px;color:#e9c77e;padding:4px}
+.ys-how-sum::-webkit-details-marker{display:none}
+.ys-how-sum::after{content:" ▾";font-size:11px}
+.ys-how-faq[open] .ys-how-sum::after{content:" ▴"}
+.ys-how-sum:focus-visible,.ys-how-link:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
+.ys-how-it{margin:8px 2px 0;padding:10px 12px;border-radius:12px;background:rgba(255,236,190,.05)}
+.ys-how-q{margin:0 0 3px;font-size:14.5px;line-height:1.4;color:#fff3d6;font-weight:600}
+.ys-how-a{margin:0;font-size:13.5px;line-height:1.5;color:rgba(246,234,210,.78)}
+.ys-how-link{text-decoration:underline}
 .ys-key.is-shake{animation:ys-shake .45s ease}
 @keyframes ys-shake{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
 .ys-code-l{margin:0;font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:#e9c77e}

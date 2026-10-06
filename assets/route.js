@@ -1519,6 +1519,38 @@
       setTimeout(function () { dropGlass(wrap, dayGlass(r, n), function () { kal.turn(kalSeed(c), null, myEx(c, Math.max(n, glassDaysOf(r, curDay())))); }); }, 350);
     });
   }
+  /* «Как идти по маршруту» (её решение 06.10): внизу окна входа — вопросы этой волны и ссылка на общую страницу how/?r=<маршрут>.
+     Вопросы — r.howFaq [{q, a, visible}] (панель → «Страницы маршрутов» → «Как идти»): не задано — HOW_FAQ_DEF, [] — без вопросов.
+     r.howLink === false — без ссылки. Тексты общей страницы — settings.howTo (assets/how.js). */
+  var HOW_FAQ_DEF = [
+    { q: 'Ключ не подходит', a: 'Проверьте написание. У каждой волны свой ключ — ключ прошлого маршрута не подойдёт.' },
+    { q: 'Новый телефон или другой браузер', a: 'Впишите свой код (не ключ). Узор, карты и стёклышки дней вернутся. Не вернутся отметки «где я была» и подарки — они жили только на прежнем устройстве.' },
+    { q: 'Можно присоединиться, когда маршрут уже идёт?', a: 'Да. Вы начнёте с сегодняшнего дня, прошедшие дни будут считаться пройденными.' },
+    { q: 'Потеряла код', a: 'Если вы отправляли его Проводнику, он есть в переписке. Если нет — можно получить новый по ключу, но узор и карты будут другими. Восстановить код сайт не может: он его не хранит.' }
+  ];
+  function howFaqOf(r) {
+    return (Array.isArray(r.howFaq) ? r.howFaq : HOW_FAQ_DEF).filter(function (x) { return x && x.visible !== false && String(x.q || '').trim(); });
+  }
+  function howBox(r) {
+    var tx = r.texts || {}, box = el('div', 'ys-how'), faq = howFaqOf(r);
+    if (faq.length) {
+      var d = el('details', 'ys-how-faq');
+      d.appendChild(el('summary', 'ys-how-sum', tx.howFaqTitle || 'Частые вопросы'));
+      faq.forEach(function (x) {
+        var it = el('div', 'ys-how-it');
+        it.appendChild(el('p', 'ys-how-q', x.q));
+        if (String(x.a || '').trim()) it.appendChild(el('p', 'ys-how-a', x.a));
+        d.appendChild(it);
+      });
+      box.appendChild(d);
+    }
+    if (r.howLink !== false) {
+      var a = el('a', 'ys-key-alt ys-how-link', tx.howLink || 'Как идти по маршруту →');
+      a.href = S.base + 'how/?r=' + encodeURIComponent(r.id || ''); a.target = '_blank'; a.rel = 'noopener';
+      box.appendChild(a);
+    }
+    return box.childNodes.length ? box : null;
+  }
   // gift — слово-подарок, которое сразу вписать («Мой код» по ссылке ?gift= или из режима проверки)
   // want = 'observation' — «Мой код» из Наблюдения: без строки формата, выход — «Остаться в Наблюдении», закрывается и щелчком мимо
   function openKey(want, show, gift) {
@@ -1631,6 +1663,7 @@
     });
     box.appendChild(have ? res : form); if (!have) { box.appendChild(stBox); box.appendChild(res); }
     if (have) result(S.code);
+    var hb = howBox(r); if (hb) box.appendChild(hb);
     closeLayer();
     var ov = layer(box, 'ys-layer--key', null, !have && !fromObs);
     kal = Kaleido(cv, 0, r);
@@ -3076,5 +3109,5 @@
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
     diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
-    GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift };
+    GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift, HOW_FAQ_DEF: HOW_FAQ_DEF };
 })();

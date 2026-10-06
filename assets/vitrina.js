@@ -1702,7 +1702,14 @@
       if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
       var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
       return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + howLinkHTML(x, r);
+  }
+  // «Как идти по маршруту» (06.10) — под форматами у маршрута со страницей по дням; страница how/?r=<маршрут>, надпись — settings.howTo.cardLink
+  function howLinkHTML(x, r) {
+    var j = r && x.howLink !== false ? journeyOf(r.id) : null;
+    if (!j) return '';
+    var t = String(((S.D.settings || {}).howTo || {}).cardLink || '').trim() || 'Как идти по маршруту';
+    return '<a class="m13-howlink" href="' + esc(S.base + 'how/?r=' + encodeURIComponent(j.id)) + '" target="_blank" rel="noopener">' + txt(t) + ' →</a>';
   }
 
   /* ================= ОФОРМЛЕНИЕ ОКОН =================

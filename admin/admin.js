@@ -1982,7 +1982,8 @@
       var fmts = DATA.formats.formats;
       x.formats = x.formats || [];
       fmts.forEach(function (fm) { if (!x.formats.some(function (q) { return q.formatId === fm.id; })) x.formats.push({ formatId: fm.id, visible: true, availability: 'open' }); });
-      var out = [selectIn(x, 'closed', 'Форматы с закрытым набором', [['dim', 'Показывать бледными с подписью «набор закрыт»'], ['hide', 'Не показывать']])];
+      var out = [selectIn(x, 'closed', 'Форматы с закрытым набором', [['dim', 'Показывать бледными с подписью «набор закрыт»'], ['hide', 'Не показывать']]),
+        switchIn(x, 'howLink', 'Под форматами — ссылка «Как идти по маршруту»', { defTrue: true, hint: 'Только у маршрута, у которого есть страница по дням. Надпись и сама страница — «Страницы маршрутов» → вкладка «Как идти».' })];
       x.formats.forEach(function (q) {
         var fm = fmts.filter(function (z) { return z.id === q.formatId; })[0];
         if (!fm) return;
@@ -2392,7 +2393,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['doors', 'Двери'], ['spaces', 'За дверью'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['doors', 'Двери'], ['spaces', 'За дверью'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника'], ['how', 'Как идти']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['disk', 'Лицо карты — диск (касание зон)'], ['wheel', 'Лицо карты — колесо (прежнее)'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
@@ -2435,7 +2436,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261006f';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261006g';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4048,6 +4049,64 @@
       el('p', { class: 'a-hint', text: 'Выберите день и место на диске — появится слово-подарок. Отправьте его человеку в Telegram: он вписывает его на странице маршрута («Мой код» → «Получили стёклышко?») или просто открывает ссылку со словом. Стёклышко ляжет в его узор и хранится только на его устройстве. Одно и то же слово можно получить здесь заново — нигде не записывается, кому что подарено.' }),
       el('div', { class: 'a-row' }, [field('День', sd), field('Зона', sz)]), out]);
   }
+  /* «Как идти по маршруту» (её решение 06.10). Этот маршрут: ссылка и вопросы этой волны внизу окна входа (r.howLink, r.howFaq,
+     надписи texts.howLink / howFaqTitle). Все маршруты: общая страница how/ (settings.howTo; пустое поле — текст по умолчанию из M13H.DEF).
+     Заготовки списков — те же, что сайт показывает без них, поэтому сразу кладём их в черновик. */
+  function jHow(r) {
+    var tx = r.texts = r.texts || {}, DEF = window.M13H.DEF;
+    if (!Array.isArray(r.howFaq)) r.howFaq = clone(window.M13R.HOW_FAQ_DEF);
+    var h = DATA.settings.howTo = DATA.settings.howTo || {};
+    if (!Array.isArray(h.sections)) h.sections = clone(DEF.sections);
+    if (!Array.isArray(h.faq)) h.faq = clone(DEF.faq);
+    function qa(arr) {
+      return collection(arr, { ordered: false, visible: true, title: function (x) { return x.q; }, addLabel: '+ Добавить вопрос',
+        make: function () { return { q: 'Новый вопрос', a: '' }; },
+        body: function (x) { return [textIn(x, 'q', 'Вопрос'), textIn(x, 'a', 'Ответ', { multi: true, rows: 3 })]; } });
+    }
+    var url = siteUrl().replace(/^https?:\/\//, '') + 'how/';
+    return [
+      block('Окно входа этого маршрута', [
+        el('p', { class: 'a-hint', text: 'Внизу окна, где вводят ключ или код (и в «Мой код»): свёрнутые «Частые вопросы» этой волны и ссылка на страницу «Как идти по маршруту». Вопросы — свои у каждого маршрута: меняйте их под волну. Эти же вопросы стоят первыми на странице, когда её открыли из этого маршрута.' }),
+        switchIn(r, 'howLink', 'Ссылка «Как идти по маршруту»', { defTrue: true, hint: 'Открывается в новой вкладке: ' + url + '?r=' + r.id }),
+        el('div', { class: 'a-row' }, [textIn(tx, 'howLink', 'Надпись ссылки', { ph: 'Как идти по маршруту →' }), textIn(tx, 'howFaqTitle', 'Надпись над вопросами', { ph: 'Частые вопросы' })]),
+        sub('Вопросы этой волны в окне'),
+        el('p', { class: 'a-hint', text: 'Пока вопрос открыт — правьте; «скрыто» — не показывать, × — удалить. Нет ни одного вопроса — строки «Частые вопросы» в окне не будет.' }),
+        qa(r.howFaq)
+      ]),
+      block('Страница «Как идти по маршруту» — общая для всех маршрутов', [
+        el('p', { class: 'a-hint', text: 'Адрес — ' + url + '. Ссылки на неё: окно входа маршрута (выше) и карточка маршрута на витрине — под форматами (выключается в блоке «Форматы участия» у карточки). Изменения появятся на сайте после «Опубликовать».' }),
+        el('div', { class: 'a-tabs' }, [
+          el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openHowPreview(r, false); } }),
+          el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openHowPreview(r, true); } })]),
+        textIn(h, 'title', 'Заголовок', { ph: DEF.title }),
+        el('div', { class: 'a-row' }, [textIn(h, 'back', 'Ссылка назад, если открыли из маршрута', { ph: DEF.back }), textIn(h, 'home', 'Ссылка назад, если открыли сами', { ph: DEF.home, hint: 'Ведёт на витрину.' })]),
+        textIn(h, 'cardLink', 'Надпись ссылки на карточке маршрута', { ph: DEF.cardLink }),
+        sub('Разделы'),
+        el('p', { class: 'a-hint', text: 'Как писать текст: пустая строка — новый абзац; строки, которые начинаются с «- », — список с точками; с «1. », «2. » — нумерованный; **слово** в двух звёздочках — жирным.' }),
+        collection(h.sections, { ordered: false, visible: true, title: function (x) { return x.title; }, addLabel: '+ Добавить раздел',
+          make: function () { return { title: 'Новый раздел', text: '' }; },
+          body: function (x) { return [textIn(x, 'title', 'Заголовок раздела'), textIn(x, 'text', 'Текст', { multi: true, rows: 12 })]; } }),
+        sub('Частые вопросы — для всех маршрутов'),
+        textIn(h, 'faqTitle', 'Заголовок', { ph: DEF.faqTitle }),
+        el('p', { class: 'a-hint', text: 'На странице вопросы свёрнуты: нажали — открылся ответ. Если страницу открыли из маршрута, сначала идут вопросы этой волны, потом эти (одинаковые не повторяются).' }),
+        qa(h.faq)
+      ], { open: false })
+    ];
+  }
+  function openHowPreview(r, phone) {
+    var pv = document.getElementById('a-preview');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Как идти по маршруту', src: '../how/?preview=1' });
+    if (phone) fr.style.width = '375px';
+    function send() { try { fr.contentWindow.postMessage({ m13how: clone(DATA.settings.howTo || {}), journey: clone(r) }, location.origin); } catch (e) {} }
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13howReady) send(); }
+    window.addEventListener('message', onMsg);
+    var bar = el('div', { class: 'a-pbar' }, [
+      el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openHowPreview(r, !phone); } })]);
+    pv.classList.toggle('is-phone', phone);
+    pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  }
   function jCodes(r) {
     var st = ST.jcode = ST.jcode || { v: '' }, M = window.M13R;
     var out = el('div', { class: 'a-jcode' });
@@ -4695,6 +4754,7 @@
     else if (t === 'final') body = jFinal(r);
     else if (t === 'plants') body = jPlants(r);
     else if (t === 'codes') body = jCodes(r);
+    else if (t === 'how') body = jHow(r);
     else body = jMain(r);
     } finally { LINES = false; }
     return [head, pick, look, tabs].concat(body);
