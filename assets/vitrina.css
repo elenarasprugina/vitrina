@@ -119,6 +119,12 @@ body.m13-locked{overflow:hidden}
 .m13-ic-square .m13-close,.m13-ic-square .m13-unflip{border-radius:10px}
 .m13-ic-bare .m13-close,.m13-ic-bare .m13-unflip{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
 .m13-ic-bare .m13-close{font-size:30px}.m13-ic-bare .m13-unflip{font-size:21px}
+/* .m13-ic-thin — тонкий контур: оба значка одинаковые, без заливки и свечения (панель, «Значки ✕ и ↺», 06.10) */
+.m13-ic-thin .m13-close,.m13-ic-thin .m13-unflip{background:transparent;border-color:var(--m13-ixl,rgba(255,255,255,.75));box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,.6);-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-ic-thin .m13-close:hover,.m13-ic-thin .m13-unflip:hover{background:rgba(0,0,0,.18)}
+/* Пока карточка переворачивается — кнопки гаснут (иначе висят на месте, а карточка уходит вбок) */
+.m13-close,.m13-unflip{transition:background .2s,opacity .22s ease}
+.m13-turning > .m13-close,.m13-turning > .m13-unflip{opacity:0;pointer-events:none;transition:background .2s,opacity .08s}
 .m13-back .m13-head{padding-right:96px}
 /* Чтобы верхние надписи не уходили под значок ✕ */
 .m13-front:not(.m13-front--day):not(.m13-front--film) > div:first-child{padding-right:36px}
@@ -185,6 +191,10 @@ body.m13-locked{overflow:hidden}
 .m13-go{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #232323;border-radius:14px;
   background:#232323;color:#fff !important;padding:12px 14px;font-size:15px;font-weight:700;text-decoration:none;cursor:pointer;transition:transform .14s ease}
 .m13-go:hover{transform:translateY(-1px)}
+/* Строка «Сегодня день …» и справа в ней — «Как идти по маршруту» */
+.m13-dayrow{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
+.m13-dayrow--how{justify-content:flex-end}
+.m13-dayrow .m13-howto{margin:0 0 0 auto}
 .m13-howto{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px auto 0;width:fit-content;max-width:100%;color:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);opacity:.85}
 .m13-howto:hover{opacity:1}
 .m13-howto span{display:inline-flex;align-items:center;justify-content:center;flex:none;width:20px;height:20px;border-radius:50%;border:1px solid currentColor;font-size:12px;text-decoration:none;opacity:.8}
@@ -310,6 +320,7 @@ body.m13-locked{overflow:hidden}
   .m13-format{padding:5px 3px;border-radius:9px}.m13-format-name{font-size:9.5px}.m13-format-price{font-size:12px;margin-top:5px}.m13-format-note{font-size:7.5px}
   .m13-go{padding:10px 12px;font-size:13px;border-radius:12px}
   .m13-day{font-size:9.5px;padding:4px 8px}
+  .m13-dayrow .m13-howto{font-size:13px;gap:6px}
   .m13-soft{font-size:12px;padding:11px 10px}.m13-info{font-size:10px;padding:8px 9px}
   .m13-price-line{padding:8px 9px;font-size:11px}.m13-price-line strong{font-size:15px}
   .m13-action{font-size:12px;padding:11px 10px}.m13-dates{padding:9px 10px}.m13-dates-list{font-size:14px}.m13-dates-label{font-size:8.5px}.m13-dates-note{font-size:10px}
