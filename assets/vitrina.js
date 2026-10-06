@@ -1702,7 +1702,13 @@
       if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
       var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
       return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + howtoLink(c);
+  }
+  // Под форматами — «Как идти по маршруту» (страница routes/<id>/kak/), если у маршрута по дням она заполнена (journeys[].howto, панель → «Как идти и отзыв»)
+  function howtoLink(c) {
+    var rid = c && c.back && c.back.routeId, j = rid ? journeyOf(rid) : null, h = j && j.howto;
+    if (!h || h.on === false || h.card === '-' || !(h.sections || []).some(function (s) { return s && s.visible !== false && String(s.text || s.title || '').trim(); })) return '';
+    return '<a class="m13-howto" href="' + esc(S.base + (j.path || 'routes/' + j.id + '/') + 'kak/') + '" target="_blank" rel="noopener"><span aria-hidden="true">?</span>' + txt(h.card || 'Как идти по маршруту') + '</a>';
   }
 
   /* ================= ОФОРМЛЕНИЕ ОКОН =================

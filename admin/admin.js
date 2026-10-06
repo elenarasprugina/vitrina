@@ -2392,7 +2392,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['doors', 'Двери'], ['spaces', 'За дверью'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['doors', 'Двери'], ['spaces', 'За дверью'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника'], ['howto', 'Как идти и отзыв']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['disk', 'Лицо карты — диск (касание зон)'], ['wheel', 'Лицо карты — колесо (прежнее)'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
@@ -2435,7 +2435,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261006f';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261006h';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -2499,7 +2499,7 @@
     if (src) {
       r = clone(src);
       Object.keys(r.texts || {}).forEach(function (k) { if (typeof r.texts[k] === 'string' && jTied(r.texts[k], src)) delete r.texts[k]; });
-      delete r.guide;
+      delete r.guide; delete r.howto;
       // Двери: сцена, контуры, слои, открытие и устройство пространств — как у образца; тексты пространств, названия и печати — пустые
       if (r.doors) {
         var unText = function (sp) { (sp && sp.blocks || []).forEach(function (b) { if (b.kind === 'title' || b.kind === 'small' || b.kind === 'text') b.text = ''; if (b.kind === 'image') { b.image = null; b.text = ''; } }); };
@@ -2514,6 +2514,7 @@
     r.id = f.id; r.routeId = f.routeId || ''; r.title = f.title; r.path = 'routes/' + f.id + '/'; r.start = f.start; r.kind = f.kind;
     r.visible = false; r.autoPage = true; r._from = src ? src.id : '';
     r.keys = {}; r._keys = {}; r.trace = {};
+    r.review = r.review || {}; r.review.questions = REVIEW_Q.map(function (t, i) { return { id: 'q' + (i + 1), text: t }; });
     r.days = []; for (var i = 0; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, cardOperation: '', environment: '', texts: {} });
     if (r.deck) {
       r.deck.cards = (r.deck.cards || []).map(function (k) { return { id: k.id, quality: '', axis: '', way: '', less: {}, more: {}, recognize: {}, road: {} }; });
@@ -2646,6 +2647,77 @@
     show();
     return out;
   }
+  /* ---------- «Как идти по маршруту» и окно отзыва (её план 06.10) ----------
+     r.howto — страница routes/<id>/kak/ (тексты разделов, ссылка на карточке, фраза для Telegram); r.review — вопросы окна отзыва.
+     Как рисуется — M13R.howtoNode / openReview в assets/route.js. */
+  // Вопросы отзыва для нового маршрута (её набор 06.10); у Солнца ещё вопросы для тестировщиков — только в его данных
+  var REVIEW_Q = ['Ваши общие впечатления от маршрута — своими словами.', 'Какой день или карта откликнулись сильнее всего — и чем?',
+    'Что вы заметили в себе за эти дни? Что-то изменилось?', 'Было ли где-то непонятно или неудобно?', 'Кому бы вы посоветовали этот маршрут?', 'Что бы вы изменили или добавили?'];
+  function jHowto(r) {
+    var H = r.howto = r.howto || {}, V = r.review = r.review || {}, M = window.M13R;
+    H.sections = H.sections || []; V.questions = V.questions || [];
+    var link = siteUrl() + (r.path || 'routes/' + r.id + '/') + 'kak/';
+    function copy(t, ok) {
+      function old() { var a = el('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast(ok); } catch (e) {} a.remove(); }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { toast(ok); }, old); else old();
+    }
+    function phrase() { return String(H.phrase || 'Как идти по маршруту — коротко: {ссылка}').replace(/\{ссылка\}/g, link); }
+    var ph = el('p', { class: 'a-jphrase' });
+    function showPhrase() { ph.textContent = phrase(); }
+    showPhrase();
+    var pv = el('div', { class: 'ys-pv a-howto-pv' });
+    LIVE.push({ node: pv, run: function () {
+      if (!M || !M.howtoNode) { pv.textContent = 'Предпросмотр не загрузился — обновите страницу.'; return; }
+      pv.replaceChildren(M.howtoOf(r) ? M.howtoNode(r, '../') : el('p', { class: 'a-hint', text: 'Разделов пока нет — страницы и кружка «?» на сайте не будет.' }));
+      [].forEach.call(pv.querySelectorAll('a'), function (a) { if (!/^#/.test(a.getAttribute('href') || '')) a.addEventListener('click', function (e) { e.preventDefault(); }); });
+    } });
+    setTimeout(liveSoon, 0);
+    var sections = collection(H.sections, { visible: true, ordered: false, addLabel: '+ Раздел',
+      title: function (s) { return (s.sub ? '　— ' : '') + (String(s.title || '').split('\n')[0].trim() || 'Без заголовка') + (s.frame && !s.sub ? ' · в рамке' : ''); },
+      make: function () { return { id: uid('h'), title: '', text: '', visible: true }; },
+      body: function (s) {
+        return [textIn(s, 'title', 'Заголовок', { hint: 'На него можно сослаться из любого раздела: [слова](' + (s.title || 'Заголовок') + ').' }),
+          textIn(s, 'text', 'Текст', { multi: true, rows: 10 }),
+          switchIn(s, 'sub', 'Подраздел', { hint: 'Заголовок поменьше — как «Время», «Тайна» внутри «Важно знать».' }),
+          switchIn(s, 'frame', 'В рамке', { hint: 'Раздел в рамке вместе со всеми подразделами под ним — как «Важно знать». У подраздела не действует.' })];
+      } });
+    var questions = collection(V.questions, { ordered: false, addLabel: '+ Вопрос',
+      title: function (x, i) { return (i + 1) + '. ' + (String(x.text || '').split('\n')[0].trim() || 'Новый вопрос'); },
+      make: function () { return { id: uid('q'), text: '' }; },
+      body: function (x) { return [textIn(x, 'text', 'Вопрос', { multi: true, rows: 2 })]; } });
+    return [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
+      sub('Страница «Как идти по маршруту»'),
+      el('p', { class: 'a-hint', text: 'Адрес: ' + link.replace(/^https?:\/\//, '') + '. Ссылки на неё: кружок «?» вверху страницы маршрута (рядом с «Мой код») и строка под «Форматами участия» на карточке витрины. Нет разделов — нет ни страницы, ни ссылок. На сайте — после «Опубликовать».' }),
+      switchIn(H, 'on', 'Показывать страницу и ссылки на неё', { defTrue: true, onChange: liveSoon }),
+      el('div', { class: 'a-row' }, [textIn(H, 'title', 'Заголовок страницы', { ph: 'Как идти по маршруту' }), textIn(H, 'card', 'Ссылка на карточке витрины', { ph: 'Как идти по маршруту', hint: '«-» — без ссылки на карточке.' })]),
+      textIn(H, 'sub', 'Строка под заголовком', { ph: '{маршрут} · {даты} · 13 MIRRORS', hint: 'Метки {маршрут} и {даты} подставятся сами. «-» — без строки.' }),
+      el('div', { class: 'a-row3' }, [textIn(H, 'back', 'Ссылка вверху слева', { ph: '← К маршруту' }), textIn(H, 'home', 'Вверху справа', { ph: 'Витрина' }), textIn(H, 'go', 'Кнопка внизу', { ph: 'Перейти к маршруту', hint: '«-» — без кнопки.' })]),
+      sub('Разделы'),
+      el('p', { class: 'a-hint', text: 'Как писать текст: пустая строка — новый абзац; Enter — новая строка; **слова** — жирным; строки «1. …», «2. …» — нумерованный список; «• …» или «- …» — список с точками; [Подробнее](Отметка «Здесь») — ссылка на раздел с таким заголовком; [слова](https://…) — ссылка на другой сайт.' }),
+      sections,
+      sub('Фраза для сообщения с ключом в Telegram'),
+      textIn(H, 'phrase', 'Фраза', { multi: true, rows: 3, ph: 'Как идти по маршруту — коротко: {ссылка}', hint: '{ссылка} — адрес страницы. Готовая фраза ниже — скопируйте и добавьте к сообщению с ключом.', onInput: showPhrase }),
+      ph,
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать фразу', onclick: function () { copy(phrase(), 'Фраза скопирована — вставьте её в сообщение'); } }),
+      sub('Окно отзыва'),
+      el('p', { class: 'a-hint', text: 'Кнопка ✎ вверху страницы маршрута (рядом с «?» и «Мой код») и «Оставить отзыв» в финале открывают окно: ваши вопросы, под каждым поле ответа, кнопка «Отправить в Telegram» — копирует «вопрос + ответ» и открывает ваш чат; человек вставляет текст в сообщение. Сайт ничего не отправляет и не хранит; недописанные ответы сохраняются только на устройстве человека; код участника в отзыв не попадает. Помните: отзыв приходит вам из его Telegram — он не анонимный. Нет вопросов — нет кнопки ✎, а в финале — прежняя ссылка («Финал» → «Куда ведёт «Оставить отзыв»»).' }),
+      switchIn(V, 'on', 'Окно отзыва включено', { defTrue: true }),
+      el('div', { class: 'a-row' }, [textIn(V, 'title', 'Заголовок окна', { ph: 'Ваш отзыв' }), textIn(V, 'tg', 'Ваш чат в Telegram', { ph: 'https://t.me/RaElena', hint: 'Пусто — ссылка «Куда присылать код» (вкладка «Код участника») или «Оставить след» Погружения.' })]),
+      textIn(V, 'lead', 'Пояснение над вопросами', { multi: true, rows: 2, ph: 'Пишите как есть, коротко или подробно — любой ответ поможет. Можно ответить не на все вопросы. Недописанное сохранится на этом устройстве.', hint: '«-» — без пояснения.' }),
+      sub('Вопросы'),
+      questions,
+      sub('Согласие на публикацию'),
+      el('p', { class: 'a-hint', text: 'Галочка под вопросами. Человек ставит её сам (сама не стоит). В текст отзыва попадает одна из двух строк ниже — так согласие остаётся у вас в переписке. Сайт его не хранит.' }),
+      switchIn(V.consent = V.consent || {}, 'on', 'Галочка согласия', { defTrue: true }),
+      textIn(V.consent, 'label', 'Надпись у галочки', { ph: 'Можно опубликовать мой отзыв без имени' }),
+      textIn(V.consent, 'note', 'Пояснение под ней', { ph: 'Опубликую без имени и ника, в разделе «Отзывы».', hint: '«-» — без пояснения.' }),
+      el('div', { class: 'a-row' }, [textIn(V.consent, 'yes', 'В отзыве, если галочка стоит', { ph: '✓ Согласие: можно опубликовать без имени' }), textIn(V.consent, 'no', 'Если не стоит', { ph: 'Только для Проводника, не для публикации' })]),
+      el('div', { class: 'a-row' }, [textIn(V, 'btn', 'Кнопка отправки', { ph: 'Отправить в Telegram' }), textIn(V, 'head', 'Первая строка отзыва', { ph: 'Отзыв о маршруте «{маршрут}»', hint: '«-» — без неё.' })]),
+      textIn(V, 'done', 'Подсказка после нажатия', { multi: true, rows: 2, ph: 'Текст отзыва скопирован. В открывшемся чате Telegram вставьте его в сообщение и отправьте.' }),
+      textIn(V, 'note', 'Строка внизу окна', { multi: true, rows: 2, ph: 'Сайт ничего не отправляет и не хранит: ответы видны только вам, пока вы сами не отправите их. Ваш код в отзыв не попадает.' }),
+      el('p', { class: 'a-hint', text: 'Посмотреть окно: «Посмотреть страницу» → кнопка ✎ вверху.' })
+    ]), el('div', { class: 'a-jpv' }, [pv, el('p', { class: 'a-hint', text: 'Так выглядит страница «Как идти по маршруту» (без картинки фона).' })])])];
+  }
   // Страница маршрута routes/<id>/ — создаёт публикация (как страницы карточек)
   function routePageHTML(r, D) {
     var u = siteUrl(D), dates = window.M13R ? window.M13R.datesText(r) : '', name = '13 MIRRORS · ' + (r.title || 'Маршрут');
@@ -2664,6 +2736,23 @@
       '<div id="ys" data-base="../../" data-route="' + escAttr(r.id) + '"></div>\n' +
       '<script>document.write(\'<script src="../../assets/kaleido.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/sun.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/route.js?v=\' + M13RV + \'"><\\/script>\');</script>\n' +
       '<script>M13R.boot();</script>\n</body>\n</html>\n';
+  }
+  // Страница «Как идти по маршруту» routes/<id>/kak/ — создаёт публикация; тексты — journeys.json (r.howto)
+  function howtoPageHTML(r, D) {
+    var u = siteUrl(D), name = 'Как идти по маршруту · ' + (r.title || 'Маршрут');
+    var pic = r.scene === 'doors' && r.doors && r.doors.desktop ? r.doors.desktop : r.masterDesktop;
+    var img = pic && !/^data:/.test(pic) ? (/^https?:/.test(pic) ? pic : u + pic) : '';
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+      '<title>' + escAttr('13 MIRRORS · ' + name) + '</title>\n<meta name="description" content="' + escAttr('Как проходить маршрут «' + r.title + '»: вход, каждый день, финал, личный код') + '">\n' +
+      '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/kak/') + '">\n' +
+      '<meta property="og:title" content="' + escAttr(name) + '">\n<meta property="og:description" content="Коротко: вход, каждый день, финал, личный код">\n' +
+      (img ? '<meta property="og:image" content="' + escAttr(img) + '">\n' : '') +
+      '<meta name="theme-color" content="#0a0604">\n<link rel="stylesheet" href="../../../assets/fonts/cormorant-garamond.css">\n' +
+      '<!-- «Как идти по маршруту» — создана панелью при публикации. Тексты — ../../../data/journeys.json (r.howto). -->\n' +
+      '<script>window.M13RV = \'' + ROUTE_V + '\';\ndocument.write(\'<link rel="stylesheet" href="../../../assets/route.css?v=\' + M13RV + \'">\');</script>\n</head>\n<body class="ysg-body">\n' +
+      '<div id="ysg" data-base="../../../" data-route="' + escAttr(r.id) + '"></div>\n' +
+      '<script>document.write(\'<script src="../../../assets/route.js?v=\' + M13RV + \'"><\\/script>\');</script>\n' +
+      '<script>M13R.howto();</script>\n</body>\n</html>\n';
   }
   function jTokensHint(r, personal) {
     var t = window.M13R ? window.M13R.tokens(r) : { day: [], card: [] };
@@ -4695,6 +4784,7 @@
     else if (t === 'final') body = jFinal(r);
     else if (t === 'plants') body = jPlants(r);
     else if (t === 'codes') body = jCodes(r);
+    else if (t === 'howto') body = jHowto(r);
     else body = jMain(r);
     } finally { LINES = false; }
     return [head, pick, look, tabs].concat(body);
@@ -6870,6 +6960,9 @@
     D.journeys.items.forEach(function (r) {
       var o = ((ORIGINAL && ORIGINAL.journeys && ORIGINAL.journeys.items) || []).filter(function (x) { return x.id === r.id; })[0];
       if (!r.zones && o && o.zones) r.zones = clone(o.zones);
+      // «Как идти по маршруту» и окно отзыва (06.10): в черновике их нет — берём с сайта
+      if (!r.howto && o && o.howto) r.howto = clone(o.howto);
+      if (!r.review && o && o.review) r.review = clone(o.review);
       // Имена кинов 4 и 7 (её ответ 03.10): «Синяя Самосущая Ночь» (тон «Самосущий»), «Белый Резонансный Соединитель Миров» (печать «Белый Соединитель Миров»).
       // Меняем только старые написания — если она впишет своё, не трогаем
       var KIN_NEW = { 'Синяя Самосущная Ночь': 'Синяя Самосущая Ночь', 'Синяя Самосуществующая Ночь': 'Синяя Самосущая Ночь', 'Самосуществующий': 'Самосущий',
@@ -7387,6 +7480,9 @@
     ((P.journeys || {}).items || []).forEach(function (r) {
       var p = 'routes/' + r.id + '/index.html';
       if (r && /^[a-z0-9][a-z0-9-]*$/.test(r.id) && r.id !== 'preview' && (r.autoPage || !existing[p])) files[p] = { text: routePageHTML(r, P) };
+      // «Как идти по маршруту» — routes/<id>/kak/ (у Жёлтого Солнца страница своя)
+      var pk = 'routes/' + r.id + '/kak/index.html';
+      if (r && /^[a-z0-9][a-z0-9-]*$/.test(r.id) && r.id !== 'preview' && window.M13R && window.M13R.howtoOf(r) && (r.autoPage || !existing[pk])) files[pk] = { text: howtoPageHTML(r, P) };
     });
     ['days', 'chronicles'].forEach(function (t) {
       ((P.sandbox || {})[t] || []).forEach(function (it) {

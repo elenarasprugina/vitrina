@@ -605,3 +605,10 @@ audio.a-media{background:none;height:40px}
 .a-jdc-pt{z-index:3;pointer-events:none}
 .a-jdc-none{padding:20px;color:#e8d3a6}
 .a-jdc-side{flex:1 1 220px;min-width:0}
+/* «Как идти и отзыв»: предпросмотр страницы и готовая фраза для Telegram */
+.a-howto-pv{display:block;max-height:80vh;overflow-y:auto;padding:0}
+.a-howto-pv .ysg{padding:18px 14px 30px;font-size:17px}
+.a-howto-pv .ysg-h{font-size:28px}
+.a-jphrase{white-space:pre-wrap;margin:4px 0 8px;padding:10px 12px;border-radius:10px;background:#f5efe4;font-size:14px;line-height:1.45}
+.a-howto-pv .ysg p{margin:0 0 12px}
+.a-howto-pv .ysg li{margin:0 0 8px}
