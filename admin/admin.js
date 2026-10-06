@@ -2435,7 +2435,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261006i';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261007a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -2724,13 +2724,15 @@
   // Оформление страницы «Как идти» — r.howto.look (рисует howtoLook в assets/route.js)
   function howtoLookIn(L) {
     return el('div', {}, [
-      rangeIn(L, 'shade', 'Затемнение картинки фона', { min: 0, max: 90, step: 5, unit: ' %', def: 45, onChange: liveSoon, hint: 'Меньше — картинка ярче. Было 90 %.' }),
+      rangeIn(L, 'shade', 'Затемнение картинки фона', { min: 0, max: 90, step: 5, unit: ' %', def: 45, onChange: liveSoon, hint: 'Меньше — картинка ярче. Под текстом подложка плотная, картинка видна по краям.' }),
       el('div', { class: 'a-row' }, [
         selectIn(L, 'panel', 'Подложка под текстом', [['dark', 'Тёмное стекло'], ['light', 'Светлая бумага (тёмный текст)'], ['none', 'Без подложки']], { onChange: liveSoon }),
         selectIn(L, 'size', 'Размер текста', [['', 'Обычный'], ['lg', 'Крупный'], ['xl', 'Очень крупный']], { onChange: liveSoon })]),
       el('div', { class: 'a-row' }, [
-        selectIn(L, 'font', 'Шрифт', [['', 'Как на маршруте (Cormorant)'], ['sans', 'Простой, как в окнах']], { onChange: liveSoon }),
-        colorOptIn(L, 'text', 'Цвет текста', { none: 'как у подложки', pick: '#fbf2df', onChange: liveSoon })])
+        selectIn(L, 'font', 'Шрифт текста', [['', 'Lora — с засечками, читается легче'], ['corm', 'Cormorant — как на маршруте (тоньше)'], ['sans', 'Простой, как в окнах']], { onChange: liveSoon, hint: 'Заголовки — всегда Cormorant.' }),
+        colorOptIn(L, 'text', 'Цвет текста', { none: 'как у подложки', pick: '#f4ead9', onChange: liveSoon })]),
+      selectIn(L, 'fold', 'Разделы', [['', 'Свёрнуты — нажать на заголовок, чтобы прочитать'], ['first', 'Первый раскрыт, остальные свёрнуты'], ['open', 'Все раскрыты (сплошным текстом)']], { onChange: liveSoon,
+        hint: 'Свёрнутые: над разделами — «Развернуть всё». Раздел в рамке («Важно знать») не сворачивается — сворачиваются его подразделы.' })
     ]);
   }
   // Страница маршрута routes/<id>/ — создаёт публикация (как страницы карточек)

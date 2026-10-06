@@ -2691,33 +2691,83 @@
       return i < 0 ? '#' : '#' + aid(i);
     }
     var root = el('div', 'ysg'), top = el('div', 'ysg-top'), route = base + (r.path || 'routes/' + r.id + '/');
-    howtoLook(root, h.look);
+    howtoLook(root, h.look, base);
     var back = el('a', null, h.back || '← К маршруту'); back.href = route;
     var home = el('a', null, h.home || 'Витрина'); home.href = base || './';
     top.appendChild(back); top.appendChild(home); root.appendChild(top);
     root.appendChild(el('h1', 'ysg-h', fill(h.title || 'Как идти по маршруту', ctx)));
     var sub = h.sub == null || h.sub === '' ? '{маршрут} · {даты} · 13 MIRRORS' : h.sub;
     if (h.sub !== '-') root.appendChild(el('p', 'ysg-sub', fill(sub, ctx)));
-    var box = root;
+    // Разделы свёрнуты: нажатие на заголовок раскрывает текст (её просьба 06.10 — не простыня). look.fold: '' — все свёрнуты,
+    // 'first' — первый раскрыт, 'open' — все раскрыты. Раздел в рамке не сворачивается — сворачиваются его подразделы.
+    // Раздел без заголовка — просто текст.
+    var fold = (h.look || {}).fold, box = root, cur = root, n = 0, folds = [];
+    function part(s, i, tag) {
+      var d = el('details', 'ysg-sec' + (tag === 'h3' ? ' ysg-sec--sub' : '')), sm = el('summary'), body = el('div', 'ysg-in');
+      d.id = aid(i);
+      sm.appendChild(el(tag, null, fill(s.title, ctx)));
+      d.appendChild(sm); d.appendChild(body);
+      if (fold === 'open' || (fold === 'first' && !n)) d.open = true;
+      n++; folds.push(d);
+      return { node: d, body: body };
+    }
     list.forEach(function (s, i) {
-      if (!s.sub) box = root;
-      if (!s.sub && s.frame) { box = el('section', 'ysg-frame'); root.appendChild(box); }
-      if (String(s.title || '').trim()) { var hd = el(s.sub ? 'h3' : 'h2', null, fill(s.title, ctx)); hd.id = aid(i); box.appendChild(hd); }
-      else { var an = el('span', 'ysg-a'); an.id = aid(i); box.appendChild(an); }
-      richNodes(fill(s.text || '', ctx), find).forEach(function (n) { box.appendChild(n); });
+      var titled = !!String(s.title || '').trim(), into;
+      if (!s.sub) {
+        cur = root;
+        if (s.frame) {
+          box = el('section', 'ysg-frame'); box.id = aid(i); root.appendChild(box);
+          if (titled) box.appendChild(el('h2', null, fill(s.title, ctx)));
+          cur = into = box;
+        } else if (titled) { var P = part(s, i, 'h2'); root.appendChild(P.node); cur = into = P.body; }
+        else { var an = el('span', 'ysg-a'); an.id = aid(i); root.appendChild(an); into = root; }
+      } else if (titled) { var Q = part(s, i, 'h3'); cur.appendChild(Q.node); into = Q.body; }
+      else { var an2 = el('span', 'ysg-a'); an2.id = aid(i); cur.appendChild(an2); into = cur; }
+      richNodes(fill(s.text || '', ctx), find).forEach(function (x) { into.appendChild(x); });
+    });
+    // «Развернуть всё» / «Свернуть всё» — над разделами
+    if (folds.length > 1 && fold !== 'open') {
+      var all = el('button', 'ysg-all', 'Развернуть всё'); all.type = 'button';
+      all.addEventListener('click', function () {
+        var open = folds.some(function (d) { return !d.open; });
+        folds.forEach(function (d) { d.open = open; });
+        all.textContent = open ? 'Свернуть всё' : 'Развернуть всё';
+      });
+      var first = root.querySelector('.ysg-sec, .ysg-frame, .ysg-a');
+      var row = el('div', 'ysg-allrow'); row.appendChild(all); root.insertBefore(row, first);
+    }
+    // Ссылка на раздел этой страницы ([слова](Название раздела)) — раскрыть его и всё, что вокруг, и прокрутить к нему
+    root.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href^="#"]'); if (!a) return;
+      if (howtoShow(root, a.getAttribute('href').slice(1))) e.preventDefault();
     });
     if (h.go !== '-') { var go = el('a', 'ysg-go', h.go || 'Перейти к маршруту'); go.href = route; root.appendChild(go); }
     return root;
   }
+  function howtoShow(root, id) {
+    var t = id && root.querySelector('[id="' + id.replace(/"/g, '') + '"]'); if (!t) return false;
+    for (var p = t; p && p !== root; p = p.parentNode) if (p.tagName === 'DETAILS') p.open = true;
+    t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (history.replaceState) try { history.replaceState(null, '', '#' + id); } catch (e) {}
+    return true;
+  }
   /* Оформление страницы «Как идти» (её просьба 06.10: было слишком темно) — route.howto.look, панель → «Как идти и отзыв» → «Оформление страницы»:
-     { shade: затемнение картинки фона 0–90 (%), panel: 'dark' | 'light' | 'none' — подложка под текстом, size: '' | 'lg' | 'xl', font: '' (Cormorant) | 'sans', text: '#rrggbb' } */
-  function howtoLook(root, L) {
+     { shade: затемнение картинки фона 0–90 (%), panel: 'dark' | 'light' | 'none' — подложка под текстом, size: '' | 'lg' | 'xl',
+     font: '' (Lora) | 'corm' (Cormorant, как было) | 'sans', text: '#rrggbb', fold: '' (разделы свёрнуты) | 'first' | 'open' } */
+  function howtoLook(root, L, base) {
     L = L || {};
     var panel = { light: 1, none: 1 }[L.panel] ? L.panel : 'dark';
     root.classList.add('ysg--' + panel);
     if (L.size === 'lg' || L.size === 'xl') root.classList.add('ysg--' + L.size);
-    if (L.font === 'sans') root.classList.add('ysg--sans');
+    if (L.font === 'sans' || L.font === 'corm') root.classList.add('ysg--' + L.font);
+    else howtoLora(base);
     if (/^#[0-9a-f]{6}$/i.test(L.text || '')) root.style.setProperty('--ysg-tx', L.text);
+  }
+  // Шрифт текста «Как идти» — Lora (свой, assets/fonts/), подключается, только когда нужен
+  function howtoLora(base) {
+    if (document.getElementById('ysg-lora')) return;
+    var l = document.createElement('link'); l.id = 'ysg-lora'; l.rel = 'stylesheet'; l.href = (base || '') + 'assets/fonts/lora.css';
+    document.head.appendChild(l);
   }
   function howtoShade(L) { var n = parseFloat((L || {}).shade); return isNaN(n) ? 45 : Math.max(0, Math.min(90, n)); }
   // Страница routes/<id>/kak/: <div id="ysg" data-base="../../../" data-route="<id>">, затем M13R.howto()
@@ -2736,8 +2786,8 @@
         var w = el('div', 'ysg'), a = el('a', 'ysg-go', 'Перейти к маршруту'); a.href = base + (r.path || 'routes/' + id + '/');
         w.appendChild(el('p', 'ysg-sub', 'Страница готовится.')); w.appendChild(a); app.replaceChildren(w); return;
       }
-      app.replaceChildren(howtoNode(r, base));
-      if (location.hash) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+      var node = howtoNode(r, base); app.replaceChildren(node);
+      if (location.hash) howtoShow(node, location.hash.slice(1));
     }).catch(function () {
       app.replaceChildren(el('p', 'ys-err', 'Не удалось загрузить страницу. Обновите её через минуту.'));
     });
