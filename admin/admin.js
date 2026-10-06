@@ -6561,7 +6561,7 @@
     drawReset();
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'Главная страница' }),
-        el('p', { class: 'a-lead', text: 'То, что видно по адресу 13mirrors.ru. Изменения появятся на сайте после «Опубликовать». Логотип и расположение блоков остаются как есть.' })]),
+        el('p', { class: 'a-lead', text: 'То, что видно по адресу 13mirrors.ru. Изменения появятся на сайте после «Опубликовать». Логотип и расположение блоков остаются как есть. Enter в любом поле — новая строка на сайте.' })]),
       el('div', { class: 'a-tabs' }, [
         el('button', { type: 'button', text: 'Посмотреть главную', onclick: function () { openHomePreview(false); } }),
         el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openHomePreview(true); } })]),
@@ -6631,7 +6631,7 @@
     var url = siteUrl().replace(/vitrina\/$/, '') + 'grimoire/';
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'Гримуар' }),
-        el('p', { class: 'a-lead', text: 'Пока книга пишется, по адресу ' + url.replace(/^https?:\/\//, '') + ' стоит страница-заглушка: книга, пара слов о том, что здесь будет, и кнопка в расписание. Изменения появятся на сайте после «Опубликовать».' })]),
+        el('p', { class: 'a-lead', text: 'Пока книга пишется, по адресу ' + url.replace(/^https?:\/\//, '') + ' стоит страница-заглушка: книга, пара слов о том, что здесь будет, и кнопка в расписание. Изменения появятся на сайте после «Опубликовать». Enter в любом поле — новая строка на сайте.' })]),
       el('div', { class: 'a-tabs' }, [
         el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPagePreview('grimoire', false); } }),
         el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openPagePreview('grimoire', true); } })]),
