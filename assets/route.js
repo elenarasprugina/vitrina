@@ -2105,7 +2105,12 @@
           btns.appendChild(b);
         });
     }
-    if (f.review) {
+    // «Оставить отзыв»: есть вопросы (панель → «Как идти и отзыв») — окно отзыва; иначе — прежняя ссылка route.final.review
+    if (reviewOf(r)) {
+      var rw = el('button', 'ys-code-b ys-fin-review', tx.finReview || 'Оставить отзыв'); rw.type = 'button';
+      rw.addEventListener('click', function (e) { e.stopPropagation(); openReview(); });
+      btns.appendChild(rw);
+    } else if (f.review) {
       var rv = el('a', 'ys-code-b ys-fin-review', tx.finReview || 'Оставить отзыв'); rv.href = f.review; rv.target = '_blank'; rv.rel = 'noopener';
       rv.addEventListener('click', function (e) { e.stopPropagation(); });
       btns.appendChild(rv);
@@ -2622,6 +2627,154 @@
       openDay(d, S.mode);
     });
   }
+  /* ---------- «Как идти по маршруту» и окно отзыва (её план 06.10) ----------
+     route.howto = { on, title, sub, back, home, go, card, phrase, sections: [{ id, title, text, sub, frame, visible }] } — страница routes/<id>/kak/ (M13R.howto()),
+     кружок «?» вверху страницы маршрута, ссылка на карточке витрины. sub — подраздел (заголовок меньше); frame — раздел в рамке (вместе с подразделами до следующего раздела).
+     Разметка текста (панель): пустая строка — новый абзац, Enter — новая строка, **жирное**, строки «1. …» — нумерованный список, «• …» или «- …» — список,
+     [слова](Название раздела) — ссылка на раздел этой страницы, [слова](https://…) — на другой сайт.
+     route.review = { on, title, lead, ph, head, btn, copyOnly, done, tg, questions: [{ id, text }] } — окно «Оставить отзыв» (кнопка ✎ вверху и в финале).
+     Ответы — только на этом устройстве (localStorage, недописанное сохраняется); «Отправить в Telegram» копирует «вопрос + ответ» и открывает её чат.
+     Сайт ничего не отправляет; код участника в отзыв не кладётся. */
+  function howtoOf(r) {
+    var h = (r && r.howto) || {};
+    return h.on !== false && (h.sections || []).some(function (s) { return s && s.visible !== false && String(s.text || s.title || '').trim(); }) ? h : null;
+  }
+  function howtoUrl(r, base) { return (base || '') + (r.path || 'routes/' + r.id + '/') + 'kak/'; }
+  function reviewOf(r) {
+    var v = (r && r.review) || {};
+    return v.on !== false && (v.questions || []).some(function (x) { return x && String(x.text || '').trim(); }) ? v : null;
+  }
+  function reviewTg(r) { return String(((r.review || {}).tg) || '').trim() || r.guide || (r.trace || {}).immersion || ''; }
+  function richInline(node, s, find) {
+    var re = /\*\*([^*\n]+)\*\*|\[([^\]\n]+)\]\(([^)\n]+)\)/g, at = 0, m;
+    while ((m = re.exec(s))) {
+      if (m.index > at) node.appendChild(document.createTextNode(glue(s.slice(at, m.index))));
+      if (m[1] != null) node.appendChild(el('b', null, m[1]));
+      else {
+        var to = m[3].trim(), web = /^(https?:|mailto:|tel:)/.test(to), a = el('a', 'ysg-more', m[2]);
+        a.href = web || /^#/.test(to) ? to : find(to);
+        if (/^https?:/.test(to)) { a.target = '_blank'; a.rel = 'noopener'; }
+        node.appendChild(a);
+      }
+      at = re.lastIndex;
+    }
+    if (at < s.length) node.appendChild(document.createTextNode(glue(s.slice(at))));
+  }
+  function richNodes(text, find) {
+    var out = [], para = null, list = null;
+    String(text || '').split('\n').forEach(function (line) {
+      var t = untag(line).trim(), mo = /^(\d{1,2})[.)]\s+(.+)$/.exec(t), mu = /^[•\-]\s+(.+)$/.exec(t);
+      if (!t) { para = null; list = null; return; }
+      if (mo || mu) {
+        var tag = mo ? 'OL' : 'UL';
+        if (!list || list.tagName !== tag) { list = el(tag.toLowerCase()); if (mo && +mo[1] > 1) list.start = +mo[1]; out.push(list); }
+        para = null;
+        var li = el('li'); richInline(li, mo ? mo[2] : mu[1], find); list.appendChild(li);
+        return;
+      }
+      list = null;
+      if (para) para.appendChild(el('br')); else { para = el('p'); out.push(para); }
+      richInline(para, t, find);
+    });
+    return out;
+  }
+  function howtoNorm(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"“”.?!:]/g, '').replace(/\s+/g, ' ').trim(); }
+  // Страница «Как идти по маршруту» целиком (и предпросмотр в панели). base — путь к корню витрины от страницы.
+  function howtoNode(r, base) {
+    var h = r.howto || {}, ctx = { 'маршрут': r.title || '', 'даты': datesText(r) };
+    var list = (h.sections || []).filter(function (s) { return s && s.visible !== false && String(s.text || s.title || '').trim(); });
+    function aid(i) { return 'r' + (i + 1); }
+    function find(name) {
+      var k = howtoNorm(name), i = -1;
+      list.some(function (s, j) { if (howtoNorm(s.title) === k) { i = j; return true; } return false; });
+      if (i < 0) list.some(function (s, j) { if (k && howtoNorm(s.title).indexOf(k) === 0) { i = j; return true; } return false; });
+      return i < 0 ? '#' : '#' + aid(i);
+    }
+    var root = el('div', 'ysg'), top = el('div', 'ysg-top'), route = base + (r.path || 'routes/' + r.id + '/');
+    var back = el('a', null, h.back || '← К маршруту'); back.href = route;
+    var home = el('a', null, h.home || 'Витрина'); home.href = base || './';
+    top.appendChild(back); top.appendChild(home); root.appendChild(top);
+    root.appendChild(el('h1', 'ysg-h', fill(h.title || 'Как идти по маршруту', ctx)));
+    var sub = h.sub == null || h.sub === '' ? '{маршрут} · {даты} · 13 MIRRORS' : h.sub;
+    if (h.sub !== '-') root.appendChild(el('p', 'ysg-sub', fill(sub, ctx)));
+    var box = root;
+    list.forEach(function (s, i) {
+      if (!s.sub) box = root;
+      if (!s.sub && s.frame) { box = el('section', 'ysg-frame'); root.appendChild(box); }
+      if (String(s.title || '').trim()) { var hd = el(s.sub ? 'h3' : 'h2', null, fill(s.title, ctx)); hd.id = aid(i); box.appendChild(hd); }
+      else { var an = el('span', 'ysg-a'); an.id = aid(i); box.appendChild(an); }
+      richNodes(fill(s.text || '', ctx), find).forEach(function (n) { box.appendChild(n); });
+    });
+    if (h.go !== '-') { var go = el('a', 'ysg-go', h.go || 'Перейти к маршруту'); go.href = route; root.appendChild(go); }
+    return root;
+  }
+  // Страница routes/<id>/kak/: <div id="ysg" data-base="../../../" data-route="<id>">, затем M13R.howto()
+  function howtoBoot() {
+    var app = document.getElementById('ysg'); if (!app) return;
+    var base = app.getAttribute('data-base') || '../../../', id = app.getAttribute('data-route');
+    getJSON(base + 'data/journeys.json').then(function (j) {
+      var r = (j.items || []).filter(function (x) { return x.id === id; })[0];
+      if (!r) throw new Error();
+      var D = r.scene === 'doors' ? r.doors || {} : r, m = D.masterMobile || D.mobile || D.masterDesktop || D.desktop, d = D.masterDesktop || D.desktop || m;
+      if (m) document.body.style.setProperty('--ysg-m', 'url("' + imgSrc(base, m) + '")');
+      if (d) document.body.style.setProperty('--ysg-d', 'url("' + imgSrc(base, d) + '")');
+      document.title = '13 MIRRORS · ' + untag((r.howto || {}).title || 'Как идти по маршруту').replace(/\n/g, ' ') + ' · ' + (r.title || '');
+      if (!howtoOf(r)) {
+        var w = el('div', 'ysg'), a = el('a', 'ysg-go', 'Перейти к маршруту'); a.href = base + (r.path || 'routes/' + id + '/');
+        w.appendChild(el('p', 'ysg-sub', 'Страница готовится.')); w.appendChild(a); app.replaceChildren(w); return;
+      }
+      app.replaceChildren(howtoNode(r, base));
+      if (location.hash) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+    }).catch(function () {
+      app.replaceChildren(el('p', 'ys-err', 'Не удалось загрузить страницу. Обновите её через минуту.'));
+    });
+  }
+  function reviewKey() { return 'm13ys-review-' + S.route.id + '-' + (S.route.start || ''); }
+  function reviewText(r, v, qs, ans) {
+    var head = fill(v.head == null || v.head === '' ? 'Отзыв о маршруте «{маршрут}»' : v.head, { 'маршрут': r.title || '' });
+    var parts = qs.map(function (x, i) { var a = String(ans[i] || '').trim(); return a ? (qs.length > 1 ? (i + 1) + '. ' : '') + untag(x.text).trim() + '\n' + a : ''; }).filter(Boolean);
+    return parts.length ? (head && head !== '-' ? head + '\n\n' : '') + parts.join('\n\n') : '';
+  }
+  function openReview() {
+    var r = S.route, v = reviewOf(r); if (!v) return;
+    var box = el('div', 'ys-key ys-rv'), saved = {}, tg = reviewTg(r), copyOnly = !tg || v.copyOnly;
+    try { saved = JSON.parse(localStorage.getItem(reviewKey()) || '{}') || {}; } catch (e) {}
+    function store() { if (S.preview) return; try { localStorage.setItem(reviewKey(), JSON.stringify(saved)); } catch (e) {} }
+    box.appendChild(el('h2', 'ys-key-t', v.title || 'Ваш отзыв'));
+    if (v.lead !== '-') box.appendChild(el('p', 'ys-key-lead', v.lead || 'Пишите как есть, коротко или подробно — любой ответ поможет. Можно ответить не на все вопросы. Недописанное сохранится на этом устройстве.'));
+    var qs = v.questions.filter(function (x) { return x && String(x.text || '').trim(); }), areas = [];
+    var form = el('div', 'ys-rv-list');
+    qs.forEach(function (x, i) {
+      var id = x.id || 'q' + (i + 1), lab = el('label', 'ys-rv-q'), t = el('textarea', 'ys-rv-a');
+      lab.appendChild(el('span', 'ys-rv-qt', (qs.length > 1 ? (i + 1) + '. ' : '') + untag(x.text).trim()));
+      t.rows = 2; t.value = saved[id] || ''; if (v.ph) t.placeholder = v.ph;
+      function fit() { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, 320) + 'px'; }
+      t.addEventListener('input', function () { saved[id] = t.value; if (!t.value) delete saved[id]; fit(); store(); });
+      lab.appendChild(t); form.appendChild(lab); areas.push(t);
+      requestAnimationFrame(fit);
+    });
+    box.appendChild(form);
+    var send = el('a', 'ys-key-go ys-rv-go', copyOnly ? v.copyBtn || 'Скопировать отзыв' : v.btn || 'Отправить в Telegram');
+    if (!copyOnly) { send.href = tg; send.target = '_blank'; send.rel = 'noopener'; } else { send.href = '#'; send.setAttribute('role', 'button'); }
+    var done = el('div', 'ys-rv-done'), err = el('p', 'ys-key-err');
+    send.addEventListener('click', function (e) {
+      var msg = reviewText(r, v, qs, areas.map(function (t) { return t.value; }));
+      putText(err, '');
+      if (!msg) { e.preventDefault(); putText(err, v.empty || 'Напишите ответ хотя бы на один вопрос.'); return; }
+      if (copyOnly) e.preventDefault();
+      copyText(msg, function () {});
+      done.replaceChildren(el('p', 'ys-key-lead', v.done || (copyOnly ? 'Текст отзыва скопирован — вставьте его в сообщение Проводнику.' : 'Текст отзыва скопирован. В открывшемся чате Telegram вставьте его в сообщение и отправьте.')));
+      var more = el('details', 'ys-rv-raw'), ta = el('textarea', 'ys-rv-a');
+      more.appendChild(el('summary', null, v.rawLabel || 'Не вставляется? Вот текст — выделите и скопируйте'));
+      ta.value = msg; ta.readOnly = true; ta.rows = 6; more.appendChild(ta); done.appendChild(more);
+    });
+    box.appendChild(send); box.appendChild(err); box.appendChild(done);
+    box.appendChild(el('p', 'ys-key-note', v.note || 'Сайт ничего не отправляет и не хранит: ответы видны только вам, пока вы сами не отправите их. Ваш код в отзыв не попадает.'));
+    var close = el('button', 'ys-key-alt', v.close || 'Закрыть'); close.type = 'button';
+    close.addEventListener('click', function () { closeLayer(); });
+    box.appendChild(close);
+    layer(box, 'ys-layer--key ys-layer--rv');
+  }
   // Сверху: ссылка на витрину слева, «Мой код» справа — во всех форматах: есть код — узор и код ещё раз (сохранить, отправить, ввести другой);
   // в Наблюдении без кода — окно ввода ключа или кода (из него можно остаться в Наблюдении)
   function topLinks(page) {
@@ -2632,7 +2785,23 @@
     var obsMe = S.mode === 'observation' && !S.code;
     var me = el('button', 'ys-me', S.code || obsMe ? tx.myCodeBtn || 'Мой код' : tx.keyBtn || 'Ввести ключ'); me.type = 'button';
     me.addEventListener('click', function () { if (obsMe) openKey('observation'); else openKey(S.code ? S.code.mode : S.mode, true); });
-    page.appendChild(me);
+    // Рядом с «Мой код» — кружки «?» (страница «Как идти по маршруту») и ✎ (окно отзыва), если они заполнены в панели
+    var tools = el('div', 'ys-tools'), H = howtoOf(S.route), V = reviewOf(S.route);
+    if (H) {
+      var hq = el('a', 'ys-me ys-ic', '?'); hq.href = howtoUrl(S.route, S.base);
+      hq.title = untag(H.title || 'Как идти по маршруту').replace(/\n/g, ' '); hq.setAttribute('aria-label', hq.title);
+      if (S.preview) hq.target = '_blank';
+      tools.appendChild(hq);
+    }
+    if (V) {
+      var rb = el('button', 'ys-me ys-ic ys-ic--rv'); rb.type = 'button';
+      rb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.4L15.8 5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.4 18.8z"/><path d="M13.5 7.3l3.2 3.2"/></svg>';
+      rb.title = tx.finReview || 'Оставить отзыв'; rb.setAttribute('aria-label', rb.title);
+      rb.addEventListener('click', openReview);
+      tools.appendChild(rb);
+    }
+    tools.appendChild(me);
+    page.appendChild(tools);
   }
 
   /* ---------- Сцена «Двери» (route.scene === 'doors'; вид и движение — assets/doors.js, M13D) ----------
@@ -3069,7 +3238,8 @@
     });
   }
 
-  window.M13R = { putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
+  window.M13R = { howto: howtoBoot, howtoNode: howtoNode, howtoOf: howtoOf, howtoUrl: howtoUrl, reviewOf: reviewOf, reviewTg: reviewTg, reviewText: reviewText,
+    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,

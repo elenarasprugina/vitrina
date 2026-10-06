@@ -302,6 +302,29 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 /* ---------- «Мой код» (справа сверху) ---------- */
 .ys-me{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:3;font:inherit;color:#f6ead2;font-size:14px;letter-spacing:.02em;padding:8px 14px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.38);border:1px solid rgba(255,214,140,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .ys-me:hover{background:rgba(12,8,4,.55)}
+/* Справа сверху: «?» (как идти по маршруту), ✎ (отзыв), «Мой код» */
+.ys-tools{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:3;display:flex;align-items:center;gap:7px}
+.ys-tools .ys-me{position:static}
+.ys-ic{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;text-decoration:none;font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;font-weight:600;line-height:1}
+.ys-ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ys-fin-on .ys-tools{opacity:0;pointer-events:none;transition:opacity .6s}
+.ys-ic:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
+/* Окно отзыва */
+.ys-layer.ys-layer--rv{background:radial-gradient(circle at 50% 30%,rgba(40,25,7,.95),rgba(5,3,1,.97))}
+.ys-key.ys-rv{width:min(520px,100%);text-align:left;align-items:stretch;padding-top:14px}
+.ys-rv .ys-key-t,.ys-rv>.ys-key-lead{text-align:center}
+.ys-rv-list{display:flex;flex-direction:column;gap:14px;margin:4px 0 6px}
+.ys-rv-q{display:flex;flex-direction:column;gap:6px}
+.ys-rv-qt{font-size:16.5px;line-height:1.4;color:#fff3d6}
+.ys-rv-a{box-sizing:border-box;width:100%;min-height:58px;resize:vertical;font:inherit;font-size:16px;line-height:1.45;color:#fff3d6;background:rgba(255,236,190,.07);border:1px solid rgba(255,214,140,.35);border-radius:12px;padding:9px 12px;outline:none}
+.ys-rv-a:focus{border-color:#ffd76a;box-shadow:0 0 0 3px rgba(255,207,90,.22)}
+.ys-rv-go{align-self:center;text-decoration:none;text-align:center}
+.ys-rv .ys-key-err,.ys-rv .ys-key-note,.ys-rv-done{text-align:center}
+.ys-rv .ys-key-alt{align-self:center}
+.ys-rv-done:empty{display:none}
+.ys-rv-raw{margin-top:8px;text-align:left;font-size:14px;color:rgba(246,234,210,.8)}
+.ys-rv-raw summary{cursor:pointer;text-align:center;color:#e9c77e}
+.ys-rv-raw .ys-rv-a{margin-top:8px;font-size:14px}
 
 /* ---------- Вход по ключу: калейдоскоп, узор и код ---------- */
 .ys-layer--key{background:radial-gradient(circle at 50% 40%,rgba(48,30,8,.78),rgba(5,3,1,.94))}
@@ -376,6 +399,8 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
   .ys-layer--key,.ys-layer--fan{padding:calc(20px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
   .ys-fan-ring{--D:min(94vw,58vh)}
   .ys-me{font-size:13px;padding:7px 12px}
+  .ys-tools{gap:5px}
+  .ys-ic{width:33px;height:33px;padding:0;font-size:19px}
 }
 @media (prefers-reduced-motion:reduce){
   .ys-fc,.ys-pick,.ys-pick-in{transition:none}
@@ -491,3 +516,26 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-disk.ys-al--justify .ys-d-q,.ys-disk.ys-al--justify .ys-d-rec,.ys-disk.ys-al--justify .ys-d-after{text-align:justify;-webkit-hyphens:auto;hyphens:auto}
 .ys-disk .ys-ln.ys-al--left{text-align:left}.ys-disk .ys-ln.ys-al--center{text-align:center}.ys-disk .ys-ln.ys-al--right{text-align:right}.ys-disk .ys-ln.ys-al--justify{text-align:justify}
 .ys-disk.ys-al .ys-d-hint,.ys-disk.ys-al .ys-d-note{text-align:center;-webkit-hyphens:manual;hyphens:manual}
+
+/* ---------- Страница «Как идти по маршруту» (routes/<id>/kak/, M13R.howto) ---------- */
+.ysg-body{margin:0;min-height:100vh;background:#0a0604 var(--ysg-m,none) center top/cover fixed;color:#efe3c8;font:19px/1.55 "Cormorant Garamond",Georgia,serif}
+.ysg-body:before{content:'';position:fixed;inset:0;background:linear-gradient(rgba(10,6,4,.82),rgba(10,6,4,.94));z-index:-1}
+@media (min-width:800px){.ysg-body{background-image:var(--ysg-d,var(--ysg-m))}}
+.ysg{max-width:680px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 16px 64px;color:#efe3c8;font:19px/1.55 "Cormorant Garamond",Georgia,serif}
+.ysg a{color:#e9c77e;text-decoration-thickness:1px;text-underline-offset:3px}
+.ysg-top{display:flex;justify-content:space-between;gap:12px;font-size:16px;margin-bottom:28px}
+.ysg-h{font-size:34px;line-height:1.15;font-weight:500;color:#e9c77e;margin:0 0 6px;letter-spacing:.01em}
+.ysg-sub{color:#bfae8c;margin:0 0 30px;font-size:17px}
+.ysg h2{font-size:25px;line-height:1.2;font-weight:500;color:#e9c77e;margin:38px 0 10px;padding-top:14px;border-top:1px solid rgba(233,199,126,.22);scroll-margin-top:16px}
+.ysg h3{font-size:20px;line-height:1.3;font-weight:600;margin:22px 0 4px;scroll-margin-top:16px}
+.ysg p{margin:0 0 12px}
+.ysg ol,.ysg ul{margin:0 0 14px;padding-left:24px}
+.ysg li{margin:0 0 9px}
+.ysg b{font-weight:600;color:#fff4dc}
+.ysg-more{font-size:16px;white-space:nowrap}
+.ysg-frame{margin-top:46px;padding:4px 18px 10px;border:1px solid rgba(233,199,126,.22);border-radius:14px;background:rgba(20,13,8,.6)}
+.ysg-frame h2{border:0;margin-top:14px}
+.ysg-go{display:block;text-align:center;margin:40px auto 0;padding:13px 22px;max-width:320px;border:1px solid #e9c77e;border-radius:999px;text-decoration:none;font-size:20px}
+.ysg-go:hover{background:rgba(233,199,126,.1)}
+.ysg :target{animation:ysg-hl 2s ease}
+@keyframes ysg-hl{from{color:#fff}to{}}
