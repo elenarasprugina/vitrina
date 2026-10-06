@@ -184,17 +184,23 @@
       hint ? el('span', { class: 'a-hint' + (warn ? ' a-hint--warn' : ''), text: hint }) : null
     ]);
   }
-  // LINES — страницы маршрутов: однострочные надписи принимают Enter (поле растёт), кроме ссылок, дат и чисел; o.grow — то же у отдельного поля (главная, Гримуар)
+  // Однострочные надписи по всей панели принимают Enter (поле растёт), кроме ссылок, дат, чисел и служебных полей.
+  // LINES — страницы маршрутов: там ещё и кнопки выравнивания строки (a-lines).
   var LINES = false;
+  var ONE_LINE = /^(url|routeUrl|vk|telegram|time|id|slug|key|code|email|phone|step)$/;
   function growIn(i) {
     // высота — по числу строк (работает и в свёрнутом блоке); при наборе — по содержимому
     i.rows = Math.max(1, String(i.value).split('\n').length);
-    i.addEventListener('input', function () { i.style.height = 'auto'; if (i.scrollHeight) i.style.height = (i.scrollHeight + 2) + 'px'; });
+    function fit() { i.style.height = 'auto'; if (i.scrollHeight) i.style.height = (i.scrollHeight + 2) + 'px'; }
+    i.addEventListener('input', fit);
+    i.addEventListener('focus', fit);
+    // длинная строка, перенесённая по ширине, — тоже целиком видна
+    setTimeout(function () { if (i.isConnected && i.offsetWidth) fit(); }, 0);
     return i;
   }
   function textIn(obj, key, label, o) {
     o = o || {};
-    var grow = !o.multi && (LINES || o.grow) && !o.type && !/^(https?:|mailto:|tel:)/.test(o.ph || '');
+    var grow = !o.multi && !o.one && !o.type && !ONE_LINE.test(key) && !/^(https?:|mailto:|tel:)/.test(o.ph || '');
     var i = el(o.multi || grow ? 'textarea' : 'input', { class: 'a-input' + (grow ? ' a-grow' : '') + (LINES && (o.multi || grow) ? ' a-lines' : ''), type: o.multi || grow ? null : (o.type || 'text'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : grow ? 1 : null });
     i.value = obj[key] == null ? '' : obj[key];
     if (grow) growIn(i);
@@ -208,8 +214,9 @@
     o = o || {};
     var f = obj[key];
     if (!f || typeof f !== 'object') f = obj[key] = { value: f == null ? '' : String(f), show: f != null && f !== '' };
-    var i = el(o.multi ? 'textarea' : 'input', { class: 'a-input', placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : null });
+    var i = el('textarea', { class: 'a-input' + (o.multi ? '' : ' a-grow'), placeholder: o.ph || '', rows: o.multi ? (o.rows || 3) : 1 });
     i.value = f.value || '';
+    if (!o.multi) growIn(i);
     i.addEventListener('input', function () { f.value = i.value; changed(); });
     var wrap = el('div', { class: 'a-field a-opt' + (f.show ? '' : ' is-off') });
     var cb = el('input', { type: 'checkbox', checked: !!f.show });
@@ -350,6 +357,9 @@
           { def: forCard ? 'inherit' : 'calm', onChange: onChange, hint: 'Для «Живого» свечения. Контур, который дышит, дышит в том же ритме.' }),
         forCard ? el('span') : selectIn(stl, 'iconShape', 'Значки ✕ и ↺ на открытой карточке', [['round', 'Прозрачный круг'], ['square', 'Прозрачный скруглённый квадрат'], ['bare', 'Только знак, без рамки']],
           { def: 'round', onChange: onChange, hint: 'Стоят в правом верхнем углу карточки, рамка и знак — в оттенке её цвета. Одна форма для всех карточек месяца.' })]),
+      forCard ? null : el('div', { class: 'a-row' }, [
+        selectIn(stl, 'closeMark', 'Что внутри кнопки «закрыть»', [['none', 'Ничего — светящийся кружок'], ['star', 'Звёздочка ✦'], ['check', 'Галочка ✓'], ['cross', 'Крестик ×']],
+          { def: 'none', onChange: onChange, hint: 'Кружок светится в цвет карточки (свечение, акцент или цвет маршрута). Если выбрано «Только знак, без рамки», а внутри «ничего» — будет звёздочка.' })]),
       glassFields(stl, forCard, onChange, d),
       buttonFields(stl, forCard, onChange, d),
       el('p', { class: 'a-hint', text: forCard
@@ -6561,18 +6571,18 @@
           imageIn(h, 'imageTall', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Пусто — вертикальная дверь. Показывается верхняя часть, ниже — тёмный фон с текстом.' })])
       ]),
       block('Тексты', [
-        el('div', { class: 'a-row' }, [textIn(h, 'lead1', 'Фраза под логотипом', { grow: true }), textIn(h, 'lead2', 'Вторая строка (курсивом)', { grow: true })]),
+        el('div', { class: 'a-row' }, [textIn(h, 'lead1', 'Фраза под логотипом'), textIn(h, 'lead2', 'Вторая строка (курсивом)')]),
         textIn(h, 'promise', 'Строка с чертой слева', { multi: true, rows: 2, hint: 'Перенос строки — там, где нажмёте Enter.' }),
         textIn(h, 'story', 'Текст ниже', { multi: true, rows: 7, hint: 'Пустая строка между абзацами — новый абзац.' }),
         el('div', { class: 'a-row' }, [
-          textIn(h, 'scheduleWord', 'Слово на кнопке', { grow: true, hint: 'Название месяца добавится само: «' + (h.scheduleWord || 'Расписание') + ' ' + monthGenNow() + '».' }),
-          textIn(h, 'ask', 'Ссылка в конце', { grow: true, hint: 'Открывает окошко с Telegram и VK из «Настройки → Контакты».' })]),
+          textIn(h, 'scheduleWord', 'Слово на кнопке', { hint: 'Название месяца добавится само: «' + (h.scheduleWord || 'Расписание') + ' ' + monthGenNow() + '».' }),
+          textIn(h, 'ask', 'Ссылка в конце', { hint: 'Открывает окошко с Telegram и VK из «Настройки → Контакты».' })]),
         textIn(h, 'footer', 'Пометка внизу страницы', { multi: true, rows: 3 }),
-        textIn(h, 'legal', 'Строка с ИНН внизу', { grow: true, hint: 'Под пометкой — на главной, в Гримуаре и на странице «Конфиденциальность» (на витрине её нет). После неё сами встают Telegram и VK из «Настройки → Контакты по умолчанию» и ссылка «Конфиденциальность». Чтобы убрать строку — оставьте в поле один пробел.' })
+        textIn(h, 'legal', 'Строка с ИНН внизу', { hint: 'Под пометкой — на главной, в Гримуаре и на странице «Конфиденциальность» (на витрине её нет). После неё сами встают Telegram и VK из «Настройки → Контакты по умолчанию» и ссылка «Конфиденциальность». Чтобы убрать строку — оставьте в поле один пробел.' })
       ]),
       block('Страница «Конфиденциальность»', [
         el('p', { class: 'a-hint', text: 'Адрес — 13mirrors.ru/privacy/. Ссылка на неё — внизу главной и Гримуара, под пометкой. Цвет, шрифт и пометка внизу — как у главной.' }),
-        textIn(h, 'privacyTitle', 'Заголовок', { grow: true, hint: 'Он же — надпись ссылки внизу главной.' }),
+        textIn(h, 'privacyTitle', 'Заголовок', { hint: 'Он же — надпись ссылки внизу главной.' }),
         textIn(h, 'privacyText', 'Текст', { multi: true, rows: 14, hint: 'Пустая строка между абзацами — новый абзац. Первый абзац — курсивом, золотым.' }),
         el('div', { class: 'a-tabs' }, [
           el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPagePreview('privacy', false); } }),
@@ -6627,19 +6637,19 @@
         el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openPagePreview('grimoire', true); } })]),
       switchIn(g, 'open', 'Страница открыта', { hint: 'Выключено — страницы на сайте как будто нет: по адресу ' + url.replace(/^https?:\/\//, '') + ' человек сразу попадает на главную, ссылки на главной тоже нет. Тексты при этом сохраняются. Включили или выключили — нажмите «Опубликовать».' }),
       block('Тексты', [
-        el('div', { class: 'a-row' }, [textIn(g, 'eyebrow', 'Надпись над заголовком (прописными)', { grow: true }), textIn(g, 'title', 'Заголовок', { grow: true })]),
+        el('div', { class: 'a-row' }, [textIn(g, 'eyebrow', 'Надпись над заголовком (прописными)'), textIn(g, 'title', 'Заголовок')]),
         textIn(g, 'lead', 'Строка с чертой слева (курсивом)', { multi: true, rows: 2 }),
         textIn(g, 'text', 'Текст', { multi: true, rows: 7, hint: 'Пустая строка между абзацами — новый абзац.' }),
-        textIn(g, 'note', 'Строка под текстом (курсивом)', { grow: true, hint: 'Чтобы убрать строку совсем — оставьте в поле один пробел.' })
+        textIn(g, 'note', 'Строка под текстом (курсивом)', { hint: 'Чтобы убрать строку совсем — оставьте в поле один пробел.' })
       ]),
       block('Картинка', [
         imageIn(g, 'image', 'Вместо нарисованной книги', { max: 1600, size: { w: 1200, h: 1600, note: 'вертикальная, как книга' }, hint: 'Пусто — тёмная книга с золотым обрезом и одуванчиком. По картинке, как и по книге, время от времени пробегает блик.' })
       ], { open: false }),
       block('Откуда ведёт ссылка', [
         switchIn(g, 'homeBtn', 'Кнопка на главной рядом с «Расписанием»', { hint: 'Вторая кнопка — с золотым контуром, на первом экране. Видна, только пока страница открыта.' }),
-        textIn(g, 'homeBtnText', 'Надпись на кнопке', { grow: true, hint: 'Лучше коротко, два-три слова. Стрелка → добавится сама.' }),
+        textIn(g, 'homeBtnText', 'Надпись на кнопке', { hint: 'Лучше коротко, два-три слова. Стрелка → добавится сама.' }),
         switchIn(g, 'onHome', 'Ссылка внизу главной страницы', { hint: 'Под текстом о калейдоскопе, над «Задать вопрос». Видна, только пока страница открыта.' }),
-        textIn(g, 'homeLink', 'Надпись ссылки', { grow: true, hint: 'Стрелка → добавится сама.' }),
+        textIn(g, 'homeLink', 'Надпись ссылки', { hint: 'Стрелка → добавится сама.' }),
         el('div', { class: 'a-tabs' }, [
           el('button', { type: 'button', text: 'Посмотреть главную', onclick: function () { openHomePreview(false); } }),
           el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openHomePreview(true); } })]),
