@@ -1684,10 +1684,19 @@
   // Данные прямо в странице (window.M13_DATA — M13.load берёт их оттуда): не нужно ждать загрузки 6–7 файлов data/*.json.
   // Файлы data/ по-прежнему публикуются (их читает панель). </script> внутри текста безопасен: «<» записан как \u003c.
   // Для карты сегодняшнего дня на карточке маршрута — только то, что нужно витрине (без колоды, кирпичей, финала Солнца)
+  // Живая обложка на витрине (двери, заход «б»): только то, что нужно сцене — без пространств, финала и открытия дверей
+  function coverDoors(D) {
+    D = D || {};
+    if ((D.cover || {}).on === false) return { cover: { on: false } };
+    return { desktop: D.desktop, mobile: D.mobile, doorAssignmentMode: D.doorAssignmentMode, showDayNumbers: D.showDayNumbers, cover: D.cover || {}, marks: D.marks || [],
+      items: (D.items || []).map(function (d) { return { id: d.id, on: d.on, zone: d.zone, layers: d.layers, markFix: d.markFix }; }),
+      days: (D.days || []).map(function (y) { return { world: (y && y.world) || [], gesture: y && y.gesture }; }) };
+  }
   function dayCards(J) {
     return { items: ((J && J.items) || []).filter(function (j) { return j && j.routeId && j.start && (j.days || []).length; }).map(function (j) {
-      return { id: j.id, routeId: j.routeId, path: j.path, start: j.start, dayCard: j.dayCard || {}, final: { blocks: (j.final || {}).blocks || null },
-        days: j.days.map(function (d) { return { n: d.n, kin: d.kin, kinName: d.kinName, seal: d.seal, tone: d.tone, image: d.image, cardOperation: d.cardOperation, environment: d.environment, texts: d.texts || {} }; }) };
+      return { id: j.id, routeId: j.routeId, path: j.path, start: j.start, scene: j.scene || '', dayClock: j.dayClock || '', dayCard: j.dayCard || {}, final: { blocks: (j.final || {}).blocks || null },
+        days: j.days.map(function (d) { return { n: d.n, kin: d.kin, kinName: d.kinName, seal: d.seal, tone: d.tone, image: d.image, cardOperation: d.cardOperation, environment: d.environment, texts: d.texts || {} }; }),
+        doors: j.scene === 'doors' ? coverDoors(j.doors) : undefined };
     }) };
   }
   function pageData(sc, D) {
@@ -2261,7 +2270,9 @@
           switchIn(f, 'dayShow', 'Пока маршрут идёт — показывать карту сегодняшнего дня', { defTrue: true,
             hint: 'Если у маршрута есть страница по дням (раздел «Страницы маршрутов»): при открытии карточки — картинка, кин и фокус сегодняшнего дня, как их видит Наблюдение, и кнопка «Открыть маршрут». Оборот — как обычно.' }),
           switchIn(f, 'finalShow', 'После окончания — играть финальный ролик', { defTrue: true,
-            hint: 'Ролик загружается у маршрута: «Маршруты» → маршрут → «Финальный ролик».' })]) : null
+            hint: 'Ролик загружается у маршрута: «Маршруты» → маршрут → «Финальный ролик».' }),
+          switchIn(f, 'coverShow', 'Живая обложка — у маршрута со сценой «Двери»', { defTrue: true,
+            hint: 'Сцена маршрута (или своя картинка), мир состоявшихся дней и жест сегодняшнего дня — до начала, пока идёт (если карта дня выше выключена) и после конца (если нет ролика). Настраивается у маршрута: «Страницы маршрутов» → «Двери» → «Живая обложка на витрине».' })]) : null
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false }),
@@ -2414,7 +2425,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261006b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261006c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4354,6 +4365,8 @@
         el('p', { class: 'a-hint', text: 'Строки «Сегодня — день {день}», «до начала», «после конца» — во вкладке «Основное» → «Надписи на странице». ' + jTokensHint(r, false) })
       ], { open: !D.desktop }),
       uc ? jdMarks(r) : null,
+      uc ? jdFigure(r) : null,
+      jdCover(r),
       jdChips(r, st, addDoor),
       jdHead(r, n),
       block('Основное', [
@@ -4433,6 +4446,99 @@
       el('p', { class: 'a-hint', text: '13 следов — по одному на тон (в волне день N = тон N). Рисовать след для каждой двери не нужно: программа кладёт след дня в рамку той двери, которую человек выбрал. Поправить место на конкретной двери — у двери, «Поправка следа». Ключ на след не влияет. Пропущенный день — следа нет.' }),
       wrap], { open: !!st.open });
   }
+  // «Моя фигура» (заход «б»): сцена + мир состоявшихся дней + личные следы — одной картинкой на устройство человека
+  function jdFigure(r) {
+    var D = r.doors, tx = r.texts;
+    return block('Моя фигура — сохранить картинкой', [
+      el('p', { class: 'a-hint', text: 'Кнопка над дверями собирает одну картинку: сцена, мир состоявшихся дней и личные следы на дверях, которые выбрал человек, — и сохраняет её на его устройство. Собирается прямо у него, никуда не отправляется. Движения на картинке не видны (она неподвижная). Ещё её можно поставить блоком-кнопкой в пространство дня или в финал («За дверью» → блок «Сохранить мою фигуру»).' }),
+      selectIn(D, 'figure', 'Когда видна кнопка над дверями', [['', 'после конца маршрута (и в последний день, когда дверь выбрана)'], ['always', 'с первой выбранной двери'], ['off', 'не показывать (только блоком в пространстве)']], { def: '', onChange: function (v) { if (!v) delete D.figure; } }),
+      el('div', { class: 'a-row' }, [textIn(tx, 'figureSave', 'Надпись на кнопке', { ph: 'Сохранить мою фигуру' }), textIn(tx, 'figureDone', 'После сохранения', { ph: 'Ваша фигура сохранена картинкой.' })])
+    ], { open: false });
+  }
+  /* Живая обложка на витрине (заход «б»): на увеличенной карточке маршрута — сцена (или своя картинка), мир состоявшихся дней и жест сегодняшнего дня.
+     Жест дня — точка на картинке обложки (своя у компьютера и телефона) и движение; ставится нажатием на предпросмотр. */
+  function jdCover(r) {
+    var M = window.M13D, D = r.doors, C = D.cover = D.cover || {}, N = r.days.length, st = ST.jdc = ST.jdc || { y: 1, v: 'desktop' };
+    if (st.y > N) st.y = 1;
+    var y = st.y, g = D.days[y - 1].gesture = D.days[y - 1].gesture || {}, key = st.v;
+    var frame = el('div', { class: 'a-jdc-frame' + (key === 'mobile' ? ' is-tall' : '') }), pv = null;
+    function r4(v) { return Math.round(v * 10000) / 10000; }
+    function draw() {
+      frame.replaceChildren(); pv = null;
+      var pic = M.coverPic(r, key);
+      if (!pic) { frame.appendChild(el('p', { class: 'a-hint a-jdc-none', text: 'Нет картинки: загрузите сцену («Сцена с дверями») или свою картинку обложки выше.' })); return; }
+      if (C.fit !== 'cover') { var bl = el('div', { class: 'ys-dblur' }); bl.style.backgroundImage = 'url("' + imgSrc(pic) + '")'; frame.appendChild(bl); }
+      pv = M.cover(r, { key: key, base: '../', day: y });
+      frame.appendChild(pv.node);
+      var dm = el('i', { class: 'a-jdc-dim' }); dm.style.opacity = (C.dim == null || C.dim === '' ? 40 : +C.dim) / 100; frame.appendChild(dm);
+      var pt = g[key];
+      if (pt) { var p = el('span', { class: 'a-jd-p is-first a-jdc-pt' }); p.style.left = (pt[0] * 100) + '%'; p.style.top = (pt[1] * 100) + '%'; pv.node.appendChild(p); }
+      function place() { var t = key === 'mobile'; M.fit(pv.node, pv.img.naturalWidth || (t ? 9 : 16), pv.img.naturalHeight || (t ? 16 : 9), C.fit === 'cover' ? 'cover' : '', t ? 220 : 320, t ? 403 : 365); }
+      pv.img.addEventListener('load', place); place();
+    }
+    frame.addEventListener('click', function (e) {
+      if (!pv) return;
+      var rc = pv.node.getBoundingClientRect(), x = (e.clientX - rc.left) / rc.width, yy = (e.clientY - rc.top) / rc.height;
+      if (x < 0 || x > 1 || yy < 0 || yy > 1) return;
+      g[key] = [r4(x), r4(yy)]; changed(); draw(); pstat();
+    });
+    LIVE.push({ node: frame, run: draw });
+    draw();
+    var stP = el('p', { class: 'a-hint' });
+    function pstat() {
+      stP.className = 'a-hint' + (g[key] ? '' : ' a-hint--warn');
+      stP.textContent = g[key] ? 'Жест дня ' + y + ' на картинке ' + (key === 'mobile' ? 'телефона' : 'компьютера') + ' — в точке (' + Math.round(g[key][0] * 100) + ' %, ' + Math.round(g[key][1] * 100) + ' %). Нажмите в другое место, чтобы перенести.' :
+        'Нажмите на картинку — там будет жест дня ' + y + (key === 'mobile' ? ' (на телефоне)' : ' (на компьютере)') + '. Нет точки — в этот день на ' + (key === 'mobile' ? 'телефоне' : 'компьютере') + ' обложка без жеста.';
+    }
+    pstat();
+    function lv() { liveSoon(); }
+    var fxList = Object.keys(M.FX).filter(function (k) { return k !== 'reveal'; }).map(function (k) { return [k, M.FX[k].name]; });
+    return block('Живая обложка на витрине', [
+      el('p', { class: 'a-hint', text: 'Увеличенная карточка этого маршрута на витрине (маленькая — без изменений): сцена с дверями или своя картинка, мир дней, которые уже состоялись, и жест сегодняшнего дня — у каждого дня своя точка и своё движение. Видна до начала, пока маршрут идёт и после конца; нажатие переворачивает карточку — описание, форматы, «Открыть маршрут». Если у карточки включена «карта сегодняшнего дня» — пока маршрут идёт, на лицевой стороне карта дня (у карточки: «Лицевая сторона» → «Увеличенная карточка маршрута»).' }),
+      switchIn(C, 'on', 'Живая обложка включена', { defTrue: true, onChange: lv }),
+      el('div', { class: 'a-row' }, [
+        imageIn(C, 'desktop', 'Своя картинка — компьютер (необязательно)', { max: 2000, size: { w: 1140, h: 1300, note: 'как увеличенная карточка — чуть выше, чем шире' }, onChange: lv, hint: 'Нет — на обложке сцена с дверями.' }),
+        imageIn(C, 'mobile', 'Своя картинка — телефон (необязательно)', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, onChange: lv })]),
+      el('p', { class: 'a-hint', text: 'Мировые слои и следы нарисованы под сцену: на своей картинке другой формы они лягут неточно. Своя картинка — лучше с выключенными «мировыми слоями» или той же формы, что сцена.' }),
+      el('div', { class: 'a-row' }, [
+        selectIn(C, 'fit', 'Как лежит на карточке', [['', 'целиком — по краям та же картинка, размыто'], ['cover', 'во всю карточку — края срезаются']], { def: '', onChange: function (v) { if (!v) delete C.fit; lv(); } }),
+        rangeIn(C, 'dim', 'Затемнение под надписями', { min: 0, max: 90, step: 5, def: 40, unit: ' %', onChange: lv })]),
+      el('div', { class: 'a-row' }, [
+        switchIn(C, 'world', 'Мировые слои состоявшихся дней', { defTrue: true, onChange: lv }),
+        switchIn(C, 'text', 'Надписи карточки поверх (название, даты, статус)', { defTrue: true })]),
+      switchIn(C, 'marks', 'Личные следы человека на обложке', { hint: 'Двери, которые человек выбрал, — со следами, как у него на странице маршрута. Берётся только с его устройства и никуда не отправляется; на другом устройстве и у других людей — без следов.' }),
+      sub('Жест дня'),
+      el('div', { class: 'a-tabs a-jd-chips' }, r.days.map(function (x, i) {
+        var G = D.days[i] && D.days[i].gesture, has = G && G.on !== false && (G.desktop || G.mobile);
+        return el('button', { type: 'button', class: i === y - 1 ? 'is-active' : '', text: (i + 1) + (has ? ' ●' : ''), onclick: function () { st.y = i + 1; st.open = true; renderMain(); } });
+      })),
+      el('div', { class: 'a-tabs' }, [['desktop', 'Компьютер'], ['mobile', 'Телефон']].map(function (x) {
+        return el('button', { type: 'button', class: key === x[0] ? 'is-active' : '', text: x[1], onclick: function () { st.v = x[0]; st.open = true; renderMain(); } });
+      })),
+      el('div', { class: 'a-jdc' }, [frame, el('div', { class: 'a-jdc-side' }, [
+        el('p', { class: 'a-hint', text: 'Предпросмотр — как в день ' + y + ': мир прошлых дней и жест этого дня. Нажатие на картинку ставит точку жеста.' }), stP,
+        g[key] ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать точку (' + (key === 'mobile' ? 'телефон' : 'компьютер') + ')', onclick: function () { delete g[key]; st.open = true; changed(); renderMain(); } }) : null])]),
+      switchIn(g, 'on', 'Жест дня ' + y + ' включён', { defTrue: true, onChange: lv }),
+      el('div', { class: 'a-row' }, [
+        selectIn(g, 'fx', 'Движение', fxList, { def: 'glow', onChange: lv, hint: 'Новые виды движения добавляются в коде (assets/doors.js, FX) и сразу появятся здесь.' }),
+        rangeIn(g, 'size', 'Размер', { min: 2, max: 80, step: 1, def: 14, unit: ' %', onChange: lv, hint: 'Поперечник круга — доля ширины картинки.' })]),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(g, 'color', 'Цвет', { none: 'тёплый свет #ffe2a0', base: '#ffe2a0', pick: '#ffe2a0', onChange: lv }),
+        rangeIn(g, 'fill', 'Заливка цветом', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: lv })]),
+      imageIn(g, 'image', 'Картинка жеста (необязательно)', { max: 1000, size: { w: 600, h: 600, note: 'PNG/WebP с прозрачностью; встанет в круг, пропорции сохранятся' }, onChange: lv }),
+      el('div', { class: 'a-row' }, [
+        rangeIn(g, 'opacity', 'Прозрачность', { min: 0, max: 100, step: 5, def: 100, unit: ' %', onChange: lv }),
+        selectIn(g, 'blend', 'Как ложится', M.BLEND, { def: '', onChange: lv })]),
+      el('div', { class: 'a-row' }, [
+        rangeIn(g, 'speed', 'Скорость', { min: 20, max: 300, step: 5, def: 100, unit: ' %', onChange: lv }),
+        rangeIn(g, 'power', 'Сила', { min: 10, max: 200, step: 5, def: 100, unit: ' %', onChange: lv }),
+        rangeIn(g, 'soft', 'Мягкий край', { min: 0, max: 40, step: 1, def: 18, onChange: lv })]),
+      el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Это движение — всем дням (точки у каждого дня свои)', onclick: function () {
+        if (!confirm('Поставить всем дням движение, размер, цвет и картинку жеста дня ' + y + '? Точки на картинках останутся свои.')) return;
+        D.days.forEach(function (Y, i) { if (i === y - 1) return; var o = clone(g); delete o.desktop; delete o.mobile; Y.gesture = Object.assign(Y.gesture || {}, o); });
+        changed(); renderMain(); toast('Движение жеста — у всех дней.'); } })])
+    ], { open: !!st.open || !!C.desktop });
+  }
   // Мир дня: слои на всю сцену, у всех одинаковые, по календарю (after — после конца дня, during — уже в течение дня)
   function jdWorld(r, y) {
     var M = window.M13D, list = M.dayCfg(r, y).world;
@@ -4466,7 +4572,8 @@
     var BH = { dayCard: 'Открывает Карту дня этого дня — ту же, что на спирали (вкладки «Карта дня» и «13 дней»). У Путешествия и Погружения внизу карты — переход к колоде.',
       deck: 'Колода вслепую: выбор карты → личная карта → стёклышко дня в узор. Только у Путешествия и Погружения (у Наблюдения кнопки нет).',
       glass: 'Стёклышко дня ложится в узор (если колода не нужна). Только у Путешествия и Погружения.',
-      final: 'Открывает финальную сцену («За дверью» → «Финал»). Например, в пространстве 13-й двери.' };
+      final: 'Открывает финальную сцену («За дверью» → «Финал»). Например, в пространстве 13-й двери.',
+      figure: 'Собирает «Мою фигуру» — сцену, мир состоявшихся дней и личные следы на выбранных дверях — в одну картинку и сохраняет её на устройство человека. Удобно в финале.' };
     return [
       el('div', { class: 'a-row' }, [
         imageIn(sp, 'desktop', 'Фон — компьютер', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' } }),
