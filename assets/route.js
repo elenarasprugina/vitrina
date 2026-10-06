@@ -489,7 +489,13 @@
       info.appendChild(el('span', 'ys-d-zone', diskName(route, z)));
       var w = diskWord(route, k, z); if (w) info.appendChild(el('b', 'ys-d-word' + (z === 'beyond' ? ' is-q' : ''), w));
       var rec = diskText(k, 'recognize', z);
-      if (rec) { var p = el('p', 'ys-d-rec'); p.appendChild(el('i', null, (tx.diskRecognize || 'Узнаю себя, если…') + ' ')); p.appendChild(tn(fill(rec, ctx || {}))); info.appendChild(p); }
+      // Описание зоны — без вводных слов (её решение 06.10): с большой буквы и с точкой; вводные слова — только если заданы в панели
+      if (rec) {
+        var p = el('p', 'ys-d-rec'), lead = String(tx.diskRecognize || '').trim(), rt = fill(rec, ctx || {}).trim();
+        if (lead) p.appendChild(el('i', null, lead + ' '));
+        else { rt = cap(rt); if (!/[.!?…»)]$/.test(rt)) rt += '.'; }
+        p.appendChild(tn(rt)); info.appendChild(p);
+      }
     }
     function light(z, on) { [].forEach.call(fig.querySelectorAll('.ys-d-z'), function (g) { g.classList.toggle('is-on', g.getAttribute('data-z') === z && on); }); fig.classList.toggle('is-try', !!on); }
     function tryZone(z) {
