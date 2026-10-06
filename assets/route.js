@@ -76,18 +76,7 @@
   // Колода-колесо: 13 карт { id, quality, axis, way (способ — в начальной форме), less: { rim, spoke }, more: { spoke, rim }, recognize, road, image }
   function cardsOf(route) { return ((route.deck || {}).cards) || []; }
   // Метки карты и откуда берётся значение. Значение ставится с маленькой буквы; {Качество} с большой — с большой.
-  // Формы качества: «чего?» ({качества}: решительности) и «ваше …» ({ваше качество}: вашу решительность). Поле карты пустое — форма угадывается по окончанию.
-  function qualityOf(k) {
-    var q = String(k.qualityOf || '').trim(); if (q) return q;
-    q = low(String(k.quality || '').trim());
-    return /ие$/i.test(q) ? q.replace(/е$/i, 'я') : /[ья]$/i.test(q) ? q.replace(/.$/, 'и') : /[гкхжшчщ]а$/i.test(q) ? q.replace(/.$/, 'и') : /а$/i.test(q) ? q.replace(/.$/, 'ы') : q;
-  }
-  function qualityYour(k) {
-    var q = String(k.qualityYour || '').trim(); if (q) return q;
-    q = low(String(k.quality || '').trim());
-    return /[оеё]$/i.test(q) ? 'ваше ' + q : /а$/i.test(q) ? 'вашу ' + q.replace(/а$/i, 'у') : /я$/i.test(q) ? 'вашу ' + q.replace(/я$/i, 'ю') : /ь$/i.test(q) ? 'вашу ' + q : 'ваш ' + q;
-  }
-  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['качества', qualityOf], ['ваше качество', qualityYour], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
+  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
     ['обод-мало', function (k) { return (k.less || {}).rim; }], ['спица-мало', function (k) { return (k.less || {}).spoke; }],
     ['спица-много', function (k) { return (k.more || {}).spoke; }], ['обод-много', function (k) { return (k.more || {}).rim; }]];
   function low(s) { s = String(s || ''); return s && s.charAt(1) !== s.charAt(1).toUpperCase() ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -430,8 +419,6 @@
     if (!k) k = { quality: 'Качество', axis: 'Качество и его противовес', less: { rim: 'обод', spoke: 'спица' }, more: { spoke: 'спица', rim: 'обод' } };
     var box = el('div', 'ys-disk' + (chosen ? ' is-chosen' : ''));
     if (k.quality) box.appendChild(el('p', 'ys-w-q', k.quality));
-    // Способ — под названием качества (в вопросы больше не подставляется)
-    if (k.way) box.appendChild(el('p', 'ys-d-way', String(k.way).trim()));
     var dq = fill(((dayOf(route, n).texts || {}).diskQuestion) || '', ctx || {}).trim();
     if (dq) box.appendChild(textNode('ys-d-q', dq));
     var fig = el('div', 'ys-d-box');
@@ -489,13 +476,7 @@
       info.appendChild(el('span', 'ys-d-zone', diskName(route, z)));
       var w = diskWord(route, k, z); if (w) info.appendChild(el('b', 'ys-d-word' + (z === 'beyond' ? ' is-q' : ''), w));
       var rec = diskText(k, 'recognize', z);
-      // Описание зоны — без вводных слов (её решение 06.10): с большой буквы и с точкой; вводные слова — только если заданы в панели
-      if (rec) {
-        var p = el('p', 'ys-d-rec'), lead = String(tx.diskRecognize || '').trim(), rt = fill(rec, ctx || {}).trim();
-        if (lead) p.appendChild(el('i', null, lead + ' '));
-        else { rt = cap(rt); if (!/[.!?…»)]$/.test(rt)) rt += '.'; }
-        p.appendChild(tn(rt)); info.appendChild(p);
-      }
+      if (rec) { var p = el('p', 'ys-d-rec'); p.appendChild(el('i', null, (tx.diskRecognize || 'Узнаю себя, если…') + ' ')); p.appendChild(tn(fill(rec, ctx || {}))); info.appendChild(p); }
     }
     function light(z, on) { [].forEach.call(fig.querySelectorAll('.ys-d-z'), function (g) { g.classList.toggle('is-on', g.getAttribute('data-z') === z && on); }); fig.classList.toggle('is-try', !!on); }
     function tryZone(z) {
@@ -710,18 +691,9 @@
     });
     var foot = el('div', 'ys-c-foot');
     // День 13: у Путешествия и Погружения — «С чем вы выходите?»; внизу — «Собрать маршрут» (финал Солнца)
-    // Двери v2: «Есть ключ? Введи ключ» — живой вход глубже (виден и в Наблюдении, чтобы человек знал, что глубже что-то есть)
-    function keyBtn() {
-      if (!o.onKey) return;
-      var k = el('button', 'ys-c-key'); k.type = 'button';
-      k.innerHTML = spiralSVG(); k.appendChild(el('span', null, o.keyText || 'Есть ключ? Введи ключ'));
-      k.addEventListener('click', function () { o.onKey(); });
-      foot.appendChild(k);
-    }
     if (fin) {
       var exit = (o.exit || []).slice(), gb;
       if (mode !== 'observation' && statesOf(route).length >= 3 && (route.final || {}).exitOn !== false) inner.appendChild(exitPicker(route, exit, function (l) { exit = l; if (gb) gb.update(l); }));
-      keyBtn();
       gb = gatherButton(route, exit, function () { if (o.onGather) o.onGather(exit); else if (o.onSpiral) o.onSpiral(); });
       foot.appendChild(gb.node);
       inner.appendChild(foot); root.appendChild(inner);
@@ -733,10 +705,9 @@
       if (url) { tr.href = url; tr.target = '_blank'; tr.rel = 'noopener'; } else tr.setAttribute('aria-disabled', 'true');
       foot.appendChild(tr);
     }
-    keyBtn();
     var sp = el('button', 'ys-spiral');
     sp.type = 'button';
-    sp.setAttribute('aria-label', o.spiralLabel || (kind === 'personal' || mode === 'observation' ? 'Вернуться на спираль' : 'Дальше — выбрать карту'));
+    sp.setAttribute('aria-label', kind === 'personal' || mode === 'observation' ? 'Вернуться на спираль' : 'Дальше — выбрать карту');
     sp.innerHTML = spiralSVG();
     sp.addEventListener('click', function () { if (o.onSpiral) o.onSpiral(); });
     foot.appendChild(sp);
@@ -1217,74 +1188,9 @@
   function q(name) { var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null; }
   // sim — день на спирали из режима проверки (0 — до начала, 14 — после конца), zonesOn — показать разметку кирпичей
   // code — личный код человека ({code, mode, seed}) или null
-  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: window.innerWidth <= 600, B: null, busy: false, code: null, plants: null,
-    tz: null, DS: null, space: null, spaceN: null };
+  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false, code: null, plants: null };
 
-  function curDay() { return S.sim != null ? S.sim : dayNumber(S.route, nowRoute()); }
-  /* ---------- Двери: часы маршрута и посещения (сцена «Двери», 06.10; assets/doors.js) ----------
-     Смена дня (route.dayClock): 'msk' — в 00:00 по Москве, 'local' — в 00:00 по часовому поясу участника; пусто — спираль по Москве, двери по участнику.
-     Пояс участника запоминается на этом устройстве при первом входе на страницу маршрута и дальше не меняется
-     (поменял пояс в поездке — дни маршрута не перескакивают). Никуда не отправляется. */
-  function isDoors(r) { return ((r || S.route || {}).scene) === 'doors'; }
-  function dayClock(r) { var c = (r || {}).dayClock; return c === 'msk' || c === 'local' ? c : isDoors(r) ? 'local' : 'msk'; }
-  function tzKey() { return 'm13ys-tz-' + S.route.id + '-' + (S.route.start || ''); }
-  function tzHere() { var z = ''; try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {} return { tz: z, off: new Date().getTimezoneOffset() }; }
-  function routeTz() {
-    if (S.tz) return S.tz;
-    var z = null;
-    try { z = JSON.parse(localStorage.getItem(tzKey()) || 'null'); } catch (e) {}
-    if (!z || typeof z !== 'object' || (z.off !== +z.off && !z.tz)) {
-      z = tzHere();
-      // Предпросмотр из панели пояс не запоминает
-      if (!S.preview) try { localStorage.setItem(tzKey(), JSON.stringify(z)); } catch (e) {}
-    }
-    return (S.tz = z);
-  }
-  function resetTz() { S.tz = null; try { localStorage.removeItem(tzKey()); } catch (e) {} }
-  // Сейчас по часам пояса как «настенные часы» (как nowMsk): Date, у которого getUTC* — время в этом поясе
-  function nowIn(z, debugNow) {
-    if (debugNow) return nowMsk(debugNow);
-    if (z && z.tz) try {
-      var P = {}, t = new Date();
-      new Intl.DateTimeFormat('en-US', { timeZone: z.tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
-        .formatToParts(t).forEach(function (x) { P[x.type] = +x.value; });
-      if (P.year && P.month && P.day) return new Date(Date.UTC(P.year, P.month - 1, P.day, (P.hour || 0) % 24, P.minute || 0));
-    } catch (e) {}
-    return new Date(Date.now() - ((z && z.off === +z.off) ? z.off : new Date().getTimezoneOffset()) * 60e3);
-  }
-  function nowRoute() { return dayClock(S.route) === 'local' ? nowIn(routeTz(), S.debugNow) : nowMsk(S.debugNow); }
-  // Двери: { "1": "v" — входили в свой день, "2": "m" — день прошёл без входа }. Только на этом устройстве, общее для всех форматов.
-  function doorKey() { return storeKey() + '-doors'; }
-  function doorLog() { try { var o = JSON.parse(localStorage.getItem(doorKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
-  function doorSave(o) { try { localStorage.setItem(doorKey(), JSON.stringify(o)); } catch (e) {} }
-  function doorVisit(n) { var o = doorLog(); if (o[n] !== 'v') { o[n] = 'v'; doorSave(o); } }
-  // Прошедшие дни без входа записываются как пропущенные (их дверь остаётся закрытой навсегда)
-  function doorSync(today) {
-    var o = doorLog(), ch = false, last = Math.min(today - 1, daysCount(S.route)), i;
-    for (i = 1; i <= last; i++) if (!o[i]) { o[i] = 'm'; ch = true; }
-    if (ch && S.sim == null && !S.preview) doorSave(o);
-  }
-  function doorState(n, today) {
-    var v = doorLog()[n] === 'v';
-    if (today < 1 || n > today) return 'future';
-    if (n === today) return v ? 'today_visited' : 'today_unvisited';
-    return v ? 'past_visited' : 'past_unvisited';
-  }
-  function resetDoors() { try { localStorage.removeItem(doorKey()); localStorage.removeItem(choiceKey()); } catch (e) {} }
-  /* Двери v2 — участник выбирает дверь (doors.doorAssignmentMode = 'userChoice'; docs/doors.md, «Решения 06.10»).
-     День → дверь запоминается на этом устройстве в момент открытия: { "1": id двери, "3": id … }. Заменить нельзя, дверь второй раз не участвует.
-     Пропущенный день — записи нет (следа нет, задним числом не выбрать). Никуда не отправляется. */
-  function isChoice(r) { return isDoors(r) && ((r || S.route).doors || {}).doorAssignmentMode === 'userChoice'; }
-  // Что открывается первым после двери: Карта дня (глубже — по ключу) или сразу пространство
-  function doorsCard(r) { return isDoors(r) && !!window.M13D && window.M13D.first(r) === 'card'; }
-  function choiceKey() { return storeKey() + '-choice'; }
-  function choiceLog() { try { var o = JSON.parse(localStorage.getItem(choiceKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
-  function choose(day, id) { var o = choiceLog(); if (o[day]) return false; o[day] = id; try { localStorage.setItem(choiceKey(), JSON.stringify(o)); } catch (e) {} return true; }
-  function doorIdOf(n) { return ((doorsCfg().items || [])[n - 1] || {}).id || ''; }
-  // В какой день выбрана дверь n (0 — свободная)
-  function dayOfDoor(n, log) { var id = doorIdOf(n), k; log = log || choiceLog(); if (!id) return 0; for (k in log) if (log[k] === id) return +k; return 0; }
-  function doorOfDay(day, log) { var id = (log || choiceLog())[day], it = doorsCfg().items || [], i; if (!id) return 0; for (i = 0; i < it.length; i++) if (it[i] && it[i].id === id) return i + 1; return 0; }
-  function ucState(n, today, log) { var d = dayOfDoor(n, log); return !d ? 'free' : d === today ? 'today' : 'past'; }
+  function curDay() { return S.sim != null ? S.sim : dayNumber(S.route, nowMsk(S.debugNow)); }
   // Какие дни на этом устройстве уже открывали (сегодняшний кирпич после нажатия светится ровно). Только для света, не для доступа.
   function storeKey() { return 'm13ys-' + S.route.id + '-' + (S.route.start || ''); }
   function openedList() { try { var l = JSON.parse(localStorage.getItem(storeKey()) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
@@ -1417,13 +1323,9 @@
     var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), onGather: function (exit) {
       // «Собрать маршрут»: состояния выхода — на устройство, дальше финал на спирали
       if (mode !== 'observation' && S.code) saveExit(S.code, exit);
-      if (isDoors(r)) { openDoorsFinal(); return; }
       var m = musicStart();
       closeLayer(); setTimeout(function () { finalScene({ music: m }); }, 300);
-    }, onKey: doorsCard(r) && !S.code ? function () { openKey(S.mode); } : null, keyText: fill((r.texts || {}).doorKey || 'Есть ключ? Введи ключ', ctxOf(r, n)),
-      spiralLabel: doorsCard(r) ? 'Дальше' : null, onSpiral: function () {
-      // Двери, сначала Карта дня: глубже — в пространстве дня за картой
-      if (doorsCard(r)) { closeLayer(); return; }
+    }, onSpiral: function () {
       if (mode === 'observation') { closeLayer(); return; }
       if (!S.code) { openKey(mode); return; }
       // Карта сегодня уже перевёрнута — сразу та же личная карта, нового выбора нет
@@ -1506,7 +1408,7 @@
     box.appendChild(el('h2', 'ys-key-t', fill(tx.glassDay || 'Стёклышко дня {день} легло в ваш узор', ctx)));
     box.appendChild(wrap);
     if (tx.glassNote !== '') box.appendChild(el('p', 'ys-key-note', fill(tx.glassNote || defText(r, 'glassNote'), ctx)));
-    var go = el('button', 'ys-key-go', tx.glassGo || (isDoors(r) ? 'Дальше' : 'На спираль')); go.type = 'button';
+    var go = el('button', 'ys-key-go', tx.glassGo || 'На спираль'); go.type = 'button';
     go.addEventListener('click', function () { closeLayer(); });
     box.appendChild(go);
     markSeen(n);
@@ -1518,38 +1420,6 @@
       kal.show(kalSeed(c), myEx(c, n - 1));
       setTimeout(function () { dropGlass(wrap, dayGlass(r, n), function () { kal.turn(kalSeed(c), null, myEx(c, Math.max(n, glassDaysOf(r, curDay())))); }); }, 350);
     });
-  }
-  /* «Как идти по маршруту» (её решение 06.10): внизу окна входа — вопросы этой волны и ссылка на общую страницу how/?r=<маршрут>.
-     Вопросы — r.howFaq [{q, a, visible}] (панель → «Страницы маршрутов» → «Как идти»): не задано — HOW_FAQ_DEF, [] — без вопросов.
-     r.howLink === false — без ссылки. Тексты общей страницы — settings.howTo (assets/how.js). */
-  var HOW_FAQ_DEF = [
-    { q: 'Ключ не подходит', a: 'Проверьте написание. У каждой волны свой ключ — ключ прошлого маршрута не подойдёт.' },
-    { q: 'Новый телефон или другой браузер', a: 'Впишите свой код (не ключ). Узор, карты и стёклышки дней вернутся. Не вернутся отметки «где я была» и подарки — они жили только на прежнем устройстве.' },
-    { q: 'Можно присоединиться, когда маршрут уже идёт?', a: 'Да. Вы начнёте с сегодняшнего дня, прошедшие дни будут считаться пройденными.' },
-    { q: 'Потеряла код', a: 'Если вы отправляли его Проводнику, он есть в переписке. Если нет — можно получить новый по ключу, но узор и карты будут другими. Восстановить код сайт не может: он его не хранит.' }
-  ];
-  function howFaqOf(r) {
-    return (Array.isArray(r.howFaq) ? r.howFaq : HOW_FAQ_DEF).filter(function (x) { return x && x.visible !== false && String(x.q || '').trim(); });
-  }
-  function howBox(r) {
-    var tx = r.texts || {}, box = el('div', 'ys-how'), faq = howFaqOf(r);
-    if (faq.length) {
-      var d = el('details', 'ys-how-faq');
-      d.appendChild(el('summary', 'ys-how-sum', tx.howFaqTitle || 'Частые вопросы'));
-      faq.forEach(function (x) {
-        var it = el('div', 'ys-how-it');
-        it.appendChild(el('p', 'ys-how-q', x.q));
-        if (String(x.a || '').trim()) it.appendChild(el('p', 'ys-how-a', x.a));
-        d.appendChild(it);
-      });
-      box.appendChild(d);
-    }
-    if (r.howLink !== false) {
-      var a = el('a', 'ys-key-alt ys-how-link', tx.howLink || 'Как идти по маршруту →');
-      a.href = S.base + 'how/?r=' + encodeURIComponent(r.id || ''); a.target = '_blank'; a.rel = 'noopener';
-      box.appendChild(a);
-    }
-    return box.childNodes.length ? box : null;
   }
   // gift — слово-подарок, которое сразу вписать («Мой код» по ссылке ?gift= или из режима проверки)
   // want = 'observation' — «Мой код» из Наблюдения: без строки формата, выход — «Остаться в Наблюдении», закрывается и щелчком мимо
@@ -1590,7 +1460,7 @@
       });
       res.appendChild(row);
       if (have) res.appendChild(giftForm(c));
-      var enter = el('button', 'ys-key-go', have ? tx.toSpiral || (isDoors(r) ? 'Дальше' : 'На спираль') : tx.enter || (isDoors(r) ? 'Войти' : 'Войти на спираль')); enter.type = 'button';
+      var enter = el('button', 'ys-key-go', have ? tx.toSpiral || 'На спираль' : tx.enter || 'Войти на спираль'); enter.type = 'button';
       enter.addEventListener('click', function () {
         if (!have) { S.mode = c.mode; setUrlMode(c.mode); }
         closeLayer(); render();
@@ -1663,7 +1533,6 @@
     });
     box.appendChild(have ? res : form); if (!have) { box.appendChild(stBox); box.appendChild(res); }
     if (have) result(S.code);
-    var hb = howBox(r); if (hb) box.appendChild(hb);
     closeLayer();
     var ov = layer(box, 'ys-layer--key', null, !have && !fromObs);
     kal = Kaleido(cv, 0, r);
@@ -2655,238 +2524,9 @@
       openDay(d, S.mode);
     });
   }
-  // Сверху: ссылка на витрину слева, «Мой код» справа — во всех форматах: есть код — узор и код ещё раз (сохранить, отправить, ввести другой);
-  // в Наблюдении без кода — окно ввода ключа или кода (из него можно остаться в Наблюдении)
-  function topLinks(page) {
-    var tx = S.route.texts || {};
-    var back = el('a', 'ys-back', tx.back || '← Вернуться на витрину');
-    back.href = S.base || '../../';
-    page.appendChild(back);
-    var obsMe = S.mode === 'observation' && !S.code;
-    var me = el('button', 'ys-me', S.code || obsMe ? tx.myCodeBtn || 'Мой код' : tx.keyBtn || 'Ввести ключ'); me.type = 'button';
-    me.addEventListener('click', function () { if (obsMe) openKey('observation'); else openKey(S.code ? S.code.mode : S.mode, true); });
-    page.appendChild(me);
-  }
-
-  /* ---------- Сцена «Двери» (route.scene === 'doors'; вид и движение — assets/doors.js, M13D) ----------
-     В день N зовёт дверь N: нажали → жест → дверь открывается → пространство дня на весь экран → «Назад к дверям».
-     До полуночи (по поясу маршрута) в сегодняшнюю дверь можно входить сколько угодно; прошедшие закрыты навсегда, но хранят след. */
-  function doorsCfg() { return S.route.doors || {}; }
-  function renderDoors() {
-    var r = S.route, app = document.getElementById('ys'), tx = r.texts || {}, D = doorsCfg(), M = window.M13D;
-    app.replaceChildren(); S.B = null; clearInterval(S.dayT);
-    if (S.plants) { S.plants.stop(); S.plants = null; }
-    var page = el('div', 'ys-page ys-page--doors'), bg = el('div', 'ys-bgwrap');
-    var P = M.pick(r, window.innerHeight / window.innerWidth > 1.25);
-    if (P.src && D.fit !== 'cover') { var blur = el('div', 'ys-dblur'); blur.style.backgroundImage = 'url("' + imgSrc(S.base, P.src) + '")'; bg.appendChild(blur); }
-    var n = curDay(), last = daysCount(r), d, uc = isChoice(r), log = uc ? choiceLog() : null, mine = uc && n >= 1 && n <= last ? doorOfDay(n, log) : 0;
-    if (S.sim == null && !uc) doorSync(n);
-    var sc = S.DS = M.scene(r, { key: P.key, base: S.base, zones: S.zonesOn, onTap: tapDoor }), free = [];
-    if (uc) {
-      // Свободная — можно выбрать, пока сегодня ещё не выбрано; сегодняшняя — входить снова; прошлая — только надпись
-      for (d = 1; d <= M.count(r); d++) {
-        var st = ucState(d, n, log), dd = dayOfDoor(d, log), ok = n >= 1 && n <= last && (st === 'today' || (st === 'free' && !mine));
-        sc.set(d, st, true, ok);
-        if (dd) { sc.mark(d, dd, true); if (D.showDayNumbers) sc.num(d, String(dd)); }
-        if (ok && st === 'free' && M.doorOf(r, d).on !== false) free.push(d);
-      }
-      if (D.call !== false) sc.call(free, { color: D.callColor, ms: D.callMs });
-    } else for (d = 1; d <= last; d++) sc.set(d, doorState(d, n), true);
-    // Мир: слои дней по календарю — у всех одинаково (after — после конца дня, during — уже в течение дня)
-    worldShow(sc, n, true);
-    bg.appendChild(sc.node); page.appendChild(bg);
-    var dim = el('div', 'ys-dim');
-    dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, D.dim == null || D.dim === '' ? 45 : +D.dim)) / 100);
-    page.appendChild(dim);
-    topLinks(page);
-    var hud = el('div', 'ys-hud'), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
-    if (n === 0) {
-      hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
-      if (tx.beforeNote) hud.appendChild(el('p', 'ys-sub', fill(tx.beforeNote, ctx)));
-    } else if (n > last) {
-      hud.appendChild(el('h1', 'ys-h', fill(tx.after || 'Маршрут пройден', ctx)));
-      if (tx.afterNote) hud.appendChild(el('p', 'ys-sub', fill(tx.afterNote, ctx)));
-    } else if (uc) {
-      hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
-      var pick = mine ? (sc.poly(mine) ? 0 : mine) : (free.filter(function (k) { return sc.poly(k); }).length ? 0 : free[0] || 0);
-      if (!pick) hud.appendChild(el('p', 'ys-tap' + (mine ? ' ys-tap--calm' : ''), fill(mine ? tx.doorAgain || 'Сегодняшняя дверь открыта до полуночи' : tx.doorChoose || 'Выберите дверь', ctx)));
-      else {
-        // У нужной двери нет контура на этой картинке — вход кнопкой
-        var gb2 = el('button', 'ys-go', tx.doorEnter || 'Войти в дверь дня'); gb2.type = 'button';
-        gb2.addEventListener('click', function () { tapDoor(pick); });
-        hud.appendChild(gb2);
-      }
-    } else {
-      hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
-      var seen = doorLog()[n] === 'v', can = !!sc.poly(n);
-      if (can) hud.appendChild(el('p', 'ys-tap' + (seen ? ' ys-tap--calm' : ''), fill(seen ? tx.doorAgain || 'Сегодняшняя дверь открыта до полуночи' : tx.doorTap || 'Коснитесь двери дня', ctx)));
-      else {
-        // Нет контура сегодняшней двери на этой картинке (или дверь выключена) — вход кнопкой
-        var go = el('button', 'ys-go', tx.doorEnter || 'Войти в дверь дня'); go.type = 'button';
-        go.addEventListener('click', function () { tapDoor(n); });
-        hud.appendChild(go);
-      }
-    }
-    if (fin && (n > last || (n === last && (uc ? !!mine : doorLog()[last] === 'v')))) {
-      var fb = el('button', 'ys-go ys-go--fin', tx.doorFinal || 'Финал'); fb.type = 'button';
-      fb.addEventListener('click', openDoorsFinal);
-      hud.appendChild(fb);
-    }
-    // «Сохранить мою фигуру» (заход «б»): после конца маршрута (или с первого следа — doors.figure = 'always'), если есть хоть один след
-    var fg = D.figure || '';
-    if (uc && fg !== 'off' && Object.keys(log).length && (fg === 'always' || n > last || (n === last && !!mine))) {
-      var sb = el('button', 'ys-go ys-go--fig', tx.figureSave || 'Сохранить мою фигуру'); sb.type = 'button';
-      sb.addEventListener('click', saveFigure);
-      hud.appendChild(sb);
-    }
-    page.appendChild(hud);
-    app.appendChild(page);
-    if (S.debug) app.appendChild(debugPanel());
-    function place() {
-      var iw = sc.img.naturalWidth || (P.tall ? 9 : 16), ih = sc.img.naturalHeight || (P.tall ? 16 : 9);
-      M.fit(sc.node, iw, ih, D.fit, window.innerWidth, window.innerHeight);
-    }
-    sc.img.addEventListener('load', place); place();
-    window.onresize = function () {
-      if (M.pick(r, window.innerHeight / window.innerWidth > 1.25).key !== P.key) { if (S.space) S.redraw = true; else render(); return; }
-      place();
-    };
-    // Человек в пространстве, а страницу перестроили (вошёл по ключу) — пространство дня собирается заново под его формат
-    if (S.space && S.spaceDay) refreshSpace();
-    // Полночь, пока страница открыта: сцена перестраивается сама (вчерашняя дверь закрывается)
-    S.doorDay = n;
-    S.dayT = setInterval(function () { if (S.sim == null && !S.space && !S.busy && curDay() !== S.doorDay) render(); }, 30000);
-  }
-  // Мировые слои: день k виден после своего дня (after) или уже в свой день (during); после конца маршрута — все
-  function worldShow(sc, n, now) {
-    var r = S.route, M = window.M13D, last = daysCount(r), k;
-    for (k = 1; k <= last; k++) {
-      var w = M.dayCfg(r, k).world || [];
-      if (w.length) sc.world(k, n > k || (n === k && w.some(function (L) { return L && L.when === 'during'; })), now);
-    }
-  }
-  function tapChoice(d) {
-    var r = S.route, tx = r.texts || {}, n = curDay(), last = daysCount(r), log = choiceLog(), st = ucState(d, n, log), ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
-    ctx['начало'] = dateOf(r, 1); ctx['конец'] = dateOf(r, last);
-    if (n < 1) { note(fill(tx.doorBefore || 'Маршрут начнётся {начало}', ctx)); return; }
-    if (n > last) { note(fill(tx.doorAfter || 'Маршрут пройден', ctx)); return; }
-    if (st === 'past') { var pd = dayOfDoor(d, log); note(fill(tx.doorPastChoice || 'День {день} · Kin {кин}', ctxOf(r, pd))); return; }
-    if (st === 'free' && doorOfDay(n, log)) { note(fill(tx.doorTomorrow || 'Новую дверь можно будет выбрать завтра', ctx)); return; }
-    if (!doorsCard(r) && S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
-    // Свободная дверь открывает сегодняшний день — выбор запоминается сразу, заменить нельзя
-    if (st === 'free') { choose(n, doorIdOf(d)); if (S.DS) S.DS.call([]); }
-    enterDoor(d, false, n);
-  }
-  /* «Моя фигура» — одна картинка: сцена + мир состоявшихся дней + личные следы (M13D.figure; собирается на устройстве, никуда не уходит).
-     Картинка — та, что сейчас на экране (компьютер или телефон). */
-  function saveFigure() {
-    var r = S.route, M = window.M13D, tx = r.texts || {};
-    if (!isChoice(r) || !Object.keys(choiceLog()).length) { note(tx.figureEmpty || 'Фигура появится, когда вы выберете первую дверь.'); return; }
-    if (S.busy) return;
-    S.busy = true;
-    M.figure(r, { key: S.DS ? S.DS.key : M.pick(r, window.innerHeight / window.innerWidth > 1.25).key, base: S.base, day: curDay(), choice: choiceLog() }, function (cv) {
-      S.busy = false;
-      // Имя файла — латиницей: не все браузеры сохраняют файл с русским именем
-      var name = '13mirrors-' + String(r.id || 'route').replace(/[^\w-]+/g, '') + '-figure.png';
-      function fail() { note('Не получилось собрать картинку на этом устройстве.'); }
-      if (!cv) { fail(); return; }
-      try {
-        cv.toBlob(function (b) {
-          if (!b) { fail(); return; }
-          var u = URL.createObjectURL(b), a = document.createElement('a');
-          a.href = u; a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 1000);
-          setTimeout(function () { URL.revokeObjectURL(u); }, 30000);
-          note(tx.figureDone || 'Ваша фигура сохранена картинкой.');
-        }, 'image/png');
-      } catch (e) { fail(); }
-    });
-  }
-  function tapDoor(d) {
-    var r = S.route, tx = r.texts || {}, n = curDay(), ctx = ctxOf(r, d), st = doorState(d, n);
-    if (S.busy || S.space) return;
-    if (isChoice(r)) { tapChoice(d); return; }
-    if (st === 'future') { if (n >= 1 || tx.doorFuture) note(fill(tx.doorFuture || 'Эта дверь откроется {дата}', ctx)); return; }
-    if (st === 'past_visited' || st === 'past_unvisited') { note(fill(st === 'past_visited' ? tx.doorPast || 'Эта дверь уже закрылась — её день прошёл' : tx.doorMissed || tx.doorPast || 'Эта дверь уже закрылась — её день прошёл', ctx)); return; }
-    if (S.mode !== 'observation' && !S.code && !doorsCard(r)) { openKey(S.mode); return; }
-    enterDoor(d);
-  }
-  // d — день (в fixed день = дверь) или 'final'
-  function spaceNode(d) {
-    var r = S.route, M = window.M13D, fin = d === 'final', n = fin ? daysCount(r) : d, tx = r.texts || {};
-    var cfg = fin ? doorsCfg().final || {} : M.spaceOf(r, d);
-    return M.space(r, cfg, { base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
-      backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, act: function (kind) { spaceAct(kind, n); },
-      empty: S.preview ? (fin ? 'Финал пока пустой — блоки добавляются в панели: «За дверью» → «Финал».' : 'Здесь пока пусто — блоки добавляются в панели: «За дверью» → ' + (isChoice(r) ? 'день ' : 'дверь ') + n + '.') : '' });
-  }
-  // Пространство уже открыто, а формат поменялся (вошли по ключу) — то же место, новое содержание
-  function refreshSpace() {
-    var old = S.space, nw = spaceNode(S.spaceDay);
-    nw.classList.add('is-in'); nw._ol = old._ol;
-    old.parentNode.replaceChild(nw, old); S.space = nw;
-  }
-  // d — дверь (0 — без двери: предпросмотр пространства дня), day — день (в fixed — тот же номер); now — сразу, без движения и без отметки «входили» (предпросмотр из панели)
-  function enterDoor(d, now, day) {
-    var r = S.route, M = window.M13D, uc = isChoice(r), door = d ? M.doorOf(r, d) : {}, sp, cfg;
-    day = day || d; sp = spaceNode(day); cfg = M.spaceOf(r, day);
-    if (!now && !uc) doorVisit(d);
-    var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
-    S.busy = true; S.space = sp; S.spaceN = d || null; S.spaceDay = day;
-    M.go(d ? S.DS : null, d || null, sp, { open: door.open, door: door, base: S.base, now: now, onCover: function () {
-      if (S.DS && d && !now) { if (uc) S.DS.set(d, 'today', false, true); else S.DS.set(d, doorState(d, curDay())); }
-    } }, function () {
-      S.busy = false;
-      // Сначала Карта дня — одна для всех форматов; глубже — по ключу, за картой
-      if (M.first(r) === 'card') { if (!now) openDay(day, S.mode); return; }
-      var a = M.autoBlocks(cfg, S.mode)[0];
-      if (a && !now) setTimeout(function () { spaceAct(a.kind, day); }, 250);
-    });
-  }
-  function openDoorsFinal() {
-    var D = doorsCfg();
-    if (S.busy) return;
-    if (!(D.final && D.final.on)) { closeLayer(); return; }
-    if (S.space) { S.space.remove(); S.space = null; }
-    closeLayer();
-    var sp = spaceNode('final');
-    S.busy = true; S.space = sp; S.spaceN = null;
-    S.spaceDay = 'final';
-    window.M13D.go(null, null, sp, { base: S.base }, function () { S.busy = false; });
-  }
-  function leaveSpace() {
-    var sp = S.space, d = S.spaceN, M = window.M13D; if (!sp || S.busy) return;
-    closeLayer();
-    S.busy = true;
-    var day = S.spaceDay;
-    M.back(S.spaceN ? S.DS : null, d, sp, { open: d ? M.doorOf(S.route, d).open : null }, function () {
-      S.busy = false; S.space = null; S.spaceN = null; S.spaceDay = null;
-      if (S.redraw || (S.sim == null && curDay() !== S.doorDay)) { S.redraw = false; render(); return; }
-      // Выбор двери: личный след дня проступает на выбранной двери, когда человек возвращается к дверям
-      if (isChoice(S.route) && d && S.DS && typeof day === 'number') { S.DS.mark(d, day, false); if (doorsCfg().showDayNumbers) S.DS.num(d, String(day)); }
-      // Подсказка над дверями: сегодняшняя уже открыта
-      var h = document.querySelector('.ys-tap.is-gone');
-      if (h && d) { putText(h, fill((S.route.texts || {}).doorAgain || 'Сегодняшняя дверь открыта до полуночи', ctxOf(S.route, d))); h.classList.add('ys-tap--calm'); h.classList.remove('is-gone'); }
-    });
-  }
-  // Подключаемые части маршрута в пространстве дня: те же Карта дня, колода, стёклышко, что и на спирали
-  function spaceAct(kind, n) {
-    var r = S.route, tx = r.texts || {};
-    if (kind === 'dayCard') openDay(n, S.mode);
-    else if (kind === 'deck') {
-      if (S.mode === 'observation') return;
-      if (!S.code) { openKey(S.mode); return; }
-      if (n >= daysCount(r)) { openDay(n, S.mode); return; }
-      if (pickedList().indexOf(n) >= 0) openPersonal(n, S.mode, cardFor(r, S.code, n)); else openFan(n, S.mode);
-    } else if (kind === 'glass') {
-      if (!S.code) { openKey(S.mode === 'observation' ? 'journey' : S.mode); return; }
-      if (n < daysCount(r) && listOf(seenKey()).indexOf(n) < 0) openGlass(n);
-      else note(fill(tx.glassSeen || 'Стёклышко дня {день} уже в вашем узоре', ctxOf(r, n)));
-    } else if (kind === 'final') openDoorsFinal();
-    else if (kind === 'figure') saveFigure();
-  }
   function render() {
-    if (isDoors(S.route) && window.M13D) { renderDoors(); return; }
     var r = S.route, app = document.getElementById('ys'), tx = r.texts || {};
-    app.replaceChildren(); S.B = null; S.DS = null; clearInterval(S.dayT);
+    app.replaceChildren(); S.B = null;
     if (S.plants) { S.plants.stop(); S.plants = null; }
     var page = el('div', 'ys-page');
     var bg = el('div', 'ys-bgwrap'), stage = el('div', 'ys-stage'), img = el('img', 'ys-master');
@@ -2899,7 +2539,15 @@
     // Светящиеся растения — поверх затемнения, чтобы светились и вверху
     if (plantsCfg(r).on !== false && M.src) { S.plants = plantsLayer(r, M.tall); page.appendChild(S.plants.node); }
 
-    topLinks(page);
+    var back = el('a', 'ys-back', tx.back || '← Вернуться на витрину');
+    back.href = S.base || '../../';
+    page.appendChild(back);
+    // «Мой код» справа сверху — во всех форматах: есть код — узор и код ещё раз (сохранить, отправить, ввести другой);
+    // в Наблюдении без кода — окно ввода ключа или кода (из него можно остаться в Наблюдении)
+    var obsMe = S.mode === 'observation' && !S.code;
+    var me = el('button', 'ys-me', S.code || obsMe ? tx.myCodeBtn || 'Мой код' : tx.keyBtn || 'Ввести ключ'); me.type = 'button';
+    me.addEventListener('click', function () { if (obsMe) openKey('observation'); else openKey(S.code ? S.code.mode : S.mode, true); });
+    page.appendChild(me);
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
     // Финал собран (день 13) — спираль уже золотая, как после конца маршрута
@@ -2961,23 +2609,21 @@
   // Режим проверки: ?debug=1 — спираль на любой день, все пройдены, центр, финал, сброс; любая карта в любом формате.
   function debugPanel() {
     var r = S.route, box = el('div', 'ys-debug' + (S.dbgMin ? ' is-min' : '')), last = daysCount(r);
-    var head = el('button', 'ys-debug-h'); head.type = 'button';
+    var head = el('button', 'ys-debug-h', 'Проверка ▾'); head.type = 'button';
     var body = el('div', 'ys-debug-b');
-    function headText() { head.textContent = S.dbgMin ? 'Проверка ▴ развернуть' : 'Проверка ▾ свернуть'; }
-    headText();
-    head.addEventListener('click', function () { S.dbgMin = !S.dbgMin; box.classList.toggle('is-min', S.dbgMin); headText(); });
+    head.addEventListener('click', function () { S.dbgMin = !S.dbgMin; box.classList.toggle('is-min', S.dbgMin); });
     function sel(opts, val) { var s = el('select'); opts.forEach(function (o) { var op = el('option', null, o[1]); op.value = o[0]; s.appendChild(op); }); s.value = val; return s; }
     function btn(t, f) { var b = el('button', null, t); b.type = 'button'; b.addEventListener('click', f); return b; }
     function row(kids) { var d = el('div', 'ys-debug-row'); kids.forEach(function (k) { d.appendChild(k); }); return d; }
-    var real = dayNumber(r, nowRoute()), now = curDay(), i, dr = isDoors(r), W = dr ? 'Двери' : 'Спираль';
-    var spOpts = [['', W + ' — как сейчас (по дате)'], ['0', W + ' — до начала']];
-    for (i = 1; i <= last; i++) spOpts.push([String(i), W + ' — день ' + i + (i === last && !dr ? ' (центр)' : '') + ' · ' + dateOf(r, i)]);
-    spOpts.push([String(last + 1), W + ' — все пройдены']);
+    var real = dayNumber(r, nowMsk(S.debugNow)), now = curDay(), i;
+    var spOpts = [['', 'Спираль — как сейчас (по дате)'], ['0', 'Спираль — до начала']];
+    for (i = 1; i <= last; i++) spOpts.push([String(i), 'Спираль — день ' + i + (i === last ? ' (центр)' : '') + ' · ' + dateOf(r, i)]);
+    spOpts.push([String(last + 1), 'Спираль — все пройдены']);
     var ss = sel(spOpts, S.sim == null ? '' : String(S.sim));
     ss.addEventListener('change', function () { S.sim = ss.value === '' ? null : +ss.value; render(); });
     var zl = el('label', 'ys-debug-chk'), zc = el('input'); zc.type = 'checkbox'; zc.checked = S.zonesOn;
     zc.addEventListener('change', function () { S.zonesOn = zc.checked; render(); });
-    zl.appendChild(zc); zl.appendChild(document.createTextNode(dr ? ' Показать контуры дверей' : ' Показать разметку кирпичей'));
+    zl.appendChild(zc); zl.appendChild(document.createTextNode(' Показать разметку кирпичей'));
     var days = []; for (i = 1; i <= last; i++) days.push([String(i), 'День ' + i + ' · ' + dateOf(r, i)]);
     var sd = sel(days, String(Math.max(1, Math.min(last, now || 1))));
     var sm = sel(MODES.map(function (m) { return [m, MODE_NAMES[m]]; }), S.mode);
@@ -2990,23 +2636,12 @@
       ' · подарки: ' + (giftList(S.code).map(function (g) { return g[0] + ' ' + zoneName(r, GIFT_ZONES[g[1]]).toLowerCase(); }).join(', ') || 'нет') +
       ' · выходят с: ' + (exitList(S.code).map(function (i) { return (statesOf(r)[i] || {}).name; }).join(' · ') || '—') + ' · финал: ' + (finDone() ? 'собран' : 'нет') : 'Кода на этом устройстве нет';
     function needCode() { if (!S.code) note('Сначала нужен код: «Код Путешествия» или «Код Погружения».'); return !!S.code; }
-    var z = dayClock(r) === 'local' ? routeTz() : null, wall = nowRoute();
-    function p2(v) { return (v < 10 ? '0' : '') + v; }
-    var clock = z ? 'Пояс маршрута на этом устройстве: ' + (z.tz || 'UTC' + (z.off > 0 ? '−' : '+') + Math.abs(z.off / 60)) + ' (запомнен при первом входе) · там сейчас ' + p2(wall.getUTCDate()) + '.' + p2(wall.getUTCMonth() + 1) + ' ' + p2(wall.getUTCHours()) + ':' + p2(wall.getUTCMinutes()) : 'Сейчас по Москве';
-    var log = doorLog(), ucl = isChoice(r) ? choiceLog() : null, doorsInfo = !dr ? '' : ucl ? 'Выбор дверей (день → дверь): ' + (Object.keys(ucl).sort(function (a, b) { return a - b; }).map(function (k) { var x = doorOfDay(+k, ucl); return k + ' → ' + (x ? x + ((doorsCfg().items[x - 1] || {}).title ? ' «' + doorsCfg().items[x - 1].title + '»' : '') : 'дверь удалена'); }).join(', ') || 'ещё ни одной') :
-      'Двери: ' + (Object.keys(log).sort(function (a, b) { return a - b; }).map(function (k) { return k + (log[k] === 'v' ? ' входили' : ' пропущена'); }).join(', ') || 'ещё ни в одну не входили');
-    [el('span', null, clock + (S.debugNow ? ' · подмена: ' + S.debugNow : '') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
-      ss, zl].concat(dr ? [
-      el('span', 'ys-debug-sep', 'Двери'),
-      el('span', null, doorsInfo),
-      row([btn('Пространство дня', function () { if (S.space) { S.space.remove(); S.space = null; } S.busy = false; if (isChoice(r)) enterDoor(0, true, +sd.value); else enterDoor(+sd.value, true); }), btn('Финальная сцена', function () { var D = doorsCfg(); if (!(D.final && D.final.on)) { note('Финальная сцена выключена: панель → «За дверью» → «Финал».'); return; } S.busy = false; openDoorsFinal(); })]),
-      isChoice(r) ? row([btn('Моя фигура — сохранить картинкой', function () { S.busy = false; saveFigure(); })]) : null,
-      row([btn('Забыть пояс', function () { resetTz(); render(); note('Пояс забыт: на этом устройстве снова запомнится текущий — ' + (tzHere().tz || 'по часам устройства') + '.'); }),
-        btn('Сброс дверей', function () { resetDoors(); S.sim = null; render(); note(isChoice(r) ? 'Сброшено: ни одна дверь не выбрана, следов нет.' : 'Сброшено: ни в одну дверь не входили, сегодняшняя снова зовёт.'); })])] : []).concat([
+    [el('span', null, 'Сейчас по Москве: ' + (S.debugNow ? S.debugNow + ' (подмена)' : 'настоящее время') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
+      ss, zl,
       el('span', 'ys-debug-sep', 'Финал · ' + wordsOf(r).name),
       // «Карта дня 13» сама ставит спираль на 13-й день (после «Сброса» дата может быть до начала маршрута)
       row([btn('Карта дня 13', function () { closeLayer(); if (FIN) FIN.kill(); if (curDay() !== last) { S.sim = last; render(); } openDay(last, S.mode); }), btn('Финал сразу', function () { var m = musicStart(); closeLayer(); finalScene({ music: m }); })]),
-      row([btn('Последний кадр', function () { closeLayer(); finalScene({ instant: true }); }), btn('Сброс', function () { if (FIN) FIN.kill(); resetOpened(); resetPicks(); resetGlass(); resetDoors(); S.sim = null; render(); note(dr ? 'Сброшено: двери по настоящей дате, ни в одну не входили, карты снова закрыты, отметок на диске, подарков и финала нет.' : 'Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, отметок на диске, подарков и финала нет.'); })]),
+      row([btn('Последний кадр', function () { closeLayer(); finalScene({ instant: true }); }), btn('Сброс', function () { if (FIN) FIN.kill(); resetOpened(); resetPicks(); resetGlass(); S.sim = null; render(); note('Сброшено: спираль по настоящей дате, сегодняшний кирпич снова зовёт, карты снова закрыты, отметок на диске, подарков и финала нет.'); })]),
       el('span', 'ys-debug-sep', 'Код и колода'),
       el('span', null, cinfo),
       row([btn('Код Путешествия', function () { testCode('journey'); }), btn('Код Погружения', function () { testCode('immersion'); })]),
@@ -3028,14 +2663,13 @@
         try { localStorage.setItem(pickKey(), JSON.stringify(l)); } catch (e) {}
         openFan(+sd.value, sm.value);
       })
-    ]).forEach(function (x) { if (x) body.appendChild(x); });
+    ].forEach(function (x) { body.appendChild(x); });
     box.appendChild(head); box.appendChild(body);
     return box;
   }
   // Формат: Наблюдение — всем; Путешествие и Погружение — по коду (код сам определяет формат). Кода нет — сначала вход по ключу.
   function useRoute(route) {
-    if (isDoors(route) && !window.M13D) { loadDoors(function () { useRoute(route); }); return; }
-    S.route = route; S.tz = null;
+    S.route = route;
     S.code = loadCode();
     var m = q('mode'), gate = false;
     if (m === 'observation') S.mode = m;
@@ -3050,29 +2684,16 @@
     if (S.preview && !q('card') && S.sim === daysCount(route)) try { localStorage.setItem(storeKey(), JSON.stringify(openedList().filter(function (d) { return d !== S.sim; }))); } catch (e) {}
     render();
     var c = q('card'), n = +q('day') || 1, last = daysCount(route);
-    if (isDoors(route) && q('door')) { var qd = Math.max(1, Math.min(last, +q('door') || 1)); if (q('door') === 'final') openDoorsFinal(); else if (isChoice(route)) enterDoor(0, true, qd); else enterDoor(qd, true); }
-    else if (c === 'final') openDay(last, S.mode);
-    else if (c === 'finalnow') { if (isDoors(route)) openDoorsFinal(); else finalScene({ instant: q('instant') === '1' }); }
+    if (c === 'final') openDay(last, S.mode);
+    else if (c === 'finalnow') finalScene({ instant: q('instant') === '1' });
     else if (c === 'day') openDay(n, S.mode);
     else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? cardFor(route, S.code, n) : cardsOf(route)[+q('perm') || 0]);
     else if (c === 'fan' && S.code) openFan(n, S.mode);
     else if (q('gift') && S.code) openKey(S.code.mode, true, q('gift'));
-    // Двери, сначала Карта дня: ключ не нужен, чтобы войти, — без кода человек в Наблюдении, ключ — на Карте дня
-    else if (gate && doorsCard(route)) { S.mode = 'observation'; render(); }
     else if (gate) openKey(m);
     // После конца маршрута страница открывается сразу на последнем кадре финала
-    else if (curDay() > last && !isDoors(route)) finalScene({ instant: true });
+    else if (curDay() > last) finalScene({ instant: true });
     if (q('gift') && !S.code) setTimeout(function () { note((route.texts || {}).giftNeed || 'Чтобы положить подарок в узор, сначала войдите своим кодом.'); }, 600);
-  }
-  // Сцена «Двери» — отдельный файл, грузится только у маршрутов с дверями
-  // Вместе со стилями сцены (assets/doors.css): маршрут рисуется, когда пришло и то и другое (иначе слои на миг видны без стилей)
-  function loadDoors(done) {
-    var base = (S.base || '../../') + 'assets/doors.', v = '?v=' + (window.M13RV || ''), left = 2;
-    function one() { if (!--left) done(); }
-    function fail() { var app = document.getElementById('ys'); if (app) app.replaceChildren(el('p', 'ys-err', 'Не удалось загрузить маршрут. Обновите страницу через минуту.')); }
-    var ln = document.createElement('link'); ln.rel = 'stylesheet'; ln.href = base + 'css' + v; ln.onload = one; ln.onerror = one;
-    var sc = document.createElement('script'); sc.src = base + 'js' + v; sc.onload = one; sc.onerror = fail;
-    document.head.appendChild(ln); document.head.appendChild(sc);
   }
   function boot() {
     var app = document.getElementById('ys'); if (!app) return;
@@ -3102,12 +2723,12 @@
     });
   }
 
-  window.M13R = { putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
+  window.M13R = { card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
     diskName: diskName, diskAreas: diskAreas, diskPlaceholder: diskPlaceholder, diskHit: diskHit, diskMarked: diskMarked, diskWord: diskWord, markGlass: markGlass, CARD_TOKENS: CARD_TOKENS, spiralButton: gatherButton, plantsLayer: plantsLayer, PLANTS: PLANTS, PLANT_FIGS: PLANT_FIGS,
-    GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift, HOW_FAQ_DEF: HOW_FAQ_DEF };
+    GIFT_ZONES: GIFT_ZONES, GLASS_DEF: GLASS_DEF, hexRgb: hexRgb, glassLook: glassLook, dayGlass: dayGlass, giftGlass: giftGlass, glassDaysOf: glassDaysOf, makeGift: makeGift, readGift: readGift };
 })();
