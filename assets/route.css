@@ -186,6 +186,7 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 .ys-wheel.has-img{width:min(260px,74%);aspect-ratio:3/4;border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,214,140,.45),0 0 40px rgba(255,190,70,.3)}
 .ys-w-img{display:block;width:100%;height:100%;object-fit:cover}
 .ys-w-q{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(24px,6.6vw,30px);line-height:1.1;letter-spacing:.07em;text-transform:uppercase;color:#fff0c4;text-shadow:0 0 18px rgba(255,200,80,.5)}
+.ys-d-way{margin:6px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:clamp(17px,4.6vw,20px);line-height:1.25;color:rgba(255,240,196,.82)}
 .ys-w-box{position:relative;width:100%;aspect-ratio:1;container-type:inline-size;border-radius:18px;overflow:hidden;
   background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 41.5%,rgba(120,116,150,.16) 43%,rgba(70,64,92,.32) 62%,rgba(28,24,40,.5) 80%),linear-gradient(135deg,rgba(190,190,220,.08),rgba(0,0,0,0) 40%,rgba(190,190,220,.06))}
 .ys-w-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -384,10 +385,12 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 /* ---------- Подсказка внизу и режим проверки ---------- */
 .ys-toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));z-index:40;transform:translate(-50%,-12px);max-width:min(420px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:rgba(20,12,4,.92);color:#f6ead2;font-size:14.5px;line-height:1.4;text-align:center;box-shadow:0 0 0 1px rgba(255,214,140,.3),0 10px 30px rgba(0,0,0,.5);opacity:0;transition:opacity .3s,transform .3s}
 .ys-toast.is-in{opacity:1;transform:translate(-50%,0)}
-.ys-debug{position:fixed;right:12px;bottom:12px;z-index:30;width:min(300px,calc(100% - 24px));background:rgba(255,255,255,.95);color:#222;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:13px}
-.ys-debug-h{display:block;width:100%;text-align:left;font:inherit;font-weight:700;background:none;border:0;padding:9px 12px;cursor:pointer}
+.ys-debug{position:fixed;right:12px;bottom:12px;z-index:30;width:min(300px,calc(100% - 24px));display:flex;flex-direction:column;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);background:rgba(255,255,255,.95);color:#222;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-size:13px}
+.ys-debug-h{flex:none;display:block;width:100%;text-align:left;font:inherit;font-weight:700;background:none;border:0;padding:9px 12px;cursor:pointer}
 .ys-debug.is-min .ys-debug-b{display:none}
-.ys-debug-b{display:grid;gap:7px;padding:0 12px 12px}
+.ys-debug-b{display:grid;gap:7px;padding:0 12px 12px;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* телефон: окно проверки не выше половины экрана — сцена видна, заголовок «свернуть» всегда на месте, остальное листается внутри */
+@media (max-width:600px){.ys-debug{max-height:55vh;max-height:55dvh}}
 .ys-debug-b select,.ys-debug-b button{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid #ccc;background:#fff}
 .ys-debug-b button{cursor:pointer;background:#2a1a05;color:#fff;border-color:#2a1a05}
 .ys-debug-row{display:grid;grid-template-columns:1fr 1fr;gap:7px}

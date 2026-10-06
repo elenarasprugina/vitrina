@@ -76,7 +76,18 @@
   // Колода-колесо: 13 карт { id, quality, axis, way (способ — в начальной форме), less: { rim, spoke }, more: { spoke, rim }, recognize, road, image }
   function cardsOf(route) { return ((route.deck || {}).cards) || []; }
   // Метки карты и откуда берётся значение. Значение ставится с маленькой буквы; {Качество} с большой — с большой.
-  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
+  // Формы качества: «чего?» ({качества}: решительности) и «ваше …» ({ваше качество}: вашу решительность). Поле карты пустое — форма угадывается по окончанию.
+  function qualityOf(k) {
+    var q = String(k.qualityOf || '').trim(); if (q) return q;
+    q = low(String(k.quality || '').trim());
+    return /ие$/i.test(q) ? q.replace(/е$/i, 'я') : /[ья]$/i.test(q) ? q.replace(/.$/, 'и') : /[гкхжшчщ]а$/i.test(q) ? q.replace(/.$/, 'и') : /а$/i.test(q) ? q.replace(/.$/, 'ы') : q;
+  }
+  function qualityYour(k) {
+    var q = String(k.qualityYour || '').trim(); if (q) return q;
+    q = low(String(k.quality || '').trim());
+    return /[оеё]$/i.test(q) ? 'ваше ' + q : /а$/i.test(q) ? 'вашу ' + q.replace(/а$/i, 'у') : /я$/i.test(q) ? 'вашу ' + q.replace(/я$/i, 'ю') : /ь$/i.test(q) ? 'вашу ' + q : 'ваш ' + q;
+  }
+  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['качества', qualityOf], ['ваше качество', qualityYour], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
     ['обод-мало', function (k) { return (k.less || {}).rim; }], ['спица-мало', function (k) { return (k.less || {}).spoke; }],
     ['спица-много', function (k) { return (k.more || {}).spoke; }], ['обод-много', function (k) { return (k.more || {}).rim; }]];
   function low(s) { s = String(s || ''); return s && s.charAt(1) !== s.charAt(1).toUpperCase() ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -419,6 +430,8 @@
     if (!k) k = { quality: 'Качество', axis: 'Качество и его противовес', less: { rim: 'обод', spoke: 'спица' }, more: { spoke: 'спица', rim: 'обод' } };
     var box = el('div', 'ys-disk' + (chosen ? ' is-chosen' : ''));
     if (k.quality) box.appendChild(el('p', 'ys-w-q', k.quality));
+    // Способ — под названием качества (в вопросы больше не подставляется)
+    if (k.way) box.appendChild(el('p', 'ys-d-way', String(k.way).trim()));
     var dq = fill(((dayOf(route, n).texts || {}).diskQuestion) || '', ctx || {}).trim();
     if (dq) box.appendChild(textNode('ys-d-q', dq));
     var fig = el('div', 'ys-d-box');
@@ -476,7 +489,13 @@
       info.appendChild(el('span', 'ys-d-zone', diskName(route, z)));
       var w = diskWord(route, k, z); if (w) info.appendChild(el('b', 'ys-d-word' + (z === 'beyond' ? ' is-q' : ''), w));
       var rec = diskText(k, 'recognize', z);
-      if (rec) { var p = el('p', 'ys-d-rec'); p.appendChild(el('i', null, (tx.diskRecognize || 'Узнаю себя, если…') + ' ')); p.appendChild(tn(fill(rec, ctx || {}))); info.appendChild(p); }
+      // Описание зоны — без вводных слов (её решение 06.10): с большой буквы и с точкой; вводные слова — только если заданы в панели
+      if (rec) {
+        var p = el('p', 'ys-d-rec'), lead = String(tx.diskRecognize || '').trim(), rt = fill(rec, ctx || {}).trim();
+        if (lead) p.appendChild(el('i', null, lead + ' '));
+        else { rt = cap(rt); if (!/[.!?…»)]$/.test(rt)) rt += '.'; }
+        p.appendChild(tn(rt)); info.appendChild(p);
+      }
     }
     function light(z, on) { [].forEach.call(fig.querySelectorAll('.ys-d-z'), function (g) { g.classList.toggle('is-on', g.getAttribute('data-z') === z && on); }); fig.classList.toggle('is-try', !!on); }
     function tryZone(z) {
@@ -1198,7 +1217,7 @@
   function q(name) { var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null; }
   // sim — день на спирали из режима проверки (0 — до начала, 14 — после конца), zonesOn — показать разметку кирпичей
   // code — личный код человека ({code, mode, seed}) или null
-  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false, code: null, plants: null,
+  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: window.innerWidth <= 600, B: null, busy: false, code: null, plants: null,
     tz: null, DS: null, space: null, spaceN: null };
 
   function curDay() { return S.sim != null ? S.sim : dayNumber(S.route, nowRoute()); }
@@ -2909,9 +2928,11 @@
   // Режим проверки: ?debug=1 — спираль на любой день, все пройдены, центр, финал, сброс; любая карта в любом формате.
   function debugPanel() {
     var r = S.route, box = el('div', 'ys-debug' + (S.dbgMin ? ' is-min' : '')), last = daysCount(r);
-    var head = el('button', 'ys-debug-h', 'Проверка ▾'); head.type = 'button';
+    var head = el('button', 'ys-debug-h'); head.type = 'button';
     var body = el('div', 'ys-debug-b');
-    head.addEventListener('click', function () { S.dbgMin = !S.dbgMin; box.classList.toggle('is-min', S.dbgMin); });
+    function headText() { head.textContent = S.dbgMin ? 'Проверка ▴ развернуть' : 'Проверка ▾ свернуть'; }
+    headText();
+    head.addEventListener('click', function () { S.dbgMin = !S.dbgMin; box.classList.toggle('is-min', S.dbgMin); headText(); });
     function sel(opts, val) { var s = el('select'); opts.forEach(function (o) { var op = el('option', null, o[1]); op.value = o[0]; s.appendChild(op); }); s.value = val; return s; }
     function btn(t, f) { var b = el('button', null, t); b.type = 'button'; b.addEventListener('click', f); return b; }
     function row(kids) { var d = el('div', 'ys-debug-row'); kids.forEach(function (k) { d.appendChild(k); }); return d; }
