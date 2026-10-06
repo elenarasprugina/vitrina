@@ -112,11 +112,12 @@ body.m13-locked{overflow:hidden}
   background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--m13-ixc,#fff);
   cursor:pointer;display:grid;place-items:center;padding:0;line-height:1;transition:background .2s}
 .m13-close:hover,.m13-unflip:hover{background:rgba(0,0,0,.45)}
-.m13-close{right:12px;font-size:24px}
+.m13-close{right:12px;font-size:20px;box-shadow:0 0 10px 1px var(--m13-ixg,rgba(255,255,255,.45)),inset 0 0 8px var(--m13-ixg,rgba(255,255,255,.3));
+  text-shadow:0 0 6px var(--m13-ixg,rgba(255,255,255,.6))}
 .m13-unflip{right:58px;font-size:17px;display:none}
 .m13-big-card.is-flipped ~ .m13-unflip{display:grid}
 .m13-ic-square .m13-close,.m13-ic-square .m13-unflip{border-radius:10px}
-.m13-ic-bare .m13-close,.m13-ic-bare .m13-unflip{background:transparent;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
+.m13-ic-bare .m13-close,.m13-ic-bare .m13-unflip{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
 .m13-ic-bare .m13-close{font-size:30px}.m13-ic-bare .m13-unflip{font-size:21px}
 .m13-back .m13-head{padding-right:96px}
 /* Чтобы верхние надписи не уходили под значок ✕ */
@@ -314,7 +315,7 @@ body.m13-locked{overflow:hidden}
   .m13-item-text,.m13-item-meta,.m13-item-action{font-size:8.5px}.m13-item-price{font-size:11px}
   .m13-items--one .m13-item-price{font-size:14px}
   .m13-close,.m13-unflip{width:34px;height:34px;top:9px}
-  .m13-close{font-size:22px;right:9px}
+  .m13-close{font-size:18px;right:9px}
   .m13-unflip{right:50px;font-size:15px}
   .m13-back .m13-head{padding-right:84px}
 
@@ -1611,3 +1612,5 @@ body.m13-locked{overflow:hidden}
   .m13-prog-row{grid-template-columns:56px minmax(0,1fr)}
   .m13-prog-who{grid-column:2;text-align:left;margin-top:-6px}
 }
+/* Enter в надписях окон (заполняются через textContent) — перенос строки виден */
+#m13-modal-e,#m13-modal-t,#m13-modal-l,#m13-modal-m,#m13-modal-h,#m13-cal-e,#m13-cal-t,#m13-cal-h,#m13-lb-cap{white-space:pre-line}
