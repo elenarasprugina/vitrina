@@ -2435,7 +2435,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261006g';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261006h';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -2514,6 +2514,7 @@
     r.id = f.id; r.routeId = f.routeId || ''; r.title = f.title; r.path = 'routes/' + f.id + '/'; r.start = f.start; r.kind = f.kind;
     r.visible = false; r.autoPage = true; r._from = src ? src.id : '';
     r.keys = {}; r._keys = {}; r.trace = {};
+    r.review = r.review || {}; r.review.questions = REVIEW_Q.map(function (t, i) { return { id: 'q' + (i + 1), text: t }; });
     r.days = []; for (var i = 0; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, cardOperation: '', environment: '', texts: {} });
     if (r.deck) {
       r.deck.cards = (r.deck.cards || []).map(function (k) { return { id: k.id, quality: '', axis: '', way: '', less: {}, more: {}, recognize: {}, road: {} }; });
@@ -2649,6 +2650,9 @@
   /* ---------- «Как идти по маршруту» и окно отзыва (её план 06.10) ----------
      r.howto — страница routes/<id>/kak/ (тексты разделов, ссылка на карточке, фраза для Telegram); r.review — вопросы окна отзыва.
      Как рисуется — M13R.howtoNode / openReview в assets/route.js. */
+  // Вопросы отзыва для нового маршрута (её набор 06.10); у Солнца ещё вопросы для тестировщиков — только в его данных
+  var REVIEW_Q = ['Ваши общие впечатления от маршрута — своими словами.', 'Какой день или карта откликнулись сильнее всего — и чем?',
+    'Что вы заметили в себе за эти дни? Что-то изменилось?', 'Было ли где-то непонятно или неудобно?', 'Кому бы вы посоветовали этот маршрут?', 'Что бы вы изменили или добавили?'];
   function jHowto(r) {
     var H = r.howto = r.howto || {}, V = r.review = r.review || {}, M = window.M13R;
     H.sections = H.sections || []; V.questions = V.questions || [];
@@ -2702,6 +2706,12 @@
       textIn(V, 'lead', 'Пояснение над вопросами', { multi: true, rows: 2, ph: 'Пишите как есть, коротко или подробно — любой ответ поможет. Можно ответить не на все вопросы. Недописанное сохранится на этом устройстве.', hint: '«-» — без пояснения.' }),
       sub('Вопросы'),
       questions,
+      sub('Согласие на публикацию'),
+      el('p', { class: 'a-hint', text: 'Галочка под вопросами. Человек ставит её сам (сама не стоит). В текст отзыва попадает одна из двух строк ниже — так согласие остаётся у вас в переписке. Сайт его не хранит.' }),
+      switchIn(V.consent = V.consent || {}, 'on', 'Галочка согласия', { defTrue: true }),
+      textIn(V.consent, 'label', 'Надпись у галочки', { ph: 'Можно опубликовать мой отзыв без имени' }),
+      textIn(V.consent, 'note', 'Пояснение под ней', { ph: 'Опубликую без имени и ника, в разделе «Отзывы».', hint: '«-» — без пояснения.' }),
+      el('div', { class: 'a-row' }, [textIn(V.consent, 'yes', 'В отзыве, если галочка стоит', { ph: '✓ Согласие: можно опубликовать без имени' }), textIn(V.consent, 'no', 'Если не стоит', { ph: 'Только для Проводника, не для публикации' })]),
       el('div', { class: 'a-row' }, [textIn(V, 'btn', 'Кнопка отправки', { ph: 'Отправить в Telegram' }), textIn(V, 'head', 'Первая строка отзыва', { ph: 'Отзыв о маршруте «{маршрут}»', hint: '«-» — без неё.' })]),
       textIn(V, 'done', 'Подсказка после нажатия', { multi: true, rows: 2, ph: 'Текст отзыва скопирован. В открывшемся чате Telegram вставьте его в сообщение и отправьте.' }),
       textIn(V, 'note', 'Строка внизу окна', { multi: true, rows: 2, ph: 'Сайт ничего не отправляет и не хранит: ответы видны только вам, пока вы сами не отправите их. Ваш код в отзыв не попадает.' }),

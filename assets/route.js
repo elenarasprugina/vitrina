@@ -2632,7 +2632,7 @@
      кружок «?» вверху страницы маршрута, ссылка на карточке витрины. sub — подраздел (заголовок меньше); frame — раздел в рамке (вместе с подразделами до следующего раздела).
      Разметка текста (панель): пустая строка — новый абзац, Enter — новая строка, **жирное**, строки «1. …» — нумерованный список, «• …» или «- …» — список,
      [слова](Название раздела) — ссылка на раздел этой страницы, [слова](https://…) — на другой сайт.
-     route.review = { on, title, lead, ph, head, btn, copyOnly, done, tg, questions: [{ id, text }] } — окно «Оставить отзыв» (кнопка ✎ вверху и в финале).
+     route.review = { on, title, lead, ph, head, btn, copyOnly, done, tg, questions: [{ id, text }], consent: { on, label, note, yes, no } } — окно «Оставить отзыв» (кнопка ✎ вверху и в финале).
      Ответы — только на этом устройстве (localStorage, недописанное сохраняется); «Отправить в Telegram» копирует «вопрос + ответ» и открывает её чат.
      Сайт ничего не отправляет; код участника в отзыв не кладётся. */
   function howtoOf(r) {
@@ -2730,10 +2730,13 @@
     });
   }
   function reviewKey() { return 'm13ys-review-' + S.route.id + '-' + (S.route.start || ''); }
-  function reviewText(r, v, qs, ans) {
-    var head = fill(v.head == null || v.head === '' ? 'Отзыв о маршруте «{маршрут}»' : v.head, { 'маршрут': r.title || '' });
+  // ok — галочка согласия (true / false); undefined — галочки нет (route.review.consent.on === false)
+  function reviewText(r, v, qs, ans, ok) {
+    var head = fill(v.head == null || v.head === '' ? 'Отзыв о маршруте «{маршрут}»' : v.head, { 'маршрут': r.title || '' }), C = v.consent || {};
     var parts = qs.map(function (x, i) { var a = String(ans[i] || '').trim(); return a ? (qs.length > 1 ? (i + 1) + '. ' : '') + untag(x.text).trim() + '\n' + a : ''; }).filter(Boolean);
-    return parts.length ? (head && head !== '-' ? head + '\n\n' : '') + parts.join('\n\n') : '';
+    if (!parts.length) return '';
+    if (ok != null) parts.push(ok ? C.yes || '✓ Согласие: можно опубликовать без имени' : C.no || 'Только для Проводника, не для публикации');
+    return (head && head !== '-' ? head + '\n\n' : '') + parts.join('\n\n');
   }
   function openReview() {
     var r = S.route, v = reviewOf(r); if (!v) return;
@@ -2754,11 +2757,21 @@
       requestAnimationFrame(fit);
     });
     box.appendChild(form);
+    // Согласие на публикацию без имени — галочку ставит сам человек (по умолчанию не стоит); попадает в текст отзыва, сайт его не хранит
+    var C = v.consent || {}, ok = null;
+    if (C.on !== false) {
+      var cl = el('label', 'ys-rv-ok');
+      ok = el('input'); ok.type = 'checkbox'; ok.checked = !!saved._ok;
+      ok.addEventListener('change', function () { if (ok.checked) saved._ok = 1; else delete saved._ok; store(); });
+      cl.appendChild(ok); cl.appendChild(el('span', null, C.label || 'Можно опубликовать мой отзыв без имени'));
+      box.appendChild(cl);
+      if (C.note !== '-') box.appendChild(el('p', 'ys-rv-oknote', C.note || 'Опубликую без имени и ника, в разделе «Отзывы».'));
+    }
     var send = el('a', 'ys-key-go ys-rv-go', copyOnly ? v.copyBtn || 'Скопировать отзыв' : v.btn || 'Отправить в Telegram');
     if (!copyOnly) { send.href = tg; send.target = '_blank'; send.rel = 'noopener'; } else { send.href = '#'; send.setAttribute('role', 'button'); }
     var done = el('div', 'ys-rv-done'), err = el('p', 'ys-key-err');
     send.addEventListener('click', function (e) {
-      var msg = reviewText(r, v, qs, areas.map(function (t) { return t.value; }));
+      var msg = reviewText(r, v, qs, areas.map(function (t) { return t.value; }), ok ? ok.checked : undefined);
       putText(err, '');
       if (!msg) { e.preventDefault(); putText(err, v.empty || 'Напишите ответ хотя бы на один вопрос.'); return; }
       if (copyOnly) e.preventDefault();

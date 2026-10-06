@@ -318,6 +318,9 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-rv-qt{font-size:16.5px;line-height:1.4;color:#fff3d6}
 .ys-rv-a{box-sizing:border-box;width:100%;min-height:58px;resize:vertical;font:inherit;font-size:16px;line-height:1.45;color:#fff3d6;background:rgba(255,236,190,.07);border:1px solid rgba(255,214,140,.35);border-radius:12px;padding:9px 12px;outline:none}
 .ys-rv-a:focus{border-color:#ffd76a;box-shadow:0 0 0 3px rgba(255,207,90,.22)}
+.ys-rv-ok{display:flex;align-items:flex-start;gap:10px;margin:2px 0 0;font-size:16px;line-height:1.4;color:#fff3d6;cursor:pointer}
+.ys-rv-ok input{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:#e9c77e;cursor:pointer}
+.ys-rv-oknote{margin:-4px 0 4px 30px;font-size:13.5px;line-height:1.45;color:rgba(246,234,210,.7)}
 .ys-rv-go{align-self:center;text-decoration:none;text-align:center}
 .ys-rv .ys-key-err,.ys-rv .ys-key-note,.ys-rv-done{text-align:center}
 .ys-rv .ys-key-alt{align-self:center}
