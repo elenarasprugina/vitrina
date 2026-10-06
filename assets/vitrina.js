@@ -1147,6 +1147,13 @@
     // Маршрут идёт — карта сегодняшнего дня; закончился — финальный ролик
     var live = liveOf(c);
     if (live && live.kind === 'day') { front.classList.add('m13-front--day'); stage.classList.add('m13-st-day'); front.innerHTML = dayFrontHTML(live) + sty.lay;
+      // Край картинки дня (её выбор 07.10, панель → карточка → «Увеличенная карточка маршрута»): f.dayEdge '' — мягкий, уходит в тёмный цвет карточки |
+      // 'strong' — тает в прозрачность (сквозь край видна картинка карточки) | 'hard' — ровный; f.dayEdgeH — высота перехода, % картинки (обычно 22);
+      // f.dayBg 'dark' — под картой дня ровный тёмный фон вместо картинки карточки
+      var de = { hard: 1, strong: 1 }[f.dayEdge] ? f.dayEdge : 'soft', dh = parseFloat(f.dayEdgeH);
+      front.classList.add('m13-dce-' + de);
+      front.style.setProperty('--m13-dce', (isNaN(dh) ? 22 : Math.max(5, Math.min(70, dh))) + '%');
+      if (f.dayBg === 'dark') front.style.backgroundImage = '';
       (function (box) {
         function fit() { if (document.documentElement.contains(box)) dcFit(stage, box); }
         dcMore(box); fit(); [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', fit); });
