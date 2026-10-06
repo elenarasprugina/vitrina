@@ -139,10 +139,17 @@ body.m13-locked{overflow:hidden}
 
 .m13-big-stage.m13-st-day[style*="height"]{transform:none}  /* выросла под текст дня — ровно по центру, не уезжает вверх */
 .m13-dc > :first-child:not(.m13-dc-img){margin-top:24px}
-.m13-dc-img{position:relative;margin:0 -24px 14px;aspect-ratio:16/9;overflow:hidden;background:#140c05;
-  /* Низ картинки дня тает в карточку, без жёсткой границы (её замечание 07.10; как у карты дня на странице маршрута) */
-  -webkit-mask-image:linear-gradient(180deg,#000 58%,rgba(0,0,0,.55) 80%,transparent);mask-image:linear-gradient(180deg,#000 58%,rgba(0,0,0,.55) 80%,transparent)}
-.m13-dc-img + *{margin-top:-30px;position:relative}
+.m13-dc-img{position:relative;margin:0 -24px 14px;aspect-ratio:16/9;overflow:hidden;background:#140c05}
+/* Край картинки дня (её выбор 07.10, панель): мягкий (обычно) — низ уходит в тёмный цвет карточки, сквозь него ничего не просвечивает;
+   сильно тающий — в прозрачность; ровный — без перехода. --m13-dce — высота перехода (% картинки). Текст остаётся на месте. */
+/* Мягкий: тень ложится на низ картинки и плавно заходит на фон под ней (60px) — шва нет ни сверху, ни снизу.
+   Для этого рамка картинки не обрезает (overflow виден), а размытую подложку обрезает clip-path (она увеличена в 1,2 раза: 1/12 = 8,33 %) */
+.m13-dce-soft .m13-dc-img{overflow:visible}
+.m13-dce-soft .m13-dc-img img.m13-dc-bg{clip-path:inset(8.34%)}
+.m13-dce-soft .m13-dc-img ~ *{position:relative}
+.m13-dce-soft .m13-dc-img::after{content:"";position:absolute;left:0;right:0;top:calc(100% - var(--m13-dce,22%));height:calc(var(--m13-dce,22%) + 60px);pointer-events:none;
+  background:linear-gradient(180deg,rgba(17,12,7,0),rgba(17,12,7,.6) calc(100% - 100px),rgba(17,12,7,.92) calc(100% - 60px),rgba(17,12,7,0))}
+.m13-dce-strong .m13-dc-img{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - var(--m13-dce,22%)),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - var(--m13-dce,22%)),transparent)}
 /* Картинка дня всегда целиком (квадратная не обрезается сверху и снизу); по бокам — та же картинка, размытая */
 .m13-dc-img img{position:relative;display:block;width:100%;height:100%;object-fit:contain}
 .m13-dc-img img.m13-dc-bg{position:absolute;inset:0;object-fit:cover;filter:blur(20px) brightness(.85);transform:scale(1.2)}
