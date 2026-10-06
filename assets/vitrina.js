@@ -689,7 +689,7 @@
   }
   /* ---------- Увеличенная карточка маршрута: карта сегодняшнего дня и финальный ролик (её решение 04.10.2026) ----------
      Пока маршрут идёт и у него есть страница по дням (journeys, тот же routeId) — на лицевой стороне увеличенной карточки
-     карта сегодняшнего дня, как её видит Наблюдение на странице маршрута (те же блоки и выключатели; день по Москве).
+     карта сегодняшнего дня, как её видит Наблюдение на странице маршрута (те же блоки и выключатели; день — как на странице маршрута, routeToday).
      После последнего дня — финальный ролик маршрута (routes[].finalVideo): играет сам при каждом открытии, ближе к концу
      проявляются надписи (finalText1/2) и логотип (finalLogo). У карточки можно выключить: front.dayShow / front.finalShow = false. */
   var MON_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -697,15 +697,30 @@
     if (window.M13_TODAY) return parseDate(window.M13_TODAY);
     var n = new Date(Date.now() + 3 * 3600e3); return new Date(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
   }
+  /* День маршрута — как его считает страница маршрута (06.10, двери v2): у маршрутов с дверями (или «по часовому поясу участника») —
+     по поясу, который страница маршрута запомнила на этом устройстве (m13ys-tz-…; только читаем, никуда не отправляется), нет его — по часам устройства;
+     у спирали — по Москве, как было. */
+  function routeToday(j) {
+    var c = j && j.dayClock;
+    if (window.M13_TODAY || !j || !(c === 'local' || (!c && j.scene === 'doors'))) return mskToday();
+    var z = null, t = new Date(), P = {};
+    try { z = JSON.parse(localStorage.getItem('m13ys-tz-' + j.id + '-' + (j.start || '')) || 'null'); } catch (e) {}
+    if (z && z.tz) try {
+      new Intl.DateTimeFormat('en-US', { timeZone: z.tz, year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(t).forEach(function (x) { P[x.type] = +x.value; });
+      if (P.year && P.month && P.day) return new Date(P.year, P.month - 1, P.day);
+    } catch (e) {}
+    if (z && z.off === +z.off) { var u = new Date(t.getTime() - z.off * 60e3); return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()); }
+    return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  }
   function journeyOf(rid) {
     return (((S.D.journeys || {}).items) || []).filter(function (j) { return j && j.routeId === rid && (j.days || []).length; })[0] || null;
   }
   function liveOf(c) {
     var f = (c && c.front) || {}, rid = c && c.back && c.back.routeId, r = rid ? routeById(rid) : null;
     if (!r) return null;
-    var now = mskToday(), to = parseDate((r.dates || {}).to);
+    var j0 = journeyOf(rid), now = routeToday(j0), to = parseDate((r.dates || {}).to);
     if (to && now > to) return f.finalShow !== false && r.finalVideo ? { kind: 'final', r: r } : null;
-    var j = f.dayShow !== false ? journeyOf(rid) : null, from = j && parseDate(j.start);
+    var j = f.dayShow !== false ? j0 : null, from = j && parseDate(j.start);
     if (!from) return null;
     var n = Math.round((now - from) / 864e5) + 1;
     return n >= 1 && n <= j.days.length ? { kind: 'day', r: r, j: j, n: n } : null;
