@@ -76,7 +76,18 @@
   // Колода-колесо: 13 карт { id, quality, axis, way (способ — в начальной форме), less: { rim, spoke }, more: { spoke, rim }, recognize, road, image }
   function cardsOf(route) { return ((route.deck || {}).cards) || []; }
   // Метки карты и откуда берётся значение. Значение ставится с маленькой буквы; {Качество} с большой — с большой.
-  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
+  // Формы качества: «чего?» ({качества}: решительности) и «ваше …» ({ваше качество}: вашу решительность). Поле карты пустое — форма угадывается по окончанию.
+  function qualityOf(k) {
+    var q = String(k.qualityOf || '').trim(); if (q) return q;
+    q = low(String(k.quality || '').trim());
+    return /ие$/i.test(q) ? q.replace(/е$/i, 'я') : /[ья]$/i.test(q) ? q.replace(/.$/, 'и') : /[гкхжшчщ]а$/i.test(q) ? q.replace(/.$/, 'и') : /а$/i.test(q) ? q.replace(/.$/, 'ы') : q;
+  }
+  function qualityYour(k) {
+    var q = String(k.qualityYour || '').trim(); if (q) return q;
+    q = low(String(k.quality || '').trim());
+    return /[оеё]$/i.test(q) ? 'ваше ' + q : /а$/i.test(q) ? 'вашу ' + q.replace(/а$/i, 'у') : /я$/i.test(q) ? 'вашу ' + q.replace(/я$/i, 'ю') : /ь$/i.test(q) ? 'вашу ' + q : 'ваш ' + q;
+  }
+  var CARD_TOKENS = [['качество', function (k) { return k.quality; }], ['качества', qualityOf], ['ваше качество', qualityYour], ['ось', function (k) { return k.axis; }], ['способ', function (k) { return k.way; }],
     ['обод-мало', function (k) { return (k.less || {}).rim; }], ['спица-мало', function (k) { return (k.less || {}).spoke; }],
     ['спица-много', function (k) { return (k.more || {}).spoke; }], ['обод-много', function (k) { return (k.more || {}).rim; }]];
   function low(s) { s = String(s || ''); return s && s.charAt(1) !== s.charAt(1).toUpperCase() ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
@@ -419,6 +430,8 @@
     if (!k) k = { quality: 'Качество', axis: 'Качество и его противовес', less: { rim: 'обод', spoke: 'спица' }, more: { spoke: 'спица', rim: 'обод' } };
     var box = el('div', 'ys-disk' + (chosen ? ' is-chosen' : ''));
     if (k.quality) box.appendChild(el('p', 'ys-w-q', k.quality));
+    // Способ — под названием качества (в вопросы больше не подставляется)
+    if (k.way) box.appendChild(el('p', 'ys-d-way', String(k.way).trim()));
     var dq = fill(((dayOf(route, n).texts || {}).diskQuestion) || '', ctx || {}).trim();
     if (dq) box.appendChild(textNode('ys-d-q', dq));
     var fig = el('div', 'ys-d-box');

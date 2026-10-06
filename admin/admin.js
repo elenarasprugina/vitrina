@@ -2425,7 +2425,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261006d';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261006e';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3063,7 +3063,9 @@
     ].concat(D.cards.map(function (k, i) {
       return block((i + 1) + '. ' + (k.quality || 'Без названия'), [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('div', { class: 'a-row' }, [textIn(k, 'quality', 'Качество — {качество}', { ph: 'Решительность' }), textIn(k, 'axis', zn('center') + ' — {ось}', { ph: 'Решительность и терпение', hint: 'Качество вместе с противовесом.' })]),
-        textIn(k, 'way', 'Способ — {способ}', { ph: 'делать выбор и действовать', hint: 'В начальной форме, с маленькой буквы: подставляется в вопрос к диску («…жизнь попросила вас {способ}»).' }),
+        el('div', { class: 'a-row' }, [textIn(k, 'qualityOf', 'Чего? — {качества}', { ph: window.M13R ? window.M13R.CARD_TOKENS[1][1]({ quality: k.quality }) : '', hint: 'Пусто — угадывается по названию (серым). «…понадобилось немного {качества}».' }),
+          textIn(k, 'qualityYour', 'Ваше… — {ваше качество}', { ph: window.M13R ? window.M13R.CARD_TOKENS[2][1]({ quality: k.quality }) : '', hint: 'Пусто — угадывается (серым). «…другие видели {ваше качество}».' })]),
+        textIn(k, 'way', 'Способ — {способ}', { ph: 'делать выбор и действовать', hint: 'Показывается на карте под названием качества; в шаблоны дня можно подставить меткой {способ} (в начальной форме, с маленькой буквы).' }),
         el('div', { class: 'a-row' }, [textIn(k.less, 'spoke', zn('flatDown') + ' — {спица-мало}', { ph: 'Колебания' }), textIn(k.less, 'rim', zn('edgeDown') + ' — {обод-мало}', { ph: 'Пассивность' })]),
         el('div', { class: 'a-row' }, [textIn(k.more, 'spoke', zn('flatUp') + ' — {спица-много}', { ph: 'Торопливость' }), textIn(k.more, 'rim', zn('edgeUp') + ' — {обод-много}', { ph: 'Напористость' })]),
         imageIn(k, 'image', 'Лицо карты — картинка (необязательно)', { max: 1400, size: { w: 900, h: 1200, note: 'вертикальная, ровно 3:4' }, hint: 'Лицо перевёрнутой карты в круге выбора: если загрузить — вместо слова над маленьким диском.' })]

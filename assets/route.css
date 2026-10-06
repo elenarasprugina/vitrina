@@ -186,6 +186,7 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 .ys-wheel.has-img{width:min(260px,74%);aspect-ratio:3/4;border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,214,140,.45),0 0 40px rgba(255,190,70,.3)}
 .ys-w-img{display:block;width:100%;height:100%;object-fit:cover}
 .ys-w-q{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:clamp(24px,6.6vw,30px);line-height:1.1;letter-spacing:.07em;text-transform:uppercase;color:#fff0c4;text-shadow:0 0 18px rgba(255,200,80,.5)}
+.ys-d-way{margin:6px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:clamp(17px,4.6vw,20px);line-height:1.25;color:rgba(255,240,196,.82)}
 .ys-w-box{position:relative;width:100%;aspect-ratio:1;container-type:inline-size;border-radius:18px;overflow:hidden;
   background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 41.5%,rgba(120,116,150,.16) 43%,rgba(70,64,92,.32) 62%,rgba(28,24,40,.5) 80%),linear-gradient(135deg,rgba(190,190,220,.08),rgba(0,0,0,0) 40%,rgba(190,190,220,.06))}
 .ys-w-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
