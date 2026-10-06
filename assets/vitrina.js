@@ -121,7 +121,7 @@
     }).catch(function (e) {
       console.error(e);
       var msg = (S.D && T('loadError')) || 'Не удалось загрузить витрину. Попробуйте обновить страницу.';
-      el.innerHTML = '<div class="m13-loading">' + esc(msg) + '</div>';
+      el.innerHTML = '<div class="m13-loading">' + txt(msg) + '</div>';
     });
   };
 
@@ -205,7 +205,7 @@
     if (kind === 'glass') css.push('--ev-bg:' + (col && lum(hexRgb(col)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)'));
     if (kind === 'fill') { var bg = col || '#232323'; css.push('--ev-c:' + bg, '--ev-ink:' + inkFor(bg)); }
     return '<a class="m13-evlink m13-evlink--' + kind + (hd.evSize === 'm' ? '' : ' m13-evlink--l') + (hd.evColor ? ' m13-evlink--own' : '') + '"' +
-      (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + ' href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + esc(T('eventsLink') || 'События и архив') + ' →</a>';
+      (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + ' href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + txt(T('eventsLink') || 'События и архив') + ' →</a>';
   }
   function renderShowcase() {
     var sc = S.D.showcase;
@@ -237,15 +237,15 @@
     var topText = String(hd.topText || '').trim() || [st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ');
     var tType = typeCss('', hd.topWeight, hd.topItalic);
     var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap m13-logo-wrap--' + (hd.topSize === 's' || hd.topSize === 'l' ? hd.topSize : 'm') + '">' + logoHTML(hd) + '</h2>'
-      : top === 'none' ? '' : '<div class="m13-kicker"' + (tType.length ? ' style="' + tType.join(';') + '"' : '') + '><span class="m13-gt">' + esc(topText) + '</span></div>';
+      : top === 'none' ? '' : '<div class="m13-kicker"' + (tType.length ? ' style="' + tType.join(';') + '"' : '') + '><span class="m13-gt">' + txt(topText) + '</span></div>';
     var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') + bgWait(bg) : '') + '" style="' + esc(rs.join(';')) + '">';
 
-    var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + esc(T('draft') || 'черновик') + '</span>' : '';
+    var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
     var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
     var html = root + '<main class="m13-page' + (foot ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
-      (hd.hideTitle ? '<h1 class="m13-sr">' + esc(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
-        : '<h1><span class="m13-gt">' + esc(sc.title) + '</span>' + draft + '</h1>') +
+      (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
+        : '<h1><span class="m13-gt">' + txt(sc.title) + '</span>' + draft + '</h1>') +
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
@@ -322,7 +322,7 @@
       (logo ? '<a class="m13-foot-logo" href="' + esc(S.base + '../') + '" aria-label="13 MIRRORS — на главную">' + logoHTML(hd) + '</a>' : '') +
       (text ? '<div class="m13-foot-text' + (ta ? ' m13-al-' + ta : '') + '"' + (ty.length ? ' style="' + ty.join(';') + '"' : '') + '>' +
         (star === 'before' || star === 'both' ? starHTML(hd, 'b') : '') +
-        '<span class="m13-gt">' + esc(String(hd.bottomText || '').trim() || 'Увидимся за поворотом') + '</span>' +
+        '<span class="m13-gt">' + txt(String(hd.bottomText || '').trim() || 'Увидимся за поворотом') + '</span>' +
         (star === 'after' || star === 'both' ? starHTML(hd, 'a') : '') + '</div>' : '') + '</footer>';
   }
   /* ---------- Блики: приветственный при открытии и по подписи ----------
@@ -685,11 +685,11 @@
   function statusHTML(c, cls) {
     var st = statusOf(c); if (!st) return '';
     var pill = ((c.front || {}).statusStyle === 'pill');
-    return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + esc(st) + '</span>' : esc(st)) + '</div>';
+    return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + txt(st) + '</span>' : txt(st)) + '</div>';
   }
   /* ---------- Увеличенная карточка маршрута: карта сегодняшнего дня и финальный ролик (её решение 04.10.2026) ----------
      Пока маршрут идёт и у него есть страница по дням (journeys, тот же routeId) — на лицевой стороне увеличенной карточки
-     карта сегодняшнего дня, как её видит Наблюдение на странице маршрута (те же блоки и выключатели; день по Москве).
+     карта сегодняшнего дня, как её видит Наблюдение на странице маршрута (те же блоки и выключатели; день — как на странице маршрута, routeToday).
      После последнего дня — финальный ролик маршрута (routes[].finalVideo): играет сам при каждом открытии, ближе к концу
      проявляются надписи (finalText1/2) и логотип (finalLogo). У карточки можно выключить: front.dayShow / front.finalShow = false. */
   var MON_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -697,18 +697,89 @@
     if (window.M13_TODAY) return parseDate(window.M13_TODAY);
     var n = new Date(Date.now() + 3 * 3600e3); return new Date(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
   }
+  /* День маршрута — как его считает страница маршрута (06.10, двери v2): у маршрутов с дверями (или «по часовому поясу участника») —
+     по поясу, который страница маршрута запомнила на этом устройстве (m13ys-tz-…; только читаем, никуда не отправляется), нет его — по часам устройства;
+     у спирали — по Москве, как было. */
+  function routeToday(j) {
+    var c = j && j.dayClock;
+    if (window.M13_TODAY || !j || !(c === 'local' || (!c && j.scene === 'doors'))) return mskToday();
+    var z = null, t = new Date(), P = {};
+    try { z = JSON.parse(localStorage.getItem('m13ys-tz-' + j.id + '-' + (j.start || '')) || 'null'); } catch (e) {}
+    if (z && z.tz) try {
+      new Intl.DateTimeFormat('en-US', { timeZone: z.tz, year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(t).forEach(function (x) { P[x.type] = +x.value; });
+      if (P.year && P.month && P.day) return new Date(P.year, P.month - 1, P.day);
+    } catch (e) {}
+    if (z && z.off === +z.off) { var u = new Date(t.getTime() - z.off * 60e3); return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()); }
+    return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  }
   function journeyOf(rid) {
     return (((S.D.journeys || {}).items) || []).filter(function (j) { return j && j.routeId === rid && (j.days || []).length; })[0] || null;
+  }
+  /* Живая обложка (двери v2, заход «б», 06.10): у маршрута со сценой «Двери» и включённой обложкой (journeys[].doors.cover.on, у карточки front.coverShow) —
+     до начала, пока идёт (если карта дня на карточке выключена — front.dayShow) и после конца (если нет финального ролика) на лицевой стороне
+     увеличенной карточки — сцена маршрута или своя картинка, мировые слои состоявшихся дней и жест сегодняшнего дня. */
+  function coverOf(c, j, now) {
+    var f = (c && c.front) || {}, D = (j && j.scene === 'doors' && j.doors) || null, C = (D && D.cover) || {};
+    if (!D || C.on === false || f.coverShow === false || !(C.desktop || C.mobile || D.desktop || D.mobile)) return null;
+    var from = parseDate(j.start), n = from ? Math.round((now - from) / 864e5) + 1 : 0;
+    return { kind: 'cover', j: j, n: Math.max(0, Math.min(j.days.length + 1, n)) };
   }
   function liveOf(c) {
     var f = (c && c.front) || {}, rid = c && c.back && c.back.routeId, r = rid ? routeById(rid) : null;
     if (!r) return null;
-    var now = mskToday(), to = parseDate((r.dates || {}).to);
-    if (to && now > to) return f.finalShow !== false && r.finalVideo ? { kind: 'final', r: r } : null;
-    var j = f.dayShow !== false ? journeyOf(rid) : null, from = j && parseDate(j.start);
-    if (!from) return null;
+    var j0 = journeyOf(rid), now = routeToday(j0), to = parseDate((r.dates || {}).to), cv = coverOf(c, j0, now);
+    if (to && now > to) return f.finalShow !== false && r.finalVideo ? { kind: 'final', r: r } : cv;
+    var j = f.dayShow !== false ? j0 : null, from = j && parseDate(j.start);
+    if (!from) return cv;
     var n = Math.round((now - from) / 864e5) + 1;
-    return n >= 1 && n <= j.days.length ? { kind: 'day', r: r, j: j, n: n } : null;
+    return n >= 1 && n <= j.days.length ? { kind: 'day', r: r, j: j, n: n } : cv;
+  }
+  // Сцена «Двери» — отдельные файлы (assets/doors.js, doors.css); витрина грузит их, только когда открыли карточку с живой обложкой
+  var VV = ((document.currentScript && /[?&]v=([^&#]+)/.exec(document.currentScript.src)) || [])[1] || '';
+  function needDoors(done) {
+    if (window.M13D) { done(); return; }
+    if (S.doorsQ) { S.doorsQ.push(done); return; }
+    S.doorsQ = [done];
+    var left = 2, base = S.base + 'assets/doors.', v = VV ? '?v=' + VV : '';
+    function one() { if (--left) return; var q = S.doorsQ; S.doorsQ = null; if (window.M13D) q.forEach(function (f) { f(); }); }
+    var ln = document.createElement('link'); ln.rel = 'stylesheet'; ln.href = base + 'css' + v; ln.onload = ln.onerror = one;
+    var sc = document.createElement('script'); sc.src = base + 'js' + v; sc.onload = sc.onerror = one;
+    document.head.appendChild(ln); document.head.appendChild(sc);
+  }
+  // Что человек выбрал и куда входил — то, что страница маршрута запомнила на этом устройстве (только читаем; никуда не отправляется)
+  function routeLocal(j, what) {
+    try { var o = JSON.parse(localStorage.getItem('m13ys-' + j.id + '-' + (j.start || '') + '-' + what) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
+  }
+  function coverPaint(front, lv) {
+    var j = lv.j, C = j.doors.cover || {};
+    var box = document.createElement('div'); box.className = 'm13-cover'; box.setAttribute('aria-hidden', 'true');
+    front.insertBefore(box, front.firstChild);
+    if (C.text === false) [].forEach.call(front.querySelectorAll(':scope > div:not(.m13-cover):not(.m13-flip-hint)'), function (n) { n.remove(); });
+    needDoors(function () {
+      if (!box.isConnected) return;
+      var M = window.M13D, sc = null, key = '';
+      function build() {
+        var tall = front.clientHeight / Math.max(1, front.clientWidth) > 1.25, P = M.pick({ doors: { desktop: M.coverPic(j, 'desktop'), mobile: M.coverPic(j, 'mobile') } }, tall);
+        if (sc && P.key === key) return;
+        key = P.key; box.replaceChildren();
+        if (C.fit !== 'cover' && P.src) { var bl = document.createElement('div'); bl.className = 'ys-dblur'; bl.style.backgroundImage = 'url("' + media(P.src) + '")'; box.appendChild(bl); }
+        sc = M.cover(j, { key: key, base: S.base, day: lv.n, choice: C.marks ? routeLocal(j, 'choice') : {}, visits: C.marks ? routeLocal(j, 'doors') : {} });
+        box.appendChild(sc.node);
+        var dim = document.createElement('i'); dim.className = 'm13-cover-dim';
+        dim.style.opacity = Math.max(0, Math.min(90, C.dim == null || C.dim === '' ? 40 : +C.dim)) / 100;
+        box.appendChild(dim);
+        sc.img.addEventListener('load', place); place();
+      }
+      function place() {
+        if (!sc || !box.isConnected) return;
+        var t = key === 'mobile', iw = sc.img.naturalWidth || (t ? 9 : 16), ih = sc.img.naturalHeight || (t ? 16 : 9);
+        M.fit(sc.node, iw, ih, C.fit === 'cover' ? 'cover' : '', box.clientWidth, box.clientHeight);
+      }
+      build();
+      requestAnimationFrame(function () { build(); place(); });
+      if (!S.coverResize) { S.coverResize = true; window.addEventListener('resize', function () { if (S.coverFit) S.coverFit(); }); }
+      S.coverFit = function () { if (box.isConnected) { build(); place(); } };
+    });
   }
   // Метки в текстах дня ({день}, {кин}, {имя кина}…) — как на странице маршрута; метки выравнивания строк ({по центру}…) убираются
   function jFill(tpl, ctx) {
@@ -737,13 +808,13 @@
       if (b.kind !== 'text' && b.kind !== 'question') return;   // колесо, диск — только на странице маршрута
       t = jFill((d.texts || {})[b.id], ctx); if (!t) return;
       tt = jFill((d.texts || {})[b.id + 'Title'], ctx);
-      out += '<div class="m13-dc-' + b.kind + '">' + (b.label ? '<div class="m13-dc-label">' + esc(b.label) + '</div>' : '') +
+      out += '<div class="m13-dc-' + b.kind + '">' + (b.label ? '<div class="m13-dc-label">' + txt(b.label) + '</div>' : '') +
         (tt ? '<div class="m13-dc-sub">' + txt(tt) + '</div>' : '') + '<div class="m13-dc-body">' + paras(t) + '</div></div>';
     });
     var url = j.path ? S.base + j.path : lv.r.routeUrl || '';
     return '<div class="m13-dc">' + out + '</div><div class="m13-dc-foot">' +
-      (url ? '<a class="m13-dc-go" href="' + esc(url) + '">' + esc(T('openRoute') || 'Открыть маршрут') + ' →</a>' : '') +
-      '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div></div>';
+      (url ? '<a class="m13-dc-go" href="' + esc(url) + '">' + txt(T('openRoute') || 'Открыть маршрут') + ' →</a>' : '') +
+      '<div class="m13-flip-hint">' + txt(T('flipHint') || 'Нажать — открыть оборот') + '</div></div>';
   }
   // Карта дня: полосы прокрутки нет; если текст не поместился — низ мягко тает, пока не долистали
   function dcMore(box) {
@@ -799,7 +870,7 @@
   }
   function iconVars(st, r) {
     var hue = [st.glowColor, st.accent, r && r.color, st.rimColor].filter(function (x) { return /^#[0-9a-f]{6}$/i.test(x || ''); })[0];
-    return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#ffffff', .5) + ';--m13-ixc:' + mixHex(hue, '#ffffff', .85) : '';
+    return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#ffffff', .5) + ';--m13-ixc:' + mixHex(hue, '#ffffff', .85) + ';--m13-ixg:' + mixHex(hue, '#ffffff', .25) : '';
   }
 
   // Цвет текста на акцентной кнопке: белый на тёмном акценте, почти чёрный на светлом.
@@ -978,21 +1049,21 @@
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
     var text = '<div class="m13-thumb-text">' +
-      (f.eyebrow ? '<div class="m13-mini-type">' + esc(f.eyebrow) + '</div>' : '') +
-      (f.title ? '<div class="m13-mini-title">' + esc(f.title) + '</div>' : '') +
-      (sub ? '<div class="m13-mini-date">' + esc(sub) + '</div>' : '') +
+      (f.eyebrow ? '<div class="m13-mini-type">' + txt(f.eyebrow) + '</div>' : '') +
+      (f.title ? '<div class="m13-mini-title">' + txt(f.title) + '</div>' : '') +
+      (sub ? '<div class="m13-mini-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
     if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + sty.lay + '</div>');
     return breathWrap(sty, '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
-      '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + esc(foot) + '</span>' : '') +
-      '<span class="m13-mini-cta">' + esc(T('open') || 'открыть') + '</span></div>' + sty.lay + '</button>');
+      '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + txt(foot) + '</span>' : '') +
+      '<span class="m13-mini-cta">' + txt(T('open') || 'открыть') + '</span></div>' + sty.lay + '</button>');
   }
 
   /* ---------- Увеличенная карточка ---------- */
   function overlayHTML() {
     return '<div class="m13-overlay" id="m13-overlay" role="dialog" aria-modal="true">' +
       '<div class="m13-big-stage">' +
-      '<button type="button" class="m13-close" id="m13-close" aria-label="Закрыть">×</button>' +
+      '<button type="button" class="m13-close" id="m13-close" aria-label="Закрыть" title="Закрыть"></button>' +
       '<div class="m13-big-card" id="m13-bigcard">' +
       '<div class="m13-face m13-front" id="m13-front"></div>' +
       '<div class="m13-face m13-back"><div class="m13-content" id="m13-backc"></div></div>' +
@@ -1047,6 +1118,10 @@
     stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-st-day');
     var ish = ((S.D.showcase && S.D.showcase.cardStyle) || {}).iconShape;
     if (ish === 'square' || ish === 'bare') stage.classList.add('m13-ic-' + ish);
+    // Внутри кнопки «закрыть»: ничего (светящийся кружок) | ✦ | ✓ | × — панель, «Значки»
+    var cm = ((S.D.showcase && S.D.showcase.cardStyle) || {}).closeMark;
+    if (ish === 'bare' && (!cm || cm === 'none')) cm = 'star';
+    S.root.querySelector('#m13-close').textContent = { star: '✦', check: '✓', cross: '×' }[cm] || '';
     stage.setAttribute('style', '');
     var cr = c.back && c.back.routeId ? routeById(c.back.routeId) : null;
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
@@ -1054,11 +1129,11 @@
     if (sty.st.glow === 'live' && TEMPO[sty.st.glowTempo]) stage.classList.add(TEMPO[sty.st.glowTempo]);
     var sub = opt(f.subtitle);
     front.innerHTML = '<div>' +
-      (f.eyebrow ? '<div class="m13-hero-type">' + esc(f.eyebrow) + '</div>' : '') +
-      (f.title ? '<div class="m13-hero-title">' + esc(f.title) + '</div>' : '') +
-      (sub ? '<div class="m13-hero-date">' + esc(sub) + '</div>' : '') +
+      (f.eyebrow ? '<div class="m13-hero-type">' + txt(f.eyebrow) + '</div>' : '') +
+      (f.title ? '<div class="m13-hero-title">' + txt(f.title) + '</div>' : '') +
+      (sub ? '<div class="m13-hero-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-hero-status') +
-      '</div><div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + sty.lay;
+      '</div><div class="m13-flip-hint">' + txt(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + sty.lay;
     // Маршрут идёт — карта сегодняшнего дня; закончился — финальный ролик
     var live = liveOf(c);
     if (live && live.kind === 'day') { front.classList.add('m13-front--day'); stage.classList.add('m13-st-day'); front.innerHTML = dayFrontHTML(live) + sty.lay;
@@ -1076,9 +1151,10 @@
         if (!S.dcResize) { S.dcResize = true; window.addEventListener('resize', function () { var st = S.root.querySelector('.m13-big-stage'); dcFit(st, st.querySelector('.m13-front--day .m13-dc')); }); }
       })(front.querySelector('.m13-dc'));
     }
+    if (live && live.kind === 'cover') { front.classList.add('m13-front--cover'); front.style.backgroundImage = ''; coverPaint(front, live); }
     if (live && live.kind === 'final') {
       front.classList.add('m13-front--film'); front.style.backgroundImage = '';
-      front.innerHTML = filmHTML(live.r) + '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
+      front.innerHTML = filmHTML(live.r) + '<div class="m13-flip-hint">' + txt(T('flipHint') || 'Нажать — открыть оборот') + '</div>';
       filmsStart(front);
     }
     [].forEach.call(front.querySelectorAll('.m13-dc-go'), function (a) { a.addEventListener('click', function (e) { e.stopPropagation(); }); });
@@ -1278,23 +1354,23 @@
   // Лицевая сторона карточки-календаря: мини-календарь (рисуется сам) или своя картинка и надписи (face: 'image')
   function calMiniHTML(c) {
     var cal = c.monthCal || {}, M = calModel(cal);
-    return '<div' + calLook(cal, 'm13-calmini') + ' aria-hidden="true"><div class="m13-calmini-t">' + esc(cal.title || M13.calMonthName(M.ym)) + '</div>' + calGridHTML(M, true) + '</div>';
+    return '<div' + calLook(cal, 'm13-calmini') + ' aria-hidden="true"><div class="m13-calmini-t">' + txt(cal.title || M13.calMonthName(M.ym)) + '</div>' + calGridHTML(M, true) + '</div>';
   }
   function calHTML(c) {
     var cal = c.monthCal || {}, M = calModel(cal), ym = M.ym;
     var hasM = Object.keys(M.days).some(function (k) { return M.days[k].meets.length; });
     var hasS = Object.keys(M.days).some(function (k) { return M.days[k].special.length; });
     // Пояснения под сеткой: маршруты — столбиком (на телефоне в два столбца), под ними — встречи и особые дни одной строкой
-    var lgR = M.routes.map(function (r) { return '<span class="m13-lg-r"><span class="m13-cal-bars"><i class="m13-s m13-e" style="--c:' + esc(r.color) + '"></i></span><span>' + esc(r.title) + '</span></span>'; }).join('');
-    var lgM = (hasM ? '<span class="m13-cal-meet"><b class="m13-cal-n">8</b><span>' + esc(cal.meetLabel || 'Встречи') + '</span></span>' : '') +
-      (hasS ? '<span class="m13-cal-spec"><b class="m13-cal-n">4</b><span>' + esc(cal.specialLabel || 'Особые дни') + '</span></span>' : '');
+    var lgR = M.routes.map(function (r) { return '<span class="m13-lg-r"><span class="m13-cal-bars"><i class="m13-s m13-e" style="--c:' + esc(r.color) + '"></i></span><span>' + txt(r.title) + '</span></span>'; }).join('');
+    var lgM = (hasM ? '<span class="m13-cal-meet"><b class="m13-cal-n">8</b><span>' + txt(cal.meetLabel || 'Встречи') + '</span></span>' : '') +
+      (hasS ? '<span class="m13-cal-spec"><b class="m13-cal-n">4</b><span>' + txt(cal.specialLabel || 'Особые дни') + '</span></span>' : '');
     var legend = (lgR ? '<div class="m13-lg-routes">' + lgR + '</div>' : '') + (lgM ? '<div class="m13-lg-marks">' + lgM + '</div>' : '');
-    var free = M.free.length ? '<div class="m13-cal-free"><span class="m13-cal-free-l">' + esc(cal.freeLabel || 'Когда удобно — по договорённости:') + '</span>' +
-      M.free.map(function (x) { return '<button type="button" class="m13-cal-chip" data-to="' + esc(x.id) + '">' + esc((x.front || {}).title || '') + '</button>'; }).join('') + '</div>' : '';
+    var free = M.free.length ? '<div class="m13-cal-free"><span class="m13-cal-free-l">' + txt(cal.freeLabel || 'Когда удобно — по договорённости:') + '</span>' +
+      M.free.map(function (x) { return '<button type="button" class="m13-cal-chip" data-to="' + esc(x.id) + '">' + txt((x.front || {}).title || '') + '</button>'; }).join('') + '</div>' : '';
     var hint = cal.hint || (calSnow(cal) ? 'Нажмите на число — снежинки покажут, что в этот день.' : 'Нажмите на число — звёзды покажут, что в этот день.');
     return '<div' + calLook(cal, 'm13-cal') + '>' +
-      '<div class="m13-cal-head"><div class="m13-eyebrow">' + esc(cal.eyebrow || 'Календарь') + '</div>' +
-      '<h3>' + esc(cal.title || M13.calMonthName(ym)) + '</h3>' + (cal.noHint ? '' : '<div class="m13-cal-hint">' + esc(hint) + '</div>') + '</div>' +
+      '<div class="m13-cal-head"><div class="m13-eyebrow">' + txt(cal.eyebrow || 'Календарь') + '</div>' +
+      '<h3>' + txt(cal.title || M13.calMonthName(ym)) + '</h3>' + (cal.noHint ? '' : '<div class="m13-cal-hint">' + txt(hint) + '</div>') + '</div>' +
       calGridHTML(M, false) + (legend ? '<div class="m13-cal-legend">' + legend + '</div>' : '') + free + '</div>';
   }
   function calBind(scope, c) {
@@ -1394,9 +1470,9 @@
     var f = c.front || {};
     var st = statusOf(c), pill = f.statusStyle === 'pill';
     var meta = [opt(f.subtitle), pill ? '' : st].concat(extraMeta || []).filter(Boolean);
-    var mh = meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + (pill && st ? '<span class="m13-status-pill"><span>' + esc(st) + '</span></span>' : '');
-    return '<div class="m13-head">' + (f.eyebrow ? '<div class="m13-eyebrow">' + esc(f.eyebrow) + '</div>' : '') +
-      '<h2>' + esc(f.title) + '</h2>' +
+    var mh = meta.map(function (m) { return '<span>' + txt(m) + '</span>'; }).join('') + (pill && st ? '<span class="m13-status-pill"><span>' + txt(st) + '</span></span>' : '');
+    return '<div class="m13-head">' + (f.eyebrow ? '<div class="m13-eyebrow">' + txt(f.eyebrow) + '</div>' : '') +
+      '<h2>' + txt(f.title) + '</h2>' +
       (mh ? '<div class="m13-meta">' + mh + '</div>' : '') +
       '</div>';
   }
@@ -1434,20 +1510,20 @@
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       if (cal) return '<div class="m13-item m13-item--cal" role="button" tabindex="0"' + act(a, ctx) + '>' +
-        part('m13-item-date', date, esc(date)) +
-        '<div class="m13-item-title">' + esc(it.title) + '</div>' +
+        part('m13-item-date', date, txt(date)) +
+        '<div class="m13-item-title">' + txt(it.title) + '</div>' +
         part('m13-item-text', text, txt(text)) +
-        part('m13-item-meta', meta, esc(meta)) +
-        part('m13-item-price', price, esc(price)) +
-        '<div class="m13-item-acts"><span class="m13-item-action">' + esc(a.label || 'Написать') + ' →</span>' +
-        '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + esc(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
+        part('m13-item-meta', meta, txt(meta)) +
+        part('m13-item-price', price, txt(price)) +
+        '<div class="m13-item-acts"><span class="m13-item-action">' + txt(a.label || 'Написать') + ' →</span>' +
+        '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + txt(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
       return '<button type="button" class="m13-item"' + act(a, ctx) + '>' +
-        part('m13-item-date', date, esc(date)) +
-        '<div class="m13-item-title">' + esc(it.title) + '</div>' +
+        part('m13-item-date', date, txt(date)) +
+        '<div class="m13-item-title">' + txt(it.title) + '</div>' +
         part('m13-item-text', text, txt(text)) +
-        part('m13-item-meta', meta, esc(meta)) +
-        part('m13-item-price', price, esc(price)) +
-        '<div class="m13-item-action">' + esc(a.label || 'Написать') + ' →</div></button>';
+        part('m13-item-meta', meta, txt(meta)) +
+        part('m13-item-price', price, txt(price)) +
+        '<div class="m13-item-action">' + txt(a.label || 'Написать') + ' →</div></button>';
     }).join('') + '</div>';
   }
 
@@ -1521,9 +1597,9 @@
       '<div class="m13-info m13-stub">' + txt(text) + '</div>' +
       '<div class="m13-actions m13-push">' +
       '<button type="button" class="m13-action m13-action--primary"' +
-      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', host: stub.host || '', message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + esc(label) + '</button>' +
+      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', host: stub.host || '', message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + txt(label) + '</button>' +
       (r && stubSandbox(c, stub) ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
-        esc(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
+        txt(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
       '</div>';
   }
 
@@ -1553,52 +1629,52 @@
       if (x.kind === 'examples' || x.kind === 'actions') {
         if (i === push) runPush = true;
         if (x.kind === 'examples') btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
-          act({ kind: 'internal', target: 'reflection' }) + '>' + esc(x.label || 'Примеры') + '</button>');
+          act({ kind: 'internal', target: 'reflection' }) + '>' + txt(x.label || 'Примеры') + '</button>');
         else (x.actions || []).slice(0, 4).forEach(function (a) {
           if (!a || a.visible === false) return;
           if (a.kind === 'calendar' && !calActive(a.cal || {})) return;
           btnRun.push('<button type="button" class="m13-action' + (btnRun.length ? '' : ' m13-action--primary') + '"' +
-            act(a, { card: title, action: a.label, price: price, tplKey: 'offer' }) + '>' + esc(a.label || 'Написать') + '</button>');
+            act(a, { card: title, action: a.label, price: price, tplKey: 'offer' }) + '>' + txt(a.label || 'Написать') + '</button>');
         });
         return;
       }
       h += flushBtns();
       if (x.kind === 'desc') html = descHTML(String(x.text || '').trim() || (r && r.description) || '');
-      else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + esc(t) + '</div>'; }
+      else if (x.kind === 'heading') { var t = String(x.text || '').trim(); if (t) html = '<div class="m13-block-title">' + txt(t) + '</div>'; }
       else if (x.kind === 'images') {
         var imgs = (x.images || []).filter(function (m) { return m && m.visible !== false && m.src; });
         if (imgs.length) html = galleryHTML(imgs, 'row');
       }
       else if (x.kind === 'price') {
         var pv = String(x.value || '').trim();
-        if (pv) html = '<div class="m13-price-line"><span>' + esc(x.label || title) + '</span><strong>' + esc(pv) + '</strong></div>';
+        if (pv) html = '<div class="m13-price-line"><span>' + txt(x.label || title) + '</span><strong>' + txt(pv) + '</strong></div>';
       }
-      else if (x.kind === 'day') { var dc = dayCounter(r); if (dc) html = '<div class="m13-day">' + esc(dc) + '</div>'; }
+      else if (x.kind === 'day') { var dc = dayCounter(r); if (dc) html = '<div class="m13-day">' + txt(dc) + '</div>'; }
       else if (x.kind === 'routeButton') {
         var url = String(x.url || '').trim() || (r && r.routeUrl) || '';
         if (url) html = '<a class="m13-go" href="' + esc(url) + '" target="_blank" rel="noopener"><span>' +
-          esc(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
+          txt(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
       }
       else if (x.kind === 'formats') html = formatsHTML(c, x, r);
       else if (x.kind === 'items') html = itemsHTML(c, x.items, x.max, x.tpl || 'container');
       else if (x.kind === 'dates') {
         var ds = String(x.dates || '').trim();
-        if (ds) html = '<div class="m13-dates">' + (x.label ? '<div class="m13-dates-label">' + esc(x.label) + '</div>' : '') +
-          '<div class="m13-dates-list">' + esc(ds) + '</div>' + (x.note ? '<div class="m13-dates-note">' + txt(x.note) + '</div>' : '') + '</div>';
+        if (ds) html = '<div class="m13-dates">' + (x.label ? '<div class="m13-dates-label">' + txt(x.label) + '</div>' : '') +
+          '<div class="m13-dates-list">' + txt(ds) + '</div>' + (x.note ? '<div class="m13-dates-note">' + txt(x.note) + '</div>' : '') + '</div>';
       }
       else if (x.kind === 'facts') {
         var fl = (x.facts || []).filter(function (q) { return q && q.visible !== false && String(q.text || '').trim(); });
-        if (fl.length) html = '<div class="m13-facts">' + fl.map(function (q) { return '<span class="m13-fact">' + esc(String(q.text).trim()) + '</span>'; }).join('') + '</div>';
+        if (fl.length) html = '<div class="m13-facts">' + fl.map(function (q) { return '<span class="m13-fact">' + txt(String(q.text).trim()) + '</span>'; }).join('') + '</div>';
       }
       else if (x.kind === 'more') {
         var mt = String(x.text || '').trim();
-        if (mt) html = '<details class="m13-more"><summary><span class="m13-more-open">' + esc(x.label || 'Подробнее') + ' ↓</span>' +
-          '<span class="m13-more-close">' + esc(x.labelClose || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(mt) + '</div></details>';
+        if (mt) html = '<details class="m13-more"><summary><span class="m13-more-open">' + txt(x.label || 'Подробнее') + ' ↓</span>' +
+          '<span class="m13-more-close">' + txt(x.labelClose || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(mt) + '</div></details>';
       }
       else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
       else if (x.kind === 'sandbox') {
         html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
-          esc(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
+          txt(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
       }
       h += html;
     });
@@ -1620,9 +1696,9 @@
       var note = (f.note && opt(f.note)) || opt(fm.note);
       var closed = f.availability === 'closed';
       if (closed) note = T('formatClosed') || 'набор закрыт';
-      var inner = '<div class="m13-format-name">' + esc(name) + '</div>' +
-        '<div class="m13-format-price">' + esc(price) + '</div>' +
-        '<div class="m13-format-note">' + esc(note) + '</div>';
+      var inner = '<div class="m13-format-name">' + txt(name) + '</div>' +
+        '<div class="m13-format-price">' + txt(price) + '</div>' +
+        '<div class="m13-format-note">' + txt(note) + '</div>';
       if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
       var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
       return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
@@ -1918,7 +1994,7 @@
       return '<button type="button" class="' + cls + (over ? ' m13-has-mk' : '') + '" data-m13-lb="' + g + ':' + k + '" aria-label="Открыть картинку крупно">' +
         '<img src="' + esc(media(m.src)) + '" alt="' + esc(m.caption || '') + '" loading="lazy">' + (over ? '<span class="m13-gl-box">' + over + '</span>' : '') + '</button>';
     }
-    function cap(m) { var c = String(m.caption || '').trim(); return c ? '<figcaption class="m13-cap">' + esc(c) + '</figcaption>' : ''; }
+    function cap(m) { var c = String(m.caption || '').trim(); return c ? '<figcaption class="m13-cap">' + txt(c) + '</figcaption>' : ''; }
     if (mode === 'feature') {
       var top = gl || wm;
       return '<div class="m13-block m13-block--gallery"><figure class="m13-fig">' + btn(imgs[0], 0, 'm13-fig-img' + (top ? ' m13-gl-fig' : ''), top) + cap(imgs[0]) + '</figure>' +
@@ -1998,7 +2074,7 @@
   // Открыть Песочницу или Примеры поверх открытой карточки («← Назад к карте» вернёт к обороту).
   function openInternal(target, tab) {
     var box = S.root.querySelector('#m13-int-' + target); if (!box) return;
-    var back = '<button type="button" class="m13-iback" data-m13-iback>' + esc(T('backToCard') || '← Назад к карте') + '</button>';
+    var back = '<button type="button" class="m13-iback" data-m13-iback>' + txt(T('backToCard') || '← Назад к карте') + '</button>';
     // Оформление страницы (фон, шрифт, цвета, размер текста) — как у отдельной страницы /sandbox/, /events/, /reflection/
     var lk = pageLook(target === 'sandbox' ? S.D.sandbox.look : target === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     box.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + target + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
@@ -2018,8 +2094,8 @@
     var st = S.D.settings;
     var backHref = S.base;
     var back = S.onBack
-      ? '<button type="button" class="m13-iback" data-m13-home>' + esc(T('backToShowcase') || '← К витрине') + '</button>'
-      : '<a class="m13-iback" href="' + esc(backHref) + '">' + esc(T('backToShowcase') || '← К витрине') + '</a>';
+      ? '<button type="button" class="m13-iback" data-m13-home>' + txt(T('backToShowcase') || '← К витрине') + '</button>'
+      : '<a class="m13-iback" href="' + esc(backHref) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
     S.acts = [];
     var inner = which === 'sandbox' ? sandboxHTML(back) : which === 'events' ? eventsHTML(back) : reflectionHTML(back);
     var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : which === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
@@ -2184,11 +2260,11 @@
     // «Подробнее» включено у раздела: первый абзац виден, остальное раскрывается — только если текст правда длинный
     if (b.collapse && paras.length > 1 && text.length > 320) {
       body = '<div class="m13-rich">' + rich(paras[0]) + '</div><details class="m13-more m13-sb-more"><summary><span class="m13-more-open">' +
-        esc(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + esc(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
+        txt(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + txt(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
         '<div class="m13-rich">' + rich(paras.slice(1).join('\n\n')) + '</div></details>';
     } else body = '<div class="m13-rich">' + rich(text) + '</div>';
     var look = b.look === 'thought' ? ' m13-thought' : b.look === 'mantra' ? ' m13-mantra' : '';
-    return '<div class="m13-block' + look + '">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + body + '</div>';
+    return '<div class="m13-block' + look + '">' + (b.title ? '<div class="m13-block-title">' + txt(b.title) + '</div>' : '') + body + '</div>';
   }
 
   /* ---------- Ведущие и программа (разделы события) ----------
@@ -2206,12 +2282,12 @@
   function hostFace(p, cls) {
     var y = p.photoY == null || p.photoY === '' ? 30 : +p.photoY;
     return p.photo ? '<img class="' + cls + '" src="' + esc(media(p.photo)) + '" alt="" loading="lazy" style="object-position:50% ' + y + '%">'
-      : '<span class="' + cls + ' m13-host-none" aria-hidden="true">' + esc(initials(p.name)) + '</span>';
+      : '<span class="' + cls + ' m13-host-none" aria-hidden="true">' + txt(initials(p.name)) + '</span>';
   }
   function hostsHTML(b, e) {
     var list = hostsOf(b); if (!list.length) return '';
     var lay = b.layout === 'side' || b.layout === 'grid' || b.layout === 'ring' ? b.layout : (list.length <= 2 ? 'side' : 'grid');
-    var head = b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '';
+    var head = b.title ? '<div class="m13-block-title">' + txt(b.title) + '</div>' : '';
     var rc = b.ringColor ? '--rc:' + esc(b.ringColor) + ';' : '';
     if (lay === 'ring') {
       var n = list.length, R = n > 1 ? 40 : 0, sz = Math.min(21, Math.max(11, 2 * Math.PI * 40 / n * 0.72));
@@ -2225,7 +2301,7 @@
       return '<div class="m13-block m13-hosts-block">' + head +
         '<div class="m13-ring-wrap' + (b.ringBg ? ' m13-ring-wrap--bg' : '') + '" style="' + rc + (b.ringBg ? '--ring-bg:' + esc(b.ringBg) + ';' : '') + '">' +
         '<div class="m13-ring">' + (n > 1 ? '<span class="m13-ring-c">' + (img ? '<img src="' + esc(media(img)) + '" alt="" loading="lazy">' : '<span class="m13-ring-mark">' + M13.dandSVG('logo') + '</span>') + '</span>' : '') + faces + '</div>' +
-        '<p class="m13-ring-name" aria-live="polite">' + esc(String(b.ringHint || '').trim() || 'Нажмите на лицо — появится имя') + '</p></div></div>';
+        '<p class="m13-ring-name" aria-live="polite">' + txt(String(b.ringHint || '').trim() || 'Нажмите на лицо — появится имя') + '</p></div></div>';
     }
     var about = b.about !== false;
     // Имя сразу под фото; строки «кто это», «что ведёт», «пара строк» — одинаковые у всех карточек
@@ -2236,23 +2312,23 @@
       ' style="--hr:' + (rows.length + 2) + ';' + rc + '">' +
       list.map(function (p) {
         return '<div class="m13-host">' + hostFace(p, 'm13-host-ph') +
-          '<div class="m13-host-name">' + esc(p.name) + '</div>' +
+          '<div class="m13-host-name">' + txt(p.name) + '</div>' +
           rows.map(function (r) {
             var v = String(p[r[0]] || '').trim();
-            return '<div class="' + r[1] + '">' + (!v ? '' : r[0] === 'about' ? txt(v) : esc(v)) + '</div>';
+            return '<div class="' + r[1] + '">' + (!v ? '' : txt(v)) + '</div>';
           }).join('') + '</div>';
       }).join('') + '</div></div>';
   }
   function programHTML(b) {
     var rows = (b.rows || []).filter(function (r) { return r && r.visible !== false && (String(r.time || '').trim() || String(r.what || '').trim()); });
     if (!rows.length) return '';
-    return '<div class="m13-block m13-prog-block">' + (b.title ? '<div class="m13-block-title">' + esc(b.title) + '</div>' : '') + '<div class="m13-prog">' +
+    return '<div class="m13-block m13-prog-block">' + (b.title ? '<div class="m13-block-title">' + txt(b.title) + '</div>' : '') + '<div class="m13-prog">' +
       rows.map(function (r) {
         var p = r.hostId ? personById(r.hostId) : null, who = p ? p.name : String(r.who || '').trim();
         // Строка без времени и без ведущего — подзаголовок (день фестиваля)
-        if (!String(r.time || '').trim() && !who) return '<div class="m13-prog-day">' + esc(r.what) + '</div>';
-        return '<div class="m13-prog-row"><span class="m13-prog-t">' + esc(r.time || '') + '</span><span class="m13-prog-w">' + esc(r.what || '') + '</span>' +
-          (who ? '<span class="m13-prog-who">' + esc(who) + '</span>' : '<span></span>') + '</div>';
+        if (!String(r.time || '').trim() && !who) return '<div class="m13-prog-day">' + txt(r.what) + '</div>';
+        return '<div class="m13-prog-row"><span class="m13-prog-t">' + txt(r.time || '') + '</span><span class="m13-prog-w">' + txt(r.what || '') + '</span>' +
+          (who ? '<span class="m13-prog-who">' + txt(who) + '</span>' : '<span></span>') + '</div>';
       }).join('') + '</div></div>';
   }
   // Круг ведущих: нажатие (на компьютере и наведение) показывает имя и что ведёт
@@ -2263,7 +2339,7 @@
         function show() {
           w.querySelectorAll('.m13-ring-p.is-on').forEach(function (x) { if (x !== b) x.classList.remove('is-on'); });
           b.classList.add('is-on');
-          cap.innerHTML = esc(b.getAttribute('data-name')) + (b.getAttribute('data-role') ? '<small>' + esc(b.getAttribute('data-role')) + '</small>' : '');
+          cap.innerHTML = txt(b.getAttribute('data-name')) + (b.getAttribute('data-role') ? '<small>' + txt(b.getAttribute('data-role')) + '</small>' : '');
         }
         b.addEventListener('click', function (e) { e.stopPropagation(); show(); });
         b.addEventListener('mouseenter', show);
@@ -2290,13 +2366,13 @@
     return '<button type="button" class="m13-cover' + (c.color ? ' m13-rc' : '') + (c.img ? '' : ' m13-cover--noimg') + (c.gl ? ' m13-cover--gl' : '') + '" ' +
       (c.nested ? 'data-sub' : 'data-open') + '="' + esc(c.id) + '"' + rcStyle(c.color) + '>' +
       '<span class="m13-cover-img' + (whole ? ' m13-fit-whole' : '') + '">' + (c.img ? fitImgHTML(c.img, whole, true)
-        : '<span class="m13-cover-ph">' + esc(c.ph || c.title || '') + '</span>') + (c.gl ? '<span class="m13-gl-box">' + c.gl + '</span>' : '') + '</span>' +
+        : '<span class="m13-cover-ph">' + txt(c.ph || c.title || '') + '</span>') + (c.gl ? '<span class="m13-gl-box">' + c.gl + '</span>' : '') + '</span>' +
       // Со стеклом надпись и название уже на картинке — под ней только «Коротко»
-      (c.gl && !mk ? (c.text ? '<span class="m13-cover-txt"><span class="m13-cover-sub">' + esc(c.text) + '</span></span>' : '') + '</button>' :
-      '<span class="m13-cover-txt">' + (c.top ? '<span class="m13-cover-top">' + esc(c.top) + '</span>' : '') +
-      '<span class="m13-cover-title">' + esc(c.title || '') + '</span>' +
-      (c.line ? '<span class="m13-cover-line">' + esc(c.line) + '</span>' : '') +
-      (c.text ? '<span class="m13-cover-sub">' + esc(c.text) + '</span>' : '') + '</span></button>');
+      (c.gl && !mk ? (c.text ? '<span class="m13-cover-txt"><span class="m13-cover-sub">' + txt(c.text) + '</span></span>' : '') + '</button>' :
+      '<span class="m13-cover-txt">' + (c.top ? '<span class="m13-cover-top">' + txt(c.top) + '</span>' : '') +
+      '<span class="m13-cover-title">' + txt(c.title || '') + '</span>' +
+      (c.line ? '<span class="m13-cover-line">' + txt(c.line) + '</span>' : '') +
+      (c.text ? '<span class="m13-cover-sub">' + txt(c.text) + '</span>' : '') + '</span></button>');
   }
   // Шапка страницы чтения: картинка маршрута (или своя обложка), цветная кромка, названия
   function readHeadHTML(h) {
@@ -2305,23 +2381,23 @@
     if (h.img && h.gl && h.gl.html) {
       var rest = (h.meta || []).slice(h.gl.kin ? 1 : 0);
       return '<header class="m13-read-glass' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
-        '<h3 class="m13-sr">' + esc([h.top, h.title, h.line].filter(Boolean).join(' · ')) + '</h3>' +
+        '<h3 class="m13-sr">' + txt([h.top, h.title, h.line].filter(Boolean).join(' · ')) + '</h3>' +
         galleryHTML([{ src: h.img, caption: '' }], 'feature', { gl: h.gl.html, gllb: h.gl.lb == null ? h.gl.html : h.gl.lb }) +
-        (rest.length ? '<div class="m13-panel-meta">' + rest.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') + '</header>';
+        (rest.length ? '<div class="m13-panel-meta">' + rest.map(function (m) { return '<span>' + txt(m) + '</span>'; }).join('') + '</div>' : '') + '</header>';
     }
     var g = h.img ? S.lb.push([{ src: media(h.img), caption: '' }]) - 1 : -1;
     var whole = h.fit === 'whole';
     return '<header class="m13-read-head' + (h.color ? ' m13-rc' : '') + '"' + rcStyle(h.color) + '>' +
       (h.img ? '<button type="button" class="m13-read-img' + (whole ? ' m13-fit-whole' : '') + '" data-m13-lb="' + g + ':0" aria-label="Открыть картинку крупно">' +
         fitImgHTML(h.img, whole) + '</button>' : '') +
-      '<div class="m13-read-ht">' + (h.top ? '<div class="m13-eyebrow">' + esc(h.top) + '</div>' : '') + '<h3>' + esc(h.title || '') + '</h3>' +
-      (h.line ? '<div class="m13-panel-day">' + esc(h.line) + '</div>' : '') +
-      (h.meta && h.meta.length ? '<div class="m13-panel-meta">' + h.meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="m13-read-ht">' + (h.top ? '<div class="m13-eyebrow">' + txt(h.top) + '</div>' : '') + '<h3>' + txt(h.title || '') + '</h3>' +
+      (h.line ? '<div class="m13-panel-day">' + txt(h.line) + '</div>' : '') +
+      (h.meta && h.meta.length ? '<div class="m13-panel-meta">' + h.meta.map(function (m) { return '<span>' + txt(m) + '</span>'; }).join('') + '</div>' : '') +
       '</div></header>';
   }
   function shareBtnHTML(title, url) {
     return '<div class="m13-read-share"><button type="button" class="m13-action"' + act({ kind: 'share' }, { card: title, url: url }) + '>' +
-      esc(T('shareButton') || 'Поделиться') + '</button></div>';
+      txt(T('shareButton') || 'Поделиться') + '</button></div>';
   }
   function libUrl(dir, id, hash) {
     var u = new URL(S.base + dir + '/', location.href);
@@ -2349,11 +2425,11 @@
       var op = opts(); if (st.f && !op.some(function (f) { return f.k === st.f; })) st.f = '';
       var L = list();
       var chips = op.length ? '<div class="m13-chips" role="group">' + [{ k: '', label: T('filterAll') || 'Все' }].concat(op).map(function (f) {
-        return '<button type="button" class="m13-chip' + (f.color ? ' m13-rc' : '') + (st.f === f.k ? ' is-active' : '') + '" data-f="' + esc(f.k) + '"' + rcStyle(f.color) + '>' + esc(f.label) + '</button>';
+        return '<button type="button" class="m13-chip' + (f.color ? ' m13-rc' : '') + (st.f === f.k ? ' is-active' : '') + '" data-f="' + esc(f.k) + '"' + rcStyle(f.color) + '>' + txt(f.label) + '</button>';
       }).join('') + '</div>' : '';
       holder.innerHTML = (o.intro || '') + chips +
         (L.length ? '<div class="' + (o.card ? 'm13-rvs' : 'm13-covers') + '">' + L.slice(0, st.n).map(o.card || function (it) { return coverHTML(o.cover(it)); }).join('') + '</div>' : '') +
-        (L.length > st.n ? '<div class="m13-lib-more"><button type="button" class="m13-soft" data-more>' + esc(T('showMore') || 'Показать ещё') + ' · ' + (L.length - st.n) + '</button></div>' : '');
+        (L.length > st.n ? '<div class="m13-lib-more"><button type="button" class="m13-soft" data-more>' + txt(T('showMore') || 'Показать ещё') + ' · ' + (L.length - st.n) + '</button></div>' : '');
       holder.querySelectorAll('[data-f]').forEach(function (b) {
         b.addEventListener('click', function () { st.f = b.getAttribute('data-f'); st.n = LIB_STEP; grid(); });
       });
@@ -2370,14 +2446,14 @@
     }
     function nav(L, i) {
       var p = L[i - 1], n = L[i + 1];
-      function go(x, lab) { return x ? '<button type="button" class="m13-read-go" data-go="' + esc(x.id) + '">' + esc(lab) + '</button>' : '<span></span>'; }
+      function go(x, lab) { return x ? '<button type="button" class="m13-read-go" data-go="' + esc(x.id) + '">' + txt(lab) + '</button>' : '<span></span>'; }
       return '<nav class="m13-read-nav">' + go(p, T('prevItem') || '← Предыдущий') +
-        '<button type="button" class="m13-read-go m13-read-all" data-all>' + esc(String(o.allLabel).replace(/^←\s*/, '')) + '</button>' +
+        '<button type="button" class="m13-read-go m13-read-all" data-all>' + txt(String(o.allLabel).replace(/^←\s*/, '')) + '</button>' +
         go(n, T('nextItem') || 'Следующий →') + '</nav>';
     }
     function render(L, i) {
       st.open = L[i].id; reading(true);
-      holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-all>' + esc(o.allLabel) + '</button>' +
+      holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-all>' + txt(o.allLabel) + '</button>' +
         o.read(L[i]) + nav(L, i) + '</div>';
       bindActs(holder); bindLightbox(holder); filmsStart(holder);
       holder.querySelectorAll('[data-all]').forEach(function (b) {
@@ -2403,7 +2479,7 @@
     function openSub(key) {
       var s = o.sub && o.sub(key, st.open); if (!s) return;
       st.y2 = sy();
-      holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-subback>' + esc(s.back) + '</button>' + s.html + '</div>';
+      holder.innerHTML = '<div class="m13-read"><button type="button" class="m13-iback m13-read-back" data-subback>' + txt(s.back) + '</button>' + s.html + '</div>';
       bindActs(holder); bindLightbox(holder);
       holder.querySelector('[data-subback]').addEventListener('click', closeTop);
       to(0);
@@ -2445,11 +2521,11 @@
     var sb = S.D.sandbox, notice = opt(sb.notice);
     var tabs = TABS.filter(function (t) { return visibleSorted(sb[t]).length; });
     return '<div class="m13-ipage' + colsCls(sb.look) + '"><div class="m13-itop">' + backBtn + '</div>' +
-      '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(sb.eyebrow || '') + '</div>' +
-      '<h2>' + esc(sb.title || '') + '</h2>' + (sb.intro ? '<p>' + txt(sb.intro) + '</p>' : '') +
-      (notice ? '<span class="m13-notice">' + esc(notice) + '</span>' : '') + '</div>' +
+      '<div class="m13-ihead"><div class="m13-eyebrow">' + txt(sb.eyebrow || '') + '</div>' +
+      '<h2>' + txt(sb.title || '') + '</h2>' + (sb.intro ? '<p>' + txt(sb.intro) + '</p>' : '') +
+      (notice ? '<span class="m13-notice">' + txt(notice) + '</span>' : '') + '</div>' +
       '<div class="m13-tabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (t) {
-        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + esc((sb.tabs || {})[t] || t) + '</button>';
+        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + txt((sb.tabs || {})[t] || t) + '</button>';
       }).join('') + '</div>' +
       '<div class="m13-lib" data-sb></div></div>';
   }
@@ -2503,17 +2579,17 @@
     var long = text.length > 240 || text.split('\n').length > 4;
     return '<button type="button" class="m13-rv' + (c ? ' m13-rc' : '') + '" data-open="' + esc(it.id) + '"' + rcStyle(c) + '>' +
       '<span class="m13-rv-text">«' + esc(plain(text.replace(/\n+/g, ' ')).slice(0, 420)) + '»</span>' +
-      (long ? '<span class="m13-rv-more">' + esc(sb.moreLabel || 'Подробнее') + ' →</span>' : '') +
-      '<span class="m13-rv-foot"><span class="m13-rv-who">' + esc(it.author || '') + '</span>' +
-      (meta ? '<span class="m13-rv-meta">' + esc(meta) + '</span>' : '') + '</span></button>';
+      (long ? '<span class="m13-rv-more">' + txt(sb.moreLabel || 'Подробнее') + ' →</span>' : '') +
+      '<span class="m13-rv-foot"><span class="m13-rv-who">' + txt(it.author || '') + '</span>' +
+      (meta ? '<span class="m13-rv-meta">' + txt(meta) + '</span>' : '') + '</span></button>';
   }
   function reviewFull(it) {
     var sb = S.D.sandbox, r = routeById(it.routeId) || {};
     var meta = [r.title, it.month, it.source].filter(Boolean);
-    return '<div class="m13-eyebrow">' + esc(L('review')) + '</div><h3>' + esc(it.author || '') + '</h3>' +
-      (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+    return '<div class="m13-eyebrow">' + txt(L('review')) + '</div><h3>' + txt(it.author || '') + '</h3>' +
+      (meta.length ? '<div class="m13-panel-meta">' + meta.map(function (m) { return '<span>' + txt(m) + '</span>'; }).join('') + '</div>' : '') +
       '<div class="m13-quote">«' + txt(String(it.text || '').trim()) + '»</div>' +
-      (it.signature && it.signature.show ? '<div class="m13-sign">' + esc(sb.signatureText || '') + '</div>' : '');
+      (it.signature && it.signature.show ? '<div class="m13-sign">' + txt(sb.signatureText || '') + '</div>' : '');
   }
   function sbFilterOf(it) { var r = routeById(it.routeId); return r ? { k: r.id, label: r.title, color: r.color || '' } : null; }
 
@@ -2589,13 +2665,13 @@
     var ev = S.D.events || {};
     var tabs = EV_TABS.filter(function (t) { return evList(t).length; });
     return '<div class="m13-ipage' + colsCls(ev.look) + '"><div class="m13-itop">' + backBtn + '</div>' +
-      '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(ev.eyebrow || '13 MIRRORS') + '</div>' +
-      '<h2>' + esc(ev.title || 'События') + '</h2>' + (ev.intro ? '<p>' + txt(ev.intro) + '</p>' : '') + '</div>' +
+      '<div class="m13-ihead"><div class="m13-eyebrow">' + txt(ev.eyebrow || '13 MIRRORS') + '</div>' +
+      '<h2>' + txt(ev.title || 'События') + '</h2>' + (ev.intro ? '<p>' + txt(ev.intro) + '</p>' : '') + '</div>' +
       // Вкладки видны и когда она одна — как подпись раздела («Прошедшие маршруты»)
       (tabs.length ? '<div class="m13-tabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (t) {
-        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + esc((ev.tabs || {})[t] || EV_TN[t]) + '</button>';
+        return '<button type="button" class="m13-tab" role="tab" data-tab="' + t + '">' + txt((ev.tabs || {})[t] || EV_TN[t]) + '</button>';
       }).join('') + '</div>' : '') +
-      (tabs.length ? '<div class="m13-lib" data-ev></div>' : '<p class="m13-sb-intro">' + esc(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
+      (tabs.length ? '<div class="m13-lib" data-ev></div>' : '<p class="m13-sb-intro">' + txt(ev.empty || 'Скоро здесь появятся новые события.') + '</p>') + '</div>';
   }
   function evCover(e) {
     var g = e.cover ? glassOf(e) : null;
@@ -2774,12 +2850,12 @@
       var st = (FONTS[f] ? ["font-family:'" + f + "',Georgia,serif"] : []).concat(typeCss(f, r.weight || 'normal', !!r.italic));
       if (/^#[0-9a-f]{6}$/i.test(r.color || '')) st.push('color:' + r.color);
       return '<span class="m13-gl-r m13-gl-r--' + (GL_ROW[r.size] ? r.size : 'm') + (r.caps ? ' m13-gl-r--caps' : '') +
-        (r.line && i ? ' m13-gl-r--line' : '') + (i && GL_GAP[r.gap] ? ' m13-gl-g-' + r.gap : '') + '" style="' + esc(st.join(';')) + '">' + esc(r.text) + '</span>';
+        (r.line && i ? ' m13-gl-r--line' : '') + (i && GL_GAP[r.gap] ? ' m13-gl-g-' + r.gap : '') + '" style="' + esc(st.join(';')) + '">' + txt(r.text) + '</span>';
     }).join('') + (mark ? '<span class="m13-gl-row m13-gl-r-mk">' + mark + '</span>' : '') + '</span>' + free;
     return '<span class="' + cls + '" style="' + esc(css) + '">' +
-      (Ls.top ? '<span class="m13-gl-top">' + esc(Ls.top) + '</span>' : '') +
-      (Ls.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + esc(Ls.title) + '</span>' : '') +
-      (Ls.meta.length || mark ? '<span class="m13-gl-row">' + (Ls.meta.length ? '<span class="m13-gl-d">' + esc(Ls.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
+      (Ls.top ? '<span class="m13-gl-top">' + txt(Ls.top) + '</span>' : '') +
+      (Ls.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + txt(Ls.title) + '</span>' : '') +
+      (Ls.meta.length || mark ? '<span class="m13-gl-row">' + (Ls.meta.length ? '<span class="m13-gl-d">' + txt(Ls.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
       (Ls.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(Ls.extra) + '</span>' : '') + '</span>' + free;
   }
   // Стекло целиком (строки само из полей или свои)
@@ -2841,7 +2917,7 @@
   function actionsHTML(acts, ctx) {
     var btns = acts.map(function (a, i) {
       return '<button type="button" class="m13-action' + (i ? '' : ' m13-action--primary') + '"' +
-        act(a, Object.assign({ action: a.label }, ctx)) + '>' + esc(a.label || 'Написать') + '</button>';
+        act(a, Object.assign({ action: a.label }, ctx)) + '>' + txt(a.label || 'Написать') + '</button>';
     }).join('');
     return btns ? '<div class="m13-actions m13-ev-actions' + (acts.length > 2 ? ' m13-actions--grid' : '') + '">' + btns + '</div>' : '';
   }
@@ -2860,10 +2936,10 @@
       return true;
     }).slice(0, 4).map(function (a) { return a.kind === 'calendar' ? Object.assign({}, a, { cal: evCal(e, a) }) : a; });
     return '<article class="m13-panel m13-ev">' +
-      (gl ? (on('top') ? '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div>' : '') +
-        '<h3' + (on('title') ? '' : ' class="m13-sr"') + '>' + esc(e.title || '') + '</h3>' + galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', ov)
-      : '<div class="m13-eyebrow">' + esc(EVENT_TYPES[e.type] || '') + '</div><h3>' + esc(e.title || '') + '</h3>') +
-      (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('') + '</div>' : '') +
+      (gl ? (on('top') ? '<div class="m13-eyebrow">' + txt(EVENT_TYPES[e.type] || '') + '</div>' : '') +
+        '<h3' + (on('title') ? '' : ' class="m13-sr"') + '>' + txt(e.title || '') + '</h3>' + galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', ov)
+      : '<div class="m13-eyebrow">' + txt(EVENT_TYPES[e.type] || '') + '</div><h3>' + txt(e.title || '') + '</h3>') +
+      (meta.length ? '<div class="m13-panel-meta m13-ev-meta">' + meta.map(function (m) { return '<span>' + txt(m) + '</span>'; }).join('') + '</div>' : '') +
       (e.cover && !gl ? galleryHTML([{ src: e.cover, caption: e.coverCaption || '' }], 'feature', wm) : '') +
       (e.summary ? '<div class="m13-block"><div class="m13-rich">' + rich(e.summary) + '</div></div>' : '') +
       (e.blocks || []).map(function (b) { return sbBlockHTML(b, e, wm); }).join('') +
@@ -2893,7 +2969,7 @@
     var acts = (r.archiveActions || []).filter(function (a) { return a && a.visible !== false; }).slice(0, 4);
     if (r.routeUrl && r.archivePageBtn !== false) acts = acts.concat([{ kind: 'link', url: r.routeUrl, label: T('routePage') || 'Страница маршрута' }]).slice(0, 4);
     function sec(title, t, L) {
-      return L.length ? '<section class="m13-read-sec"><div class="m13-block-title">' + esc(title) + '</div><div class="m13-covers m13-covers--mini">' +
+      return L.length ? '<section class="m13-read-sec"><div class="m13-block-title">' + txt(title) + '</div><div class="m13-covers m13-covers--mini">' +
         L.map(function (it) { return coverHTML(sbCover(t, it, true)); }).join('') + '</div></section>' : '';
     }
     var gr = glassFor('route', r), rov = gr.g ? glassOver('route', r, gr.g) : null, g0 = routeGlassOf(r), wm = g0 ? markParts(g0) : null;
@@ -2957,8 +3033,8 @@
     var rf = S.D.reflection, items = visibleSorted(rf.items);
     var oa = rf.orderAction;
     return '<div class="m13-ipage"><div class="m13-itop">' + backBtn + '</div>' +
-      '<div class="m13-ihead"><div class="m13-eyebrow">' + esc(rf.eyebrow || '') + '</div>' +
-      '<h2>' + esc(rf.title || '') + '</h2>' + (rf.intro ? '<p>' + txt(rf.intro) + '</p>' : '') + '</div>' +
+      '<div class="m13-ihead"><div class="m13-eyebrow">' + txt(rf.eyebrow || '') + '</div>' +
+      '<h2>' + txt(rf.title || '') + '</h2>' + (rf.intro ? '<p>' + txt(rf.intro) + '</p>' : '') + '</div>' +
       '<div class="m13-examples">' + items.map(function (it) {
         // Со стеклом: название (и, если включено, Kin) — на стекле, под картинкой не повторяются.
         // Нажатие на карту открывает её крупно, целиком.
@@ -2967,17 +3043,17 @@
         return '<div class="m13-example' + (gl ? ' m13-example--gl' : '') + '">' +
           (it.image ? '<button type="button" class="m13-ex-img' + (gl ? ' m13-fit-whole' : '') + '" data-m13-lb="' + lb + ':0" aria-label="' + esc((it.title ? it.title + ' — ' : '') + 'открыть крупно') + '">' +
               (gl ? fitImgHTML(it.image, true, true) + '<span class="m13-gl-box">' + gl + '</span>' : '<img src="' + esc(media(it.image)) + '" alt="' + esc(it.title) + '" loading="lazy">') + '</button>'
-            : '<div class="m13-placeholder">' + esc(rf.placeholder || '') + '</div>') +
+            : '<div class="m13-placeholder">' + txt(rf.placeholder || '') + '</div>') +
           // Всегда 4 части (картинка, подпись Kin, архетип, описание) — по ним плашки в ряду выравниваются автоматически
-          '<em class="m13-example-meta">' + (gl ? '' : esc(it.meta || '')) + '</em>' +
-          '<strong>' + (gl && glassHas(gf.g, 'title', 'название') ? '<span class="m13-sr">' + esc(it.title) + '</span>' : esc(it.title)) + '</strong>' +
+          '<em class="m13-example-meta">' + (gl ? '' : txt(it.meta || '')) + '</em>' +
+          '<strong>' + (gl && glassHas(gf.g, 'title', 'название') ? '<span class="m13-sr">' + txt(it.title) + '</span>' : txt(it.title)) + '</strong>' +
           // Описание — под кнопкой «Подробнее»: текст любой длины, картинки в ряду стоят ровно
           (it.text ? (rf.textOpen ? '<span>' + txt(it.text) + '</span>'
-            : '<details class="m13-more m13-ex-more"><summary><span class="m13-more-open">' + esc(rf.moreLabel || 'Подробнее') + ' ↓</span>' +
-              '<span class="m13-more-close">' + esc(rf.lessLabel || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(it.text) + '</div></details>') : '<span></span>') + '</div>';
+            : '<details class="m13-more m13-ex-more"><summary><span class="m13-more-open">' + txt(rf.moreLabel || 'Подробнее') + ' ↓</span>' +
+              '<span class="m13-more-close">' + txt(rf.lessLabel || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(it.text) + '</div></details>') : '<span></span>') + '</div>';
       }).join('') + '</div>' +
       (oa && oa.show !== false && oa.label ? '<div class="m13-examples-cta"><button type="button" class="m13-action m13-action--primary"' +
-        act(oa, { card: rf.eyebrow || 'Карта-Отражение', action: oa.label, tplKey: 'offer' }) + '>' + esc(oa.label) + '</button></div>' : '') +
+        act(oa, { card: rf.eyebrow || 'Карта-Отражение', action: oa.label, tplKey: 'offer' }) + '>' + txt(oa.label) + '</button></div>' : '') +
       '</div>';
   }
 })();
