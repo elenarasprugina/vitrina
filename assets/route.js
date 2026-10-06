@@ -691,9 +691,18 @@
     });
     var foot = el('div', 'ys-c-foot');
     // День 13: у Путешествия и Погружения — «С чем вы выходите?»; внизу — «Собрать маршрут» (финал Солнца)
+    // Двери v2: «Есть ключ? Введи ключ» — живой вход глубже (виден и в Наблюдении, чтобы человек знал, что глубже что-то есть)
+    function keyBtn() {
+      if (!o.onKey) return;
+      var k = el('button', 'ys-c-key'); k.type = 'button';
+      k.innerHTML = spiralSVG(); k.appendChild(el('span', null, o.keyText || 'Есть ключ? Введи ключ'));
+      k.addEventListener('click', function () { o.onKey(); });
+      foot.appendChild(k);
+    }
     if (fin) {
       var exit = (o.exit || []).slice(), gb;
       if (mode !== 'observation' && statesOf(route).length >= 3 && (route.final || {}).exitOn !== false) inner.appendChild(exitPicker(route, exit, function (l) { exit = l; if (gb) gb.update(l); }));
+      keyBtn();
       gb = gatherButton(route, exit, function () { if (o.onGather) o.onGather(exit); else if (o.onSpiral) o.onSpiral(); });
       foot.appendChild(gb.node);
       inner.appendChild(foot); root.appendChild(inner);
@@ -705,9 +714,10 @@
       if (url) { tr.href = url; tr.target = '_blank'; tr.rel = 'noopener'; } else tr.setAttribute('aria-disabled', 'true');
       foot.appendChild(tr);
     }
+    keyBtn();
     var sp = el('button', 'ys-spiral');
     sp.type = 'button';
-    sp.setAttribute('aria-label', kind === 'personal' || mode === 'observation' ? 'Вернуться на спираль' : 'Дальше — выбрать карту');
+    sp.setAttribute('aria-label', o.spiralLabel || (kind === 'personal' || mode === 'observation' ? 'Вернуться на спираль' : 'Дальше — выбрать карту'));
     sp.innerHTML = spiralSVG();
     sp.addEventListener('click', function () { if (o.onSpiral) o.onSpiral(); });
     foot.appendChild(sp);
@@ -1241,7 +1251,21 @@
     if (n === today) return v ? 'today_visited' : 'today_unvisited';
     return v ? 'past_visited' : 'past_unvisited';
   }
-  function resetDoors() { try { localStorage.removeItem(doorKey()); } catch (e) {} }
+  function resetDoors() { try { localStorage.removeItem(doorKey()); localStorage.removeItem(choiceKey()); } catch (e) {} }
+  /* Двери v2 — участник выбирает дверь (doors.doorAssignmentMode = 'userChoice'; docs/doors.md, «Решения 06.10»).
+     День → дверь запоминается на этом устройстве в момент открытия: { "1": id двери, "3": id … }. Заменить нельзя, дверь второй раз не участвует.
+     Пропущенный день — записи нет (следа нет, задним числом не выбрать). Никуда не отправляется. */
+  function isChoice(r) { return isDoors(r) && ((r || S.route).doors || {}).doorAssignmentMode === 'userChoice'; }
+  // Что открывается первым после двери: Карта дня (глубже — по ключу) или сразу пространство
+  function doorsCard(r) { return isDoors(r) && !!window.M13D && window.M13D.first(r) === 'card'; }
+  function choiceKey() { return storeKey() + '-choice'; }
+  function choiceLog() { try { var o = JSON.parse(localStorage.getItem(choiceKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
+  function choose(day, id) { var o = choiceLog(); if (o[day]) return false; o[day] = id; try { localStorage.setItem(choiceKey(), JSON.stringify(o)); } catch (e) {} return true; }
+  function doorIdOf(n) { return ((doorsCfg().items || [])[n - 1] || {}).id || ''; }
+  // В какой день выбрана дверь n (0 — свободная)
+  function dayOfDoor(n, log) { var id = doorIdOf(n), k; log = log || choiceLog(); if (!id) return 0; for (k in log) if (log[k] === id) return +k; return 0; }
+  function doorOfDay(day, log) { var id = (log || choiceLog())[day], it = doorsCfg().items || [], i; if (!id) return 0; for (i = 0; i < it.length; i++) if (it[i] && it[i].id === id) return i + 1; return 0; }
+  function ucState(n, today, log) { var d = dayOfDoor(n, log); return !d ? 'free' : d === today ? 'today' : 'past'; }
   // Какие дни на этом устройстве уже открывали (сегодняшний кирпич после нажатия светится ровно). Только для света, не для доступа.
   function storeKey() { return 'm13ys-' + S.route.id + '-' + (S.route.start || ''); }
   function openedList() { try { var l = JSON.parse(localStorage.getItem(storeKey()) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
@@ -1377,7 +1401,10 @@
       if (isDoors(r)) { openDoorsFinal(); return; }
       var m = musicStart();
       closeLayer(); setTimeout(function () { finalScene({ music: m }); }, 300);
-    }, onSpiral: function () {
+    }, onKey: doorsCard(r) && !S.code ? function () { openKey(S.mode); } : null, keyText: fill((r.texts || {}).doorKey || 'Есть ключ? Введи ключ', ctxOf(r, n)),
+      spiralLabel: doorsCard(r) ? 'Дальше' : null, onSpiral: function () {
+      // Двери, сначала Карта дня: глубже — в пространстве дня за картой
+      if (doorsCard(r)) { closeLayer(); return; }
       if (mode === 'observation') { closeLayer(); return; }
       if (!S.code) { openKey(mode); return; }
       // Карта сегодня уже перевёрнута — сразу та же личная карта, нового выбора нет
@@ -2600,10 +2627,21 @@
     var page = el('div', 'ys-page ys-page--doors'), bg = el('div', 'ys-bgwrap');
     var P = M.pick(r, window.innerHeight / window.innerWidth > 1.25);
     if (P.src && D.fit !== 'cover') { var blur = el('div', 'ys-dblur'); blur.style.backgroundImage = 'url("' + imgSrc(S.base, P.src) + '")'; bg.appendChild(blur); }
-    var n = curDay(), last = daysCount(r), d;
-    if (S.sim == null) doorSync(n);
-    var sc = S.DS = M.scene(r, { key: P.key, base: S.base, zones: S.zonesOn, onTap: tapDoor });
-    for (d = 1; d <= last; d++) sc.set(d, doorState(d, n), true);
+    var n = curDay(), last = daysCount(r), d, uc = isChoice(r), log = uc ? choiceLog() : null, mine = uc && n >= 1 && n <= last ? doorOfDay(n, log) : 0;
+    if (S.sim == null && !uc) doorSync(n);
+    var sc = S.DS = M.scene(r, { key: P.key, base: S.base, zones: S.zonesOn, onTap: tapDoor }), free = [];
+    if (uc) {
+      // Свободная — можно выбрать, пока сегодня ещё не выбрано; сегодняшняя — входить снова; прошлая — только надпись
+      for (d = 1; d <= M.count(r); d++) {
+        var st = ucState(d, n, log), dd = dayOfDoor(d, log), ok = n >= 1 && n <= last && (st === 'today' || (st === 'free' && !mine));
+        sc.set(d, st, true, ok);
+        if (dd) { sc.mark(d, dd, true); if (D.showDayNumbers) sc.num(d, String(dd)); }
+        if (ok && st === 'free' && M.doorOf(r, d).on !== false) free.push(d);
+      }
+      if (D.call !== false) sc.call(free, { color: D.callColor, ms: D.callMs });
+    } else for (d = 1; d <= last; d++) sc.set(d, doorState(d, n), true);
+    // Мир: слои дней по календарю — у всех одинаково (after — после конца дня, during — уже в течение дня)
+    worldShow(sc, n, true);
     bg.appendChild(sc.node); page.appendChild(bg);
     var dim = el('div', 'ys-dim');
     dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, D.dim == null || D.dim === '' ? 45 : +D.dim)) / 100);
@@ -2616,6 +2654,16 @@
     } else if (n > last) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.after || 'Маршрут пройден', ctx)));
       if (tx.afterNote) hud.appendChild(el('p', 'ys-sub', fill(tx.afterNote, ctx)));
+    } else if (uc) {
+      hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
+      var pick = mine ? (sc.poly(mine) ? 0 : mine) : (free.filter(function (k) { return sc.poly(k); }).length ? 0 : free[0] || 0);
+      if (!pick) hud.appendChild(el('p', 'ys-tap' + (mine ? ' ys-tap--calm' : ''), fill(mine ? tx.doorAgain || 'Сегодняшняя дверь открыта до полуночи' : tx.doorChoose || 'Выберите дверь', ctx)));
+      else {
+        // У нужной двери нет контура на этой картинке — вход кнопкой
+        var gb2 = el('button', 'ys-go', tx.doorEnter || 'Войти в дверь дня'); gb2.type = 'button';
+        gb2.addEventListener('click', function () { tapDoor(pick); });
+        hud.appendChild(gb2);
+      }
     } else {
       hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
       var seen = doorLog()[n] === 'v', can = !!sc.poly(n);
@@ -2627,7 +2675,7 @@
         hud.appendChild(go);
       }
     }
-    if (fin && (n > last || (n === last && doorLog()[last] === 'v'))) {
+    if (fin && (n > last || (n === last && (uc ? !!mine : doorLog()[last] === 'v')))) {
       var fb = el('button', 'ys-go ys-go--fin', tx.doorFinal || 'Финал'); fb.type = 'button';
       fb.addEventListener('click', openDoorsFinal);
       hud.appendChild(fb);
@@ -2644,37 +2692,70 @@
       if (M.pick(r, window.innerHeight / window.innerWidth > 1.25).key !== P.key) { if (S.space) S.redraw = true; else render(); return; }
       place();
     };
+    // Человек в пространстве, а страницу перестроили (вошёл по ключу) — пространство дня собирается заново под его формат
+    if (S.space && S.spaceDay) refreshSpace();
     // Полночь, пока страница открыта: сцена перестраивается сама (вчерашняя дверь закрывается)
     S.doorDay = n;
     S.dayT = setInterval(function () { if (S.sim == null && !S.space && !S.busy && curDay() !== S.doorDay) render(); }, 30000);
   }
+  // Мировые слои: день k виден после своего дня (after) или уже в свой день (during); после конца маршрута — все
+  function worldShow(sc, n, now) {
+    var r = S.route, M = window.M13D, last = daysCount(r), k;
+    for (k = 1; k <= last; k++) {
+      var w = M.dayCfg(r, k).world || [];
+      if (w.length) sc.world(k, n > k || (n === k && w.some(function (L) { return L && L.when === 'during'; })), now);
+    }
+  }
+  function tapChoice(d) {
+    var r = S.route, tx = r.texts || {}, n = curDay(), last = daysCount(r), log = choiceLog(), st = ucState(d, n, log), ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
+    ctx['начало'] = dateOf(r, 1); ctx['конец'] = dateOf(r, last);
+    if (n < 1) { note(fill(tx.doorBefore || 'Маршрут начнётся {начало}', ctx)); return; }
+    if (n > last) { note(fill(tx.doorAfter || 'Маршрут пройден', ctx)); return; }
+    if (st === 'past') { var pd = dayOfDoor(d, log); note(fill(tx.doorPastChoice || 'День {день} · Kin {кин}', ctxOf(r, pd))); return; }
+    if (st === 'free' && doorOfDay(n, log)) { note(fill(tx.doorTomorrow || 'Новую дверь можно будет выбрать завтра', ctx)); return; }
+    if (!doorsCard(r) && S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
+    // Свободная дверь открывает сегодняшний день — выбор запоминается сразу, заменить нельзя
+    if (st === 'free') { choose(n, doorIdOf(d)); if (S.DS) S.DS.call([]); }
+    enterDoor(d, false, n);
+  }
   function tapDoor(d) {
     var r = S.route, tx = r.texts || {}, n = curDay(), ctx = ctxOf(r, d), st = doorState(d, n);
     if (S.busy || S.space) return;
+    if (isChoice(r)) { tapChoice(d); return; }
     if (st === 'future') { if (n >= 1 || tx.doorFuture) note(fill(tx.doorFuture || 'Эта дверь откроется {дата}', ctx)); return; }
     if (st === 'past_visited' || st === 'past_unvisited') { note(fill(st === 'past_visited' ? tx.doorPast || 'Эта дверь уже закрылась — её день прошёл' : tx.doorMissed || tx.doorPast || 'Эта дверь уже закрылась — её день прошёл', ctx)); return; }
-    if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
+    if (S.mode !== 'observation' && !S.code && !doorsCard(r)) { openKey(S.mode); return; }
     enterDoor(d);
   }
+  // d — день (в fixed день = дверь) или 'final'
   function spaceNode(d) {
     var r = S.route, M = window.M13D, fin = d === 'final', n = fin ? daysCount(r) : d, tx = r.texts || {};
-    var cfg = fin ? doorsCfg().final || {} : M.doorOf(r, d).space || {};
+    var cfg = fin ? doorsCfg().final || {} : M.spaceOf(r, d);
     return M.space(r, cfg, { base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
       backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, act: function (kind) { spaceAct(kind, n); },
-      empty: S.preview ? (fin ? 'Финал пока пустой — блоки добавляются в панели: «За дверью» → «Финал».' : 'Здесь пока пусто — блоки добавляются в панели: «За дверью» → дверь ' + n + '.') : '' });
+      empty: S.preview ? (fin ? 'Финал пока пустой — блоки добавляются в панели: «За дверью» → «Финал».' : 'Здесь пока пусто — блоки добавляются в панели: «За дверью» → ' + (isChoice(r) ? 'день ' : 'дверь ') + n + '.') : '' });
   }
-  // now — сразу, без движения и без отметки «входили» (предпросмотр из панели)
-  function enterDoor(d, now) {
-    var r = S.route, M = window.M13D, door = M.doorOf(r, d), sp = spaceNode(d), cfg = door.space || {};
-    if (!now) doorVisit(d);
+  // Пространство уже открыто, а формат поменялся (вошли по ключу) — то же место, новое содержание
+  function refreshSpace() {
+    var old = S.space, nw = spaceNode(S.spaceDay);
+    nw.classList.add('is-in'); nw._ol = old._ol;
+    old.parentNode.replaceChild(nw, old); S.space = nw;
+  }
+  // d — дверь (0 — без двери: предпросмотр пространства дня), day — день (в fixed — тот же номер); now — сразу, без движения и без отметки «входили» (предпросмотр из панели)
+  function enterDoor(d, now, day) {
+    var r = S.route, M = window.M13D, uc = isChoice(r), door = d ? M.doorOf(r, d) : {}, sp, cfg;
+    day = day || d; sp = spaceNode(day); cfg = M.spaceOf(r, day);
+    if (!now && !uc) doorVisit(d);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
-    S.busy = true; S.space = sp; S.spaceN = d;
-    M.go(S.DS, d, sp, { open: door.open, door: door, base: S.base, now: now, onCover: function () {
-      if (S.DS && !now) S.DS.set(d, doorState(d, curDay()));
+    S.busy = true; S.space = sp; S.spaceN = d || null; S.spaceDay = day;
+    M.go(d ? S.DS : null, d || null, sp, { open: door.open, door: door, base: S.base, now: now, onCover: function () {
+      if (S.DS && d && !now) { if (uc) S.DS.set(d, 'today', false, true); else S.DS.set(d, doorState(d, curDay())); }
     } }, function () {
       S.busy = false;
+      // Сначала Карта дня — одна для всех форматов; глубже — по ключу, за картой
+      if (M.first(r) === 'card') { if (!now) openDay(day, S.mode); return; }
       var a = M.autoBlocks(cfg, S.mode)[0];
-      if (a && !now) setTimeout(function () { spaceAct(a.kind, d); }, 250);
+      if (a && !now) setTimeout(function () { spaceAct(a.kind, day); }, 250);
     });
   }
   function openDoorsFinal() {
@@ -2685,15 +2766,19 @@
     closeLayer();
     var sp = spaceNode('final');
     S.busy = true; S.space = sp; S.spaceN = null;
+    S.spaceDay = 'final';
     window.M13D.go(null, null, sp, { base: S.base }, function () { S.busy = false; });
   }
   function leaveSpace() {
     var sp = S.space, d = S.spaceN, M = window.M13D; if (!sp || S.busy) return;
     closeLayer();
     S.busy = true;
+    var day = S.spaceDay;
     M.back(S.spaceN ? S.DS : null, d, sp, { open: d ? M.doorOf(S.route, d).open : null }, function () {
-      S.busy = false; S.space = null; S.spaceN = null;
+      S.busy = false; S.space = null; S.spaceN = null; S.spaceDay = null;
       if (S.redraw || (S.sim == null && curDay() !== S.doorDay)) { S.redraw = false; render(); return; }
+      // Выбор двери: личный след дня проступает на выбранной двери, когда человек возвращается к дверям
+      if (isChoice(S.route) && d && S.DS && typeof day === 'number') { S.DS.mark(d, day, false); if (doorsCfg().showDayNumbers) S.DS.num(d, String(day)); }
       // Подсказка над дверями: сегодняшняя уже открыта
       var h = document.querySelector('.ys-tap.is-gone');
       if (h && d) { putText(h, fill((S.route.texts || {}).doorAgain || 'Сегодняшняя дверь открыта до полуночи', ctxOf(S.route, d))); h.classList.add('ys-tap--calm'); h.classList.remove('is-gone'); }
@@ -2822,14 +2907,15 @@
     var z = dayClock(r) === 'local' ? routeTz() : null, wall = nowRoute();
     function p2(v) { return (v < 10 ? '0' : '') + v; }
     var clock = z ? 'Пояс маршрута на этом устройстве: ' + (z.tz || 'UTC' + (z.off > 0 ? '−' : '+') + Math.abs(z.off / 60)) + ' (запомнен при первом входе) · там сейчас ' + p2(wall.getUTCDate()) + '.' + p2(wall.getUTCMonth() + 1) + ' ' + p2(wall.getUTCHours()) + ':' + p2(wall.getUTCMinutes()) : 'Сейчас по Москве';
-    var log = doorLog(), doorsInfo = dr ? 'Двери: ' + (Object.keys(log).sort(function (a, b) { return a - b; }).map(function (k) { return k + (log[k] === 'v' ? ' входили' : ' пропущена'); }).join(', ') || 'ещё ни в одну не входили') : '';
+    var log = doorLog(), ucl = isChoice(r) ? choiceLog() : null, doorsInfo = !dr ? '' : ucl ? 'Выбор дверей (день → дверь): ' + (Object.keys(ucl).sort(function (a, b) { return a - b; }).map(function (k) { var x = doorOfDay(+k, ucl); return k + ' → ' + (x ? x + ((doorsCfg().items[x - 1] || {}).title ? ' «' + doorsCfg().items[x - 1].title + '»' : '') : 'дверь удалена'); }).join(', ') || 'ещё ни одной') :
+      'Двери: ' + (Object.keys(log).sort(function (a, b) { return a - b; }).map(function (k) { return k + (log[k] === 'v' ? ' входили' : ' пропущена'); }).join(', ') || 'ещё ни в одну не входили');
     [el('span', null, clock + (S.debugNow ? ' · подмена: ' + S.debugNow : '') + ' · ' + (real === 0 ? 'до начала' : real > last ? 'после конца' : 'день ' + real)),
       ss, zl].concat(dr ? [
       el('span', 'ys-debug-sep', 'Двери'),
       el('span', null, doorsInfo),
-      row([btn('Пространство дня', function () { if (S.space) { S.space.remove(); S.space = null; } S.busy = false; enterDoor(+sd.value, true); }), btn('Финальная сцена', function () { var D = doorsCfg(); if (!(D.final && D.final.on)) { note('Финальная сцена выключена: панель → «За дверью» → «Финал».'); return; } S.busy = false; openDoorsFinal(); })]),
+      row([btn('Пространство дня', function () { if (S.space) { S.space.remove(); S.space = null; } S.busy = false; if (isChoice(r)) enterDoor(0, true, +sd.value); else enterDoor(+sd.value, true); }), btn('Финальная сцена', function () { var D = doorsCfg(); if (!(D.final && D.final.on)) { note('Финальная сцена выключена: панель → «За дверью» → «Финал».'); return; } S.busy = false; openDoorsFinal(); })]),
       row([btn('Забыть пояс', function () { resetTz(); render(); note('Пояс забыт: на этом устройстве снова запомнится текущий — ' + (tzHere().tz || 'по часам устройства') + '.'); }),
-        btn('Сброс дверей', function () { resetDoors(); S.sim = null; render(); note('Сброшено: ни в одну дверь не входили, сегодняшняя снова зовёт.'); })])] : []).concat([
+        btn('Сброс дверей', function () { resetDoors(); S.sim = null; render(); note(isChoice(r) ? 'Сброшено: ни одна дверь не выбрана, следов нет.' : 'Сброшено: ни в одну дверь не входили, сегодняшняя снова зовёт.'); })])] : []).concat([
       el('span', 'ys-debug-sep', 'Финал · ' + wordsOf(r).name),
       // «Карта дня 13» сама ставит спираль на 13-й день (после «Сброса» дата может быть до начала маршрута)
       row([btn('Карта дня 13', function () { closeLayer(); if (FIN) FIN.kill(); if (curDay() !== last) { S.sim = last; render(); } openDay(last, S.mode); }), btn('Финал сразу', function () { var m = musicStart(); closeLayer(); finalScene({ music: m }); })]),
@@ -2877,13 +2963,15 @@
     if (S.preview && !q('card') && S.sim === daysCount(route)) try { localStorage.setItem(storeKey(), JSON.stringify(openedList().filter(function (d) { return d !== S.sim; }))); } catch (e) {}
     render();
     var c = q('card'), n = +q('day') || 1, last = daysCount(route);
-    if (isDoors(route) && q('door')) { if (q('door') === 'final') openDoorsFinal(); else enterDoor(Math.max(1, Math.min(last, +q('door') || 1)), true); }
+    if (isDoors(route) && q('door')) { var qd = Math.max(1, Math.min(last, +q('door') || 1)); if (q('door') === 'final') openDoorsFinal(); else if (isChoice(route)) enterDoor(0, true, qd); else enterDoor(qd, true); }
     else if (c === 'final') openDay(last, S.mode);
     else if (c === 'finalnow') { if (isDoors(route)) openDoorsFinal(); else finalScene({ instant: q('instant') === '1' }); }
     else if (c === 'day') openDay(n, S.mode);
     else if (c === 'personal') openPersonal(n, S.mode, q('perm') == null && S.code ? cardFor(route, S.code, n) : cardsOf(route)[+q('perm') || 0]);
     else if (c === 'fan' && S.code) openFan(n, S.mode);
     else if (q('gift') && S.code) openKey(S.code.mode, true, q('gift'));
+    // Двери, сначала Карта дня: ключ не нужен, чтобы войти, — без кода человек в Наблюдении, ключ — на Карте дня
+    else if (gate && doorsCard(route)) { S.mode = 'observation'; render(); }
     else if (gate) openKey(m);
     // После конца маршрута страница открывается сразу на последнем кадре финала
     else if (curDay() > last && !isDoors(route)) finalScene({ instant: true });

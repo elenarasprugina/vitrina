@@ -483,6 +483,24 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-fx-reveal.is-on:not(.is-now) .ys-dl-box{animation:ys-fx-reveal var(--fx-t) ease-out both}
 @keyframes ys-fx-reveal{0%{opacity:0;filter:blur(10px);transform:scale(.97)}100%{opacity:1;filter:none;transform:none}}
 @media (prefers-reduced-motion:reduce){.ys-dl,.ys-dl *{animation:none!important}.ys-fx-glint,.ys-fx-star{display:none}}
+/* v2 (выбор двери участником): мировые слои, след тона, число дня, блик по свободным дверям */
+.ys-dworld{position:absolute;inset:0;pointer-events:none}
+.ys-dpoly.is-can{cursor:pointer}
+.ys-dhit.is-zones .ys-dpoly.is-can{fill:rgba(127,255,240,.18);stroke:#7ff}
+.ys-dl-mark{position:absolute;display:flex;align-items:center;justify-content:center}
+.ys-dl-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.ys-dl-disc{position:absolute;left:50%;top:50%;width:60%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;mix-blend-mode:screen}
+.ys-dnum{position:absolute;transform:translate(-50%,4px);font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(13px,1.3vw,17px);color:#fff0cc;text-shadow:0 0 8px rgba(0,0,0,.9),0 0 14px rgba(255,200,80,.45);pointer-events:none}
+.ys-dcall{position:absolute;inset:0;pointer-events:none}
+.ys-dcall .ys-fx-glint i{opacity:.55}
+.ys-dcall.is-run .ys-fx-glint i{animation:ys-fx-glint 2.4s ease-in-out 1 both}
+/* «Есть ключ? Введи ключ» на Карте дня (двери, сначала Карта дня): живой вход — маленькая спираль вращается */
+.ys-c-key{display:inline-flex;align-items:center;gap:10px;font:inherit;font-size:15.5px;letter-spacing:.02em;color:#ffe7ae;background:rgba(255,214,140,.08);border:1px solid rgba(255,214,140,.45);border-radius:999px;padding:8px 18px 8px 10px;cursor:pointer;box-shadow:0 0 18px rgba(255,200,80,.18)}
+.ys-c-key:hover{background:rgba(255,214,140,.16)}
+.ys-c-key:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
+.ys-c-key svg{width:26px;height:26px;flex:none;color:#ffd86e;animation:ys-keyspin 9s linear infinite;filter:drop-shadow(0 0 4px rgba(255,200,80,.6))}
+@keyframes ys-keyspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ys-c-key svg{animation:none}.ys-dcall{display:none}}
 .ys-tap--calm{animation:none;opacity:.85;font-size:clamp(15px,1.4vw,18px)}
 .ys-go--fin{margin-top:4px}
 /* Пространство за дверью: на весь экран, поверх сцены, под картами (Карта дня, колода, ключ открываются поверх него) */

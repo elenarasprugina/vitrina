@@ -10,7 +10,13 @@
        { title — название / внутренний ID, seal — архетип / печать (для себя), on — активна (false — двери нет на сцене),
          zone: { desktop: [[x, y] …], mobile: [[x, y] …] } — контур, доли картинки (0…1), не съезжает при любом размере экрана,
          layers: [слой], open: { type, desktop, mobile, hold, ms, soft, tap }, space: пространство за дверью },
-     final: пространство финала (+ on) — после 13-го дня }
+     final: пространство финала (+ on) — после 13-го дня,
+     doorAssignmentMode: 'fixed' (по умолчанию: день N → дверь N) | 'userChoice' (участник сам выбирает любую свободную дверь; дверей сколько угодно),
+     first: '' (по режиму: выбор — Карта дня, fixed — пространство) | 'card' (Карта дня, глубже — по ключу) | 'space' (сразу пространство),
+     days: [{ space — пространство дня (в userChoice; в fixed — у двери), world: [слой мира] }], marks: [след тона × 13], showDayNumbers, call, callColor, callMs }
+   v2 (06.10, docs/doors.md «Схема v2»): у двери в userChoice — id (по нему запоминается выбор), markFix: { x, y, scale, rot } — поправка следа.
+   Слой мира: как слой двери, по всей сцене, + when: 'after' (после конца дня, по умолчанию) | 'during' (уже в течение дня).
+   След тона: { image, color, fill, opacity, blend, fx, speed, power, fade, scale, clip, soft } — знак кладётся в рамку выбранной двери.
    Слой: { name, visible, st: { состояние: да/нет } — в каких состояниях виден (нет st — во всех),
      area: 'door' (картинка размером со сцену, видна только внутри контура) | 'scene' (вся сцена, без контура) | 'frag' (готовый фрагмент — в рамку двери),
      desktop, mobile — картинка слоя (PNG/WebP с прозрачностью; необязательно), color + fill — заливка цветом (%), opacity, blend,
@@ -21,7 +27,10 @@
   'use strict';
   // Пять состояний двери (её список 06.10). Порядок важен: так они идут в панели.
   var STATES = ['future', 'today_unvisited', 'today_visited', 'past_visited', 'past_unvisited'];
-  var STATE_NAMES = { future: 'будущая', today_unvisited: 'сегодня, ещё не входили', today_visited: 'сегодня, уже входили', past_visited: 'прошла — входили', past_unvisited: 'прошла — не входили' };
+  // Режим «участник выбирает дверь» (v2): дверь не привязана к дню — три состояния
+  var STATES_UC = ['free', 'today', 'past'];
+  var STATE_NAMES = { future: 'будущая', today_unvisited: 'сегодня, ещё не входили', today_visited: 'сегодня, уже входили', past_visited: 'прошла — входили', past_unvisited: 'прошла — не входили',
+    free: 'свободная — ещё не выбирали', today: 'выбрана сегодня', past: 'выбрана в прошлый день' };
   var REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   var SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -64,7 +73,18 @@
 
   /* ---------- Настройки ---------- */
   function cfg(r) { return (r && r.doors) || {}; }
-  function count(r) { return ((r && r.days) || []).length || 13; }
+  function days(r) { return ((r && r.days) || []).length || 13; }
+  function isChoice(r) { return cfg(r).doorAssignmentMode === 'userChoice'; }
+  function statesOf(r) { return isChoice(r) ? STATES_UC : STATES; }
+  // Сколько дверей: в fixed — по числу дней, в userChoice — сколько добавлено в панели
+  function count(r) { return isChoice(r) ? (cfg(r).items || []).length : days(r); }
+  // Что открывается первым после двери: Карта дня (глубже — по ключу) или сразу пространство
+  function first(r) { var f = cfg(r).first; return f === 'card' || f === 'space' ? f : isChoice(r) ? 'card' : 'space'; }
+  function dayCfg(r, n) { return (cfg(r).days || [])[n - 1] || {}; }
+  // Пространство дня: в userChoice — у дня, в fixed — у двери N (как было)
+  function spaceOf(r, n) { return (isChoice(r) ? dayCfg(r, n).space : doorOf(r, n).space) || {}; }
+  function markOf(r, day) { return (cfg(r).marks || [])[day - 1] || {}; }
+  function uid() { return 'd' + Math.random().toString(36).slice(2, 9); }
   function doorOf(r, n) { return (cfg(r).items || [])[n - 1] || {}; }
   function zoneOf(d, key) { var z = (d.zone || {})[key]; return ptsOk(z) ? z : null; }
   // Картинка сцены для экрана: вытянутый (телефон) — mobile, иначе desktop; нет своей — берётся другая (вместе с её контурами)
@@ -72,16 +92,27 @@
     var D = cfg(r), t = tall ? !!D.mobile || !D.desktop : !D.desktop && !!D.mobile;
     return { src: t ? D.mobile : D.desktop, key: t ? 'mobile' : 'desktop', tall: t };
   }
-  function layerOn(L, st) { return !L.st || L.st[st] === true; }
+  // Нет отметки у состояния — слой виден (так слои не пропадают, когда меняется режим и набор состояний)
+  function layerOn(L, st) { return !L.st || L.st[st] !== false; }
   // Заготовка — только устройство (панель): сколько дверей, где хранятся контуры, слои, открытие и пространство
   function norm(r) {
-    var D = r.doors = r.doors || {}, n = count(r), i;
+    var D = r.doors = r.doors || {}, N = days(r), n, i;
     D.items = D.items || [];
+    // userChoice: дверей сколько добавлено (пусто — по числу дней для начала); fixed — по числу дней
+    n = isChoice(r) ? D.items.length || N : N;
     for (i = 0; i < n; i++) {
       var d = D.items[i] = D.items[i] || {};
+      d.id = d.id || uid();
       d.zone = d.zone || {}; d.layers = d.layers || []; d.open = d.open || {};
       d.space = d.space || {}; d.space.blocks = d.space.blocks || [];
     }
+    D.days = D.days || [];
+    for (i = 0; i < N; i++) {
+      var y = D.days[i] = D.days[i] || {};
+      y.space = y.space || {}; y.space.blocks = y.space.blocks || []; y.world = y.world || [];
+    }
+    D.marks = D.marks || [];
+    for (i = 0; i < N; i++) D.marks[i] = D.marks[i] || {};
     D.final = D.final || {}; D.final.blocks = D.final.blocks || [];
     return D;
   }
@@ -138,9 +169,9 @@
 
   /* ---------- Слой двери ---------- */
   function layerNode(L, d, n, key, base) {
-    var poly = zoneOf(d, key), area = L.area === 'scene' || L.area === 'frag' ? L.area : 'door';
+    var poly = zoneOf(d, key), area = L.area === 'scene' || L.area === 'frag' || L.area === 'mark' ? L.area : 'door';
     if (area !== 'scene' && !poly) return null;
-    var ln = el('div', 'ys-dl'), box = el('div', 'ys-dl-box'), inner = el('div', 'ys-dl-in'), b = poly ? bbox(poly) : null, pic = L[key];
+    var ln = el('div', 'ys-dl'), box = el('div', 'ys-dl-box'), inner = el('div', 'ys-dl-in'), b = poly ? bbox(poly) : null, pic = area === 'mark' ? L.image || L[key] : L[key];
     var k = num(L.speed, 100, 20, 400) / 100, p = num(L.power, 100, 10, 300) / 100, f = FX[L.fx] || FX.none, color = hexOk(L.color) ? L.color : '#ffe2a0';
     ln.style.setProperty('--o', num(L.opacity, 100, 0, 100) / 100);
     ln.style.setProperty('--fade', num(L.fade, 900, 0, 8000) + 'ms');
@@ -148,6 +179,7 @@
     ln.style.setProperty('--fx-p', p.toFixed(2));
     ln.style.setProperty('--fx-c', color);
     if (L.blend) ln.style.mixBlendMode = L.blend;
+    if (area === 'mark') return markBody(ln, box, inner, L, d, b, pic, base, f, { L: L, poly: poly, box: b, n: n, color: color, k: k, p: p });
     if (area !== 'scene') clip(ln, poly, num(L.soft, 0, 0, 40));
     if (pic) {
       var im = el('img', 'ys-dl-pic'); im.alt = ''; im.src = src(base, pic); im.draggable = false;
@@ -165,17 +197,41 @@
     return ln;
   }
 
+  /* След тона в рамке выбранной двери: знак по центру рамки (пропорции сохраняются), поправка двери — сдвиг, масштаб, поворот.
+     Без картинки, но с заливкой — мягкий светящийся круг цвета следа. clip — только внутри контура. */
+  function markBody(ln, box, inner, L, d, b, pic, base, f, c) {
+    var fx = d.markFix || {}, sc = num(L.scale, 100, 20, 300) / 100 * num(fx.scale, 100, 20, 300) / 100;
+    var w = b.w * sc, h = b.h * sc, cx = b.cx + num(fx.x, 0, -200, 200) / 100 * b.w, cy = b.cy + num(fx.y, 0, -200, 200) / 100 * b.h;
+    var m = el('div', 'ys-dl-mark');
+    m.style.left = ((cx - w / 2) * 100) + '%'; m.style.top = ((cy - h / 2) * 100) + '%'; m.style.width = (w * 100) + '%'; m.style.height = (h * 100) + '%';
+    if (+fx.rot) m.style.transform = 'rotate(' + num(fx.rot, 0, -180, 180) + 'deg)';
+    if (pic) { var im = el('img'); im.alt = ''; im.src = src(base, pic); im.draggable = false; m.appendChild(im); }
+    if (+L.fill > 0) { var g = el('i', 'ys-dl-disc'); g.style.background = 'radial-gradient(closest-side,' + c.color + ',transparent)'; g.style.opacity = num(L.fill, 0, 0, 100) / 100; m.appendChild(g); }
+    if (L.clip) clip(ln, c.poly, num(L.soft, 0, 0, 40));
+    inner.appendChild(m); box.appendChild(inner); ln.appendChild(box);
+    ln.classList.add('ys-dl--mark');
+    if (f.run) f.run(ln, c);
+    return ln;
+  }
+
   /* ---------- Сцена ----------
      o: { key — 'desktop' | 'mobile', base, onTap(n), zones — показать контуры, all — и выключенные двери (панель) }.
      Возвращает { node, img, set(n, состояние, сразу), state(n), poly(n), door(n), zones(да/нет) }. Размер и место node задаёт тот, кто её показывает. */
   function scene(r, o) {
     o = o || {};
-    var key = o.key || 'desktop', D = cfg(r), N = count(r), G = {};
-    var stage = el('div', 'ys-dstage'), img = el('img', 'ys-dscene'), wrap = el('div', 'ys-doors');
+    var key = o.key || 'desktop', D = cfg(r), N = count(r), G = {}, W = {};
+    var stage = el('div', 'ys-dstage'), img = el('img', 'ys-dscene'), wrap = el('div', 'ys-doors'), world = el('div', 'ys-dworld');
     var hit = sv('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'ys-dhit' + (o.zones ? ' is-zones' : '') });
     img.alt = ''; img.draggable = false;
     if (D[key]) img.src = src(o.base, D[key]); else stage.classList.add('is-empty');
-    stage.appendChild(img); stage.appendChild(wrap); stage.appendChild(hit);
+    stage.appendChild(img); stage.appendChild(world); stage.appendChild(wrap); stage.appendChild(hit);
+    // Мировые слои дней — на всю сцену, под дверями; видны, когда их включает страница (world(день, да/нет))
+    for (var y = 1; y <= days(r); y++) W[y] = (dayCfg(r, y).world || []).map(function (L) {
+      if (!L || L.visible === false) return null;
+      var ln = layerNode({ area: 'scene', desktop: L.desktop, mobile: L.mobile, color: L.color, fill: L.fill, opacity: L.opacity, blend: L.blend, fx: L.fx, speed: L.speed, power: L.power, fade: L.fade }, {}, 100 + y, key, o.base);
+      if (ln) world.appendChild(ln);
+      return ln;
+    }).filter(Boolean);
     for (var n = 1; n <= N; n++) (function (n) {
       var d = doorOf(r, n);
       if (d.on === false && !o.all) return;
@@ -196,7 +252,7 @@
       }
       G[n] = { g: g, list: list, poly: poly, pg: pg, st: null };
     })(n);
-    function set(n, st, now) {
+    function set(n, st, now, can) {
       var x = G[n]; if (!x) return;
       x.st = st;
       x.list.forEach(function (it) {
@@ -212,13 +268,71 @@
       x.g.setAttribute('data-st', st);
       if (x.pg) {
         x.pg.setAttribute('class', 'ys-dpoly is-' + st);
-        var today = st === 'today_unvisited' || st === 'today_visited';
+        var today = can != null ? !!can : st === 'today_unvisited' || st === 'today_visited';
+        if (today) { x.pg.setAttribute('class', 'ys-dpoly is-' + st + ' is-can'); x.pg.removeAttribute('aria-hidden'); }
         if (today) { x.pg.setAttribute('tabindex', '0'); x.pg.setAttribute('role', 'button'); x.pg.setAttribute('aria-label', 'Дверь дня ' + n); }
         else { x.pg.removeAttribute('tabindex'); x.pg.removeAttribute('role'); x.pg.setAttribute('aria-hidden', 'true'); }
       }
     }
+    function show(ln, on, now) {
+      if (now) ln.classList.add('is-now');
+      if (on && !ln.classList.contains('is-on')) {
+        ln.classList.add('is-on');
+        if (!now && ln.classList.contains('ys-fx-reveal')) { ln.classList.remove('ys-fx-reveal'); void ln.offsetWidth; ln.classList.add('ys-fx-reveal'); }
+      } else if (!on) ln.classList.remove('is-on');
+      if (now) { void ln.offsetWidth; ln.classList.remove('is-now'); }
+    }
+    // След тона дня day на двери n (now — сразу, без проявления); day = 0 — убрать
+    function mark(n, day, now) {
+      var x = G[n]; if (!x) return;
+      if (x.mk && x.mkDay === day) return;
+      if (x.mk) { x.mk.remove(); x.mk = null; }
+      if (!day) return;
+      var M = markOf(r, day);
+      if (!M.image && !(+M.fill > 0) && !(FX[M.fx] && M.fx !== 'none')) return;
+      var ln = layerNode({ area: 'mark', image: M.image, color: M.color, fill: M.fill, opacity: M.opacity, blend: M.blend, fx: M.fx || 'reveal', speed: M.speed, power: M.power, fade: M.fade == null ? 1600 : M.fade, scale: M.scale, clip: M.clip, soft: M.soft }, doorOf(r, n), n, key, o.base);
+      if (!ln) return;
+      x.g.appendChild(ln); x.mk = ln; x.mkDay = day;
+      if (now) show(ln, true, true); else { void ln.offsetWidth; show(ln, true, false); }
+    }
+    // Число дня на выбранной двери (showDayNumbers)
+    function numOn(n, t) {
+      var x = G[n]; if (!x || !x.poly) return;
+      if (x.nm) x.nm.remove();
+      if (!t) { x.nm = null; return; }
+      var b = bbox(x.poly), s = el('span', 'ys-dnum', t);
+      s.style.left = (b.cx * 100) + '%'; s.style.top = ((b.y + b.h) * 100) + '%';
+      wrap.appendChild(s); x.nm = s;
+    }
+    /* Блик по свободным дверям по очереди (движение сцены, не двери): list — номера дверей; пусто — блика нет.
+       c: { color, ms — пауза между дверями }. Останавливается сам, когда сцену убрали со страницы. */
+    var callT = null, callEls = [];
+    function call(list, c) {
+      clearInterval(callT); callEls.forEach(function (e) { e.remove(); }); callEls = [];
+      if (REDUCED || !list || !list.length) return;
+      c = c || {};
+      list.forEach(function (n) {
+        var x = G[n]; if (!x || !x.poly) return;
+        var b = bbox(x.poly), e = el('div', 'ys-dcall'), gl = el('div', 'ys-fx-glint');
+        e.style.setProperty('--fx-c', hexOk(c.color) ? c.color : '#fff1c8');
+        clip(e, x.poly, 0);
+        gl.style.left = (b.x * 100) + '%'; gl.style.top = (b.y * 100) + '%'; gl.style.width = (b.w * 100) + '%'; gl.style.height = (b.h * 100) + '%';
+        gl.appendChild(el('i')); e.appendChild(gl); wrap.appendChild(e); callEls.push(e);
+      });
+      if (!callEls.length) return;
+      var i = -1, ms = num(c.ms, 1800, 600, 8000);
+      function step() {
+        if (!stage.isConnected && i >= 0) { clearInterval(callT); return; }
+        if (i >= 0) callEls[i % callEls.length].classList.remove('is-run');
+        i++;
+        var e = callEls[i % callEls.length]; void e.offsetWidth; e.classList.add('is-run');
+      }
+      setTimeout(step, 400); callT = setInterval(step, ms);
+    }
     return { node: stage, img: img, key: key, set: set, state: function (n) { return G[n] ? G[n].st : null; },
       poly: function (n) { return G[n] ? G[n].poly : null; }, door: function (n) { return G[n] ? G[n].g : null; },
+      world: function (y, on, now) { (W[y] || []).forEach(function (ln) { show(ln, on, now); }); },
+      mark: mark, num: numOn, call: call,
       zones: function (on) { hit.setAttribute('class', 'ys-dhit' + (on ? ' is-zones' : '')); } };
   }
   // Где сцена на экране: целиком (по краям — размытая та же картинка) или во весь экран (края срезаются)
@@ -360,7 +474,7 @@
     after(ms, function () { node.classList.add('is-gone'); after(260, end); });
   }
 
-  window.M13D = { STATES: STATES, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF,
-    cfg: cfg, doorOf: doorOf, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
+  window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF,
+    cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back };
 })();
