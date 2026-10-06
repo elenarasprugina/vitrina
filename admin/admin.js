@@ -2371,7 +2371,7 @@
      Данные — data/journeys.json: { items: [маршрут] }. Страница — routes/<id>/ (код в репозитории vitrina, рисует assets/route.js).
      Карта дня и личная карта собираются из блоков; у текстовых блоков текст свой у каждого дня: day.texts[id блока].
      Ключи форматов: в черновике — сам ключ (_keys, на сайт не попадает), на сайте — только отпечаток (keys). */
-  var J_TABS = [['main', 'Основное'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
+  var J_TABS = [['main', 'Основное'], ['doors', 'Двери'], ['spaces', 'За дверью'], ['bricks', 'Кирпичи на спирали'], ['plants', 'Растения'], ['dayCard', 'Карта дня'], ['days', '13 дней'], ['deck', 'Колода'], ['disk', 'Диск'], ['personal', 'Личная карта'], ['states', 'Калейдоскоп и состояния'], ['glass', 'Стёклышки'], ['final', 'Финал'], ['codes', 'Код участника']];
   var J_MODES = [['observation', 'Наблюдение'], ['journey', 'Путешествие'], ['immersion', 'Погружение']];
   var J_KINDS = [['image', 'Картинка дня'], ['small', 'Строка мелко'], ['title', 'Заголовок'], ['text', 'Текст дня'], ['question', 'Вопрос (выделен рамкой)'],
     ['note', 'Общий текст (одинаковый во все дни)'], ['disk', 'Лицо карты — диск (касание зон)'], ['wheel', 'Лицо карты — колесо (прежнее)'], ['wayback', 'Путь назад в ось (по зонам колеса)']];
@@ -2401,6 +2401,7 @@
       G.marks = G.marks || {}; window.M13R.GIFT_ZONES.forEach(function (z) { if (!G.marks[z]) G.marks[z] = clone(GD.marks[z]); }); }
     for (var i = r.days.length; i < 13; i++) r.days.push({ n: i + 1, kin: null, kinName: '', seal: '', tone: '', image: null, texts: {} });
     r.days.forEach(function (d) { d.texts = d.texts || {}; });
+    if (r.scene === 'doors' && window.M13D) window.M13D.norm(r);
     return r;
   }
   function jEnd(r) {
@@ -2413,7 +2414,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261005a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261006a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -2478,6 +2479,12 @@
       r = clone(src);
       Object.keys(r.texts || {}).forEach(function (k) { if (typeof r.texts[k] === 'string' && jTied(r.texts[k], src)) delete r.texts[k]; });
       delete r.guide;
+      // Двери: сцена, контуры, слои, открытие и устройство пространств — как у образца; тексты пространств, названия и печати — пустые
+      if (r.doors) {
+        var unText = function (sp) { (sp && sp.blocks || []).forEach(function (b) { if (b.kind === 'title' || b.kind === 'small' || b.kind === 'text') b.text = ''; if (b.kind === 'image') { b.image = null; b.text = ''; } }); };
+        (r.doors.items || []).forEach(function (d) { d.title = ''; d.seal = ''; unText(d.space); });
+        unText(r.doors.final);
+      }
     } else {
       // Чистый: только устройство карт (блоки Карты дня и личной карты, состояния), без картинок и оформления
       r = first ? { dayCard: clone(first.dayCard || { blocks: [] }), personalCard: clone(first.personalCard || { blocks: [] }), states: clone(first.states || {}),
@@ -2557,10 +2564,20 @@
     row(!!(r.title || '').trim(), 'Название маршрута', 'main');
     row(/^\d{4}-\d{2}-\d{2}$/.test(r.start || ''), 'Первый день' + (r.start ? ': ' + jDateText(r.start) : ''), 'main');
     if (r.kind !== 'theme') { var kd = jKinDiff(r); row(!!r.start && !kd, kd ? 'Кины: ' + kd + ' из ' + n + ' дней не совпадают с календарём — «Заполнить кины по календарю»' : 'Кины 13 дней — по календарю', 'days'); }
+    if (r.scene === 'doors' && window.M13D) {
+      var DD = window.M13D.norm(r), on = DD.items.filter(function (d) { return d.on !== false; });
+      function zc(k) { return on.filter(function (d) { return window.M13D.ptsOk((d.zone || {})[k]); }).length; }
+      var same = src && src.doors && (DD.desktop === src.doors.desktop || DD.mobile === src.doors.mobile);
+      row(!!(DD.desktop && DD.mobile) && !same, same ? 'Сцена с дверями — пока та же, что у «' + src.title + '»' : 'Сцена с дверями: для компьютера и для телефона', 'doors');
+      row(zc('desktop') === on.length && zc('mobile') === on.length, 'Контуры дверей: компьютер ' + zc('desktop') + ' из ' + on.length + ', телефон ' + zc('mobile') + ' из ' + on.length, 'doors');
+      var spc = DD.items.filter(function (d) { return (d.space.blocks || []).some(function (b) { return b.visible !== false; }); }).length;
+      row(spc === DD.items.length, 'Пространства за дверями: заполнены ' + spc + ' из ' + DD.items.length, 'spaces');
+    } else {
     row(!!(r.masterDesktop && r.masterMobile) && !(src && (r.masterDesktop === src.masterDesktop || r.masterMobile === src.masterMobile)),
       src && (r.masterDesktop === src.masterDesktop || r.masterMobile === src.masterMobile) ? 'Картинка пути — пока та же, что у «' + src.title + '» (своя — «Основное» → «Спираль»)' : 'Картинка пути: для компьютера и для телефона', 'main');
     var oldZ = src && (r.masterDesktop !== src.masterDesktop || r.masterMobile !== src.masterMobile) && JSON.stringify(r.zones || {}) === JSON.stringify(src.zones || {});
     row(z('desktop') && z('mobile') && !oldZ, oldZ ? 'Разметка шагов — ещё от картинки «' + src.title + '»: разметьте по новой картинке' : 'Разметка шагов на картинке пути (компьютер и телефон)', 'bricks');
+    }
     row(cnt(function (d) { return !!d.image; }) === n, 'Картинки дней: ' + cnt(function (d) { return !!d.image; }) + ' из ' + n, 'days');
     var tb = r.dayCard.blocks.filter(function (b) { return (b.kind === 'text' || b.kind === 'question') && b.visible !== false; });
     var tdone = cnt(function (d) { return tb.length && tb.every(function (b) { return String(d.texts[b.id] || '').trim(); }); });
@@ -2611,7 +2628,8 @@
   function routePageHTML(r, D) {
     var u = siteUrl(D), dates = window.M13R ? window.M13R.datesText(r) : '', name = '13 MIRRORS · ' + (r.title || 'Маршрут');
     var desc = (r.ogText || '') || ((r.days || []).length || 13) + ' дней' + (dates ? ' · ' + dates : '');
-    var img = r.masterDesktop && !/^data:/.test(r.masterDesktop) ? (/^https?:/.test(r.masterDesktop) ? r.masterDesktop : u + r.masterDesktop) : '';
+    var pic = r.scene === 'doors' && r.doors && r.doors.desktop ? r.doors.desktop : r.masterDesktop;
+    var img = pic && !/^data:/.test(pic) ? (/^https?:/.test(pic) ? pic : u + pic) : '';
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(name) + '</title>\n<meta name="description" content="' + escAttr('Маршрут «' + r.title + '» · ' + desc) + '">\n' +
       '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/') + '">\n' +
@@ -2852,7 +2870,7 @@
     }
     var when = el('p', { class: 'a-hint' }), wave = el('p', { class: 'a-hint' });
     function showWhen() {
-      when.textContent = jEnd(r) ? r.days.length + ' дней: ' + window.M13R.dateOf(r, 1) + ' — ' + jEnd(r) + '. Новый день начинается в 00:00 по Москве.' : 'Укажите первый день маршрута.';
+      when.textContent = jEnd(r) ? r.days.length + ' дней: ' + window.M13R.dateOf(r, 1) + ' — ' + jEnd(r) + '. Новый день начинается в 00:00 ' + (window.M13R.dayClock(r) === 'local' ? 'по часовому поясу участника.' : 'по Москве.') : 'Укажите первый день маршрута.';
       wave.textContent = jWaveHint(r);
     }
     showWhen();
@@ -2865,6 +2883,11 @@
           selectIn(r, 'routeId', 'Карточка на витрине', [['', 'Без карточки']].concat(jCards().map(function (c) { return [c.id, (c.title || c.id) + (linked[c.id] ? ' (уже у «' + linked[c.id] + '»)' : '')]; })),
             { def: '', hint: 'Карточка из раздела «Маршруты»: в дни маршрута на ней — Карта дня и ссылка на эту страницу.' }),
           selectIn(r, 'kind', 'Вид маршрута', J_KIND, { def: 'wave', onChange: function () { showWhen(); }, hint: 'У тематического кины не считаются. Число шагов пока у всех 13.' })]),
+        el('div', { class: 'a-row' }, [
+          selectIn(r, 'scene', 'Сцена пути', [['', 'Спираль — камни дней ведут к центру'], ['doors', 'Двери — у каждого дня своя дверь и пространство за ней']], { def: '',
+            onChange: function (v) { if (!v) delete r.scene; jRoute(); showWhen(); renderMain(); }, hint: 'Можно переключать: настройки другой сцены не теряются. Двери настраиваются во вкладках «Двери» и «За дверью».' }),
+          selectIn(r, 'dayClock', 'Когда начинается новый день', [['', 'как принято для сцены: спираль — по Москве, двери — по часовому поясу участника'], ['msk', 'в 00:00 по Москве'], ['local', 'в 00:00 по часовому поясу участника']], { def: '',
+            onChange: function (v) { if (!v) delete r.dayClock; showWhen(); }, hint: 'По поясу участника: пояс запоминается на его устройстве при первом входе и дальше не меняется (поездка не сдвигает дни). Никуда не отправляется.' })]),
         field('Адрес страницы', el('input', { class: 'a-input', type: 'text', value: siteUrl().replace(/^https?:\/\//, '') + r.path, readonly: 'readonly' }), 'Адрес не меняется: от него зависят ключи и коды участников.'),
         switchIn(r, 'visible', 'Показывать на сайте', { defTrue: true, onChange: function () { renderMain(); },
           hint: 'Выключено — маршрут готовится: при публикации он не попадает на сайт и его страница не создаётся. Включите, когда всё готово, и опубликуйте.' })
@@ -2873,7 +2896,7 @@
         r.kind === 'theme' ? null : el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Заполнить кины по календарю', onclick: function () { jKinFill(r, true, function () { renderMain(); }); },
           title: 'Kin, имя кина, печать и тон каждого дня — по первому дню' })])]),
       block('Слова маршрута', jWords(r), { open: false }),
-      block('Спираль (фон страницы)', [
+      r.scene === 'doors' ? null : block('Спираль (фон страницы)', [
         el('div', { class: 'a-row' }, [
           imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
           imageIn(r, 'masterMobile', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Спираль на телефоне — во всю ширину.', onChange: liveSoon })]),
@@ -2898,11 +2921,11 @@
         jNeonRow(r, 'plants', 'Светящиеся растения'),
         jNeonRow(r, 'spiral', 'Камни на спирали в дни маршрута', 'Без «своего» — без неона: золотой свет камней как сейчас.')
       ], { open: false }),
-      block('Светящиеся растения', [
+      r.scene === 'doors' ? null : block('Светящиеся растения', [
         el('p', { class: 'a-hint', text: 'Растения теперь — своя вкладка «Растения»: там их можно рисовать прямо по картинке, ставить светящиеся фигурки, менять цвет и яркость или выключить.' }),
         switchIn(r.plants, 'on', 'Светящиеся растения', { defTrue: true })
       ], { open: false }),
-      block('Свет кирпичей', [
+      r.scene === 'doors' ? null : block('Свет кирпичей', [
         el('p', { class: 'a-hint', text: 'Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, после нажатия светится ровно; пройденные светятся спокойно, будущие — в тени. Где лежат кирпичи — вкладка «Кирпичи на спирали», там же видно, как светится каждый день.' }),
         jGlowLive(r),
         colorIn(r.glow, 'color', 'Цвет свечения — общий'),
@@ -4031,16 +4054,398 @@
       out,
       el('p', { class: 'a-hint', text: 'Пройти весь путь самой: «Посмотреть страницу» → «Проверка» → «Код Путешествия» (или впишите код в окно «Ключ к маршруту») → кирпич дня → кнопка-спираль → круг карт.' })];
   }
+  /* ================= СЦЕНА «ДВЕРИ» (06.10; вид и движение — assets/doors.js, M13D; страница — route.js) =================
+     Вкладка «Двери»: общая сцена (компьютер 16:9 и телефон 9:16), у каждой двери — контур точками, слои по пяти состояниям, открытие.
+     Вкладка «За дверью»: пространство дня — фон и блоки (тексты, картинки, Карта дня, колода, стёклышко, кнопка в финал); финал. */
+  var JD_FOR = [['all', 'всегда — во всех состояниях', ['future', 'today_unvisited', 'today_visited', 'past_visited', 'past_unvisited']],
+    ['before', 'до встречи — будущая и сегодняшняя до входа', ['future', 'today_unvisited']], ['call', 'зов — сегодня, пока не входили', ['today_unvisited']],
+    ['after', 'после входа — сегодня и потом', ['today_visited', 'past_visited']], ['trace', 'след — прошла, входили', ['past_visited']],
+    ['missed', 'прошла, не входили', ['past_unvisited']], ['future', 'только будущая', ['future']]];
+  function jdStates(L) { var M = window.M13D; return M.STATES.filter(function (s) { return !L.st || L.st[s]; }); }
+  function jdLayerTitle(L) {
+    var M = window.M13D, on = jdStates(L), fx = M.FX[L.fx] && L.fx !== 'none' ? ' · ' + M.FX[L.fx].name.split(' — ')[0] : '';
+    return (L.name || 'Слой') + ' · ' + (on.length === 5 ? 'всегда' : on.length ? on.map(function (s) { return M.STATE_NAMES[s]; }).join(', ') : 'нигде не виден') + fx;
+  }
+  // Номера дверей кнопками: точка — контур есть (● на этой картинке, ◐ только на другой)
+  function jdChips(r, st, extra, o) {
+    o = o || {};
+    var D = r.doors, N = r.days.length, out = [];
+    for (var i = 1; i <= N; i++) (function (n) {
+      var d = D.items[n - 1], z = d.zone || {}, has = window.M13D.ptsOk(z[st.v || 'desktop']), oth = window.M13D.ptsOk(z[st.v === 'mobile' ? 'desktop' : 'mobile']);
+      out.push(el('button', { type: 'button', class: (st.n === n ? 'is-active' : '') + (d.on === false ? ' is-off' : ''), title: (d.title || 'Дверь ' + n) + (d.on === false ? ' — выключена' : ''),
+        text: o.label ? o.label(n) : n + (has ? ' ●' : oth ? ' ◐' : ''), onclick: function () { if (o.pick) o.pick(n); else { st.n = n; st.fresh = st.tool === 'dots'; } renderMain(); } }));
+    })(i);
+    if (extra) out.push(extra);
+    return el('div', { class: 'a-tabs a-jd-chips' }, out);
+  }
+  function jdHead(r, n) {
+    var day = r.days[n - 1] || {}, d = r.doors.items[n - 1];
+    return el('h2', { class: 'a-jd-h', text: 'Дверь ' + n + (d.title ? ' · ' + d.title : '') + ' — день ' + n + (window.M13R ? ', ' + window.M13R.dateOf(r, n) : '') + (day.seal ? ' · ' + day.seal : '') });
+  }
+  function jdSmooth(pts) {
+    function r4(v) { return Math.round(v * 10000) / 10000; }
+    function rdp(a, eps) {
+      if (a.length < 3) return a;
+      var f = a[0], l = a[a.length - 1], dx = l[0] - f[0], dy = l[1] - f[1], L = Math.sqrt(dx * dx + dy * dy) || 1e-6, mi = 0, md = 0, i;
+      for (i = 1; i < a.length - 1; i++) { var dd = Math.abs(dy * a[i][0] - dx * a[i][1] + l[0] * f[1] - l[1] * f[0]) / L; if (dd > md) { md = dd; mi = i; } }
+      return md > eps ? rdp(a.slice(0, mi + 1), eps).slice(0, -1).concat(rdp(a.slice(mi), eps)) : [f, l];
+    }
+    var s = pts.map(function (p, i) { if (!i || i === pts.length - 1) return p; var a = pts[i - 1], b = pts[i + 1]; return [(a[0] + 2 * p[0] + b[0]) / 4, (a[1] + 2 * p[1] + b[1]) / 4]; });
+    return rdp(s, .0018).map(function (p) { return [r4(p[0]), r4(p[1])]; });
+  }
+  // Контур двери: сцена (как на сайте, со слоями в выбранном состоянии) + обводка и точки поверх
+  function jdEditor(r, st) {
+    var M = window.M13D, D = r.doors, n = st.n, d = D.items[n - 1], key = st.v, N = r.days.length;
+    var view = el('div', { class: 'a-jd-view' + (key === 'mobile' ? ' a-jd-view--tall' : '') }), wrap = el('div', { class: 'a-jd-wrap' + (st.zoom ? ' is-zoom' : '') + ' is-' + st.tool });
+    var hs = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), hd = el('div', { class: 'a-jd-hd' }), sc = null, drag = null;
+    hs.setAttribute('class', 'a-jd-svg'); hs.setAttribute('viewBox', '0 0 100 100'); hs.setAttribute('preserveAspectRatio', 'none');
+    view.appendChild(wrap);
+    function r4(v) { return Math.round(v * 10000) / 10000; }
+    function zone() { return (d.zone || {})[key] || null; }
+    function setZone(a) { d.zone = d.zone || {}; if (a) d.zone[key] = a; else delete d.zone[key]; }
+    function pts(a) { return a.map(function (p) { return (p[0] * 100).toFixed(2) + ',' + (p[1] * 100).toFixed(2); }).join(' '); }
+    // Состояния на предпросмотре: эта дверь — как выбрано, остальные — как если бы сегодня был её день
+    function stateOf(k) { return k === n ? st.show : k < n ? 'past_visited' : 'future'; }
+    function scene() {
+      if (sc) sc.node.remove();
+      sc = M.scene(r, { key: key, base: '../', all: true });
+      for (var k = 1; k <= N; k++) sc.set(k, stateOf(k), true);
+      var D2 = r.doors, pic = D2[key];
+      sc.node.classList.add('a-jd-stage');
+      if (!pic) sc.node.style.aspectRatio = key === 'mobile' ? '9/16' : '16/9';
+      sc.img.addEventListener('load', function () { sc.node.style.aspectRatio = sc.img.naturalWidth + '/' + sc.img.naturalHeight; });
+      wrap.insertBefore(sc.node, wrap.firstChild);
+    }
+    function marks(live) {
+      var h = '', a = zone();
+      if (st.others) for (var k = 1; k <= N; k++) {
+        var o = k !== n && M.zoneOf(D.items[k - 1], key);
+        if (o) h += '<polygon points="' + pts(o) + '" fill="rgba(255,255,255,.06)" stroke="#fff" stroke-opacity=".55" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>';
+      }
+      if (a && a.length >= 2) h += '<polygon points="' + pts(a) + '" fill="rgba(127,255,240,' + (st.tool === 'test' ? .08 : .16) + ')" stroke="#7ff" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+      if (live && live.length > 1) h += '<polyline points="' + pts(live) + '" fill="none" stroke="#fff" stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
+      hs.innerHTML = h;
+      // Подписи номеров у других дверей
+      hd.replaceChildren();
+      if (st.others) for (var j = 1; j <= N; j++) {
+        var z = M.zoneOf(D.items[j - 1], key); if (!z || j === n) continue;
+        var b = M.bbox(z), lb = el('span', { class: 'a-jd-num', text: j }); lb.style.left = (b.cx * 100) + '%'; lb.style.top = (b.cy * 100) + '%'; hd.appendChild(lb);
+      }
+      if (a && (st.tool === 'edit' || st.tool === 'dots')) {
+        a.forEach(function (p, i) {
+          var s = el('span', { class: 'a-jd-p' + (i === 0 ? ' is-first' : ''), title: 'Тяните. Двойной щелчок — убрать точку' }); s.setAttribute('data-i', i);
+          s.style.left = (p[0] * 100) + '%'; s.style.top = (p[1] * 100) + '%'; hd.appendChild(s);
+        });
+        if (st.tool === 'edit' && a.length >= 3) a.forEach(function (p, i) {
+          var q = a[(i + 1) % a.length], s = el('span', { class: 'a-jd-mid', title: 'Добавить точку здесь' }); s.setAttribute('data-m', i);
+          s.style.left = ((p[0] + q[0]) * 50) + '%'; s.style.top = ((p[1] + q[1]) * 50) + '%'; hd.appendChild(s);
+        });
+      }
+      stat();
+    }
+    var statP = el('p', { class: 'a-hint' });
+    function stat() {
+      var a = zone();
+      statP.className = 'a-hint' + (a && a.length >= 3 ? '' : ' a-hint--warn');
+      statP.textContent = a && a.length >= 3 ? 'Контур двери ' + n + ' (' + (key === 'mobile' ? 'телефон' : 'компьютер') + '): ' + a.length + ' точек. Нажать на дверь можно только внутри него.' :
+        'У двери ' + n + ' на этой картинке контура нет — на сцене её не нажать (в её день вместо касания будет кнопка «Войти в дверь дня»).';
+    }
+    function snap() { st.undo.push({ n: n, key: key, z: zone() ? clone(zone()) : null }); if (st.undo.length > 40) st.undo.shift(); undoBtn.disabled = false; }
+    function at(e) { var rc = wrap.getBoundingClientRect(); return [Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)), Math.max(0, Math.min(1, (e.clientY - rc.top) / rc.height))]; }
+    function done() { drag = null; changed(); scene(); marks(); }
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      var p = at(e), t = e.target, pi = t.getAttribute && t.getAttribute('data-i'), mi = t.getAttribute && t.getAttribute('data-m'), a = zone();
+      e.preventDefault();
+      if (st.tool === 'test') {
+        var hit = 0; for (var k = N; k >= 1; k--) { var z = M.zoneOf(D.items[k - 1], key); if (z && M.inPoly(z, p[0], p[1])) { hit = k; break; } }
+        toast(hit ? 'Здесь — дверь ' + hit + (hit !== n ? ' (нажмите на её номер выше, чтобы править)' : '') : 'Здесь нет двери — касание сюда ничего не откроет.');
+        return;
+      }
+      if (st.tool === 'dots') {
+        if (pi != null) { snap(); drag = { i: +pi }; }
+        else {
+          // Первое нажатие после выбора «Ставить точки» начинает новый контур (старый — «Отменить»)
+          snap(); a = a && !st.fresh ? a.slice() : []; st.fresh = false;
+          a.push([r4(p[0]), r4(p[1])]); setZone(a); changed(); if (a.length >= 3) scene(); marks(); return;
+        }
+      } else if (st.tool === 'edit') {
+        if (!a) { toast('Контура ещё нет — обведите дверь (✏️) или поставьте точки (➕).'); return; }
+        snap();
+        if (mi != null) { a.splice(+mi + 1, 0, [r4(p[0]), r4(p[1])]); drag = { i: +mi + 1 }; marks(); }
+        else if (pi != null) drag = { i: +pi };
+        else if (a.length >= 3 && M.inPoly(a, p[0], p[1])) drag = { all: 1, last: p };
+        else { st.undo.pop(); return; }
+      } else drag = { line: [p] };
+      try { wrap.setPointerCapture(e.pointerId); } catch (er) {}
+    });
+    wrap.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var p = at(e), a = zone();
+      if (drag.line) { var q = drag.line[drag.line.length - 1]; if (Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .003) { drag.line.push(p); marks(drag.line); } return; }
+      if (drag.all) { var mx = p[0] - drag.last[0], my = p[1] - drag.last[1]; drag.last = p; a.forEach(function (q) { q[0] = r4(Math.max(0, Math.min(1, q[0] + mx))); q[1] = r4(Math.max(0, Math.min(1, q[1] + my))); }); }
+      else { a[drag.i][0] = r4(p[0]); a[drag.i][1] = r4(p[1]); }
+      drag.moved = true; marks();
+    });
+    function up() {
+      if (!drag) return;
+      var g = drag;
+      if (g.line) {
+        if (g.line.length < 6) { drag = null; marks(); toast('Обведите дверь одной линией по её краю — не отрывая пальца или мышки.', true); return; }
+        snap(); setZone(jdSmooth(g.line));
+      }
+      done();
+    }
+    wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+    wrap.addEventListener('dblclick', function (e) {
+      var pi = e.target.getAttribute && e.target.getAttribute('data-i'), a = zone();
+      if (pi == null || !a) return;
+      if (a.length <= 3) { toast('Меньше трёх точек нельзя. Стереть контур целиком — кнопка ниже.'); return; }
+      snap(); a.splice(+pi, 1); done();
+    });
+    var TH = {
+      draw: 'Ведите по краю двери одной линией, не отрывая пальца или мышки. Линия сама замкнётся и сгладится; старый контур этой двери заменится.',
+      dots: 'Нажимайте по краю двери по очереди — точка за точкой (по кругу). Первое нажатие начинает новый контур, он замыкается сам. Точку можно сразу подвинуть.',
+      edit: 'Тяните точки. Маленькие кружки между точками — добавить точку там. Двойной щелчок по точке — убрать её. Взялись внутри контура — двигается весь контур.',
+      test: 'Нажмите на картинку — панель скажет, какая там дверь (так же будет на сайте).'
+    };
+    var help = el('p', { class: 'a-hint a-jdz-th', text: TH[st.tool] || TH.draw });
+    function tool(t, label) {
+      return el('button', { type: 'button', class: st.tool === t ? 'is-active' : '', text: label, onclick: function () {
+        st.tool = t; st.fresh = t === 'dots'; [].forEach.call(tools.children, function (b) { b.classList.toggle('is-active', b === this); }, this);
+        wrap.className = 'a-jd-wrap' + (st.zoom ? ' is-zoom' : '') + ' is-' + t; help.textContent = TH[t]; marks();
+      } });
+    }
+    var tools = el('div', { class: 'a-tabs a-jpl-tools' }, [tool('draw', '✏️ Обвести от руки'), tool('dots', '➕ Ставить точки'), tool('edit', '✋ Двигать точки'), tool('test', '👆 Проверить касание')]);
+    var undoBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↶ Отменить', onclick: function () {
+      var u = st.undo.pop(); if (!u) return;
+      var dd = D.items[u.n - 1]; dd.zone = dd.zone || {}; if (u.z) dd.zone[u.key] = u.z; else delete dd.zone[u.key];
+      undoBtn.disabled = !st.undo.length;
+      if (u.n !== n || u.key !== key) { st.n = u.n; st.v = u.key; changed(); renderMain(); return; }
+      done();
+    } });
+    undoBtn.disabled = !st.undo.length;
+    var zoomBtn = el('button', { type: 'button', class: 'a-btn a-btn--small', text: st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее', onclick: function () {
+      st.zoom = !st.zoom; wrap.classList.toggle('is-zoom', st.zoom); zoomBtn.textContent = st.zoom ? '🔍 Обычный размер' : '🔍 Крупнее'; } });
+    var vtabs = el('div', { class: 'a-tabs' }, [['desktop', '🖥 Компьютер 16:9'], ['mobile', '📱 Телефон 9:16']].map(function (x) {
+      return el('button', { type: 'button', class: key === x[0] ? 'is-active' : '', text: x[1], onclick: function () { st.v = x[0]; st.fresh = st.tool === 'dots'; renderMain(); } });
+    }));
+    var show = el('select', { class: 'a-input' }, M.STATES.map(function (s) { return el('option', { value: s, text: M.STATE_NAMES[s] }); }));
+    show.value = st.show;
+    show.addEventListener('change', function () { st.show = show.value; scene(); });
+    var oth = el('input', { type: 'checkbox', checked: st.others });
+    oth.addEventListener('change', function () { st.others = oth.checked; marks(); });
+    wrap.appendChild(hs); wrap.appendChild(hd);
+    scene(); marks();
+    LIVE.push({ node: wrap, run: function () { if (!drag) { scene(); marks(); } } });
+    return [vtabs,
+      r.doors[key] ? null : el('p', { class: 'a-hint a-hint--warn', text: 'Картинка сцены для ' + (key === 'mobile' ? 'телефона' : 'компьютера') + ' не загружена (блок «Сцена с дверями» выше). Контур можно рисовать и так, но лучше — по картинке.' }),
+      el('div', { class: 'a-row a-row--end' }, [field('Показать эту дверь в состоянии', show, 'Слои двери видны так, как в этом состоянии на сайте. Остальные двери — как если бы сегодня был её день.'),
+        el('label', { class: 'a-mini-switch' }, [oth, el('span', { text: 'контуры других дверей' })])]),
+      tools, help,
+      el('div', { class: 'a-backup-btns' }, [undoBtn, zoomBtn,
+        el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Стереть контур', onclick: function () {
+          if (!zone()) { toast('Контура и так нет.'); return; }
+          if (!confirm('Стереть контур двери ' + n + ' на картинке для ' + (key === 'mobile' ? 'телефона' : 'компьютера') + '? «Отменить» вернёт.')) return;
+          snap(); setZone(null); done(); } })]),
+      statP, view];
+  }
+  function jdLayerBody(r, L, rerender) {
+    var M = window.M13D, area = L.area || 'door';
+    // Нет st — слой виден всегда; есть — только в отмеченных состояниях
+    var all = !L.st; L.st = L.st || {}; M.STATES.forEach(function (s) { if (L.st[s] == null) L.st[s] = all; });
+    var forSel = el('select', { class: 'a-input' }, [el('option', { value: '', text: 'выбрать готовый набор…' })].concat(JD_FOR.map(function (x) { return el('option', { value: x[0], text: x[1] }); })));
+    forSel.addEventListener('change', function () {
+      var f = JD_FOR.filter(function (x) { return x[0] === forSel.value; })[0]; if (!f) return;
+      M.STATES.forEach(function (s) { L.st[s] = f[2].indexOf(s) >= 0; }); changed(); rerender();
+    });
+    var size = area === 'frag' ? { text: 'фрагмент — по рамке контура двери', note: 'PNG или WebP с прозрачностью' } : null;
+    return [
+      textIn(L, 'name', 'Название слоя', { ph: 'Например: туман, знак, зов, след' }),
+      el('div', { class: 'a-jd-st' }, [el('span', { class: 'a-label', text: 'Когда виден' })].concat(M.STATES.map(function (s) {
+        var cb = el('input', { type: 'checkbox', checked: !!L.st[s] });
+        cb.addEventListener('change', function () { L.st[s] = cb.checked; changed(); });
+        return el('label', { class: 'a-jwho-i' }, [cb, el('span', { text: M.STATE_NAMES[s] })]);
+      }).concat([field('', forSel)]))),
+      selectIn(L, 'area', 'Где лежит', [['door', 'внутри контура двери (картинка размером со сцену)'], ['scene', 'по всей сцене, без контура (свет вокруг двери и т. п.)'], ['frag', 'готовый фрагмент двери — в рамку контура']],
+        { def: 'door', onChange: rerender, hint: 'Картинка-слой «внутри контура» и «по всей сцене» — того же размера, что картинка сцены (удобно: слой рисуется прямо поверх сцены в редакторе и сохраняется отдельно). Готовый фрагмент — вырезанная дверь, растянется по рамке контура.' }),
+      el('div', { class: 'a-row' }, [
+        imageIn(L, 'desktop', 'Картинка слоя — компьютер', { max: 2400, size: size || { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
+        imageIn(L, 'mobile', 'Картинка слоя — телефон', { max: 2000, size: size || { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon })]),
+      area === 'frag' ? rangeIn(L, 'scale', 'Фрагмент крупнее / мельче', { min: 50, max: 200, step: 1, def: 100, unit: ' %' }) : null,
+      el('div', { class: 'a-row' }, [
+        colorOptIn(L, 'color', 'Цвет (заливка и движение)', { none: 'тёплый свет #ffe2a0', base: '#ffe2a0', pick: '#ffe2a0', onChange: liveSoon }),
+        rangeIn(L, 'fill', 'Заливка цветом', { min: 0, max: 100, step: 5, def: 0, unit: ' %', hint: 'Без картинки слой может быть просто цветом: например, тёмная вуаль на пропущенной двери (чёрный, 50 %).' })]),
+      el('div', { class: 'a-row' }, [
+        rangeIn(L, 'opacity', 'Прозрачность слоя', { min: 0, max: 100, step: 5, def: 100, unit: ' %', hint: '100 % — виден полностью.' }),
+        selectIn(L, 'blend', 'Как ложится на сцену', M.BLEND, { def: '' })]),
+      area !== 'scene' ? rangeIn(L, 'soft', 'Мягкий край контура', { min: 0, max: 40, step: 1, def: 0, hint: '0 — край ровно по контуру. Больше — край растворяется (туман, свет).' }) : null,
+      sub('Движение слоя'),
+      selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none',
+        hint: 'Жест зова, след и всё остальное — это слои с движением. Новые виды движения добавляются в коде (assets/doors.js, FX) и сразу появятся в этом списке.' }),
+      el('div', { class: 'a-row' }, [
+        rangeIn(L, 'speed', 'Скорость', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }),
+        rangeIn(L, 'power', 'Сила', { min: 10, max: 200, step: 5, def: 100, unit: ' %' })]),
+      rangeIn(L, 'fade', 'Смена состояния — сколько длится', { min: 0, max: 4000, step: 100, def: 900, unit: ' мс', hint: 'Как плавно слой появляется и исчезает, когда дверь меняет состояние (например, туман уходит после входа).' })
+    ];
+  }
+  function jDoors(r) {
+    var M = window.M13D;
+    if (!M) return [el('p', { class: 'a-hint a-hint--warn', text: 'Двери не загрузились — обновите страницу.' })];
+    var D = M.norm(r), st = ST.jd = ST.jd || { n: 1, v: 'desktop', tool: 'draw', show: 'today_unvisited', others: true, zoom: false, undo: [] }, N = r.days.length, tx = r.texts;
+    if (st.n > N) st.n = 1;
+    var n = st.n, d = D.items[n - 1], op = d.open;
+    return [
+      el('p', { class: 'a-hint', text: 'Двери — сцена пути вместо спирали. В день N зовёт дверь N: человек нажимает → дверь откликается и открывается → пространство дня на весь экран → «Назад к дверям». До полуночи (по часовому поясу человека) в сегодняшнюю дверь можно входить сколько угодно; прошедшие закрыты навсегда, но могут хранить след. Будущие закрыты. У каждой двери свой вид: слои по пяти состояниям, у каждого слоя своё движение.' }),
+      block('Сцена с дверями', [
+        el('div', { class: 'a-row' }, [
+          imageIn(D, 'desktop', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
+          imageIn(D, 'mobile', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, onChange: liveSoon, hint: 'Своя композиция и свои контуры дверей. Нет её — на телефоне будет картинка для компьютера.' })]),
+        el('div', { class: 'a-row' }, [
+          selectIn(D, 'fit', 'Как лежит на экране', [['', 'целиком — по краям та же картинка, размыто'], ['cover', 'во весь экран — края срезаются']], { def: '', hint: 'Целиком — ни одна дверь не срежется на необычном экране.' }),
+          rangeIn(D, 'dim', 'Приглушить сверху', { min: 0, max: 90, step: 5, def: 45, unit: ' %', hint: 'Затемнение от верха к середине — чтобы читались надписи.' })]),
+        sub('Надписи над дверями'),
+        el('div', { class: 'a-row' }, [textIn(tx, 'doorTap', 'Сегодня, пока не входили', { ph: 'Коснитесь двери дня' }), textIn(tx, 'doorAgain', 'Сегодня, уже входили', { ph: 'Сегодняшняя дверь открыта до полуночи' })]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'doorFuture', 'Нажали на будущую дверь', { ph: 'Эта дверь откроется {дата}' }), textIn(tx, 'doorPast', 'Нажали на прошедшую', { ph: 'Эта дверь уже закрылась — её день прошёл' })]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'doorMissed', 'Нажали на прошедшую, в которую не входили', { ph: 'как у прошедшей' }), textIn(tx, 'doorBack', 'Кнопка из пространства', { ph: '← Назад к дверям' })]),
+        el('div', { class: 'a-row' }, [textIn(tx, 'doorEnter', 'Кнопка, если у двери нет контура', { ph: 'Войти в дверь дня' }), textIn(tx, 'doorFinal', 'Кнопка финала над дверями', { ph: 'Финал', hint: 'Видна после входа в 13-ю дверь и после конца маршрута, если финал включён («За дверью» → «Финал»).' })]),
+        el('p', { class: 'a-hint', text: 'Строки «Сегодня — день {день}», «до начала», «после конца» — во вкладке «Основное» → «Надписи на странице». ' + jTokensHint(r, false) })
+      ], { open: !D.desktop }),
+      jdChips(r, st),
+      jdHead(r, n),
+      block('Основное', [
+        el('div', { class: 'a-row' }, [textIn(d, 'title', 'Название / внутренний ID', { ph: 'Дверь ' + n, hint: 'Для вас — в панели и подсказках.' }),
+          textIn(d, 'seal', 'Архетип / печать', { ph: (r.days[n - 1] || {}).seal || '', hint: 'Для вас — на сайте не показывается (в текстах — метка {печать} дня).' })]),
+        switchIn(d, 'on', 'Дверь активна', { defTrue: true, onChange: function () { renderMain(); }, hint: 'Выключена — на сцене её нет (ни слоёв, ни касания). В её день над дверями будет кнопка «Войти в дверь дня».' })
+      ]),
+      block('Контур двери — где её можно нажать', jdEditor(r, st)),
+      block('Слои двери' + (d.layers.length ? ' · ' + d.layers.length : ''), [
+        el('p', { class: 'a-hint', text: 'Дверь — это слои поверх сцены: туман, знак, фактура, свет, рисунок… Каждый слой виден в своих состояниях; когда дверь меняет состояние, слои плавно сменяются. Слой может быть картинкой, цветом или только движением (блик, линия, звёздочки) по контуру двери. Ни один слой не обязателен; туман не связан с тем, можно ли войти.' }),
+        collection(d.layers, { visible: true, ordered: false, title: jdLayerTitle, empty: 'Слоёв нет — дверь выглядит так, как нарисована на сцене.',
+          body: function (L, rerender) { return jdLayerBody(r, L, rerender); },
+          make: function () { return { id: uid('l'), name: '', visible: true, area: 'door', st: { future: true, today_unvisited: true, today_visited: true, past_visited: true, past_unvisited: true } }; },
+          addLabel: '+ Слой' })
+      ]),
+      block('Открытие', [
+        el('p', { class: 'a-hint', text: 'Что происходит после касания: дверь откликается (короткая вспышка), потом — если загружена «открытая дверь» — внутри контура проступает открытая дверь, и человек входит в пространство дня.' }),
+        selectIn(op, 'type', 'Как входим', Object.keys(M.OPEN).map(function (k) { return [k, M.OPEN[k]]; }), { def: 'portal' }),
+        el('div', { class: 'a-row' }, [
+          imageIn(op, 'desktop', 'Открытая дверь — компьютер', { max: 2400, size: { w: 2400, h: 1350, note: 'та же сцена, где эта дверь открыта' }, onChange: liveSoon }),
+          imageIn(op, 'mobile', 'Открытая дверь — телефон', { max: 2000, size: { w: 1080, h: 1920, note: 'та же сцена, где эта дверь открыта' }, onChange: liveSoon })]),
+        el('p', { class: 'a-hint', text: 'Опыт с «настоящим» открытием: картинка — вся сцена, в которой открыта только эта дверь (остальное совпадает до мелочей). Видна будет только часть внутри контура, с мягким краем. Не загружена — дверь входит без неё.' }),
+        el('div', { class: 'a-row' }, [
+          rangeIn(op, 'hold', 'Сколько видна открытая дверь до входа', { min: 0, max: 4000, step: 100, def: 900, unit: ' мс' }),
+          rangeIn(op, 'ms', 'Сколько длится вход', { min: 300, max: 4000, step: 100, def: 1100, unit: ' мс' })]),
+        el('div', { class: 'a-row' }, [
+          rangeIn(op, 'soft', 'Мягкий край открытой двери', { min: 0, max: 40, step: 1, def: 8 }),
+          switchIn(op, 'tap', 'Отклик на касание — короткая вспышка', { defTrue: true })])
+      ], { open: false }),
+      block('Скопировать из другой двери', [
+        el('p', { class: 'a-hint', text: 'Слои и открытие другой двери — сюда (контур и пространство не трогаются). Удобно, когда у дверей похожее устройство: скопировать и поменять картинки.' }),
+        el('div', { class: 'a-backup-btns' }, D.items.map(function (x, i) {
+          if (i === n - 1) return null;
+          return el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'из двери ' + (i + 1), onclick: function () {
+            if (!confirm('Заменить слои и открытие двери ' + n + ' на копию из двери ' + (i + 1) + '?')) return;
+            d.layers = clone(x.layers || []); d.layers.forEach(function (L) { L.id = uid('l'); }); d.open = clone(x.open || {}); changed(); renderMain(); toast('Скопировано из двери ' + (i + 1) + '.');
+          } });
+        }))
+      ], { open: false }),
+      el('div', { class: 'a-backup-btns' }, [
+        el('button', { type: 'button', class: 'a-btn', text: '→ Что за дверью ' + n, onclick: function () { ST.jds = ST.jds || {}; ST.jds.n = n; ST.jTab = 'spaces'; renderMain(); window.scrollTo(0, 0); } }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть сцену', onclick: function () { openJourneyPage(r, false, { mode: 'observation', q: '&sim=' + n }); } })])
+    ];
+  }
+  // «За дверью»: пространство дня (и финал) — фон и блоки
+  function jdBlockTitle(b) {
+    var M = window.M13D, name = (M.BLOCKS.filter(function (k) { return k[0] === b.kind; })[0] || [0, b.kind])[1], t = String(b.text || b.label || '').split('\n')[0].trim();
+    return name + (t ? ' · ' + (t.length > 44 ? t.slice(0, 44) + '…' : t) : '') + (b.auto ? ' · сразу' : '');
+  }
+  function jdSpaceForm(r, sp, n) {
+    var M = window.M13D;
+    var BH = { dayCard: 'Открывает Карту дня этого дня — ту же, что на спирали (вкладки «Карта дня» и «13 дней»). У Путешествия и Погружения внизу карты — переход к колоде.',
+      deck: 'Колода вслепую: выбор карты → личная карта → стёклышко дня в узор. Только у Путешествия и Погружения (у Наблюдения кнопки нет).',
+      glass: 'Стёклышко дня ложится в узор (если колода не нужна). Только у Путешествия и Погружения.',
+      final: 'Открывает финальную сцену («За дверью» → «Финал»). Например, в пространстве 13-й двери.' };
+    return [
+      el('div', { class: 'a-row' }, [
+        imageIn(sp, 'desktop', 'Фон — компьютер', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' } }),
+        imageIn(sp, 'mobile', 'Фон — телефон', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Нет — будет фон для компьютера.' })]),
+      el('div', { class: 'a-row' }, [colorOptIn(sp, 'color', 'Цвет фона без картинки', { none: 'тёмный #0d0906', base: '#0d0906', pick: '#0d0906' }),
+        rangeIn(sp, 'dim', 'Приглушить фон', { min: 0, max: 90, step: 5, def: 30, unit: ' %' })]),
+      el('div', { class: 'a-row' }, [
+        selectIn(sp, 'place', 'Где содержание', [['center', 'по центру'], ['left', 'слева'], ['right', 'справа'], ['bottom', 'внизу']], { def: 'center' }),
+        selectIn(sp, 'plate', 'Подложка', [['glass', 'матовое стекло'], ['dark', 'тёмная'], ['none', 'без подложки — текст прямо на фоне']], { def: 'glass' })]),
+      sub('Блоки'),
+      el('p', { class: 'a-hint', text: 'Содержание за дверью собирается из блоков в любом порядке. У каждого — «кому видно»: так одна дверь даёт Наблюдению короткую встречу, а Путешествию — полный день. ' + jTokensHint(r, false) }),
+      collection(sp.blocks, { visible: true, ordered: false, title: jdBlockTitle, empty: 'Блоков нет.',
+        body: function (b) {
+          var out = [jWho(b, false)];
+          if (b.kind === 'title' || b.kind === 'small' || b.kind === 'text') out.push(textIn(b, 'text', b.kind === 'text' ? 'Текст' : 'Строка', { multi: b.kind === 'text', rows: 5, hint: b.kind === 'text' ? 'Пустая строка — новый абзац.' : null }));
+          if (b.kind === 'image') { out.push(imageIn(b, 'image', 'Картинка', { max: 1800 })); out.push(textIn(b, 'text', 'Подпись (необязательно)')); }
+          if (M.BTN_DEF[b.kind]) {
+            out.push(el('p', { class: 'a-hint', text: BH[b.kind] }));
+            out.push(textIn(b, 'label', 'Надпись на кнопке', { ph: M.BTN_DEF[b.kind] }));
+            if (b.kind === 'dayCard' || b.kind === 'deck') out.push(switchIn(b, 'auto', 'Открыть сразу при входе в пространство', { hint: 'Без кнопки-ожидания: карта появляется поверх пространства, закрыли — человек в пространстве.' }));
+          }
+          if (b.kind !== 'image' && !M.BTN_DEF[b.kind]) out.push(selectIn(b, 'align', 'Выравнивание', [['', 'как задумано'], ['left', 'слева'], ['center', 'по центру'], ['right', 'справа'], ['justify', 'по ширине']], { def: '' }));
+          return out;
+        },
+        addBox: function (push) {
+          var s = el('select', { class: 'a-input' }, M.BLOCKS.map(function (k) { return el('option', { value: k[0], text: k[1] }); }));
+          s.value = 'text';
+          return el('div', { class: 'a-row a-row--end' }, [field('Добавить блок', s), el('button', { type: 'button', class: 'a-btn a-add', text: '+ Добавить', onclick: function () {
+            push({ id: uid('s'), kind: s.value, visible: true, who: {}, text: '' });
+          } })]);
+        } })
+    ];
+  }
+  function jSpaces(r) {
+    var M = window.M13D;
+    if (!M) return [el('p', { class: 'a-hint a-hint--warn', text: 'Двери не загрузились — обновите страницу.' })];
+    var D = M.norm(r), st = ST.jds = ST.jds || { n: 1 }, N = r.days.length, fin = st.n === 'final';
+    if (!fin && st.n > N) st.n = 1;
+    var finBtn = el('button', { type: 'button', class: fin ? 'is-active' : '', text: 'Финал' + (D.final.on ? ' ●' : ''), onclick: function () { st.n = 'final'; renderMain(); } });
+    // Номера здесь — пространства: точка — есть блоки
+    var chips = jdChips(r, { n: st.n, v: 'desktop' }, finBtn, { label: function (k) { return k + ((D.items[k - 1].space.blocks || []).length ? ' ●' : ''); }, pick: function (k) { st.n = k; } });
+    var sp = fin ? D.final : D.items[st.n - 1].space;
+    var look = el('div', { class: 'a-backup-btns' }, [
+      el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть ' + (fin ? 'финал' : 'пространство'), onclick: function () { openJourneyPage(r, false, { mode: (ST.jpv || {}).mode || 'observation', q: '&door=' + (fin ? 'final' : st.n) + (fin ? '' : '&sim=' + st.n) }); } }),
+      el('button', { type: 'button', class: 'a-btn', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true, { mode: (ST.jpv || {}).mode || 'observation', q: '&door=' + (fin ? 'final' : st.n) + (fin ? '' : '&sim=' + st.n) }); } }),
+      fin ? null : el('button', { type: 'button', class: 'a-btn a-btn--ghost', text: '→ Вид двери ' + st.n, onclick: function () { ST.jd = ST.jd || { n: 1, v: 'desktop', tool: 'draw', show: 'today_unvisited', others: true, zoom: false, undo: [] }; ST.jd.n = st.n; ST.jTab = 'doors'; renderMain(); window.scrollTo(0, 0); } })]);
+    var copy = fin ? null : block('Взять устройство из другого пространства', [
+      el('p', { class: 'a-hint', text: 'Фон, расположение и блоки другого дня — сюда, вместе с текстами (потом поменяйте). Пространство этого дня заменится.' }),
+      el('div', { class: 'a-backup-btns' }, D.items.map(function (x, i) {
+        if (i === st.n - 1) return null;
+        return el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'из ' + (i + 1), onclick: function () {
+          if (!confirm('Заменить пространство за дверью ' + st.n + ' на копию из двери ' + (i + 1) + '?')) return;
+          var c = clone(x.space || { blocks: [] }); (c.blocks || []).forEach(function (b) { b.id = uid('s'); }); D.items[st.n - 1].space = c; changed(); renderMain();
+        } });
+      }))], { open: false });
+    return [
+      el('p', { class: 'a-hint', text: 'Пространство за дверью — отдельный экран дня, куда человек входит через дверь. Фон, расположение и блоки — у каждой двери свои. Существующие части маршрута (Карта дня, колода вслепую, стёклышко) подключаются блоками-кнопками — в одних маршрутах есть, в других нет.' }),
+      chips,
+      fin ? el('h2', { class: 'a-jd-h', text: 'Финал — после 13-го дня' }) : jdHead(r, st.n),
+      fin ? block('Финальная сцена', [
+        switchIn(D.final, 'on', 'Финал включён', { onChange: function () { renderMain(); }, hint: 'Включён — над дверями после входа в последнюю дверь и после конца маршрута кнопка «Финал»; её же можно поставить блоком в пространство 13-й двери. «Собрать маршрут» на Карте дня 13 тоже ведёт сюда.' }),
+        el('p', { class: 'a-hint', text: 'Содержание финала дадите позже — пока это такое же пространство из блоков.' })]) : null,
+      look,
+      block(fin ? 'Пространство финала' : 'Пространство за дверью ' + st.n, jdSpaceForm(r, sp, st.n)),
+      copy
+    ];
+  }
   function viewJourneys() {
     var r = jRoute(), list = DATA.journeys.items;
     var head = el('div', {}, [el('div', { class: 'a-jhead' }, [el('h1', { class: 'a-h1', text: 'Страницы маршрутов' }),
         el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '＋ Новый маршрут', onclick: jNew })]),
-      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: спираль, Карта дня, выбор карты из колоды, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' }),
+      el('p', { class: 'a-lead', text: r ? 'Страница, где идут дни маршрута: ' + (r.scene === 'doors' ? 'двери и пространство за каждой' : 'спираль') + ', Карта дня, выбор карты из колоды, личная карта. Адрес: ' + siteUrl().replace(/^https?:\/\//, '') + r.path + ' · Изменения появятся на сайте после «Опубликовать».' : 'Страниц маршрутов пока нет.' }),
       r && r.visible === false ? el('div', { class: 'a-tags' }, [el('span', { class: 'a-tag a-tag--draft', text: 'Готовится — на сайт не попадает' })]) : null]);
     if (!r) return [head];
     var t = ST.jTab || 'main';
     var step = String((r.words || {}).step || '').trim();
-    var tabs = el('div', { class: 'a-tabs' }, J_TABS.map(function (x) {
+    // Сцена «Двери» — свои вкладки вместо спиральных (кирпичи, растения)
+    var dr = r.scene === 'doors', TB = J_TABS.filter(function (x) { return dr ? x[0] !== 'bricks' && x[0] !== 'plants' : x[0] !== 'doors' && x[0] !== 'spaces'; });
+    if (!TB.some(function (x) { return x[0] === t; })) t = 'main';
+    var tabs = el('div', { class: 'a-tabs' }, TB.map(function (x) {
       return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[0] === 'bricks' && step ? step.charAt(0).toUpperCase() + step.slice(1) + ' на пути' : x[1], onclick: function () { ST.jTab = x[0]; renderMain(); } });
     }));
     var pick = list.length > 1 ? selectIn(ST, 'journey', 'Маршрут', list.map(function (x) { return [x.id, x.title + (x.start ? ' · ' + jDateText(x.start) : '') + (x.visible === false ? ' · готовится' : '')]; }), { onChange: function () { renderMain(); } }) : null;
@@ -4058,6 +4463,8 @@
         jCardAlign(r.personalCard), jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
     else if (t === 'days') body = jDays(r);
     else if (t === 'bricks') body = jBricks(r);
+    else if (t === 'doors') body = jDoors(r);
+    else if (t === 'spaces') body = jSpaces(r);
     else if (t === 'deck' || t === 'perms') body = jDeck(r);
     else if (t === 'disk') body = jDisk(r);
     else if (t === 'states') body = jStates(r);

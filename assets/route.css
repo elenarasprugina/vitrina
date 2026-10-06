@@ -436,6 +436,82 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 /* Пока карта выезжает — анимации на спирали и в карте замирают (без рывков) */
 .ys-sliding .ys-l-today,.ys-sliding .ys-gd,.ys-sliding .ys-tap{animation-play-state:paused}
 
+/* ---------- Сцена «Двери» (assets/doors.js; route.scene === 'doors') ----------
+   Сцена: картинка + двери (у каждой — свои слои по состояниям) + невидимые контуры для касания. Слой виден, когда у него класс is-on;
+   смена состояния — плавная (--fade). Движение слоя — классы ys-fx-* и элементы внутри (время --fx-t, сила --fx-p, цвет --fx-c). */
+.ys-dblur{position:absolute;inset:-40px;background:#0a0604 center/cover no-repeat;filter:blur(28px) brightness(.55) saturate(1.1)}
+.ys-dstage{position:absolute;left:0;top:0;width:100%;height:100%;overflow:hidden;-webkit-user-select:none;user-select:none}
+.ys-dstage.is-empty{background:radial-gradient(ellipse at 50% 45%,#2a1c10,#0a0604 75%)}
+.ys-dstage.is-cam{transition:transform var(--ms,1.1s) cubic-bezier(.55,0,.3,1)}
+.ys-dscene{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.ys-dstage.is-empty .ys-dscene{display:none}
+.ys-doors,.ys-door{position:absolute;inset:0;pointer-events:none}
+.ys-door.is-tap{filter:brightness(1.3) saturate(1.1);transition:filter .16s ease}
+.ys-dl{position:absolute;inset:0;opacity:0;transition:opacity var(--fade,.9s) ease}
+.ys-dl.is-on{opacity:var(--o,1)}
+.ys-dl.is-now{transition:none}
+.ys-dl-box,.ys-dl-in{position:absolute;inset:0}
+.ys-dl-pic{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ys-dl-frag{position:absolute;display:block;object-fit:fill}
+.ys-dl-fill{position:absolute;inset:0}
+.ys-dhit{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ys-dpoly{fill:transparent;stroke:none;pointer-events:all;outline:none;-webkit-tap-highlight-color:transparent}
+.ys-dpoly.is-today_unvisited,.ys-dpoly.is-today_visited{cursor:pointer}
+.ys-dpoly:focus-visible{stroke:#ffe2a0;stroke-width:2px;vector-effect:non-scaling-stroke}
+.ys-dhit.is-zones .ys-dpoly{fill:rgba(255,226,160,.12);stroke:#ffe2a0;stroke-width:1.5px;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.ys-dhit.is-zones .ys-dpoly.is-today_unvisited,.ys-dhit.is-zones .ys-dpoly.is-today_visited{fill:rgba(127,255,240,.18);stroke:#7ff}
+/* Движение слоя */
+.ys-fx-pulse.is-on .ys-dl-box{animation:ys-fx-pulse var(--fx-t) ease-in-out infinite}
+@keyframes ys-fx-pulse{0%,100%{opacity:1}50%{opacity:calc(1 - .55 * var(--fx-p))}}
+.ys-fx-glow{position:absolute;border-radius:50%;background:radial-gradient(closest-side,var(--fx-c),transparent);mix-blend-mode:screen;opacity:0}
+.ys-dl.is-on .ys-fx-glow{animation:ys-fx-glow var(--fx-t) ease-in-out infinite}
+@keyframes ys-fx-glow{0%,100%{opacity:calc(.25 * var(--fx-p));transform:scale(.92)}50%{opacity:calc(.75 * var(--fx-p));transform:scale(1.04)}}
+.ys-fx-glint{position:absolute;overflow:hidden}
+.ys-fx-glint i{position:absolute;top:-20%;bottom:-20%;left:0;width:60%;background:linear-gradient(105deg,transparent 0,transparent 30%,var(--fx-c) 50%,transparent 70%,transparent 100%);opacity:calc(.8 * var(--fx-p));mix-blend-mode:screen;transform:translateX(-120%)}
+.ys-dl.is-on .ys-fx-glint i{animation:ys-fx-glint var(--fx-t) ease-in-out infinite}
+@keyframes ys-fx-glint{0%{transform:translateX(-120%)}45%,100%{transform:translateX(230%)}}
+.ys-fx-line{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ys-fx-line polygon{fill:none;stroke:var(--fx-c);stroke-width:calc(2.4px * var(--fx-p));vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-dasharray:14 86;filter:drop-shadow(0 0 4px var(--fx-c))}
+.ys-dl.is-on .ys-fx-line polygon{animation:ys-fx-line var(--fx-t) linear infinite}
+@keyframes ys-fx-line{to{stroke-dashoffset:-100}}
+.ys-fx-star{position:absolute;width:calc(1.3% * var(--z,1));aspect-ratio:1;margin:calc(-.65% * var(--z,1)) 0 0 calc(-.65% * var(--z,1));background:var(--fx-c);-webkit-clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);filter:drop-shadow(0 0 3px var(--fx-c));opacity:0}
+.ys-dl.is-on .ys-fx-star{animation:ys-fx-star var(--fx-t) ease-in-out infinite}
+@keyframes ys-fx-star{0%,100%{opacity:0;transform:scale(.3) rotate(0)}45%{opacity:var(--fx-p);transform:scale(1) rotate(20deg)}70%{opacity:0;transform:scale(.4) rotate(35deg)}}
+.ys-fx-drift .ys-dl-in{inset:-6%}
+.ys-fx-drift.is-on .ys-dl-in{animation:ys-fx-drift var(--fx-t) ease-in-out infinite alternate}
+@keyframes ys-fx-drift{0%{transform:translate(calc(-3% * var(--fx-p)),calc(1% * var(--fx-p)))}100%{transform:translate(calc(3% * var(--fx-p)),calc(-1.5% * var(--fx-p)))}}
+.ys-fx-reveal.is-on:not(.is-now) .ys-dl-box{animation:ys-fx-reveal var(--fx-t) ease-out both}
+@keyframes ys-fx-reveal{0%{opacity:0;filter:blur(10px);transform:scale(.97)}100%{opacity:1;filter:none;transform:none}}
+@media (prefers-reduced-motion:reduce){.ys-dl,.ys-dl *{animation:none!important}.ys-fx-glint,.ys-fx-star{display:none}}
+.ys-tap--calm{animation:none;opacity:.85;font-size:clamp(15px,1.4vw,18px)}
+.ys-go--fin{margin-top:4px}
+/* Пространство за дверью: на весь экран, поверх сцены, под картами (Карта дня, колода, ключ открываются поверх него) */
+.ys-space{position:fixed;inset:0;z-index:12;opacity:0;visibility:hidden;background:#0a0604;overflow:hidden}
+.ys-space.is-portal{opacity:1;visibility:visible;transition:clip-path var(--ms,1.1s) cubic-bezier(.6,0,.25,1),-webkit-clip-path var(--ms,1.1s) cubic-bezier(.6,0,.25,1)}
+.ys-space.is-fade{visibility:visible;transition:opacity .6s ease}
+.ys-space.is-in{opacity:1;visibility:visible}
+.ys-space.is-gone{opacity:0;transition:opacity .25s ease}
+.ys-space-bg{position:absolute;inset:0;background:#0d0906 center/cover no-repeat}
+.ys-space-dim{position:absolute;inset:0;background:#050302}
+.ys-space-in{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;padding:76px 16px 40px}
+.ys-space-col{margin:auto;width:min(560px,100%);display:flex;flex-direction:column;gap:14px;color:#f6ead2;text-align:center}
+.ys-space--left .ys-space-col{margin-left:max(0px,6vw)}
+.ys-space--right .ys-space-col{margin-right:max(0px,6vw)}
+.ys-space--bottom .ys-space-col{margin-bottom:0}
+.ys-space--glass .ys-space-col{padding:26px 24px;border-radius:22px;background:rgba(14,9,5,.42);border:1px solid rgba(255,214,140,.2);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.ys-space--dark .ys-space-col{padding:26px 24px;border-radius:22px;background:rgba(8,5,3,.82)}
+.ys-space--none .ys-space-col{text-shadow:0 1px 14px rgba(0,0,0,.85)}
+.ys-sp-title{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(28px,3.6vw,42px);line-height:1.1;color:#fff3d6;text-wrap:balance}
+.ys-sp-small{margin:0;font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;color:#f3d9a0}
+.ys-sp-text{font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(19px,1.7vw,22px);line-height:1.45;color:#f6ead2;text-align:left}
+.ys-sp-text p{margin:0 0 .7em}.ys-sp-text p:last-child{margin-bottom:0}
+.ys-sp-img{margin:0}.ys-sp-img img{display:block;width:100%;border-radius:14px}
+.ys-sp-img figcaption{margin-top:8px;font-size:14px;color:#e8d3a6}
+.ys-sp-btn{align-self:center;font:inherit;font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;letter-spacing:.03em;color:#2a1a05;background:radial-gradient(circle at 50% 35%,#fff3c8,#ffcf5a 60%,#d9921c);border:0;border-radius:999px;padding:11px 28px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 26px rgba(255,200,80,.45)}
+.ys-sp-btn--final{background:transparent;color:#ffe7ae;box-shadow:0 0 0 1px rgba(255,214,140,.55)}
+.ys-space-back{position:absolute;left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));z-index:2;font:inherit;font-size:14px;letter-spacing:.02em;color:#f6ead2;padding:8px 14px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.45);border:1px solid rgba(255,214,140,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.ys-space-back:hover{background:rgba(12,8,4,.6)}
+
 /* Выравнивание текста (её просьба 03.10): у карты и у блока — классы ys-al--*, у строки — ys-ln (метка {по центру} и т. п. в начале строки).
    В конце файла, чтобы перекрывать выравнивание блоков «как задумано». */
 .ys-ln{display:block}
