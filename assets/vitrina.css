@@ -1613,4 +1613,4 @@ body.m13-locked{overflow:hidden}
   .m13-prog-who{grid-column:2;text-align:left;margin-top:-6px}
 }
 /* Enter в надписях окон (заполняются через textContent) — перенос строки виден */
-#m13-modal-e,#m13-modal-t,#m13-modal-l,#m13-modal-m,#m13-modal-h,#m13-cal-e,#m13-cal-t,#m13-cal-h,#m13-lb-cap{white-space:pre-line}
+#m13-modal-e,#m13-modal-t,#m13-modal-l,#m13-modal-m,#m13-modal-h,#m13-cal-e,#m13-cal-t,#m13-cal-h,#m13-lb-cap,#m13-cal-w,#m13-cal-g,#m13-cal-i,#m13-modal-x,#m13-cal-x,.m13-toast{white-space:pre-line}
