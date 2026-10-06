@@ -139,7 +139,10 @@ body.m13-locked{overflow:hidden}
 
 .m13-big-stage.m13-st-day[style*="height"]{transform:none}  /* выросла под текст дня — ровно по центру, не уезжает вверх */
 .m13-dc > :first-child:not(.m13-dc-img){margin-top:24px}
-.m13-dc-img{position:relative;margin:0 -24px 14px;aspect-ratio:16/9;overflow:hidden;background:#140c05}
+.m13-dc-img{position:relative;margin:0 -24px 14px;aspect-ratio:16/9;overflow:hidden;background:#140c05;
+  /* Низ картинки дня тает в карточку, без жёсткой границы (её замечание 07.10; как у карты дня на странице маршрута) */
+  -webkit-mask-image:linear-gradient(180deg,#000 58%,rgba(0,0,0,.55) 80%,transparent);mask-image:linear-gradient(180deg,#000 58%,rgba(0,0,0,.55) 80%,transparent)}
+.m13-dc-img + *{margin-top:-30px;position:relative}
 /* Картинка дня всегда целиком (квадратная не обрезается сверху и снизу); по бокам — та же картинка, размытая */
 .m13-dc-img img{position:relative;display:block;width:100%;height:100%;object-fit:contain}
 .m13-dc-img img.m13-dc-bg{position:absolute;inset:0;object-fit:cover;filter:blur(20px) brightness(.85);transform:scale(1.2)}
