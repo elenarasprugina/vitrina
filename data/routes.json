@@ -20,7 +20,17 @@
       },
       "description": "13 дней пути за пределы привычного — туда, где открываются новые горизонты.",
       "image": null,
-      "routeUrl": ""
+      "routeUrl": "",
+      "glass": {},
+      "finalWords": 1,
+      "finalText1": {
+        "value": "Маршрут пройден",
+        "show": true
+      },
+      "finalText2": {
+        "value": "Увидимся за поворотом…",
+        "show": true
+      }
     },
     {
       "id": "yellow-sun",
