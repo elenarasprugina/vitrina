@@ -310,7 +310,6 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-fin-on .ys-tools{opacity:0;pointer-events:none;transition:opacity .6s}
 .ys-ic:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
 /* Окно отзыва */
-.ys-layer.ys-layer--rv{background:radial-gradient(circle at 50% 30%,rgba(40,25,7,.95),rgba(5,3,1,.97))}
 .ys-key.ys-rv{width:min(520px,100%);text-align:left;align-items:stretch;padding-top:14px}
 .ys-rv .ys-key-t,.ys-rv>.ys-key-lead{text-align:center}
 .ys-rv-list{display:flex;flex-direction:column;gap:14px;margin:4px 0 6px}
@@ -328,6 +327,12 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-rv-raw{margin-top:8px;text-align:left;font-size:14px;color:rgba(246,234,210,.8)}
 .ys-rv-raw summary{cursor:pointer;text-align:center;color:#e9c77e}
 .ys-rv-raw .ys-rv-a{margin-top:8px;font-size:14px}
+/* Окно отзыва светлее (её просьба 06.10): сквозь затемнение видна страница маршрута (route.review.shade → --ys-rv-sh), окно — на стекле, поля светлее */
+.ys-layer.ys-layer--rv{background:rgba(14,9,5,var(--ys-rv-sh,.35));-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.ys-layer--rv .ys-rv{background:rgba(58,40,20,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,214,140,.28);border-radius:20px;padding:18px 18px 20px;box-sizing:border-box}
+.ys-layer--rv .ys-rv-a{background:rgba(255,244,220,.14);border-color:rgba(255,214,140,.5)}
+.ys-layer--rv .ys-rv-qt{color:#fff8e8}
+@media (max-width:560px){.ys-layer.ys-layer--rv{padding:0;align-items:stretch;background:rgba(14,9,5,var(--ys-rv-sh,.35))}.ys-layer--rv .ys-rv{width:100%;border-radius:0;border:0;min-height:100%;padding:calc(18px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom))}}
 
 /* ---------- Вход по ключу: калейдоскоп, узор и код ---------- */
 .ys-layer--key{background:radial-gradient(circle at 50% 40%,rgba(48,30,8,.78),rgba(5,3,1,.94))}
@@ -520,25 +525,35 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-disk .ys-ln.ys-al--left{text-align:left}.ys-disk .ys-ln.ys-al--center{text-align:center}.ys-disk .ys-ln.ys-al--right{text-align:right}.ys-disk .ys-ln.ys-al--justify{text-align:justify}
 .ys-disk.ys-al .ys-d-hint,.ys-disk.ys-al .ys-d-note{text-align:center;-webkit-hyphens:manual;hyphens:manual}
 
-/* ---------- Страница «Как идти по маршруту» (routes/<id>/kak/, M13R.howto) ---------- */
-.ysg-body{margin:0;min-height:100vh;background:#0a0604 var(--ysg-m,none) center top/cover fixed;color:#efe3c8;font:19px/1.55 "Cormorant Garamond",Georgia,serif}
-.ysg-body:before{content:'';position:fixed;inset:0;background:linear-gradient(rgba(10,6,4,.82),rgba(10,6,4,.94));z-index:-1}
+/* ---------- Страница «Как идти по маршруту» (routes/<id>/kak/, M13R.howto) ----------
+   Светлее, чем было (её просьба 06.10): картинка фона видна, текст — на стекле, светлый и плотнее.
+   Настройки — route.howto.look (панель): --ysg-sh затемнение фона; .ysg--dark|light|none подложка; .ysg--lg|xl размер; .ysg--sans шрифт; --ysg-tx цвет текста */
+.ysg-body{margin:0;min-height:100vh;background:#2a1d12 var(--ysg-m,none) center top/cover fixed;color:#fbf2df;font:20px/1.6 "Cormorant Garamond",Georgia,serif}
+.ysg-body:before{content:'';position:fixed;inset:0;background:rgba(14,9,5,var(--ysg-sh,.45));z-index:-1}
 @media (min-width:800px){.ysg-body{background-image:var(--ysg-d,var(--ysg-m))}}
-.ysg{max-width:680px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 16px 64px;color:#efe3c8;font:19px/1.55 "Cormorant Garamond",Georgia,serif}
-.ysg a{color:#e9c77e;text-decoration-thickness:1px;text-underline-offset:3px}
-.ysg-top{display:flex;justify-content:space-between;gap:12px;font-size:16px;margin-bottom:28px}
-.ysg-h{font-size:34px;line-height:1.15;font-weight:500;color:#e9c77e;margin:0 0 6px;letter-spacing:.01em}
-.ysg-sub{color:#bfae8c;margin:0 0 30px;font-size:17px}
-.ysg h2{font-size:25px;line-height:1.2;font-weight:500;color:#e9c77e;margin:38px 0 10px;padding-top:14px;border-top:1px solid rgba(233,199,126,.22);scroll-margin-top:16px}
-.ysg h3{font-size:20px;line-height:1.3;font-weight:600;margin:22px 0 4px;scroll-margin-top:16px}
+.ysg{--ysg-tx:#fbf2df;--ysg-acc:#f3d48e;--ysg-b:#fff;max-width:720px;box-sizing:border-box;margin:max(16px,env(safe-area-inset-top)) auto 40px;padding:26px 30px 40px;color:var(--ysg-tx);font:500 20px/1.6 "Cormorant Garamond",Georgia,serif;
+  border-radius:20px}
+.ysg--dark{background:rgba(24,16,9,.62);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(243,212,142,.22);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.ysg--light{--ysg-tx:#2b1e10;--ysg-acc:#8a5a14;--ysg-b:#1a1006;background:rgba(255,249,236,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.ysg--none{text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.ysg--lg{font-size:22px}.ysg--xl{font-size:24px}
+.ysg--sans{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-weight:400;font-size:17px;line-height:1.6}
+.ysg--sans.ysg--lg{font-size:19px}.ysg--sans.ysg--xl{font-size:21px}
+.ysg a{color:var(--ysg-acc);text-decoration-thickness:1px;text-underline-offset:3px}
+.ysg-top{display:flex;justify-content:space-between;gap:12px;font-size:.85em;margin-bottom:24px}
+.ysg-h{font-size:1.8em;line-height:1.15;font-weight:600;color:var(--ysg-acc);margin:0 0 6px;letter-spacing:.01em}
+.ysg-sub{opacity:.82;margin:0 0 26px;font-size:.9em}
+.ysg h2{font-size:1.32em;line-height:1.2;font-weight:600;color:var(--ysg-acc);margin:34px 0 10px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--ysg-acc) 30%,transparent);scroll-margin-top:16px}
+.ysg h3{font-size:1.06em;line-height:1.3;font-weight:700;margin:22px 0 4px;scroll-margin-top:16px}
 .ysg p{margin:0 0 12px}
 .ysg ol,.ysg ul{margin:0 0 14px;padding-left:24px}
 .ysg li{margin:0 0 9px}
-.ysg b{font-weight:600;color:#fff4dc}
-.ysg-more{font-size:16px;white-space:nowrap}
-.ysg-frame{margin-top:46px;padding:4px 18px 10px;border:1px solid rgba(233,199,126,.22);border-radius:14px;background:rgba(20,13,8,.6)}
+.ysg b{font-weight:700;color:var(--ysg-b)}
+.ysg-more{font-size:.85em;white-space:nowrap}
+.ysg-frame{margin-top:40px;padding:4px 18px 10px;border:1px solid color-mix(in srgb,var(--ysg-acc) 35%,transparent);border-radius:14px;background:color-mix(in srgb,var(--ysg-acc) 8%,transparent)}
 .ysg-frame h2{border:0;margin-top:14px}
-.ysg-go{display:block;text-align:center;margin:40px auto 0;padding:13px 22px;max-width:320px;border:1px solid #e9c77e;border-radius:999px;text-decoration:none;font-size:20px}
-.ysg-go:hover{background:rgba(233,199,126,.1)}
+.ysg-go{display:block;text-align:center;margin:36px auto 0;padding:13px 22px;max-width:320px;border:1px solid var(--ysg-acc);border-radius:999px;text-decoration:none;font-size:1.05em}
+.ysg-go:hover{background:color-mix(in srgb,var(--ysg-acc) 12%,transparent)}
+@media (max-width:560px){.ysg{margin:0;border-radius:0;padding:max(22px,env(safe-area-inset-top)) 18px 48px;min-height:100vh}.ysg--none{min-height:0}}
 .ysg :target{animation:ysg-hl 2s ease}
 @keyframes ysg-hl{from{color:#fff}to{}}

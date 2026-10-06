@@ -1071,14 +1071,24 @@
       '<button type="button" class="m13-unflip" id="m13-unflip" aria-label="Показать лицевую сторону" title="Лицевая сторона">↺</button>' +
       '</div></div>';
   }
+  // Пока карточка переворачивается, кнопки «закрыть» и ↺ гаснут и появляются снова, когда она встала (её просьба 06.10:
+  // кнопки висели на месте, а карточка уходила вбок)
+  function turning() {
+    var st = S.root.querySelector('.m13-big-stage'); if (!st) return;
+    st.classList.add('m13-turning');
+    clearTimeout(S.turnT);
+    S.turnT = setTimeout(function () { st.classList.remove('m13-turning'); }, 480);
+  }
   function bindOverlay() {
     var ov = S.root.querySelector('#m13-overlay');
     S.root.querySelector('#m13-front').addEventListener('click', function () {
+      turning();
       S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
       var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0;
       var fv = S.root.querySelector('#m13-front video'); if (fv) fv.pause();
     });
     S.root.querySelector('#m13-unflip').addEventListener('click', function () {
+      turning();
       S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     });
     S.root.querySelector('#m13-close').addEventListener('click', closeTop);
@@ -1115,9 +1125,9 @@
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
-    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-st-day');
+    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-st-day', 'm13-turning');
     var ish = ((S.D.showcase && S.D.showcase.cardStyle) || {}).iconShape;
-    if (ish === 'square' || ish === 'bare') stage.classList.add('m13-ic-' + ish);
+    if (ish === 'square' || ish === 'bare' || ish === 'thin') stage.classList.add('m13-ic-' + ish);
     // Внутри кнопки «закрыть»: ничего (светящийся кружок) | ✦ | ✓ | × — панель, «Значки»
     var cm = ((S.D.showcase && S.D.showcase.cardStyle) || {}).closeMark;
     if (ish === 'bare' && (!cm || cm === 'none')) cm = 'star';
@@ -1619,6 +1629,9 @@
     var stub = (c.back || {}).stub;
     if (stub && stub.on) return stubHTML(c, r, kin, stub);
     var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
+    // «Как идти по маршруту» — справа в строке «Сегодня день …» (её просьба 06.10: под форматами появлялась прокрутка);
+    // счётчика дня нет (маршрут ещё не начался или уже прошёл) — отдельной строкой справа над форматами
+    var how = howtoLink(c), howAtDay = !!how && list.some(function (x) { return x.kind === 'day' && dayCounter(r); });
     function flushBtns() {
       if (!btnRun.length) return '';
       var out = '<div class="m13-actions' + (runPush ? ' m13-push' : '') + (btnRun.length > 2 ? ' m13-actions--grid' : '') + '">' + btnRun.join('') + '</div>';
@@ -1649,13 +1662,20 @@
         var pv = String(x.value || '').trim();
         if (pv) html = '<div class="m13-price-line"><span>' + txt(x.label || title) + '</span><strong>' + txt(pv) + '</strong></div>';
       }
-      else if (x.kind === 'day') { var dc = dayCounter(r); if (dc) html = '<div class="m13-day">' + txt(dc) + '</div>'; }
+      else if (x.kind === 'day') {
+        var dc = dayCounter(r);
+        if (dc) html = '<div class="m13-dayrow"><div class="m13-day">' + txt(dc) + '</div>' + (howAtDay ? how : '') + '</div>';
+        howAtDay = false;
+      }
       else if (x.kind === 'routeButton') {
         var url = String(x.url || '').trim() || (r && r.routeUrl) || '';
         if (url) html = '<a class="m13-go" href="' + esc(url) + '" target="_blank" rel="noopener"><span>' +
           txt(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
       }
-      else if (x.kind === 'formats') html = formatsHTML(c, x, r);
+      else if (x.kind === 'formats') {
+        html = formatsHTML(c, x, r);
+        if (how && html && !howAtDay && h.indexOf('m13-howto') < 0) html = '<div class="m13-dayrow m13-dayrow--how">' + how + '</div>' + html;
+      }
       else if (x.kind === 'items') html = itemsHTML(c, x.items, x.max, x.tpl || 'container');
       else if (x.kind === 'dates') {
         var ds = String(x.dates || '').trim();
@@ -1702,7 +1722,7 @@
       if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
       var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
       return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
-    }).join('') + '</div>' + howtoLink(c);
+    }).join('') + '</div>';
   }
   // Под форматами — «Как идти по маршруту» (страница routes/<id>/kak/), если у маршрута по дням она заполнена (journeys[].howto, панель → «Как идти и отзыв»)
   function howtoLink(c) {

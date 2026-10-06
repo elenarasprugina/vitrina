@@ -2691,6 +2691,7 @@
       return i < 0 ? '#' : '#' + aid(i);
     }
     var root = el('div', 'ysg'), top = el('div', 'ysg-top'), route = base + (r.path || 'routes/' + r.id + '/');
+    howtoLook(root, h.look);
     var back = el('a', null, h.back || '← К маршруту'); back.href = route;
     var home = el('a', null, h.home || 'Витрина'); home.href = base || './';
     top.appendChild(back); top.appendChild(home); root.appendChild(top);
@@ -2708,6 +2709,17 @@
     if (h.go !== '-') { var go = el('a', 'ysg-go', h.go || 'Перейти к маршруту'); go.href = route; root.appendChild(go); }
     return root;
   }
+  /* Оформление страницы «Как идти» (её просьба 06.10: было слишком темно) — route.howto.look, панель → «Как идти и отзыв» → «Оформление страницы»:
+     { shade: затемнение картинки фона 0–90 (%), panel: 'dark' | 'light' | 'none' — подложка под текстом, size: '' | 'lg' | 'xl', font: '' (Cormorant) | 'sans', text: '#rrggbb' } */
+  function howtoLook(root, L) {
+    L = L || {};
+    var panel = { light: 1, none: 1 }[L.panel] ? L.panel : 'dark';
+    root.classList.add('ysg--' + panel);
+    if (L.size === 'lg' || L.size === 'xl') root.classList.add('ysg--' + L.size);
+    if (L.font === 'sans') root.classList.add('ysg--sans');
+    if (/^#[0-9a-f]{6}$/i.test(L.text || '')) root.style.setProperty('--ysg-tx', L.text);
+  }
+  function howtoShade(L) { var n = parseFloat((L || {}).shade); return isNaN(n) ? 45 : Math.max(0, Math.min(90, n)); }
   // Страница routes/<id>/kak/: <div id="ysg" data-base="../../../" data-route="<id>">, затем M13R.howto()
   function howtoBoot() {
     var app = document.getElementById('ysg'); if (!app) return;
@@ -2718,6 +2730,7 @@
       var D = r.scene === 'doors' ? r.doors || {} : r, m = D.masterMobile || D.mobile || D.masterDesktop || D.desktop, d = D.masterDesktop || D.desktop || m;
       if (m) document.body.style.setProperty('--ysg-m', 'url("' + imgSrc(base, m) + '")');
       if (d) document.body.style.setProperty('--ysg-d', 'url("' + imgSrc(base, d) + '")');
+      document.body.style.setProperty('--ysg-sh', (howtoShade((r.howto || {}).look) / 100).toFixed(2));
       document.title = '13 MIRRORS · ' + untag((r.howto || {}).title || 'Как идти по маршруту').replace(/\n/g, ' ') + ' · ' + (r.title || '');
       if (!howtoOf(r)) {
         var w = el('div', 'ysg'), a = el('a', 'ysg-go', 'Перейти к маршруту'); a.href = base + (r.path || 'routes/' + id + '/');
@@ -2786,7 +2799,9 @@
     var close = el('button', 'ys-key-alt', v.close || 'Закрыть'); close.type = 'button';
     close.addEventListener('click', function () { closeLayer(); });
     box.appendChild(close);
-    layer(box, 'ys-layer--key ys-layer--rv');
+    var ov = layer(box, 'ys-layer--key ys-layer--rv');
+    // Затемнение под окном отзыва — route.review.shade (0–90 %, панель); обычно 35 %, сквозь него видна страница маршрута
+    var sh = parseFloat(v.shade); if (ov && ov.style) ov.style.setProperty('--ys-rv-sh', ((isNaN(sh) ? 35 : Math.max(0, Math.min(90, sh))) / 100).toFixed(2));
   }
   // Сверху: ссылка на витрину слева, «Мой код» справа — во всех форматах: есть код — узор и код ещё раз (сохранить, отправить, ввести другой);
   // в Наблюдении без кода — окно ввода ключа или кода (из него можно остаться в Наблюдении)
