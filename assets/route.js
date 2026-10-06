@@ -1198,7 +1198,7 @@
   function q(name) { var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null; }
   // sim — день на спирали из режима проверки (0 — до начала, 14 — после конца), zonesOn — показать разметку кирпичей
   // code — личный код человека ({code, mode, seed}) или null
-  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: false, B: null, busy: false, code: null, plants: null,
+  var S = { route: null, base: '', mode: 'observation', debug: false, debugNow: null, preview: false, sim: null, zonesOn: false, dbgMin: window.innerWidth <= 600, B: null, busy: false, code: null, plants: null,
     tz: null, DS: null, space: null, spaceN: null };
 
   function curDay() { return S.sim != null ? S.sim : dayNumber(S.route, nowRoute()); }
@@ -2909,9 +2909,11 @@
   // Режим проверки: ?debug=1 — спираль на любой день, все пройдены, центр, финал, сброс; любая карта в любом формате.
   function debugPanel() {
     var r = S.route, box = el('div', 'ys-debug' + (S.dbgMin ? ' is-min' : '')), last = daysCount(r);
-    var head = el('button', 'ys-debug-h', 'Проверка ▾'); head.type = 'button';
+    var head = el('button', 'ys-debug-h'); head.type = 'button';
     var body = el('div', 'ys-debug-b');
-    head.addEventListener('click', function () { S.dbgMin = !S.dbgMin; box.classList.toggle('is-min', S.dbgMin); });
+    function headText() { head.textContent = S.dbgMin ? 'Проверка ▴ развернуть' : 'Проверка ▾ свернуть'; }
+    headText();
+    head.addEventListener('click', function () { S.dbgMin = !S.dbgMin; box.classList.toggle('is-min', S.dbgMin); headText(); });
     function sel(opts, val) { var s = el('select'); opts.forEach(function (o) { var op = el('option', null, o[1]); op.value = o[0]; s.appendChild(op); }); s.value = val; return s; }
     function btn(t, f) { var b = el('button', null, t); b.type = 'button'; b.addEventListener('click', f); return b; }
     function row(kids) { var d = el('div', 'ys-debug-row'); kids.forEach(function (k) { d.appendChild(k); }); return d; }
