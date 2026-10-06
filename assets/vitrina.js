@@ -685,7 +685,7 @@
   function statusHTML(c, cls) {
     var st = statusOf(c); if (!st) return '';
     var pill = ((c.front || {}).statusStyle === 'pill');
-    return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + txt(st) + '</span>' : esc(st)) + '</div>';
+    return '<div class="' + cls + (pill ? ' m13-status-pill' : '') + '">' + (pill ? '<span>' + txt(st) + '</span>' : txt(st)) + '</div>';
   }
   /* ---------- Увеличенная карточка маршрута: карта сегодняшнего дня и финальный ролик (её решение 04.10.2026) ----------
      Пока маршрут идёт и у него есть страница по дням (journeys, тот же routeId) — на лицевой стороне увеличенной карточки
@@ -2260,7 +2260,7 @@
     // «Подробнее» включено у раздела: первый абзац виден, остальное раскрывается — только если текст правда длинный
     if (b.collapse && paras.length > 1 && text.length > 320) {
       body = '<div class="m13-rich">' + rich(paras[0]) + '</div><details class="m13-more m13-sb-more"><summary><span class="m13-more-open">' +
-        esc(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + txt(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
+        txt(sb.moreLabel || 'Подробнее') + ' ↓</span><span class="m13-more-close">' + txt(sb.lessLabel || 'Свернуть') + ' ↑</span></summary>' +
         '<div class="m13-rich">' + rich(paras.slice(1).join('\n\n')) + '</div></details>';
     } else body = '<div class="m13-rich">' + rich(text) + '</div>';
     var look = b.look === 'thought' ? ' m13-thought' : b.look === 'mantra' ? ' m13-mantra' : '';
@@ -2339,7 +2339,7 @@
         function show() {
           w.querySelectorAll('.m13-ring-p.is-on').forEach(function (x) { if (x !== b) x.classList.remove('is-on'); });
           b.classList.add('is-on');
-          cap.innerHTML = esc(b.getAttribute('data-name')) + (b.getAttribute('data-role') ? '<small>' + txt(b.getAttribute('data-role')) + '</small>' : '');
+          cap.innerHTML = txt(b.getAttribute('data-name')) + (b.getAttribute('data-role') ? '<small>' + txt(b.getAttribute('data-role')) + '</small>' : '');
         }
         b.addEventListener('click', function (e) { e.stopPropagation(); show(); });
         b.addEventListener('mouseenter', show);
@@ -3046,7 +3046,7 @@
             : '<div class="m13-placeholder">' + txt(rf.placeholder || '') + '</div>') +
           // Всегда 4 части (картинка, подпись Kin, архетип, описание) — по ним плашки в ряду выравниваются автоматически
           '<em class="m13-example-meta">' + (gl ? '' : txt(it.meta || '')) + '</em>' +
-          '<strong>' + (gl && glassHas(gf.g, 'title', 'название') ? '<span class="m13-sr">' + txt(it.title) + '</span>' : esc(it.title)) + '</strong>' +
+          '<strong>' + (gl && glassHas(gf.g, 'title', 'название') ? '<span class="m13-sr">' + txt(it.title) + '</span>' : txt(it.title)) + '</strong>' +
           // Описание — под кнопкой «Подробнее»: текст любой длины, картинки в ряду стоят ровно
           (it.text ? (rf.textOpen ? '<span>' + txt(it.text) + '</span>'
             : '<details class="m13-more m13-ex-more"><summary><span class="m13-more-open">' + txt(rf.moreLabel || 'Подробнее') + ' ↓</span>' +
