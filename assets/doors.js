@@ -22,7 +22,11 @@
      desktop, mobile — картинка слоя (PNG/WebP с прозрачностью; необязательно), color + fill — заливка цветом (%), opacity, blend,
      soft — мягкий край контура, fx — движение (FX ниже), speed, power — его скорость и сила (%), fade — сколько длится смена состояния, мс, scale — фрагмент крупнее/мельче }
    Пространство: { desktop, mobile — фон, color, dim, place: 'center' | 'left' | 'right' | 'bottom', plate: 'glass' | 'dark' | 'none', blocks: [блок] }
-   Блок: { kind: 'title' | 'small' | 'text' | 'image' | 'dayCard' | 'deck' | 'glass' | 'final', text, image, label, auto, who: { формат: да/нет }, visible } */
+   Блок: { kind: 'title' | 'small' | 'text' | 'image' | 'dayCard' | 'deck' | 'glass' | 'final' | 'figure', text, image, label, auto, who: { формат: да/нет }, visible }
+   Заход «б» (06.10): живая обложка на витрине — doors.cover = { on, desktop, mobile — своя картинка (нет — сцена), fit, dim, world — мировые слои на обложке,
+     marks — личные следы этого устройства на обложке, text — надписи карточки поверх }; жест дня на обложке — doors.days[N].gesture =
+     { on, desktop: [x, y], mobile: [x, y] — точка на картинке обложки (доли), size — диаметр, % ширины, fx, color, fill, image, opacity, blend, soft, speed, power };
+     «Моя фигура» — doors.figure: '' (после конца маршрута) | 'always' (как только есть след) | 'off'; figure(r, o, готово) собирает одну картинку. */
 (function () {
   'use strict';
   // Пять состояний двери (её список 06.10). Порядок важен: так они идут в панели.
@@ -164,8 +168,8 @@
   var BLEND = [['', 'обычно'], ['screen', 'светом (светлое светит, тёмное исчезает)'], ['multiply', 'тенью (тёмное темнит, светлое исчезает)'], ['overlay', 'перекрытие'], ['soft-light', 'мягкий свет'], ['color', 'цветом']];
   // Блоки пространства за дверью — подключаемые части маршрута (существующие механики — кнопками, как и были)
   var BLOCKS = [['title', 'Заголовок'], ['small', 'Строка мелко'], ['text', 'Текст'], ['image', 'Картинка'],
-    ['dayCard', 'Карта дня (кнопка)'], ['deck', 'Колода вслепую (кнопка)'], ['glass', 'Стёклышко дня (кнопка)'], ['final', 'Кнопка в финал']];
-  var BTN_DEF = { dayCard: 'Карта дня', deck: 'Вытянуть карту', glass: 'Стёклышко дня', final: 'Дальше' };
+    ['dayCard', 'Карта дня (кнопка)'], ['deck', 'Колода вслепую (кнопка)'], ['glass', 'Стёклышко дня (кнопка)'], ['final', 'Кнопка в финал'], ['figure', 'Сохранить мою фигуру (кнопка)']];
+  var BTN_DEF = { dayCard: 'Карта дня', deck: 'Вытянуть карту', glass: 'Стёклышко дня', final: 'Дальше', figure: 'Сохранить мою фигуру' };
 
   /* ---------- Слой двери ---------- */
   function layerNode(L, d, n, key, base) {
@@ -215,7 +219,8 @@
   }
 
   /* ---------- Сцена ----------
-     o: { key — 'desktop' | 'mobile', base, onTap(n), zones — показать контуры, all — и выключенные двери (панель) }.
+     o: { key — 'desktop' | 'mobile', base, onTap(n), zones — показать контуры, all — и выключенные двери (панель),
+          pic — другая картинка вместо сцены (обложка), still — без касаний (обложка: нажатие переворачивает карточку) }.
      Возвращает { node, img, set(n, состояние, сразу), state(n), poly(n), door(n), zones(да/нет) }. Размер и место node задаёт тот, кто её показывает. */
   function scene(r, o) {
     o = o || {};
@@ -223,8 +228,8 @@
     var stage = el('div', 'ys-dstage'), img = el('img', 'ys-dscene'), wrap = el('div', 'ys-doors'), world = el('div', 'ys-dworld');
     var hit = sv('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'ys-dhit' + (o.zones ? ' is-zones' : '') });
     img.alt = ''; img.draggable = false;
-    if (D[key]) img.src = src(o.base, D[key]); else stage.classList.add('is-empty');
-    stage.appendChild(img); stage.appendChild(world); stage.appendChild(wrap); stage.appendChild(hit);
+    if (o.pic || D[key]) img.src = src(o.base, o.pic || D[key]); else stage.classList.add('is-empty');
+    stage.appendChild(img); stage.appendChild(world); stage.appendChild(wrap); if (!o.still) stage.appendChild(hit);
     // Мировые слои дней — на всю сцену, под дверями; видны, когда их включает страница (world(день, да/нет))
     for (var y = 1; y <= days(r); y++) W[y] = (dayCfg(r, y).world || []).map(function (L) {
       if (!L || L.visible === false) return null;
@@ -329,10 +334,33 @@
       }
       setTimeout(step, 400); callT = setInterval(step, ms);
     }
+    /* Жест дня (обложка на витрине): точка на картинке + движение; круг считается по пропорциям картинки, поэтому — когда она загрузилась.
+       y = 0 — убрать. */
+    var gst = null, gy = 0;
+    function gesture(y) {
+      if (gst) { gst.remove(); gst = null; }
+      gy = y;
+      var g = y ? dayCfg(r, y).gesture : null, pt = g && g.on !== false && g[key];
+      if (!pt || pt.length < 2) return;
+      function put() {
+        if (gy !== y || gst) return;
+        var k = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : (key === 'mobile' ? 9 / 16 : 16 / 9);
+        var rx = num(g.size, 14, 2, 80) / 200, ry = rx * k, poly = [], i;
+        for (i = 0; i < 28; i++) poly.push([pt[0] + Math.cos(i / 28 * 2 * Math.PI) * rx, pt[1] + Math.sin(i / 28 * 2 * Math.PI) * ry]);
+        var z = {}; z[key] = poly;
+        var ln = layerNode({ area: g.image ? 'frag' : 'door', desktop: g.image, mobile: g.image, color: g.color, fill: g.fill, opacity: g.opacity, blend: g.blend,
+          soft: g.soft == null ? 18 : g.soft, fx: g.fx || 'glow', speed: g.speed, power: g.power, fade: 1200, scale: 100 }, { zone: z }, 200 + y, key, o.base);
+        if (!ln) return;
+        if (g.image) ln.style.webkitClipPath = ln.style.clipPath = ln.style.webkitMaskImage = ln.style.maskImage = '';
+        ln.classList.add('ys-dgest'); wrap.appendChild(ln); gst = ln;
+        void ln.offsetWidth; show(ln, true, false);
+      }
+      if (img.complete && img.naturalWidth) put(); else img.addEventListener('load', put);
+    }
     return { node: stage, img: img, key: key, set: set, state: function (n) { return G[n] ? G[n].st : null; },
       poly: function (n) { return G[n] ? G[n].poly : null; }, door: function (n) { return G[n] ? G[n].g : null; },
       world: function (y, on, now) { (W[y] || []).forEach(function (ln) { show(ln, on, now); }); },
-      mark: mark, num: numOn, call: call,
+      mark: mark, num: numOn, call: call, gesture: gesture,
       zones: function (on) { hit.setAttribute('class', 'ys-dhit' + (on ? ' is-zones' : '')); } };
   }
   // Где сцена на экране: целиком (по краям — размытая та же картинка) или во весь экран (края срезаются)
@@ -474,7 +502,94 @@
     after(ms, function () { node.classList.add('is-gone'); after(260, end); });
   }
 
+  /* ---------- Живая обложка на витрине (заход «б») ----------
+     Сцена (или своя картинка обложки) в том виде, какой она сегодня: двери — по календарю, мир — по дням (cover.world), жест сегодняшнего дня,
+     личные следы — только если cover.marks и только с этого устройства (o.choice). Без касаний: нажатие по карточке переворачивает её.
+     o: { key, base, day — день маршрута (0 — до начала, больше числа дней — после конца), choice — { день: id двери }, visits — { день: 'v' } (по порядку) } */
+  function cover(r, o) {
+    var C = cfg(r).cover || {}, key = o.key, n = o.day, N = days(r), log = o.choice || {}, vis = o.visits || {}, ids = {}, d, k;
+    var sc = scene(r, { key: key, base: o.base, pic: C[key] || '', still: true });
+    if (isChoice(r)) {
+      for (k in log) ids[log[k]] = +k;
+      for (d = 1; d <= count(r); d++) {
+        var dd = ids[doorOf(r, d).id] || 0;
+        sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
+        if (dd) { sc.mark(d, dd, true); if (cfg(r).showDayNumbers) sc.num(d, String(dd)); }
+      }
+    } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
+    if (C.world !== false) for (k = 1; k <= N; k++) {
+      var w = dayCfg(r, k).world || [];
+      if (w.length) sc.world(k, n > k || (n === k && w.some(function (L) { return L && L.when === 'during'; })), true);
+    }
+    if (n >= 1 && n <= N) sc.gesture(n);
+    return sc;
+  }
+  // Картинка обложки для экрана: своя (cover) или сцена; key — как у сцены
+  function coverPic(r, key) { var C = cfg(r).cover || {}; return C[key] || cfg(r)[key] || ''; }
+
+  /* ---------- «Моя фигура» — одна картинка: сцена + мир состоявшихся дней + личные следы на выбранных дверях ----------
+     Собирается здесь же, на устройстве (canvas), ничего никуда не отправляется. Движения не переносятся (картинка неподвижная);
+     мягкий край следа «внутри контура» — там, где браузер умеет размывать на холсте, иначе ровный.
+     o: { key, base, day — день маршрута, choice — { день: id двери } }; done(canvas | null) */
+  function figure(r, o, done) {
+    var D = cfg(r), key = o.key, N = days(r), n = o.day, log = o.choice || {}, jobs = [], i, k;
+    if (!D[key]) { done(null); return; }
+    function load(u) { return new Promise(function (ok) { if (!u) { ok(null); return; } var im = new Image(); im.onload = function () { ok(im); }; im.onerror = function () { ok(null); }; im.src = src(o.base, u); }); }
+    var world = [], marks = [];
+    for (k = 1; k <= N; k++) {
+      var w = (dayCfg(r, k).world || []).filter(function (L) { return L && L.visible !== false; });
+      if (w.length && (n > k || (n === k && w.some(function (L) { return L.when === 'during'; })))) world = world.concat(w);
+    }
+    for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) marks.push({ day: +k, d: doorOf(r, i) });
+    jobs.push(load(D[key]));
+    world.forEach(function (L) { jobs.push(load(L[key])); });
+    marks.forEach(function (m) { jobs.push(load(markOf(r, m.day).image)); });
+    Promise.all(jobs).then(function (ims) {
+      var bg = ims[0]; if (!bg) { done(null); return; }
+      var W = bg.naturalWidth, H = bg.naturalHeight, f = Math.min(1, 4096 / Math.max(W, H));
+      W = Math.round(W * f); H = Math.round(H * f);
+      var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      var c = cv.getContext('2d');
+      c.drawImage(bg, 0, 0, W, H);
+      function mode(b) { c.globalCompositeOperation = b && /^(screen|multiply|overlay|soft-light|color)$/.test(b) ? b : 'source-over'; }
+      world.forEach(function (L, j) {
+        var im = ims[1 + j], op = num(L.opacity, 100, 0, 100) / 100;
+        mode(L.blend);
+        if (im) { c.globalAlpha = op; c.drawImage(im, 0, 0, W, H); }
+        if (+L.fill > 0) { c.globalAlpha = op * num(L.fill, 0, 0, 100) / 100; c.fillStyle = hexOk(L.color) ? L.color : '#ffe2a0'; c.fillRect(0, 0, W, H); }
+      });
+      marks.forEach(function (m, j) {
+        var M = markOf(r, m.day), im = ims[1 + world.length + j], poly = zoneOf(m.d, key), b = bbox(poly), fx = m.d.markFix || {};
+        var sc = num(M.scale, 100, 20, 300) / 100 * num(fx.scale, 100, 20, 300) / 100, w = b.w * sc * W, h = b.h * sc * H;
+        var cx = (b.cx + num(fx.x, 0, -200, 200) / 100 * b.w) * W, cy = (b.cy + num(fx.y, 0, -200, 200) / 100 * b.h) * H;
+        if (!im && !(+M.fill > 0)) return;
+        // Слой следа рисуется отдельно (обрезка по контуру, мягкий край), потом ложится на картинку как задано
+        var lc = document.createElement('canvas'); lc.width = W; lc.height = H;
+        var x = lc.getContext('2d');
+        x.translate(cx, cy); if (+fx.rot) x.rotate(num(fx.rot, 0, -180, 180) * Math.PI / 180);
+        if (+M.fill > 0) {
+          var rr = w * .3, gr = x.createRadialGradient(0, 0, 0, 0, 0, rr), col = hexOk(M.color) ? M.color : '#ffe2a0';
+          gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          x.globalAlpha = num(M.fill, 0, 0, 100) / 100; x.globalCompositeOperation = 'screen'; x.fillStyle = gr; x.fillRect(-rr, -rr, rr * 2, rr * 2);
+          x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+        }
+        if (im) { var s2 = Math.min(w / im.naturalWidth, h / im.naturalHeight), iw = im.naturalWidth * s2, ih = im.naturalHeight * s2; x.drawImage(im, -iw / 2, -ih / 2, iw, ih); }
+        x.setTransform(1, 0, 0, 1, 0, 0);
+        if (M.clip) {
+          var mk = document.createElement('canvas'); mk.width = W; mk.height = H;
+          var y = mk.getContext('2d'), soft = num(M.soft, 0, 0, 40);
+          if (soft && 'filter' in y) y.filter = 'blur(' + (soft / 10 / 100 * Math.min(W, H)).toFixed(1) + 'px)';
+          y.beginPath(); poly.forEach(function (p, q) { if (q) y.lineTo(p[0] * W, p[1] * H); else y.moveTo(p[0] * W, p[1] * H); }); y.closePath(); y.fillStyle = '#fff'; y.fill();
+          x.globalCompositeOperation = 'destination-in'; x.drawImage(mk, 0, 0); x.globalCompositeOperation = 'source-over';
+        }
+        mode(M.blend); c.globalAlpha = num(M.opacity, 100, 0, 100) / 100; c.drawImage(lc, 0, 0);
+      });
+      c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+      done(cv);
+    });
+  }
+
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
-    scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back };
+    scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure };
 })();

@@ -715,15 +715,71 @@
   function journeyOf(rid) {
     return (((S.D.journeys || {}).items) || []).filter(function (j) { return j && j.routeId === rid && (j.days || []).length; })[0] || null;
   }
+  /* Живая обложка (двери v2, заход «б», 06.10): у маршрута со сценой «Двери» и включённой обложкой (journeys[].doors.cover.on, у карточки front.coverShow) —
+     до начала, пока идёт (если карта дня на карточке выключена — front.dayShow) и после конца (если нет финального ролика) на лицевой стороне
+     увеличенной карточки — сцена маршрута или своя картинка, мировые слои состоявшихся дней и жест сегодняшнего дня. */
+  function coverOf(c, j, now) {
+    var f = (c && c.front) || {}, D = (j && j.scene === 'doors' && j.doors) || null, C = (D && D.cover) || {};
+    if (!D || C.on === false || f.coverShow === false || !(C.desktop || C.mobile || D.desktop || D.mobile)) return null;
+    var from = parseDate(j.start), n = from ? Math.round((now - from) / 864e5) + 1 : 0;
+    return { kind: 'cover', j: j, n: Math.max(0, Math.min(j.days.length + 1, n)) };
+  }
   function liveOf(c) {
     var f = (c && c.front) || {}, rid = c && c.back && c.back.routeId, r = rid ? routeById(rid) : null;
     if (!r) return null;
-    var j0 = journeyOf(rid), now = routeToday(j0), to = parseDate((r.dates || {}).to);
-    if (to && now > to) return f.finalShow !== false && r.finalVideo ? { kind: 'final', r: r } : null;
+    var j0 = journeyOf(rid), now = routeToday(j0), to = parseDate((r.dates || {}).to), cv = coverOf(c, j0, now);
+    if (to && now > to) return f.finalShow !== false && r.finalVideo ? { kind: 'final', r: r } : cv;
     var j = f.dayShow !== false ? j0 : null, from = j && parseDate(j.start);
-    if (!from) return null;
+    if (!from) return cv;
     var n = Math.round((now - from) / 864e5) + 1;
-    return n >= 1 && n <= j.days.length ? { kind: 'day', r: r, j: j, n: n } : null;
+    return n >= 1 && n <= j.days.length ? { kind: 'day', r: r, j: j, n: n } : cv;
+  }
+  // Сцена «Двери» — отдельные файлы (assets/doors.js, doors.css); витрина грузит их, только когда открыли карточку с живой обложкой
+  var VV = ((document.currentScript && /[?&]v=([^&#]+)/.exec(document.currentScript.src)) || [])[1] || '';
+  function needDoors(done) {
+    if (window.M13D) { done(); return; }
+    if (S.doorsQ) { S.doorsQ.push(done); return; }
+    S.doorsQ = [done];
+    var left = 2, base = S.base + 'assets/doors.', v = VV ? '?v=' + VV : '';
+    function one() { if (--left) return; var q = S.doorsQ; S.doorsQ = null; if (window.M13D) q.forEach(function (f) { f(); }); }
+    var ln = document.createElement('link'); ln.rel = 'stylesheet'; ln.href = base + 'css' + v; ln.onload = ln.onerror = one;
+    var sc = document.createElement('script'); sc.src = base + 'js' + v; sc.onload = sc.onerror = one;
+    document.head.appendChild(ln); document.head.appendChild(sc);
+  }
+  // Что человек выбрал и куда входил — то, что страница маршрута запомнила на этом устройстве (только читаем; никуда не отправляется)
+  function routeLocal(j, what) {
+    try { var o = JSON.parse(localStorage.getItem('m13ys-' + j.id + '-' + (j.start || '') + '-' + what) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; }
+  }
+  function coverPaint(front, lv) {
+    var j = lv.j, C = j.doors.cover || {};
+    var box = document.createElement('div'); box.className = 'm13-cover'; box.setAttribute('aria-hidden', 'true');
+    front.insertBefore(box, front.firstChild);
+    if (C.text === false) [].forEach.call(front.querySelectorAll(':scope > div:not(.m13-cover):not(.m13-flip-hint)'), function (n) { n.remove(); });
+    needDoors(function () {
+      if (!box.isConnected) return;
+      var M = window.M13D, sc = null, key = '';
+      function build() {
+        var tall = front.clientHeight / Math.max(1, front.clientWidth) > 1.25, P = M.pick({ doors: { desktop: M.coverPic(j, 'desktop'), mobile: M.coverPic(j, 'mobile') } }, tall);
+        if (sc && P.key === key) return;
+        key = P.key; box.replaceChildren();
+        if (C.fit !== 'cover' && P.src) { var bl = document.createElement('div'); bl.className = 'ys-dblur'; bl.style.backgroundImage = 'url("' + media(P.src) + '")'; box.appendChild(bl); }
+        sc = M.cover(j, { key: key, base: S.base, day: lv.n, choice: C.marks ? routeLocal(j, 'choice') : {}, visits: C.marks ? routeLocal(j, 'doors') : {} });
+        box.appendChild(sc.node);
+        var dim = document.createElement('i'); dim.className = 'm13-cover-dim';
+        dim.style.opacity = Math.max(0, Math.min(90, C.dim == null || C.dim === '' ? 40 : +C.dim)) / 100;
+        box.appendChild(dim);
+        sc.img.addEventListener('load', place); place();
+      }
+      function place() {
+        if (!sc || !box.isConnected) return;
+        var t = key === 'mobile', iw = sc.img.naturalWidth || (t ? 9 : 16), ih = sc.img.naturalHeight || (t ? 16 : 9);
+        M.fit(sc.node, iw, ih, C.fit === 'cover' ? 'cover' : '', box.clientWidth, box.clientHeight);
+      }
+      build();
+      requestAnimationFrame(function () { build(); place(); });
+      if (!S.coverResize) { S.coverResize = true; window.addEventListener('resize', function () { if (S.coverFit) S.coverFit(); }); }
+      S.coverFit = function () { if (box.isConnected) { build(); place(); } };
+    });
   }
   // Метки в текстах дня ({день}, {кин}, {имя кина}…) — как на странице маршрута; метки выравнивания строк ({по центру}…) убираются
   function jFill(tpl, ctx) {
@@ -1091,6 +1147,7 @@
         if (!S.dcResize) { S.dcResize = true; window.addEventListener('resize', function () { var st = S.root.querySelector('.m13-big-stage'); dcFit(st, st.querySelector('.m13-front--day .m13-dc')); }); }
       })(front.querySelector('.m13-dc'));
     }
+    if (live && live.kind === 'cover') { front.classList.add('m13-front--cover'); front.style.backgroundImage = ''; coverPaint(front, live); }
     if (live && live.kind === 'final') {
       front.classList.add('m13-front--film'); front.style.backgroundImage = '';
       front.innerHTML = filmHTML(live.r) + '<div class="m13-flip-hint">' + esc(T('flipHint') || 'Нажать — открыть оборот') + '</div>';

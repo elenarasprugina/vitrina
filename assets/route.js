@@ -2680,6 +2680,13 @@
       fb.addEventListener('click', openDoorsFinal);
       hud.appendChild(fb);
     }
+    // «Сохранить мою фигуру» (заход «б»): после конца маршрута (или с первого следа — doors.figure = 'always'), если есть хоть один след
+    var fg = D.figure || '';
+    if (uc && fg !== 'off' && Object.keys(log).length && (fg === 'always' || n > last || (n === last && !!mine))) {
+      var sb = el('button', 'ys-go ys-go--fig', tx.figureSave || 'Сохранить мою фигуру'); sb.type = 'button';
+      sb.addEventListener('click', saveFigure);
+      hud.appendChild(sb);
+    }
     page.appendChild(hud);
     app.appendChild(page);
     if (S.debug) app.appendChild(debugPanel());
@@ -2717,6 +2724,30 @@
     // Свободная дверь открывает сегодняшний день — выбор запоминается сразу, заменить нельзя
     if (st === 'free') { choose(n, doorIdOf(d)); if (S.DS) S.DS.call([]); }
     enterDoor(d, false, n);
+  }
+  /* «Моя фигура» — одна картинка: сцена + мир состоявшихся дней + личные следы (M13D.figure; собирается на устройстве, никуда не уходит).
+     Картинка — та, что сейчас на экране (компьютер или телефон). */
+  function saveFigure() {
+    var r = S.route, M = window.M13D, tx = r.texts || {};
+    if (!isChoice(r) || !Object.keys(choiceLog()).length) { note(tx.figureEmpty || 'Фигура появится, когда вы выберете первую дверь.'); return; }
+    if (S.busy) return;
+    S.busy = true;
+    M.figure(r, { key: S.DS ? S.DS.key : M.pick(r, window.innerHeight / window.innerWidth > 1.25).key, base: S.base, day: curDay(), choice: choiceLog() }, function (cv) {
+      S.busy = false;
+      // Имя файла — латиницей: не все браузеры сохраняют файл с русским именем
+      var name = '13mirrors-' + String(r.id || 'route').replace(/[^\w-]+/g, '') + '-figure.png';
+      function fail() { note('Не получилось собрать картинку на этом устройстве.'); }
+      if (!cv) { fail(); return; }
+      try {
+        cv.toBlob(function (b) {
+          if (!b) { fail(); return; }
+          var u = URL.createObjectURL(b), a = document.createElement('a');
+          a.href = u; a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 1000);
+          setTimeout(function () { URL.revokeObjectURL(u); }, 30000);
+          note(tx.figureDone || 'Ваша фигура сохранена картинкой.');
+        }, 'image/png');
+      } catch (e) { fail(); }
+    });
   }
   function tapDoor(d) {
     var r = S.route, tx = r.texts || {}, n = curDay(), ctx = ctxOf(r, d), st = doorState(d, n);
@@ -2798,6 +2829,7 @@
       if (n < daysCount(r) && listOf(seenKey()).indexOf(n) < 0) openGlass(n);
       else note(fill(tx.glassSeen || 'Стёклышко дня {день} уже в вашем узоре', ctxOf(r, n)));
     } else if (kind === 'final') openDoorsFinal();
+    else if (kind === 'figure') saveFigure();
   }
   function render() {
     if (isDoors(S.route) && window.M13D) { renderDoors(); return; }
@@ -2914,6 +2946,7 @@
       el('span', 'ys-debug-sep', 'Двери'),
       el('span', null, doorsInfo),
       row([btn('Пространство дня', function () { if (S.space) { S.space.remove(); S.space = null; } S.busy = false; if (isChoice(r)) enterDoor(0, true, +sd.value); else enterDoor(+sd.value, true); }), btn('Финальная сцена', function () { var D = doorsCfg(); if (!(D.final && D.final.on)) { note('Финальная сцена выключена: панель → «За дверью» → «Финал».'); return; } S.busy = false; openDoorsFinal(); })]),
+      isChoice(r) ? row([btn('Моя фигура — сохранить картинкой', function () { S.busy = false; saveFigure(); })]) : null,
       row([btn('Забыть пояс', function () { resetTz(); render(); note('Пояс забыт: на этом устройстве снова запомнится текущий — ' + (tzHere().tz || 'по часам устройства') + '.'); }),
         btn('Сброс дверей', function () { resetDoors(); S.sim = null; render(); note(isChoice(r) ? 'Сброшено: ни одна дверь не выбрана, следов нет.' : 'Сброшено: ни в одну дверь не входили, сегодняшняя снова зовёт.'); })])] : []).concat([
       el('span', 'ys-debug-sep', 'Финал · ' + wordsOf(r).name),
@@ -2941,7 +2974,7 @@
         try { localStorage.setItem(pickKey(), JSON.stringify(l)); } catch (e) {}
         openFan(+sd.value, sm.value);
       })
-    ]).forEach(function (x) { body.appendChild(x); });
+    ]).forEach(function (x) { if (x) body.appendChild(x); });
     box.appendChild(head); box.appendChild(body);
     return box;
   }
@@ -2978,12 +3011,14 @@
     if (q('gift') && !S.code) setTimeout(function () { note((route.texts || {}).giftNeed || 'Чтобы положить подарок в узор, сначала войдите своим кодом.'); }, 600);
   }
   // Сцена «Двери» — отдельный файл, грузится только у маршрутов с дверями
+  // Вместе со стилями сцены (assets/doors.css): маршрут рисуется, когда пришло и то и другое (иначе слои на миг видны без стилей)
   function loadDoors(done) {
-    var sc = document.createElement('script');
-    sc.src = (S.base || '../../') + 'assets/doors.js?v=' + (window.M13RV || '');
-    sc.onload = done;
-    sc.onerror = function () { var app = document.getElementById('ys'); if (app) app.replaceChildren(el('p', 'ys-err', 'Не удалось загрузить маршрут. Обновите страницу через минуту.')); };
-    document.head.appendChild(sc);
+    var base = (S.base || '../../') + 'assets/doors.', v = '?v=' + (window.M13RV || ''), left = 2;
+    function one() { if (!--left) done(); }
+    function fail() { var app = document.getElementById('ys'); if (app) app.replaceChildren(el('p', 'ys-err', 'Не удалось загрузить маршрут. Обновите страницу через минуту.')); }
+    var ln = document.createElement('link'); ln.rel = 'stylesheet'; ln.href = base + 'css' + v; ln.onload = one; ln.onerror = one;
+    var sc = document.createElement('script'); sc.src = base + 'js' + v; sc.onload = one; sc.onerror = fail;
+    document.head.appendChild(ln); document.head.appendChild(sc);
   }
   function boot() {
     var app = document.getElementById('ys'); if (!app) return;

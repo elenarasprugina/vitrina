@@ -596,3 +596,12 @@ audio.a-media{background:none;height:40px}
 .a-jd-mid::after{content:"";position:absolute;inset:-7px;border-radius:50%}
 .a-jd-num{position:absolute;transform:translate(-50%,-50%);font:700 13px/1 sans-serif;color:#fff;text-shadow:0 0 4px #000,0 0 2px #000}
 @media (pointer:coarse){.a-jd-p{width:18px;height:18px;margin:-9px 0 0 -9px}.a-jd-mid{width:12px;height:12px;margin:-6px 0 0 -6px}}
+/* Живая обложка на витрине (двери, заход «б»): предпросмотр в форме увеличенной карточки, нажатие ставит точку жеста дня */
+.a-jdc{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;margin:8px 0 10px}
+.a-jdc-frame{position:relative;flex:none;width:320px;height:365px;border-radius:18px;overflow:hidden;background:#0a0604;cursor:crosshair;isolation:isolate}
+.a-jdc-frame.is-tall{width:220px;height:403px}
+.a-jdc-frame .ys-dblur{inset:-30px}
+.a-jdc-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#050302 0%,rgba(5,3,2,.55) 32%,transparent 58%,transparent 80%,rgba(5,3,2,.6) 100%)}
+.a-jdc-pt{z-index:3;pointer-events:none}
+.a-jdc-none{padding:20px;color:#e8d3a6}
+.a-jdc-side{flex:1 1 220px;min-width:0}
