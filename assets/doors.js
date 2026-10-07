@@ -26,7 +26,12 @@
    Заход «б» (06.10): живая обложка на витрине — doors.cover = { on, desktop, mobile — своя картинка (нет — сцена), fit, dim, world — мировые слои на обложке,
      marks — личные следы этого устройства на обложке, text — надписи карточки поверх }; жест дня на обложке — doors.days[N].gesture =
      { on, desktop: [x, y], mobile: [x, y] — точка на картинке обложки (доли), size — диаметр, % ширины, fx, color, fill, image, opacity, blend, soft, speed, power };
-     «Моя фигура» — doors.figure: '' (после конца маршрута) | 'always' (как только есть след) | 'off'; figure(r, o, готово) собирает одну картинку. */
+     «Моя фигура» — doors.figure: '' (после конца маршрута) | 'always' (как только есть след) | 'off'; figure(r, o, готово) собирает одну картинку.
+   07.10 (docs/doors.md, «Сделано 07.10»): у слоя — out (как уходит, OUT ниже), outMs, outDir; картинки слоёв грузятся, только когда слой виден.
+     doors.markWhen: '' (след проступает после конца дня) | 'now' (сразу, когда человек вернулся к дверям);
+     doors.worldMode: '' (мир копится) | 'weather' (погода дня — виден только мир сегодняшнего дня); doors.skies: [{ name, desktop, mobile }] — общие картинки погоды;
+     у слоя мира: sky — номер общей картинки (вместо своей), tint + tintPow — окрасить картинку в цвет, bright — яркость, %, top — поверх дверей;
+     блок пространства audio: { audio — запись, text — подпись, icon: 'phones' | 'wave' | 'rings' | 'voice' } — во время звучания значок становится волной. */
 (function () {
   'use strict';
   // Пять состояний двери (её список 06.10). Порядок важен: так они идут в панели.
@@ -88,6 +93,26 @@
   // Пространство дня: в userChoice — у дня, в fixed — у двери N (как было)
   function spaceOf(r, n) { return (isChoice(r) ? dayCfg(r, n).space : doorOf(r, n).space) || {}; }
   function markOf(r, day) { return (cfg(r).marks || [])[day - 1] || {}; }
+  // Слой мира в виде слоя сцены: своя картинка или общая картинка погоды (doors.skies[sky])
+  function skyOf(r, L) { var a = cfg(r).skies || []; return L.sky != null && L.sky !== '' && a[+L.sky] ? a[+L.sky] : null; }
+  function worldLayer(r, L) {
+    var s = skyOf(r, L), o = {}, k;
+    for (k in L) o[k] = L[k];
+    o.area = 'scene';
+    if (s) { o.desktop = s.desktop || s.mobile; o.mobile = s.mobile || s.desktop; }
+    return o;
+  }
+  function weather(r) { return cfg(r).worldMode === 'weather'; }
+  /* Виден ли мир дня k в день n (0 — до начала, больше числа дней — после конца).
+     Мир копится: день k — после своего дня (after) или уже в свой день (during). Погода дня: только сегодняшний; после конца — последнего дня. */
+  function worldOn(r, k, n) {
+    var w = (dayCfg(r, k).world || []).filter(function (L) { return L && L.visible !== false; }), N = days(r);
+    if (!w.length) return false;
+    if (weather(r)) return n > N ? k === N : k === n;
+    return n > k || (n === k && w.some(function (L) { return L.when === 'during'; }));
+  }
+  // След тона дня day виден в день n: после конца своего дня (по умолчанию) или сразу
+  function markOn(r, day, n) { return cfg(r).markWhen === 'now' ? day <= n : day < n || n > days(r); }
   function uid() { return 'd' + Math.random().toString(36).slice(2, 9); }
   function doorOf(r, n) { return (cfg(r).items || [])[n - 1] || {}; }
   function zoneOf(d, key) { var z = (d.zone || {})[key]; return ptsOk(z) ? z : null; }
@@ -165,10 +190,40 @@
     zoom: 'камера входит в дверь',
     fade: 'мягкая смена'
   };
+  /* Как уходит слой (её список 07.10) — когда слой гаснет: дверь сменила состояние или сменилась погода дня.
+     Новый уход — строка здесь + класс ys-out-<имя> в doors.css (run — если нужны свои элементы; вернуть функцию уборки). */
+  var OUT = [['', 'растворяется'], ['blur', 'рассеивается — размывается'], ['light', 'растворяется в свет — вспышка'],
+    ['center', 'уходит от центра — окно расширяется к краям'], ['split', 'разлетается в стороны — половинки, как занавес'], ['drift', 'уплывает (направление ниже)'],
+    ['rise', 'поднимается вверх'], ['melt', 'тает — снизу вверх, неровная кромка'], ['sparks', 'рассыпается в искры'],
+    ['burn', 'сгорает от края — светящаяся кромка'], ['shade', 'шторка (направление ниже)']];
+  var OUT_DIR = [['right', 'вправо'], ['left', 'влево'], ['up', 'вверх'], ['down', 'вниз']];
+  var OUT_RUN = {
+    split: function (ln) {
+      var a = ln.querySelector('.ys-dl-box'); if (!a) return null;
+      var b = a.cloneNode(true); a.classList.add('ys-half-a'); b.classList.add('ys-half-b'); ln.appendChild(b);
+      return function () { a.classList.remove('ys-half-a'); b.remove(); };
+    },
+    sparks: function (ln, c) {
+      var host = ln.parentNode; if (!host) return null;
+      var box = el('div', 'ys-sparks'), R = rng(Math.floor(Math.random() * 1e6)), k = 30, i, p, s;
+      box.style.setProperty('--fx-c', c.color); box.style.setProperty('--out', ln.style.getPropertyValue('--out'));
+      for (i = 0; i < k; i++) {
+        p = c.poly ? ptIn(c.poly, R) : [.05 + R() * .9, .1 + R() * .85];
+        s = el('i'); s.style.left = (p[0] * 100) + '%'; s.style.top = (p[1] * 100) + '%';
+        s.style.setProperty('--tx', ((R() - .5) * 14).toFixed(1) + 'vmin'); s.style.setProperty('--ty', (-6 - R() * 16).toFixed(1) + 'vmin');
+        s.style.setProperty('--z', (.6 + R() * 1.1).toFixed(2)); s.style.animationDelay = (R() * .35).toFixed(2) + 's';
+        box.appendChild(s);
+      }
+      host.appendChild(box);
+      return function () { box.remove(); };
+    },
+    burn: function (ln) { var g = el('div', 'ys-out-ring'); ln.appendChild(g); return function () { g.remove(); }; }
+  };
+  var OUT_OK = {}; OUT.forEach(function (x) { if (x[0]) OUT_OK[x[0]] = true; });
   var BLEND = [['', 'обычно'], ['screen', 'светом (светлое светит, тёмное исчезает)'], ['multiply', 'тенью (тёмное темнит, светлое исчезает)'], ['overlay', 'перекрытие'], ['soft-light', 'мягкий свет'], ['color', 'цветом']];
   // Блоки пространства за дверью — подключаемые части маршрута (существующие механики — кнопками, как и были)
   var BLOCKS = [['title', 'Заголовок'], ['small', 'Строка мелко'], ['text', 'Текст'], ['image', 'Картинка'],
-    ['dayCard', 'Карта дня (кнопка)'], ['deck', 'Колода вслепую (кнопка)'], ['glass', 'Стёклышко дня (кнопка)'], ['final', 'Кнопка в финал'], ['figure', 'Сохранить мою фигуру (кнопка)']];
+    ['audio', 'Аудио — запись с кнопкой'], ['dayCard', 'Карта дня (кнопка)'], ['deck', 'Колода вслепую (кнопка)'], ['glass', 'Стёклышко дня (кнопка)'], ['final', 'Кнопка в финал'], ['figure', 'Сохранить мою фигуру (кнопка)']];
   var BTN_DEF = { dayCard: 'Карта дня', deck: 'Вытянуть карту', glass: 'Стёклышко дня', final: 'Дальше', figure: 'Сохранить мою фигуру' };
 
   /* ---------- Слой двери ---------- */
@@ -183,10 +238,18 @@
     ln.style.setProperty('--fx-p', p.toFixed(2));
     ln.style.setProperty('--fx-c', color);
     if (L.blend) ln.style.mixBlendMode = L.blend;
-    if (area === 'mark') return markBody(ln, box, inner, L, d, b, pic, base, f, { L: L, poly: poly, box: b, n: n, color: color, k: k, p: p });
+    // Середина двери — для уходов «от центра», «сгорает от края», «половинки»
+    ln.style.setProperty('--cx', ((b ? b.cx : .5) * 100).toFixed(2) + '%'); ln.style.setProperty('--cy', ((b ? b.cy : .5) * 100).toFixed(2) + '%');
+    var dir = { right: [1, 0], left: [-1, 0], up: [0, -1], down: [0, 1] }[L.outDir] || (L.out === 'shade' ? [0, -1] : [1, 0]);
+    ln.style.setProperty('--dx', dir[0]); ln.style.setProperty('--dy', dir[1]);
+    outVars(ln, b || { x: 0, y: 0, w: 1, h: 1 }, dir);
+    ln._L = L; ln._c = { L: L, poly: poly, box: b, n: n, color: color, k: k, p: p };
+    if (area === 'mark') return markBody(ln, box, inner, L, d, b, pic, base, f, ln._c);
     if (area !== 'scene') clip(ln, poly, num(L.soft, 0, 0, 40));
     if (pic) {
-      var im = el('img', 'ys-dl-pic'); im.alt = ''; im.src = src(base, pic); im.draggable = false;
+      // Картинка грузится, только когда слой впервые виден (wake) — невидимые слои страницу не тяжелят
+      var im = el('img', 'ys-dl-pic'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false;
+      if (L.bright != null && L.bright !== '' && +L.bright !== 100) im.style.filter = 'brightness(' + num(L.bright, 100, 20, 250) / 100 + ')';
       if (area === 'frag') {
         var sc = num(L.scale, 100, 50, 200) / 100;
         im.className = 'ys-dl-frag';
@@ -194,6 +257,11 @@
         im.style.width = (b.w * sc * 100) + '%'; im.style.height = (b.h * sc * 100) + '%';
       }
       inner.appendChild(im);
+      // Окрасить картинку (утренние розовые облака, серые…): цвет ложится только на саму картинку, яркость её сохраняется
+      if (area !== 'frag' && hexOk(L.tint) && +L.tintPow > 0) {
+        var tn = el('div', 'ys-dl-tint'); tn.style.background = L.tint; tn.style.opacity = num(L.tintPow, 0, 0, 100) / 100;
+        tn.setAttribute('data-mask', src(base, pic)); inner.style.isolation = 'isolate'; inner.appendChild(tn);
+      }
     }
     if (+L.fill > 0) { var fl = el('div', 'ys-dl-fill'); fl.style.background = color; fl.style.opacity = num(L.fill, 0, 0, 100) / 100; inner.appendChild(fl); }
     box.appendChild(inner); ln.appendChild(box);
@@ -209,13 +277,75 @@
     var m = el('div', 'ys-dl-mark');
     m.style.left = ((cx - w / 2) * 100) + '%'; m.style.top = ((cy - h / 2) * 100) + '%'; m.style.width = (w * 100) + '%'; m.style.height = (h * 100) + '%';
     if (+fx.rot) m.style.transform = 'rotate(' + num(fx.rot, 0, -180, 180) + 'deg)';
-    if (pic) { var im = el('img'); im.alt = ''; im.src = src(base, pic); im.draggable = false; m.appendChild(im); }
+    if (pic) { var im = el('img'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false; m.appendChild(im); }
     if (+L.fill > 0) { var g = el('i', 'ys-dl-disc'); g.style.background = 'radial-gradient(closest-side,' + c.color + ',transparent)'; g.style.opacity = num(L.fill, 0, 0, 100) / 100; m.appendChild(g); }
     if (L.clip) clip(ln, c.poly, num(L.soft, 0, 0, 40));
     inner.appendChild(m); box.appendChild(inner); ln.appendChild(box);
     ln.classList.add('ys-dl--mark');
     if (f.run) f.run(ln, c);
     return ln;
+  }
+
+  /* Уходы считаются по рамке двери (по всей сцене — у слоёв без контура): --bw/--bh — размер рамки, --rw/--rh — овал «от центра» и «сгорает»,
+     --m0/--m1 — где начинается и кончается таяние, --s0/--s1 — шторка от края рамки до края */
+  function outVars(ln, b, dir) {
+    function P(v) { return (v * 100).toFixed(2) + '%'; }
+    ln.style.setProperty('--bw', P(b.w)); ln.style.setProperty('--bh', P(b.h));
+    ln.style.setProperty('--rw', P(b.w * .72)); ln.style.setProperty('--rh', P(b.h * .72));
+    var k = 3 * b.h; if (Math.abs(1 - k) < .05) k = 1.1;
+    ln.style.setProperty('--mh', P(k)); ln.style.setProperty('--m0', P(b.y / (1 - k))); ln.style.setProperty('--m1', P((b.y - 2 * b.h) / (1 - k)));
+    var s0 = [0, 0, 0, 0], s1 = [0, 0, 0, 0];
+    if (dir[1] < 0) { s0[2] = 1 - b.y - b.h; s1[2] = 1 - b.y; } else if (dir[1] > 0) { s0[0] = b.y; s1[0] = b.y + b.h; }
+    else if (dir[0] < 0) { s0[1] = 1 - b.x - b.w; s1[1] = 1 - b.x; } else { s0[3] = b.x; s1[3] = b.x + b.w; }
+    ln.style.setProperty('--s0', 'inset(' + s0.map(P).join(' ') + ')'); ln.style.setProperty('--s1', 'inset(' + s1.map(P).join(' ') + ')');
+  }
+  // Слой впервые виден — картинки начинают грузиться
+  function wake(ln) {
+    if (ln._awake) return; ln._awake = true;
+    Array.prototype.forEach.call(ln.querySelectorAll('img[data-src]'), function (im) { im.src = im.getAttribute('data-src'); im.removeAttribute('data-src'); });
+    Array.prototype.forEach.call(ln.querySelectorAll('[data-mask]'), function (t) {
+      var u = 'url("' + t.getAttribute('data-mask') + '")';
+      t.style.webkitMaskImage = t.style.maskImage = u; t.style.webkitMaskSize = t.style.maskSize = '100% 100%';
+      t.removeAttribute('data-mask');
+    });
+  }
+  function stopOut(ln) {
+    if (!ln._out) return;
+    clearTimeout(ln._out.t); if (ln._out.end) ln._out.end();
+    ln.classList.remove('is-out', 'ys-out-' + ln._out.k); ln._out = null;
+  }
+  // Показать / убрать слой. now — сразу, без движения. Уходит так, как задано у слоя (out); вернёт, сколько длится уход, мс
+  function show(ln, on, now) {
+    var L = ln._L || {};
+    if (on) {
+      wake(ln); stopOut(ln);
+      if (now) ln.classList.add('is-now');
+      if (!ln.classList.contains('is-on')) {
+        ln.classList.add('is-on');
+        // «Проявление» — заново каждый раз, когда слой появляется
+        if (!now && ln.classList.contains('ys-fx-reveal')) { ln.classList.remove('ys-fx-reveal'); void ln.offsetWidth; ln.classList.add('ys-fx-reveal'); }
+      }
+      if (now) { void ln.offsetWidth; ln.classList.remove('is-now'); }
+      return 0;
+    }
+    if (ln._out) return 0;
+    if (!ln.classList.contains('is-on')) { ln.classList.remove('is-on'); return 0; }
+    if (now || REDUCED || !OUT_OK[L.out]) {
+      if (now) ln.classList.add('is-now');
+      ln.classList.remove('is-on');
+      if (now) { void ln.offsetWidth; ln.classList.remove('is-now'); }
+      return now ? 0 : num(L.fade, 900, 0, 8000);
+    }
+    var k = L.out, ms = num(L.outMs, 1600, 200, 8000);
+    ln.style.setProperty('--out', ms + 'ms');
+    var end = OUT_RUN[k] ? OUT_RUN[k](ln, ln._c || {}) : null;
+    void ln.offsetWidth;
+    ln.classList.add('is-out', 'ys-out-' + k);
+    ln._out = { k: k, end: end, t: setTimeout(function () {
+      ln.classList.add('is-now'); ln.classList.remove('is-on');
+      stopOut(ln); void ln.offsetWidth; ln.classList.remove('is-now');
+    }, ms) };
+    return ms;
   }
 
   /* ---------- Сцена ----------
@@ -225,16 +355,16 @@
   function scene(r, o) {
     o = o || {};
     var key = o.key || 'desktop', D = cfg(r), N = count(r), G = {}, W = {};
-    var stage = el('div', 'ys-dstage'), img = el('img', 'ys-dscene'), wrap = el('div', 'ys-doors'), world = el('div', 'ys-dworld');
+    var stage = el('div', 'ys-dstage'), img = el('img', 'ys-dscene'), wrap = el('div', 'ys-doors'), world = el('div', 'ys-dworld'), worldTop = el('div', 'ys-dworld ys-dworld--top');
     var hit = sv('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'ys-dhit' + (o.zones ? ' is-zones' : '') });
     img.alt = ''; img.draggable = false;
     if (o.pic || D[key]) img.src = src(o.base, o.pic || D[key]); else stage.classList.add('is-empty');
-    stage.appendChild(img); stage.appendChild(world); stage.appendChild(wrap); if (!o.still) stage.appendChild(hit);
-    // Мировые слои дней — на всю сцену, под дверями; видны, когда их включает страница (world(день, да/нет))
+    stage.appendChild(img); stage.appendChild(world); stage.appendChild(wrap); stage.appendChild(worldTop); if (!o.still) stage.appendChild(hit);
+    // Мировые слои дней (мир и погода) — на всю сцену, под дверями (или поверх — top); видны, когда их включает страница (world(день, да/нет))
     for (var y = 1; y <= days(r); y++) W[y] = (dayCfg(r, y).world || []).map(function (L) {
       if (!L || L.visible === false) return null;
-      var ln = layerNode({ area: 'scene', desktop: L.desktop, mobile: L.mobile, color: L.color, fill: L.fill, opacity: L.opacity, blend: L.blend, fx: L.fx, speed: L.speed, power: L.power, fade: L.fade }, {}, 100 + y, key, o.base);
-      if (ln) world.appendChild(ln);
+      var ln = layerNode(worldLayer(r, L), {}, 100 + y, key, o.base);
+      if (ln) (L.top ? worldTop : world).appendChild(ln);
       return ln;
     }).filter(Boolean);
     for (var n = 1; n <= N; n++) (function (n) {
@@ -257,19 +387,11 @@
       }
       G[n] = { g: g, list: list, poly: poly, pg: pg, st: null };
     })(n);
+    // Состояние двери; вернёт, сколько длится самый долгий уход слоя (мс) — страница может подождать, пока облака разойдутся
     function set(n, st, now, can) {
-      var x = G[n]; if (!x) return;
+      var x = G[n], ms = 0; if (!x) return 0;
       x.st = st;
-      x.list.forEach(function (it) {
-        var on = layerOn(it.L, st);
-        if (now) it.ln.classList.add('is-now');
-        if (on && !it.ln.classList.contains('is-on')) {
-          it.ln.classList.add('is-on');
-          // «Проявление» — заново каждый раз, когда слой появляется
-          if (!now && it.ln.classList.contains('ys-fx-reveal')) { it.ln.classList.remove('ys-fx-reveal'); void it.ln.offsetWidth; it.ln.classList.add('ys-fx-reveal'); }
-        } else if (!on) it.ln.classList.remove('is-on');
-        if (now) { void it.ln.offsetWidth; it.ln.classList.remove('is-now'); }
-      });
+      x.list.forEach(function (it) { ms = Math.max(ms, show(it.ln, layerOn(it.L, st), now) || 0); });
       x.g.setAttribute('data-st', st);
       if (x.pg) {
         x.pg.setAttribute('class', 'ys-dpoly is-' + st);
@@ -278,14 +400,7 @@
         if (today) { x.pg.setAttribute('tabindex', '0'); x.pg.setAttribute('role', 'button'); x.pg.setAttribute('aria-label', 'Дверь дня ' + n); }
         else { x.pg.removeAttribute('tabindex'); x.pg.removeAttribute('role'); x.pg.setAttribute('aria-hidden', 'true'); }
       }
-    }
-    function show(ln, on, now) {
-      if (now) ln.classList.add('is-now');
-      if (on && !ln.classList.contains('is-on')) {
-        ln.classList.add('is-on');
-        if (!now && ln.classList.contains('ys-fx-reveal')) { ln.classList.remove('ys-fx-reveal'); void ln.offsetWidth; ln.classList.add('ys-fx-reveal'); }
-      } else if (!on) ln.classList.remove('is-on');
-      if (now) { void ln.offsetWidth; ln.classList.remove('is-now'); }
+      return ms;
     }
     // След тона дня day на двери n (now — сразу, без проявления); day = 0 — убрать
     function mark(n, day, now) {
@@ -359,7 +474,7 @@
     }
     return { node: stage, img: img, key: key, set: set, state: function (n) { return G[n] ? G[n].st : null; },
       poly: function (n) { return G[n] ? G[n].poly : null; }, door: function (n) { return G[n] ? G[n].g : null; },
-      world: function (y, on, now) { (W[y] || []).forEach(function (ln) { show(ln, on, now); }); },
+      world: function (y, on, now) { var ms = 0; (W[y] || []).forEach(function (ln) { ms = Math.max(ms, show(ln, on, now) || 0); }); return ms; },
       mark: mark, num: numOn, call: call, gesture: gesture,
       zones: function (on) { hit.setAttribute('class', 'ys-dhit' + (on ? ' is-zones' : '')); } };
   }
@@ -398,6 +513,9 @@
         if (!b.image) return;
         n = el('figure', 'ys-sp-img'); var im = el('img'); im.alt = ''; im.src = src(o.base, b.image); n.appendChild(im);
         if (b.text) n.appendChild(put(el('figcaption'), T(b.text)));
+      } else if (b.kind === 'audio') {
+        if (!b.audio) return;
+        n = audioBlock(b, o, T(b.text).trim(), put);
       } else if (BTN_DEF[b.kind]) {
         // Колода и стёклышко — только у Путешествия и Погружения (у Наблюдения их нет)
         if ((b.kind === 'deck' || b.kind === 'glass') && o.mode === 'observation') return;
@@ -411,6 +529,48 @@
     root.appendChild(bg); root.appendChild(dim); root.appendChild(scroll); root.appendChild(back);
     return root;
   }
+  /* Аудио в пространстве: кнопка со значком (наушники, волна, круги, голос — на выбор в панели), подпись, полоска времени.
+     Во время звучания значок — дышащая волна. Запись не грузится, пока не нажали (preload none); ушли из пространства — пауза (back). */
+  var AU_IC = {
+    phones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4.5" height="7" rx="1.8"/><rect x="16.5" y="14" width="4.5" height="7" rx="1.8"/>',
+    wave: '<path d="M3 12h1.5M6.5 8v8M10 5v14M13.5 9v6M17 6.5v11M20.5 10.5v3"/>',
+    rings: '<circle cx="12" cy="12" r="1.6"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
+    voice: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/>'
+  };
+  var AU_NAMES = [['phones', 'наушники'], ['wave', 'звуковая волна'], ['rings', 'расходящиеся круги'], ['voice', 'голос (микрофон)']];
+  function auSvg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (AU_IC[k] || AU_IC.phones) + '</svg>'; }
+  function mmss(t) { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2); }
+  function audioBlock(b, o, cap, put) {
+    var box = el('div', 'ys-sp-audio'), btn = el('button', 'ys-au-btn'), main = el('div', 'ys-au-main'), bar = el('div', 'ys-au-bar'), fillb = el('i'), time = el('span', 'ys-au-t');
+    var a = el('audio'); a.preload = 'none'; a.src = src(o.base, b.audio);
+    var rest = AU_IC[b.icon] ? b.icon : 'phones', wave = '<span class="ys-au-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>';
+    btn.type = 'button'; btn.innerHTML = auSvg(rest); btn.setAttribute('aria-label', cap || 'Слушать');
+    function ui() {
+      var on = !a.paused && !a.ended;
+      box.classList.toggle('is-play', on);
+      btn.innerHTML = on ? wave : auSvg(rest);
+      btn.setAttribute('aria-label', on ? 'Пауза' : cap || 'Слушать');
+    }
+    function tick() {
+      var d = a.duration;
+      fillb.style.width = d && isFinite(d) ? (a.currentTime / d * 100) + '%' : '0';
+      time.textContent = d && isFinite(d) ? mmss(a.currentTime) + ' / ' + mmss(d) : a.currentTime ? mmss(a.currentTime) : '';
+    }
+    btn.addEventListener('click', function () { if (a.paused || a.ended) { var p = a.play(); if (p && p.catch) p.catch(function () {}); } else a.pause(); });
+    bar.addEventListener('click', function (e) {
+      var d = a.duration; if (!d || !isFinite(d)) return;
+      var rc = bar.getBoundingClientRect(); a.currentTime = Math.max(0, Math.min(1, (e.clientX - rc.left) / rc.width)) * d; tick();
+    });
+    ['play', 'pause', 'ended'].forEach(function (ev) { a.addEventListener(ev, ui); });
+    ['timeupdate', 'loadedmetadata', 'durationchange'].forEach(function (ev) { a.addEventListener(ev, tick); });
+    a.addEventListener('ended', function () { a.currentTime = 0; tick(); });
+    bar.appendChild(fillb);
+    if (cap) main.appendChild(put(el('p', 'ys-au-cap'), cap));
+    main.appendChild(bar); main.appendChild(time);
+    box.appendChild(btn); box.appendChild(main); box.appendChild(a);
+    return box;
+  }
+  function hush(node) { Array.prototype.forEach.call(node.querySelectorAll('audio'), function (a) { try { a.pause(); } catch (e) {} }); }
   // Блоки, которые открываются сами при входе (Карта дня с «сразу»)
   function autoBlocks(sp, mode) { return ((sp || {}).blocks || []).filter(function (b) { return b && b.visible !== false && b.auto && !(b.who && b.who[mode] === false) && BTN_DEF[b.kind]; }); }
 
@@ -458,7 +618,7 @@
     if (type === 'now') { node.classList.add('is-in'); if (o.onCover) o.onCover(); if (done) done(); return; }
     // Жест: дверь откликается на касание, потом (если есть картинка «открыто») проступает открытая дверь
     if (g && op.tap !== false) { g.classList.add('is-tap'); after(320, function () { g.classList.remove('is-tap'); }); }
-    var ol = sc && n ? openLayer(sc, n, o) : null, hold = ol ? num(op.hold, 900, 0, 6000) : g && op.tap !== false ? 260 : 0;
+    var ol = sc && n ? openLayer(sc, n, o) : null, hold = (ol ? num(op.hold, 900, 0, 6000) : g && op.tap !== false ? 260 : 0) + num(o.wait, 0, 0, 3000);
     node.classList.add('is-hold');
     after(hold, function () {
       node.style.setProperty('--ms', ms + 'ms');
@@ -484,6 +644,7 @@
   function back(sc, n, node, o, done) {
     o = o || {};
     var op = o.open || {}, type = OPEN[op.type] ? op.type : 'portal', ms = num(op.ms, 1100, 200, 5000) * .8, poly = screenPoly(sc, n), ol = node._ol;
+    hush(node);
     function end() {
       node.remove();
       if (ol) { ol.classList.remove('is-on'); after(1200, function () { ol.remove(); }); }
@@ -514,13 +675,11 @@
       for (d = 1; d <= count(r); d++) {
         var dd = ids[doorOf(r, d).id] || 0;
         sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
-        if (dd) { sc.mark(d, dd, true); if (cfg(r).showDayNumbers) sc.num(d, String(dd)); }
+        if (dd && markOn(r, dd, n)) sc.mark(d, dd, true);
+        if (dd && cfg(r).showDayNumbers) sc.num(d, String(dd));
       }
     } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
-    if (C.world !== false) for (k = 1; k <= N; k++) {
-      var w = dayCfg(r, k).world || [];
-      if (w.length) sc.world(k, n > k || (n === k && w.some(function (L) { return L && L.when === 'during'; })), true);
-    }
+    if (C.world !== false) for (k = 1; k <= N; k++) if (worldOn(r, k, n)) sc.world(k, true, true);
     if (n >= 1 && n <= N) sc.gesture(n);
     return sc;
   }
@@ -536,11 +695,8 @@
     if (!D[key]) { done(null); return; }
     function load(u) { return new Promise(function (ok) { if (!u) { ok(null); return; } var im = new Image(); im.onload = function () { ok(im); }; im.onerror = function () { ok(null); }; im.src = src(o.base, u); }); }
     var world = [], marks = [];
-    for (k = 1; k <= N; k++) {
-      var w = (dayCfg(r, k).world || []).filter(function (L) { return L && L.visible !== false; });
-      if (w.length && (n > k || (n === k && w.some(function (L) { return L.when === 'during'; })))) world = world.concat(w);
-    }
-    for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) marks.push({ day: +k, d: doorOf(r, i) });
+    for (k = 1; k <= N; k++) if (worldOn(r, k, n)) world = world.concat((dayCfg(r, k).world || []).filter(function (L) { return L && L.visible !== false; }).map(function (L) { return worldLayer(r, L); }));
+    for (k in log) if (markOn(r, +k, n)) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) marks.push({ day: +k, d: doorOf(r, i) });
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
     marks.forEach(function (m) { jobs.push(load(markOf(r, m.day).image)); });
@@ -554,6 +710,18 @@
       function mode(b) { c.globalCompositeOperation = b && /^(screen|multiply|overlay|soft-light|color)$/.test(b) ? b : 'source-over'; }
       world.forEach(function (L, j) {
         var im = ims[1 + j], op = num(L.opacity, 100, 0, 100) / 100;
+        if (im && (hexOk(L.tint) && +L.tintPow > 0 || (L.bright != null && L.bright !== '' && +L.bright !== 100))) {
+          // Окраска и яркость погоды — на отдельном холсте: цвет только по самой картинке
+          var tc = document.createElement('canvas'); tc.width = W; tc.height = H;
+          var t = tc.getContext('2d');
+          if (+L.bright && +L.bright !== 100 && 'filter' in t) t.filter = 'brightness(' + num(L.bright, 100, 20, 250) / 100 + ')';
+          t.drawImage(im, 0, 0, W, H); t.filter = 'none';
+          if (hexOk(L.tint) && +L.tintPow > 0) {
+            t.globalCompositeOperation = 'color'; t.globalAlpha = num(L.tintPow, 0, 0, 100) / 100; t.fillStyle = L.tint; t.fillRect(0, 0, W, H);
+            t.globalAlpha = 1; t.globalCompositeOperation = 'destination-in'; t.drawImage(im, 0, 0, W, H);
+          }
+          im = tc;
+        }
         mode(L.blend);
         if (im) { c.globalAlpha = op; c.drawImage(im, 0, 0, W, H); }
         if (+L.fill > 0) { c.globalAlpha = op * num(L.fill, 0, 0, 100) / 100; c.fillStyle = hexOk(L.color) ? L.color : '#ffe2a0'; c.fillRect(0, 0, W, H); }
@@ -589,7 +757,8 @@
     });
   }
 
-  window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF,
+  window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
+    worldOn: worldOn, markOn: markOn, weather: weather, hush: hush,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure };
 })();

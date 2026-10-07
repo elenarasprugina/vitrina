@@ -2439,7 +2439,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261007a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261007b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4403,6 +4403,16 @@
           snap(); setZone(null); done(); } })]),
       statP, view];
   }
+  // Как уходит слой (07.10, её список из 11): когда слой гаснет — дверь сменила состояние или сменилась погода дня
+  function jdOut(L, rerender, lv) {
+    var M = window.M13D, dir = L.out === 'drift' || L.out === 'shade';
+    return [
+      el('div', { class: 'a-row' }, [
+        selectIn(L, 'out', 'Как уходит', M.OUT, { def: '', onChange: function (v) { if (!v) delete L.out; rerender(); if (lv) lv(); },
+          hint: 'Когда слой гаснет: например, облака над дверью разлетаются, когда человек её выбрал. Для облаков Странника хороши «разлетается в стороны» и «уходит от центра».' }),
+        L.out ? rangeIn(L, 'outMs', 'Сколько длится уход', { min: 300, max: 6000, step: 100, def: 1600, unit: ' мс', onChange: lv }) : null]),
+      dir ? selectIn(L, 'outDir', 'Куда', M.OUT_DIR, { def: L.out === 'shade' ? 'up' : 'right', onChange: lv }) : null];
+  }
   function jdLayerBody(r, L, rerender) {
     var M = window.M13D, area = L.area || 'door', SS = M.statesOf(r), FOR = M.isChoice(r) ? JD_FOR_UC : JD_FOR;
     // Нет st — слой виден всегда; есть — только в отмеченных состояниях (нет отметки у состояния — виден: так при смене режима слои не пропадают)
@@ -4439,8 +4449,8 @@
       el('div', { class: 'a-row' }, [
         rangeIn(L, 'speed', 'Скорость', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }),
         rangeIn(L, 'power', 'Сила', { min: 10, max: 200, step: 5, def: 100, unit: ' %' })]),
-      rangeIn(L, 'fade', 'Смена состояния — сколько длится', { min: 0, max: 4000, step: 100, def: 900, unit: ' мс', hint: 'Как плавно слой появляется и исчезает, когда дверь меняет состояние (например, туман уходит после входа).' })
-    ];
+      rangeIn(L, 'fade', 'Появление — сколько длится', { min: 0, max: 4000, step: 100, def: 900, unit: ' мс', hint: 'Как плавно слой появляется (и растворяется, если ниже выбрано «растворяется»), когда дверь меняет состояние.' })
+    ].concat(jdOut(L, rerender, liveSoon));
   }
   function jDoors(r) {
     var M = window.M13D;
@@ -4487,6 +4497,7 @@
         el('p', { class: 'a-hint', text: 'Строки «Сегодня — день {день}», «до начала», «после конца» — во вкладке «Основное» → «Надписи на странице». ' + jTokensHint(r, false) })
       ], { open: !D.desktop }),
       uc ? jdMarks(r) : null,
+      jdSky(r),
       uc ? jdFigure(r) : null,
       jdCover(r),
       jdChips(r, st, addDoor),
@@ -4565,8 +4576,40 @@
         el('div', { class: 'a-row' }, [switchIn(Mk, 'clip', 'Только внутри контура двери'), rangeIn(Mk, 'soft', 'Мягкий край (если внутри контура)', { min: 0, max: 40, step: 1, def: 0 })])
     ]));
     return block('Личный след — по тону дня', [
+      selectIn(D, 'markWhen', 'Когда проступает след', [['', 'после конца дня — наутро человек видит на вчерашней двери новый след'], ['now', 'сразу — когда человек вернулся к дверям']], { def: '',
+        onChange: function (v) { if (!v) delete D.markWhen; } }),
       el('p', { class: 'a-hint', text: '13 следов — по одному на тон (в волне день N = тон N). Рисовать след для каждой двери не нужно: программа кладёт след дня в рамку той двери, которую человек выбрал. Поправить место на конкретной двери — у двери, «Поправка следа». Ключ на след не влияет. Пропущенный день — следа нет.' }),
       wrap], { open: !!st.open });
+  }
+  /* Мир дней и погода (07.10): копится или сменяется (погода дня); общие картинки погоды — одна картинка на много дней, у каждого дня свой цвет.
+     Грузится только то, что сейчас видно: в режиме погоды — картинка сегодняшнего дня, для того устройства, на котором смотрят. */
+  function jdSky(r) {
+    var M = window.M13D, D = r.doors, N = r.days.length;
+    D.skies = D.skies || [];
+    var W = M.weather(r), have = D.days.filter(function (y) { return (y.world || []).length; }).length;
+    return block('Мир дней и погода', [
+      selectIn(D, 'worldMode', 'Мир дней', [['', 'копится — слои прошедших дней остаются и накладываются'], ['weather', 'сменяется — погода дня: видна только сегодняшняя']], { def: '',
+        onChange: function (v) { if (!v) delete D.worldMode; renderMain(); },
+        hint: 'Погода дня: сегодня облака, завтра дымка… Вчерашняя уходит так, как задано у её слоя («Как уходит»), — человек видит это, когда впервые за день открывает двери. После конца маршрута остаётся погода последнего дня. Слои дней — во вкладке «За дверью» → день → «Погода дня».' }),
+      sub('Общие картинки погоды'),
+      el('p', { class: 'a-hint', text: 'Облака, туман, дымка — по одной картинке на всю сцену (для компьютера и телефона). Любой день может взять общую картинку и окрасить её по-своему: утренние розовые, серые, золотые. Одна и та же картинка грузится один раз.' }),
+      collection(D.skies, { ordered: false, empty: 'Общих картинок пока нет.',
+        title: function (k) { var i = D.skies.indexOf(k); return (k.name || 'Картинка ' + (i + 1)) + (k.desktop || k.mobile ? '' : ' · не загружена'); },
+        body: function (k) { return [
+          textIn(k, 'name', 'Название', { ph: 'Например: облака' }),
+          el('div', { class: 'a-row' }, [
+            imageIn(k, 'desktop', 'Компьютер — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
+            imageIn(k, 'mobile', 'Телефон — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon, hint: 'Нет — на телефоне будет картинка для компьютера (растянется по сцене).' })])
+        ]; },
+        make: function () { return { id: uid('sky'), name: '' }; }, addLabel: '+ Общая картинка' }),
+      D.skies.length ? el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Погода «' + (D.skies[0].name || 'картинка 1') + '» — всем дням без погоды', onclick: function () {
+        var k = 0;
+        D.days.forEach(function (y) { if ((y.world || []).length) return; y.world = [{ id: uid('w'), name: '', visible: true, when: 'after', sky: '0', fx: 'drift', speed: 40, out: 'drift', outMs: 2400 }]; k++; });
+        if (!k) { toast('У всех дней уже есть слои мира.'); return; }
+        changed(); renderMain(); toast('Погода добавлена ' + k + ' дн. — цвет и яркость каждого дня: «За дверью» → день → «Погода дня».');
+      } })]) : null,
+      el('p', { class: 'a-hint', text: 'Сейчас слои мира есть у ' + have + ' из ' + N + ' дней. ' + (W ? 'Дни без погоды — ясное небо.' : '') })
+    ], { open: !!D.worldMode || !!D.skies.length });
   }
   // «Моя фигура» (заход «б»): сцена + мир состоявшихся дней + личные следы — одной картинкой на устройство человека
   function jdFigure(r) {
@@ -4626,7 +4669,7 @@
         selectIn(C, 'fit', 'Как лежит на карточке', [['', 'целиком — по краям та же картинка, размыто'], ['cover', 'во всю карточку — края срезаются']], { def: '', onChange: function (v) { if (!v) delete C.fit; lv(); } }),
         rangeIn(C, 'dim', 'Затемнение под надписями', { min: 0, max: 90, step: 5, def: 40, unit: ' %', onChange: lv })]),
       el('div', { class: 'a-row' }, [
-        switchIn(C, 'world', 'Мировые слои состоявшихся дней', { defTrue: true, onChange: lv }),
+        switchIn(C, 'world', M.weather(r) ? 'Погода сегодняшнего дня' : 'Мировые слои состоявшихся дней', { defTrue: true, onChange: lv }),
         switchIn(C, 'text', 'Надписи карточки поверх (название, даты, статус)', { defTrue: true })]),
       switchIn(C, 'marks', 'Личные следы человека на обложке', { hint: 'Двери, которые человек выбрал, — со следами, как у него на странице маршрута. Берётся только с его устройства и никуда не отправляется; на другом устройстве и у других людей — без следов.' }),
       sub('Жест дня'),
@@ -4664,23 +4707,32 @@
   // Мир дня: слои на всю сцену, у всех одинаковые, по календарю (after — после конца дня, during — уже в течение дня)
   function jdWorld(r, y) {
     var M = window.M13D, list = M.dayCfg(r, y).world;
-    return block('Мир дня ' + y + ' — слои на всю сцену' + (list.length ? ' · ' + list.length : ''), [
-      el('p', { class: 'a-hint', text: 'Фактура, свет, линия, элемент… — появляется на сцене у всех, даже если человек в этот день не заходил. Копится день за днём; в финале — вся сцена с мировыми слоями. Картинка — во всю сцену (как сцена), PNG/WebP с прозрачностью.' }),
-      collection(list, { visible: true, ordered: false, empty: 'Слоёв мира у этого дня нет.',
-        title: function (L) { return (L.name || 'Слой мира') + ' · ' + (L.when === 'during' ? 'уже в течение дня' : 'после конца дня') + (M.FX[L.fx] && L.fx !== 'none' ? ' · ' + M.FX[L.fx].name.split(' — ')[0] : ''); },
-        body: function (L) { return [
-          textIn(L, 'name', 'Название слоя', { ph: 'Например: свет над рекой' }),
-          selectIn(L, 'when', 'Когда появляется', [['after', 'после конца дня (по умолчанию)'], ['during', 'уже в течение дня']], { def: 'after' }),
-          el('div', { class: 'a-row' }, [
+    var W = M.weather(r), skies = r.doors.skies || [];
+    return block((W ? 'Погода дня ' : 'Мир дня ') + y + ' — слои на всю сцену' + (list.length ? ' · ' + list.length : ''), [
+      el('p', { class: 'a-hint', text: W ? 'Погода дня: облака, дымка, туман… Видна у всех только в этот день; назавтра уходит так, как задано («Как уходит»), и проступает погода следующего дня. Картинка — общая из набора («Двери» → «Мир дней и погода») или своя. Режим меняется там же.' :
+        'Фактура, свет, линия, элемент… — появляется на сцене у всех, даже если человек в этот день не заходил. Копится день за днём; в финале — вся сцена с мировыми слоями. Картинка — во всю сцену (как сцена), PNG/WebP с прозрачностью. Режим «погода дня» — «Двери» → «Мир дней и погода».' }),
+      collection(list, { visible: true, ordered: false, empty: W ? 'Погоды у этого дня нет — ясно.' : 'Слоёв мира у этого дня нет.',
+        title: function (L) { var sk = L.sky != null && L.sky !== '' && skies[+L.sky]; return (L.name || (W ? 'Погода' : 'Слой мира')) + (sk ? ' · ' + (sk.name || 'картинка ' + (+L.sky + 1)) : '') + (W ? '' : ' · ' + (L.when === 'during' ? 'уже в течение дня' : 'после конца дня')) + (L.top ? ' · поверх дверей' : '') + (M.FX[L.fx] && L.fx !== 'none' ? ' · ' + M.FX[L.fx].name.split(' — ')[0] : ''); },
+        body: function (L, rerender) { var own = L.sky == null || L.sky === ''; return [
+          textIn(L, 'name', 'Название слоя', { ph: W ? 'Например: утренние облака' : 'Например: свет над рекой' }),
+          W ? null : selectIn(L, 'when', 'Когда появляется', [['after', 'после конца дня (по умолчанию)'], ['during', 'уже в течение дня']], { def: 'after' }),
+          selectIn(L, 'sky', 'Картинка', [['', 'своя (загрузить ниже)']].concat(skies.map(function (k, i) { return [String(i), 'общая: ' + (k.name || 'картинка ' + (i + 1))]; })), { def: '',
+            onChange: function (v) { if (v === '') delete L.sky; rerender(); },
+            hint: skies.length ? 'Общая картинка грузится один раз, сколько бы дней её ни взяли; у каждого дня — свой цвет, яркость, движение.' : 'Общих картинок пока нет — добавьте их во вкладке «Двери» → «Мир дней и погода».' }),
+          own ? el('div', { class: 'a-row' }, [
             imageIn(L, 'desktop', 'Картинка — компьютер', { max: 2400, size: { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' } }),
-            imageIn(L, 'mobile', 'Картинка — телефон', { max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' } })]),
+            imageIn(L, 'mobile', 'Картинка — телефон', { max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' } })]) : null,
+          el('div', { class: 'a-row' }, [colorOptIn(L, 'tint', 'Окрасить картинку', { none: 'без окраски', base: '#f2b8a8', pick: '#f2b8a8' }),
+            rangeIn(L, 'tintPow', 'Сила окраски', { min: 0, max: 100, step: 5, def: 0, unit: ' %', hint: 'Цвет ложится только на саму картинку, светлое остаётся светлым: утренние розовые облака, золотые, сизые.' }),
+            rangeIn(L, 'bright', 'Яркость', { min: 30, max: 200, step: 5, def: 100, unit: ' %', hint: 'Меньше 100 — темнее (серые, грозовые), больше — светлее.' })]),
+          switchIn(L, 'top', 'Поверх дверей', { hint: 'Выключено (обычно) — двери светятся сквозь облака. Включено — облака проплывают перед дверями.' }),
           el('div', { class: 'a-row' }, [colorOptIn(L, 'color', 'Цвет (заливка и движение)', { none: 'тёплый свет #ffe2a0', base: '#ffe2a0', pick: '#ffe2a0' }),
             rangeIn(L, 'fill', 'Заливка цветом', { min: 0, max: 100, step: 5, def: 0, unit: ' %' })]),
           el('div', { class: 'a-row' }, [rangeIn(L, 'opacity', 'Прозрачность', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }), selectIn(L, 'blend', 'Как ложится', M.BLEND, { def: '' })]),
-          el('div', { class: 'a-row' }, [selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none' }),
+          el('div', { class: 'a-row' }, [selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none', hint: 'Для облаков и тумана — «движение среды».' }),
             rangeIn(L, 'fade', 'Как долго проявляется', { min: 0, max: 8000, step: 100, def: 900, unit: ' мс' })]),
           el('div', { class: 'a-row' }, [rangeIn(L, 'speed', 'Скорость', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }), rangeIn(L, 'power', 'Сила', { min: 10, max: 200, step: 5, def: 100, unit: ' %' })])
-        ]; },
+        ].concat(W ? jdOut(L, rerender) : []); },
         make: function () { return { id: uid('w'), name: '', visible: true, when: 'after' }; }, addLabel: '+ Слой мира' })
     ], { open: false });
   }
@@ -4712,19 +4764,24 @@
           var out = [jWho(b, false)];
           if (b.kind === 'title' || b.kind === 'small' || b.kind === 'text') out.push(textIn(b, 'text', b.kind === 'text' ? 'Текст' : 'Строка', { multi: b.kind === 'text', rows: 5, hint: b.kind === 'text' ? 'Пустая строка — новый абзац.' : null }));
           if (b.kind === 'image') { out.push(imageIn(b, 'image', 'Картинка', { max: 1800 })); out.push(textIn(b, 'text', 'Подпись (необязательно)')); }
+          if (b.kind === 'audio') {
+            out.push(mediaIn(b, 'audio', 'Запись', { kind: 'audio', maxMB: 6, hint: '📐 MP3 или M4A, до 6 МБ (10–12 минут голоса). Хранится только на сайте, без сторонних сервисов; грузится, когда человек нажал кнопку.' }));
+            out.push(el('div', { class: 'a-row' }, [textIn(b, 'text', 'Подпись', { ph: 'Послушать · 7 мин' }),
+              selectIn(b, 'icon', 'Значок на кнопке', M.AU_NAMES, { def: 'phones', hint: 'Пока запись звучит, значок становится дышащей волной; нажали ещё раз — пауза.' })]));
+          }
           if (M.BTN_DEF[b.kind]) {
             out.push(el('p', { class: 'a-hint', text: BH[b.kind] }));
             out.push(textIn(b, 'label', 'Надпись на кнопке', { ph: M.BTN_DEF[b.kind] }));
             if (b.kind === 'dayCard' || b.kind === 'deck') out.push(switchIn(b, 'auto', 'Открыть сразу при входе в пространство', { hint: 'Без кнопки-ожидания: карта появляется поверх пространства, закрыли — человек в пространстве.' }));
           }
-          if (b.kind !== 'image' && !M.BTN_DEF[b.kind]) out.push(selectIn(b, 'align', 'Выравнивание', [['', 'как задумано'], ['left', 'слева'], ['center', 'по центру'], ['right', 'справа'], ['justify', 'по ширине']], { def: '' }));
+          if (b.kind !== 'image' && b.kind !== 'audio' && !M.BTN_DEF[b.kind]) out.push(selectIn(b, 'align', 'Выравнивание', [['', 'как задумано'], ['left', 'слева'], ['center', 'по центру'], ['right', 'справа'], ['justify', 'по ширине']], { def: '' }));
           return out;
         },
         addBox: function (push) {
           var s = el('select', { class: 'a-input' }, M.BLOCKS.map(function (k) { return el('option', { value: k[0], text: k[1] }); }));
           s.value = 'text';
           return el('div', { class: 'a-row a-row--end' }, [field('Добавить блок', s), el('button', { type: 'button', class: 'a-btn a-add', text: '+ Добавить', onclick: function () {
-            push({ id: uid('s'), kind: s.value, visible: true, who: {}, text: '' });
+            push({ id: uid('s'), kind: s.value, visible: true, who: {}, text: s.value === 'audio' ? 'Послушать' : '' });
           } })]);
         } })
     ];
