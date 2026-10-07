@@ -61,3 +61,55 @@
 /* Жест дня на живой обложке (витрина): точка на картинке, круг с мягким краем; картинка жеста — целиком, без искажения */
 .ys-dgest{pointer-events:none}
 .ys-dgest .ys-dl-frag{object-fit:contain}
+/* 07.10: погода поверх дверей, окраска картинки слоя */
+.ys-dworld--top{z-index:1}
+.ys-dl-tint{position:absolute;inset:0;mix-blend-mode:color;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+/* Как уходит слой (doors.js, OUT): пока идёт уход — класс is-out и ys-out-<имя>, длительность --out; потом слой гаснет без движения.
+   --cx/--cy — середина двери, --dx/--dy — направление (уплывает, шторка). */
+@property --ys-h{syntax:'<percentage>';inherits:true;initial-value:-14%}
+@property --ys-r{syntax:'<percentage>';inherits:true;initial-value:112%}
+.ys-dl.is-out .ys-dl-box{animation:var(--out,1.6s) ease-in both!important}
+.ys-dl.is-out.ys-out-blur .ys-dl-box{animation-name:ys-out-blur!important}
+@keyframes ys-out-blur{to{opacity:0;filter:blur(22px);transform:scale(1.06)}}
+.ys-dl.is-out.ys-out-light .ys-dl-box{animation-name:ys-out-light!important}
+@keyframes ys-out-light{0%{filter:none;opacity:1}35%{filter:brightness(2.3) saturate(.7);opacity:1}100%{filter:brightness(4) blur(8px);opacity:0}}
+.ys-dl.is-out.ys-out-center .ys-dl-box{-webkit-mask-image:radial-gradient(var(--rw,71%) var(--rh,71%) at var(--cx) var(--cy),transparent var(--ys-h),#000 calc(var(--ys-h) + 16%));mask-image:radial-gradient(var(--rw,71%) var(--rh,71%) at var(--cx) var(--cy),transparent var(--ys-h),#000 calc(var(--ys-h) + 16%));animation-name:ys-out-center!important;animation-timing-function:cubic-bezier(.4,0,.6,1)!important}
+@keyframes ys-out-center{0%{--ys-h:-16%;opacity:1}85%{opacity:1}100%{--ys-h:105%;opacity:0}}
+.ys-dl.is-out.ys-out-split .ys-half-a{-webkit-clip-path:inset(0 calc(100% - var(--cx)) 0 0);clip-path:inset(0 calc(100% - var(--cx)) 0 0);animation-name:ys-out-split-a!important}
+.ys-dl.is-out.ys-out-split .ys-half-b{-webkit-clip-path:inset(0 0 0 var(--cx));clip-path:inset(0 0 0 var(--cx));animation-name:ys-out-split-b!important}
+@keyframes ys-out-split-a{60%{opacity:1}to{transform:translateX(calc(var(--bw,100%) * -.7));opacity:0}}
+@keyframes ys-out-split-b{60%{opacity:1}to{transform:translateX(calc(var(--bw,100%) * .7));opacity:0}}
+.ys-dl.is-out.ys-out-drift .ys-dl-box{animation-name:ys-out-drift!important;animation-timing-function:cubic-bezier(.45,0,.75,.6)!important}
+@keyframes ys-out-drift{to{transform:translate(calc(var(--dx) * var(--bw,100%) * .6),calc(var(--dy) * var(--bh,100%) * .5));opacity:0}}
+.ys-dl.is-out.ys-out-rise .ys-dl-box{animation-name:ys-out-rise!important}
+@keyframes ys-out-rise{to{transform:translateY(calc(var(--bh,100%) * -.4));filter:blur(5px);opacity:0}}
+.ys-dl.is-out.ys-out-melt .ys-dl-box{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 300' preserveAspectRatio='none'%3E%3Cfilter id='b'%3E%3CfeGaussianBlur stdDeviation='1.6'/%3E%3C/filter%3E%3Cpath filter='url(%23b)' fill='%23fff' d='M-5 -5H105V146Q100 156 94 149Q89 141 83 152Q77 160 71 147Q66 139 60 150Q55 158 48 146Q43 140 37 151Q30 161 24 148Q19 140 13 150Q8 157 3 147Q0 143 -5 148Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 300' preserveAspectRatio='none'%3E%3Cfilter id='b'%3E%3CfeGaussianBlur stdDeviation='1.6'/%3E%3C/filter%3E%3Cpath filter='url(%23b)' fill='%23fff' d='M-5 -5H105V146Q100 156 94 149Q89 141 83 152Q77 160 71 147Q66 139 60 150Q55 158 48 146Q43 140 37 151Q30 161 24 148Q19 140 13 150Q8 157 3 147Q0 143 -5 148Z'/%3E%3C/svg%3E");-webkit-mask-size:100% var(--mh,300%);mask-size:100% var(--mh,300%);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;animation-name:ys-out-melt!important;animation-timing-function:ease-in-out!important}
+@keyframes ys-out-melt{0%{-webkit-mask-position:0 var(--m0,0%);mask-position:0 var(--m0,0%)}100%{-webkit-mask-position:0 var(--m1,100%);mask-position:0 var(--m1,100%)}}
+.ys-dl.is-out.ys-out-sparks .ys-dl-box{animation-name:ys-out-sparks!important}
+@keyframes ys-out-sparks{30%{opacity:1;filter:brightness(1.25)}to{opacity:0;filter:blur(4px) brightness(1.6)}}
+.ys-sparks{position:absolute;inset:0;pointer-events:none}
+.ys-sparks i{position:absolute;width:calc(.9vmin * var(--z,1));aspect-ratio:1;margin:calc(-.45vmin * var(--z,1)) 0 0 calc(-.45vmin * var(--z,1));border-radius:50%;background:radial-gradient(closest-side,#fff,var(--fx-c) 45%,transparent);mix-blend-mode:screen;opacity:0;animation:ys-spark var(--out,1.6s) ease-out both}
+@keyframes ys-spark{0%{opacity:0;transform:none}15%{opacity:1}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(.3)}}
+.ys-dl.ys-out-burn{animation:ys-out-burn var(--out,1.6s) ease-in both}
+.ys-dl.is-out.ys-out-burn .ys-dl-box{-webkit-mask-image:radial-gradient(var(--rw,71%) var(--rh,71%) at var(--cx) var(--cy),#000 calc(var(--ys-r) - 9%),transparent var(--ys-r));mask-image:radial-gradient(var(--rw,71%) var(--rh,71%) at var(--cx) var(--cy),#000 calc(var(--ys-r) - 9%),transparent var(--ys-r));animation-name:none!important}
+@keyframes ys-out-burn{0%{--ys-r:112%}100%{--ys-r:-4%}}
+.ys-out-ring{position:absolute;inset:0;background:radial-gradient(var(--rw,71%) var(--rh,71%) at var(--cx) var(--cy),transparent calc(var(--ys-r) - 10%),var(--fx-c) calc(var(--ys-r) - 4%),#fff calc(var(--ys-r) - 2.5%),transparent calc(var(--ys-r) + 1%));mix-blend-mode:screen;filter:blur(2px);pointer-events:none}
+.ys-dl.is-out.ys-out-shade .ys-dl-box{animation-name:ys-out-shade-v!important}
+@keyframes ys-out-shade-v{0%{-webkit-clip-path:var(--s0);clip-path:var(--s0)}100%{-webkit-clip-path:var(--s1);clip-path:var(--s1)}}
+@media (prefers-reduced-motion:reduce){.ys-sparks{display:none}}
+/* Аудио в пространстве за дверью: кнопка со значком (во время звучания — дышащая волна), подпись, полоска времени */
+.ys-sp-audio{display:flex;align-items:center;gap:14px;text-align:left}
+.ys-au-btn{flex:none;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;color:#fff0cc;background:rgba(255,226,160,.12);border:1px solid rgba(255,226,160,.45);box-shadow:0 0 18px rgba(255,200,110,.18);transition:background .2s ease,box-shadow .2s ease}
+.ys-au-btn:hover,.ys-au-btn:focus-visible{background:rgba(255,226,160,.22);box-shadow:0 0 24px rgba(255,200,110,.35);outline:none}
+.ys-au-btn svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ys-au-wave{display:flex;align-items:center;gap:3px;height:24px}
+.ys-au-wave i{display:block;width:3px;height:100%;border-radius:2px;background:currentColor;transform:scaleY(.35);animation:ys-au-wave 1.1s ease-in-out infinite}
+.ys-au-wave i:nth-child(2){animation-delay:-.25s}.ys-au-wave i:nth-child(3){animation-delay:-.6s}.ys-au-wave i:nth-child(4){animation-delay:-.4s}.ys-au-wave i:nth-child(5){animation-delay:-.8s}
+@keyframes ys-au-wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+.ys-au-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.ys-au-cap{margin:0;font-size:16px;color:#f6ead2}
+.ys-au-bar{position:relative;height:4px;border-radius:2px;background:rgba(255,240,210,.18);cursor:pointer}
+.ys-au-bar::before{content:"";position:absolute;left:0;right:0;top:-10px;bottom:-10px}
+.ys-au-bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:2px;background:#f3d9a0;box-shadow:0 0 8px rgba(255,210,130,.6)}
+.ys-au-t{min-height:1em;font-size:12.5px;letter-spacing:.04em;color:#e0c999;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.ys-au-wave i{animation:none;transform:scaleY(.7)}}

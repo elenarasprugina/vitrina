@@ -2896,18 +2896,28 @@
     var n = curDay(), last = daysCount(r), d, uc = isChoice(r), log = uc ? choiceLog() : null, mine = uc && n >= 1 && n <= last ? doorOfDay(n, log) : 0;
     if (S.sim == null && !uc) doorSync(n);
     var sc = S.DS = M.scene(r, { key: P.key, base: S.base, zones: S.zonesOn, onTap: tapDoor }), free = [];
+    // Наступил новый день с тех пор, как человек видел двери (на этом устройстве или пока страница открыта) — мир и следы меняются у него на глазах
+    var seen = seenDay(), fresh = seen > 0 && seen < n, later = [];
     if (uc) {
       // Свободная — можно выбрать, пока сегодня ещё не выбрано; сегодняшняя — входить снова; прошлая — только надпись
       for (d = 1; d <= M.count(r); d++) {
         var st = ucState(d, n, log), dd = dayOfDoor(d, log), ok = n >= 1 && n <= last && (st === 'today' || (st === 'free' && !mine));
         sc.set(d, st, true, ok);
-        if (dd) { sc.mark(d, dd, true); if (D.showDayNumbers) sc.num(d, String(dd)); }
+        // След тона — после конца дня (по умолчанию) или сразу; проступил с прошлого раза — проявляется на глазах
+        if (dd && M.markOn(r, dd, n)) { if (fresh && !M.markOn(r, dd, seen)) later.push([d, dd]); else sc.mark(d, dd, true); }
+        if (dd && D.showDayNumbers) sc.num(d, String(dd));
         if (ok && st === 'free' && M.doorOf(r, d).on !== false) free.push(d);
       }
       if (D.call !== false) sc.call(free, { color: D.callColor, ms: D.callMs });
     } else for (d = 1; d <= last; d++) sc.set(d, doorState(d, n), true);
-    // Мир: слои дней по календарю — у всех одинаково (after — после конца дня, during — уже в течение дня)
-    worldShow(sc, n, true);
+    // Мир: слои дней по календарю — у всех одинаково (копится или погода дня — M13D.worldOn)
+    worldShow(sc, fresh ? seen : n, true);
+    if (fresh) setTimeout(function () {
+      if (S.DS !== sc) return;
+      worldShow(sc, n, false);
+      later.forEach(function (x, i) { setTimeout(function () { if (S.DS === sc) sc.mark(x[0], x[1], false); }, 500 + i * 400); });
+    }, 900);
+    seenDay(n);
     bg.appendChild(sc.node); page.appendChild(bg);
     var dim = el('div', 'ys-dim');
     dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, D.dim == null || D.dim === '' ? 45 : +D.dim)) / 100);
@@ -2974,10 +2984,17 @@
   // Мировые слои: день k виден после своего дня (after) или уже в свой день (during); после конца маршрута — все
   function worldShow(sc, n, now) {
     var r = S.route, M = window.M13D, last = daysCount(r), k;
-    for (k = 1; k <= last; k++) {
-      var w = M.dayCfg(r, k).world || [];
-      if (w.length) sc.world(k, n > k || (n === k && w.some(function (L) { return L && L.when === 'during'; })), now);
-    }
+    // Сначала уходит то, что гаснет (вчерашняя погода), потом проступает новое
+    for (k = 1; k <= last; k++) if (!M.worldOn(r, k, n)) sc.world(k, false, now);
+    for (k = 1; k <= last; k++) if (M.worldOn(r, k, n)) sc.world(k, true, now);
+  }
+  /* Какой день человек видел у дверей в прошлый раз: пока страница открыта — в памяти (полночь, переключение дня в «Проверке»),
+     между заходами — на его устройстве (только номер дня; в предпросмотре и при ?sim не запоминается). n — запомнить. */
+  function seenDay(n) {
+    var k = storeKey() + '-seen';
+    if (n == null) { if (S.seenDay != null) return S.seenDay; if (S.sim != null || S.preview) return 0; try { return +localStorage.getItem(k) || 0; } catch (e) { return 0; } }
+    S.seenDay = n;
+    if (S.sim == null && !S.preview) try { localStorage.setItem(k, String(n)); } catch (e) {}
   }
   function tapChoice(d) {
     var r = S.route, tx = r.texts || {}, n = curDay(), last = daysCount(r), log = choiceLog(), st = ucState(d, n, log), ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
@@ -3035,6 +3052,7 @@
   // Пространство уже открыто, а формат поменялся (вошли по ключу) — то же место, новое содержание
   function refreshSpace() {
     var old = S.space, nw = spaceNode(S.spaceDay);
+    window.M13D.hush(old);
     nw.classList.add('is-in'); nw._ol = old._ol;
     old.parentNode.replaceChild(nw, old); S.space = nw;
   }
@@ -3045,7 +3063,10 @@
     if (!now && !uc) doorVisit(d);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
     S.busy = true; S.space = sp; S.spaceN = d || null; S.spaceDay = day;
-    M.go(d ? S.DS : null, d || null, sp, { open: door.open, door: door, base: S.base, now: now, onCover: function () {
+    // Дверь меняет состояние сразу после касания: слои, которые гаснут (облака), уходят у человека на глазах — вход ждёт часть ухода
+    var wait = 0;
+    if (S.DS && d && !now) wait = Math.min(2200, (uc ? S.DS.set(d, 'today', false, true) : S.DS.set(d, doorState(d, curDay()))) * .6);
+    M.go(d ? S.DS : null, d || null, sp, { open: door.open, door: door, base: S.base, now: now, wait: wait, onCover: function () {
       if (S.DS && d && !now) { if (uc) S.DS.set(d, 'today', false, true); else S.DS.set(d, doorState(d, curDay())); }
     } }, function () {
       S.busy = false;
@@ -3074,8 +3095,8 @@
     M.back(S.spaceN ? S.DS : null, d, sp, { open: d ? M.doorOf(S.route, d).open : null }, function () {
       S.busy = false; S.space = null; S.spaceN = null; S.spaceDay = null;
       if (S.redraw || (S.sim == null && curDay() !== S.doorDay)) { S.redraw = false; render(); return; }
-      // Выбор двери: личный след дня проступает на выбранной двери, когда человек возвращается к дверям
-      if (isChoice(S.route) && d && S.DS && typeof day === 'number') { S.DS.mark(d, day, false); if (doorsCfg().showDayNumbers) S.DS.num(d, String(day)); }
+      // Выбор двери: личный след дня проступает, когда человек возвращается к дверям (если «сразу»; по умолчанию — после конца дня)
+      if (isChoice(S.route) && d && S.DS && typeof day === 'number') { if (M.markOn(S.route, day, curDay())) S.DS.mark(d, day, false); if (doorsCfg().showDayNumbers) S.DS.num(d, String(day)); }
       // Подсказка над дверями: сегодняшняя уже открыта
       var h = document.querySelector('.ys-tap.is-gone');
       if (h && d) { putText(h, fill((S.route.texts || {}).doorAgain || 'Сегодняшняя дверь открыта до полуночи', ctxOf(S.route, d))); h.classList.add('ys-tap--calm'); h.classList.remove('is-gone'); }
