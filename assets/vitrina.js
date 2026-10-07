@@ -889,7 +889,7 @@
     if (!cm || (cm === 'none' && sh === 'bare') || (cm !== 'none' && !X_MARK[cm])) cm = 'dot';
     S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin');
     if (sh === 'square' || sh === 'bare' || sh === 'thin') S.root.classList.add('m13-ic-' + sh);
-    var svg = X_MARK[cm] ? '<svg class="m13-xm m13-xm--' + cm + '" viewBox="0 0 16 16" aria-hidden="true">' + X_MARK[cm] + '</svg>' : '';
+    var svg = X_MARK[cm] ? '<svg class="m13-xm m13-xm--' + cm + '" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + X_MARK[cm] + '</svg>' : '';
     [].forEach.call(S.root.querySelectorAll('.m13-x:not(.m13-unflip)'), function (b) { b.innerHTML = svg; });
   }
 
