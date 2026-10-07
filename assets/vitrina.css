@@ -115,19 +115,24 @@ body.m13-locked{overflow:hidden}
 .m13-big-card.is-flipped .m13-ibar--front,.m13-big-card:not(.is-flipped) .m13-ibar--back{visibility:hidden}
 .m13-big-card.m13-calmode .m13-unflip{display:none}
 .m13-big-card.m13-noanim .m13-ibar{transition:none}
-.m13-close,.m13-unflip{position:relative;flex:none;width:38px;height:38px;border:1px solid var(--m13-ixl,rgba(255,255,255,.6));border-radius:50%;
+.m13-x{position:relative;flex:none;width:38px;height:38px;border:1px solid var(--m13-ixl,rgba(255,255,255,.6));border-radius:50%;
   background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--m13-ixc,#fff);
   cursor:pointer;display:grid;place-items:center;padding:0;line-height:1;transition:background .2s}
-.m13-close:hover,.m13-unflip:hover{background:rgba(0,0,0,.45)}
-.m13-close{font-size:20px;box-shadow:0 0 10px 1px var(--m13-ixg,rgba(255,255,255,.45)),inset 0 0 8px var(--m13-ixg,rgba(255,255,255,.3));
+.m13-x:hover{background:rgba(0,0,0,.45)}
+.m13-close,.m13-lb-close,.m13-rvm-x{font-size:20px;box-shadow:0 0 10px 1px var(--m13-ixg,rgba(255,255,255,.45)),inset 0 0 8px var(--m13-ixg,rgba(255,255,255,.3));
   text-shadow:0 0 6px var(--m13-ixg,rgba(255,255,255,.6))}
 .m13-unflip{font-size:17px}
-.m13-ic-square .m13-close,.m13-ic-square .m13-unflip{border-radius:10px}
-.m13-ic-bare .m13-close,.m13-ic-bare .m13-unflip{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
-.m13-ic-bare .m13-close{font-size:30px}.m13-ic-bare .m13-unflip{font-size:21px}
+.m13-ic-square .m13-x{border-radius:10px}
+.m13-ic-bare .m13-x{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
+.m13-ic-bare .m13-unflip{font-size:21px}
+/* Знак внутри «закрыть» — нарисован линиями (одинаков на всех телефонах): точка светится, у «только знак» — крупнее */
+.m13-xm{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.m13-xm--dot{filter:drop-shadow(0 0 3px var(--m13-ixg,rgba(255,255,255,.8))) drop-shadow(0 0 6px var(--m13-ixg,rgba(255,255,255,.5)))}
+.m13-ic-bare .m13-xm{width:22px;height:22px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+.m13-ic-bare .m13-xm--dot{filter:drop-shadow(0 0 3px var(--m13-ixg,rgba(255,255,255,.8))) drop-shadow(0 1px 3px rgba(0,0,0,.6))}
 /* .m13-ic-thin — тонкий контур: оба значка одинаковые, без заливки и свечения (панель, «Значки ✕ и ↺», 06.10) */
-.m13-ic-thin .m13-close,.m13-ic-thin .m13-unflip{background:transparent;border-color:var(--m13-ixl,rgba(255,255,255,.75));box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,.6);-webkit-backdrop-filter:none;backdrop-filter:none}
-.m13-ic-thin .m13-close:hover,.m13-ic-thin .m13-unflip:hover{background:rgba(0,0,0,.18)}
+.m13-ic-thin .m13-x{background:transparent;border-color:var(--m13-ixl,rgba(255,255,255,.75));box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,.6);-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13-ic-thin .m13-x:hover{background:rgba(0,0,0,.18)}
 .m13-back .m13-head{padding-right:96px}
 /* Чтобы верхние надписи не уходили под значок ✕ */
 .m13-front:not(.m13-front--day):not(.m13-front--film) > div:first-child{padding-right:36px}
@@ -530,9 +535,9 @@ body.m13-locked{overflow:hidden}
 .m13-lb-img{display:block;max-width:calc(100vw - 24px);max-height:calc(100vh - 32px);object-fit:contain;user-select:none;-webkit-user-drag:none}
 @supports (height:100dvh){.m13-lb-img{max-height:calc(100dvh - 2 * max(16px,env(safe-area-inset-bottom)))}}
 .m13-lb-fig .m13-gl-box:empty{display:none}
-.m13-lb-close,.m13-lb-nav{position:absolute;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#222;cursor:pointer;
+.m13-lb-nav{position:absolute;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#222;cursor:pointer;
   width:44px;height:44px;display:grid;place-items:center;font-size:28px;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,.3)}
-.m13-lb-close{top:max(14px,env(safe-area-inset-top));right:14px;font-size:26px}
+.m13-x.m13-lb-close{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px;width:44px;height:44px}
 .m13-lb-prev{left:10px;top:50%;transform:translateY(-50%)}
 .m13-lb-next{right:10px;top:50%;transform:translateY(-50%)}
 .m13-lb-nav[hidden]{display:none}
@@ -1112,7 +1117,9 @@ body.m13-locked{overflow:hidden}
   padding:26px 24px 16px;border-radius:20px;background:#fff;box-shadow:0 30px 80px rgba(0,0,0,.35)}
 .m13-rvm-box h3{margin:4px 0 8px;font-size:24px;line-height:1.15}
 .m13-rvm-box .m13-quote{margin-top:12px}
-.m13-rvm-x{position:absolute;top:10px;right:10px;width:38px;height:38px;border:1px solid var(--m13-line);border-radius:50%;background:#fff;font-size:22px;line-height:1;cursor:pointer;color:inherit}
+.m13-x.m13-rvm-x{position:absolute;top:10px;right:10px;color:inherit;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:none;
+  --m13-ixc:currentColor;--m13-ixl:color-mix(in srgb,currentColor 45%,transparent);--m13-ixg:color-mix(in srgb,currentColor 30%,transparent)}
+.m13-x.m13-rvm-x:hover{background:color-mix(in srgb,currentColor 8%,transparent)}
 .m13-rvm-nav{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px}
 .m13-rvm-go{width:42px;height:42px;border:1px solid var(--m13-line);border-radius:50%;background:#fff;font-size:18px;cursor:pointer;color:inherit}
 .m13-rvm-go:disabled{opacity:.3;cursor:default}
