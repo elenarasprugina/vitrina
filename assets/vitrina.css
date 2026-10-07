@@ -108,23 +108,26 @@ body.m13-locked{overflow:hidden}
 .m13-desc{color:#444;font-size:12px;line-height:1.35}
 /* Значки ✕ и ↺ — прозрачные, внутри правого верхнего угла карточки (как кнопка «открыть оборот»).
    Форма — у всей витрины: круг (обычно), .m13-ic-square — скруглённый квадрат, .m13-ic-bare — только знак. */
-.m13-close,.m13-unflip{position:absolute;z-index:4;top:12px;width:38px;height:38px;border:1px solid var(--m13-ixl,rgba(255,255,255,.6));border-radius:50%;
+/* Кнопки — на самой карточке (07.10): полоска у лицевой стороны и полоска у оборота, поворачиваются вместе с ней */
+.m13-ibar{position:absolute;z-index:4;top:12px;right:12px;display:flex;gap:8px;-webkit-backface-visibility:hidden;backface-visibility:hidden;transition:visibility 0s .07s}
+.m13-ibar--front{transform:translateZ(1px)}
+.m13-ibar--back{right:auto;left:12px;transform:rotateY(180deg) translateZ(1px)}  /* карточка повёрнута — в её осях «слева» = справа на экране */
+.m13-big-card.is-flipped .m13-ibar--front,.m13-big-card:not(.is-flipped) .m13-ibar--back{visibility:hidden}
+.m13-big-card.m13-calmode .m13-unflip{display:none}
+.m13-big-card.m13-noanim .m13-ibar{transition:none}
+.m13-close,.m13-unflip{position:relative;flex:none;width:38px;height:38px;border:1px solid var(--m13-ixl,rgba(255,255,255,.6));border-radius:50%;
   background:rgba(0,0,0,.28);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:var(--m13-ixc,#fff);
   cursor:pointer;display:grid;place-items:center;padding:0;line-height:1;transition:background .2s}
 .m13-close:hover,.m13-unflip:hover{background:rgba(0,0,0,.45)}
-.m13-close{right:12px;font-size:20px;box-shadow:0 0 10px 1px var(--m13-ixg,rgba(255,255,255,.45)),inset 0 0 8px var(--m13-ixg,rgba(255,255,255,.3));
+.m13-close{font-size:20px;box-shadow:0 0 10px 1px var(--m13-ixg,rgba(255,255,255,.45)),inset 0 0 8px var(--m13-ixg,rgba(255,255,255,.3));
   text-shadow:0 0 6px var(--m13-ixg,rgba(255,255,255,.6))}
-.m13-unflip{right:58px;font-size:17px;display:none}
-.m13-big-card.is-flipped ~ .m13-unflip{display:grid}
+.m13-unflip{font-size:17px}
 .m13-ic-square .m13-close,.m13-ic-square .m13-unflip{border-radius:10px}
 .m13-ic-bare .m13-close,.m13-ic-bare .m13-unflip{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:0 1px 5px rgba(0,0,0,.75)}
 .m13-ic-bare .m13-close{font-size:30px}.m13-ic-bare .m13-unflip{font-size:21px}
 /* .m13-ic-thin — тонкий контур: оба значка одинаковые, без заливки и свечения (панель, «Значки ✕ и ↺», 06.10) */
 .m13-ic-thin .m13-close,.m13-ic-thin .m13-unflip{background:transparent;border-color:var(--m13-ixl,rgba(255,255,255,.75));box-shadow:none;text-shadow:0 1px 4px rgba(0,0,0,.6);-webkit-backdrop-filter:none;backdrop-filter:none}
 .m13-ic-thin .m13-close:hover,.m13-ic-thin .m13-unflip:hover{background:rgba(0,0,0,.18)}
-/* Пока карточка переворачивается — кнопки гаснут (иначе висят на месте, а карточка уходит вбок) */
-.m13-close,.m13-unflip{transition:background .2s,opacity .22s ease}
-.m13-turning > .m13-close,.m13-turning > .m13-unflip{opacity:0;pointer-events:none;transition:background .2s,opacity .08s}
 .m13-back .m13-head{padding-right:96px}
 /* Чтобы верхние надписи не уходили под значок ✕ */
 .m13-front:not(.m13-front--day):not(.m13-front--film) > div:first-child{padding-right:36px}
@@ -338,9 +341,11 @@ body.m13-locked{overflow:hidden}
   .m13-item-date + .m13-item-title{font-size:9.5px}
   .m13-item-text,.m13-item-meta,.m13-item-action{font-size:8.5px}.m13-item-price{font-size:11px}
   .m13-items--one .m13-item-price{font-size:14px}
-  .m13-close,.m13-unflip{width:34px;height:34px;top:9px}
-  .m13-close{font-size:18px;right:9px}
-  .m13-unflip{right:50px;font-size:15px}
+  .m13-ibar{top:9px;right:9px;gap:7px}
+  .m13-ibar--back{right:auto;left:9px}
+  .m13-close,.m13-unflip{width:34px;height:34px}
+  .m13-close{font-size:18px}
+  .m13-unflip{font-size:15px}
   .m13-back .m13-head{padding-right:84px}
 
   .m13-ipage{width:calc(100% - 20px);padding-top:8px}
@@ -1169,7 +1174,6 @@ body.m13-locked{overflow:hidden}
 /* ================= Календарь месяца (вид карточки) ================= */
 /* Открывается сразу сеткой: без лицевой стороны и кнопки «перевернуть» */
 .m13-big-card.m13-noanim{transition:none}
-.m13-calmode ~ .m13-unflip{display:none !important}
 .m13-cal{display:flex;flex-direction:column;gap:10px;min-height:100%}
 .m13-cal-head h3{margin:2px 0 0;font-size:24px;line-height:1.1}
 .m13-cal-hint{margin-top:4px;font-size:12px;opacity:.7}

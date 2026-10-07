@@ -1061,37 +1061,31 @@
 
   /* ---------- Увеличенная карточка ---------- */
   function overlayHTML() {
+    var closeBtn = '<button type="button" class="m13-close" aria-label="Закрыть" title="Закрыть"></button>';
     return '<div class="m13-overlay" id="m13-overlay" role="dialog" aria-modal="true">' +
       '<div class="m13-big-stage">' +
-      '<button type="button" class="m13-close" id="m13-close" aria-label="Закрыть" title="Закрыть"></button>' +
       '<div class="m13-big-card" id="m13-bigcard">' +
       '<div class="m13-face m13-front" id="m13-front"></div>' +
       '<div class="m13-face m13-back"><div class="m13-content" id="m13-backc"></div></div>' +
+      // Кнопки ✕ и ↺ — на самой карточке и поворачиваются вместе с ней (её просьба 07.10): у лицевой стороны своя
+      // «закрыть», у оборота — ↺ и «закрыть»
+      '<div class="m13-ibar m13-ibar--front">' + closeBtn + '</div>' +
+      '<div class="m13-ibar m13-ibar--back">' +
+      '<button type="button" class="m13-unflip" id="m13-unflip" aria-label="Показать лицевую сторону" title="Лицевая сторона">↺</button>' + closeBtn + '</div>' +
       '</div>' +
-      '<button type="button" class="m13-unflip" id="m13-unflip" aria-label="Показать лицевую сторону" title="Лицевая сторона">↺</button>' +
       '</div></div>';
-  }
-  // Пока карточка переворачивается, кнопки «закрыть» и ↺ гаснут и появляются снова, когда она встала (её просьба 06.10:
-  // кнопки висели на месте, а карточка уходила вбок)
-  function turning() {
-    var st = S.root.querySelector('.m13-big-stage'); if (!st) return;
-    st.classList.add('m13-turning');
-    clearTimeout(S.turnT);
-    S.turnT = setTimeout(function () { st.classList.remove('m13-turning'); }, 480);
   }
   function bindOverlay() {
     var ov = S.root.querySelector('#m13-overlay');
     S.root.querySelector('#m13-front').addEventListener('click', function () {
-      turning();
       S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
       var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0;
       var fv = S.root.querySelector('#m13-front video'); if (fv) fv.pause();
     });
     S.root.querySelector('#m13-unflip').addEventListener('click', function () {
-      turning();
       S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     });
-    S.root.querySelector('#m13-close').addEventListener('click', closeTop);
+    [].forEach.call(S.root.querySelectorAll('.m13-close'), function (b) { b.addEventListener('click', closeTop); });
     ov.addEventListener('click', function (e) { if (e.target === ov) closeTop(); });
   }
 
@@ -1125,13 +1119,14 @@
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
-    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-st-day', 'm13-turning');
+    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-st-day');
     var ish = ((S.D.showcase && S.D.showcase.cardStyle) || {}).iconShape;
     if (ish === 'square' || ish === 'bare' || ish === 'thin') stage.classList.add('m13-ic-' + ish);
     // Внутри кнопки «закрыть»: ничего (светящийся кружок) | ✦ | ✓ | × — панель, «Значки»
     var cm = ((S.D.showcase && S.D.showcase.cardStyle) || {}).closeMark;
     if (ish === 'bare' && (!cm || cm === 'none')) cm = 'star';
-    S.root.querySelector('#m13-close').textContent = { star: '✦', check: '✓', cross: '×' }[cm] || '';
+    var cmk = { star: '✦', check: '✓', cross: '×' }[cm] || '';
+    [].forEach.call(S.root.querySelectorAll('.m13-close'), function (b) { b.textContent = cmk; });
     stage.setAttribute('style', '');
     var cr = c.back && c.back.routeId ? routeById(c.back.routeId) : null;
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
