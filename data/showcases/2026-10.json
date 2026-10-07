@@ -951,7 +951,9 @@
       "blur": 8,
       "rim": "gold",
       "feel": "soft"
-    }
+    },
+    "iconShape": "bare",
+    "closeMark": "ring"
   },
   "head": {
     "color": "#ecd3a3",
