@@ -873,6 +873,26 @@
     return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#ffffff', .5) + ';--m13-ixc:' + mixHex(hue, '#ffffff', .85) + ';--m13-ixg:' + mixHex(hue, '#ffffff', .25) : '';
   }
 
+  // Кнопка «закрыть» — одинаковая во всех окнах витрины (карточка, картинка крупно, окно отзыва; её просьба 07.10).
+  // Панель, Витрина → оформление карточек: cardStyle.iconShape — форма: 'round' светящийся круг (обычно) | 'thin' тонкая линия,
+  // без свечения | 'square' скруглённый квадрат | 'bare' только знак; cardStyle.closeMark — знак внутри: 'dot' светящаяся точка
+  // (обычно) | 'ring' колечко | 'star' звёздочка-контур | 'cross' крестик | 'none' пусто (у «только знак» — точка)
+  var X_MARK = {
+    dot: '<circle cx="8" cy="8" r="2.4" fill="currentColor" stroke="none"/>',
+    ring: '<circle cx="8" cy="8" r="4.2"/>',
+    star: '<path d="M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5Z"/>',
+    cross: '<path d="M4 4 12 12M12 4 4 12"/>'
+  };
+  function xLook() {
+    var cs = (S.D && S.D.showcase && S.D.showcase.cardStyle) || {}, sh = cs.iconShape, cm = cs.closeMark;
+    if (cm === 'check') cm = 'cross';
+    if (!cm || (cm === 'none' && sh === 'bare') || (cm !== 'none' && !X_MARK[cm])) cm = 'dot';
+    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin');
+    if (sh === 'square' || sh === 'bare' || sh === 'thin') S.root.classList.add('m13-ic-' + sh);
+    var svg = X_MARK[cm] ? '<svg class="m13-xm m13-xm--' + cm + '" viewBox="0 0 16 16" aria-hidden="true">' + X_MARK[cm] + '</svg>' : '';
+    [].forEach.call(S.root.querySelectorAll('.m13-x:not(.m13-unflip)'), function (b) { b.innerHTML = svg; });
+  }
+
   // Цвет текста на акцентной кнопке: белый на тёмном акценте, почти чёрный на светлом.
   function inkFor(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return '#fff';
@@ -1061,37 +1081,31 @@
 
   /* ---------- Увеличенная карточка ---------- */
   function overlayHTML() {
+    var closeBtn = '<button type="button" class="m13-x m13-close" aria-label="Закрыть" title="Закрыть"></button>';
     return '<div class="m13-overlay" id="m13-overlay" role="dialog" aria-modal="true">' +
       '<div class="m13-big-stage">' +
-      '<button type="button" class="m13-close" id="m13-close" aria-label="Закрыть" title="Закрыть"></button>' +
       '<div class="m13-big-card" id="m13-bigcard">' +
       '<div class="m13-face m13-front" id="m13-front"></div>' +
       '<div class="m13-face m13-back"><div class="m13-content" id="m13-backc"></div></div>' +
+      // Кнопки ✕ и ↺ — на самой карточке и поворачиваются вместе с ней (её просьба 07.10): у лицевой стороны своя
+      // «закрыть», у оборота — ↺ и «закрыть»
+      '<div class="m13-ibar m13-ibar--front">' + closeBtn + '</div>' +
+      '<div class="m13-ibar m13-ibar--back">' +
+      '<button type="button" class="m13-x m13-unflip" id="m13-unflip" aria-label="Показать лицевую сторону" title="Лицевая сторона">↺</button>' + closeBtn + '</div>' +
       '</div>' +
-      '<button type="button" class="m13-unflip" id="m13-unflip" aria-label="Показать лицевую сторону" title="Лицевая сторона">↺</button>' +
       '</div></div>';
-  }
-  // Пока карточка переворачивается, кнопки «закрыть» и ↺ гаснут и появляются снова, когда она встала (её просьба 06.10:
-  // кнопки висели на месте, а карточка уходила вбок)
-  function turning() {
-    var st = S.root.querySelector('.m13-big-stage'); if (!st) return;
-    st.classList.add('m13-turning');
-    clearTimeout(S.turnT);
-    S.turnT = setTimeout(function () { st.classList.remove('m13-turning'); }, 480);
   }
   function bindOverlay() {
     var ov = S.root.querySelector('#m13-overlay');
     S.root.querySelector('#m13-front').addEventListener('click', function () {
-      turning();
       S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
       var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0;
       var fv = S.root.querySelector('#m13-front video'); if (fv) fv.pause();
     });
     S.root.querySelector('#m13-unflip').addEventListener('click', function () {
-      turning();
       S.root.querySelector('#m13-bigcard').classList.remove('is-flipped');
     });
-    S.root.querySelector('#m13-close').addEventListener('click', closeTop);
+    [].forEach.call(S.root.querySelectorAll('.m13-close'), function (b) { b.addEventListener('click', closeTop); });
     ov.addEventListener('click', function (e) { if (e.target === ov) closeTop(); });
   }
 
@@ -1125,13 +1139,8 @@
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
-    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-st-day', 'm13-turning');
-    var ish = ((S.D.showcase && S.D.showcase.cardStyle) || {}).iconShape;
-    if (ish === 'square' || ish === 'bare' || ish === 'thin') stage.classList.add('m13-ic-' + ish);
-    // Внутри кнопки «закрыть»: ничего (светящийся кружок) | ✦ | ✓ | × — панель, «Значки»
-    var cm = ((S.D.showcase && S.D.showcase.cardStyle) || {}).closeMark;
-    if (ish === 'bare' && (!cm || cm === 'none')) cm = 'star';
-    S.root.querySelector('#m13-close').textContent = { star: '✦', check: '✓', cross: '×' }[cm] || '';
+    stage.classList.remove('m13-glow-soft', 'm13-glow-live', 'm13-gt-slow', 'm13-gt-flicker', 'm13-st-day');
+    xLook();
     stage.setAttribute('style', '');
     var cr = c.back && c.back.routeId ? routeById(c.back.routeId) : null;
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
@@ -2008,7 +2017,7 @@
       '<button type="button" class="m13-lb-nav m13-lb-next" id="m13-lb-next" aria-label="Следующая">›</button>' +
       '<div class="m13-lb-cap" id="m13-lb-cap"></div>' +
       '<div class="m13-lb-count" id="m13-lb-count"></div>' +
-      '<button type="button" class="m13-lb-close" id="m13-lb-x" aria-label="Закрыть">×</button></div>';
+      '<button type="button" class="m13-x m13-lb-close" id="m13-lb-x" aria-label="Закрыть"></button></div>';
   }
   // Галерея: до 10 картинок с подписями. mode 'row' — ряд маленьких (оборот карточки),
   // 'feature' — первая крупно с подписью, остальные рядом под ней (страницы). Крупно — в просмотрщике, с подписью.
@@ -2056,7 +2065,7 @@
   }
   function openLightbox(g, i) {
     var m = S.root.querySelector('#m13-lb'); if (!m || !S.lb || !S.lb[g]) return;
-    LB.list = S.lb[g]; LB.i = i || 0; LB.open = true;
+    LB.list = S.lb[g]; LB.i = i || 0; LB.open = true; xLook();
     if (!m._bound) {
       m._bound = true;
       m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
@@ -2523,10 +2532,10 @@
       var host = page || holder, m = host.querySelector('.m13-rvm');
       if (!m) {
         host.insertAdjacentHTML('beforeend', '<div class="m13-rvm" role="dialog" aria-modal="true"><div class="m13-rvm-box">' +
-          '<button type="button" class="m13-rvm-x" aria-label="Закрыть">×</button><div class="m13-rvm-body"></div>' +
+          '<button type="button" class="m13-x m13-rvm-x" aria-label="Закрыть"></button><div class="m13-rvm-body"></div>' +
           '<div class="m13-rvm-nav"><button type="button" class="m13-rvm-go" data-d="-1" aria-label="Предыдущий">←</button><span class="m13-rvm-n"></span>' +
           '<button type="button" class="m13-rvm-go" data-d="1" aria-label="Следующий">→</button></div></div></div>');
-        m = host.querySelector('.m13-rvm');
+        m = host.querySelector('.m13-rvm'); xLook();
         m.querySelector('.m13-rvm-x').addEventListener('click', closeTop);
         m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
         m.querySelectorAll('[data-d]').forEach(function (b) { b.addEventListener('click', function () { if (m._go) m._go(+b.getAttribute('data-d')); }); });
