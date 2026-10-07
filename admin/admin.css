@@ -6,7 +6,7 @@
   font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 .adm *,.adm *::before,.adm *::after{box-sizing:border-box}
-.adm :where(button,input,textarea,select):where(:not(.ys-pv *)){font:inherit;color:inherit}
+.adm :where(button,input,textarea,select):where(:not(.ys-pv *):not(.m13-x)){font:inherit;color:inherit}
 .adm h1,.adm h2,.adm h3,.adm p{margin:0}
 body.a-body{margin:0;background:#f3f3f1}
 
