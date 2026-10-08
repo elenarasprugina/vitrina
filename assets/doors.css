@@ -53,6 +53,8 @@
 .ys-dhit.is-zones .ys-dpoly.is-can{fill:rgba(127,255,240,.18);stroke:#7ff}
 .ys-dl-mark{position:absolute;display:flex;align-items:center;justify-content:center}
 .ys-dl-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.ys-dl-svg,.ys-svgmark{display:block;width:100%;height:100%}
+.ys-svgmark{overflow:visible}
 .ys-dl-disc{position:absolute;left:50%;top:50%;width:60%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;mix-blend-mode:screen}
 .ys-dnum{position:absolute;transform:translate(-50%,4px);font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(13px,1.3vw,17px);color:#fff0cc;text-shadow:0 0 8px rgba(0,0,0,.9),0 0 14px rgba(255,200,80,.45);pointer-events:none}
 .ys-dcall{position:absolute;inset:0;pointer-events:none}

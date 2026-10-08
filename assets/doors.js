@@ -277,13 +277,156 @@
     var m = el('div', 'ys-dl-mark');
     m.style.left = ((cx - w / 2) * 100) + '%'; m.style.top = ((cy - h / 2) * 100) + '%'; m.style.width = (w * 100) + '%'; m.style.height = (h * 100) + '%';
     if (+fx.rot) m.style.transform = 'rotate(' + num(fx.rot, 0, -180, 180) + 'deg)';
-    if (pic) { var im = el('img'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false; m.appendChild(im); }
+    if (pic && isSvg(pic)) {
+      // SVG — знак рисуется линией (svgMark): грузится, когда слой виден; «проявление» ему не нужно — он проступает линиями
+      var sb = el('div', 'ys-dl-svg'); m.appendChild(sb);
+      ln._svg = { url: src(base, pic), box: sb, color: c.color, ms: Math.round(num(L.draw, 3, .5, 20) * 1000 / c.k) };
+      if (L.fx === 'reveal') f = FX.none;
+    } else if (pic) { var im = el('img'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false; m.appendChild(im); }
     if (+L.fill > 0) { var g = el('i', 'ys-dl-disc'); g.style.background = 'radial-gradient(closest-side,' + c.color + ',transparent)'; g.style.opacity = num(L.fill, 0, 0, 100) / 100; m.appendChild(g); }
     if (L.clip) clip(ln, c.poly, num(L.soft, 0, 0, 40));
     inner.appendChild(m); box.appendChild(inner); ln.appendChild(box);
     ln.classList.add('ys-dl--mark');
     if (f.run) f.run(ln, c);
     return ln;
+  }
+
+  /* ---------- Знак следа в SVG — «рисуется линией» (08.10, ТЗ — docs/tz-svg-sled.md) ----------
+     Знак вставляется в страницу как есть (после чистки svgClean): все цвета заменены на цвет следа (currentColor).
+     Наутро, когда след впервые проступил, линии прорисовываются по очереди (порядок — как в файле), заливки проявляются после линий;
+     в остальные разы знак просто стоит. PNG/WebP-следы — как раньше. */
+  var SVG_TAGS = { svg: 1, g: 1, path: 1, line: 1, polyline: 1, polygon: 1, circle: 1, ellipse: 1, rect: 1 };
+  var SVG_SHAPES = { path: 1, line: 1, polyline: 1, polygon: 1, circle: 1, ellipse: 1, rect: 1 };
+  var SVG_ATTRS = { d: 1, points: 1, x1: 1, y1: 1, x2: 1, y2: 1, cx: 1, cy: 1, r: 1, rx: 1, ry: 1, x: 1, y: 1, width: 1, height: 1, transform: 1, viewBox: 1, preserveAspectRatio: 1 };
+  var SVG_PAINT = { fill: 1, stroke: 1, 'stroke-width': 1, 'stroke-linecap': 1, 'stroke-linejoin': 1, 'stroke-miterlimit': 1, opacity: 1, 'fill-opacity': 1, 'stroke-opacity': 1, 'fill-rule': 1 };
+  function isSvg(v) { return /^data:image\/svg\+xml/i.test(v || '') || /\.svg(\?|#|$)/i.test(v || ''); }
+  function cssDecl(s, to) { String(s || '').split(';').forEach(function (p) { var i = p.indexOf(':'); if (i > 0) to[p.slice(0, i).trim().toLowerCase()] = p.slice(i + 1).trim(); }); return to; }
+  /* Чистка: остаются только svg, g и простые фигуры с геометрией и обводкой/заливкой; текст, картинки, скрипты, ссылки, фильтры, градиенты — убираются.
+     Стили (style="…" и простые правила .класс{…} из <style>) переводятся в атрибуты. Вернёт { svg — строка, lines, fills, cut — что убрано } или null. */
+  function svgClean(text) {
+    var doc, root, rules = {}, cut = {}, lines = 0, fills = 0;
+    try { doc = new DOMParser().parseFromString(String(text || ''), 'image/svg+xml'); } catch (e) { return null; }
+    root = doc && doc.documentElement;
+    if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.getElementsByTagName('parsererror').length) return null;
+    Array.prototype.forEach.call(root.getElementsByTagName('style'), function (st) {
+      String(st.textContent || '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/([^{}]+)\{([^}]*)\}/g, function (m, sel, body) {
+        sel.split(',').forEach(function (s) { s = s.trim(); if (/^\.[\w-]+$/.test(s)) cssDecl(body, rules[s.slice(1)] = rules[s.slice(1)] || {}); });
+      });
+    });
+    var out = document.implementation.createDocument(SVGNS, 'svg', null), top = out.documentElement;
+    function paint(v) { v = String(v || '').trim(); return /^none$|^transparent$/i.test(v) ? 'none' : 'currentColor'; }
+    function copy(a, b, inh) {
+      var p = {}, i, k, v;
+      (a.getAttribute('class') || '').split(/\s+/).forEach(function (c) { if (rules[c]) for (k in rules[c]) p[k] = rules[c][k]; });
+      for (i = 0; i < a.attributes.length; i++) { k = a.attributes[i].name; if (SVG_PAINT[k]) p[k] = a.attributes[i].value; }
+      cssDecl(a.getAttribute('style'), p);
+      for (i = 0; i < a.attributes.length; i++) {
+        k = a.attributes[i].name; v = a.attributes[i].value;
+        if (SVG_ATTRS[k] && !/[<>"]|url\(|script:/i.test(v)) b.setAttribute(k, v);
+      }
+      for (k in p) if (SVG_PAINT[k]) {
+        v = p[k];
+        if (k === 'fill' || k === 'stroke') b.setAttribute(k, paint(v));
+        else if (!/[()<>"]/.test(v)) b.setAttribute(k, v);
+      }
+      return { fill: b.getAttribute('fill') || inh.fill, stroke: b.getAttribute('stroke') || inh.stroke };
+    }
+    function walk(a, b, inh) {
+      Array.prototype.forEach.call(a.childNodes, function (c) {
+        if (c.nodeType !== 1) return;
+        var t = c.nodeName.toLowerCase().replace(/^svg:/, '');
+        if (!SVG_TAGS[t] || t === 'svg') { if (!/^(title|desc|metadata|style|defs)$/.test(t)) cut[t] = 1; return; }
+        var n = out.createElementNS(SVGNS, t), me = copy(c, n, inh);
+        if (SVG_SHAPES[t]) { if (me.stroke !== 'none') lines++; else if (me.fill !== 'none') fills++; }
+        b.appendChild(n);
+        if (t === 'g') walk(c, n, me);
+      });
+    }
+    var inh = copy(root, top, { fill: 'currentColor', stroke: 'none' });
+    if (!top.getAttribute('fill')) top.setAttribute('fill', 'currentColor');
+    if (!top.getAttribute('viewBox')) {
+      var w = parseFloat(root.getAttribute('width')), h = parseFloat(root.getAttribute('height'));
+      if (w > 0 && h > 0) top.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    }
+    top.removeAttribute('width'); top.removeAttribute('height');
+    walk(root, top, inh);
+    if (!lines && !fills) return null;
+    return { svg: new XMLSerializer().serializeToString(top), lines: lines, fills: fills, cut: Object.keys(cut) };
+  }
+  // Текст SVG по адресу (data: или файл на сайте) — один раз на адрес
+  var SVG_CACHE = {};
+  function svgLoad(u, done) {
+    if (SVG_CACHE[u]) { if (SVG_CACHE[u].ok) done(SVG_CACHE[u].v); else SVG_CACHE[u].q.push(done); return; }
+    var c = SVG_CACHE[u] = { q: [done] };
+    function fin(t) { var x = svgClean(t); c.ok = true; c.v = x; c.q.forEach(function (f) { f(x); }); c.q = null; }
+    var m = /^data:[^,]*?(;base64)?,(.*)$/i.exec(u);
+    if (m) { try { fin(m[1] ? decodeURIComponent(escape(atob(m[2]))) : decodeURIComponent(m[2])); } catch (e) { fin(''); } return; }
+    var x = new XMLHttpRequest();
+    x.open('GET', u); x.onload = function () { fin(x.status < 300 ? x.responseText : ''); }; x.onerror = function () { fin(''); };
+    x.send();
+  }
+  // Готовый знак: узел <svg> цвета color
+  function svgNode(c, color) {
+    var n = new DOMParser().parseFromString(c.svg, 'image/svg+xml').documentElement;
+    n = document.importNode(n, true);
+    n.setAttribute('class', 'ys-svgmark'); n.setAttribute('aria-hidden', 'true'); n.setAttribute('focusable', 'false');
+    n.style.color = color;
+    return n;
+  }
+  /* Прорисовать линии знака: ms — сколько идут все линии вместе (каждая — по своей длине), потом проявляются заливки.
+     Вернёт, сколько длится всё, мс. */
+  function svgDraw(n, ms) {
+    var all = Array.prototype.filter.call(n.querySelectorAll('*'), function (e) { return SVG_SHAPES[e.nodeName.toLowerCase()]; }), lines = [], fills = [], sum = 0, t = 250;
+    all.forEach(function (e) {
+      var cs = getComputedStyle(e), L = 0;
+      if (cs.stroke && cs.stroke !== 'none') {
+        try { L = e.getTotalLength(); } catch (x) { L = 0; }
+        if (!(L > 0)) { e.setAttribute('pathLength', '1000'); L = 1000; e._pl = true; }
+        lines.push([e, L]); sum += e._pl ? 0 : L;
+      }
+      if (cs.fill && cs.fill !== 'none') fills.push(e);
+    });
+    lines.forEach(function (x) {
+      var e = x[0], L = x[1], d = Math.max(180, ms * (e._pl || !sum ? 1 / lines.length : L / sum));
+      e.style.strokeDasharray = L + ' ' + L; e.style.strokeDashoffset = L; e.style.opacity = 0;
+      x.push(t, d); t += d;
+    });
+    fills.forEach(function (e) { e.style.fillOpacity = 0; });
+    void n.getBoundingClientRect();
+    lines.forEach(function (x) {
+      var e = x[0];
+      e.style.transition = 'stroke-dashoffset ' + x[3] + 'ms ease-in-out ' + x[2] + 'ms, opacity 0s linear ' + x[2] + 'ms';
+      e.style.strokeDashoffset = 0; e.style.opacity = '';
+    });
+    var fo = lines.length ? 900 : 1400;
+    fills.forEach(function (e) {
+      var v = e.getAttribute('fill-opacity');
+      e.style.transition = (e.style.transition ? e.style.transition + ', ' : '') + 'fill-opacity ' + fo + 'ms ease ' + t + 'ms';
+      e.style.fillOpacity = v || 1;
+    });
+    var end = t + (fills.length ? fo : 0) + 80;
+    setTimeout(function () { all.forEach(function (e) { e.style.cssText = ''; if (e._pl) e.removeAttribute('pathLength'); }); }, end);
+    return end;
+  }
+  // Знак в слое следа: загрузился — встаёт; если след проступает на глазах (want) — рисуется
+  function svgMark(ln) {
+    var S = ln._svg; if (!S || S.busy || S.done) return;
+    S.busy = true;
+    svgLoad(S.url, function (c) {
+      S.busy = false; if (!c) return;
+      var n = svgNode(c, S.color); S.box.replaceChildren(n); S.done = true;
+      if (S.want && !REDUCED) svgDraw(n, S.ms);
+    });
+  }
+  // Картинка знака для холста («Моя фигура»): тот же знак цвета color, размер — по viewBox
+  function svgImg(u, color, ok) {
+    svgLoad(u, function (c) {
+      if (!c) { ok(null); return; }
+      var vb = ((/viewBox="([^"]+)"/.exec(c.svg) || [])[1] || '0 0 600 900').split(/[\s,]+/);
+      var s = c.svg.replace(/currentColor/g, color).replace(/^<svg /, '<svg width="' + (+vb[2] || 600) + '" height="' + (+vb[3] || 900) + '" ');
+      var im = new Image(); im.onload = function () { ok(im); }; im.onerror = function () { ok(null); };
+      im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+    });
   }
 
   /* Уходы считаются по рамке двери (по всей сцене — у слоёв без контура): --bw/--bh — размер рамки, --rw/--rh — овал «от центра» и «сгорает»,
@@ -302,6 +445,7 @@
   // Слой впервые виден — картинки начинают грузиться
   function wake(ln) {
     if (ln._awake) return; ln._awake = true;
+    if (ln._svg) svgMark(ln);
     Array.prototype.forEach.call(ln.querySelectorAll('img[data-src]'), function (im) { im.src = im.getAttribute('data-src'); im.removeAttribute('data-src'); });
     Array.prototype.forEach.call(ln.querySelectorAll('[data-mask]'), function (t) {
       var u = 'url("' + t.getAttribute('data-mask') + '")';
@@ -318,6 +462,7 @@
   function show(ln, on, now) {
     var L = ln._L || {};
     if (on) {
+      if (ln._svg && !ln._svg.done) ln._svg.want = !now;
       wake(ln); stopOut(ln);
       if (now) ln.classList.add('is-now');
       if (!ln.classList.contains('is-on')) {
@@ -410,7 +555,7 @@
       if (!day) return;
       var M = markOf(r, day);
       if (!M.image && !(+M.fill > 0) && !(FX[M.fx] && M.fx !== 'none')) return;
-      var ln = layerNode({ area: 'mark', image: M.image, color: M.color, fill: M.fill, opacity: M.opacity, blend: M.blend, fx: M.fx || 'reveal', speed: M.speed, power: M.power, fade: M.fade == null ? 1600 : M.fade, scale: M.scale, clip: M.clip, soft: M.soft }, doorOf(r, n), n, key, o.base);
+      var ln = layerNode({ area: 'mark', image: M.image, color: M.color, fill: M.fill, opacity: M.opacity, blend: M.blend, fx: M.fx || 'reveal', speed: M.speed, power: M.power, fade: M.fade == null ? 1600 : M.fade, draw: M.draw, scale: M.scale, clip: M.clip, soft: M.soft }, doorOf(r, n), n, key, o.base);
       if (!ln) return;
       x.g.appendChild(ln); x.mk = ln; x.mkDay = day;
       if (now) show(ln, true, true); else { void ln.offsetWidth; show(ln, true, false); }
@@ -699,7 +844,10 @@
     for (k in log) if (markOn(r, +k, n)) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) marks.push({ day: +k, d: doorOf(r, i) });
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
-    marks.forEach(function (m) { jobs.push(load(markOf(r, m.day).image)); });
+    marks.forEach(function (m) {
+      var M = markOf(r, m.day);
+      jobs.push(isSvg(M.image) ? new Promise(function (ok) { svgImg(src(o.base, M.image), hexOk(M.color) ? M.color : '#ffe2a0', ok); }) : load(M.image));
+    });
     Promise.all(jobs).then(function (ims) {
       var bg = ims[0]; if (!bg) { done(null); return; }
       var W = bg.naturalWidth, H = bg.naturalHeight, f = Math.min(1, 4096 / Math.max(W, H));
@@ -760,5 +908,6 @@
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
     worldOn: worldOn, markOn: markOn, weather: weather, hush: hush,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
-    scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure };
+    scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
+    isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
 })();
