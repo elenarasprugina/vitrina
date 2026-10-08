@@ -581,6 +581,22 @@
     return el('span', { class: 'a-size' }, ['📐 Лучший размер: ', el('b', { text: s.w ? s.w + ' × ' + s.h + ' px' : s.text }), s.note ? ' · ' + s.note : '']);
   }
   function sizeShape(s) { return s && s.w ? 'width:auto;aspect-ratio:' + s.w + '/' + s.h + ';' : ''; }
+  /* SVG-знак (следы тонов, 08.10): хранится как есть — после чистки (M13D.svgClean: без текста, картинок, скриптов, ссылок; цвет — из настройки).
+     ok(data:image/svg+xml;base64,…); в подсказке — сколько линий нарисуется и что вырезано. */
+  function svgIn(f, what, ok) {
+    var rd = new FileReader();
+    rd.onload = function () {
+      var c = window.M13D.svgClean(rd.result);
+      if (!c) { toast('В этом SVG не нашлось ни линий, ни фигур. Проверьте файл по ТЗ (docs/tz-svg-sled.md) или загрузите PNG.', true); return; }
+      ok('data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(c.svg))));
+      var t = what + ': ' + (c.lines ? c.lines + ' лин. нарисуются по очереди' : 'линий нет — знак проявится целиком, а не нарисуется (похоже, линии стали заливкой — см. ТЗ, п. 2)') +
+        (c.fills ? ', ' + c.fills + ' залитых фигур проявятся после' : '') + '.' + (c.cut.length ? ' Убрано: ' + c.cut.map(function (k) { return { text: 'текст', image: 'картинка', script: 'скрипт', a: 'ссылка', use: 'копии фигур', lineargradient: 'градиент', radialgradient: 'градиент', foreignobject: 'вставка', mask: 'маска', clippath: 'обтравка', filter: 'фильтр' }[k.toLowerCase()] || k; }).join(', ') + '.' : '') +
+        (f.size > 50 * 1024 ? ' Файл тяжёлый (' + Math.round(f.size / 1024) + ' КБ) — лучше до 50 КБ.' : '');
+      toast(t, !c.lines);
+    };
+    rd.onerror = function () { toast('Не получилось прочитать этот файл.', true); };
+    rd.readAsText(f);
+  }
   function imageIn(obj, key, label, o) {
     o = o || {};
     var box = el('div', { class: 'a-field' });
@@ -589,6 +605,7 @@
       var file = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
+        if (o.svg && (/svg/i.test(f.type) || /\.svg$/i.test(f.name || '')) && window.M13D) { svgIn(f, o.svg, function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); }); return; }
         compressImage(f, o.max, o.crop).then(function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); })
           .catch(function () { toast('Не получилось открыть эту картинку. Попробуйте файл JPG или PNG.', true); });
       });
@@ -2598,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261007b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261008a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4712,6 +4729,19 @@
         el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть сцену', onclick: function () { openJourneyPage(r, false, { mode: 'observation', q: '&sim=' + (uc ? 1 : n) }); } })])
     ];
   }
+  // Проба SVG-знака: как он нарисуется на двери (цвет и время — из настроек следа)
+  function jdSvgTry(Mk) {
+    var M = window.M13D, pic = el('div', { class: 'a-jd-svgtry-pic' });
+    function go() {
+      M.svgLoad(imgSrc(Mk.image), function (s) {
+        if (!s) { pic.replaceChildren(el('p', { class: 'a-hint', text: 'Знак не прочитался.' })); return; }
+        var n = M.svgNode(s, /^#[0-9a-f]{3,6}$/i.test(Mk.color || '') ? Mk.color : '#ffe2a0');
+        pic.replaceChildren(n); M.svgDraw(n, (+Mk.draw || 3) * 1000);
+      });
+    }
+    setTimeout(go, 60);
+    return el('div', { class: 'a-jd-svgtry' }, [pic, el('button', { type: 'button', class: 'a-btn a-btn--small', text: '▶ Нарисовать ещё раз', onclick: go })]);
+  }
   // Личный след по тону дня (v2, режим выбора): 13 следов задаются один раз — программа кладёт след дня в контур выбранной двери
   function jdMarks(r) {
     var M = window.M13D, D = r.doors, N = r.days.length, st = ST.jdm = ST.jdm || { i: 0 };
@@ -4723,15 +4753,18 @@
     })));
     wrap.appendChild(el('div', {}, [
         el('p', { class: 'a-hint', text: 'День ' + (x.i + 1) + ' волны — тон ' + (x.i + 1) + '. Этот след ляжет на дверь, которую человек выберет в день ' + (x.i + 1) + '.' }),
-        imageIn(Mk, 'image', 'Знак / картинка следа', { max: 1200, size: { w: 600, h: 900, note: 'PNG/WebP с прозрачностью; встанет в рамку двери, пропорции сохранятся' }, onChange: liveSoon }),
+        imageIn(Mk, 'image', 'Знак / картинка следа', { max: 1200, svg: 'Знак SVG', size: { w: 600, h: 900, note: 'SVG — рисуется линией; PNG/WebP с прозрачностью — проявляется. Встанет в рамку двери, пропорции сохранятся' },
+          onChange: function () { liveSoon(); st.open = true; renderMain(); }, hint: 'SVG по ТЗ (линии без заливки, холст 600 × 900): наутро, когда след впервые проступил, знак прорисовывается линиями, дальше просто стоит. Цвет — из «Цвет» ниже.' }),
+        M.isSvg(Mk.image) ? jdSvgTry(Mk) : null,
         el('div', { class: 'a-row' }, [
           colorOptIn(Mk, 'color', 'Цвет (свет и движение)', { none: 'тёплый свет #ffe2a0', base: '#ffe2a0', pick: '#ffe2a0', onChange: liveSoon }),
           rangeIn(Mk, 'fill', 'Светящийся круг цвета', { min: 0, max: 100, step: 5, def: 0, unit: ' %', hint: 'След может быть просто светом — без картинки.' })]),
         el('div', { class: 'a-row' }, [
           rangeIn(Mk, 'scale', 'Размер в рамке двери', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }),
           rangeIn(Mk, 'opacity', 'Прозрачность', { min: 0, max: 100, step: 5, def: 100, unit: ' %' })]),
+        M.isSvg(Mk.image) ? el('div', { class: 'a-row' }, [rangeIn(Mk, 'draw', 'Сколько рисуются все линии (SVG)', { min: 1, max: 12, step: .5, def: 3, unit: ' с', hint: 'Каждая линия рисуется по своей длине: длинная — дольше, короткая — быстрее.' }), el('span')]) : null,
         el('div', { class: 'a-row' }, [selectIn(Mk, 'blend', 'Как ложится', M.BLEND, { def: '' }),
-          selectIn(Mk, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'reveal', hint: 'По умолчанию — проявление: след проступает, когда человек возвращается к дверям.' })]),
+          selectIn(Mk, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'reveal', hint: M.isSvg(Mk.image) ? 'У SVG-знака «проявление» — это рисование линией. Другое движение (свет, звёздочки…) добавится к рисованию.' : 'По умолчанию — проявление: след проступает, когда человек возвращается к дверям.' })]),
         el('div', { class: 'a-row' }, [switchIn(Mk, 'clip', 'Только внутри контура двери'), rangeIn(Mk, 'soft', 'Мягкий край (если внутри контура)', { min: 0, max: 40, step: 1, def: 0 })])
     ]));
     return block('Личный след — по тону дня', [
