@@ -119,6 +119,27 @@
   }
   // След тона дня day виден в день n: после конца своего дня (по умолчанию) или сразу
   function markOn(r, day, n) { return cfg(r).markWhen === 'now' ? day <= n : day < n || n > days(r); }
+  /* Карта дня — по второму нажатию: первое касание выбирает дверь (фактура уходит), второе открывает Карту дня.
+     Только «выбирает сам» и «сначала Карта дня»; по умолчанию — да. */
+  function tap2(r) { return isChoice(r) && first(r) === 'card' && cfg(r).tap2 !== false; }
+  /* Пространство за Картой дня: 'key' — только по лестнице на карте (ключ / код Путешествия или Погружения), 'all' — всем, под картой.
+     По умолчанию: «выбирает сам» — по ключу, «по порядку» — всем (как было). '' — сначала открывается пространство. */
+  function deep(r) { var v = cfg(r).deep; return first(r) !== 'card' ? '' : v === 'key' || v === 'all' ? v : isChoice(r) ? 'key' : 'all'; }
+  /* Значок входа глубже на Карте дня: лестницы рисуются линией, перекладины загораются снизу вверх (ys-lr, --i — снизу) */
+  function rungs(list) { return list.map(function (d, i) { return '<path class="ys-lr" style="--i:' + i + '" d="' + d + '"/>'; }).join(''); }
+  var KEY_ICONS = {
+    rope: '<g class="ys-lsway"><path d="M20 4C17 24 23 44 19 76M44 4C41 24 47 44 43 76"/>' + rungs(['M19.5 68H43.5', 'M20.5 56H44.5', 'M21 44H45', 'M20.5 32H44', 'M19.5 20H42.5']) + '<circle cx="20" cy="4" r="2" fill="currentColor" stroke="none"/><circle cx="44" cy="4" r="2" fill="currentColor" stroke="none"/></g>',
+    steps: rungs(['M6 74H20V60', 'M20 60H32V46', 'M32 46H44V32', 'M44 32H56V20']) + '<circle class="ys-ldot" cx="56" cy="11" r="4" fill="currentColor" stroke="none"/><circle class="ys-ldot" cx="56" cy="11" r="9" stroke-width="1" opacity=".45"/>',
+    screw: '<path d="M32 4V76" stroke-width="1.4" opacity=".5"/><path d="M54 64C60 50 50 42 38 40C22 38 8 32 12 24C14 18 20 12 22 12" stroke-width="1" opacity=".5"/>' + rungs(['M32 70L54 64', 'M32 60L50 50', 'M32 50L38 40', 'M32 40L14 36', 'M32 30L12 24', 'M32 20L22 12'])
+  };
+  var KEY_NAMES = [['rope', 'верёвочная лестница — покачивается'], ['steps', 'ступени к свету — огонёк наверху дышит'], ['screw', 'винтовая лестница'], ['spiral', 'спираль (как раньше)'], ['svg', 'свой значок — SVG']];
+  // Какой значок: { html } — готовый, { svg: адрес } — свой SVG (рисуется линией), { spiral: true } — спираль маршрута
+  function keyIcon(r) {
+    var D = cfg(r), k = D.keyIcon || 'rope';
+    if (k === 'svg' && D.keySvg) return { svg: D.keySvg };
+    if (k === 'spiral') return { spiral: true };
+    return { html: '<svg class="ys-ladder ys-ladder--' + (KEY_ICONS[k] ? k : 'rope') + '" viewBox="0 0 64 80" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (KEY_ICONS[k] || KEY_ICONS.rope) + '</svg>' };
+  }
   function uid() { return 'd' + Math.random().toString(36).slice(2, 9); }
   function doorOf(r, n) { return (cfg(r).items || [])[n - 1] || {}; }
   function zoneOf(d, key) { var z = (d.zone || {})[key]; return ptsOk(z) ? z : null; }
@@ -287,7 +308,7 @@
   var BLEND = [['', 'обычно'], ['screen', 'светом (светлое светит, тёмное исчезает)'], ['multiply', 'тенью (тёмное темнит, светлое исчезает)'], ['overlay', 'перекрытие'], ['soft-light', 'мягкий свет'], ['color', 'цветом']];
   // Блоки пространства за дверью — подключаемые части маршрута (существующие механики — кнопками, как и были)
   var BLOCKS = [['title', 'Заголовок'], ['small', 'Строка мелко'], ['text', 'Текст'], ['image', 'Картинка'],
-    ['audio', 'Аудио — запись с кнопкой'], ['dayCard', 'Карта дня (кнопка)'], ['deck', 'Колода вслепую (кнопка)'], ['glass', 'Стёклышко дня (кнопка)'], ['final', 'Кнопка в финал'], ['figure', 'Сохранить мою фигуру (кнопка)']];
+    ['audio', 'Аудио — запись с кнопкой'], ['trace', 'Оставить след — кнопка в Telegram'], ['dayCard', 'Карта дня (кнопка)'], ['deck', 'Колода вслепую (кнопка)'], ['glass', 'Стёклышко дня (кнопка)'], ['final', 'Кнопка в финал'], ['figure', 'Сохранить мою фигуру (кнопка)']];
   var BTN_DEF = { dayCard: 'Карта дня', deck: 'Вытянуть карту', glass: 'Стёклышко дня', final: 'Дальше', figure: 'Сохранить мою фигуру' };
 
   /* ---------- Слой двери ---------- */
@@ -1041,8 +1062,17 @@
       if (b.kind === 'title' || b.kind === 'small') { t = T(b.text).trim(); if (!t) return; n = put(el(b.kind === 'title' ? 'h2' : 'p', 'ys-sp-' + b.kind), t); }
       else if (b.kind === 'text') {
         t = T(b.text).trim(); if (!t) return;
-        n = el('div', 'ys-sp-text');
-        t.split(/\n{2,}/).forEach(function (p) { n.appendChild(put(el('p'), p)); });
+        var tx = el('div', 'ys-sp-text');
+        t.split(/\n{2,}/).forEach(function (p) { tx.appendChild(put(el('p'), p)); });
+        // Свёрнутый текст: заголовок-кнопка, нажали — текст раскрылся (текст медитации)
+        if (b.fold) { n = el('details', 'ys-sp-fold'); n.appendChild(put(el('summary'), T(b.foldTitle).trim() || 'Текст')); n.appendChild(tx); }
+        else n = tx;
+      } else if (b.kind === 'trace') {
+        // «Оставить след» — ссылка своего формата (Путешествие — группа, Погружение — Проводник); у Наблюдения кнопки нет
+        var url = ((o.trace || {})[o.mode]) || '';
+        if (o.mode === 'observation' || (!url && !o.empty)) return;
+        n = el('a', 'ys-sp-btn ys-sp-btn--trace', T(b.label).trim() || o.traceText || 'Оставить след');
+        if (url) { n.href = url; n.target = '_blank'; n.rel = 'noopener'; } else n.setAttribute('aria-disabled', 'true');
       } else if (b.kind === 'image') {
         if (!b.image) return;
         n = el('figure', 'ys-sp-img'); var im = el('img'); im.alt = ''; im.src = src(o.base, b.image); n.appendChild(im);
@@ -1385,7 +1415,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize,
+    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
