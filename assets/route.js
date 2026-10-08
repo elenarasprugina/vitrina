@@ -714,7 +714,17 @@
     function keyBtn() {
       if (!o.onKey) return;
       var k = el('button', 'ys-c-key'); k.type = 'button';
-      k.innerHTML = spiralSVG(); k.appendChild(el('span', null, o.keyText || 'Есть ключ? Введи ключ'));
+      // Значок — лестница (верёвочная / ступени / винтовая), спираль или свой SVG (doors.keyIcon); свой рисуется линией, когда карта открылась
+      var M = window.M13D, ic = M && M.keyIcon ? M.keyIcon(route) : { spiral: true };
+      if (ic.svg) {
+        var own = el('span', 'ys-keyown'); k.appendChild(own);
+        M.svgLoad(imgSrc(o.base, ic.svg), function (c) {
+          if (!c) { own.innerHTML = spiralSVG(); return; }
+          var sv = M.svgNode(c, ''); own.replaceChildren(sv);
+          if (!REDUCED) setTimeout(function () { if (sv.isConnected) M.svgDraw(sv, 1800); }, 350);
+        });
+      } else k.innerHTML = ic.html || spiralSVG();
+      k.appendChild(el('span', null, o.keyText || 'Есть ключ? Введи ключ'));
       k.addEventListener('click', function () { o.onKey(); });
       foot.appendChild(k);
     }
@@ -734,10 +744,13 @@
       foot.appendChild(tr);
     }
     keyBtn();
-    var sp = el('button', 'ys-spiral');
+    // Двери, пространство по лестнице: внизу карты — тихая кнопка «К дверям» вместо спирали (спираль рядом с лестницей путала бы)
+    var sp = el('button', o.backText ? 'ys-c-back' : 'ys-spiral', o.backText || null);
     sp.type = 'button';
-    sp.setAttribute('aria-label', o.spiralLabel || (kind === 'personal' || mode === 'observation' ? 'Вернуться на спираль' : 'Дальше — выбрать карту'));
-    sp.innerHTML = spiralSVG();
+    if (!o.backText) {
+      sp.setAttribute('aria-label', o.spiralLabel || (kind === 'personal' || mode === 'observation' ? 'Вернуться на спираль' : 'Дальше — выбрать карту'));
+      sp.innerHTML = spiralSVG();
+    }
     sp.addEventListener('click', function () { if (o.onSpiral) o.onSpiral(); });
     foot.appendChild(sp);
     inner.appendChild(foot);
@@ -1277,6 +1290,22 @@
   function isChoice(r) { return isDoors(r) && ((r || S.route).doors || {}).doorAssignmentMode === 'userChoice'; }
   // Что открывается первым после двери: Карта дня (глубже — по ключу) или сразу пространство
   function doorsCard(r) { return isDoors(r) && !!window.M13D && window.M13D.first(r) === 'card'; }
+  // Пространство за Картой дня — только по лестнице на карте (ключ / код); дверь открывает Карту дня поверх дверей (её решение 08.10)
+  function deepKey(r) { return isDoors(r) && !!window.M13D && window.M13D.deep(r) === 'key'; }
+  /* Лестница на Карте дня: есть код — сразу в пространство дня (формат — по коду); нет — окно ключа, ключ подошёл → «Войти» → пространство.
+     S.deepDoor — с какой двери открыта карта; S.deepWant — куда войти после ключа. */
+  function goDeep(n) {
+    var w = S.deepDoor && S.deepDoor.day === n ? S.deepDoor : { d: 0, day: n };
+    if (S.busy) return;
+    if (S.code) {
+      if (S.mode === 'observation') { S.mode = S.code.mode; setUrlMode(S.mode); }
+      closeLayer(); S.busy = true;
+      setTimeout(function () { S.busy = false; enterDoor(w.d, false, w.day, true); }, 320);
+      return;
+    }
+    S.deepWant = w;
+    openKey(S.mode);
+  }
   function choiceKey() { return storeKey() + '-choice'; }
   function choiceLog() { try { var o = JSON.parse(localStorage.getItem(choiceKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
   function choose(day, id) { var o = choiceLog(); if (o[day]) return false; o[day] = id; try { localStorage.setItem(choiceKey(), JSON.stringify(o)); } catch (e) {} return true; }
@@ -1420,8 +1449,9 @@
       if (isDoors(r)) { openDoorsFinal(); return; }
       var m = musicStart();
       closeLayer(); setTimeout(function () { finalScene({ music: m }); }, 300);
-    }, onKey: doorsCard(r) && !S.code ? function () { openKey(S.mode); } : null, keyText: fill((r.texts || {}).doorKey || 'Есть ключ? Введи ключ', ctxOf(r, n)),
-      spiralLabel: doorsCard(r) ? 'Дальше' : null, onSpiral: function () {
+    }, onKey: deepKey(r) ? function () { goDeep(n); } : doorsCard(r) && !S.code ? function () { openKey(S.mode); } : null,
+      keyText: fill(deepKey(r) ? (S.code ? (r.texts || {}).doorKeyIn || 'Поднимайся' : (r.texts || {}).doorKey || 'Есть ключ? Поднимайся') : (r.texts || {}).doorKey || 'Есть ключ? Введи ключ', ctxOf(r, n)),
+      backText: deepKey(r) ? (r.texts || {}).doorCardBack || 'К дверям' : null, spiralLabel: doorsCard(r) ? 'Дальше' : null, onSpiral: function () {
       // Двери, сначала Карта дня: глубже — в пространстве дня за картой
       if (doorsCard(r)) { closeLayer(); return; }
       if (mode === 'observation') { closeLayer(); return; }
@@ -1538,7 +1568,7 @@
     form.appendChild(inp); form.appendChild(go); form.appendChild(err);
     form.appendChild(el('p', 'ys-key-note', tx.keyNote || 'Код уже есть? Введите его — на новом телефоне или компьютере нужен код, а не ключ.'));
     var obs = el('button', 'ys-key-alt', fromObs ? tx.keyStay || 'Остаться в Наблюдении' : tx.keyObserve || 'Пока просто смотреть — Наблюдение'); obs.type = 'button';
-    obs.addEventListener('click', function () { if (fromObs) { closeLayer(); return; } S.mode = 'observation'; setUrlMode('observation'); closeLayer(); render(); });
+    obs.addEventListener('click', function () { S.deepWant = null; if (fromObs) { closeLayer(); return; } S.mode = 'observation'; setUrlMode('observation'); closeLayer(); render(); });
     form.appendChild(obs);
     function result(c) {
       res.replaceChildren();
@@ -1562,6 +1592,9 @@
       enter.addEventListener('click', function () {
         if (!have) { S.mode = c.mode; setUrlMode(c.mode); }
         closeLayer(); render();
+        // Пришли по лестнице с Карты дня — сразу в пространство дня
+        var w = S.deepWant; S.deepWant = null;
+        if (w && isDoors(r)) setTimeout(function () { enterDoor(w.d, false, w.day, true); }, 300);
       });
       res.appendChild(enter);
       if (have) {
@@ -3005,7 +3038,17 @@
     if (st === 'free' && doorOfDay(n, log)) { note(fill(tx.doorTomorrow || 'Новую дверь можно будет выбрать завтра', ctx)); return; }
     if (!doorsCard(r) && S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
     // Свободная дверь открывает сегодняшний день — выбор запоминается сразу, заменить нельзя
-    if (st === 'free') { choose(n, doorIdOf(d)); if (S.DS) S.DS.call([]); }
+    if (st === 'free') {
+      choose(n, doorIdOf(d)); if (S.DS) S.DS.call([]);
+      // Карта дня — по второму нажатию: фактура уходит, дверь ждёт второго касания
+      if (window.M13D.tap2(r)) {
+        if (S.DS) S.DS.set(d, 'today', false, true);
+        var h = document.querySelector('.ys-tap');
+        if (h) { putText(h, fill(tx.doorTap2 || 'Коснитесь двери ещё раз', ctx)); h.classList.remove('ys-tap--calm', 'is-gone'); }
+        else note(fill(tx.doorTap2 || 'Коснитесь двери ещё раз', ctx));
+        return;
+      }
+    }
     enterDoor(d, false, n);
   }
   /* «Моя фигура» — одна картинка: сцена + мир состоявшихся дней + личные следы (M13D.figure; собирается на устройстве, никуда не уходит).
@@ -3046,7 +3089,7 @@
     var r = S.route, M = window.M13D, fin = d === 'final', n = fin ? daysCount(r) : d, tx = r.texts || {};
     var cfg = fin ? doorsCfg().final || {} : M.spaceOf(r, d);
     return M.space(r, cfg, { base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
-      backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, act: function (kind) { spaceAct(kind, n); },
+      backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, trace: r.trace || {}, traceText: tx.trace, act: function (kind) { spaceAct(kind, n); },
       empty: S.preview ? (fin ? 'Финал пока пустой — блоки добавляются в панели: «За дверью» → «Финал».' : 'Здесь пока пусто — блоки добавляются в панели: «За дверью» → ' + (isChoice(r) ? 'день ' : 'дверь ') + n + '.') : '' });
   }
   // Пространство уже открыто, а формат поменялся (вошли по ключу) — то же место, новое содержание
@@ -3057,10 +3100,20 @@
     old.parentNode.replaceChild(nw, old); S.space = nw;
   }
   // d — дверь (0 — без двери: предпросмотр пространства дня), day — день (в fixed — тот же номер); now — сразу, без движения и без отметки «входили» (предпросмотр из панели)
-  function enterDoor(d, now, day) {
+  function enterDoor(d, now, day, deep) {
     var r = S.route, M = window.M13D, uc = isChoice(r), door = d ? M.doorOf(r, d) : {}, sp, cfg;
-    day = day || d; sp = spaceNode(day); cfg = M.spaceOf(r, day);
+    day = day || d;
     if (!now && !uc) doorVisit(d);
+    // Пространство — только по лестнице: дверь открывает Карту дня поверх дверей (слои, которые гаснут, сначала уходят)
+    if (!now && !deep && deepKey(r)) {
+      var w0 = 0, h0 = document.querySelector('.ys-tap');
+      if (S.DS && d) w0 = Math.min(2200, (uc ? S.DS.set(d, 'today', false, true) : S.DS.set(d, doorState(d, curDay()))) * .6);
+      if (h0 && d) { putText(h0, fill((r.texts || {}).doorAgain || 'Сегодняшняя дверь открыта до полуночи', ctxOf(r, day))); h0.classList.add('ys-tap--calm'); h0.classList.remove('is-gone'); }
+      S.deepDoor = { d: d, day: day }; S.deepWant = null; S.busy = true;
+      setTimeout(function () { S.busy = false; openDay(day, S.mode); }, w0);
+      return;
+    }
+    sp = spaceNode(day); cfg = M.spaceOf(r, day);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
     S.busy = true; S.space = sp; S.spaceN = d || null; S.spaceDay = day;
     // Дверь меняет состояние сразу после касания: слои, которые гаснут (облака), уходят у человека на глазах — вход ждёт часть ухода
@@ -3071,7 +3124,7 @@
     } }, function () {
       S.busy = false;
       // Сначала Карта дня — одна для всех форматов; глубже — по ключу, за картой
-      if (M.first(r) === 'card') { if (!now) openDay(day, S.mode); return; }
+      if (M.first(r) === 'card') { if (!now && !deep) openDay(day, S.mode); return; }
       var a = M.autoBlocks(cfg, S.mode)[0];
       if (a && !now) setTimeout(function () { spaceAct(a.kind, day); }, 250);
     });

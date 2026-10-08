@@ -637,3 +637,6 @@ audio.a-media{background:none;height:40px}
 .a-jd-svgtry{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
 .a-jd-svgtry-pic{width:140px;aspect-ratio:2/3;border-radius:10px;background:#16121c;padding:6px;box-sizing:border-box}
 .a-jd-svgtry-pic svg{display:block;width:100%;height:100%;overflow:visible}
+/* Как выглядит лестница на Карте дня (двери → «Карта дня и лестница») */
+.a-jd-keylook{display:flex;align-items:center;justify-content:center;min-height:64px;padding:12px;border-radius:12px;background:#1a110b}
+.a-jd-keylook .ys-c-key{cursor:default}

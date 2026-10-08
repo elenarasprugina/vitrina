@@ -479,7 +479,18 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-c-key:focus-visible{outline:2px solid #ffe39a;outline-offset:3px}
 .ys-c-key svg{width:26px;height:26px;flex:none;color:#ffd86e;animation:ys-keyspin 9s linear infinite;filter:drop-shadow(0 0 4px rgba(255,200,80,.6))}
 @keyframes ys-keyspin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.ys-c-key svg{animation:none}.ys-dcall{display:none}}
+/* Лестница вместо спирали (двери, её выбор 08.10): перекладины загораются снизу вверх; верёвочная покачивается, огонёк над ступенями дышит; свой SVG — прорисовывается линией */
+.ys-c-key svg.ys-ladder,.ys-c-key .ys-keyown svg{width:28px;height:35px;animation:none;overflow:visible}
+.ys-keyown{display:inline-flex;flex:none;width:30px;height:35px;align-items:center;justify-content:center;color:#ffd86e}
+.ys-keyown svg{max-width:100%;max-height:100%;filter:drop-shadow(0 0 4px rgba(255,200,80,.6));animation:ys-keyglow 3.2s ease-in-out infinite}
+.ys-ladder .ys-lr{opacity:.35;animation:ys-rung 3.4s ease-in-out infinite;animation-delay:calc(var(--i) * .32s)}
+@keyframes ys-rung{0%,40%,100%{opacity:.35}12%,24%{opacity:1}}
+.ys-ladder .ys-lsway{transform-box:view-box;transform-origin:50% 0;animation:ys-sway 4.2s ease-in-out infinite alternate}
+@keyframes ys-sway{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+.ys-ladder .ys-ldot{transform-box:fill-box;transform-origin:center;animation:ys-dotb 3.4s ease-in-out infinite}
+@keyframes ys-dotb{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes ys-keyglow{0%,100%{opacity:.8}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ys-c-key svg{animation:none}.ys-dcall{display:none}.ys-ladder .ys-lr,.ys-ladder .ys-lsway,.ys-ladder .ys-ldot,.ys-keyown svg{animation:none;opacity:1}}
 .ys-tap--calm{animation:none;opacity:.85;font-size:clamp(15px,1.4vw,18px)}
 .ys-go--fin,.ys-go--fig{margin-top:4px}
 /* Пространство за дверью: на весь экран, поверх сцены, под картами (Карта дня, колода, ключ открываются поверх него) */
@@ -506,6 +517,20 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-sp-img figcaption{margin-top:8px;font-size:14px;color:#e8d3a6}
 .ys-sp-btn{align-self:center;font:inherit;font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;letter-spacing:.03em;color:#2a1a05;background:radial-gradient(circle at 50% 35%,#fff3c8,#ffcf5a 60%,#d9921c);border:0;border-radius:999px;padding:11px 28px;cursor:pointer;box-shadow:0 0 0 1px rgba(255,236,180,.6),0 0 26px rgba(255,200,80,.45)}
 .ys-sp-btn--final{background:transparent;color:#ffe7ae;box-shadow:0 0 0 1px rgba(255,214,140,.55)}
+a.ys-sp-btn{text-decoration:none;display:inline-block}
+.ys-c-back{display:block;margin:4px auto 0;font:inherit;font-size:14px;letter-spacing:.04em;color:#e8d3a6;background:none;border:0;padding:8px 14px;cursor:pointer;opacity:.85}
+.ys-c-back::before{content:"← "}
+.ys-c-back:hover{opacity:1;text-decoration:underline;text-underline-offset:4px}
+.ys-sp-btn[aria-disabled="true"]{opacity:.5;cursor:default}
+/* Свёрнутый текст (текст медитации): заголовок с ▾ — нажали, текст раскрылся */
+.ys-sp-fold{text-align:left}
+.ys-sp-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(20px,1.9vw,24px);color:#fff3d6;padding:10px 4px;border-bottom:1px solid rgba(255,214,140,.28)}
+.ys-sp-fold>summary::-webkit-details-marker{display:none}
+.ys-sp-fold>summary::after{content:"";flex:none;width:9px;height:9px;margin-right:6px;border-right:1.6px solid #ffd86e;border-bottom:1.6px solid #ffd86e;transform:translateY(-3px) rotate(45deg);transition:transform .3s ease}
+.ys-sp-fold[open]>summary::after{transform:translateY(2px) rotate(-135deg)}
+.ys-sp-fold>summary:focus-visible{outline:2px solid #ffe39a;outline-offset:3px;border-radius:6px}
+.ys-sp-fold>.ys-sp-text{padding-top:12px;animation:ys-foldin .45s ease}
+@keyframes ys-foldin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .ys-space-back{position:absolute;left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));z-index:2;font:inherit;font-size:14px;letter-spacing:.02em;color:#f6ead2;padding:8px 14px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.45);border:1px solid rgba(255,214,140,.25);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .ys-space-back:hover{background:rgba(12,8,4,.6)}
 
