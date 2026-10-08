@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009d';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261009e';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4975,13 +4975,15 @@
     var M = window.M13D, D = r.doors, tx = r.texts = r.texts || {}, uc = M.isChoice(r), key = M.deep(r) === 'key';
     // Как выглядит кнопка на Карте дня — с тем же движением, что на сайте
     function look() {
-      var ic = M.keyIcon(r), k = el('span', { class: 'ys-c-key' }), box = el('div', { class: 'a-jd-keylook' }, [k]);
+      var ic = M.keyIcon(r), text = key ? tx.doorKey || 'Есть ключ? Поднимайся' : tx.doorKey || 'Есть ключ? Введи ключ', box = el('div', { class: 'a-jd-keylook' });
+      if (ic.spiral) { var k = el('span', { class: 'ys-c-key' }); k.appendChild(el('span', { text: '◎' })); k.appendChild(el('span', { text: text })); box.appendChild(k); return box; }
+      var up = el('div', { class: 'ys-c-up' }), b = el('span', { class: 'ys-upbtn' });
+      if ((D.keyLabel || '') !== 'none') up.appendChild(el('p', { class: 'ys-c-up-t', text: text }));
       if (ic.svg) {
-        var own = el('span', { class: 'ys-keyown' }); k.appendChild(own);
+        var own = el('span', { class: 'ys-keyown' }); b.appendChild(own);
         M.svgLoad(imgSrc(ic.svg), function (c) { if (!c) return; var sv = M.svgNode(c, ''); own.replaceChildren(sv); M.svgDraw(sv, 1800); });
-      } else if (ic.spiral) k.appendChild(el('span', { class: 'a-hint', text: '◎' }));
-      else k.insertAdjacentHTML('beforeend', ic.html);
-      k.appendChild(el('span', { text: key ? tx.doorKey || 'Есть ключ? Поднимайся' : tx.doorKey || 'Есть ключ? Введи ключ' }));
+      } else b.insertAdjacentHTML('beforeend', ic.html);
+      up.appendChild(b); box.appendChild(up);
       return box;
     }
     var bx = block('Карта дня и лестница — вход глубже', [
@@ -4994,14 +4996,16 @@
           onChange: function (v) { if (!v) delete D.deep; renderMain(); }, hint: 'По лестнице: Наблюдение видит Карту дня, а пространство (фон, медитация, аудио, «Оставить след») — Путешествие и Погружение.' })]),
       sub('Значок входа'),
       el('div', { class: 'a-row' }, [
-        selectIn(D, 'keyIcon', 'Какой значок', M.KEY_NAMES, { def: 'rope', onChange: function () { renderMain(); }, hint: 'Лестницы нарисованы линией: перекладины по очереди загораются снизу вверх; верёвочная покачивается, огонёк над ступенями дышит.' }),
+        el('div', {}, [
+          selectIn(D, 'keyIcon', 'Какой значок', M.KEY_NAMES, { def: 'rope', onChange: function () { renderMain(); }, hint: 'Лестница — отдельный светящийся знак, как спираль Солнца: перекладины по очереди загораются снизу вверх; верёвочная покачивается, огонёк над ступенями дышит. Спираль — прежняя кнопка с надписью.' }),
+          D.keyIcon === 'spiral' ? null : selectIn(D, 'keyLabel', 'Надпись у знака', [['', 'тонкой строкой над знаком'], ['none', 'без надписи — только знак']], { def: '', onChange: function (v) { if (!v) delete D.keyLabel; renderMain(); } })]),
         look()]),
       D.keyIcon === 'svg' ? imageIn(D, 'keySvg', 'Свой значок — SVG', { max: 600, svg: 'Значок входа', size: { w: 64, h: 80, note: 'SVG, линии без заливки (как знаки следов). Рисуется цветом кнопки' },
         onChange: function () { renderMain(); }, hint: 'Когда карта открылась, значок прорисовывается линией, дальше мягко светится. Нет файла — верёвочная лестница.' }) : null,
       sub('Надписи'),
       el('div', { class: 'a-row' }, [
-        textIn(tx, 'doorKey', 'На лестнице — пока нет кода', { ph: key ? 'Есть ключ? Поднимайся' : 'Есть ключ? Введи ключ', hint: 'Видна и в Наблюдении. Ведёт в окно ключа' + (key ? ', после ключа — в пространство.' : '.') }),
-        key ? textIn(tx, 'doorKeyIn', 'На лестнице — код уже есть', { ph: 'Поднимайся', hint: 'Человек уже входил со своим ключом или кодом на этом устройстве — лестница ведёт сразу в пространство.' }) : null]),
+        textIn(tx, 'doorKey', 'Надпись — пока нет кода', { ph: key ? 'Есть ключ? Поднимайся' : 'Есть ключ? Введи ключ', hint: 'Видна и в Наблюдении. Ведёт в окно ключа' + (key ? ', после ключа — в пространство.' : '.') }),
+        key ? textIn(tx, 'doorKeyIn', 'Надпись — код уже есть', { ph: 'Поднимайся', hint: 'Человек уже входил со своим ключом или кодом на этом устройстве — лестница ведёт сразу в пространство.' }) : null]),
       el('div', { class: 'a-row' }, [
         uc && M.tap2(r) ? textIn(tx, 'doorTap2', 'Над дверями — после первого нажатия', { ph: 'Коснитесь двери ещё раз' }) : null,
         key ? textIn(tx, 'doorCardBack', 'Кнопка внизу карты — назад', { ph: 'К дверям' }) : null])

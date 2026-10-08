@@ -138,7 +138,8 @@
     var D = cfg(r), k = D.keyIcon || 'rope';
     if (k === 'svg' && D.keySvg) return { svg: D.keySvg };
     if (k === 'spiral') return { spiral: true };
-    return { html: '<svg class="ys-ladder ys-ladder--' + (KEY_ICONS[k] ? k : 'rope') + '" viewBox="0 0 64 80" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (KEY_ICONS[k] || KEY_ICONS.rope) + '</svg>' };
+    var VB = { rope: '10 -2 44 82', steps: '2 2 64 76', screw: '6 6 54 74' }; if (!KEY_ICONS[k]) k = 'rope';
+    return { html: '<svg class="ys-ladder ys-ladder--' + k + '" viewBox="' + VB[k] + '" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + KEY_ICONS[k] + '</svg>' };
   }
   function uid() { return 'd' + Math.random().toString(36).slice(2, 9); }
   function doorOf(r, n) { return (cfg(r).items || [])[n - 1] || {}; }

@@ -713,20 +713,30 @@
     // Двери v2: «Есть ключ? Введи ключ» — живой вход глубже (виден и в Наблюдении, чтобы человек знал, что глубже что-то есть)
     function keyBtn() {
       if (!o.onKey) return;
-      var k = el('button', 'ys-c-key'); k.type = 'button';
       // Значок — лестница (верёвочная / ступени / винтовая), спираль или свой SVG (doors.keyIcon); свой рисуется линией, когда карта открылась
-      var M = window.M13D, ic = M && M.keyIcon ? M.keyIcon(route) : { spiral: true };
+      var M = window.M13D, ic = M && M.keyIcon ? M.keyIcon(route) : { spiral: true }, text = o.keyText || 'Есть ключ? Введи ключ';
+      // Спираль — прежняя кнопка-плашка со спиралью и надписью
+      if (ic.spiral) {
+        var k = el('button', 'ys-c-key'); k.type = 'button';
+        k.innerHTML = spiralSVG(); k.appendChild(el('span', null, text));
+        k.addEventListener('click', function () { o.onKey(); });
+        foot.appendChild(k);
+        return;
+      }
+      // Лестница — отдельный светящийся знак, как спираль Солнца; надпись — тонкой строкой над ним или без неё (doors.keyLabel)
+      var box = el('div', 'ys-c-up'), b = el('button', 'ys-upbtn'); b.type = 'button'; b.setAttribute('aria-label', text);
+      if ((M.cfg(route).keyLabel || '') !== 'none') box.appendChild(el('p', 'ys-c-up-t', text));
       if (ic.svg) {
-        var own = el('span', 'ys-keyown'); k.appendChild(own);
+        var own = el('span', 'ys-keyown'); b.appendChild(own);
         M.svgLoad(imgSrc(o.base, ic.svg), function (c) {
-          if (!c) { own.innerHTML = spiralSVG(); return; }
+          if (!c) { own.innerHTML = M.keyIcon({ doors: {} }).html; return; }
           var sv = M.svgNode(c, ''); own.replaceChildren(sv);
           if (!REDUCED) setTimeout(function () { if (sv.isConnected) M.svgDraw(sv, 1800); }, 350);
         });
-      } else k.innerHTML = ic.html || spiralSVG();
-      k.appendChild(el('span', null, o.keyText || 'Есть ключ? Введи ключ'));
-      k.addEventListener('click', function () { o.onKey(); });
-      foot.appendChild(k);
+      } else b.innerHTML = ic.html;
+      b.addEventListener('click', function () { o.onKey(); });
+      box.appendChild(b);
+      foot.appendChild(box);
     }
     if (fin) {
       var exit = (o.exit || []).slice(), gb;
