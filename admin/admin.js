@@ -800,6 +800,163 @@
     window.scrollTo(0, 0);
   }
 
+  /* ---------- Поиск настройки в открытом разделе ----------
+     Строка «Найти настройку» над разделом ищет по названиям полей, подсказкам, заголовкам групп и блоков,
+     вариантам выбора, кнопкам и пунктам списков — в том, что сейчас на экране (раздел, вкладка, карточка),
+     в том числе внутри свёрнутых групп. Нажали на найденное — группа раскрывается, страница прокручивается
+     к полю, поле подсвечивается. Закрытые пункты списков — по кнопке «Искать и в них»: открываются,
+     а где ничего не нашлось — закрываются обратно. Другие вкладки и разделы — шаг 2 (пока нет). */
+  var FIND = { q: '', hits: [], i: -1, auto: [], list: false, wait: 0 };
+  var FIND_UNIT = '.a-field, .a-switch, .a-ci-head, .a-sub, summary, .a-tabs > button, .a-btn, label, p, li, h1, h2, h3, h4';
+  var FIND_SKIP = '.a-foldbar, .a-fold-info, .a-jpv, .a-phone, iframe, canvas, svg, script, style, [class*="m13"]';
+  function findNorm(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' '); }
+  function findMain() { return document.getElementById('a-main'); }
+  // виден ли элемент (свёрнутая группа не мешает — её раскроем; скрытое условием поле — не показываем)
+  function findShown(n, main) {
+    for (; n && n !== main; n = n.parentElement) {
+      if (n.hidden) return false;
+      var cs = getComputedStyle(n);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    }
+    return true;
+  }
+  function findCollect() {
+    var main = findMain(), words = findNorm(FIND.q).trim().split(' ').filter(Boolean);
+    FIND.hits = [];
+    if (!main || !words.length || findNorm(FIND.q).trim().length < 2) return;
+    var units = [], texts = [];
+    var tw = document.createTreeWalker(main, NodeFilter.SHOW_TEXT, null), t;
+    while ((t = tw.nextNode())) {
+      var p = t.parentElement;
+      if (!p || !t.nodeValue.trim() || p.closest(FIND_SKIP)) continue;
+      var u = p.closest('option') ? (p.closest('.a-field') || p.closest('select')) : (p.closest(FIND_UNIT) || p);
+      if (!main.contains(u)) continue;
+      var k = units.indexOf(u);
+      if (k < 0) { units.push(u); texts.push(''); k = units.length - 1; }
+      texts[k] += ' ' + t.nodeValue;
+    }
+    units.forEach(function (u, k) {
+      var s = findNorm(texts[k]);
+      if (words.every(function (w) { return s.indexOf(w) >= 0; }) && findShown(u, main)) FIND.hits.push(u);
+    });
+    // вложенное: если найдены и пункт, и что-то внутри него — оставляем внутреннее
+    FIND.hits = FIND.hits.filter(function (u) { return !FIND.hits.some(function (x) { return x !== u && u.contains(x); }); });
+  }
+  function findName(u) {
+    var n = u.querySelector && u.querySelector('.a-label, .a-switch-text, .a-ci-name, .a-sub');
+    if (n && n.classList.contains('a-switch-text') && n.firstChild) n = n.firstChild;
+    var s = (n || u).textContent.replace(/\s+/g, ' ').trim();
+    return s.length > 80 ? s.slice(0, 78) + '…' : s || '—';
+  }
+  function findPath(u) {
+    var out = [];
+    for (var n = u.parentElement && u.parentElement.closest('details.a-fold, details.a-block, .a-ci'); n; n = n.parentElement && n.parentElement.closest('details.a-fold, details.a-block, .a-ci')) {
+      var s = n.classList.contains('a-fold') ? n.getAttribute('data-ft')
+        : n.classList.contains('a-ci') ? (n.querySelector('.a-ci-name') || {}).textContent
+        : (n.firstChild && n.firstChild.firstChild || {}).textContent;
+      s = String(s || '').trim();
+      if (s && (!u.contains || !n.firstChild || !n.firstChild.contains(u))) out.unshift(s.length > 40 ? s.slice(0, 38) + '…' : s);
+    }
+    return out.slice(-3).join(' › ');
+  }
+  function findClosedLeft() {
+    var main = findMain();
+    return main ? [].filter.call(main.querySelectorAll('.a-ci-title[aria-expanded="false"]'), function (b) { return findShown(b, main); }).length : 0;
+  }
+  function findMark() {
+    var main = findMain(); if (!main) return;
+    [].forEach.call(main.querySelectorAll('.a-found, .a-found-all'), function (x) { x.classList.remove('a-found', 'a-found-all'); });
+    FIND.hits.forEach(function (u, k) { u.classList.add(k === FIND.i ? 'a-found' : 'a-found-all'); });
+  }
+  // раскрыть свёрнутое над полем; то, что раскрыли для прошлого найденного, свернуть обратно
+  function findGo(k) {
+    if (!FIND.hits.length) return;
+    FIND.i = (k + FIND.hits.length) % FIND.hits.length;
+    var u = FIND.hits[FIND.i];
+    if (!u.isConnected) { findRun(true); return; }
+    FIND.auto = FIND.auto.filter(function (d) { if (d.isConnected && !d.contains(u) && d.open) d.open = false; return false; });
+    for (var d = u.parentElement && u.parentElement.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) {
+      if (!d.open && !(d.firstChild && d.firstChild.contains(u))) { d.open = true; FIND.auto.push(d); }
+    }
+    findMark();
+    u.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    FIND.list = false; findDraw();
+  }
+  function findRun(keep) {
+    var was = keep ? FIND.hits[FIND.i] : null;
+    findCollect();
+    FIND.i = was ? FIND.hits.indexOf(was) : -1;
+    if (keep && FIND.i < 0 && FIND.hits.length) FIND.i = 0;
+    findMark(); findDraw();
+  }
+  // открыть все закрытые пункты списков, найти, ненужные закрыть обратно
+  function findDeep() {
+    var main = findMain(); if (!main) return;
+    function chain(row) { var c = []; for (var n = row; n; n = n.parentElement && n.parentElement.closest('.a-ci')) c.unshift(n.getAttribute('data-k') || ''); return c.join('/'); }
+    function rows(exp) { return [].filter.call(main.querySelectorAll('.a-ci-title[aria-expanded="' + exp + '"]'), function (b) { return findShown(b, main); }); }
+    var before = {}, t0 = Date.now(), g, b;
+    rows('true').forEach(function (x) { before[chain(x.closest('.a-ci'))] = 1; });
+    for (g = 0; g < 600 && Date.now() - t0 < 6000 && (b = rows('false')[0]); g++) b.click();
+    findCollect();
+    var need = {};
+    FIND.hits.forEach(function (u) { for (var n = u.closest('.a-ci'); n; n = n.parentElement && n.parentElement.closest('.a-ci')) need[chain(n)] = 1; });
+    var skip = {};
+    for (g = 0; g < 600; g++) {
+      b = rows('true').filter(function (x) { var c = chain(x.closest('.a-ci')); return !before[c] && !need[c] && !skip[c]; })[0];
+      if (!b) break;
+      skip[chain(b.closest('.a-ci'))] = 1; b.click();
+    }
+    findRun(false);
+    if (FIND.hits.length) findGo(0);
+  }
+  function findDraw() {
+    var box = document.getElementById('a-find'); if (!box) return;
+    var n = FIND.hits.length, q = findNorm(FIND.q).trim(), left = q.length >= 2 ? findClosedLeft() : 0;
+    box.parentNode.classList.toggle('is-finding', q.length >= 2);
+    box.querySelector('.a-find-count').textContent = q.length < 2 ? '' : n ? (FIND.i >= 0 ? (FIND.i + 1) + ' из ' + n : 'найдено: ' + n) : 'не найдено';
+    [].forEach.call(box.querySelectorAll('.a-find-nav'), function (x) { x.disabled = !n; });
+    var lst = box.querySelector('.a-find-list');
+    lst.replaceChildren();
+    lst.hidden = !(FIND.list && q.length >= 2);
+    if (lst.hidden) return;
+    FIND.hits.slice(0, 60).forEach(function (u, k) {
+      var path = findPath(u);
+      lst.appendChild(el('button', { type: 'button', class: 'a-find-item' + (k === FIND.i ? ' is-on' : ''), onmousedown: function (e) { e.preventDefault(); }, onclick: function () { findGo(k); } },
+        [el('span', { class: 'a-find-name', text: findName(u) }), path ? el('span', { class: 'a-find-path', text: path }) : null]));
+    });
+    if (n > 60) lst.appendChild(el('p', { class: 'a-find-note', text: 'Показаны первые 60 — уточните слово.' }));
+    if (left) lst.appendChild(el('div', { class: 'a-find-note' }, ['Закрытых пунктов в списках: ' + left + '. ',
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Искать и в них', onmousedown: function (e) { e.preventDefault(); }, onclick: findDeep })]));
+    lst.appendChild(el('p', { class: 'a-find-note', text: n ? 'Нажмите на строку — панель раскроет группу и покажет поле.' : 'В этом разделе (и на этой вкладке) не нашлось. Другие вкладки, карточки и разделы — откройте их и поищите там.' }));
+  }
+  // строка поиска держится под верхней панелью (её высота разная на телефоне и компьютере)
+  function findTop() {
+    var h = document.querySelector('.a-top');
+    if (h) document.documentElement.style.setProperty('--a-toph', h.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', findTop);
+  function findBox() {
+    var inp = el('input', { type: 'search', class: 'a-input a-find-in', placeholder: '🔍 Найти настройку в этом разделе', 'aria-label': 'Найти настройку в этом разделе', value: FIND.q, autocomplete: 'off' });
+    inp.addEventListener('input', function () {
+      FIND.q = inp.value; FIND.list = true;
+      clearTimeout(FIND.wait); FIND.wait = setTimeout(function () { findRun(false); }, 200);
+    });
+    function showList() { if (findNorm(FIND.q).trim().length >= 2 && !FIND.list) { FIND.list = true; findRun(true); } }
+    inp.addEventListener('focus', showList);
+    inp.addEventListener('click', showList);
+    inp.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== inp) { FIND.list = false; findDraw(); } }, 150); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); clearTimeout(FIND.wait); if (!FIND.hits.length || !FIND.hits[0].isConnected) findCollect(); findGo(FIND.i + (e.shiftKey ? -1 : 1)); }
+      else if (e.key === 'Escape') { inp.value = FIND.q = ''; FIND.hits = []; FIND.i = -1; findMark(); FIND.list = false; findDraw(); }
+    });
+    return el('div', { class: 'a-find', id: 'a-find' }, [
+      el('div', { class: 'a-find-row' }, [inp,
+        el('span', { class: 'a-find-count', 'aria-live': 'polite' }),
+        el('button', { type: 'button', class: 'a-icon a-find-nav', text: '↑', title: 'Предыдущее', 'aria-label': 'Предыдущее найденное', onclick: function () { findGo(FIND.i - 1); } }),
+        el('button', { type: 'button', class: 'a-icon a-find-nav', text: '↓', title: 'Следующее (Enter)', 'aria-label': 'Следующее найденное', onclick: function () { findGo(FIND.i + 1); } })]),
+      el('div', { class: 'a-find-list', hidden: true })]);
+  }
+
   /* ---------- Коллекция: список элементов с порядком, видимостью, удалением ---------- */
   // Перетаскивание мышкой (на компьютере): тянем за «⋮⋮» слева. На телефоне ручка скрыта — там стрелки.
   var DRAG = null;
@@ -920,9 +1077,11 @@
   }
   function renderMain() {
     var m = document.getElementById('a-main');
-    m.replaceChildren(el('div', { class: 'a-foldbar', id: 'a-foldbar', hidden: true }, [
+    FIND.hits = []; FIND.i = -1; FIND.auto = []; FIND.list = false;
+    m.replaceChildren(el('div', { class: 'a-foldbar' }, [findBox(), el('span', { class: 'a-foldbtns', id: 'a-foldbar', hidden: true }, [
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Свернуть всё', title: 'Свернуть все группы, блоки и открытые пункты', onclick: function () { foldAll(false); } }),
-      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Развернуть группы', title: 'Раскрыть группы в том, что сейчас открыто', onclick: function () { foldAll(true); } })]));
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Развернуть группы', title: 'Раскрыть группы в том, что сейчас открыто', onclick: function () { foldAll(true); } })])]));
+    findTop();
     var s = ST.section;
     if (s === 'showcases') add(m, ST.showcase ? viewShowcase() : viewShowcaseList());
     else if (s === 'home') add(m, viewHome());

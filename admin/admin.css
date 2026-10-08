@@ -66,8 +66,29 @@ body.a-body{margin:0;background:#f3f3f1}
 .a-fold-info{font-size:12px;color:var(--a-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .a-fold[open] > summary .a-fold-info{display:none}
 .a-fold-body{display:grid;gap:12px;padding:6px 0 6px 12px;margin:2px 0 6px 4px;border-left:2px solid var(--a-line);min-width:0}
-.a-foldbar{display:flex;justify-content:flex-end;gap:6px;margin-bottom:-6px}
-.a-foldbar[hidden]{display:none}
+.a-foldbar{display:flex;align-items:flex-start;gap:6px;margin-bottom:-6px;position:sticky;top:var(--a-toph,56px);z-index:40;
+  padding:6px 0;background:rgba(243,243,241,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.a-foldbtns{display:flex;gap:6px;margin-left:auto}
+.a-foldbtns[hidden]{display:none}
+/* Поиск настройки в разделе */
+.a-find{position:relative;flex:1 1 320px;max-width:560px;min-width:0}
+.a-find-row{display:flex;align-items:center;gap:6px}
+.a-find-in{flex:1;border-radius:999px;padding:7px 14px}
+.a-find-count{font-size:12px;color:var(--a-muted);white-space:nowrap}
+.a-find-count:empty{display:none}
+.a-find-nav:disabled{opacity:.35;cursor:default}
+.a-find-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:45;background:#fff;border:1px solid var(--a-line);border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.12);max-height:min(60vh,460px);overflow:auto;padding:6px;display:grid;gap:2px}
+.a-find-list[hidden]{display:none}
+.a-find-item{display:grid;gap:1px;text-align:left;border:0;background:none;border-radius:8px;padding:7px 9px;cursor:pointer;font:inherit;color:inherit}
+.a-find-item:hover,.a-find-item.is-on{background:var(--a-soft)}
+.a-find-name{font-size:13px;font-weight:600}
+.a-find-path{font-size:11px;color:var(--a-muted)}
+.a-find-note{font-size:12px;color:var(--a-muted);padding:6px 9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.a-found-all{background:rgba(255,214,90,.16);border-radius:8px}
+.a-found{background:rgba(255,214,90,.42);border-radius:8px;outline:2px solid #e0a800;outline-offset:3px;animation:a-found 1.6s ease-out 1}
+@keyframes a-found{0%{outline-color:#ff8a00;outline-offset:8px}100%{outline-color:#e0a800;outline-offset:3px}}
+@media (max-width:860px){.a-foldbar{flex-wrap:wrap}.a-find{flex-basis:100%;max-width:none}.a-foldbar.is-finding .a-foldbtns{display:none}}
 .a-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .a-row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 
