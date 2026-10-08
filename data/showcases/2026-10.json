@@ -237,7 +237,8 @@
             "value": "Маршрут завершён",
             "show": true
           }
-        }
+        },
+        "dayEdge": "strong"
       },
       "back": {
         "type": "blocks",
