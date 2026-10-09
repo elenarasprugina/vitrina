@@ -809,24 +809,76 @@
   function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
   var kWedge = null;
   /* Контраст и чёткость линий (09.10) — один раз на картинку, прямо в точках: дальше узор рисуется как обычно, без лишней работы в кадре.
-     Чёткость — «нерезкая маска»: к картинке прибавляется её разница с чуть размытой копией (линии и края резче). */
+     Чёткость — «нерезкая маска»: к картинке прибавляется её разница с чуть размытой копией (линии и края резче).
+     Мягкость (09.10, проба «филигрань»): цвет картинки уходит к тональности дня (tone), контраст тише; с филигранью (fil) исходные линии
+     растворяются сильнее (берётся размытая картинка) — остаётся одно тонкое кружево, а не два слоя. */
+  var KTONES = {
+    sky: { c: [168, 204, 240], ink: [52, 92, 150] }, dawn: { c: [246, 196, 186], ink: [150, 70, 70] }, moon: { c: [214, 220, 236], ink: [80, 88, 120] },
+    gold: { c: [244, 222, 170], ink: [140, 98, 30] }, lilac: { c: [212, 196, 238], ink: [96, 70, 150] }, night: { c: [38, 46, 92], ink: [200, 210, 255], dark: true }
+  };
+  var KFIL = { champ: [226, 202, 150], gold: [214, 164, 62], silver: [196, 206, 228], light: [255, 255, 255] }, KFIL_DARK = { champ: [250, 232, 196], gold: [255, 222, 150] };
+  function kalTone(k) { return KTONES[k.tone] || null; }
+  function kalFilOn(k) { return !!(k.fil && (KFIL[k.fil] || k.fil === 'ink')); }
+  function kalLum(d, i) { return .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]; }
   function kalPrep(im, k) {
-    var c = num(k.contrast, 100, 50, 200) / 100, a = num(k.sharp, 0, 0, 100) / 100 * 2.5, key = c + '/' + a;
-    if (c === 1 && !a) return im;
+    var c = num(k.contrast, 100, 50, 200) / 100, a = num(k.sharp, 0, 0, 100) / 100 * 2.5, s = num(k.soft, 0, 0, 100) / 100, T = kalTone(k), fo = kalFilOn(k);
+    var key = c + '/' + a + '/' + s + '/' + (k.tone || '') + '/' + fo;
+    if (c === 1 && !a && !s) return im;
     if (im._m13p && im._m13p.key === key) return im._m13p.cv;
-    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, cv, x, d, o, b, i, j, v;
+    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, cv, x, d, o, b, i, j, v, L, lw = fo ? .18 : 1, m = Math.min(1, s * (fo ? 1.4 : .85));
     try {
       cv = document.createElement('canvas'); cv.width = w; cv.height = h; x = cv.getContext('2d');
-      x.drawImage(im, 0, 0); d = x.getImageData(0, 0, w, h); o = d.data;
+      if (s && fo && 'filter' in x) x.filter = 'blur(4px)';
+      x.drawImage(im, 0, 0); x.filter = 'none'; d = x.getImageData(0, 0, w, h); o = d.data;
     } catch (e) { return im; }
     if (a) b = kalBlur(im, o, w, h);
-    for (i = 0; i < o.length; i += 4) for (j = i; j < i + 3; j++) {
-      v = o[j]; if (a) v += (v - b[j]) * a;
-      o[j] = (v - 128) * c + 128;
+    for (i = 0; i < o.length; i += 4) {
+      for (j = i; j < i + 3; j++) {
+        v = o[j]; if (a) v += (v - b[j]) * a;
+        o[j] = (v - 128) * c + 128;
+      }
+      if (!s) continue;
+      L = kalLum(o, i) / 255; if (L < 0) L = 0; else if (L > 1) L = 1;
+      for (j = 0; j < 3; j++) {
+        v = o[i + j];
+        if (T) v += ((T.dark ? T.c[j] * (.55 + .9 * L * lw + .45 * (1 - lw)) : T.c[j] * (.62 + .45 * L * lw + .22 * (1 - lw))) - v) * m;
+        else { v += (L * 255 - v) * s * .45; v += ((fo ? 235 : 245) - v) * s * .3; }
+        o[i + j] = v;
+      }
     }
     x.putImageData(d, 0, 0);
     im._m13p = { key: key, cv: cv };
     return cv;
+  }
+  /* Филигрань (09.10): тонкие линии самой картинки (точка темнее своего окружения; звёзды — светлее) → кружево с чётким краем, без дымки.
+     k.fil — цвет: champ (шампань) | gold | silver | light (белый свет) | ink (цвет тональности); k.thin — тонкость, % (60); k.filA — сила, % (80).
+     z — во сколько раз картинка растянута в узоре: кружево считается крупнее (до 2 раз, не больше 2048 точек), чтобы край оставался чистым;
+     на маленькой двери — мельче (быстрее). */
+  function kalFil(im, k, z) {
+    if (!kalFilOn(k)) return null;
+    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, T = kalTone(k) || {};
+    var f = Math.max(.35, Math.min(2, z, 2048 / Math.max(w, h))); f = Math.round(f * 4) / 4 || .25;
+    var key = [k.fil, k.tone || '', num(k.thin, 60, 0, 100), f].join('/');
+    if (im._m13f && im._m13f.key === key) return im._m13f.cv;
+    var W = Math.round(w * f), H = Math.round(h * f), u, ux, U, B, fc, fx, FD, o, i, a, col, t0 = 6 + num(k.thin, 60, 0, 100) * .22, r = Math.max(.6, 1.5 * f);
+    try {
+      u = document.createElement('canvas'); u.width = W; u.height = H; ux = u.getContext('2d'); ux.imageSmoothingQuality = 'high'; ux.drawImage(im, 0, 0, W, H);
+      U = ux.getImageData(0, 0, W, H).data;
+      var bl = document.createElement('canvas'); bl.width = W; bl.height = H; var bx = bl.getContext('2d');
+      if ('filter' in bx) { bx.filter = 'blur(' + r.toFixed(1) + 'px)'; bx.drawImage(u, 0, 0); B = bx.getImageData(0, 0, W, H).data; }
+      else B = kalBlur(u, U, W, H);
+      fc = document.createElement('canvas'); fc.width = W; fc.height = H; fx = fc.getContext('2d'); FD = fx.createImageData(W, H); o = FD.data;
+    } catch (e) { return null; }
+    col = k.fil === 'ink' ? (T.ink || [70, 60, 90]) : (T.dark && KFIL_DARK[k.fil]) || KFIL[k.fil];
+    for (i = 0; i < U.length; i += 4) {
+      var L = kalLum(U, i), Lb = kalLum(B, i);
+      a = Math.max(Lb - L, 0) + Math.max(L - Lb, 0) * .7;
+      a = (a - t0) / 10; if (a <= 0) continue; if (a > 1) a = 1; else a = a * a * (3 - 2 * a);
+      o[i] = col[0]; o[i + 1] = col[1]; o[i + 2] = col[2]; o[i + 3] = a * 255;
+    }
+    fx.putImageData(FD, 0, 0);
+    im._m13f = { key: key, cv: fc };
+    return fc;
   }
   // Размытая копия: браузер умеет сам (быстро); не умеет — размытие на 1 точку по строкам и столбцам, два раза
   function kalBlur(im, o, w, h) {
@@ -857,7 +909,7 @@
   // Сохранённые стёклышки → для рисования (узор на двери, обложка, фигура)
   function kalPcs(r, g, base) {
     return (Array.isArray(g) ? g : []).filter(function (s) { return s && isFinite(+s.x) && isFinite(+s.y) && Array.isArray(s.c); })
-      .map(function (s, i) { return { at: [+s.x, +s.y], c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7 }; });
+      .map(function (s, i) { return { at: [+s.x, +s.y], c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: cfg(r).kalGlow, cry: cfg(r).kalGlass === 'crystal' }; });
   }
   // Картинки камней («своя картинка») — загрузить до того, как узор рисуется один раз (дверь, фигура)
   function kalPre(P, done) {
@@ -876,7 +928,46 @@
     var cv = document.createElement('canvas'); window.M13K.stone(cv, it.c, it.look, 96);
     return (kSpr[key] = cv);
   }
-  function kalPiece(x, it, r, t) {
+  /* Сияние и яркий кристалл (09.10, проба «филигрань»): doors.kalGlow — сияние стёклышек, % (0 — как было): ореол их цвета и мерцающий крестик-блик
+     (в чаше — только ореол); doors.kalGlass: 'crystal' — вместо камня из вкладки «Стёклышки» огранённый яркий кристалл (своя картинка остаётся картинкой). */
+  function kalCrystal(x, c, r, ph) {
+    var pts = [[0, -1.25], [.62, -.45], [.62, .45], [0, 1.25], [-.62, .45], [-.62, -.45]], fac = [.65, .35, .05, -.1, .15, .5], k, a1, a2;
+    x.save(); x.rotate(ph * .7);
+    for (k = 0; k < 6; k++) {
+      a1 = pts[k]; a2 = pts[(k + 1) % 6];
+      x.fillStyle = fac[k] >= 0 ? rgbA(liftC(c, fac[k]), 1) : rgbA([c[0] * .8 | 0, c[1] * .8 | 0, c[2] * .8 | 0], 1);
+      x.beginPath(); x.moveTo(0, 0); x.lineTo(a1[0] * r, a1[1] * r); x.lineTo(a2[0] * r, a2[1] * r); x.closePath(); x.fill();
+    }
+    x.strokeStyle = 'rgba(255,255,255,.85)'; x.lineWidth = Math.max(.8, r * .05); x.beginPath();
+    pts.forEach(function (p, i) { x[i ? 'lineTo' : 'moveTo'](p[0] * r, p[1] * r); }); x.closePath(); x.stroke();
+    var g = x.createRadialGradient(0, -r * .2, 0, 0, -r * .2, r * .55);
+    g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(0, -r * .2, r * .55, 0, 6.2832); x.fill();
+    x.restore();
+  }
+  function kalPiece(x, it, r, t, inBowl) {
+    if (it.k !== 'spark' && (it.glow || it.cry)) {
+      var gl = num(it.glow, 0, 0, 100) / 100, tw = .8 + .2 * Math.sin(t * 2.3 + it.ph), rc = r * num(it.look.size, 100, 50, 200) / 100, k2;
+      if (gl) {
+        var HR = rc * (1.6 + 1.6 * gl) * tw; if (inBowl) HR = Math.min(HR, rc * 1.38);
+        var h = x.createRadialGradient(0, 0, rc * .2, 0, 0, HR);
+        h.addColorStop(0, rgbA(liftC(it.c, .35), .75 * gl)); h.addColorStop(.45, rgbA(it.c, .35 * gl)); h.addColorStop(1, rgbA(it.c, 0));
+        x.fillStyle = h; x.beginPath(); x.arc(0, 0, HR, 0, 6.2832); x.fill();
+      }
+      if (it.cry && it.look.kind !== 'image') kalCrystal(x, it.c, rc * .85, it.ph);
+      else kalPiece(x, { k: 'glass', c: it.c, look: it.look, ph: it.ph }, r, t);
+      if (gl && !inBowl) {
+        var L2 = rc * (1.3 + 1.5 * gl) * tw;
+        x.save(); x.globalCompositeOperation = 'lighter'; x.rotate(.4); x.lineCap = 'round';
+        for (k2 = 0; k2 < 2; k2++) {
+          var lg = x.createLinearGradient(-L2, 0, L2, 0);
+          lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.5, 'rgba(255,255,255,' + (.9 * gl) + ')'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+          x.strokeStyle = lg; x.lineWidth = Math.max(1, rc * .07); x.beginPath(); x.moveTo(-L2, 0); x.lineTo(L2, 0); x.stroke(); x.rotate(Math.PI / 2);
+        }
+        x.restore();
+      }
+      return;
+    }
     if (it.k === 'spark') {
       var k = .75 + .25 * Math.sin(t * 2.2 + it.ph), R = r * (2.1 + .4 * k), c = it.c;
       x.save(); x.globalCompositeOperation = 'lighter';
@@ -906,15 +997,17 @@
   function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
-    im = kalPrep(im, k);
+    var im0 = im; im = kalPrep(im, k);
     // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
     var sc = R * 2.3 * num(k.zoom, 100, 70, 130) / 100 / Math.min(sw, sh);
     // Ось вращения — точка картинки (px, py, % от левого и верхнего края; 50/50 — середина). Она видна в узоре всегда, остальное проплывает.
     // Ось у края — картинка чуть крупнее, чтобы при любом повороте закрывала клин (до самого дальнего угла клина ≈ 0,75 R)
     var ox = num(k.px, 50, 15, 85) / 100, oy = num(k.py, 50, 15, 85) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
     sc = Math.max(sc, R * .75 / (mg * Math.min(sw, sh)));
+    var fl = kalFil(im0, k, sc), fa = num(k.filA, 80, 10, 100) / 100;
     function cam(x) {
       x.rotate(ang); x.drawImage(im, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc);
+      if (fl) { x.globalAlpha = fa; x.drawImage(fl, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc); x.globalAlpha = 1; }
       (P || []).forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
     }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H);
@@ -934,7 +1027,9 @@
       c.drawImage(wc, 0, -pad); c.restore();
     }
     // Мягкая тень к краям — узор глубже
-    var v = c.createRadialGradient(0, 0, R * .5, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,' + num(k.vign, 40, 0, 60) / 100 + ')');
+    // Мягкое пространство светлой тональности — тень цветом тональности, не чёрная
+    var T = kalTone(k), vs = num(k.soft, 0, 0, 100), va = num(k.vign, 40, 0, 60) / 100 * (1 - vs / 140);
+    var v = c.createRadialGradient(0, 0, R * .5, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, T && !T.dark && vs ? rgbA(T.ink, va * .8) : 'rgba(0,0,0,' + va + ')');
     if (num(k.vign, 40, 0, 60)) { c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H); }
     c.restore();
   }
@@ -949,7 +1044,7 @@
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
     var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1 }, drag = null, last = 0, slow = 0, started = false;
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y)) at[p.id] = [+p.x, +p.y]; });
-    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, at: at[b.id] || null }; });
+    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null }; });
     var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
@@ -1129,9 +1224,9 @@
         b.type = 'button'; b.setAttribute('aria-pressed', live.sel() === i ? 'true' : 'false');
         b.setAttribute('aria-label', it.k === 'spark' ? 'Искра света' : 'Стёклышко');
         c.width = c.height = 84; b.appendChild(c);
-        var x = c.getContext('2d'); x.translate(42, 42); kalPiece(x, it, it.k === 'spark' ? 13 : 30, 1.2);
+        var x = c.getContext('2d'); x.translate(42, 42); kalPiece(x, it, it.k === 'spark' ? 13 : 30, 1.2, true);
         // Камень со своей картинкой ещё грузится — дорисовать, когда загрузится
-        if (it.k === 'glass' && it.look.kind === 'image') kalPre([it], function () { x.clearRect(-42, -42, 84, 84); kalPiece(x, it, 30, 1.2); });
+        if (it.k === 'glass' && it.look.kind === 'image') kalPre([it], function () { x.clearRect(-42, -42, 84, 84); kalPiece(x, it, 30, 1.2, true); });
         b.addEventListener('click', function () { live.sel(live.sel() === i ? -1 : i); fill(); say(); });
         bowl.appendChild(b);
       });
