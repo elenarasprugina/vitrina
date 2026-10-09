@@ -100,6 +100,10 @@
     for (k in L) o[k] = L[k];
     o.area = 'scene';
     if (s) { o.desktop = s.desktop || s.mobile; o.mobile = s.mobile || s.desktop; }
+    // Картинка только для компьютера (широкая) на телефоне не растягивается: во всю ширину, своей высоты, сверху (облака — в небе)
+    var own = s || L;
+    if (own.desktop && !own.mobile) o.ratioOn = 'mobile';
+    else if (own.mobile && !own.desktop) o.ratioOn = 'desktop';
     return o;
   }
   function weather(r) { return cfg(r).worldMode === 'weather'; }
@@ -272,7 +276,8 @@
     if (area !== 'scene') clip(ln, poly, num(L.soft, 0, 0, 40));
     if (pic) {
       // Картинка грузится, только когда слой впервые виден (wake) — невидимые слои страницу не тяжелят
-      var im = el('img', 'ys-dl-pic'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false;
+      var im = el('img', 'ys-dl-pic'), fit = L.ratioOn === key && area !== 'frag'; im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false;
+      if (fit) im.style.height = 'auto';
       if (L.bright != null && L.bright !== '' && +L.bright !== 100) im.style.filter = 'brightness(' + num(L.bright, 100, 20, 250) / 100 + ')';
       if (area === 'frag') {
         var sc = num(L.scale, 100, 50, 200) / 100;
@@ -284,7 +289,7 @@
       // Окрасить картинку (утренние розовые облака, серые…): цвет ложится только на саму картинку, яркость её сохраняется
       if (area !== 'frag' && hexOk(L.tint) && +L.tintPow > 0) {
         var tn = el('div', 'ys-dl-tint'); tn.style.background = L.tint; tn.style.opacity = num(L.tintPow, 0, 0, 100) / 100;
-        tn.setAttribute('data-mask', src(base, pic)); inner.style.isolation = 'isolate'; inner.appendChild(tn);
+        tn.setAttribute('data-mask', src(base, pic)); if (fit) tn.setAttribute('data-fit', '1'); inner.style.isolation = 'isolate'; inner.appendChild(tn);
       }
     }
     if (+L.fill > 0) { var fl = el('div', 'ys-dl-fill'); fl.style.background = color; fl.style.opacity = num(L.fill, 0, 0, 100) / 100; inner.appendChild(fl); }
@@ -473,7 +478,8 @@
     Array.prototype.forEach.call(ln.querySelectorAll('img[data-src]'), function (im) { im.src = im.getAttribute('data-src'); im.removeAttribute('data-src'); });
     Array.prototype.forEach.call(ln.querySelectorAll('[data-mask]'), function (t) {
       var u = 'url("' + t.getAttribute('data-mask') + '")';
-      t.style.webkitMaskImage = t.style.maskImage = u; t.style.webkitMaskSize = t.style.maskSize = '100% 100%';
+      t.style.webkitMaskImage = t.style.maskImage = u; t.style.webkitMaskSize = t.style.maskSize = t.hasAttribute('data-fit') ? '100% auto' : '100% 100%';
+      if (t.hasAttribute('data-fit')) { t.style.webkitMaskRepeat = t.style.maskRepeat = 'no-repeat'; t.style.webkitMaskPosition = t.style.maskPosition = 'top'; }
       t.removeAttribute('data-mask');
     });
   }
