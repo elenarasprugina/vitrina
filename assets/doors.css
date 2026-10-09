@@ -46,6 +46,21 @@
 @keyframes ys-fx-drift{0%{transform:translate(calc(-3% * var(--fx-p)),calc(1% * var(--fx-p)))}100%{transform:translate(calc(3% * var(--fx-p)),calc(-1.5% * var(--fx-p)))}}
 .ys-fx-reveal.is-on:not(.is-now) .ys-dl-box{animation:ys-fx-reveal var(--fx-t) ease-out both}
 @keyframes ys-fx-reveal{0%{opacity:0;filter:blur(10px);transform:scale(.97)}100%{opacity:1;filter:none;transform:none}}
+/* «Бесконечно плывёт»: лента из --n копий (вторая — зеркальная), едет на --d и начинает заново — стык совпадает, пустот нет */
+.ys-fx-flowbox{position:absolute;overflow:hidden}
+.ys-fx-flow{position:absolute;left:0;top:0;width:100%;height:100%;will-change:transform}
+.ys-fx-flow--h{width:calc(100% * var(--n))}
+.ys-fx-flow--v{height:calc(100% * var(--n))}
+.ys-fx-pane{position:absolute;left:0;top:0;width:100%;height:100%}
+.ys-fx-flow--h .ys-fx-pane{width:calc(100% / var(--n));left:calc(100% / var(--n) * var(--i))}
+.ys-fx-flow--v .ys-fx-pane{height:calc(100% / var(--n));top:calc(100% / var(--n) * var(--i))}
+.ys-fx-flow--h .ys-fx-pane.is-mirror{transform:scaleX(-1)}
+.ys-fx-flow--v .ys-fx-pane.is-mirror{transform:scaleY(-1)}
+.ys-dl.is-on .ys-fx-flow--h{animation:ys-fx-flow-h var(--fx-t) linear infinite}
+.ys-dl.is-on .ys-fx-flow--v{animation:ys-fx-flow-v var(--fx-t) linear infinite}
+.ys-dl.is-on .ys-fx-flow.is-back{animation-direction:reverse}
+@keyframes ys-fx-flow-h{from{transform:translateX(var(--d))}to{transform:translateX(0)}}
+@keyframes ys-fx-flow-v{from{transform:translateY(var(--d))}to{transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){.ys-dl,.ys-dl *{animation:none!important}.ys-fx-glint,.ys-fx-star{display:none}}
 /* v2 (выбор двери участником): мировые слои, след тона, число дня, блик по свободным дверям */
 .ys-dworld{position:absolute;inset:0;pointer-events:none}
