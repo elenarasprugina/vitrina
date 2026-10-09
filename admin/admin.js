@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009g';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261009h';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5017,6 +5017,80 @@
     bx.addEventListener('toggle', function () { ST.jdDeepOpen = bx.open; });
     return bx;
   }
+  /* Туманность (09.10, проба «Хоровод Странников»): фон в трубке рисует сама программа — облака света, золотая филигрань, звёздная пыль.
+     Общая на всю волну — doors.neb (у каждого дня свой узор: номер узора + день); у дня свои — kal.neb при kal.nebOwn (модель — docs/doors.md). */
+  function nebSeal(r) {
+    var t = String(r.title || ''), P = window.M13D.NEB_PAL, i;
+    for (i = 0; i < P.length; i++) if (t.indexOf(P[i].n.split(' ').slice(1).join(' ')) >= 0) return i + 1;
+    return 13;
+  }
+  function nebSet(N, i) { var p = window.M13D.NEB_PAL[i - 1]; N.pal = i; N.c = p.c.slice(); N.c0 = p.c0; N.c1 = p.c1; N.lc = p.lc; }
+  function jdNeb(r, K, redraw) {
+    var M = window.M13D, D = r.doors, sh = !!(D.neb && !K.nebOwn), N = sh ? D.neb : (K.neb = K.neb || {}), DEF = M.NEB_DEF, N0 = r.days.length;
+    function upd() { changed(); redraw(); }
+    function col(obj, i, label) {
+      var c = el('input', { type: 'color', class: 'a-neb-c', title: label, 'aria-label': label });
+      c.value = (i == null ? obj : obj.c)[i == null ? label : i] || '#000000';
+      return c;
+    }
+    var out = [], on = N.src === 'neb' || N.src === 'mix';
+    out.push(el('div', { class: 'a-neb-h', text: '🌌 Туманность — фон, который рисуется сам' }));
+    out.push(el('p', { class: 'a-hint', text: sh
+      ? '🌌 Общая на всю волну: всё, что меняете здесь, меняется у всех ' + N0 + ' дней сразу. Узоры дней всё равно разные (у каждого дня свой номер узора), а цвета и характер — одни.'
+      : D.neb ? 'У этого дня — свои настройки туманности (общая волны его не трогает).' : 'Светящиеся облака, золотая филигрань и звёздная пыль — без картинки. Подберите здесь и нажмите «На всю волну», чтобы поставить всем дням.' }));
+    if (on) out.push(el('p', { class: 'a-hint', text: 'Ярче и как в пробе: ниже «Тень к краям» — 10–20 %, «Приглушить фон» — 0–10 % (больше — если надписи плохо читаются). Узор справа меняется сразу.' }));
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(N, 'src', 'Что в трубке', [['', 'картинка дня'], ['neb', 'туманность'], ['mix', 'туманность + картинка дня (просвечивает)']], { def: '', onChange: function (v) {
+        if (!v) delete N.src; else if (!N.c) { nebSet(N, nebSeal(r)); if (N.seed == null) N.seed = DEF.seed; }
+        changed(); renderMain(); } }),
+      on && N.src === 'mix' ? rangeIn(N, 'mix', 'Сколько картинки просвечивает', { min: 10, max: 100, step: 5, def: DEF.mix, unit: ' %', onChange: redraw, hint: 'Картинка дня ложится под облака. Нет картинки — только туманность.' }) : null]));
+    out.push(el('div', { class: 'a-backup-btns' }, sh ? [
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Свои настройки для этого дня', onclick: function () { K.neb = clone(D.neb); K.nebOwn = true; changed(); renderMain(); toast('У этого дня теперь свои настройки туманности — общая волны его не трогает.'); } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать общую', onclick: function () { delete D.neb; changed(); renderMain(); toast('Общей туманности больше нет: у каждого дня — то, что настроено у него самого.'); } })
+    ] : [
+      on ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🌌 На всю волну', onclick: function () {
+        var y, s, k = 0;
+        D.neb = clone(N);
+        for (y = 1; y <= N0; y++) { s = M.spaceOf(r, y); if (!s || !s.blocks) continue; s.kal = s.kal || {}; if (!s.kal.on) k++; s.kal.on = true; delete s.kal.nebOwn; }
+        changed(); renderMain();
+        toast('Туманность — у всех ' + N0 + ' дней' + (k ? ' (калейдоскоп включён ещё у ' + k + ' дн.)' : '') + '. Убрать у одного дня — «Свои настройки для этого дня».');
+      } }) : null,
+      D.neb && K.nebOwn ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть общую волны', onclick: function () { delete K.nebOwn; changed(); renderMain(); } }) : null
+    ]));
+    if (!on) return el('div', { class: 'a-neb' }, out);
+    var P = M.NEB_PAL, pals = P.map(function (p, i) { return [String(i + 1), (i + 1) + ' · ' + p.n]; }).concat([['own', 'свои цвета']]);
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(N, 'pal', 'Набор цветов — по печатям', pals, { def: String(nebSeal(r)), onChange: function (v) { if (v !== 'own') nebSet(N, +v); upd(); renderMain(); },
+        hint: 'Цвета облаков, основы и линий. Любой цвет ниже можно поменять — набор станет «свои цвета».' })]));
+    var cs = [];
+    if (!Array.isArray(N.c) || N.c.length !== 6) nebSet(N, +N.pal || nebSeal(r));
+    N.c.forEach(function (x, i) { var c = col(N, i, 'Цвет облаков ' + (i + 1)); c.addEventListener('input', function () { N.c[i] = c.value; N.pal = 'own'; upd(); }); cs.push(c); });
+    function one(key, label) {
+      var c = col(N, null, key); c.title = label; c.setAttribute('aria-label', label);
+      c.addEventListener('input', function () { N[key] = c.value; N.pal = 'own'; upd(); });
+      return el('label', { class: 'a-neb-one' }, [c, el('span', { text: label })]);
+    }
+    out.push(field('Цвета облаков', el('div', { class: 'a-neb-cs' }, cs)));
+    out.push(el('div', { class: 'a-neb-cs' }, [one('c0', 'основа — середина'), one('c1', 'основа — край'), one('lc', 'линии')]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(N, 'clouds', 'Облака: сколько', { min: 20, max: 200, step: 5, def: DEF.clouds, unit: ' %', onChange: redraw }),
+      rangeIn(N, 'size', 'Облака: размер', { min: 50, max: 200, step: 5, def: DEF.size, unit: ' %', onChange: redraw })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(N, 'glow', 'Облака: яркость', { min: 30, max: 200, step: 5, def: DEF.glow, unit: ' %', onChange: redraw }),
+      rangeIn(N, 'breath', 'Дыхание — облака переливаются', { min: 0, max: 100, step: 5, def: DEF.breath, unit: ' %', onChange: redraw, hint: '0 — облака неподвижны (узор всё равно вращается). Больше — цвета перетекают друг в друга, облака чуть плывут и светятся сильнее-слабее.' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(N, 'lines', 'Филигрань: сколько линий', { min: 0, max: 150, step: 5, def: DEF.lines, onChange: redraw }),
+      rangeIn(N, 'lw', 'Филигрань: толщина', { min: 50, max: 250, step: 10, def: DEF.lw, unit: ' %', onChange: redraw })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(N, 'la', 'Филигрань: яркость', { min: 0, max: 200, step: 10, def: DEF.la, unit: ' %', onChange: redraw }),
+      rangeIn(N, 'stars', 'Звёздная пыль', { min: 0, max: 1500, step: 50, def: DEF.stars, onChange: redraw })]));
+    var sd = el('input', { type: 'number', class: 'a-input', min: 1, max: 99999, step: 1, style: 'max-width:120px' });
+    sd.value = N.seed == null ? DEF.seed : N.seed;
+    sd.addEventListener('input', function () { if (sd.value !== '' && !isNaN(+sd.value)) { N.seed = Math.round(+sd.value); upd(); } });
+    var dice = el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🎲 Другой вариант', onclick: function () { N.seed = 1 + Math.floor(Math.random() * 99999); sd.value = N.seed; upd(); } });
+    out.push(field('Номер узора', el('div', { class: 'a-neb-seed' }, [sd, dice]), 'Нажимайте 🎲, пока не понравится: те же цвета и настройки, другое расположение облаков и линий. Понравился номер — его можно записать и вернуть.' + (sh ? ' У дней волны узоры разные: к номеру прибавляется номер дня.' : '')));
+    return el('div', { class: 'a-neb' }, out);
+  }
   // «За дверью»: пространство дня (и финал) — фон и блоки
   function jdBlockTitle(b) {
     var M = window.M13D, name = (M.BLOCKS.filter(function (k) { return k[0] === b.kind; })[0] || [0, b.kind])[1], t = String(b.text || b.label || '').split('\n')[0].trim();
@@ -5030,24 +5104,27 @@
       final: 'Открывает финальную сцену («За дверью» → «Финал»). Например, в пространстве 13-й двери.',
       figure: 'Собирает «Мою фигуру» — сцену, мир состоявшихся дней и личные следы на выбранных дверях — в одну картинку и сохраняет её на устройство человека. Удобно в финале.' };
     // Калейдоскоп из картинки (09.10): узор вместо фона; живой снимок узора и выбор оси вращения — здесь же
-    var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 220, height: 220 }), kpk = el('canvas', { class: 'a-kal-pick', width: 220, height: 220 });
-    // Картинка грузится один раз (контраст и чёткость считаются по ней заново только при новом значении)
-    var kIm = null, kSrc = '', kA = 0.6, kRun = true, kOn = false, kLast = 0;
+    var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 600, height: 600 }), kpk = el('canvas', { class: 'a-kal-pick', width: 220, height: 220 });
+    // Картинка (или туманность) готовится один раз: заново — только когда поменялась картинка или настройки туманности
+    // kE — калейдоскоп дня с учётом общей туманности волны (M.kalOf); kT — время (облака туманности дышат)
+    var kIm = null, kSrc = '', kA = 0.6, kRun = true, kOn = false, kLast = 0, kE = null, kT = 0;
     function kNum(v, d) { v = v == null || v === '' || isNaN(+v) ? d : +v; return Math.max(15, Math.min(85, v)); }
     function kDraw() {
-      if (!K.image) return;
-      var u = /^(data:|blob:|https?:)/.test(K.image) ? K.image : '../' + K.image;
-      if (kIm && kSrc === u) { if (kIm.complete && kIm.naturalWidth) kPut(); return; }
-      kSrc = u; kIm = new Image(); kIm.onload = function () { kPut(); kLoop(); }; kIm.src = u;
+      var E = kE = n === 'final' ? null : M.kalOf(sp, r, n); if (!E) return;
+      var key = JSON.stringify(E._neb || null) + '|' + (E.image || '');
+      if (kIm && kSrc === key) { kPut(); return; }
+      kSrc = key;
+      M.kalImg('../', E, function (im) { if (kSrc !== key) return; kIm = im; kPut(); kLoop(); });
     }
     function kPut() {
-      if (!kIm || !kIm.naturalWidth) return;
-      M.kalDraw(kpv.getContext('2d'), 220, 220, kIm, K, kA, false);
+      if (!kIm || !kIm.naturalWidth || !kE) return;
+      var K = kE;
+      M.kalDraw(kpv.getContext('2d'), 600, 600, kIm, K, kA, false, null, null, kT);
       kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
       // Картинка с осью: точка — ось, круг — что попадает в узор (то, что ближе к оси, видно в узоре чаще)
       var x = kpk.getContext('2d'), ox = kNum(K.px, 50) / 100, oy = kNum(K.py, 50) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
       var rr = Math.min(.75 / (2.3 * Math.max(70, Math.min(130, +K.zoom || 100)) / 100), mg) * 220;
-      x.clearRect(0, 0, 220, 220); x.drawImage(kIm, 0, 0, 220, 220);
+      x.clearRect(0, 0, 220, 220); x.drawImage(M.kalPic(kIm, K), 0, 0, 220, 220);
       x.save(); x.fillStyle = 'rgba(0,0,0,.45)'; x.beginPath(); x.rect(0, 0, 220, 220); x.arc(ox * 220, oy * 220, rr, 0, 6.2832, true); x.fill('evenodd');
       x.lineWidth = 1.5; x.strokeStyle = 'rgba(255,255,255,.85)'; x.setLineDash([4, 4]); x.beginPath(); x.arc(ox * 220, oy * 220, rr, 0, 6.2832); x.stroke(); x.setLineDash([]);
       x.lineWidth = 3; x.strokeStyle = '#000'; x.beginPath(); x.arc(ox * 220, oy * 220, 7, 0, 6.2832); x.stroke();
@@ -5059,7 +5136,7 @@
       function step(ts) {
         if (!kpv.isConnected && kLast) { kOn = false; return; }
         var dt = kLast ? Math.min(.1, (ts - kLast) / 1000) : 0; kLast = ts;
-        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kPut(); }
+        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kT += dt; kPut(); }
         requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
@@ -5069,26 +5146,30 @@
     function kAt(e) {
       var b = kpk.getBoundingClientRect();
       K.px = Math.round(kNum((e.clientX - b.left) / b.width * 100, 50) * 10) / 10; K.py = Math.round(kNum((e.clientY - b.top) / b.height * 100, 50) * 10) / 10;
-      kPut();
+      kDraw();
     }
     kpk.addEventListener('pointerdown', function (e) { kDrag = true; try { kpk.setPointerCapture(e.pointerId); } catch (er) {} kAt(e); e.preventDefault(); });
     kpk.addEventListener('pointermove', function (e) { if (kDrag) kAt(e); });
     function kUp() { if (!kDrag) return; kDrag = false; changed(); }
     kpk.addEventListener('pointerup', kUp); kpk.addEventListener('pointercancel', kUp);
     var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '⏸ Остановить', onclick: function () { kRun = !kRun; kStop.textContent = kRun ? '⏸ Остановить' : '▶ Крутить'; } });
-    var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kPut(); } });
-    var kPick = K.on && K.image ? el('div', { class: 'a-field a-kal-axis' }, [
+    var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
+    var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
+    // Живой узор: у туманности — справа от её настроек (на компьютере не уезжает при прокрутке), у картинки — рядом с осью
+    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте)' })]);
+    var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
       el('span', { class: 'a-label', text: 'Ось вращения — коснитесь картинки' }),
       el('div', { class: 'a-kal-two' }, [
         el('div', { class: 'a-kal-cell' }, [kpk, el('span', { class: 'a-hint', text: 'Точка — ось, в круге — то, что попадает в узор' })]),
-        el('div', { class: 'a-kal-cell' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте)' })])]),
+        kNb ? null : kPv]),
       el('div', { class: 'a-backup-btns' }, [kMid, kStop]),
       el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
     var kal = block('Калейдоскоп из картинки', [
       switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
         hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
-      K.on ? el('div', { class: 'a-row' }, [
-        imageIn(K, 'image', 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
+      K.on ? (kNb ? el('div', { class: 'a-neb-lay' }, [jdNeb(r, K, kDraw), el('div', { class: 'a-neb-side' }, [kPv])]) : jdNeb(r, K, kDraw)) : null,
+      K.on && kPic ? el('div', { class: 'a-row' }, [
+        imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
           hint: 'Своя у каждого дня (архетипа). Узор строится вокруг оси вращения (ниже, по умолчанию — середина картинки): там не должно быть крупного яркого пятна. Чётче всего выходят мелкие детали и тонкие линии (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' })]) : null,
       kPick,
       K.on ? el('div', { class: 'a-row' }, [
@@ -5096,21 +5177,21 @@
         rangeIn(K, 'speed', 'Скорость перетекания', { min: 20, max: 300, step: 10, def: 100, unit: ' %', hint: '100 % — как в эскизе; меньше — тише, больше — живее.' })]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'bright', 'Ярче и сочнее', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Тусклой картинке — 120–140 %.' }),
-        rangeIn(K, 'contrast', 'Контраст', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Светлое светлее, тёмное темнее — узор не «мутный». Обычно 115–130 %.' })]) : null,
+        kPic ? rangeIn(K, 'contrast', 'Контраст', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Светлое светлее, тёмное темнее — узор не «мутный». Обычно 115–130 %.' }) : null]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'zoom', 'Крупность узора', { min: 70, max: 130, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Меньше — трубка берёт больше картинки и меньше её растягивает: узор мельче и чётче, как кружево (но в него попадает и то, что по краям картинки). Больше — крупнее и мягче.' }),
-        rangeIn(K, 'sharp', 'Чёткость линий', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: 'Тонкие линии и края резче — проявляется «филигрань». Обычно 30–60 %; больше — появляются светлые ореолы у краёв.' })]) : null,
+        kPic ? rangeIn(K, 'sharp', 'Чёткость линий', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: 'Тонкие линии и края резче — проявляется «филигрань». Обычно 30–60 %; больше — появляются светлые ореолы у краёв.' }) : null]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'vign', 'Тень к краям', { min: 0, max: 60, step: 5, def: 40, unit: ' %', onChange: kDraw, hint: '0 — узор одинаково яркий до самого края экрана; 40 % — как было, края уходят в тень, узор глубже.' }),
         el('p', { class: 'a-hint', text: 'Приглушить узор под надписями — ползунок «Приглушить фон» ниже (для чёткого узора — 0–15 %). Кнопки «Что внутри?» и «Сохранить мой узор» появляются внизу сами; их надписи и что видно на двери — «Двери» → «Узор на двери».' })]) : null,
-      K.on ? sub('Мягкое пространство и филигрань') : null,
-      K.on ? el('p', { class: 'a-hint', text: 'Пространство тихое — яркий только след человека (его стёклышки). Мягкость уводит цвета картинки в одну спокойную тональность дня; филигрань обводит тонкие линии самой картинки чистым кружевом (отдельный рисунок не нужен). Вместе: мягкость 60–75 %, филигрань «шампань». Чёткость линий выше с филигранью не нужна. Узор справа у оси меняется сразу.' }) : null,
-      K.on ? el('div', { class: 'a-row' }, [
+      K.on && kPic ? sub('Мягкое пространство и филигрань' + (kNb ? ' — для картинки дня' : '')) : null,
+      K.on && kPic ? el('p', { class: 'a-hint', text: 'Пространство тихое — яркий только след человека (его стёклышки). Мягкость уводит цвета картинки в одну спокойную тональность дня; филигрань обводит тонкие линии самой картинки чистым кружевом (отдельный рисунок не нужен). Вместе: мягкость 60–75 %, филигрань «шампань». Чёткость линий выше с филигранью не нужна. Узор справа у оси меняется сразу.' }) : null,
+      K.on && kPic ? el('div', { class: 'a-row' }, [
         selectIn(K, 'tone', 'Тональность дня', [['', 'как в картинке'], ['sky', 'небо'], ['dawn', 'рассвет'], ['moon', 'лунное серебро'], ['gold', 'золото'], ['lilac', 'сирень'], ['night', 'ночь']], { def: '', onChange: function (v) { if (!v) delete K.tone; kDraw(); } }),
         rangeIn(K, 'soft', 'Мягкость пространства', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: '0 — картинка как есть. Совет: красный день — рассвет, белый — лунное серебро, синий — небо, жёлтый — золото.' })]) : null,
-      K.on ? el('div', { class: 'a-row' }, [
+      K.on && kPic ? el('div', { class: 'a-row' }, [
         selectIn(K, 'fil', 'Филигрань — тонкие линии картинки', [['', 'нет'], ['champ', 'шампань — светлое золото'], ['gold', 'золото'], ['silver', 'серебро'], ['light', 'белый свет'], ['ink', 'цвет тональности']], { def: '', onChange: function (v) { if (!v) delete K.fil; renderMain(); } })]) : null,
-      K.on && K.fil ? el('div', { class: 'a-row' }, [
+      K.on && kPic && K.fil ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'thin', 'Филигрань: тонкость', { min: 0, max: 100, step: 5, def: 60, unit: ' %', onChange: kDraw, hint: 'Больше — кружево реже и тоньше; меньше — гуще.' }),
         rangeIn(K, 'filA', 'Филигрань: сила', { min: 10, max: 100, step: 5, def: 80, unit: ' %', onChange: kDraw, hint: 'Меньше — кружево еле заметно.' })]) : null
     ], { open: !!K.on });

@@ -803,8 +803,17 @@
      px, py — ось вращения: точка картинки, % от левого и верхнего края (15–85, 50/50 — середина; 09.10) }.
      Узор человека — один поворот трубки (a, радианы): хранится на его устройстве, по нему узор перерисовывается на двери, обложке и в фигуре. */
   var KCX = .28, KCY = .1, KSPIN = .072, KPAD = .03;
-  function kalOf(sp) { var k = sp && sp.kal; return k && k.on && k.image ? k : null; }
-  function kalOn(r, day) { return kalOf(spaceOf(r, day)); }
+  /* Калейдоскоп дня: { …kal, _neb — туманность (если включена, kalNeb) }; r и day нужны, чтобы взять общую туманность волны */
+  function kalOf(sp, r, day) {
+    var k = sp && sp.kal; if (!k || !k.on) return null;
+    var N = r ? kalNeb(r, day, k) : null, o = {}, x;
+    if (!N) return k.image ? k : null;
+    for (x in k) o[x] = k[x]; o._neb = N; return o;
+  }
+  function kalOn(r, day) { return kalOf(spaceOf(r, day), r, day); }
+  // Туманность — «камера» без сдвига, как в пробе: ось в середине, от неё расходятся лучи и линии
+  function kalCX(k) { return k && k._neb ? 0 : KCX; }
+  function kalCY(k) { return k && k._neb ? 0 : KCY; }
   function kalN(k) { var n = +k.n; return n === 8 || n === 16 ? n : 12; }
   function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
   var kWedge = null;
@@ -997,16 +1006,21 @@
   function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
-    var im0 = im; im = kalPrep(im, k);
+    // Туманность: кадр рисуется заново, только когда облака дышат; филигрань — только от картинки дня (mix)
+    var NB = im._neb, nb = !!NB, im0 = nb ? NB.photo : im, cl = nb ? nebCl(NB.N, t, NEB_S) : null;
+    if (nb) im = cl.on ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null, true) : kalPic(im, k); else im = kalPrep(im, k);
     // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
     var sc = R * 2.3 * num(k.zoom, 100, 70, 130) / 100 / Math.min(sw, sh);
     // Ось вращения — точка картинки (px, py, % от левого и верхнего края; 50/50 — середина). Она видна в узоре всегда, остальное проплывает.
     // Ось у края — картинка чуть крупнее, чтобы при любом повороте закрывала клин (до самого дальнего угла клина ≈ 0,75 R)
     var ox = num(k.px, 50, 15, 85) / 100, oy = num(k.py, 50, 15, 85) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
-    sc = Math.max(sc, R * .75 / (mg * Math.min(sw, sh)));
-    var fl = kalFil(im0, k, sc), fa = num(k.filA, 80, 10, 100) / 100;
+    // Туманность — крупность как в пробе: половина меньшей стороны экрана = 512 точек пробы (её холст — середина кадра); кадр с запасом, тёмных углов нет
+    if (nb) sc = Math.min(W, H) / 2 / (512 * sw / (1485 * NEB_X)) * num(k.zoom, 100, 70, 130) / 100;
+    else sc = Math.max(sc, R * .75 / (mg * Math.min(sw, sh)));
+    var fl = im0 ? kalFil(im0, k, sc) : null, fa = num(k.filA, 80, 10, 100) / 100;
     function cam(x) {
       x.rotate(ang); x.drawImage(im, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc);
+      if (cl && cl.on) nebClouds(x, NB.L, cl, -sw * sc * ox, -sh * sc * oy, sw * sc, sw);
       if (fl) { x.globalAlpha = fa; x.drawImage(fl, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc); x.globalAlpha = 1; }
       (P || []).forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
     }
@@ -1018,8 +1032,14 @@
     if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
     var wg = wc.getContext('2d');
     wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, ww, wh);
-    wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
-    wg.translate(R * KCX, R * KCY); cam(wg); wg.restore();
+    if (cl && cl.on) {
+      // Дышащие облака складываются со светом («lighter») — по обрезке клина это дало бы тонкие тёмные лучи на стыках; поэтому клин вырезается после
+      wg.save(); wg.translate(0, pad); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
+      wg.globalCompositeOperation = 'destination-in'; wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.fill(); wg.restore();
+    } else {
+      wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
+      wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
+    }
     c.translate(W / 2, H / 2);
     for (var i = 0; i < n; i++) {
       c.save();
@@ -1033,7 +1053,139 @@
     if (num(k.vign, 40, 0, 60)) { c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H); }
     c.restore();
   }
-  function kalImg(base, k, f) { var im = new Image(); im.onload = function () { f(im); }; im.onerror = function () { f(null); }; im.src = src(base, k.image); return im; }
+  function kalImg(base, k, f) {
+    var N = k && k._neb;
+    if (N) {
+      var L = nebBuild(N), mk = function (ph) { f({ _neb: { L: L, N: N, photo: ph }, naturalWidth: NEB_S, naturalHeight: NEB_S, width: NEB_S, height: NEB_S }); };
+      if (N.src === 'mix' && k.image) { var p = new Image(); p.onload = function () { mk(p); }; p.onerror = function () { mk(null); }; p.src = src(base, k.image); }
+      else mk(null);
+      return null;
+    }
+    var im = new Image(); im.onload = function () { f(im); }; im.onerror = function () { f(null); }; im.src = src(base, k.image); return im;
+  }
+  /* ---------- Туманность (09.10, её решение по пробе «Хоровод Странников»): фон в трубке без картинки — программа рисует его сама ----------
+     Слои: тёмная основа (середина → край), светящиеся облака (свет складывается, как лучи фонариков), золотая филигрань — тонкие кривые, звёздная пыль.
+     neb = { src: '' — картинка дня | 'neb' — туманность | 'mix' — туманность + картинка дня, mix — сколько картинки просвечивает, %,
+       pal — набор цветов (номер печати 1–20 | 'own'), c — 6 цветов облаков, c0 / c1 — основа (середина / край), lc — цвет линий,
+       clouds — сколько облаков, %, size — их размер, %, glow — яркость, %, lines — сколько линий (0–150), lw — толщина линий, %, la — яркость линий, %,
+       stars — звёздная пыль (0–1500), seed — номер узора, breath — дыхание: облака медленно переливаются, % }.
+     Общая на всю волну — doors.neb (у каждого дня свой узор: день 1 — сам номер, дальше номер + (день − 1) × 7919); у дня свои — kal.neb при kal.nebOwn. */
+  var NEB_PAL = [
+    { n: 'Красный Дракон', c: ['#c8102e', '#ff6f59', '#9c1b5e', '#e8b04a', '#f08a3c', '#ff9fb2'], c0: '#2c0a10', c1: '#070306', lc: '#e6b65c' },
+    { n: 'Белый Ветер', c: ['#b9d7f0', '#d9dce8', '#b9a6e0', '#f4efe6', '#9fd8d6', '#f0c9d6'], c0: '#1d1a2a', c1: '#06060b', lc: '#d8dde8' },
+    { n: 'Синяя Ночь', c: ['#1f4fd1', '#6a35b0', '#e6b65c', '#2b2f8f', '#178a9a', '#b02a8a'], c0: '#0b1030', c1: '#03040c', lc: '#e6c27a' },
+    { n: 'Жёлтое Семя', c: ['#f2c14e', '#8fc45a', '#f29b30', '#e66f8f', '#c99a3b', '#ffc49b'], c0: '#251804', c1: '#070402', lc: '#f0d28a' },
+    { n: 'Красный Змей', c: ['#d1162e', '#ff6a2b', '#c9a227', '#2e8b57', '#8a1c5c', '#ff9e7a'], c0: '#290a0c', c1: '#060304', lc: '#e6b65c' },
+    { n: 'Белый Соединитель Миров', c: ['#c9ccd8', '#7b5ab8', '#a9d4ec', '#c99aa8', '#efe9f2', '#4b2c7a'], c0: '#1a1624', c1: '#050409', lc: '#d6d9e6' },
+    { n: 'Синяя Рука', c: ['#2f7de1', '#13a39a', '#2fb36d', '#e6b65c', '#7a49c2', '#9ee0e6'], c0: '#08172a', c1: '#02060b', lc: '#e6c27a' },
+    { n: 'Жёлтая Звезда', c: ['#f2c14e', '#ef7fa0', '#b49be6', '#7fd6d0', '#ff8a6b', '#f5deb0'], c0: '#24170a', c1: '#070403', lc: '#f3d9a0' },
+    { n: 'Красная Луна', c: ['#d42a5b', '#4fc3d9', '#a9b8e8', '#8b3fb0', '#ff7a6b', '#f0e4ee'], c0: '#260a18', c1: '#060308', lc: '#e8cfa0' },
+    { n: 'Белая Собака', c: ['#f08fa8', '#f6ebe2', '#ffb48a', '#e8dcf0', '#c3a0e0', '#e04a5f'], c0: '#24141c', c1: '#070407', lc: '#f0d6b8' },
+    { n: 'Синяя Обезьяна', c: ['#1fc7c1', '#d63fa8', '#c7d94a', '#2a5fd8', '#ff8a2a', '#8a4fe0'], c0: '#0a1430', c1: '#03040c', lc: '#e6c27a' },
+    { n: 'Жёлтый Человек', c: ['#f0a830', '#f4cf6a', '#7fb8e8', '#f6efe0', '#a8a843', '#ff8c42'], c0: '#231705', c1: '#070402', lc: '#f0d28a' },
+    { n: 'Красный Небесный Странник', c: ['#e8b04a', '#c2185b', '#6e3096', '#1f6f78', '#b3122e', '#f0783c'], c0: '#2a0c14', c1: '#07030a', lc: '#e6b65c' },
+    { n: 'Белый Волшебник', c: ['#8a5ad8', '#cfd6e6', '#eef4ff', '#3d4fb8', '#e8d49a', '#c13f9e'], c0: '#17142a', c1: '#05040b', lc: '#dfe3ef' },
+    { n: 'Синий Орёл', c: ['#1d4fb8', '#c4ccdc', '#e6b65c', '#4a77a8', '#2ec4e0', '#6a46c0'], c0: '#081230', c1: '#02040c', lc: '#e0e6f2' },
+    { n: 'Жёлтый Воин', c: ['#e8b04a', '#c06a2b', '#a8182e', '#9a7a3a', '#f08a2a', '#8a9aac'], c0: '#221406', c1: '#060302', lc: '#efc874' },
+    { n: 'Красная Земля', c: ['#b5452b', '#d49a3a', '#a01c2a', '#5f8a3a', '#c97a4a', '#e6c89a'], c0: '#24100a', c1: '#060303', lc: '#e0b870' },
+    { n: 'Белое Зеркало', c: ['#c8d0dc', '#8ec8ee', '#f8f8ff', '#9c92c8', '#a8eef0', '#ebe4f0'], c0: '#161a24', c1: '#040509', lc: '#e4e8f0' },
+    { n: 'Синяя Буря', c: ['#2a6aff', '#8a3ce0', '#2ee0f0', '#dfe6f6', '#2b2a9c', '#d63fb0'], c0: '#080c2c', c1: '#02030b', lc: '#cfe0ff' },
+    { n: 'Жёлтое Солнце', c: ['#ffc02e', '#ff7a1a', '#ffe066', '#e8957a', '#fff1c4', '#ff5f4a'], c0: '#2a1704', c1: '#080402', lc: '#ffd98a' }
+  ];
+  var NEB_DEF = { clouds: 100, size: 100, glow: 100, lines: 70, lw: 100, la: 100, stars: 500, seed: 13, breath: 40, mix: 50 };
+  // Кадр — холст пробы (1485 точек) в середине и такой же туманность вокруг: всего NEB_X × 1485 точек пробы → NEB_S точек (облака — NEB_C, они мягкие)
+  var NEB_X = 1.7, NEB_S = 1600, NEB_C = 800, nebCache = {}, nebN = 0;
+  function nebV(N, k, lo, hi) { return num(N[k], NEB_DEF[k], lo, hi); }
+  function nebPal(N) {
+    var p = NEB_PAL[(+N.pal || 13) - 1] || NEB_PAL[12], c = Array.isArray(N.c) && N.c.length === 6 ? N.c.map(function (x, i) { return hexOk(x) ? x : p.c[i]; }) : p.c;
+    return { c: c, c0: hexOk(N.c0) ? N.c0 : p.c0, c1: hexOk(N.c1) ? N.c1 : p.c1, lc: hexOk(N.lc) ? N.lc : p.lc };
+  }
+  function nebRng(s) { s = s >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+  function hexRgb(h) { h = String(h).replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+  // Облака (два слоя: те же места, цвета сдвинуты на один — для «переливания»), линии и звёзды; один раз на набор настроек
+  function nebBuild(N) {
+    var key = JSON.stringify([N.c, N.c0, N.c1, N.lc, N.pal, N.clouds, N.size, N.glow, N.lines, N.lw, N.la, N.stars, N.seed]);
+    if (nebCache[key]) return nebCache[key];
+    if (++nebN > 4) { nebCache = {}; nebN = 1; }
+    var P = nebPal(N), seed = Math.round(+N.seed || NEB_DEF.seed), S = NEB_S, C = NEB_C, E = 1485 * NEB_X, o = (E - 1485) / 2, fc = C / E, fs = S / E, R = nebRng(seed);
+    var cs = P.c.map(hexRgb), ca = document.createElement('canvas'), cb = document.createElement('canvas'), tp = document.createElement('canvas');
+    ca.width = ca.height = cb.width = cb.height = C; tp.width = tp.height = S;
+    var ga = ca.getContext('2d'), gb = cb.getContext('2d'), gt = tp.getContext('2d');
+    ga.globalCompositeOperation = gb.globalCompositeOperation = 'lighter'; gt.lineCap = 'round';
+    var sz = nebV(N, 'size', 50, 200) / 100, gl = nebV(N, 'glow', 30, 200) / 100, lc = hexRgb(P.lc), la = nebV(N, 'la', 0, 200) / 100, lw = nebV(N, 'lw', 50, 250) / 100;
+    var cn = 90 * nebV(N, 'clouds', 20, 200) / 100, ln = nebV(N, 'lines', 0, 150), sn = nebV(N, 'stars', 0, 1500);
+    // Место (в точках пробы): сначала её холст в середине — тем же потоком случайных чисел, что в пробе (номер 13 — тот самый узор), потом поле вокруг
+    function at(core) {
+      if (core) return [o + R() * 1485, o + R() * 1485];
+      var p; do { p = [R() * E, R() * E]; } while (p[0] > o && p[0] < o + 1485 && p[1] > o && p[1] < o + 1485);
+      return p;
+    }
+    function run(core, k) {
+      var i, p, r, n = Math.round(cn * k);
+      for (i = 0; i < n; i++) {
+        p = at(core); r = (30 + R() * 170) * sz * fc;
+        var x = p[0] * fc, y = p[1] * fc, j = Math.floor(R() * 6), a = Math.min(1, (.18 + R() * .35) * gl);
+        [[ga, cs[j]], [gb, cs[(j + 1) % 6]]].forEach(function (q) {
+          var g = q[0].createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, rgbA(q[1], a)); g.addColorStop(1, rgbA(q[1], 0));
+          q[0].fillStyle = g; q[0].beginPath(); q[0].arc(x, y, r, 0, 6.2832); q[0].fill();
+        });
+      }
+      n = Math.round(ln * k);
+      for (i = 0; i < n; i++) {
+        gt.strokeStyle = rgbA(lc, Math.min(1, (.12 + R() * .3) * la)); gt.lineWidth = (.6 + R() * 1.6) * lw * fs;
+        p = at(core); var X = p[0] * fs, Y = p[1] * fs, d = 500 * fs;
+        gt.beginPath(); gt.moveTo(X, Y);
+        gt.bezierCurveTo(X + (R() - .5) * d, Y + (R() - .5) * d, X + (R() - .5) * d, Y + (R() - .5) * d, X + (R() - .5) * d * 1.2, Y + (R() - .5) * d * 1.2); gt.stroke();
+      }
+      n = Math.round(sn * k);
+      for (i = 0; i < n; i++) { gt.fillStyle = 'rgba(255,240,220,' + (.2 + R() * .7).toFixed(2) + ')'; p = at(core); gt.beginPath(); gt.arc(p[0] * fs, p[1] * fs, (.5 + R() * 1.8) * fs, 0, 6.2832); gt.fill(); }
+    }
+    run(true, 1); run(false, NEB_X * NEB_X - 1);
+    return (nebCache[key] = { ca: ca, cb: cb, tp: tp, c0: P.c0, c1: P.c1, fr: null, fk: '' });
+  }
+  /* Дыхание облаков в момент t: слой B проступает сквозь A (цвета перетекают), облака чуть плывут и светятся сильнее-слабее. S — размер кадра */
+  function nebCl(N, t, S) {
+    var b = nebV(N, 'breath', 0, 100) / 100, w = t * .4;
+    if (!b || t == null) return { m: 0, k: 1, dx: 0, dy: 0, p: S * .02 };
+    return { m: b * (.5 - .5 * Math.cos(w)), k: 1 - .2 * b * (.5 + .5 * Math.sin(w * 1.7)), dx: Math.sin(w * .8) * S * .012 * b, dy: Math.cos(w * .6) * S * .012 * b, p: S * .02, on: true };
+  }
+  // Облака (оба слоя) в прямоугольник кадра X, Y, размер Z — складываются со светом под ними
+  function nebClouds(x, L, c, X, Y, Z, S) {
+    var f = Z / S;
+    x.save(); x.globalCompositeOperation = 'lighter';
+    x.globalAlpha = (1 - c.m) * c.k; x.drawImage(L.ca, X + (c.dx - c.p) * f, Y + (c.dy - c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f);
+    if (c.m) { x.globalAlpha = c.m * c.k; x.drawImage(L.cb, X - (c.dx + c.p) * f, Y - (c.dy + c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f); }
+    x.restore();
+  }
+  /* Кадр туманности: основа, картинка дня (mix), облака, линии и звёзды — один раз (неподвижный: дверь, обложка, «Что внутри?»).
+     bare — без облаков: когда облака дышат, узор кладёт их сам прямо в клин (так быстрее: не перерисовывать весь кадр каждый миг) */
+  function nebFrame(L, N, ph, bare) {
+    var mx = ph ? nebV(N, 'mix', 0, 100) / 100 : 0, key = (ph ? 'p' + mx : '') + (bare ? '|b' : '|s');
+    var F = L.F = L.F || {};
+    if (F[key] && F[key].ph === ph) return F[key].cv;
+    var S = NEB_S, cv = (F[key] || {}).cv || document.createElement('canvas'), x, g;
+    if (cv.width !== S) { cv.width = cv.height = S; }
+    x = cv.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+    g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2 / NEB_X); g.addColorStop(0, L.c0); g.addColorStop(1, L.c1);
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    if (ph) { x.globalAlpha = mx; x.drawImage(ph, 0, 0, S, S); x.globalAlpha = 1; }
+    if (!bare) nebClouds(x, L, nebCl(N, null, S), 0, 0, S, S);
+    x.globalCompositeOperation = 'lighter'; x.drawImage(L.tp, 0, 0); x.globalCompositeOperation = 'source-over';
+    F[key] = { cv: cv, ph: ph };
+    return cv;
+  }
+  /* Настройки туманности дня с учётом общей на волну (null — в трубке картинка). У общей у каждого дня свой номер узора — узоры дней разные, семья одна. */
+  function kalNeb(r, day, k) {
+    var D = cfg(r), sh = !!(D.neb && !k.nebOwn), N = sh ? D.neb : k.neb, o = {}, x;
+    if (!N || (N.src !== 'neb' && N.src !== 'mix')) return null;
+    for (x in N) o[x] = N[x];
+    o.seed = Math.round(+N.seed || NEB_DEF.seed) + (sh && day > 1 ? (day - 1) * 7919 : 0);
+    return o;
+  }
+  // Что рисовать в трубке: картинку или кадр туманности (для «Что внутри?» и выбора оси в панели)
+  function kalPic(im, k) { var NB = im && im._neb; return NB ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null) : im; }
+
 
   /* Живой калейдоскоп на весь экран пространства. Провёл — повернул трубку; коснулся — мягкий толчок (с затуханием).
      Выбрано стёклышко в чаше — касание кладёт его в узор; коснулся своего стёклышка в узоре — оно вернулось в чашу.
@@ -1075,7 +1227,7 @@
       else {
         var r = Math.sqrt(px * px + py * py), th = Math.atan2(py, px); if (th < 0) th += 2 * Math.PI;
         var i = Math.floor(th / A), l = th - i * A; if (i % 2) l = A - l;
-        wx = r * Math.cos(l) - R * KCX; wy = r * Math.sin(l) - R * KCY;
+        wx = r * Math.cos(l) - R * kalCX(k); wy = r * Math.sin(l) - R * kalCY(k);
       }
       return [(wx * c - wy * s) / R, (wx * s + wy * c) / R];
     }
@@ -1143,7 +1295,7 @@
     var root = el('section', 'ys-space ys-space--' + (sp.place || 'center') + ' ys-space--' + (sp.plate || 'glass'));
     var bg = el('div', 'ys-space-bg');
     bg.style.backgroundColor = hexOk(sp.color) ? sp.color : '#0d0906';
-    var K = kalOf(sp), live = null;
+    var K = kalOf(sp, r, o.day), live = null;
     if (K) {
       live = kalLive(K, { base: o.base, a: o.kalA, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
       bg.appendChild(live.node); root.classList.add('ys-space--kal');
@@ -1516,7 +1668,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize,
+    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
