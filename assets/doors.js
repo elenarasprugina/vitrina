@@ -681,12 +681,13 @@
     }
     /* Узор пространства на двери n (день day, поворот a); day = 0 — убрать. Лежит под следом тона, над слоями двери.
        Прозрачность и мягкий край — doors.patternOpacity, patternSoft; появляется мягко (now — сразу). */
-    function pattern(n, day, a, now) {
+    function pattern(n, day, a, now, gl) {
       var x = G[n]; if (!x) return;
-      if (x.pt && x.ptKey === day + ':' + a) return;
+      var my = day + ':' + a + ':' + JSON.stringify(gl || []);
+      if (x.pt && x.ptKey === my) return;
       if (x.pt) { x.pt.remove(); x.pt = null; x.ptKey = null; }
       if (!day || !x.poly) return;
-      var Dc = cfg(r), box = el('div', 'ys-dpat'), b = bbox(x.poly), my = day + ':' + a;
+      var Dc = cfg(r), box = el('div', 'ys-dpat'), b = bbox(x.poly);
       box.style.setProperty('--pat-o', num(Dc.patternOpacity, 100, 0, 100) / 100);
       clip(box, x.poly, num(Dc.patternSoft, 0, 0, 40));
       x.pt = box; x.ptKey = my;
@@ -699,7 +700,7 @@
           var f = kalFilter(kalOn(r, day)); if (f) cv.style.filter = f;
           box.appendChild(cv);
           if (now || REDUCED) box.classList.add('is-on'); else { void box.offsetWidth; box.classList.add('is-on'); }
-        });
+        }, gl);
       }
       if (img.complete && img.naturalWidth) put(); else img.addEventListener('load', put);
     }
@@ -783,12 +784,75 @@
   function kalN(k) { var n = +k.n; return n === 8 || n === 16 ? n : 12; }
   function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
   var kWedge = null;
-  // Узор в прямоугольник W×H (центр трубки — середина); reveal — сама картинка, без зеркал (кнопка «Что внутри?»)
-  function kalDraw(c, W, H, im, k, ang, reveal) {
+
+  /* Стёклышки и искры в узоре (шаг 2, 09.10): лежат в самой картинке-«камере» — плывут вместе с ней и отражаются в зеркалах.
+     Стёклышко = { at: [x, y] — место в долях R (от центра «камеры»), c: [r, g, b], look — вид камня (вкладка «Стёклышки»), k: 'glass' | 'spark', ph — фаза мерцания }.
+     Хранится на устройстве: g = [{ x, y, id, k, c, l }] — l: какой вид (days | gifts.axis | …), вид берётся из настроек маршрута при рисовании. */
+  var KGLASS = .055, KLOOK = { days: { kind: 'gem', cut: 'rect' }, 'gifts.axis': { kind: 'gem', cut: 'round' }, 'gifts.spoke': { kind: 'crystal' }, 'gifts.rim': { kind: 'gem', cut: 'tri' }, 'gifts.underside': { kind: 'gem', cut: 'hex' } };
+  function kalLook(r, l, base) {
+    var p = String(l || 'days').split('.'), g = r.glass || {}, d = KLOOK[l] || KLOOK.days, L = (p[1] ? (g[p[0]] || {})[p[1]] : g[p[0]]) || d, o = {}, k;
+    for (k in L) o[k] = L[k];
+    if (!o.kind) o.kind = d.kind;
+    if (o.img) o.img = src(base, o.img);
+    return o;
+  }
+  // Сохранённые стёклышки → для рисования (узор на двери, обложка, фигура)
+  function kalPcs(r, g, base) {
+    return (Array.isArray(g) ? g : []).filter(function (s) { return s && isFinite(+s.x) && isFinite(+s.y) && Array.isArray(s.c); })
+      .map(function (s, i) { return { at: [+s.x, +s.y], c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7 }; });
+  }
+  // Картинки камней («своя картинка») — загрузить до того, как узор рисуется один раз (дверь, фигура)
+  function kalPre(P, done) {
+    var l = (P || []).filter(function (p) { return p.k === 'glass' && p.look.kind === 'image' && p.look.img; }).map(function (p) { return p.look.img; });
+    if (l.length && window.M13K && window.M13K.preload) window.M13K.preload(l, done); else done();
+  }
+  function kalSize(r) { return KGLASS * num(cfg(r).kalGlassSize, 100, 50, 200) / 100; }
+  function rgbA(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function liftC(c, k) { return [Math.round(c[0] + (255 - c[0]) * k), Math.round(c[1] + (255 - c[1]) * k), Math.round(c[2] + (255 - c[2]) * k)]; }
+  var kSpr = {};
+  // Камень так же, как в узоре маршрута (kaleido.js, M13K.stone); нет kaleido.js (витрина) — простое стёклышко
+  function kalSprite(it) {
+    var key = it.c.join(',') + '|' + [it.look.kind, it.look.cut, it.look.shine, it.look.img].join('|');
+    if (kSpr[key]) return kSpr[key];
+    if (!window.M13K || !window.M13K.stone) return null;
+    var cv = document.createElement('canvas'); window.M13K.stone(cv, it.c, it.look, 96);
+    return (kSpr[key] = cv);
+  }
+  function kalPiece(x, it, r, t) {
+    if (it.k === 'spark') {
+      var k = .75 + .25 * Math.sin(t * 2.2 + it.ph), R = r * (2.1 + .4 * k), c = it.c;
+      x.save(); x.globalCompositeOperation = 'lighter';
+      var g2 = x.createRadialGradient(0, 0, 0, 0, 0, R);
+      g2.addColorStop(0, 'rgba(255,255,255,1)'); g2.addColorStop(.12, 'rgba(255,255,255,' + (.9 * k) + ')'); g2.addColorStop(.28, rgbA(c, .75 * k)); g2.addColorStop(.6, rgbA(c, .2 * k)); g2.addColorStop(1, rgbA(c, 0));
+      x.fillStyle = g2; x.beginPath(); x.arc(0, 0, R, 0, 6.2832); x.fill();
+      x.strokeStyle = rgbA(liftC(c, .7), .85 * k); x.lineWidth = Math.max(.8, r * .06);
+      x.beginPath(); x.moveTo(-R * 1.1, 0); x.lineTo(R * 1.1, 0); x.moveTo(0, -R * 1.1); x.lineTo(0, R * 1.1); x.stroke();
+      x.restore(); return;
+    }
+    r *= num(it.look.size, 100, 50, 200) / 100;
+    var sp = kalSprite(it);
+    if (sp && sp.width) { x.drawImage(sp, -r, -r, r * 2, r * 2); return; }
+    // Запасное стёклышко (как в пробе): многоугольник с бликом
+    x.save(); x.rotate(it.ph);
+    var gr = x.createRadialGradient(-r * .35, -r * .35, r * .05, 0, 0, r * 1.1), j;
+    gr.addColorStop(0, rgbA(liftC(it.c, .75), .95)); gr.addColorStop(.45, rgbA(it.c, .85)); gr.addColorStop(1, rgbA(it.c, .55));
+    x.fillStyle = gr; x.beginPath();
+    for (j = 0; j < 6; j++) { var b = j * 6.2832 / 6, rr = r * (j % 2 ? .82 : 1); x[j ? 'lineTo' : 'moveTo'](Math.cos(b) * rr, Math.sin(b) * rr); }
+    x.closePath(); x.globalAlpha = .8; x.fill();
+    x.globalAlpha = .5; x.strokeStyle = '#fff'; x.lineWidth = Math.max(.7, r * .035); x.stroke();
+    x.restore(); x.globalAlpha = 1;
+  }
+
+  /* Узор в прямоугольник W×H (центр трубки — середина); reveal — сама картинка, без зеркал (кнопка «Что внутри?»).
+     P — стёклышки в узоре (см. выше), ps — их размер в долях R, t — время (мерцание искр) */
+  function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
     var sc = R * 2.3 / Math.min(sw, sh);
-    function cam(x) { x.rotate(ang); x.drawImage(im, -sw * sc / 2, -sh * sc / 2, sw * sc, sh * sc); }
+    function cam(x) {
+      x.rotate(ang); x.drawImage(im, -sw * sc / 2, -sh * sc / 2, sw * sc, sh * sc);
+      (P || []).forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
+    }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H);
     if (reveal) { c.translate(W / 2, H / 2); cam(c); c.restore(); return; }
     // Клин чуть шире сектора: соседние отражения перекрываются, на стыках нет тонких линий
@@ -813,24 +877,30 @@
   function kalImg(base, k, f) { var im = new Image(); im.onload = function () { f(im); }; im.onerror = function () { f(null); }; im.src = src(base, k.image); return im; }
 
   /* Живой калейдоскоп на весь экран пространства. Провёл — повернул трубку; коснулся — мягкий толчок (с затуханием).
-     o: { base, a — с какого поворота начать (сохранённый узор), still — без движения (предпросмотр снимка) }.
-     Возвращает { node, ang(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
+     Выбрано стёклышко в чаше — касание кладёт его в узор; коснулся своего стёклышка в узоре — оно вернулось в чашу.
+     o: { base, a — с какого поворота начать (сохранённый узор), still — без движения (предпросмотр снимка),
+          bowl — стёклышки человека [{ id, c, l, look, k }], g — сохранённые места [{ x, y, id }], ps — размер стёклышка (доли R), onPut — что-то положили/вернули }.
+     Возвращает { node, ang(), mine, sel(i), placed(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
   function kalLive(k, o) {
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
-    var S = { ang: +o.a || 0, vel: 0, frozen: false, reveal: false }, drag = null, last = 0, slow = 0, started = false;
+    var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1 }, drag = null, last = 0, slow = 0, started = false;
+    var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y)) at[p.id] = [+p.x, +p.y]; });
+    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, at: at[b.id] || null }; });
+    var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
-    kalImg(o.base, k, function (x) { im = x; draw(); });
+    kalImg(o.base, k, function (x) { im = x; kalPre(mine, draw); draw(); });
     function draw() {
       var w = Math.round((cv.clientWidth || window.innerWidth) * q), h = Math.round((cv.clientHeight || window.innerHeight) * q);
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-      if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal);
+      if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal, mine, ps, S.t);
     }
     function loop(ts) {
       if (started && !cv.isConnected) return;
       if (cv.isConnected) started = true;
       var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
       if (!S.frozen && !o.still) {
+        S.t += REDUCED ? 0 : dt;
         S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel; S.vel *= .95;
         var t0 = performance.now(); draw();
         // Телефон не успевает — чуть меньше точек (узор тот же)
@@ -838,41 +908,70 @@
       }
       requestAnimationFrame(loop);
     }
+    // Точка на экране → место в «камере» (через зеркала), в долях R
+    function toCam(ex, ey) {
+      var bx = cv.getBoundingClientRect(), W = cv.width, H = cv.height, R = Math.sqrt(W * W + H * H) / 2 + 2, A = 2 * Math.PI / kalN(k);
+      var px = (ex - bx.left) * W / (bx.width || 1) - W / 2, py = (ey - bx.top) * H / (bx.height || 1) - H / 2, c = Math.cos(-S.ang), s = Math.sin(-S.ang), wx, wy;
+      if (S.reveal) { wx = px; wy = py; }
+      else {
+        var r = Math.sqrt(px * px + py * py), th = Math.atan2(py, px); if (th < 0) th += 2 * Math.PI;
+        var i = Math.floor(th / A), l = th - i * A; if (i % 2) l = A - l;
+        wx = r * Math.cos(l) - R * KCX; wy = r * Math.sin(l) - R * KCY;
+      }
+      return [(wx * c - wy * s) / R, (wx * s + wy * c) / R];
+    }
+    function changed() { if (o.onPut) o.onPut(); if (REDUCED || o.still) draw(); }
     cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
     cv.addEventListener('pointermove', function (e) {
       if (!drag) return; var dx = e.clientX - drag.x;
       if (Math.abs(dx) > 4 || Math.abs(e.clientY - drag.y) > 4) drag.moved = true;
       if (drag.moved) { S.ang = drag.a + dx * .006; S.vel = 0; if (REDUCED) draw(); }
     });
-    function up() { if (!drag) return; var m = drag.moved; drag = null; if (m || S.frozen) return; S.vel += .045; if (REDUCED) { S.ang += .5; draw(); } }
+    function up(e) {
+      if (!drag) return; var m = drag.moved; drag = null; if (m || S.frozen) return;
+      if (mine.length) {
+        var p = toCam(e.clientX, e.clientY), i;
+        if (S.sel >= 0 && mine[S.sel]) { mine[S.sel].at = [Math.round(p[0] * 1000) / 1000, Math.round(p[1] * 1000) / 1000]; S.sel = -1; changed(); return; }
+        for (i = mine.length - 1; i >= 0; i--) {
+          var it = mine[i]; if (!it.at) continue;
+          var dx = it.at[0] - p[0], dy = it.at[1] - p[1];
+          if (Math.sqrt(dx * dx + dy * dy) < ps * 1.7) { it.at = null; changed(); return; }
+        }
+      }
+      S.vel += .045; if (REDUCED) { S.ang += .5; draw(); }
+    }
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', function () { drag = null; });
     window.addEventListener('resize', function () { if (cv.isConnected) draw(); });
     requestAnimationFrame(loop);
-    return { node: cv, ang: function () { return S.ang; }, draw: draw,
+    return { node: cv, ang: function () { return S.ang; }, draw: draw, mine: mine, ps: ps,
+      sel: function (i) { if (i === undefined) return S.sel; S.sel = i; },
+      placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { return { x: m.at[0], y: m.at[1], id: m.id, k: m.k, c: m.c, l: m.l }; }); },
       freeze: function (v) { S.frozen = !!v; S.vel = 0; draw(); },
       reveal: function (v) { S.reveal = !!v; draw(); } };
   }
 
   /* Узор на двери (сцена, обложка): холст в рамке двери, обрезан по контуру; центр трубки — середина рамки.
      key, poly — контур на этой картинке, scn — картинка сцены (её пропорции нужны для рамки), done(холст | null) */
-  function kalDoor(r, day, a, poly, scn, base, done) {
+  function kalDoor(r, day, a, poly, scn, base, done, g) {
     var k = kalOn(r, day); if (!k || !poly) { done(null); return; }
-    kalImg(base, k, function (im) {
+    var P = kalPcs(r, g, base);
+    kalImg(base, k, function (im) { kalPre(P, function () { put(im); }); });
+    function put(im) {
       if (!im) { done(null); return; }
       var b = bbox(poly), iw = scn.naturalWidth || 1600, ih = scn.naturalHeight || 900, rw = b.w * iw, rh = b.h * ih, s = 520 / Math.max(rw, rh);
       var cv = document.createElement('canvas'); cv.width = Math.max(8, Math.round(rw * s)); cv.height = Math.max(8, Math.round(rh * s));
-      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false);
+      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false, P, kalSize(r));
       done(cv);
-    });
+    }
   }
-  /* Что видно на двери дня day сегодня (n): след тона и/или узор. P — сохранённые узоры этого устройства { день: { a } }.
+  /* Что видно на двери дня day сегодня (n): след тона и/или узор. P — сохранённые узоры этого устройства { день: { a, g — его стёклышки } }.
      doors.pattern: '' — узор и знак тона поверх | 'pattern' — только узор | 'mark' — только знак (как раньше);
      doors.patternNone: '' — не сохранил узор: знак тона | 'archetype' — узор архетипа (картинка дня, без его поворота) после конца дня. */
   function face(r, day, n, P) {
     var D = cfg(r), mk = markOn(r, day, n), p = (P || {})[day], show = D.pattern || '';
     if (!kalOn(r, day) || show === 'mark') return { mark: mk, pat: null };
-    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a };
+    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null };
     if (D.patternNone === 'archetype' && mk) return { mark: show !== 'pattern', pat: 0 };
     return { mark: mk, pat: null };
   }
@@ -886,7 +985,11 @@
     var bg = el('div', 'ys-space-bg');
     bg.style.backgroundColor = hexOk(sp.color) ? sp.color : '#0d0906';
     var K = kalOf(sp), live = null;
-    if (K) { live = kalLive(K, { base: o.base, a: o.kalA, still: o.still }); bg.appendChild(live.node); root.classList.add('ys-space--kal'); }
+    if (K) {
+      live = kalLive(K, { base: o.base, a: o.kalA, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
+      bg.appendChild(live.node); root.classList.add('ys-space--kal');
+      if (o.kalSave && o.kalBowl && o.kalBowl.length) root.classList.add('ys-space--bowl');
+    }
     else if (bgSrc) bg.style.backgroundImage = 'url("' + src(o.base, bgSrc) + '")';
     var dim = el('div', 'ys-space-dim'); dim.style.opacity = num(sp.dim, 30, 0, 90) / 100;
     var back = el('button', 'ys-space-back', o.backText || '← Назад к дверям'); back.type = 'button';
@@ -924,18 +1027,53 @@
     if (live) root.appendChild(kalBar(live, o));
     return root;
   }
-  /* Кнопки калейдоскопа внизу: «Что внутри?» (сама картинка, вращается) и «Сохранить мой узор» (узор застывает и ложится на дверь дня).
-     o.kalSave(a) — сохранить поворот (нет — кнопки «Сохранить» нет: Наблюдение, финал); o.kalTx — надписи; o.onBack — к дверям. */
+  /* Кнопки калейдоскопа внизу: чаша со стёклышками человека (если есть), «Что внутри?» (сама картинка, вращается)
+     и «Сохранить мой узор» (узор застывает и ложится на дверь дня вместе со стёклышками).
+     o.kalSave(a, g) — сохранить поворот и стёклышки (нет — кнопки «Сохранить» и чаши нет: Наблюдение, финал); o.kalTx — надписи; o.onBack — к дверям. */
   function kalBar(live, o) {
-    var t = o.kalTx || {}, bar = el('div', 'ys-kal-bar'), row = el('div', 'ys-kal-row'), hint = t.hint ? el('p', 'ys-kal-hint', t.hint) : null;
+    var t = o.kalTx || {}, bar = el('div', 'ys-kal-bar'), row = el('div', 'ys-kal-row'), hint = el('p', 'ys-kal-hint');
+    var M = o.kalSave ? live.mine : [], bowl = null;
     var peek = el('button', 'ys-kal-btn ys-kal-btn--ghost', t.peek || 'Что внутри?'), on = false; peek.type = 'button';
     peek.addEventListener('click', function () { on = !on; live.reveal(on); peek.textContent = on ? t.unpeek || 'Снова узор' : t.peek || 'Что внутри?'; });
     row.appendChild(peek);
+    // Подсказка: своя из панели — пока ничего не выбрано и не положено; дальше — что делать сейчас
+    function say() {
+      var sel = live.sel(), placed = M.some(function (m) { return m.at; }), s;
+      if (!M.length) s = t.hint || '';
+      else if (sel >= 0) s = t.place || 'Теперь коснитесь узора — туда оно и ляжет';
+      else if (placed) s = t.back || 'Коснитесь своего стёклышка в узоре — оно вернётся в чашу';
+      else s = t.hint || t.pick || 'Коснитесь своего стёклышка, потом — узора';
+      hint.textContent = s; hint.hidden = !s;
+    }
+    // Чаша: стёклышки, ещё не положенные в узор. Коснулся — выбрано (ещё раз — снято)
+    function fill() {
+      if (!bowl) return;
+      bowl.textContent = '';
+      var left = 0;
+      M.forEach(function (it, i) {
+        if (it.at) return; left++;
+        var b = el('button', 'ys-kal-it' + (live.sel() === i ? ' is-on' : '')), c = el('canvas');
+        b.type = 'button'; b.setAttribute('aria-pressed', live.sel() === i ? 'true' : 'false');
+        b.setAttribute('aria-label', it.k === 'spark' ? 'Искра света' : 'Стёклышко');
+        c.width = c.height = 84; b.appendChild(c);
+        var x = c.getContext('2d'); x.translate(42, 42); kalPiece(x, it, it.k === 'spark' ? 13 : 30, 1.2);
+        // Камень со своей картинкой ещё грузится — дорисовать, когда загрузится
+        if (it.k === 'glass' && it.look.kind === 'image') kalPre([it], function () { x.clearRect(-42, -42, 84, 84); kalPiece(x, it, 30, 1.2); });
+        b.addEventListener('click', function () { live.sel(live.sel() === i ? -1 : i); fill(); say(); });
+        bowl.appendChild(b);
+      });
+      if (!left) bowl.appendChild(el('span', 'ys-kal-empty', t.empty || 'Все ваши стёклышки — в узоре'));
+    }
+    if (M.length) {
+      bowl = el('div', 'ys-kal-bowl'); bowl.setAttribute('role', 'group'); bowl.setAttribute('aria-label', t.bowl || 'Ваши стёклышки');
+      live.onPut = function () { fill(); say(); };
+    }
     if (o.kalSave) {
       var sv = el('button', 'ys-kal-btn', t.save || 'Сохранить мой узор'); sv.type = 'button';
       sv.addEventListener('click', function () {
         if (on) { on = false; live.reveal(false); peek.textContent = t.peek || 'Что внутри?'; }
-        live.freeze(true); o.kalSave(live.ang());
+        live.sel(-1); fill(); say();
+        live.freeze(true); o.kalSave(live.ang(), live.placed());
         var done = el('div', 'ys-kal-done'), plate = el('div', 'ys-kal-plate'), r2 = el('div', 'ys-kal-row');
         plate.appendChild(el('b', '', t.saved || 'Ваш узор сохранён'));
         plate.appendChild(el('p', '', t.savedNote || 'Он ляжет на вашу дверь этого дня.'));
@@ -949,8 +1087,10 @@
       });
       row.appendChild(sv);
     }
-    if (hint) bar.appendChild(hint);
+    bar.appendChild(hint);
+    if (bowl) bar.appendChild(bowl);
     bar.appendChild(row);
+    fill(); say();
     return bar;
   }
   /* Аудио в пространстве: кнопка со значком (наушники, волна, круги, голос — на выбор в панели), подпись, полоска времени.
@@ -1091,7 +1231,7 @@
      Сцена (или своя картинка обложки) в том виде, какой она сегодня: двери — по календарю, мир — по дням (cover.world), жест сегодняшнего дня,
      личные следы — только если cover.marks и только с этого устройства (o.choice). Без касаний: нажатие по карточке переворачивает её.
      o: { key, base, day — день маршрута (0 — до начала, больше числа дней — после конца), choice — { день: id двери }, visits — { день: 'v' } (по порядку),
-          pats — сохранённые узоры { день: { a } } (тоже с этого устройства) } */
+          pats — сохранённые узоры { день: { a, g } } (тоже с этого устройства) } */
   function cover(r, o) {
     var C = cfg(r).cover || {}, key = o.key, n = o.day, N = days(r), log = o.choice || {}, vis = o.visits || {}, ids = {}, d, k;
     var sc = scene(r, { key: key, base: o.base, pic: C[key] || '', still: true });
@@ -1100,7 +1240,7 @@
       for (d = 1; d <= count(r); d++) {
         var dd = ids[doorOf(r, d).id] || 0;
         sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
-        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true); }
+        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g); }
         if (dd && cfg(r).showDayNumbers) sc.num(d, String(dd));
       }
     } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
@@ -1114,7 +1254,7 @@
   /* ---------- «Моя фигура» — одна картинка: сцена + мир состоявшихся дней + личные следы на выбранных дверях ----------
      Собирается здесь же, на устройстве (canvas), ничего никуда не отправляется. Движения не переносятся (картинка неподвижная);
      мягкий край следа «внутри контура» — там, где браузер умеет размывать на холсте, иначе ровный.
-     o: { key, base, day — день маршрута, choice — { день: id двери }, pats — сохранённые узоры пространств { день: { a } } }; done(canvas | null) */
+     o: { key, base, day — день маршрута, choice — { день: id двери }, pats — сохранённые узоры пространств { день: { a, g } } }; done(canvas | null) */
   function figure(r, o, done) {
     var D = cfg(r), key = o.key, N = days(r), n = o.day, log = o.choice || {}, jobs = [], i, k;
     if (!D[key]) { done(null); return; }
@@ -1124,11 +1264,11 @@
     for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) {
       var fc = face(r, +k, n, o.pats);
       if (fc.mark) marks.push({ day: +k, d: doorOf(r, i) });
-      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat });
+      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, P: kalPcs(r, fc.g, o.base) });
     }
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
-    pats.forEach(function (p) { jobs.push(new Promise(function (ok) { kalImg(o.base, kalOn(r, p.day), ok); })); });
+    pats.forEach(function (p) { jobs.push(new Promise(function (ok) { kalImg(o.base, kalOn(r, p.day), function (im) { kalPre(p.P, function () { ok(im); }); }); })); });
     marks.forEach(function (m) {
       var M = markOf(r, m.day);
       jobs.push(isSvg(M.image) ? new Promise(function (ok) { svgImg(src(o.base, M.image), hexOk(M.color) ? M.color : '#ffe2a0', ok, M); }) : load(M.image));
@@ -1164,7 +1304,7 @@
         var im = ims[1 + world.length + j], poly = zoneOf(p.d, key), b = bbox(poly), Dc = cfg(r), kk = kalOn(r, p.day);
         if (!im) return;
         var w = Math.max(8, Math.round(b.w * W)), h = Math.max(8, Math.round(b.h * H)), pc = document.createElement('canvas'); pc.width = w; pc.height = h;
-        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false);
+        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false, p.P, kalSize(r));
         var lc = document.createElement('canvas'); lc.width = W; lc.height = H;
         var x = lc.getContext('2d'), f = kalFilter(kk);
         if (f && 'filter' in x) x.filter = f;
@@ -1208,7 +1348,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw,
+    worldOn: worldOn, markOn: markOn, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };

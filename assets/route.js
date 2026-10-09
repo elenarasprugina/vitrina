@@ -1279,18 +1279,31 @@
   function doorsCard(r) { return isDoors(r) && !!window.M13D && window.M13D.first(r) === 'card'; }
   function choiceKey() { return storeKey() + '-choice'; }
   function choiceLog() { try { var o = JSON.parse(localStorage.getItem(choiceKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
-  /* Узоры пространств-калейдоскопов: { день: { a — поворот трубки } } — только на этом устройстве, никуда не отправляется.
-     В предпросмотре из панели не запоминается. */
+  /* Узоры пространств-калейдоскопов: { день: { a — поворот трубки, g — его стёклышки в узоре [{ x, y — место в долях R, id, k — glass | spark, c — [r, g, b], l — вид }] } }
+     — только на этом устройстве, никуда не отправляется. В предпросмотре из панели не запоминается. */
   function kalKey() { return storeKey() + '-kal'; }
   function kalLog() { try { var o = JSON.parse(localStorage.getItem(kalKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
-  function kalKeep(day, a) {
+  function kalKeep(day, a, g) {
     S.kalTmp = S.kalTmp || {}; S.kalTmp[day] = { a: Math.round(a * 1000) / 1000 };
+    if (g && g.length) S.kalTmp[day].g = g;
     if (S.preview) return;
     var o = kalLog(); o[day] = S.kalTmp[day];
     try { localStorage.setItem(kalKey(), JSON.stringify(o)); } catch (e) {}
   }
   // Сохранённые узоры: на устройстве + сохранённые сейчас в предпросмотре
   function kalAll() { var o = kalLog(), k; for (k in S.kalTmp || {}) o[k] = S.kalTmp[k]; return o; }
+  /* Чаша (шаг 2, 09.10): по стёклышку за каждый наступивший день + подаренные (слово-подарок, на этом устройстве). Не тратятся: в каждом дне — все.
+     Что в чаше — doors.kalPut: '' стёклышки | 'spark' искры света | 'both' то и другое (через одно) | 'none' чаши нет. Вид — вкладка «Стёклышки» (дни, подарки). */
+  function kalBowl() {
+    var r = S.route, put = doorsCfg().kalPut || '', L = [], n = glassDaysOf(r, curDay()), d;
+    if (put === 'none') return L;
+    for (d = 1; d <= n; d++) L.push({ id: 'd' + d, c: dayGlassColor(r, d), l: 'days', look: glassLook(r, 'days') });
+    if (S.code) giftList(S.code).forEach(function (g) {
+      var z = GIFT_ZONES[g[1]]; if (z) L.push({ id: 'g' + g[0] + '.' + g[1], c: giftColor(r, g[0], z), l: 'gifts.' + z, look: glassLook(r, 'gifts', z) });
+    });
+    L.forEach(function (it, i) { it.k = put === 'spark' || (put === 'both' && i % 2) ? 'spark' : 'glass'; if (it.k === 'spark') it.c = mixW(it.c, .45); });
+    return L;
+  }
   function choose(day, id) { var o = choiceLog(); if (o[day]) return false; o[day] = id; try { localStorage.setItem(choiceKey(), JSON.stringify(o)); } catch (e) {} return true; }
   function doorIdOf(n) { return ((doorsCfg().items || [])[n - 1] || {}).id || ''; }
   // В какой день выбрана дверь n (0 — свободная)
@@ -2918,7 +2931,7 @@
         // След тона — после конца дня (по умолчанию) или сразу; проступил с прошлого раза — проявляется на глазах
         // Узор пространства (сохранённый человеком или узор архетипа) — по M13D.face: вместе со следом, вместо него или только след
         var fc = dd ? M.face(r, dd, n, pats) : null;
-        if (fc && fc.pat != null) sc.pattern(d, dd, fc.pat, !(fresh && M.face(r, dd, seen, pats).pat == null));
+        if (fc && fc.pat != null) sc.pattern(d, dd, fc.pat, !(fresh && M.face(r, dd, seen, pats).pat == null), fc.g);
         if (fc && fc.mark) { if (fresh && !M.face(r, dd, seen, pats).mark) later.push([d, dd]); else sc.mark(d, dd, true); }
         if (dd && D.showDayNumbers) sc.num(d, String(dd));
         if (ok && st === 'free' && M.doorOf(r, d).on !== false) free.push(d);
@@ -3061,9 +3074,11 @@
     var r = S.route, M = window.M13D, fin = d === 'final', n = fin ? daysCount(r) : d, tx = r.texts || {};
     var cfg = fin ? doorsCfg().final || {} : M.spaceOf(r, d);
     // Калейдоскоп: начинается с сохранённого узора дня; «Сохранить мой узор» — у Путешествия и Погружения, не в финале
-    var kp = !fin && kalAll()[d], kt = { peek: tx.kalPeek, unpeek: tx.kalUnpeek, save: tx.kalSave, saved: tx.kalSaved, savedNote: tx.kalSavedNote, again: tx.kalAgain, hint: tx.kalHint };
+    var kp = !fin && kalAll()[d], kt = { peek: tx.kalPeek, unpeek: tx.kalUnpeek, save: tx.kalSave, saved: tx.kalSaved, savedNote: tx.kalSavedNote, again: tx.kalAgain, hint: tx.kalHint,
+      pick: tx.kalPick, place: tx.kalPlace, back: tx.kalBack, empty: tx.kalEmpty, bowl: tx.kalBowl }, own = !fin && S.mode !== 'observation';
     return M.space(r, cfg, { base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
-      kalA: kp ? kp.a : 0, kalTx: kt, kalSave: fin || S.mode === 'observation' ? null : function (a) { kalKeep(d, a); },
+      kalA: kp ? kp.a : 0, kalTx: kt, kalSave: own ? function (a, g) { kalKeep(d, a, g); } : null,
+      kalBowl: own ? kalBowl() : null, kalG: kp ? kp.g : null, kalPs: M.kalSize(r),
       backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, act: function (kind) { spaceAct(kind, n); },
       empty: S.preview ? (fin ? 'Финал пока пустой — блоки добавляются в панели: «За дверью» → «Финал».' : 'Здесь пока пусто — блоки добавляются в панели: «За дверью» → ' + (isChoice(r) ? 'день ' : 'дверь ') + n + '.') : '' });
   }
@@ -3116,7 +3131,7 @@
       // Выбор двери: личный след дня проступает, когда человек возвращается к дверям (если «сразу»; по умолчанию — после конца дня)
       if (isChoice(S.route) && d && S.DS && typeof day === 'number') {
         var fc = M.face(S.route, day, curDay(), kalAll());
-        if (fc.pat != null) S.DS.pattern(d, day, fc.pat, false);
+        if (fc.pat != null) S.DS.pattern(d, day, fc.pat, false, fc.g);
         if (fc.mark) S.DS.mark(d, day, false); else S.DS.mark(d, 0);
         if (doorsCfg().showDayNumbers) S.DS.num(d, String(day));
       }
