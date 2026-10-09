@@ -763,7 +763,7 @@
         if (sc && P.key === key) return;
         key = P.key; box.replaceChildren();
         if (C.fit !== 'cover' && P.src) { var bl = document.createElement('div'); bl.className = 'ys-dblur'; bl.style.backgroundImage = 'url("' + media(P.src) + '")'; box.appendChild(bl); }
-        sc = M.cover(j, { key: key, base: S.base, day: lv.n, choice: C.marks ? routeLocal(j, 'choice') : {}, visits: C.marks ? routeLocal(j, 'doors') : {} });
+        sc = M.cover(j, { key: key, base: S.base, day: lv.n, choice: C.marks ? routeLocal(j, 'choice') : {}, visits: C.marks ? routeLocal(j, 'doors') : {}, pats: C.marks ? routeLocal(j, 'kal') : {} });
         box.appendChild(sc.node);
         var dim = document.createElement('i'); dim.className = 'm13-cover-dim';
         dim.style.opacity = Math.max(0, Math.min(90, C.dim == null || C.dim === '' ? 40 : +C.dim)) / 100;

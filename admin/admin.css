@@ -637,3 +637,6 @@ audio.a-media{background:none;height:40px}
 .a-jd-svgtry{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
 .a-jd-svgtry-pic{width:140px;aspect-ratio:2/3;border-radius:10px;background:#16121c;padding:6px;box-sizing:border-box}
 .a-jd-svgtry-pic svg{display:block;width:100%;height:100%;overflow:visible}
+
+/* Калейдоскоп пространства (09.10): снимок узора у картинки дня */
+.a-kal-pv{width:220px;height:220px;max-width:100%;border-radius:50%;display:block;background:#07060b}

@@ -1279,6 +1279,18 @@
   function doorsCard(r) { return isDoors(r) && !!window.M13D && window.M13D.first(r) === 'card'; }
   function choiceKey() { return storeKey() + '-choice'; }
   function choiceLog() { try { var o = JSON.parse(localStorage.getItem(choiceKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
+  /* Узоры пространств-калейдоскопов: { день: { a — поворот трубки } } — только на этом устройстве, никуда не отправляется.
+     В предпросмотре из панели не запоминается. */
+  function kalKey() { return storeKey() + '-kal'; }
+  function kalLog() { try { var o = JSON.parse(localStorage.getItem(kalKey()) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
+  function kalKeep(day, a) {
+    S.kalTmp = S.kalTmp || {}; S.kalTmp[day] = { a: Math.round(a * 1000) / 1000 };
+    if (S.preview) return;
+    var o = kalLog(); o[day] = S.kalTmp[day];
+    try { localStorage.setItem(kalKey(), JSON.stringify(o)); } catch (e) {}
+  }
+  // Сохранённые узоры: на устройстве + сохранённые сейчас в предпросмотре
+  function kalAll() { var o = kalLog(), k; for (k in S.kalTmp || {}) o[k] = S.kalTmp[k]; return o; }
   function choose(day, id) { var o = choiceLog(); if (o[day]) return false; o[day] = id; try { localStorage.setItem(choiceKey(), JSON.stringify(o)); } catch (e) {} return true; }
   function doorIdOf(n) { return ((doorsCfg().items || [])[n - 1] || {}).id || ''; }
   // В какой день выбрана дверь n (0 — свободная)
@@ -2897,14 +2909,17 @@
     if (S.sim == null && !uc) doorSync(n);
     var sc = S.DS = M.scene(r, { key: P.key, base: S.base, zones: S.zonesOn, onTap: tapDoor }), free = [];
     // Наступил новый день с тех пор, как человек видел двери (на этом устройстве или пока страница открыта) — мир и следы меняются у него на глазах
-    var seen = seenDay(), fresh = seen > 0 && seen < n, later = [];
+    var seen = seenDay(), fresh = seen > 0 && seen < n, later = [], pats = kalAll();
     if (uc) {
       // Свободная — можно выбрать, пока сегодня ещё не выбрано; сегодняшняя — входить снова; прошлая — только надпись
       for (d = 1; d <= M.count(r); d++) {
         var st = ucState(d, n, log), dd = dayOfDoor(d, log), ok = n >= 1 && n <= last && (st === 'today' || (st === 'free' && !mine));
         sc.set(d, st, true, ok);
         // След тона — после конца дня (по умолчанию) или сразу; проступил с прошлого раза — проявляется на глазах
-        if (dd && M.markOn(r, dd, n)) { if (fresh && !M.markOn(r, dd, seen)) later.push([d, dd]); else sc.mark(d, dd, true); }
+        // Узор пространства (сохранённый человеком или узор архетипа) — по M13D.face: вместе со следом, вместо него или только след
+        var fc = dd ? M.face(r, dd, n, pats) : null;
+        if (fc && fc.pat != null) sc.pattern(d, dd, fc.pat, !(fresh && M.face(r, dd, seen, pats).pat == null));
+        if (fc && fc.mark) { if (fresh && !M.face(r, dd, seen, pats).mark) later.push([d, dd]); else sc.mark(d, dd, true); }
         if (dd && D.showDayNumbers) sc.num(d, String(dd));
         if (ok && st === 'free' && M.doorOf(r, d).on !== false) free.push(d);
       }
@@ -3015,7 +3030,7 @@
     if (!isChoice(r) || !Object.keys(choiceLog()).length) { note(tx.figureEmpty || 'Фигура появится, когда вы выберете первую дверь.'); return; }
     if (S.busy) return;
     S.busy = true;
-    M.figure(r, { key: S.DS ? S.DS.key : M.pick(r, window.innerHeight / window.innerWidth > 1.25).key, base: S.base, day: curDay(), choice: choiceLog() }, function (cv) {
+    M.figure(r, { key: S.DS ? S.DS.key : M.pick(r, window.innerHeight / window.innerWidth > 1.25).key, base: S.base, day: curDay(), choice: choiceLog(), pats: kalAll() }, function (cv) {
       S.busy = false;
       // Имя файла — латиницей: не все браузеры сохраняют файл с русским именем
       var name = '13mirrors-' + String(r.id || 'route').replace(/[^\w-]+/g, '') + '-figure.png';
@@ -3045,7 +3060,10 @@
   function spaceNode(d) {
     var r = S.route, M = window.M13D, fin = d === 'final', n = fin ? daysCount(r) : d, tx = r.texts || {};
     var cfg = fin ? doorsCfg().final || {} : M.spaceOf(r, d);
+    // Калейдоскоп: начинается с сохранённого узора дня; «Сохранить мой узор» — у Путешествия и Погружения, не в финале
+    var kp = !fin && kalAll()[d], kt = { peek: tx.kalPeek, unpeek: tx.kalUnpeek, save: tx.kalSave, saved: tx.kalSaved, savedNote: tx.kalSavedNote, again: tx.kalAgain, hint: tx.kalHint };
     return M.space(r, cfg, { base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
+      kalA: kp ? kp.a : 0, kalTx: kt, kalSave: fin || S.mode === 'observation' ? null : function (a) { kalKeep(d, a); },
       backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, act: function (kind) { spaceAct(kind, n); },
       empty: S.preview ? (fin ? 'Финал пока пустой — блоки добавляются в панели: «За дверью» → «Финал».' : 'Здесь пока пусто — блоки добавляются в панели: «За дверью» → ' + (isChoice(r) ? 'день ' : 'дверь ') + n + '.') : '' });
   }
@@ -3096,7 +3114,12 @@
       S.busy = false; S.space = null; S.spaceN = null; S.spaceDay = null;
       if (S.redraw || (S.sim == null && curDay() !== S.doorDay)) { S.redraw = false; render(); return; }
       // Выбор двери: личный след дня проступает, когда человек возвращается к дверям (если «сразу»; по умолчанию — после конца дня)
-      if (isChoice(S.route) && d && S.DS && typeof day === 'number') { if (M.markOn(S.route, day, curDay())) S.DS.mark(d, day, false); if (doorsCfg().showDayNumbers) S.DS.num(d, String(day)); }
+      if (isChoice(S.route) && d && S.DS && typeof day === 'number') {
+        var fc = M.face(S.route, day, curDay(), kalAll());
+        if (fc.pat != null) S.DS.pattern(d, day, fc.pat, false);
+        if (fc.mark) S.DS.mark(d, day, false); else S.DS.mark(d, 0);
+        if (doorsCfg().showDayNumbers) S.DS.num(d, String(day));
+      }
       // Подсказка над дверями: сегодняшняя уже открыта
       var h = document.querySelector('.ys-tap.is-gone');
       if (h && d) { putText(h, fill((S.route.texts || {}).doorAgain || 'Сегодняшняя дверь открыта до полуночи', ctxOf(S.route, d))); h.classList.add('ys-tap--calm'); h.classList.remove('is-gone'); }

@@ -21,7 +21,9 @@
      area: 'door' (картинка размером со сцену, видна только внутри контура) | 'scene' (вся сцена, без контура) | 'frag' (готовый фрагмент — в рамку двери),
      desktop, mobile — картинка слоя (PNG/WebP с прозрачностью; необязательно), color + fill — заливка цветом (%), opacity, blend,
      soft — мягкий край контура, fx — движение (FX ниже), speed, power — его скорость и сила (%), fade — сколько длится смена состояния, мс, scale — фрагмент крупнее/мельче }
-   Пространство: { desktop, mobile — фон, color, dim, place: 'center' | 'left' | 'right' | 'bottom', plate: 'glass' | 'dark' | 'none', blocks: [блок] }
+   Пространство: { desktop, mobile — фон, color, dim, place: 'center' | 'left' | 'right' | 'bottom', plate: 'glass' | 'dark' | 'none', blocks: [блок],
+     kal: { on, image, n, speed, bright } — фон «калейдоскоп из картинки» (09.10, kalLive) }
+   Узор на двери (09.10): doors.pattern ('' узор + знак | 'pattern' | 'mark'), patternNone ('' знак | 'archetype'), patternOpacity, patternSoft — face().
    Блок: { kind: 'title' | 'small' | 'text' | 'image' | 'dayCard' | 'deck' | 'glass' | 'final' | 'figure', text, image, label, auto, who: { формат: да/нет }, visible }
    Заход «б» (06.10): живая обложка на витрине — doors.cover = { on, desktop, mobile — своя картинка (нет — сцена), fit, dim, world — мировые слои на обложке,
      marks — личные следы этого устройства на обложке, text — надписи карточки поверх }; жест дня на обложке — doors.days[N].gesture =
@@ -677,6 +679,30 @@
       x.g.appendChild(ln); x.mk = ln; x.mkDay = day;
       if (now) show(ln, true, true); else { void ln.offsetWidth; show(ln, true, false); }
     }
+    /* Узор пространства на двери n (день day, поворот a); day = 0 — убрать. Лежит под следом тона, над слоями двери.
+       Прозрачность и мягкий край — doors.patternOpacity, patternSoft; появляется мягко (now — сразу). */
+    function pattern(n, day, a, now) {
+      var x = G[n]; if (!x) return;
+      if (x.pt && x.ptKey === day + ':' + a) return;
+      if (x.pt) { x.pt.remove(); x.pt = null; x.ptKey = null; }
+      if (!day || !x.poly) return;
+      var Dc = cfg(r), box = el('div', 'ys-dpat'), b = bbox(x.poly), my = day + ':' + a;
+      box.style.setProperty('--pat-o', num(Dc.patternOpacity, 100, 0, 100) / 100);
+      clip(box, x.poly, num(Dc.patternSoft, 0, 0, 40));
+      x.pt = box; x.ptKey = my;
+      x.g.insertBefore(box, x.mk || null);
+      function put() {
+        kalDoor(r, day, a, x.poly, img, o.base, function (cv) {
+          if (!cv || x.ptKey !== my) return;
+          cv.className = 'ys-dpat-cv';
+          cv.style.left = (b.x * 100) + '%'; cv.style.top = (b.y * 100) + '%'; cv.style.width = (b.w * 100) + '%'; cv.style.height = (b.h * 100) + '%';
+          var f = kalFilter(kalOn(r, day)); if (f) cv.style.filter = f;
+          box.appendChild(cv);
+          if (now || REDUCED) box.classList.add('is-on'); else { void box.offsetWidth; box.classList.add('is-on'); }
+        });
+      }
+      if (img.complete && img.naturalWidth) put(); else img.addEventListener('load', put);
+    }
     // Число дня на выбранной двери (showDayNumbers)
     function numOn(n, t) {
       var x = G[n]; if (!x || !x.poly) return;
@@ -737,7 +763,7 @@
     return { node: stage, img: img, key: key, set: set, state: function (n) { return G[n] ? G[n].st : null; },
       poly: function (n) { return G[n] ? G[n].poly : null; }, door: function (n) { return G[n] ? G[n].g : null; },
       world: function (y, on, now) { var ms = 0; (W[y] || []).forEach(function (ln) { ms = Math.max(ms, show(ln, on, now) || 0); }); return ms; },
-      mark: mark, num: numOn, call: call, gesture: gesture,
+      mark: mark, pattern: pattern, num: numOn, call: call, gesture: gesture,
       zones: function (on) { hit.setAttribute('class', 'ys-dhit' + (on ? ' is-zones' : '')); } };
   }
   // Где сцена на экране: целиком (по краям — размытая та же картинка) или во весь экран (края срезаются)
@@ -745,6 +771,110 @@
     var s = mode === 'cover' ? Math.max(W / iw, H / ih) : Math.min(W / iw, H / ih);
     stage.style.width = iw * s + 'px'; stage.style.height = ih * s + 'px';
     stage.style.left = (W - iw * s) / 2 + 'px'; stage.style.top = (H - ih * s) / 2 + 'px';
+  }
+
+  /* ---------- Пространство архетипа — живой калейдоскоп из картинки (09.10, docs/doors.md «Калейдоскоп пространства») ----------
+     Картинка дня — «камера» внутри трубки: сдвинута от центра и медленно поворачивается, клин отражается в зеркалах — узор перетекает
+     (как «Эскиз гримуара»). У пространства: kal = { on, image, n — зеркал (8 | 12 | 16), speed — скорость, %, bright — ярче и сочнее, % }.
+     Узор человека — один поворот трубки (a, радианы): хранится на его устройстве, по нему узор перерисовывается на двери, обложке и в фигуре. */
+  var KCX = .28, KCY = .1, KSPIN = .072, KPAD = .03;
+  function kalOf(sp) { var k = sp && sp.kal; return k && k.on && k.image ? k : null; }
+  function kalOn(r, day) { return kalOf(spaceOf(r, day)); }
+  function kalN(k) { var n = +k.n; return n === 8 || n === 16 ? n : 12; }
+  function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
+  var kWedge = null;
+  // Узор в прямоугольник W×H (центр трубки — середина); reveal — сама картинка, без зеркал (кнопка «Что внутри?»)
+  function kalDraw(c, W, H, im, k, ang, reveal) {
+    var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
+    if (!sw || !sh) return;
+    var sc = R * 2.3 / Math.min(sw, sh);
+    function cam(x) { x.rotate(ang); x.drawImage(im, -sw * sc / 2, -sh * sc / 2, sw * sc, sh * sc); }
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H);
+    if (reveal) { c.translate(W / 2, H / 2); cam(c); c.restore(); return; }
+    // Клин чуть шире сектора: соседние отражения перекрываются, на стыках нет тонких линий
+    var pad = Math.ceil(R * Math.sin(KPAD)) + 3, ww = Math.ceil(R) + 2, wh = Math.ceil(R * Math.sin(Math.min(A + KPAD, Math.PI / 2))) + pad + 4;
+    var wc = kWedge = kWedge || document.createElement('canvas');
+    if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
+    var wg = wc.getContext('2d');
+    wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, ww, wh);
+    wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
+    wg.translate(R * KCX, R * KCY); cam(wg); wg.restore();
+    c.translate(W / 2, H / 2);
+    for (var i = 0; i < n; i++) {
+      c.save();
+      if (i % 2) { c.rotate((i + 1) * A); c.scale(1, -1); } else c.rotate(i * A);
+      c.drawImage(wc, 0, -pad); c.restore();
+    }
+    // Мягкая тень к краям — узор глубже
+    var v = c.createRadialGradient(0, 0, R * .5, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.4)');
+    c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H);
+    c.restore();
+  }
+  function kalImg(base, k, f) { var im = new Image(); im.onload = function () { f(im); }; im.onerror = function () { f(null); }; im.src = src(base, k.image); return im; }
+
+  /* Живой калейдоскоп на весь экран пространства. Провёл — повернул трубку; коснулся — мягкий толчок (с затуханием).
+     o: { base, a — с какого поворота начать (сохранённый узор), still — без движения (предпросмотр снимка) }.
+     Возвращает { node, ang(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
+  function kalLive(k, o) {
+    var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
+    var S = { ang: +o.a || 0, vel: 0, frozen: false, reveal: false }, drag = null, last = 0, slow = 0, started = false;
+    cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
+    var f = kalFilter(k); if (f) cv.style.filter = f;
+    kalImg(o.base, k, function (x) { im = x; draw(); });
+    function draw() {
+      var w = Math.round((cv.clientWidth || window.innerWidth) * q), h = Math.round((cv.clientHeight || window.innerHeight) * q);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+      if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal);
+    }
+    function loop(ts) {
+      if (started && !cv.isConnected) return;
+      if (cv.isConnected) started = true;
+      var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
+      if (!S.frozen && !o.still) {
+        S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel; S.vel *= .95;
+        var t0 = performance.now(); draw();
+        // Телефон не успевает — чуть меньше точек (узор тот же)
+        if (performance.now() - t0 > 26) { if (++slow > 10 && q > .6) { q *= .85; slow = 0; } } else slow = 0;
+      }
+      requestAnimationFrame(loop);
+    }
+    cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
+    cv.addEventListener('pointermove', function (e) {
+      if (!drag) return; var dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 4 || Math.abs(e.clientY - drag.y) > 4) drag.moved = true;
+      if (drag.moved) { S.ang = drag.a + dx * .006; S.vel = 0; if (REDUCED) draw(); }
+    });
+    function up() { if (!drag) return; var m = drag.moved; drag = null; if (m || S.frozen) return; S.vel += .045; if (REDUCED) { S.ang += .5; draw(); } }
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', function () { drag = null; });
+    window.addEventListener('resize', function () { if (cv.isConnected) draw(); });
+    requestAnimationFrame(loop);
+    return { node: cv, ang: function () { return S.ang; }, draw: draw,
+      freeze: function (v) { S.frozen = !!v; S.vel = 0; draw(); },
+      reveal: function (v) { S.reveal = !!v; draw(); } };
+  }
+
+  /* Узор на двери (сцена, обложка): холст в рамке двери, обрезан по контуру; центр трубки — середина рамки.
+     key, poly — контур на этой картинке, scn — картинка сцены (её пропорции нужны для рамки), done(холст | null) */
+  function kalDoor(r, day, a, poly, scn, base, done) {
+    var k = kalOn(r, day); if (!k || !poly) { done(null); return; }
+    kalImg(base, k, function (im) {
+      if (!im) { done(null); return; }
+      var b = bbox(poly), iw = scn.naturalWidth || 1600, ih = scn.naturalHeight || 900, rw = b.w * iw, rh = b.h * ih, s = 520 / Math.max(rw, rh);
+      var cv = document.createElement('canvas'); cv.width = Math.max(8, Math.round(rw * s)); cv.height = Math.max(8, Math.round(rh * s));
+      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false);
+      done(cv);
+    });
+  }
+  /* Что видно на двери дня day сегодня (n): след тона и/или узор. P — сохранённые узоры этого устройства { день: { a } }.
+     doors.pattern: '' — узор и знак тона поверх | 'pattern' — только узор | 'mark' — только знак (как раньше);
+     doors.patternNone: '' — не сохранил узор: знак тона | 'archetype' — узор архетипа (картинка дня, без его поворота) после конца дня. */
+  function face(r, day, n, P) {
+    var D = cfg(r), mk = markOn(r, day, n), p = (P || {})[day], show = D.pattern || '';
+    if (!kalOn(r, day) || show === 'mark') return { mark: mk, pat: null };
+    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a };
+    if (D.patternNone === 'archetype' && mk) return { mark: show !== 'pattern', pat: 0 };
+    return { mark: mk, pat: null };
   }
 
   /* ---------- Пространство за дверью ----------
@@ -755,7 +885,9 @@
     var root = el('section', 'ys-space ys-space--' + (sp.place || 'center') + ' ys-space--' + (sp.plate || 'glass'));
     var bg = el('div', 'ys-space-bg');
     bg.style.backgroundColor = hexOk(sp.color) ? sp.color : '#0d0906';
-    if (bgSrc) bg.style.backgroundImage = 'url("' + src(o.base, bgSrc) + '")';
+    var K = kalOf(sp), live = null;
+    if (K) { live = kalLive(K, { base: o.base, a: o.kalA, still: o.still }); bg.appendChild(live.node); root.classList.add('ys-space--kal'); }
+    else if (bgSrc) bg.style.backgroundImage = 'url("' + src(o.base, bgSrc) + '")';
     var dim = el('div', 'ys-space-dim'); dim.style.opacity = num(sp.dim, 30, 0, 90) / 100;
     var back = el('button', 'ys-space-back', o.backText || '← Назад к дверям'); back.type = 'button';
     back.addEventListener('click', function () { if (o.onBack) o.onBack(); });
@@ -789,7 +921,37 @@
     if (!col.firstChild) col.appendChild(el('p', 'ys-sp-small', o.empty || ''));
     scroll.appendChild(col);
     root.appendChild(bg); root.appendChild(dim); root.appendChild(scroll); root.appendChild(back);
+    if (live) root.appendChild(kalBar(live, o));
     return root;
+  }
+  /* Кнопки калейдоскопа внизу: «Что внутри?» (сама картинка, вращается) и «Сохранить мой узор» (узор застывает и ложится на дверь дня).
+     o.kalSave(a) — сохранить поворот (нет — кнопки «Сохранить» нет: Наблюдение, финал); o.kalTx — надписи; o.onBack — к дверям. */
+  function kalBar(live, o) {
+    var t = o.kalTx || {}, bar = el('div', 'ys-kal-bar'), row = el('div', 'ys-kal-row'), hint = t.hint ? el('p', 'ys-kal-hint', t.hint) : null;
+    var peek = el('button', 'ys-kal-btn ys-kal-btn--ghost', t.peek || 'Что внутри?'), on = false; peek.type = 'button';
+    peek.addEventListener('click', function () { on = !on; live.reveal(on); peek.textContent = on ? t.unpeek || 'Снова узор' : t.peek || 'Что внутри?'; });
+    row.appendChild(peek);
+    if (o.kalSave) {
+      var sv = el('button', 'ys-kal-btn', t.save || 'Сохранить мой узор'); sv.type = 'button';
+      sv.addEventListener('click', function () {
+        if (on) { on = false; live.reveal(false); peek.textContent = t.peek || 'Что внутри?'; }
+        live.freeze(true); o.kalSave(live.ang());
+        var done = el('div', 'ys-kal-done'), plate = el('div', 'ys-kal-plate'), r2 = el('div', 'ys-kal-row');
+        plate.appendChild(el('b', '', t.saved || 'Ваш узор сохранён'));
+        plate.appendChild(el('p', '', t.savedNote || 'Он ляжет на вашу дверь этого дня.'));
+        var again = el('button', 'ys-kal-btn ys-kal-btn--ghost', t.again || 'Покрутить ещё'), home = el('button', 'ys-kal-btn', o.backText || '← Назад к дверям');
+        again.type = home.type = 'button';
+        again.addEventListener('click', function () { done.remove(); live.freeze(false); bar.hidden = false; });
+        home.addEventListener('click', function () { if (o.onBack) o.onBack(); });
+        r2.appendChild(again); r2.appendChild(home); plate.appendChild(r2); done.appendChild(plate);
+        bar.hidden = true; bar.parentNode.appendChild(done);
+        try { home.focus({ preventScroll: true }); } catch (e) {}
+      });
+      row.appendChild(sv);
+    }
+    if (hint) bar.appendChild(hint);
+    bar.appendChild(row);
+    return bar;
   }
   /* Аудио в пространстве: кнопка со значком (наушники, волна, круги, голос — на выбор в панели), подпись, полоска времени.
      Во время звучания значок — дышащая волна. Запись не грузится, пока не нажали (preload none); ушли из пространства — пауза (back). */
@@ -928,7 +1090,8 @@
   /* ---------- Живая обложка на витрине (заход «б») ----------
      Сцена (или своя картинка обложки) в том виде, какой она сегодня: двери — по календарю, мир — по дням (cover.world), жест сегодняшнего дня,
      личные следы — только если cover.marks и только с этого устройства (o.choice). Без касаний: нажатие по карточке переворачивает её.
-     o: { key, base, day — день маршрута (0 — до начала, больше числа дней — после конца), choice — { день: id двери }, visits — { день: 'v' } (по порядку) } */
+     o: { key, base, day — день маршрута (0 — до начала, больше числа дней — после конца), choice — { день: id двери }, visits — { день: 'v' } (по порядку),
+          pats — сохранённые узоры { день: { a } } (тоже с этого устройства) } */
   function cover(r, o) {
     var C = cfg(r).cover || {}, key = o.key, n = o.day, N = days(r), log = o.choice || {}, vis = o.visits || {}, ids = {}, d, k;
     var sc = scene(r, { key: key, base: o.base, pic: C[key] || '', still: true });
@@ -937,7 +1100,7 @@
       for (d = 1; d <= count(r); d++) {
         var dd = ids[doorOf(r, d).id] || 0;
         sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
-        if (dd && markOn(r, dd, n)) sc.mark(d, dd, true);
+        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true); }
         if (dd && cfg(r).showDayNumbers) sc.num(d, String(dd));
       }
     } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
@@ -951,16 +1114,21 @@
   /* ---------- «Моя фигура» — одна картинка: сцена + мир состоявшихся дней + личные следы на выбранных дверях ----------
      Собирается здесь же, на устройстве (canvas), ничего никуда не отправляется. Движения не переносятся (картинка неподвижная);
      мягкий край следа «внутри контура» — там, где браузер умеет размывать на холсте, иначе ровный.
-     o: { key, base, day — день маршрута, choice — { день: id двери } }; done(canvas | null) */
+     o: { key, base, day — день маршрута, choice — { день: id двери }, pats — сохранённые узоры пространств { день: { a } } }; done(canvas | null) */
   function figure(r, o, done) {
     var D = cfg(r), key = o.key, N = days(r), n = o.day, log = o.choice || {}, jobs = [], i, k;
     if (!D[key]) { done(null); return; }
     function load(u) { return new Promise(function (ok) { if (!u) { ok(null); return; } var im = new Image(); im.onload = function () { ok(im); }; im.onerror = function () { ok(null); }; im.src = src(o.base, u); }); }
-    var world = [], marks = [];
+    var world = [], marks = [], pats = [];
     for (k = 1; k <= N; k++) if (worldOn(r, k, n)) world = world.concat((dayCfg(r, k).world || []).filter(function (L) { return L && L.visible !== false; }).map(function (L) { return worldLayer(r, L); }));
-    for (k in log) if (markOn(r, +k, n)) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) marks.push({ day: +k, d: doorOf(r, i) });
+    for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) {
+      var fc = face(r, +k, n, o.pats);
+      if (fc.mark) marks.push({ day: +k, d: doorOf(r, i) });
+      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat });
+    }
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
+    pats.forEach(function (p) { jobs.push(new Promise(function (ok) { kalImg(o.base, kalOn(r, p.day), ok); })); });
     marks.forEach(function (m) {
       var M = markOf(r, m.day);
       jobs.push(isSvg(M.image) ? new Promise(function (ok) { svgImg(src(o.base, M.image), hexOk(M.color) ? M.color : '#ffe2a0', ok, M); }) : load(M.image));
@@ -991,8 +1159,25 @@
         if (im) { c.globalAlpha = op; c.drawImage(im, 0, 0, W, H); }
         if (+L.fill > 0) { c.globalAlpha = op * num(L.fill, 0, 0, 100) / 100; c.fillStyle = hexOk(L.color) ? L.color : '#ffe2a0'; c.fillRect(0, 0, W, H); }
       });
+      // Узоры пространств — в рамке двери, по контуру, под следами
+      pats.forEach(function (p, j) {
+        var im = ims[1 + world.length + j], poly = zoneOf(p.d, key), b = bbox(poly), Dc = cfg(r), kk = kalOn(r, p.day);
+        if (!im) return;
+        var w = Math.max(8, Math.round(b.w * W)), h = Math.max(8, Math.round(b.h * H)), pc = document.createElement('canvas'); pc.width = w; pc.height = h;
+        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false);
+        var lc = document.createElement('canvas'); lc.width = W; lc.height = H;
+        var x = lc.getContext('2d'), f = kalFilter(kk);
+        if (f && 'filter' in x) x.filter = f;
+        x.drawImage(pc, b.x * W, b.y * H, w, h); x.filter = 'none';
+        var mk = document.createElement('canvas'); mk.width = W; mk.height = H;
+        var y = mk.getContext('2d'), soft = num(Dc.patternSoft, 0, 0, 40);
+        if (soft && 'filter' in y) y.filter = 'blur(' + (soft / 10 / 100 * Math.min(W, H)).toFixed(1) + 'px)';
+        y.beginPath(); poly.forEach(function (q, t) { if (t) y.lineTo(q[0] * W, q[1] * H); else y.moveTo(q[0] * W, q[1] * H); }); y.closePath(); y.fillStyle = '#fff'; y.fill();
+        x.globalCompositeOperation = 'destination-in'; x.drawImage(mk, 0, 0);
+        c.globalCompositeOperation = 'source-over'; c.globalAlpha = num(Dc.patternOpacity, 100, 0, 100) / 100; c.drawImage(lc, 0, 0);
+      });
       marks.forEach(function (m, j) {
-        var M = markOf(r, m.day), im = ims[1 + world.length + j], poly = zoneOf(m.d, key), b = bbox(poly), fx = m.d.markFix || {};
+        var M = markOf(r, m.day), im = ims[1 + world.length + pats.length + j], poly = zoneOf(m.d, key), b = bbox(poly), fx = m.d.markFix || {};
         var sc = num(M.scale, 100, 20, 300) / 100 * num(fx.scale, 100, 20, 300) / 100, w = b.w * sc * W, h = b.h * sc * H;
         var cx = (b.cx + num(fx.x, 0, -200, 200) / 100 * b.w) * W, cy = (b.cy + num(fx.y, 0, -200, 200) / 100 * b.h) * H;
         if (!im && !(+M.fill > 0)) return;
@@ -1023,7 +1208,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, weather: weather, hush: hush,
+    worldOn: worldOn, markOn: markOn, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
