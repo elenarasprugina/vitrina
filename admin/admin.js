@@ -7411,7 +7411,8 @@
       body: body ? JSON.stringify(body) : undefined
     }).then(function (r) {
       if (!r.ok) return r.json().catch(function () { return {}; }).then(function (j) { var e = ghErr(r.status, what); e.gh = j; throw e; });
-      return r.status === 204 ? null : r.json();
+      // Связь оборвалась, пока шёл ответ, — тоже «нет связи» (а не английское «Failed to fetch»)
+      return r.status === 204 ? null : r.json().catch(function () { throw ghErr(0); });
     }, function () { throw ghErr(0); });
   }
   function repoPath(repo) { return '/repos/' + GH.owner + '/' + repo; }
@@ -7451,10 +7452,19 @@
       });
     });
   }
-  function readText(repo, sha) {
-    return api('GET', repoPath(repo) + '/git/blobs/' + sha, null, repo).then(function (b) {
-      return b.encoding === 'base64' ? unb64utf8(b.content) : b.content;
-    });
+  // Файл из репозитория как есть (raw — без base64, на треть легче); оборвалась связь — ещё две попытки через 2 и 5 с
+  function readText(repo, sha, n) {
+    n = n || 0;
+    return fetch(GH.api + repoPath(repo) + '/git/blobs/' + sha, { cache: 'no-store',
+      headers: { 'Authorization': 'Bearer ' + GHS.token, 'Accept': 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' } })
+      .then(function (r) {
+        if (!r.ok) { var e = ghErr(r.status, repo); e.final = true; throw e; }
+        return r.arrayBuffer().then(function (b) { return new TextDecoder().decode(b); }, function () { throw ghErr(0); });
+      }, function () { throw ghErr(0); })
+      .catch(function (e) {
+        if (e.final || n >= 2) throw e;
+        return new Promise(function (ok) { setTimeout(ok, [2000, 5000][n]); }).then(function () { return readText(repo, sha, n + 1); });
+      });
   }
   // Отпечаток файла так, как его считает git (sha1 от «blob <длина>\0» + содержимое) — чтобы не отправлять файлы, которые не менялись.
   // Нет crypto.subtle (старый браузер) — null: файл просто отправится.
@@ -7522,17 +7532,23 @@
   function loadDraftFrom(repo, head) {
     return treeOf(repo, head).then(function (t) {
       if (!t.files['data/settings.json']) return { empty: true, date: t.date };
+      // Файлы — по одному (черновик большой: все сразу на неровном интернете обрываются), с ходом загрузки
       var D = { showcases: {} }, jobs = [];
       DATA_FILES.forEach(function (n) {
         var sha = t.files['data/' + n + '.json'];
-        jobs.push(sha ? readText(repo, sha).then(function (x) { D[n] = JSON.parse(x); }) : Promise.resolve());
+        if (sha) jobs.push([sha, function (x) { D[n] = JSON.parse(x); }]);
       });
       Object.keys(t.files).forEach(function (p) {
         var m = /^data\/showcases\/(\d{4}-\d{2})\.json$/.exec(p);
-        if (m) jobs.push(readText(repo, t.files[p]).then(function (x) { D.showcases[m[1]] = JSON.parse(x); }));
+        if (m) jobs.push([t.files[p], function (x) { D.showcases[m[1]] = JSON.parse(x); }]);
       });
-      if (t.files['data/showcases/index.json']) jobs.push(readText(repo, t.files['data/showcases/index.json']).then(function (x) { D.index = JSON.parse(x); }));
-      return Promise.all(jobs).then(function () {
+      if (t.files['data/showcases/index.json']) jobs.push([t.files['data/showcases/index.json'], function (x) { D.index = JSON.parse(x); }]);
+      function next(i) {
+        if (i >= jobs.length) return Promise.resolve();
+        busy('Загружаем черновик из GitHub… ' + (i + 1) + ' из ' + jobs.length);
+        return readText(repo, jobs[i][0]).then(function (x) { jobs[i][1](x); return next(i + 1); });
+      }
+      return next(0).then(function () {
         DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n] || (n === 'events' ? EVENTS_DEFAULT() : {})); });
         return { data: D, date: t.date };
       });
