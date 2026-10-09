@@ -201,6 +201,24 @@
       s._poly = c.poly; s._band = band; ln._line = s;
       ln.firstChild.appendChild(s);
     } },
+    /* Свет из-за двери (09.10, её «проступает из-за двери, не линия»): за дверью словно горит лампа — мягкий ореол снаружи контура
+       и размытая кайма, которая сочится внутрь по краю (как сквозь щели). Линии нет: размытие прячет неточность точек контура. Дышит. */
+    halo: { name: 'свет из-за двери — мягкий ореол, сочится по краю (не линия)', t: 7, run: function (ln, c) {
+      if (!c.poly) return;
+      var id = 'ysh' + (++auraN), s = sv('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'ys-fx-line ys-fx-halo' });
+      var defs = sv('defs', {}), fo = sv('filter', { id: id + 'o', filterUnits: 'userSpaceOnUse' }), fi = sv('filter', { id: id + 'i', filterUnits: 'userSpaceOnUse' });
+      var mk = sv('mask', { id: id + 'm', maskUnits: 'userSpaceOnUse' }), cp = sv('clipPath', { id: id + 'c' });
+      fo.appendChild(sv('feGaussianBlur', {})); fi.appendChild(sv('feGaussianBlur', {}));
+      mk.appendChild(sv('rect', { fill: '#fff' })); mk.appendChild(sv('path', { fill: '#000' }));
+      cp.appendChild(sv('path', {}));
+      [fo, fi, mk, cp].forEach(function (x) { defs.appendChild(x); }); s.appendChild(defs);
+      var out = sv('g', { mask: 'url(#' + id + 'm)' }), inn = sv('g', { 'clip-path': 'url(#' + id + 'c)' });
+      out.appendChild(sv('path', { class: 'ys-fx-halo-out', filter: 'url(#' + id + 'o)' }));
+      inn.appendChild(sv('path', { class: 'ys-fx-halo-in', filter: 'url(#' + id + 'i)' }));
+      s.appendChild(out); s.appendChild(inn);
+      s._poly = c.poly; s._halo = { fo: fo, fi: fi, mk: mk }; ln._line = s;
+      ln.firstChild.appendChild(s);
+    } },
     drift: { name: 'движение среды — слой медленно плывёт (туман, вода)', t: 16, run: function (ln) { ln.classList.add('ys-fx-drift'); } },
     reveal: { name: 'проявление — слой медленно проступает', t: 2.4, run: function (ln) { ln.classList.add('ys-fx-reveal'); } },
     flow: { name: 'бесконечно плывёт — облака идут по кругу, без пустот', t: 90, run: flowStrip }
@@ -518,6 +536,15 @@
       s._band.setAttribute('x', 0); s._band.setAttribute('y', (y - h * .3).toFixed(1)); s._band.setAttribute('width', bw.toFixed(1)); s._band.setAttribute('height', (h * 1.6).toFixed(1));
       s.style.setProperty('--x0', (x - bw * 1.6).toFixed(1) + 'px'); s.style.setProperty('--x1', (x + w + bw * .6).toFixed(1) + 'px');
       s.style.setProperty('--cy', (y + h / 2).toFixed(1) + 'px');
+    }
+    if (s._halo) {
+      // Ореол: размытие — по размеру двери (снаружи шире, кайма внутри уже); фильтры и маска — на весь рисунок с запасом
+      var hb = bbox(s._poly), m = Math.sqrt(hb.w * W * hb.h * H), so = Math.max(m * .26, 3), si = Math.max(m * .09, 1.5), X = s._halo;
+      [X.fo, X.fi, X.mk].forEach(function (f) { f.setAttribute('x', -W * .5); f.setAttribute('y', -H * .5); f.setAttribute('width', W * 2); f.setAttribute('height', H * 2); });
+      X.mk.firstChild.setAttribute('x', -W * .5); X.mk.firstChild.setAttribute('y', -H * .5); X.mk.firstChild.setAttribute('width', W * 2); X.mk.firstChild.setAttribute('height', H * 2);
+      X.fo.firstChild.setAttribute('stdDeviation', so.toFixed(1)); X.fi.firstChild.setAttribute('stdDeviation', si.toFixed(1));
+      s.querySelector('.ys-fx-halo-out').setAttribute('stroke-width', (so * 1.8).toFixed(1));
+      s.querySelector('.ys-fx-halo-in').setAttribute('stroke-width', (si * 2.4).toFixed(1));
     }
   }
   // Слой впервые виден — картинки начинают грузиться
