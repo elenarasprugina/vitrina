@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261009d';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4983,24 +4983,37 @@
       figure: 'Собирает «Мою фигуру» — сцену, мир состоявшихся дней и личные следы на выбранных дверях — в одну картинку и сохраняет её на устройство человека. Удобно в финале.' };
     // Калейдоскоп из картинки (09.10): узор вместо фона; маленький снимок узора — здесь же
     var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 220, height: 220 });
+    // Картинка грузится один раз (контраст и чёткость считаются по ней заново только при новом значении); ползунок тянут — снимок через миг
+    var kIm = null, kSrc = '', kT = 0;
     function kDraw() {
       if (!K.image) return;
-      var im = new Image(); im.onload = function () { var c = kpv.getContext('2d'); M.kalDraw(c, 220, 220, im, K, 0.6, false); kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : ''; };
-      im.src = /^(data:|blob:|https?:)/.test(K.image) ? K.image : '../' + K.image;
+      clearTimeout(kT);
+      kT = setTimeout(function () {
+        function put() { var c = kpv.getContext('2d'); M.kalDraw(c, 220, 220, kIm, K, 0.6, false); kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : ''; }
+        var u = /^(data:|blob:|https?:)/.test(K.image) ? K.image : '../' + K.image;
+        if (kIm && kSrc === u) { if (kIm.complete && kIm.naturalWidth) put(); return; }
+        kSrc = u; kIm = new Image(); kIm.onload = put; kIm.src = u;
+      }, 120);
     }
     var kal = block('Калейдоскоп из картинки', [
       switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
         hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
       K.on ? el('div', { class: 'a-row' }, [
-        imageIn(K, 'image', 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { kDraw(); liveSoon(); },
-          hint: 'Своя у каждого дня (архетипа). Лучше всего — небо, листок или цветок на небе, рисунок с яркими пятнами: узор строится из середины картинки.' }),
+        imageIn(K, 'image', 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
+          hint: 'Своя у каждого дня (архетипа). Узор строится из середины картинки — там должно быть самое интересное. Чётче всего выходят мелкие детали и тонкие светлые линии на тёмном (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' }),
         K.image ? field('Так выглядит узор (снимок)', kpv) : el('span')]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         selectIn(K, 'n', 'Зеркал', [['8', '8 — крупный узор'], ['12', '12 — как в эскизе'], ['16', '16 — мелкое кружево']], { def: '12', onChange: kDraw }),
         rangeIn(K, 'speed', 'Скорость перетекания', { min: 20, max: 300, step: 10, def: 100, unit: ' %', hint: '100 % — как в эскизе; меньше — тише, больше — живее.' })]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'bright', 'Ярче и сочнее', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Тусклой картинке — 120–140 %.' }),
-        el('p', { class: 'a-hint', text: 'Приглушить узор под надписями — ползунок «Приглушить фон» ниже (обычно 10–15 %). Кнопки «Что внутри?» и «Сохранить мой узор» появляются внизу сами; их надписи и что видно на двери — «Двери» → «Узор на двери».' })]) : null
+        rangeIn(K, 'contrast', 'Контраст', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Светлое светлее, тёмное темнее — узор не «мутный». Обычно 115–130 %.' })]) : null,
+      K.on ? el('div', { class: 'a-row' }, [
+        rangeIn(K, 'zoom', 'Крупность узора', { min: 70, max: 130, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Меньше — трубка берёт больше картинки и меньше её растягивает: узор мельче и чётче, как кружево (но в него попадает и то, что по краям картинки). Больше — крупнее и мягче.' }),
+        rangeIn(K, 'sharp', 'Чёткость линий', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: 'Тонкие линии и края резче — проявляется «филигрань». Обычно 30–60 %; больше — появляются светлые ореолы у краёв.' })]) : null,
+      K.on ? el('div', { class: 'a-row' }, [
+        rangeIn(K, 'vign', 'Тень к краям', { min: 0, max: 60, step: 5, def: 40, unit: ' %', onChange: kDraw, hint: '0 — узор одинаково яркий до самого края экрана; 40 % — как было, края уходят в тень, узор глубже.' }),
+        el('p', { class: 'a-hint', text: 'Приглушить узор под надписями — ползунок «Приглушить фон» ниже (для чёткого узора — 0–15 %). Кнопки «Что внутри?» и «Сохранить мой узор» появляются внизу сами; их надписи и что видно на двери — «Двери» → «Узор на двери».' })]) : null
     ], { open: !!K.on });
     kDraw();
     return [

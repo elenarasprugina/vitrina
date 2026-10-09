@@ -776,7 +776,8 @@
 
   /* ---------- Пространство архетипа — живой калейдоскоп из картинки (09.10, docs/doors.md «Калейдоскоп пространства») ----------
      Картинка дня — «камера» внутри трубки: сдвинута от центра и медленно поворачивается, клин отражается в зеркалах — узор перетекает
-     (как «Эскиз гримуара»). У пространства: kal = { on, image, n — зеркал (8 | 12 | 16), speed — скорость, %, bright — ярче и сочнее, % }.
+     (как «Эскиз гримуара»). У пространства: kal = { on, image, n — зеркал (8 | 12 | 16), speed — скорость, %, bright — ярче и сочнее, %,
+     zoom — крупность узора, % (меньше — трубка берёт больше картинки: мельче и чётче), contrast — контраст, %, sharp — чёткость линий, %, vign — тень к краям, % }.
      Узор человека — один поворот трубки (a, радианы): хранится на его устройстве, по нему узор перерисовывается на двери, обложке и в фигуре. */
   var KCX = .28, KCY = .1, KSPIN = .072, KPAD = .03;
   function kalOf(sp) { var k = sp && sp.kal; return k && k.on && k.image ? k : null; }
@@ -784,6 +785,40 @@
   function kalN(k) { var n = +k.n; return n === 8 || n === 16 ? n : 12; }
   function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
   var kWedge = null;
+  /* Контраст и чёткость линий (09.10) — один раз на картинку, прямо в точках: дальше узор рисуется как обычно, без лишней работы в кадре.
+     Чёткость — «нерезкая маска»: к картинке прибавляется её разница с чуть размытой копией (линии и края резче). */
+  function kalPrep(im, k) {
+    var c = num(k.contrast, 100, 50, 200) / 100, a = num(k.sharp, 0, 0, 100) / 100 * 2.5, key = c + '/' + a;
+    if (c === 1 && !a) return im;
+    if (im._m13p && im._m13p.key === key) return im._m13p.cv;
+    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, cv, x, d, o, b, i, j, v;
+    try {
+      cv = document.createElement('canvas'); cv.width = w; cv.height = h; x = cv.getContext('2d');
+      x.drawImage(im, 0, 0); d = x.getImageData(0, 0, w, h); o = d.data;
+    } catch (e) { return im; }
+    if (a) b = kalBlur(im, o, w, h);
+    for (i = 0; i < o.length; i += 4) for (j = i; j < i + 3; j++) {
+      v = o[j]; if (a) v += (v - b[j]) * a;
+      o[j] = (v - 128) * c + 128;
+    }
+    x.putImageData(d, 0, 0);
+    im._m13p = { key: key, cv: cv };
+    return cv;
+  }
+  // Размытая копия: браузер умеет сам (быстро); не умеет — размытие на 1 точку по строкам и столбцам, два раза
+  function kalBlur(im, o, w, h) {
+    var cv = document.createElement('canvas'), x = cv.getContext('2d'), b, t, n, y, i, e, c, r;
+    if ('filter' in x) {
+      cv.width = w; cv.height = h; x.filter = 'blur(1px)'; x.drawImage(im, 0, 0);
+      try { return x.getImageData(0, 0, w, h).data; } catch (er) {}
+    }
+    b = new Float32Array(o); t = new Float32Array(o.length); r = w * 4;
+    for (n = 0; n < 2; n++) {
+      for (y = 0; y < h; y++) for (i = y * r, e = i + r; i < e; i++) t[i] = (b[i - 4 < y * r ? i : i - 4] + b[i] + b[i + 4 >= e ? i : i + 4]) / 3;
+      for (i = 0; i < o.length; i++) b[i] = (t[i < r ? i : i - r] + t[i] + t[i + r < o.length ? i + r : i]) / 3;
+    }
+    return b;
+  }
 
   /* Стёклышки и искры в узоре (шаг 2, 09.10): лежат в самой картинке-«камере» — плывут вместе с ней и отражаются в зеркалах.
      Стёклышко = { at: [x, y] — место в долях R (от центра «камеры»), c: [r, g, b], look — вид камня (вкладка «Стёклышки»), k: 'glass' | 'spark', ph — фаза мерцания }.
@@ -848,7 +883,9 @@
   function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
-    var sc = R * 2.3 / Math.min(sw, sh);
+    im = kalPrep(im, k);
+    // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
+    var sc = R * 2.3 * num(k.zoom, 100, 70, 130) / 100 / Math.min(sw, sh);
     function cam(x) {
       x.rotate(ang); x.drawImage(im, -sw * sc / 2, -sh * sc / 2, sw * sc, sh * sc);
       (P || []).forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
@@ -870,8 +907,8 @@
       c.drawImage(wc, 0, -pad); c.restore();
     }
     // Мягкая тень к краям — узор глубже
-    var v = c.createRadialGradient(0, 0, R * .5, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.4)');
-    c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H);
+    var v = c.createRadialGradient(0, 0, R * .5, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,' + num(k.vign, 40, 0, 60) / 100 + ')');
+    if (num(k.vign, 40, 0, 60)) { c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H); }
     c.restore();
   }
   function kalImg(base, k, f) { var im = new Image(); im.onload = function () { f(im); }; im.onerror = function () { f(null); }; im.src = src(base, k.image); return im; }
