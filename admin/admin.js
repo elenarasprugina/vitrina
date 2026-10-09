@@ -7456,22 +7456,50 @@
       return b.encoding === 'base64' ? unb64utf8(b.content) : b.content;
     });
   }
-  // files: { путь: {text} | {b64} | null (удалить) }. Возвращает sha нового коммита (или прежний, если ничего не изменилось).
-  function commitFiles(repo, baseSha, baseTree, files, message, progress) {
-    var paths = Object.keys(files), entries = [], done = 0;
+  // Отпечаток файла так, как его считает git (sha1 от «blob <длина>\0» + содержимое) — чтобы не отправлять файлы, которые не менялись.
+  // Нет crypto.subtle (старый браузер) — null: файл просто отправится.
+  function blobSha(f) {
+    var C = window.crypto && window.crypto.subtle;
+    if (!C || !window.TextEncoder) return Promise.resolve(null);
+    var body;
+    if (f.b64 != null) { var bin = atob(f.b64), i; body = new Uint8Array(bin.length); for (i = 0; i < bin.length; i++) body[i] = bin.charCodeAt(i); }
+    else body = new TextEncoder().encode(f.text);
+    var head = new TextEncoder().encode('blob ' + body.length + '\0'), all = new Uint8Array(head.length + body.length);
+    all.set(head, 0); all.set(body, head.length);
+    return C.digest('SHA-1', all).then(function (h) {
+      return Array.prototype.map.call(new Uint8Array(h), function (x) { return (x < 16 ? '0' : '') + x.toString(16); }).join('');
+    }, function () { return null; });
+  }
+  // Отправка файла; пропала связь посреди отправки (большой черновик, неровный интернет) — ещё две попытки через 2 и 5 с
+  function sendBlob(repo, body, n) {
+    n = n || 0;
+    return api('POST', repoPath(repo) + '/git/blobs', body, repo).catch(function (e) {
+      if (e.status !== 0 || n >= 2) throw e;
+      return new Promise(function (ok) { setTimeout(ok, [2000, 5000][n]); }).then(function () { return sendBlob(repo, body, n + 1); });
+    });
+  }
+  // files: { путь: {text} | {b64} | null (удалить) }; known — { путь: sha } того, что уже лежит в репозитории (не менялось — не отправляем).
+  // Возвращает sha нового коммита (или прежний, если ничего не изменилось).
+  function commitFiles(repo, baseSha, baseTree, files, message, progress, known) {
+    var paths = Object.keys(files), entries = [], sent = {}, done = 0;
+    known = known || {};
     function next(i) {
       if (i >= paths.length) return Promise.resolve();
       var path = paths[i], f = files[path];
       if (f === null) { entries.push({ path: path, mode: '100644', type: 'blob', sha: null }); return next(i + 1); }
       var body = f.b64 != null ? { content: f.b64, encoding: 'base64' } : { content: f.text, encoding: 'utf-8' };
-      return api('POST', repoPath(repo) + '/git/blobs', body, repo).then(function (b) {
-        entries.push({ path: path, mode: '100644', type: 'blob', sha: b.sha });
-        done++; if (progress) progress(done, paths.length);
+      return (known[path] ? blobSha(f) : Promise.resolve(null)).then(function (sha) {
+        if (sha && sha === known[path]) return { sha: sha, same: true };
+        return sendBlob(repo, body);
+      }).then(function (b) {
+        if (!b.same) entries.push({ path: path, mode: '100644', type: 'blob', sha: b.sha });
+        sent[path] = b.sha; done++; if (progress) progress(done, paths.length);
         return next(i + 1);
       });
     }
     return next(0).then(function () {
-      GHS.lastBlobs = {}; entries.forEach(function (x) { GHS.lastBlobs[x.path] = x.sha; });
+      GHS.lastBlobs = sent;
+      if (!entries.length) return { sha: baseTree };
       return api('POST', repoPath(repo) + '/git/trees', { base_tree: baseTree, tree: entries }, repo);
     }).then(function (t) {
       if (t.sha === baseTree) return baseSha;
@@ -7631,7 +7659,7 @@
         var files = draftFiles(DATA);
         Object.keys(t.files).forEach(function (p) { if (/^data\/showcases\/\d{4}-\d{2}\.json$/.test(p) && !files[p]) files[p] = null; });
         libParts = libFiles(files);
-        return commitFiles(GH.content, head, t.treeSha, files, 'Черновик: ' + new Date().toLocaleString('ru-RU'));
+        return commitFiles(GH.content, head, t.treeSha, files, 'Черновик: ' + new Date().toLocaleString('ru-RU'), null, t.files);
       }).then(function (sha) {
         libSaved(libParts);
         GHS.contentHead = sha; GHS.contentTime = new Date().toISOString();
