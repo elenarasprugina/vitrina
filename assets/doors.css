@@ -182,3 +182,5 @@
 .ys-dpat.is-on{opacity:var(--pat-o,1)}
 .ys-dpat-cv{position:absolute;display:block}
 @media (prefers-reduced-motion:reduce){.ys-dpat{transition:none}}
+/* Пространство закрыло экран (doors.js, full) — сцена дверей под ним не рисуется, живой узор не делит с ней силы телефона */
+body:has(> .ys-space.is-full) .ys-dstage{visibility:hidden}

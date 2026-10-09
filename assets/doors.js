@@ -1461,7 +1461,7 @@
      Возвращает { node, ang(), mine, sel(i), placed(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
   function kalLive(k, o) {
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
-    var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, slow = 0, started = false, KO = null;
+    var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, started = false, KO = null;
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y)) at[p.id] = [+p.x, +p.y]; });
     var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null }; });
     var ps = o.ps || KGLASS;
@@ -1473,27 +1473,49 @@
       if (KO) S.kh = o.h != null && isFinite(+o.h) ? +o.h : REDUCED || o.still ? KO.G.P[0] : KO.G.P[0] - Math.min(.6, KO.G.per * .4);
       kalPre(mine, draw); draw();
     });
+    /* Плавность (09.10, её «тын-тын-тын»): размер экрана — только при изменении (чтение размера в каждом кадре заставляло браузер
+       пересчитывать страницу); не больше ~2,6 млн точек (картинка дня всё равно растянута — лишние точки не прибавляют чёткости);
+       не успевает — сначала меньше точек, потом ровные 30 кадров в секунду вместо рваных 60/30 */
+    var CW = 0, CH = 0, Q0 = q, MAXP = 2.6e6;
+    function size() {
+      CW = cv.clientWidth || window.innerWidth; CH = cv.clientHeight || window.innerHeight;
+      q = Math.min(Q0, Math.sqrt(MAXP / Math.max(1, CW * CH)), q > .5 ? q : Q0);
+    }
     function draw() {
-      var w = Math.round((cv.clientWidth || window.innerWidth) * q), h = Math.round((cv.clientHeight || window.innerHeight) * q);
+      if (!CW) size();
+      var w = Math.round(CW * q), h = Math.round(CH * q);
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
       if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal, mine, ps, S.t, S.kh);
+    }
+    var fr = [], half = false, odd = false, base = 1e9, QMIN = Math.min(Q0, .75);
+    // Ровность кадров: base — шаг экрана (самый короткий промежуток), пропущенный кадр — промежуток больше полутора шагов
+    function pace(ms) {
+      if (ms <= 0 || ms > 250) return;
+      base = Math.min(base, Math.max(6, ms)); fr.push(ms > base * 1.6 ? 1 : 0);
+      if (fr.length < 45) return;
+      var miss = fr.reduce(function (a, b) { return a + b; }, 0) / fr.length; fr = [];
+      if (miss < .2) return;
+      if (half) return;
+      if (q > QMIN + .01) { q = Math.max(QMIN, q * .85); return; }
+      half = true; base = 1e9;
     }
     function loop(ts) {
       if (started && !cv.isConnected) return;
       if (cv.isConnected) started = true;
       var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
       if (!S.frozen && !o.still) {
+        var f60 = dt * 60;
         S.t += REDUCED ? 0 : dt;
-        S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel;
+        S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel * f60;
         // Хоровод идёт своей скоростью и притормаживает в момент сборки; палец и толчок двигают его вместе с узором
-        if (KO && !drag) S.kh += (REDUCED ? 0 : KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, S.kh)) : 1) * dt) + S.vel;
-        S.vel *= .95;
-        var t0 = performance.now(); draw();
-        // Телефон не успевает — чуть меньше точек (узор тот же)
-        if (performance.now() - t0 > 26) { if (++slow > 10 && q > .6) { q *= .85; slow = 0; } } else slow = 0;
-      }
+        if (KO && !drag) S.kh += (REDUCED ? 0 : KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, S.kh)) : 1) * dt) + S.vel * f60;
+        S.vel *= Math.pow(.95, f60);
+        odd = !odd;
+        if (!half || odd) { if (lastDraw) pace(ts - lastDraw); lastDraw = ts; draw(); }
+      } else lastDraw = 0;
       requestAnimationFrame(loop);
     }
+    var lastDraw = 0;
     // Точка на экране → место в «камере» (через зеркала), в долях R
     function toCam(ex, ey) {
       var bx = cv.getBoundingClientRect(), W = cv.width, H = cv.height, R = Math.sqrt(W * W + H * H) / 2 + 2, A = 2 * Math.PI / kalN(k);
@@ -1528,7 +1550,8 @@
     }
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', function () { drag = null; });
-    window.addEventListener('resize', function () { if (cv.isConnected) draw(); });
+    window.addEventListener('resize', function () { if (cv.isConnected) { size(); draw(); } });
+    if (window.ResizeObserver) new ResizeObserver(function () { if (cv.isConnected) size(); }).observe(cv);
     requestAnimationFrame(loop);
     return { node: cv, ang: function () { return S.ang; }, kh: function () { return S.kh; }, draw: draw, mine: mine, ps: ps,
       sel: function (i) { if (i === undefined) return S.sel; S.sel = i; },
@@ -1777,13 +1800,15 @@
     void ln.offsetWidth; ln.classList.add('is-on');
     return ln;
   }
+  // Пространство закрыло экран целиком — сцена дверей под ним не рисуется (doors.css, .is-full): узор калейдоскопа идёт плавнее
+  function full(node) { node.classList.add('is-full'); }
   function go(sc, n, node, o, done) {
     o = o || {};
     var op = o.open || {}, type = OPEN[op.type] ? op.type : 'portal', ms = num(op.ms, 1100, 200, 5000);
     var g = sc && n ? sc.door(n) : null, poly = screenPoly(sc, n);
     if (o.now || REDUCED || !poly) type = o.now ? 'now' : 'fade';
     document.body.appendChild(node);
-    if (type === 'now') { node.classList.add('is-in'); if (o.onCover) o.onCover(); if (done) done(); return; }
+    if (type === 'now') { node.classList.add('is-in'); full(node); if (o.onCover) o.onCover(); if (done) done(); return; }
     // Жест: дверь откликается на касание, потом (если есть картинка «открыто») проступает открытая дверь
     if (g && op.tap !== false) { g.classList.add('is-tap'); after(320, function () { g.classList.remove('is-tap'); }); }
     var ol = sc && n ? openLayer(sc, n, o) : null, hold = (ol ? num(op.hold, 900, 0, 6000) : g && op.tap !== false ? 260 : 0) + num(o.wait, 0, 0, 3000);
@@ -1795,14 +1820,14 @@
         void node.offsetWidth;
         if (sc) { sc.node.classList.add('is-cam'); camera(sc, n, 1.12); }
         setClip(node, pctFree(grown(poly)));
-        after(ms, function () { node.classList.remove('is-portal'); setClip(node, ''); node.classList.add('is-in'); if (o.onCover) o.onCover(); if (done) done(); });
+        after(ms, function () { node.classList.remove('is-portal'); setClip(node, ''); node.classList.add('is-in'); full(node); if (o.onCover) o.onCover(); if (done) done(); });
       } else if (type === 'zoom') {
         if (sc) { sc.node.classList.add('is-cam'); camera(sc, n); }
         after(ms * .55, function () { node.classList.remove('is-hold'); node.classList.add('is-fade'); void node.offsetWidth; node.classList.add('is-in'); });
-        after(ms * .55 + 600, function () { if (o.onCover) o.onCover(); if (done) done(); });
+        after(ms * .55 + 600, function () { full(node); if (o.onCover) o.onCover(); if (done) done(); });
       } else {
         node.classList.remove('is-hold'); node.classList.add('is-fade'); void node.offsetWidth; node.classList.add('is-in');
-        after(650, function () { if (o.onCover) o.onCover(); if (done) done(); });
+        after(650, function () { full(node); if (o.onCover) o.onCover(); if (done) done(); });
       }
       // Пока человек внутри, сцена возвращается на место (её не видно), открытая дверь остаётся до выхода
       after(ms + 700, function () { if (sc) { sc.node.classList.remove('is-cam'); sc.node.style.transform = ''; } });
@@ -1813,6 +1838,7 @@
     o = o || {};
     var op = o.open || {}, type = OPEN[op.type] ? op.type : 'portal', ms = num(op.ms, 1100, 200, 5000) * .8, poly = screenPoly(sc, n), ol = node._ol;
     hush(node);
+    node.classList.remove('is-full');
     function end() {
       node.remove();
       if (ol) { ol.classList.remove('is-on'); after(1200, function () { ol.remove(); }); }
