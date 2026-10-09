@@ -4736,7 +4736,7 @@
     function go() {
       M.svgLoad(imgSrc(Mk.image), function (s) {
         if (!s) { pic.replaceChildren(el('p', { class: 'a-hint', text: 'Знак не прочитался.' })); return; }
-        var n = M.svgNode(s, /^#[0-9a-f]{3,6}$/i.test(Mk.color || '') ? Mk.color : '#ffe2a0');
+        var n = M.svgNode(s, /^#[0-9a-f]{3,6}$/i.test(Mk.color || '') ? Mk.color : '#ffe2a0', Mk);
         pic.replaceChildren(n); M.svgDraw(n, (+Mk.draw || 3) * 1000);
       });
     }
@@ -4764,6 +4764,9 @@
           rangeIn(Mk, 'scale', 'Размер в рамке двери', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }),
           rangeIn(Mk, 'opacity', 'Прозрачность', { min: 0, max: 100, step: 5, def: 100, unit: ' %' })]),
         M.isSvg(Mk.image) ? el('div', { class: 'a-row' }, [rangeIn(Mk, 'draw', 'Сколько рисуются все линии (SVG)', { min: 1, max: 12, step: .5, def: 3, unit: ' с', hint: 'Каждая линия рисуется по своей длине: длинная — дольше, короткая — быстрее.' }), el('span')]) : null,
+        M.isSvg(Mk.image) ? el('div', { class: 'a-row' }, [
+          rangeIn(Mk, 'line', 'Толщина линий (SVG)', { min: .5, max: 5, step: .25, def: 1, unit: '×', onChange: liveSoon, hint: 'На маленькой двери линии из файла тоньше волоса. Толще — знак заметнее и остаётся рисунком, а не пятном. Обычно 2–3×.' }),
+          rangeIn(Mk, 'glow', 'Свечение линий', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: liveSoon, hint: 'Мягкий свет цвета следа вокруг линий: знак светится на двери, а не лежит краской.' })]) : null,
         el('div', { class: 'a-row' }, [selectIn(Mk, 'blend', 'Как ложится', M.BLEND, { def: '' }),
           selectIn(Mk, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'reveal', hint: M.isSvg(Mk.image) ? 'У SVG-знака «проявление» — это рисование линией. Другое движение (свет, звёздочки…) добавится к рисованию.' : 'По умолчанию — проявление: след проступает, когда человек возвращается к дверям.' })]),
         el('div', { class: 'a-row' }, [switchIn(Mk, 'clip', 'Только внутри контура двери'), rangeIn(Mk, 'soft', 'Мягкий край (если внутри контура)', { min: 0, max: 40, step: 1, def: 0 })])

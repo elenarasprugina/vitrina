@@ -16,7 +16,7 @@
      days: [{ space — пространство дня (в userChoice; в fixed — у двери), world: [слой мира] }], marks: [след тона × 13], showDayNumbers, call, callColor, callMs }
    v2 (06.10, docs/doors.md «Схема v2»): у двери в userChoice — id (по нему запоминается выбор), markFix: { x, y, scale, rot } — поправка следа.
    Слой мира: как слой двери, по всей сцене, + when: 'after' (после конца дня, по умолчанию) | 'during' (уже в течение дня).
-   След тона: { image, color, fill, opacity, blend, fx, speed, power, fade, scale, clip, soft } — знак кладётся в рамку выбранной двери.
+   След тона: { image, color, fill, opacity, blend, fx, speed, power, fade, scale, clip, soft, line — толщина линий SVG (×), glow — свечение линий, % } — знак кладётся в рамку выбранной двери.
    Слой: { name, visible, st: { состояние: да/нет } — в каких состояниях виден (нет st — во всех),
      area: 'door' (картинка размером со сцену, видна только внутри контура) | 'scene' (вся сцена, без контура) | 'frag' (готовый фрагмент — в рамку двери),
      desktop, mobile — картинка слоя (PNG/WebP с прозрачностью; необязательно), color + fill — заливка цветом (%), opacity, blend,
@@ -343,7 +343,7 @@
     if (pic && isSvg(pic)) {
       // SVG — знак рисуется линией (svgMark): грузится, когда слой виден; «проявление» ему не нужно — он проступает линиями
       var sb = el('div', 'ys-dl-svg'); m.appendChild(sb);
-      ln._svg = { url: src(base, pic), box: sb, color: c.color, ms: Math.round(num(L.draw, 3, .5, 20) * 1000 / c.k) };
+      ln._svg = { url: src(base, pic), box: sb, color: c.color, line: L.line, glow: L.glow, ms: Math.round(num(L.draw, 3, .5, 20) * 1000 / c.k) };
       if (L.fx === 'reveal') f = FX.none;
     } else if (pic) { var im = el('img'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false; m.appendChild(im); }
     if (+L.fill > 0) { var g = el('i', 'ys-dl-disc'); g.style.background = 'radial-gradient(closest-side,' + c.color + ',transparent)'; g.style.opacity = num(L.fill, 0, 0, 100) / 100; m.appendChild(g); }
@@ -429,11 +429,20 @@
     x.send();
   }
   // Готовый знак: узел <svg> цвета color
-  function svgNode(c, color) {
-    var n = new DOMParser().parseFromString(c.svg, 'image/svg+xml').documentElement;
+  /* o: { line — толщина линий (1 — как в файле, 2.5 — в 2,5 раза толще), glow — свечение вокруг линий, % } (09.10: на маленькой двери
+     линия в 2 % ширины знака тоньше волоса; толще — заметнее, но остаётся рисунком, а не пятном) */
+  function svgNode(c, color, o) {
+    var n = new DOMParser().parseFromString(c.svg, 'image/svg+xml').documentElement, k = num(o && o.line, 1, .5, 6), g = num(o && o.glow, 0, 0, 100);
     n = document.importNode(n, true);
     n.setAttribute('class', 'ys-svgmark'); n.setAttribute('aria-hidden', 'true'); n.setAttribute('focusable', 'false');
     n.style.color = color;
+    if (k !== 1) {
+      if (!n.hasAttribute('stroke-width')) n.setAttribute('stroke-width', '1');
+      [n].concat(Array.prototype.slice.call(n.querySelectorAll('[stroke-width]'))).forEach(function (e) {
+        var w = parseFloat(e.getAttribute('stroke-width')); if (w > 0) e.setAttribute('stroke-width', +(w * k).toFixed(2));
+      });
+    }
+    if (g) n.style.filter = 'drop-shadow(0 0 ' + (g / 25).toFixed(1) + 'px ' + color + ') drop-shadow(0 0 ' + (g / 10).toFixed(1) + 'px ' + color + ')';
     return n;
   }
   /* Прорисовать линии знака: ms — сколько идут все линии вместе (каждая — по своей длине), потом проявляются заливки.
@@ -477,16 +486,17 @@
     S.busy = true;
     svgLoad(S.url, function (c) {
       S.busy = false; if (!c) return;
-      var n = svgNode(c, S.color); S.box.replaceChildren(n); S.done = true;
+      var n = svgNode(c, S.color, S); S.box.replaceChildren(n); S.done = true;
       if (S.want && !REDUCED) svgDraw(n, S.ms);
     });
   }
   // Картинка знака для холста («Моя фигура»): тот же знак цвета color, размер — по viewBox
-  function svgImg(u, color, ok) {
+  function svgImg(u, color, ok, o) {
     svgLoad(u, function (c) {
       if (!c) { ok(null); return; }
       var vb = ((/viewBox="([^"]+)"/.exec(c.svg) || [])[1] || '0 0 600 900').split(/[\s,]+/);
-      var s = c.svg.replace(/currentColor/g, color).replace(/^<svg /, '<svg width="' + (+vb[2] || 600) + '" height="' + (+vb[3] || 900) + '" ');
+      var t = o && num(o.line, 1, .5, 6) !== 1 ? new XMLSerializer().serializeToString(svgNode(c, color, { line: o.line })).replace(/ (class|style|aria-hidden|focusable)="[^"]*"/g, '') : c.svg;
+      var s = t.replace(/currentColor/g, color).replace(/^<svg /, '<svg width="' + (+vb[2] || 600) + '" height="' + (+vb[3] || 900) + '" ');
       var im = new Image(); im.onload = function () { ok(im); }; im.onerror = function () { ok(null); };
       im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
     });
@@ -662,7 +672,7 @@
       if (!day) return;
       var M = markOf(r, day);
       if (!M.image && !(+M.fill > 0) && !(FX[M.fx] && M.fx !== 'none')) return;
-      var ln = layerNode({ area: 'mark', image: M.image, color: M.color, fill: M.fill, opacity: M.opacity, blend: M.blend, fx: M.fx || 'reveal', speed: M.speed, power: M.power, fade: M.fade == null ? 1600 : M.fade, draw: M.draw, scale: M.scale, clip: M.clip, soft: M.soft }, doorOf(r, n), n, key, o.base);
+      var ln = layerNode({ area: 'mark', image: M.image, color: M.color, fill: M.fill, opacity: M.opacity, blend: M.blend, fx: M.fx || 'reveal', speed: M.speed, power: M.power, fade: M.fade == null ? 1600 : M.fade, draw: M.draw, line: M.line, glow: M.glow, scale: M.scale, clip: M.clip, soft: M.soft }, doorOf(r, n), n, key, o.base);
       if (!ln) return;
       x.g.appendChild(ln); x.mk = ln; x.mkDay = day;
       if (now) show(ln, true, true); else { void ln.offsetWidth; show(ln, true, false); }
@@ -953,7 +963,7 @@
     world.forEach(function (L) { jobs.push(load(L[key])); });
     marks.forEach(function (m) {
       var M = markOf(r, m.day);
-      jobs.push(isSvg(M.image) ? new Promise(function (ok) { svgImg(src(o.base, M.image), hexOk(M.color) ? M.color : '#ffe2a0', ok); }) : load(M.image));
+      jobs.push(isSvg(M.image) ? new Promise(function (ok) { svgImg(src(o.base, M.image), hexOk(M.color) ? M.color : '#ffe2a0', ok, M); }) : load(M.image));
     });
     Promise.all(jobs).then(function (ims) {
       var bg = ims[0]; if (!bg) { done(null); return; }
