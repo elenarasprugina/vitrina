@@ -645,6 +645,17 @@ audio.a-media{background:none;height:40px}
 .a-kal-pick{width:220px;height:220px;max-width:100%;display:block;border-radius:10px;cursor:crosshair;touch-action:none;background:#07060b}
 .a-kal-two{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
 .a-kal-cell{display:flex;flex-direction:column;gap:6px;max-width:220px}
+.a-kal-cell--pv{max-width:300px}
+.a-kal-cell--pv .a-kal-pv{width:300px;height:auto;aspect-ratio:1}
+.a-neb-lay{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.a-neb-side{position:sticky;top:118px}
+@media (max-width:900px){.a-neb-lay{grid-template-columns:minmax(0,1fr)}.a-neb-side{position:static}}
+.a-neb-h{font-weight:600;font-size:14px;margin-top:6px}
+.a-neb{display:flex;flex-direction:column;gap:12px;margin:4px 0 8px}
+.a-neb-cs{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.a-neb-c{width:44px;height:36px;padding:0;border:1px solid rgba(0,0,0,.2);border-radius:8px;cursor:pointer;background:none}
+.a-neb-one{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.a-neb-seed{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 /* Как выглядит лестница на Карте дня (двери → «Карта дня и лестница») */
 .a-jd-keylook{display:flex;align-items:center;justify-content:center;min-height:110px;padding:12px;border-radius:12px;background:#1a110b}
 .a-jd-keylook .ys-c-key{cursor:default}

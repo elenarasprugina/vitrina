@@ -3131,7 +3131,7 @@
     // Калейдоскоп: начинается с сохранённого узора дня; «Сохранить мой узор» — у Путешествия и Погружения, не в финале
     var kp = !fin && kalAll()[d], kt = { peek: tx.kalPeek, unpeek: tx.kalUnpeek, save: tx.kalSave, saved: tx.kalSaved, savedNote: tx.kalSavedNote, again: tx.kalAgain, hint: tx.kalHint,
       pick: tx.kalPick, place: tx.kalPlace, back: tx.kalBack, empty: tx.kalEmpty, bowl: tx.kalBowl }, own = !fin && S.mode !== 'observation';
-    return M.space(r, cfg, { base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
+    return M.space(r, cfg, { day: fin ? 0 : d, base: S.base, tall: window.innerHeight / window.innerWidth > 1.25, mode: S.mode, ctx: ctxOf(r, n), fill: fill, put: putText,
       kalA: kp ? kp.a : 0, kalTx: kt, kalSave: own ? function (a, g) { kalKeep(d, a, g); } : null,
       kalBowl: own ? kalBowl() : null, kalG: kp ? kp.g : null, kalPs: M.kalSize(r),
       backText: tx.doorBack || '← Назад к дверям', onBack: leaveSpace, trace: r.trace || {}, traceText: tx.trace, act: function (kind) { spaceAct(kind, n); },
