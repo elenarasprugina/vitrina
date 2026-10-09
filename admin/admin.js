@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009h';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261009i';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4820,6 +4820,9 @@
         selectIn(D, 'pattern', 'Что видно на двери', [['', 'узор и знак тона поверх'], ['pattern', 'только узор'], ['mark', 'только знак тона (узор на дверь не ложится)']], { def: '', onChange: function (v) { if (!v) delete D.pattern; } }),
         selectIn(D, 'patternNone', 'Если человек не сохранил узор', [['', 'знак тона, как сейчас'], ['archetype', 'узор архетипа — картинка дня без его поворота (когда проступает след)']], { def: '', onChange: function (v) { if (!v) delete D.patternNone; } })]),
       el('div', { class: 'a-row' }, [
+        selectIn(D, 'khorDoor', 'Хоровод дня на двери', [['', 'как сохранил — в том месте, где нажал «Сохранить»'], ['join', 'всегда собранный хоровод']], { def: '', onChange: function (v) { if (!v) delete D.khorDoor; },
+          hint: 'Для дней с фигурой архетипа («За дверью» → день → «Хоровод дня»). «Всегда собранный» — фигуры на двери стоят ровным хороводом, в какой бы миг человек ни сохранил узор.' })]),
+      el('div', { class: 'a-row' }, [
         rangeIn(D, 'patternOpacity', 'Прозрачность узора на двери', { min: 10, max: 100, step: 5, def: 100, unit: ' %', hint: 'Меньше — сквозь узор видна сама дверь.' }),
         rangeIn(D, 'patternSoft', 'Мягкий край узора', { min: 0, max: 40, step: 1, def: 0, hint: '0 — ровно по контуру двери.' })]),
       sub('Чаша со стёклышками'),
@@ -5091,6 +5094,82 @@
     out.push(field('Номер узора', el('div', { class: 'a-neb-seed' }, [sd, dice]), 'Нажимайте 🎲, пока не понравится: те же цвета и настройки, другое расположение облаков и линий. Понравился номер — его можно записать и вернуть.' + (sh ? ' У дней волны узоры разные: к номеру прибавляется номер дня.' : '')));
     return el('div', { class: 'a-neb' }, out);
   }
+  /* Хоровод дня (09.10, её решения — docs/doors.md, «Хоровод — решения 09.10»): фигура архетипа своя у каждого дня (kal.khor.fig);
+     настройки — общие на волну (doors.khor) или свои у дня (kal.khor при kal.khorOwn), как у туманности. У участника кнопок нет. */
+  function jdKhor(r, K, redraw) {
+    var M = window.M13D, D = r.doors, F = K.khor = K.khor || {}, sh = !!(D.khor && !K.khorOwn), S = sh ? D.khor : F, N0 = r.days.length, DEF = M.KH_DEF;
+    var half = S.mode === 'half', d0 = half ? DEF.half : DEF.whole, have = 0, y;
+    for (y = 1; y <= N0; y++) if (((M.spaceOf(r, y).kal || {}).khor || {}).fig) have++;
+    function upd() { redraw(); }
+    function settings(S) {
+      var f = {}, x; for (x in S) if (x !== 'fig') f[x] = S[x]; return f;
+    }
+    var out = [
+      el('div', { class: 'a-neb-h', text: '💃 Хоровод дня — фигура архетипа' }),
+      el('p', { class: 'a-hint', text: 'Фигура лежит в трубке на расстоянии от оси; зеркала собирают из неё хоровод — и в какой-то момент он складывается: движение притормаживает, фигуры светятся. Работает поверх любого фона (картинка, туманность, смесь). Появляется всегда, когда у дня есть фигура; у участника кнопок нет. Фигура есть у ' + have + ' из ' + N0 + ' дней. Хоровод на двери — «Двери» → «Узор на двери».' }),
+      imageIn(F, 'fig', 'Фигура архетипа этого дня', { max: 900, size: { w: 600, h: 900, note: 'PNG, лучше на прозрачном фоне; узкая фигура лучше ложится в клин' }, onChange: function () { renderMain(); },
+        hint: 'Своя у каждого дня. Белый фон уберёт галочка «Убрать белый фон» ниже. Без фигуры хоровода в этом дне нет.' })
+    ];
+    if (!F.fig && !sh) return el('div', { class: 'a-neb' }, out);
+    out.push(el('p', { class: 'a-hint', text: sh ? '💃 Настройки общие на всю волну: меняете здесь — меняются у всех дней сразу. Фигура у каждого дня своя.'
+      : D.khor ? 'У этого дня — свои настройки хоровода (общие волны его не трогают).' : 'Подберите здесь и нажмите «На всю волну», чтобы поставить эти настройки всем дням (фигуры останутся свои).' }));
+    out.push(el('div', { class: 'a-backup-btns' }, sh ? [
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Свои настройки для этого дня', onclick: function () { var c = clone(D.khor), x; for (x in c) F[x] = c[x]; K.khorOwn = true; changed(); renderMain(); toast('У этого дня теперь свои настройки хоровода — общие волны его не трогают.'); } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать общие', onclick: function () { delete D.khor; changed(); renderMain(); toast('Общих настроек хоровода больше нет: у каждого дня — свои.'); } })
+    ] : [
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: '💃 На всю волну', onclick: function () {
+        D.khor = clone(settings(F));
+        for (y = 1; y <= N0; y++) { var s2 = M.spaceOf(r, y); if (s2 && s2.kal) delete s2.kal.khorOwn; }
+        changed(); renderMain();
+        toast('Настройки хоровода — у всех ' + N0 + ' дней. Фигура у каждого дня своя («За дверью» → день → «Фигура архетипа»).');
+      } }),
+      D.khor && K.khorOwn ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть общие волны', onclick: function () { delete K.khorOwn; changed(); renderMain(); } }) : null
+    ]));
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(S, 'mode', 'Какой хоровод', [['', '12 целых фигур — фигура в середине клина, соседи зеркальные'], ['half', '6 из половинок — фигура на зеркале, половину дорисовывает зеркало']], { def: '',
+        onChange: function (v) { if (!v) delete S.mode; delete S.size; delete S.dist; changed(); renderMain(); },
+        hint: '6 из половинок — фигура строго симметричная и крупнее (места больше). Размер и «от центра» при смене встают как в пробе.' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      switchIn(S, 'out', 'Головой наружу', { defTrue: true, onChange: upd, hint: 'Выключено — головой к центру.' }),
+      switchIn(S, 'slow', 'Притормаживать при сборке', { defTrue: true, onChange: upd, hint: 'В момент, когда хоровод сложился, движение почти замирает — и плывёт дальше.' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(S, 'size', 'Размер фигуры', { min: 15, max: 80, step: 1, def: d0.size, unit: ' %', onChange: upd, hint: 'От половины экрана. Ширина ограничена клином: широкие ленты и руки упираются в зеркало и сплетаются с соседями.' }),
+      rangeIn(S, 'dist', 'От центра', { min: 20, max: 95, step: 1, def: d0.dist, unit: ' %', onChange: upd })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(S, 'every', 'Как часто собирается', { min: 6, max: 45, step: 1, def: DEF.every, unit: ' с', onChange: upd, hint: 'Раз в столько секунд хоровод складывается. Узор справа — в настоящую скорость.' }),
+      rangeIn(S, 'glow', 'Свечение при сборке', { min: 0, max: 100, step: 5, def: DEF.glow, unit: ' %', onChange: upd, hint: '0 — без свечения.' })]));
+    out.push(switchIn(S, 'white', 'Убрать белый фон у фигуры', { defTrue: true, onChange: upd, hint: 'Белое становится прозрачным прямо на устройстве, цвета фигуры сохраняются. Фигура уже на прозрачном фоне — галочка ей не мешает.' }));
+    return el('div', { class: 'a-neb' }, out);
+  }
+  /* Хоровод волны — в финале (09.10): фигуры дней 1–13 встают в круг, в центре — тринадцатый, человек (его стёклышки, только с его устройства) */
+  function jdWave(r, Fn) {
+    var M = window.M13D, V = Fn.wave = Fn.wave || {}, DEF = M.KW_DEF, N0 = r.days.length, have = 0, y;
+    for (y = 1; y <= N0; y++) if (((M.spaceOf(r, y).kal || {}).khor || {}).fig) have++;
+    var mir = !V.center || V.center === 'mflower' || V.center === 'mirror';
+    return block('💃 Хоровод волны', [
+      switchIn(V, 'on', 'Хоровод волны в финале', { onChange: function () { renderMain(); },
+        hint: 'Фигуры дней (у каждого своя — «За дверью» → день → «Хоровод дня») по очереди выезжают из центра и встают в круг, потом круг медленно вращается; человек может повернуть его пальцем. В центре — тринадцатый, сам человек: его стёклышки (по одному за каждый день и подаренные; цвета — только с его телефона, никуда не уходят). Фон — туманность волны, чуть приглушена.' }),
+      V.on ? el('p', { class: 'a-hint' + (have < N0 ? ' a-hint--warn' : ''), text: 'Фигуры есть у ' + have + ' из ' + N0 + ' дней' + (have < N0 ? ' — у остальных место в круге будет пустым.' : '.') + ' Надписи финала лежат поверх хоровода: лучше «Где содержание» — внизу и подложка потоньше (ниже, «Пространство финала»).' }) : null,
+      V.on ? el('div', { class: 'a-row' }, [
+        rangeIn(V, 'size', 'Размер фигур', { min: 12, max: 45, step: 1, def: DEF.size, unit: ' %' }),
+        rangeIn(V, 'dist', 'От центра', { min: 45, max: 90, step: 1, def: DEF.dist, unit: ' %' })]) : null,
+      V.on ? el('div', { class: 'a-row' }, [
+        rangeIn(V, 'speed', 'Скорость круга', { min: 0, max: 100, step: 5, def: DEF.speed, unit: ' %', hint: '0 — круг стоит.' }),
+        rangeIn(V, 'glow', 'Свечение', { min: 0, max: 100, step: 5, def: DEF.glow, unit: ' %', hint: 'После сборки фигуры чуть пульсируют светом.' })]) : null,
+      V.on ? el('div', { class: 'a-row' }, [
+        switchIn(V, 'out', 'Головой наружу', { defTrue: true, hint: 'Выключено — головой к центру.' }),
+        switchIn(V, 'white', 'Убрать белый фон у фигур', { defTrue: true })]) : null,
+      V.on ? rangeIn(V, 'dim', 'Приглушить фон', { min: 0, max: 90, step: 5, def: DEF.dim, unit: ' %', hint: 'Приглушается только фон, фигуры и стёклышки остаются яркими. «Приглушить фон» в «Пространстве финала» при хороводе не действует.' }) : null,
+      V.on ? sub('Тринадцатый в центре — его стёклышки') : null,
+      V.on ? el('div', { class: 'a-row' }, [
+        selectIn(V, 'center', 'Вид центра', [['mflower', 'Зеркало и цветок — маленькое зеркало, вокруг лепестки'], ['flower', 'Цветок — розетка из стёклышек'], ['ring', 'Малый круг — стёклышки кольцом навстречу хороводу'], ['mirror', 'Зеркало — побольше, стёклышки по краю'], ['star', 'Звезда — стёклышки слетаются в одну звезду']], { def: 'mflower', onChange: function () { renderMain(); } }),
+        selectIn(V, 'shape', 'Форма стёклышек', [['petal', 'лепесток'], ['crystal', 'кристалл — гранёный ромб']], { def: 'petal', hint: 'Одна форма у всех, цвет — свой у каждого.' })]) : null,
+      V.on && mir ? el('div', { class: 'a-row' }, [
+        rangeIn(V, 'refl', 'Отражение в зеркале', { min: 0, max: 100, step: 5, def: DEF.refl, unit: ' %', hint: 'В серебристой глади отражается весь хоровод.' }),
+        switchIn(V, 'glare', 'Блик по зеркалу', { defTrue: true, hint: 'Раз в 6 секунд по глади наискосок проходит блик.' })]) : null,
+      V.on ? el('p', { class: 'a-hint', text: 'Посмотреть — кнопка «Посмотреть финал» выше. В предпросмотре без стёклышек в центре показываются стёклышки всех дней.' }) : null
+    ], { open: !!V.on });
+  }
   // «За дверью»: пространство дня (и финал) — фон и блоки
   function jdBlockTitle(b) {
     var M = window.M13D, name = (M.BLOCKS.filter(function (k) { return k[0] === b.kind; })[0] || [0, b.kind])[1], t = String(b.text || b.label || '').split('\n')[0].trim();
@@ -5107,11 +5186,11 @@
     var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 600, height: 600 }), kpk = el('canvas', { class: 'a-kal-pick', width: 220, height: 220 });
     // Картинка (или туманность) готовится один раз: заново — только когда поменялась картинка или настройки туманности
     // kE — калейдоскоп дня с учётом общей туманности волны (M.kalOf); kT — время (облака туманности дышат)
-    var kIm = null, kSrc = '', kA = 0.6, kRun = true, kOn = false, kLast = 0, kE = null, kT = 0;
+    var kIm = null, kSrc = '', kA = 0.6, kRun = true, kOn = false, kLast = 0, kE = null, kT = 0, kH = null;
     function kNum(v, d) { v = v == null || v === '' || isNaN(+v) ? d : +v; return Math.max(15, Math.min(85, v)); }
     function kDraw() {
       var E = kE = n === 'final' ? null : M.kalOf(sp, r, n); if (!E) return;
-      var key = JSON.stringify(E._neb || null) + '|' + (E.image || '');
+      var kf = E._kh ? E._kh.fig : '', key = JSON.stringify(E._neb || null) + '|' + (E.image || '') + '|' + kf.length + kf.slice(-48);
       if (kIm && kSrc === key) { kPut(); return; }
       kSrc = key;
       M.kalImg('../', E, function (im) { if (kSrc !== key) return; kIm = im; kPut(); kLoop(); });
@@ -5119,7 +5198,7 @@
     function kPut() {
       if (!kIm || !kIm.naturalWidth || !kE) return;
       var K = kE;
-      M.kalDraw(kpv.getContext('2d'), 600, 600, kIm, K, kA, false, null, null, kT);
+      M.kalDraw(kpv.getContext('2d'), 600, 600, kIm, K, kA, false, null, null, kT, kH);
       kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
       // Картинка с осью: точка — ось, круг — что попадает в узор (то, что ближе к оси, видно в узоре чаще)
       var x = kpk.getContext('2d'), ox = kNum(K.px, 50) / 100, oy = kNum(K.py, 50) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
@@ -5136,7 +5215,8 @@
       function step(ts) {
         if (!kpv.isConnected && kLast) { kOn = false; return; }
         var dt = kLast ? Math.min(.1, (ts - kLast) / 1000) : 0; kLast = ts;
-        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kT += dt; kPut(); }
+        // Хоровод — в настоящую скорость: видно, как часто он собирается
+        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kT += dt; if (kE) kH = M.khTick(kIm, kE, kH, dt); kPut(); }
         requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
@@ -5156,7 +5236,7 @@
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
     var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
     // Живой узор: у туманности — справа от её настроек (на компьютере не уезжает при прокрутке), у картинки — рядом с осью
-    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте)' })]);
+    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' })]);
     var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
       el('span', { class: 'a-label', text: 'Ось вращения — коснитесь картинки' }),
       el('div', { class: 'a-kal-two' }, [
@@ -5164,10 +5244,13 @@
         kNb ? null : kPv]),
       el('div', { class: 'a-backup-btns' }, [kMid, kStop]),
       el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
+    var kKh = K.on ? jdKhor(r, K, kDraw) : null;
     var kal = block('Калейдоскоп из картинки', [
       switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
         hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
-      K.on ? (kNb ? el('div', { class: 'a-neb-lay' }, [jdNeb(r, K, kDraw), el('div', { class: 'a-neb-side' }, [kPv])]) : jdNeb(r, K, kDraw)) : null,
+      // Хоровод — под туманностью, в той же колонке: живой узор справа виден, пока двигаете ползунки
+      K.on ? (kNb ? el('div', { class: 'a-neb-lay' }, [el('div', {}, [jdNeb(r, K, kDraw), kKh]), el('div', { class: 'a-neb-side' }, [kPv])]) : jdNeb(r, K, kDraw)) : null,
+      K.on && !kNb ? kKh : null,
       K.on && kPic ? el('div', { class: 'a-row' }, [
         imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
           hint: 'Своя у каждого дня (архетипа). Узор строится вокруг оси вращения (ниже, по умолчанию — середина картинки): там не должно быть крупного яркого пятна. Чётче всего выходят мелкие детали и тонкие линии (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' })]) : null,
@@ -5276,6 +5359,7 @@
       fin ? block('Финальная сцена', [
         switchIn(D.final, 'on', 'Финал включён', { onChange: function () { renderMain(); }, hint: 'Включён — над дверями после входа в последнюю дверь и после конца маршрута кнопка «Финал»; её же можно поставить блоком в пространство 13-й двери. «Собрать маршрут» на Карте дня 13 тоже ведёт сюда.' }),
         el('p', { class: 'a-hint', text: 'Содержание финала дадите позже — пока это такое же пространство из блоков.' })]) : null,
+      fin && D.final.on ? jdWave(r, D.final) : null,
       look,
       block(fin ? 'Пространство финала' : (uc ? 'Пространство дня ' : 'Пространство за дверью ') + st.n, jdSpaceForm(r, sp, st.n)),
       fin ? null : jdWorld(r, st.n),

@@ -1,0 +1,435 @@
+<title>Хоровод дня и волны</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600&display=swap">
+<style>
+/* Одна сцена — живой круг; рядом (на телефоне — под ним) настройки, как будут в панели. Ночной вид, одна тема. */
+:root{
+  --bg:#0d0709; --panel:#170c10; --line:#3a2027; --fg:#f3e6e2; --muted:#b89a96;
+  --accent:#e0263a; --gold:#e6b65c;
+  --display:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --body:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1.1;margin:0;text-wrap:balance}
+.lead{color:var(--muted);margin:0;max-width:68ch}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:560px}
+.tabs button{font:inherit;font-size:14px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 8px;cursor:pointer}
+.tabs button b{display:block;font-family:var(--display);font-size:22px;font-weight:600;line-height:1.1}
+.tabs button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:#2a0d13}
+.grid{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
+@media (min-width:900px){.grid{grid-template-columns:minmax(0,560px) minmax(0,1fr)}.stagecol{position:sticky;top:12px}}
+.stage{position:relative;width:100%;max-width:560px;margin:0 auto;aspect-ratio:1}
+canvas#cv{display:block;width:100%;height:100%;border-radius:50%;touch-action:none;cursor:grab;background:#000;box-shadow:0 0 0 1px var(--line),0 0 60px rgba(224,38,58,.18)}
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--muted);font-size:14px;margin:0}
+.note strong{color:var(--fg);font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{font:inherit;font-size:13px;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 8px;cursor:pointer}
+.seg button b{font-family:var(--display);font-size:20px;font-weight:600;margin-right:6px}
+.seg button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:#2a0d13}
+.seg5{grid-template-columns:repeat(3,1fr)}
+.ctl{display:grid;gap:12px}
+.row{display:grid;grid-template-columns:170px 1fr 52px;align-items:center;gap:10px}
+.row label{font-size:14px}
+.row output{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;flex-wrap:wrap;gap:8px 18px}
+.checks label{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent);width:18px;height:18px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.go{font:inherit;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:10px;padding:11px 16px;cursor:pointer}
+.go.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.door{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.door canvas{width:120px;height:200px;display:block}
+.door p{margin:0;color:var(--muted);font-size:13px;max-width:34ch}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 12px;margin:0;padding:0;list-style:none;font-size:13px;color:var(--muted)}
+.legend li{display:flex;gap:8px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:50%;flex:none}
+.legend b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums;min-width:1.4em}
+@media (max-width:440px){.row{grid-template-columns:1fr 52px}.row label{grid-column:1/-1}.row input{grid-column:1}}
+</style>
+<div class="wrap">
+  <h1>Хоровод дня и хоровод волны</h1>
+  <p class="lead">Проба на вашей фигуре, сайт не трогаем. Ползунки и галочки здесь те, что будут у вас в панели. Участник их не видит.</p>
+  <div class="tabs" role="group" aria-label="Что смотрим">
+    <button type="button" id="t-day" aria-pressed="true"><b>Хоровод дня</b>в пространстве каждого дня</button>
+    <button type="button" id="t-wave" aria-pressed="false"><b>Хоровод волны</b>в финале: 13 фигур и человек</button>
+  </div>
+  <div class="grid">
+    <div class="stagecol"><div class="stage"><canvas id="cv" aria-label="Живой калейдоскоп с хороводом"></canvas></div></div>
+    <div class="side">
+      <!-- ХОРОВОД ДНЯ -->
+      <div id="p-day" class="side">
+        <div class="seg" role="group" aria-label="Сколько фигур">
+          <button type="button" id="m-whole" aria-pressed="true"><b>12</b>целых фигур</button>
+          <button type="button" id="m-half" aria-pressed="false"><b>6</b>из половинок на стыке</button>
+        </div>
+        <p class="note" id="note"></p>
+        <div class="ctl">
+          <div class="row"><label for="sz">Размер фигуры</label><input type="range" id="sz" min="15" max="80" value="42"><output id="szo"></output></div>
+          <div class="row"><label for="ds">От центра</label><input type="range" id="ds" min="20" max="95" value="66"><output id="dso"></output></div>
+          <div class="row"><label for="ev">Как часто собирается</label><input type="range" id="ev" min="6" max="45" value="14"><output id="evo"></output></div>
+          <div class="row"><label for="gl">Свечение при сборке</label><input type="range" id="gl" min="0" max="100" value="40"><output id="glo"></output></div>
+          <div class="checks">
+            <label><input type="checkbox" id="out" checked> Головой наружу</label>
+            <label><input type="checkbox" id="slow" checked> Притормаживать при сборке</label>
+            <label><input type="checkbox" id="white" checked> Убрать белый фон</label>
+            <label><input type="checkbox" id="wedge"> Показать клин</label>
+          </div>
+          <div class="btns"><button type="button" class="go ghost" id="go">Показать сборку</button></div>
+        </div>
+        <div class="note">
+          <strong>Узор на двери.</strong> Так будет, когда участник нажмёт «Сохранить мой узор».
+          <div class="checks" style="margin:10px 0"><label><input type="checkbox" id="always" checked> На двери всегда собранный хоровод</label></div>
+          <div class="door"><canvas id="door" width="240" height="400" aria-label="Дверь с узором"></canvas>
+            <p id="doorTxt">Нажмите «Сохранить мой узор». Без галочки на дверь ляжет узор как есть в эту секунду; с галочкой узор сам довернётся до сборки.</p></div>
+          <div class="btns" style="margin-top:10px"><button type="button" class="go" id="save">Сохранить мой узор</button></div>
+        </div>
+      </div>
+      <!-- ХОРОВОД ВОЛНЫ -->
+      <div id="p-wave" class="side" hidden>
+        <p class="note"><strong>13 мест, человек в центре.</strong> Фигуры дней встают в круг по очереди, потом в центре собирается тринадцатый — человек из своих стёклышек (по одному за каждый день и подаренные). Ниже можно сравнить, каким он будет. В пробе на всех местах ваша фигура, перекрашенная в цвет печати дня; на сайте у каждого дня будет своя фигура. Стёклышки в центре берутся из чаши участника и не покидают его телефон.</p>
+        <div class="ctl">
+          <div class="row"><label for="wsz">Размер фигур</label><input type="range" id="wsz" min="12" max="45" value="27"><output id="wszo"></output></div>
+          <div class="row"><label for="wds">От центра</label><input type="range" id="wds" min="45" max="90" value="70"><output id="wdso"></output></div>
+          <div class="row"><label for="wsp">Скорость круга</label><input type="range" id="wsp" min="0" max="100" value="25"><output id="wspo"></output></div>
+          <div class="row"><label for="wgl">Свечение</label><input type="range" id="wgl" min="0" max="100" value="35"><output id="wglo"></output></div>
+          <div class="seg seg5" role="group" aria-label="Тринадцатый в центре" id="cmode">
+            <button type="button" data-c="mflower" aria-pressed="true">Зеркало и цветок</button>
+            <button type="button" data-c="flower" aria-pressed="false">Цветок</button>
+            <button type="button" data-c="ring" aria-pressed="false">Малый круг</button>
+            <button type="button" data-c="mirror" aria-pressed="false">Зеркало</button>
+            <button type="button" data-c="star" aria-pressed="false">Звезда</button>
+          </div>
+          <div class="seg" role="group" aria-label="Форма стёклышек" id="cshape">
+            <button type="button" data-s="petal" aria-pressed="true">Лепесток</button>
+            <button type="button" data-s="crystal" aria-pressed="false">Кристалл</button>
+          </div>
+          <div class="row"><label for="wn">Стёклышек у человека</label><input type="range" id="wn" min="1" max="20" value="13"><output id="wno"></output></div>
+          <div class="row"><label for="wrf">Отражение в зеркале</label><input type="range" id="wrf" min="0" max="100" value="65"><output id="wrfo"></output></div>
+          <div class="checks"><label><input type="checkbox" id="wglare" checked> Блик проходит по зеркалу</label></div>
+          <div class="note"><strong>Фото в зеркале.</strong> На сайте это была бы камера по кнопке. В пробе можно выбрать своё фото, чтобы увидеть, как это выглядит; оно никуда не уходит, только на этом экране.
+            <div class="btns" style="margin-top:10px"><label class="go ghost" for="wph" style="display:inline-block">Выбрать фото</label><input type="file" id="wph" accept="image/*" style="position:absolute;left:-9999px"><button type="button" class="go ghost" id="wphx" hidden>Убрать фото</button></div></div>
+          <div class="checks">
+            <label><input type="checkbox" id="wout" checked> Головой наружу</label>
+            <label><input type="checkbox" id="wwhite" checked> Убрать белый фон</label>
+          </div>
+          <div class="btns"><button type="button" class="go" id="again">Собрать заново</button></div>
+        </div>
+        <ul class="legend" id="legend" aria-label="Дни волны"></ul>
+      </div>
+    </div>
+  </div>
+  <p class="lead" style="font-size:13px">Тяните круг пальцем, чтобы повернуть трубку вручную. Фон — туманность, как на сайте (номер 13, «Красный Странник»).</p>
+</div>
+<script>
+(function(){
+var FIG='data:image/webp;base64,__FIG__';
+function $(id){return document.getElementById(id)}
+var cv=$('cv'),ctx=cv.getContext('2d');
+var Rs=512,SC=Math.ceil(Rs*2.9),C=SC/2,N=12,W=2*Math.PI/N;
+var bg=document.createElement('canvas'),figL=document.createElement('canvas'),wc=document.createElement('canvas');
+bg.width=bg.height=figL.width=figL.height=SC;
+var raw=new Image(),figRaw=null,figClean=null,tints={raw:[],clean:[]};
+var tab='day',mode='whole',theta=-0.4,drag=null,last=0,m=1,v0=0.1,R=0,dpr=1;
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- фон: туманность пробы ---------- */
+function rng(s){return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+function makeBg(){
+  var g=bg.getContext('2d'),R=rng(13),i,x,y,r,gr,cols=['232,176,74','194,24,91','110,48,150','31,111,120','179,18,46','240,120,60'];
+  gr=g.createRadialGradient(C,C,0,C,C,C);gr.addColorStop(0,'#2a0c14');gr.addColorStop(1,'#07030a');
+  g.fillStyle=gr;g.fillRect(0,0,SC,SC);
+  g.globalCompositeOperation='lighter';
+  for(i=0;i<90;i++){x=R()*SC;y=R()*SC;r=30+R()*170;
+    gr=g.createRadialGradient(x,y,0,x,y,r);var c=cols[Math.floor(R()*cols.length)];
+    gr.addColorStop(0,'rgba('+c+','+(.18+R()*.35)+')');gr.addColorStop(1,'rgba('+c+',0)');
+    g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();}
+  g.lineCap='round';
+  for(i=0;i<70;i++){g.strokeStyle='rgba(230,182,92,'+(.12+R()*.3)+')';g.lineWidth=.6+R()*1.6;
+    x=R()*SC;y=R()*SC;g.beginPath();g.moveTo(x,y);
+    g.bezierCurveTo(x+(R()-.5)*500,y+(R()-.5)*500,x+(R()-.5)*500,y+(R()-.5)*500,x+(R()-.5)*600,y+(R()-.5)*600);g.stroke();}
+  for(i=0;i<500;i++){g.fillStyle='rgba(255,240,220,'+(.2+R()*.7)+')';g.beginPath();g.arc(R()*SC,R()*SC,.5+R()*1.8,0,7);g.fill();}
+  g.globalCompositeOperation='source-over';
+}
+
+/* ---------- фигура: «убрать белый фон» и цвета печатей ---------- */
+function toCanvas(im){var c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').drawImage(im,0,0);return c}
+function unwhite(src){ // белое → прозрачное, цвет восстанавливается (как «цвет в прозрачность»)
+  var c=toCanvas(src),g=c.getContext('2d'),d=g.getImageData(0,0,c.width,c.height),p=d.data,i,mn,A;
+  for(i=0;i<p.length;i+=4){
+    mn=Math.min(p[i],p[i+1],p[i+2]);A=1-mn/255;
+    if(A<0.004){p[i+3]=0;continue}
+    p[i]=(p[i]-mn)/A;p[i+1]=(p[i+1]-mn)/A;p[i+2]=(p[i+2]-mn)/A;p[i+3]=p[i+3]*A;
+  }
+  g.putImageData(d,0,0);return c;
+}
+var SEAL=[[226,38,52],[245,238,228],[70,128,236],[244,190,60]]; // красный, белый, синий, жёлтый
+function tint(src,col){ // перекраска: тени — цвет печати, светлое остаётся светлым
+  var c=toCanvas(src),g=c.getContext('2d'),d=g.getImageData(0,0,c.width,c.height),p=d.data,i,l,k;
+  for(i=0;i<p.length;i+=4){
+    if(!p[i+3])continue;
+    l=(p[i]*.3+p[i+1]*.59+p[i+2]*.11)/255;k=Math.max(0,(l-.35)/.65);k=k*k;
+    p[i]=col[0]+(255-col[0])*k;p[i+1]=col[1]+(255-col[1])*k;p[i+2]=col[2]+(255-col[2])*k;
+  }
+  g.putImageData(d,0,0);return c;
+}
+function prepFig(){
+  figRaw=toCanvas(raw);figClean=unwhite(raw);
+  tints.raw=[figRaw,tint(figRaw,SEAL[1]),tint(figRaw,SEAL[2]),tint(figRaw,SEAL[3])];
+  tints.clean=[figClean,tint(figClean,SEAL[1]),tint(figClean,SEAL[2]),tint(figClean,SEAL[3])];
+}
+
+/* ---------- хоровод дня ---------- */
+var NOTES={
+  whole:'<strong>12 целых фигур.</strong> Фигура целиком лежит в одном клине, соседние — её зеркальные копии. Широкие ленты и руки упираются в зеркало и сплетаются с соседями. Включите «Показать клин», чтобы видеть границу.',
+  half:'<strong>6 фигур из половинок.</strong> Фигура лежит на стыке зеркал: левую половину дорисовывает зеркало, и фигура получается строго симметричной. Места больше, фигура может быть крупнее.'
+};
+var DEF={whole:{sz:42,ds:66},half:{sz:58,ds:60}};
+function points(){return mode==='half'?[0,W]:[W/2]}
+function figSize(){var h=$('sz').value/100*Rs,f=figClean||raw;return {h:h,w:h*f.width/f.height,d:$('ds').value/100*Rs}}
+function period(){return 2*Math.PI/m}
+function wrap(x,p){x=((x%p)+p)%p;return x>p/2?x-p:x}
+function aligned(){var P=points(),best=9,i,t;for(i=0;i<P.length;i++){t=wrap(theta-P[i],period());if(Math.abs(t)<Math.abs(best))best=t}return best}
+function slowF(a){return 1-0.92*Math.exp(-Math.pow(a/0.07,2))}
+var EXTRA=(function(){var s=0,a;for(a=-0.6;a<=0.6;a+=0.002)s+=(1/slowF(a)-1)*0.002;return s})();
+function tune(){ // сколько копий фигуры в трубке и с какой скоростью крутить, чтобы сборка шла раз в T секунд
+  var T=+$('ev').value,k=points().length,s=figSize(),mMax=Math.max(1,Math.min(6,Math.floor(2*Math.PI*s.d/(s.w*1.05+1))));
+  m=Math.max(1,Math.min(mMax,Math.round(2*Math.PI/(0.1*k*T))));
+  var ex=$('slow').checked?k*EXTRA:0;
+  v0=Math.max(0.012,Math.min(0.9,(period()+ex)/(k*T)));
+}
+function makeFig(){
+  var g=figL.getContext('2d'),f=$('white').checked?figClean:figRaw,s=figSize(),up=$('out').checked,j,a;
+  g.clearRect(0,0,SC,SC);if(!f)return;
+  for(j=0;j<m;j++){a=j*period();
+    g.save();g.translate(C+Math.cos(a)*s.d,C+Math.sin(a)*s.d);g.rotate(a+(up?Math.PI/2:-Math.PI/2));
+    g.drawImage(f,-s.w/2,-s.h/2,s.w,s.h);g.restore();}
+}
+function drawKal(c,Rp,th,figOn,glowA){
+  var soft=0.015,L=Rp*1.45,top=L*Math.sin(soft)+2,H=Math.ceil(top+L*Math.sin(Math.min(W+soft,Math.PI/2))+2),k;
+  wc.width=Math.ceil(L);wc.height=H;
+  var g=wc.getContext('2d');
+  g.save();g.translate(0,top);g.rotate(th);g.scale(Rp/Rs,Rp/Rs);g.drawImage(bg,-C,-C);
+  if(figOn){g.drawImage(figL,-C,-C);
+    if(glowA>0.01){g.globalCompositeOperation='lighter';g.globalAlpha=Math.min(1,glowA);g.drawImage(figL,-C,-C);g.globalAlpha=1;g.globalCompositeOperation='source-over'}}
+  g.restore();
+  g.globalCompositeOperation='destination-in';
+  if(g.createConicGradient){
+    var T=2*Math.PI,cg=g.createConicGradient(-soft,0,top);
+    cg.addColorStop(0,'rgba(0,0,0,0)');cg.addColorStop(2*soft/T,'rgba(0,0,0,1)');
+    cg.addColorStop(W/T,'rgba(0,0,0,1)');cg.addColorStop(Math.min((W+2*soft)/T,1),'rgba(0,0,0,0)');cg.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=cg;
+  }else{g.beginPath();g.moveTo(0,top);g.arc(0,top,L,0,W);g.closePath();g.fillStyle='#000'}
+  g.fillRect(0,0,wc.width,wc.height);g.globalCompositeOperation='source-over';
+  c.setTransform(1,0,0,1,0,0);c.globalCompositeOperation='source-over';c.fillStyle='#000';c.fillRect(0,0,2*Rp,2*Rp);
+  c.globalCompositeOperation='lighter';
+  for(k=0;k<N;k++){
+    c.setTransform(1,0,0,1,Rp,Rp);
+    if(k%2){c.rotate((k+1)*W);c.scale(1,-1)}else c.rotate(k*W);
+    c.drawImage(wc,0,-top);
+  }
+  c.setTransform(1,0,0,1,0,0);c.globalCompositeOperation='source-over';
+}
+function glowNow(a){return $('gl').value/100*1.2*Math.exp(-Math.pow(a/0.06,2))}
+function dayFrame(dt){
+  if(!drag){var v=v0*(reduce?0.4:1),a=aligned();if($('slow').checked)v*=slowF(a);theta+=v*dt}
+  drawKal(ctx,R,theta,true,glowNow(aligned()));
+  if($('wedge').checked){
+    ctx.setTransform(1,0,0,1,R,R);ctx.strokeStyle='rgba(230,182,92,.95)';ctx.lineWidth=2*dpr;ctx.setLineDash([6*dpr,5*dpr]);
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(R,0);ctx.arc(0,0,R-dpr,0,W);ctx.closePath();ctx.stroke();ctx.setLineDash([]);ctx.setTransform(1,0,0,1,0,0);
+  }
+}
+function saveDoor(){
+  var th=theta,P=points(),i,best=null,t;
+  if($('always').checked){for(i=0;i<P.length;i++){t=P[i]+Math.round((theta-P[i])/period())*period();if(best===null||Math.abs(t-theta)<Math.abs(best-theta))best=t}th=best}
+  var Rd=320,tmp=document.createElement('canvas');tmp.width=tmp.height=2*Rd;
+  drawKal(tmp.getContext('2d'),Rd,th,true,$('always').checked?$('gl').value/100*1.2:glowNow(wrap(theta-P[0],period())));
+  var d=$('door'),g=d.getContext('2d'),w=d.width,h=d.height,r=w/2;
+  g.clearRect(0,0,w,h);g.save();g.beginPath();g.moveTo(0,h);g.lineTo(0,r);g.arc(r,r,r,Math.PI,0);g.lineTo(w,h);g.closePath();g.clip();
+  g.fillStyle='#000';g.fillRect(0,0,w,h);var s=h*1.05;g.drawImage(tmp,(w-s)/2,(h-s)/2+h*0.05,s,s);g.restore();
+  g.strokeStyle='#e6b65c';g.lineWidth=3;g.beginPath();g.moveTo(1.5,h);g.lineTo(1.5,r);g.arc(r,r,r-1.5,Math.PI,0);g.lineTo(w-1.5,h);g.stroke();
+  $('doorTxt').textContent=$('always').checked?'На двери — собранный хоровод, в каком бы месте участник ни нажал «Сохранить».':'На двери — узор ровно таким, каким он был в момент нажатия.';
+}
+
+/* ---------- хоровод волны ---------- */
+var DAYS=[['Небесный Странник',0],['Маг',1],['Орёл',2],['Воин',3],['Земля',0],['Зеркало',1],['Буря',2],['Солнце',3],['Дракон',0],['Ветер',1],['Ночь',2],['Семя',3],['Змей',0]];
+var waveT=0,ring=0,bgTh=0;
+var BODY=[[0,-.42],[0,-.27],[0,-.13],[0,0],[0,.13],[0,.27],[-.15,-.19],[-.28,-.1],[.15,-.19],[.28,-.1],[-.11,.4],[.11,.4],[0,.46]];
+var BONES=[[0,1,2,3,4,5],[7,6,1,8,9],[10,5,11],[5,12]];
+function ease(x){x=Math.max(0,Math.min(1,x));return 1-Math.pow(1-x,3)}
+function stone(g,x,y,r,col,a){
+  var c=col.join(','),gr;
+  g.globalAlpha=a;g.globalCompositeOperation='lighter';
+  gr=g.createRadialGradient(x,y,0,x,y,r*2.8);gr.addColorStop(0,'rgba('+c+',.55)');gr.addColorStop(1,'rgba('+c+',0)');
+  g.fillStyle=gr;g.beginPath();g.arc(x,y,r*2.8,0,7);g.fill();
+  g.globalCompositeOperation='source-over';
+  gr=g.createRadialGradient(x-r*.35,y-r*.35,r*.1,x,y,r);gr.addColorStop(0,'rgba(255,255,255,.95)');gr.addColorStop(.35,'rgb('+c+')');gr.addColorStop(1,'rgba('+Math.round(col[0]*.45)+','+Math.round(col[1]*.45)+','+Math.round(col[2]*.45)+',1)');
+  g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  g.globalAlpha=1;
+}
+function waveFrame(dt){
+  waveT+=dt;bgTh+=(reduce?0.01:0.03)*dt;
+  if(!drag)ring+=$('wsp').value/100*0.18*(reduce?0.4:1)*dt;
+  drawKal(ctx,R,bgTh,false,0);
+  ctx.fillStyle='rgba(8,3,6,.35)';ctx.fillRect(0,0,2*R,2*R);
+  var set=$('wwhite').checked?tints.clean:tints.raw,f0=set[0];if(!f0)return;
+  var h=$('wsz').value/100*R,w=h*f0.width/f0.height,d=$('wds').value/100*R,up=$('wout').checked,i,p,e,a,rr,x,y,sc;
+  var ringDone=0.8+12*0.45+0.9,full=ease((waveT-ringDone)/1.2),gl=$('wgl').value/100*full*(0.75+0.25*Math.sin(waveT*1.6));
+  for(i=0;i<13;i++){
+    p=(waveT-(0.8+i*0.45))/0.9;if(p<=0)continue;e=ease(p);
+    a=-Math.PI/2+i*2*Math.PI/13+ring;rr=d*(0.45+0.55*e);sc=0.7+0.3*e;
+    x=R+Math.cos(a)*rr;y=R+Math.sin(a)*rr;
+    ctx.save();ctx.translate(x,y);ctx.rotate(a+(up?Math.PI/2:-Math.PI/2));ctx.globalAlpha=e;
+    ctx.drawImage(set[DAYS[i][1]],-w*sc/2,-h*sc/2,w*sc,h*sc);
+    if(gl>0.01){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=e*gl;ctx.drawImage(set[DAYS[i][1]],-w*sc/2,-h*sc/2,w*sc,h*sc)}
+    ctx.restore();
+  }
+  // тринадцатый в центре — его стёклышки
+  var inner=Math.max(0.14*R,d-h*0.55);
+  drawCenter(Math.min(inner*0.92,0.34*R),ringDone+0.2);
+}
+var cmode='mflower',cshape='petal';
+function colOf(i){return SEAL[i%4]}
+function piece(g,x,y,len,ang,col,a){ // одно стёклышко: лепесток или кристалл, остриём наружу
+  var c=col.join(','),dk='rgb('+Math.round(col[0]*.4)+','+Math.round(col[1]*.4)+','+Math.round(col[2]*.4)+')',wid=len*(cshape==='petal'?0.42:0.5),gr;
+  g.save();g.translate(x,y);g.rotate(ang);g.globalAlpha=a;
+  g.globalCompositeOperation='lighter';
+  gr=g.createRadialGradient(0,0,0,0,0,len*1.1);gr.addColorStop(0,'rgba('+c+',.35)');gr.addColorStop(1,'rgba('+c+',0)');
+  g.fillStyle=gr;g.beginPath();g.arc(0,0,len*1.1,0,7);g.fill();
+  g.globalCompositeOperation='source-over';
+  if(cshape==='petal'){
+    g.beginPath();g.moveTo(-len/2,0);g.quadraticCurveTo(0,-wid,len/2,0);g.quadraticCurveTo(0,wid,-len/2,0);
+    gr=g.createLinearGradient(-len/2,0,len/2,0);gr.addColorStop(0,dk);gr.addColorStop(.55,'rgb('+c+')');gr.addColorStop(1,'rgba(255,255,255,.95)');
+    g.fillStyle=gr;g.fill();
+    g.strokeStyle='rgba(255,255,255,.45)';g.lineWidth=Math.max(.6,len*.025);g.beginPath();g.moveTo(-len*.4,0);g.lineTo(len*.42,0);g.stroke();
+  }else{
+    var hw=wid/2,P=[[len/2,0],[0,-hw],[-len/2,0],[0,hw]],sh=['rgba(255,255,255,.55)','rgba(0,0,0,.05)','rgba(0,0,0,.35)','rgba(255,255,255,.15)'],k;
+    for(k=0;k<4;k++){g.beginPath();g.moveTo(0,0);g.lineTo(P[k][0],P[k][1]);g.lineTo(P[(k+1)%4][0],P[(k+1)%4][1]);g.closePath();
+      g.fillStyle='rgb('+c+')';g.fill();g.fillStyle=sh[k];g.fill();}
+    g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=Math.max(.6,len*.02);g.beginPath();g.moveTo(P[0][0],0);for(k=1;k<=4;k++)g.lineTo(P[k%4][0],P[k%4][1]);g.stroke();
+  }
+  g.restore();
+}
+var photo=null;
+function mirror(g,r,q){ // круглое зеркало: серебристая гладь, в ней хоровод (или фото), по глади проходит блик
+  if(q<=0)return;
+  var refl=$('wrf').value/100,gr;
+  g.save();g.globalAlpha=q;g.beginPath();g.arc(R,R,r,0,7);g.clip();
+  gr=g.createRadialGradient(R-r*.2,R-r*.25,r*.05,R,R,r);gr.addColorStop(0,'#6d5a66');gr.addColorStop(.6,'#3a2a34');gr.addColorStop(1,'#1a0f15');
+  g.fillStyle=gr;g.fillRect(R-r,R-r,2*r,2*r);
+  if(photo){ // фото — как в настоящем зеркале, отражённое
+    var s=Math.max(2*r/photo.width,2*r/photo.height),pw=photo.width*s,ph=photo.height*s;
+    g.globalAlpha=q*(0.35+0.65*refl);g.translate(R,R);g.scale(-1,1);g.drawImage(photo,-pw/2,-ph/2,pw,ph);g.setTransform(1,0,0,1,0,0);
+    g.globalAlpha=q*0.18;g.fillStyle='#e6b65c';g.globalCompositeOperation='soft-light';g.fillRect(R-r,R-r,2*r,2*r);g.globalCompositeOperation='source-over';
+  }else if(refl>0){ // отражается весь хоровод, маленький
+    g.globalAlpha=q*refl;g.globalCompositeOperation='lighter';g.translate(R,R);g.scale(-1,1);
+    g.drawImage(cv,-r*1.25,-r*1.25,r*2.5,r*2.5);g.setTransform(1,0,0,1,0,0);g.globalCompositeOperation='source-over';
+  }
+  g.globalAlpha=q;gr=g.createRadialGradient(R,R,r*0.55,R,R,r);gr.addColorStop(0,'rgba(20,10,16,0)');gr.addColorStop(1,'rgba(20,10,16,.55)');
+  g.fillStyle=gr;g.fillRect(R-r,R-r,2*r,2*r);
+  gr=g.createLinearGradient(R-r,R-r,R+r*.2,R+r*.2);gr.addColorStop(0,'rgba(255,255,255,.25)');gr.addColorStop(.5,'rgba(255,255,255,0)');
+  g.fillStyle=gr;g.beginPath();g.ellipse(R-r*.25,R-r*.3,r*.75,r*.42,-0.7,0,7);g.fill();
+  if($('wglare').checked){ // блик проходит наискосок раз в 6 секунд
+    var ph2=(waveT%6)/6,x=R-r*2.2+ph2*r*4.4;
+    gr=g.createLinearGradient(x-r*.35,R-r*.35,x+r*.35,R+r*.35);
+    gr.addColorStop(0,'rgba(255,255,255,0)');gr.addColorStop(.45,'rgba(255,250,240,.05)');gr.addColorStop(.5,'rgba(255,250,240,.55)');gr.addColorStop(.55,'rgba(255,250,240,.05)');gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.globalCompositeOperation='lighter';g.fillStyle=gr;g.fillRect(R-r,R-r,2*r,2*r);g.globalCompositeOperation='source-over';
+  }
+  g.restore();
+  g.save();g.globalAlpha=q;g.strokeStyle='rgba(230,182,92,.9)';g.lineWidth=Math.max(1.5,r*.05);g.beginPath();g.arc(R,R,r,0,7);g.stroke();
+  g.strokeStyle='rgba(230,182,92,.35)';g.lineWidth=Math.max(1,r*.015);g.beginPath();g.arc(R,R,r*1.1,0,7);g.stroke();g.restore();
+}
+function drawCenter(Rc,t0){
+  var n=+$('wn').value,i,q,a,spin=-ring*0.6+waveT*0.05,pul;
+  if(cmode==='star'){
+    var mergeT=t0+n*0.18+1.4,mq=ease((waveT-mergeT)/1.2);
+    for(i=0;i<n;i++){
+      q=ease((waveT-t0-i*0.18)/0.6);if(q<=0)continue;
+      var e=ease((waveT-t0-i*0.18-0.4)/(mergeT-t0-i*0.18-0.4+1.0));
+      a=i*2*Math.PI/n+spin+(1-e)*2.5;var rr=Rc*(0.95-0.95*e);
+      piece(ctx,R+Math.cos(a)*rr,R+Math.sin(a)*rr,Rc*0.22*(1-0.6*e),a,colOf(i),q*(1-mq));
+    }
+    if(mq>0){
+      pul=0.9+0.1*Math.sin(waveT*1.7);ctx.save();ctx.globalCompositeOperation='lighter';
+      for(i=0;i<Math.min(n,4);i++){var c=colOf(i).join(','),ox=Math.cos(waveT*.4+i*1.57)*Rc*.06,oy=Math.sin(waveT*.4+i*1.57)*Rc*.06,
+        gr=ctx.createRadialGradient(R+ox,R+oy,0,R+ox,R+oy,Rc*.55*pul);gr.addColorStop(0,'rgba('+c+','+(.55*mq)+')');gr.addColorStop(1,'rgba('+c+',0)');
+        ctx.fillStyle=gr;ctx.beginPath();ctx.arc(R+ox,R+oy,Rc*.55*pul,0,7);ctx.fill();}
+      ctx.strokeStyle='rgba(255,245,230,'+(.8*mq)+')';ctx.lineCap='round';
+      for(i=0;i<8;i++){a=i*Math.PI/4+waveT*.05;var L=(i%2?.45:.9)*Rc*pul;ctx.lineWidth=Math.max(1,Rc*(i%2?.012:.02));
+        ctx.beginPath();ctx.moveTo(R+Math.cos(a)*Rc*.08,R+Math.sin(a)*Rc*.08);ctx.lineTo(R+Math.cos(a)*L,R+Math.sin(a)*L);ctx.stroke();}
+      var gr2=ctx.createRadialGradient(R,R,0,R,R,Rc*.16);gr2.addColorStop(0,'rgba(255,255,255,'+mq+')');gr2.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=gr2;ctx.beginPath();ctx.arc(R,R,Rc*.16,0,7);ctx.fill();ctx.restore();
+    }
+    return;
+  }
+  var mr=0,r0,len;
+  if(cmode==='mflower'){mr=Rc*0.4;r0=Rc*0.68;len=Rc*0.52}
+  else if(cmode==='mirror'){mr=Rc*0.6;r0=Rc*0.78;len=Rc*0.26}
+  else if(cmode==='flower'){r0=Rc*0.42;len=Rc*0.62}
+  else {r0=Rc*0.72;len=Rc*0.26}
+  if(mr)mirror(ctx,mr,ease((waveT-t0+0.6)/1.2));
+  if(cmode==='flower'){ // серединка цветка
+    q=ease((waveT-t0)/1);var gr=ctx.createRadialGradient(R,R,0,R,R,Rc*.18);gr.addColorStop(0,'rgba(255,240,215,'+(.9*q)+')');gr.addColorStop(1,'rgba(230,182,92,0)');
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(R,R,Rc*.18,0,7);ctx.fill();
+  }
+  if(cmode!=='ring'&&cmode!=='mirror')len=Math.min(len,Math.max(Rc*0.3,len*Math.sqrt(13/Math.max(n,6))));
+  for(i=0;i<n;i++){
+    q=ease((waveT-t0-0.4-i*0.18)/0.6);if(q<=0)continue;
+    a=-Math.PI/2+i*2*Math.PI/n+spin;pul=1+0.05*Math.sin(waveT*2+i);
+    var rr=r0*(0.6+0.4*q);
+    piece(ctx,R+Math.cos(a)*rr,R+Math.sin(a)*rr,len*pul*(0.6+0.4*q),a,colOf(i),q);
+  }
+}
+
+/* ---------- общее ---------- */
+function size(){dpr=Math.min(window.devicePixelRatio||1,2);var s=cv.getBoundingClientRect().width;cv.width=cv.height=Math.round(s*dpr);R=cv.width/2}
+function loop(t){
+  var dt=last?Math.min((t-last)/1000,.05):0;last=t;
+  if(R>0){if(tab==='day')dayFrame(dt);else waveFrame(dt)}
+  requestAnimationFrame(loop);
+}
+function outs(){
+  $('szo').textContent=$('sz').value+'%';$('dso').textContent=$('ds').value+'%';$('evo').textContent=$('ev').value+' с';$('glo').textContent=$('gl').value+'%';
+  $('wszo').textContent=$('wsz').value+'%';$('wdso').textContent=$('wds').value+'%';$('wspo').textContent=$('wsp').value+'%';$('wglo').textContent=$('wgl').value+'%';$('wno').textContent=$('wn').value;$('wrfo').textContent=$('wrf').value+'%';
+}
+function rebuild(){outs();tune();makeFig()}
+function setMode(md){
+  mode=md;$('m-whole').setAttribute('aria-pressed',md==='whole');$('m-half').setAttribute('aria-pressed',md==='half');
+  $('note').innerHTML=NOTES[md];$('sz').value=DEF[md].sz;$('ds').value=DEF[md].ds;rebuild();
+}
+function setTab(t){
+  tab=t;$('t-day').setAttribute('aria-pressed',t==='day');$('t-wave').setAttribute('aria-pressed',t==='wave');
+  $('p-day').hidden=t!=='day';$('p-wave').hidden=t!=='wave';if(t==='wave')waveT=0;
+}
+$('t-day').onclick=function(){setTab('day')};$('t-wave').onclick=function(){setTab('wave')};
+$('m-whole').onclick=function(){setMode('whole')};$('m-half').onclick=function(){setMode('half')};
+['sz','ds','ev','out','white','slow'].forEach(function(id){$(id).addEventListener('input',rebuild)});
+['gl','wsz','wds','wsp','wgl'].forEach(function(id){$(id).addEventListener('input',outs)});
+$('go').onclick=function(){var p=points()[0];theta=p+Math.round((theta-p)/period())*period()-0.3;if(theta<p-0.3-1e-6)theta+=period()};
+$('again').onclick=function(){waveT=0};
+function segPick(box,attr,fn){box.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+  var all=box.querySelectorAll('button'),i;for(i=0;i<all.length;i++)all[i].setAttribute('aria-pressed',all[i]===b);fn(b.getAttribute(attr))})}
+segPick($('cmode'),'data-c',function(v){cmode=v;var ringDone=0.8+12*0.45+0.9;if(waveT>ringDone)waveT=ringDone});
+segPick($('cshape'),'data-s',function(v){cshape=v});
+$('wn').addEventListener('input',outs);$('wrf').addEventListener('input',outs);
+$('wph').addEventListener('change',function(){var f=this.files&&this.files[0];if(!f)return;var im=new Image();
+  im.onload=function(){photo=im;$('wphx').hidden=false;if(cmode!=='mirror'&&cmode!=='mflower')$('cmode').querySelector('[data-c="mirror"]').click()};
+  im.src=URL.createObjectURL(f)});
+$('wphx').onclick=function(){photo=null;this.hidden=true;$('wph').value=''};
+$('save').onclick=saveDoor;$('always').addEventListener('input',function(){});
+function ang(e){var r=cv.getBoundingClientRect();return Math.atan2(e.clientY-r.top-r.height/2,e.clientX-r.left-r.width/2)}
+cv.addEventListener('pointerdown',function(e){drag={a:ang(e),t:theta,r:ring};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',function(e){if(!drag)return;var d=ang(e)-drag.a;if(tab==='day')theta=drag.t+d;else ring=drag.r+d});
+cv.addEventListener('pointerup',function(){drag=null});cv.addEventListener('pointercancel',function(){drag=null});
+window.addEventListener('resize',size);
+var lg=$('legend');DAYS.forEach(function(d,i){var li=document.createElement('li');li.innerHTML='<b>'+(i+1)+'</b><i style="background:rgb('+SEAL[d[1]].join(',')+')"></i>'+d[0];lg.appendChild(li)});
+makeBg();size();setMode('whole');
+raw.onload=function(){prepFig();rebuild();saveDoor()};raw.src=FIG;
+requestAnimationFrame(loop);
+})();
+</script>
