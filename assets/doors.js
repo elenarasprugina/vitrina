@@ -182,8 +182,32 @@
       }
     } },
     drift: { name: 'движение среды — слой медленно плывёт (туман, вода)', t: 16, run: function (ln) { ln.classList.add('ys-fx-drift'); } },
-    reveal: { name: 'проявление — слой медленно проступает', t: 2.4, run: function (ln) { ln.classList.add('ys-fx-reveal'); } }
+    reveal: { name: 'проявление — слой медленно проступает', t: 2.4, run: function (ln) { ln.classList.add('ys-fx-reveal'); } },
+    flow: { name: 'бесконечно плывёт — облака идут по кругу, без пустот', t: 90, run: flowStrip }
   };
+  var FLOW_DIR = [['right', 'вправо'], ['left', 'влево'], ['up', 'вверх'], ['down', 'вниз']];
+  var FLOW_SEAM = [['', 'зеркально — подходит любая картинка'], ['tile', 'картинка бесшовная — левый край продолжает правый']];
+  /* «Бесконечно плывёт» (09.10): лента из копий картинки едет по кругу — уходящая копия сменяется следующей, слой не пустеет.
+     Стык: зеркально (A | A отражённая | A — края совпадают у любой картинки) или бесшовная картинка (A | A). Фрагмент двери едет в своей рамке. */
+  function flowStrip(ln, c) {
+    var L = c.L, d = L.flowDir, v = d === 'up' || d === 'down', back = d === 'left' || d === 'up', tile = L.flowSeam === 'tile';
+    var inner = ln.firstChild.firstChild, host = inner, frag = inner.querySelector('.ys-dl-frag');
+    if (frag) {
+      host = el('div', 'ys-fx-flowbox');
+      ['left', 'top', 'width', 'height'].forEach(function (k) { host.style[k] = frag.style[k]; frag.style[k] = k === 'left' || k === 'top' ? '0' : '100%'; });
+      inner.insertBefore(host, frag); host.appendChild(frag);
+    }
+    var k = tile ? 2 : 3, strip = el('div', 'ys-fx-flow ys-fx-flow--' + (v ? 'v' : 'h') + (back ? ' is-back' : '')), a = el('div', 'ys-fx-pane'), i, b;
+    while (host.firstChild) a.appendChild(host.firstChild);
+    strip.style.setProperty('--n', k); strip.style.setProperty('--d', (-(k - 1) * 100 / k).toFixed(4) + '%');
+    for (i = 0; i < k; i++) {
+      b = i ? a.cloneNode(true) : a;
+      b.style.setProperty('--i', i);
+      if (i === 1 && !tile) b.classList.add('is-mirror');
+      strip.appendChild(b);
+    }
+    host.appendChild(strip);
+  }
   // Открытие двери: как человек входит в пространство дня
   var OPEN = {
     portal: 'дверь раскрывается в пространство (по её контуру)',
@@ -905,7 +929,7 @@
     });
   }
 
-  window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
+  window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
     worldOn: worldOn, markOn: markOn, weather: weather, hush: hush,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,

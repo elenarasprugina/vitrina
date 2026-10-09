@@ -4620,8 +4620,9 @@
         selectIn(L, 'blend', 'Как ложится на сцену', M.BLEND, { def: '' })]),
       area !== 'scene' ? rangeIn(L, 'soft', 'Мягкий край контура', { min: 0, max: 40, step: 1, def: 0, hint: '0 — край ровно по контуру. Больше — край растворяется (туман, свет).' }) : null,
       sub('Движение слоя'),
-      selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none',
+      selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none', onChange: rerender,
         hint: 'Жест зова, след и всё остальное — это слои с движением. Новые виды движения добавляются в коде (assets/doors.js, FX) и сразу появятся в этом списке.' }),
+      jdFlow(L),
       el('div', { class: 'a-row' }, [
         rangeIn(L, 'speed', 'Скорость', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }),
         rangeIn(L, 'power', 'Сила', { min: 10, max: 200, step: 5, def: 100, unit: ' %' })]),
@@ -4896,6 +4897,14 @@
         changed(); renderMain(); toast('Движение жеста — у всех дней.'); } })])
     ], { open: !!st.open || !!C.desktop });
   }
+  // «Бесконечно плывёт»: куда и как стыкуются копии картинки (видно только у этого движения)
+  function jdFlow(L) {
+    var M = window.M13D;
+    if (L.fx !== 'flow') return null;
+    return el('div', { class: 'a-row' }, [
+      selectIn(L, 'flowDir', 'Куда плывёт', M.FLOW_DIR, { def: 'right', hint: 'Один круг при скорости 100 % — полторы минуты; скорость меняет это время. Сила здесь не нужна.' }),
+      selectIn(L, 'flowSeam', 'Стык картинки', M.FLOW_SEAM, { def: '', hint: 'Зеркально — следом идёт отражение картинки, края всегда совпадают (облака, туман, вода). Бесшовная — если картинка сделана так, что её край продолжает другой край: узор не отражается.' })]);
+  }
   // Мир дня: слои на всю сцену, у всех одинаковые, по календарю (after — после конца дня, during — уже в течение дня)
   function jdWorld(r, y) {
     var M = window.M13D, list = M.dayCfg(r, y).world;
@@ -4921,8 +4930,9 @@
           el('div', { class: 'a-row' }, [colorOptIn(L, 'color', 'Цвет (заливка и движение)', { none: 'тёплый свет #ffe2a0', base: '#ffe2a0', pick: '#ffe2a0' }),
             rangeIn(L, 'fill', 'Заливка цветом', { min: 0, max: 100, step: 5, def: 0, unit: ' %' })]),
           el('div', { class: 'a-row' }, [rangeIn(L, 'opacity', 'Прозрачность', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }), selectIn(L, 'blend', 'Как ложится', M.BLEND, { def: '' })]),
-          el('div', { class: 'a-row' }, [selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none', hint: 'Для облаков и тумана — «движение среды».' }),
+          el('div', { class: 'a-row' }, [selectIn(L, 'fx', 'Движение', Object.keys(M.FX).map(function (k) { return [k, M.FX[k].name]; }), { def: 'none', onChange: rerender, hint: 'Чтобы облака всё время плыли по небу — «бесконечно плывёт». «Движение среды» — лёгкое покачивание на месте.' }),
             rangeIn(L, 'fade', 'Как долго проявляется', { min: 0, max: 8000, step: 100, def: 900, unit: ' мс' })]),
+          jdFlow(L),
           el('div', { class: 'a-row' }, [rangeIn(L, 'speed', 'Скорость', { min: 20, max: 300, step: 5, def: 100, unit: ' %' }), rangeIn(L, 'power', 'Сила', { min: 10, max: 200, step: 5, def: 100, unit: ' %' })])
         ].concat(W ? jdOut(L, rerender) : []); },
         make: function () { return { id: uid('w'), name: '', visible: true, when: 'after' }; }, addLabel: '+ Слой мира' })
