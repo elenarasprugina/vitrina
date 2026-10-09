@@ -100,6 +100,10 @@
     for (k in L) o[k] = L[k];
     o.area = 'scene';
     if (s) { o.desktop = s.desktop || s.mobile; o.mobile = s.mobile || s.desktop; }
+    // Картинка только для компьютера (широкая) на телефоне не растягивается: во всю ширину, своей высоты, сверху (облака — в небе)
+    var own = s || L;
+    if (own.desktop && !own.mobile) o.ratioOn = 'mobile';
+    else if (own.mobile && !own.desktop) o.ratioOn = 'desktop';
     return o;
   }
   function weather(r) { return cfg(r).worldMode === 'weather'; }
@@ -150,6 +154,7 @@
      Расширяется здесь: новый вид — ещё одна строка в FX (название для панели + run). run(слой, c) получает
      c = { L — настройки слоя, poly — контур двери (или null), box — его рамка, n — номер двери, color, k — скорость (1 — обычная), p — сила (1 — обычная) }
      и добавляет в слой свои элементы или класс; время — переменная --fx-t (секунды), сила — --fx-p. */
+  var auraN = 0;
   var FX = {
     none: { name: 'без движения' },
     pulse: { name: 'пульсация — дышит прозрачностью', t: 3, run: function (ln) { ln.classList.add('ys-fx-pulse'); } },
@@ -165,10 +170,12 @@
       g.appendChild(el('i'));
       ln.firstChild.appendChild(g);
     } },
-    contour: { name: 'бегущая линия по контуру', t: 6, run: function (ln, c) {
+    contour: { name: 'живой контур — край светится и дышит, по нему бежит свет', t: 6, run: function (ln, c) {
       if (!c.poly) return;
       var s = sv('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'ys-fx-line' });
-      s.appendChild(sv('polygon', { points: pts100(c.poly), pathLength: '100' }));
+      s.appendChild(sv('path', { class: 'ys-fx-line-glow' }));
+      s.appendChild(sv('path', { class: 'ys-fx-line-run', pathLength: '100' }));
+      s._poly = c.poly; ln._line = s;
       ln.firstChild.appendChild(s);
     } },
     sparkle: { name: 'звёздочки — мерцают', t: 2.6, run: function (ln, c) {
@@ -180,6 +187,19 @@
         s.style.setProperty('--z', (0.6 + R() * 0.9).toFixed(2)); s.style.animationDelay = (-R() * 6).toFixed(2) + 's';
         ln.firstChild.appendChild(s);
       }
+    } },
+    aura: { name: 'сияющий контур с бликом — край дышит светом, по двери пробегает блик (как на плашках витрины)', t: 5, run: function (ln, c) {
+      if (!c.poly) return;
+      var id = 'ysa' + (++auraN), s = sv('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'ys-fx-line ys-fx-aura' });
+      var cp = sv('clipPath', { id: id }), gr = sv('linearGradient', { id: id + 'g', x1: '0', y1: '0', x2: '1', y2: '0' });
+      cp.appendChild(sv('path', {}));
+      [[0, 0], [.5, 1], [1, 0]].forEach(function (x) { gr.appendChild(sv('stop', { offset: x[0], 'stop-color': '#fff6dc', 'stop-opacity': x[1] })); });
+      var defs = sv('defs', {}); defs.appendChild(cp); defs.appendChild(gr); s.appendChild(defs);
+      var g = sv('g', { 'clip-path': 'url(#' + id + ')' }), band = sv('rect', { class: 'ys-fx-aura-band', fill: 'url(#' + id + 'g)' });
+      g.appendChild(band); s.appendChild(g);
+      s.appendChild(sv('path', { class: 'ys-fx-line-glow' }));
+      s._poly = c.poly; s._band = band; ln._line = s;
+      ln.firstChild.appendChild(s);
     } },
     drift: { name: 'движение среды — слой медленно плывёт (туман, вода)', t: 16, run: function (ln) { ln.classList.add('ys-fx-drift'); } },
     reveal: { name: 'проявление — слой медленно проступает', t: 2.4, run: function (ln) { ln.classList.add('ys-fx-reveal'); } },
@@ -272,7 +292,8 @@
     if (area !== 'scene') clip(ln, poly, num(L.soft, 0, 0, 40));
     if (pic) {
       // Картинка грузится, только когда слой впервые виден (wake) — невидимые слои страницу не тяжелят
-      var im = el('img', 'ys-dl-pic'); im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false;
+      var im = el('img', 'ys-dl-pic'), fit = L.ratioOn === key && area !== 'frag'; im.alt = ''; im.setAttribute('data-src', src(base, pic)); im.draggable = false;
+      if (fit) im.style.height = 'auto';
       if (L.bright != null && L.bright !== '' && +L.bright !== 100) im.style.filter = 'brightness(' + num(L.bright, 100, 20, 250) / 100 + ')';
       if (area === 'frag') {
         var sc = num(L.scale, 100, 50, 200) / 100;
@@ -284,7 +305,7 @@
       // Окрасить картинку (утренние розовые облака, серые…): цвет ложится только на саму картинку, яркость её сохраняется
       if (area !== 'frag' && hexOk(L.tint) && +L.tintPow > 0) {
         var tn = el('div', 'ys-dl-tint'); tn.style.background = L.tint; tn.style.opacity = num(L.tintPow, 0, 0, 100) / 100;
-        tn.setAttribute('data-mask', src(base, pic)); inner.style.isolation = 'isolate'; inner.appendChild(tn);
+        tn.setAttribute('data-mask', src(base, pic)); if (fit) tn.setAttribute('data-fit', '1'); inner.style.isolation = 'isolate'; inner.appendChild(tn);
       }
     }
     if (+L.fill > 0) { var fl = el('div', 'ys-dl-fill'); fl.style.background = color; fl.style.opacity = num(L.fill, 0, 0, 100) / 100; inner.appendChild(fl); }
@@ -466,6 +487,39 @@
     else if (dir[0] < 0) { s0[1] = 1 - b.x - b.w; s1[1] = 1 - b.x; } else { s0[3] = b.x; s1[3] = b.x + b.w; }
     ln.style.setProperty('--s0', 'inset(' + s0.map(P).join(' ') + ')'); ln.style.setProperty('--s1', 'inset(' + s1.map(P).join(' ') + ')');
   }
+  // Замкнутая плавная кривая через точки контура (Катмулл — Ром → кривые Безье): свет по краю не показывает изломы между точками
+  // Настоящие углы (поворот круче 55°, как низ двери) остаются острыми, мелкие изломы по дуге сглаживаются.
+  function smoothD(a) {
+    var n = a.length, i, p0, p1, p2, p3, f = function (v) { return v.toFixed(1); }, d = 'M' + f(a[0][0]) + ',' + f(a[0][1]), sharp = [];
+    for (i = 0; i < n; i++) {
+      p0 = a[(i - 1 + n) % n]; p1 = a[i]; p2 = a[(i + 1) % n];
+      var t = Math.abs(Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) - Math.atan2(p1[1] - p0[1], p1[0] - p0[0]));
+      sharp[i] = Math.min(t, 2 * Math.PI - t) > 0.96;
+    }
+    for (i = 0; i < n; i++) {
+      p0 = a[(i - 1 + n) % n]; p1 = a[i]; p2 = a[(i + 1) % n]; p3 = a[(i + 2) % n];
+      var k1 = sharp[i] ? 0 : 1 / 6, k2 = sharp[(i + 1) % n] ? 0 : 1 / 6;
+      d += 'C' + f(p1[0] + (p2[0] - p0[0]) * k1) + ',' + f(p1[1] + (p2[1] - p0[1]) * k1) + ' ' + f(p2[0] - (p3[0] - p1[0]) * k2) + ',' + f(p2[1] - (p3[1] - p1[1]) * k2) + ' ' + f(p2[0]) + ',' + f(p2[1]);
+    }
+    return d + 'Z';
+  }
+  /* Линия по контуру: координаты — в пропорциях сцены (измеряются, когда слой виден), чтобы толщина была ровной,
+     а бегущий свет — одним отрезком (с non-scaling-stroke длина штриха считалась в пикселях экрана — выходили чёрточки) */
+  function fitLine(ln, n) {
+    var s = ln._line, b = ln.getBoundingClientRect();
+    if (!b.width || !b.height) { if ((n || 0) < 20) setTimeout(function () { fitLine(ln, (n || 0) + 1); }, 250); return; }
+    var W = 1000, H = 1000 * b.height / b.width, d = smoothD(s._poly.map(function (p) { return [p[0] * W, p[1] * H]; }));
+    s.setAttribute('viewBox', '0 0 ' + W + ' ' + H.toFixed(1));
+    s.style.setProperty('--k', (W / b.width).toFixed(4));
+    Array.prototype.forEach.call(s.querySelectorAll('path'), function (g) { g.setAttribute('d', d); });
+    if (s._band) {
+      // Блик: косая полоса шире двери в полтора раза по высоте, проходит слева направо (--x0 → --x1, в единицах рисунка)
+      var bx = bbox(s._poly), x = bx.x * W, y = bx.y * H, w = bx.w * W, h = bx.h * H, bw = Math.max(w * .4, 10);
+      s._band.setAttribute('x', 0); s._band.setAttribute('y', (y - h * .3).toFixed(1)); s._band.setAttribute('width', bw.toFixed(1)); s._band.setAttribute('height', (h * 1.6).toFixed(1));
+      s.style.setProperty('--x0', (x - bw * 1.6).toFixed(1) + 'px'); s.style.setProperty('--x1', (x + w + bw * .6).toFixed(1) + 'px');
+      s.style.setProperty('--cy', (y + h / 2).toFixed(1) + 'px');
+    }
+  }
   // Слой впервые виден — картинки начинают грузиться
   function wake(ln) {
     if (ln._awake) return; ln._awake = true;
@@ -473,7 +527,8 @@
     Array.prototype.forEach.call(ln.querySelectorAll('img[data-src]'), function (im) { im.src = im.getAttribute('data-src'); im.removeAttribute('data-src'); });
     Array.prototype.forEach.call(ln.querySelectorAll('[data-mask]'), function (t) {
       var u = 'url("' + t.getAttribute('data-mask') + '")';
-      t.style.webkitMaskImage = t.style.maskImage = u; t.style.webkitMaskSize = t.style.maskSize = '100% 100%';
+      t.style.webkitMaskImage = t.style.maskImage = u; t.style.webkitMaskSize = t.style.maskSize = t.hasAttribute('data-fit') ? '100% auto' : '100% 100%';
+      if (t.hasAttribute('data-fit')) { t.style.webkitMaskRepeat = t.style.maskRepeat = 'no-repeat'; t.style.webkitMaskPosition = t.style.maskPosition = 'top'; }
       t.removeAttribute('data-mask');
     });
   }
@@ -488,6 +543,7 @@
     if (on) {
       if (ln._svg && !ln._svg.done) ln._svg.want = !now;
       wake(ln); stopOut(ln);
+      if (ln._line) fitLine(ln);
       if (now) ln.classList.add('is-now');
       if (!ln.classList.contains('is-on')) {
         ln.classList.add('is-on');
