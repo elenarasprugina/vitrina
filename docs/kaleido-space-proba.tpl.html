@@ -1,0 +1,308 @@
+<title>Пространство архетипа · проба</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap">
+<style>
+/* Один экран: узор-калейдоскоп во весь экран, сверху — надпись пространства на стекле, снизу — чаша со стёклышками человека.
+   Пробные переключатели спрятаны за кнопкой «Пробы» (участник их не увидит). Тёмная сцена — намеренно одна тема. */
+:root{
+  --night:#07060b; --glass:rgba(16,12,22,.46); --glass-line:rgba(244,222,180,.34);
+  --gold:#f1d9a6; --ink:#f6eee0; --mute:#cbbda6; --sel:#ffe3a3;
+  --f-disp:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --f-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--night);color:var(--ink);font:15px/1.45 var(--f-ui);overflow:hidden;-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#dim{position:fixed;inset:0;pointer-events:none;background:#000;opacity:.12}
+.plate{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 32px));box-sizing:border-box;
+  background:var(--glass);border:1px solid var(--glass-line);border-radius:16px;-webkit-backdrop-filter:blur(10px) saturate(1.15);backdrop-filter:blur(10px) saturate(1.15)}
+.top{top:calc(58px + env(safe-area-inset-top,0px));padding:12px 16px;text-align:center}
+.top small{display:block;font:600 10.5px/1.3 var(--f-ui);letter-spacing:.2em;text-transform:uppercase;color:var(--mute)}
+.top b{display:block;font:500 26px/1.1 var(--f-disp);color:var(--gold);text-wrap:balance}
+.top span{display:block;margin-top:4px;font:italic 500 17px/1.35 var(--f-disp);color:var(--ink)}
+.bottom{bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:10px 12px 12px;display:grid;gap:8px;justify-items:center}
+#hint{margin:0;font:italic 500 17px/1.3 var(--f-disp);color:var(--ink);text-align:center;min-height:1.3em}
+.bowl{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:6px 14px 14px;border-radius:0 0 999px 999px/0 0 60px 60px;
+  background:radial-gradient(120% 120% at 50% 0,rgba(255,236,200,.10),rgba(255,236,200,0) 70%);border-top:1px solid var(--glass-line);min-height:52px;min-width:min(300px,100%);box-sizing:border-box}
+.it{width:46px;height:46px;border:0;padding:0;border-radius:50%;background:transparent;cursor:pointer;transition:transform .25s,filter .25s}
+.it canvas{width:46px;height:46px;display:block;pointer-events:none}
+.it.on{transform:translateY(-7px) scale(1.1);filter:drop-shadow(0 0 9px var(--sel))}
+.it:focus-visible,.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--sel);outline-offset:3px}
+.empty{font:italic 500 15px var(--f-disp);color:var(--mute);align-self:center}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.btn{font:600 13px/1 var(--f-ui);letter-spacing:.02em;color:#251a0c;background:var(--gold);border:0;border-radius:999px;padding:10px 16px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--gold);border:1px solid var(--glass-line)}
+#probe{position:fixed;right:16px;top:calc(12px + env(safe-area-inset-top,0px));z-index:5;padding:8px 14px}
+/* панель проб */
+#sheet{position:fixed;z-index:6;right:12px;left:12px;top:calc(12px + env(safe-area-inset-top,0px));max-height:calc(100% - 24px);overflow:auto;
+  margin-inline:auto;max-width:440px;box-sizing:border-box;padding:16px;display:grid;gap:14px;
+  background:rgba(14,11,19,.9);border:1px solid var(--glass-line);border-radius:16px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+#sheet h2{margin:0;font:500 24px/1.1 var(--f-disp);color:var(--gold)}
+#sheet p.note{margin:0;color:var(--mute);font-size:13px}
+.lbl{font:600 10.5px var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 13px var(--f-ui);color:var(--ink);background:transparent;border:1px solid var(--glass-line);border-radius:999px;padding:7px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--gold);color:#251a0c;border-color:var(--gold)}
+input[type=range]{width:100%;accent-color:var(--gold)}
+/* сохранённый узор */
+#saved{position:fixed;inset:0;z-index:4;display:grid;place-items:center;padding:16px;box-sizing:border-box;background:rgba(5,4,8,.55)}
+#saved .plate{position:static;transform:none;padding:18px;display:grid;gap:12px;justify-items:center;text-align:center;width:min(380px,100%)}
+#saved b{font:500 24px/1.15 var(--f-disp);color:var(--gold)}
+#saved p{margin:0;color:var(--mute);font-size:13px;max-width:34ch}
+#door{width:170px;height:260px;max-width:100%}
+@media (prefers-reduced-motion:reduce){.it{transition:none}}
+</style>
+
+<canvas id="cv" aria-label="Живой узор пространства архетипа"></canvas>
+<div id="dim"></div>
+
+<div class="plate top">
+  <small>День 1 · Kin 53</small>
+  <b>Пространство архетипа</b>
+  <span>Красный Небесный Странник</span>
+</div>
+<button class="btn ghost" id="probe" type="button">Пробы</button>
+
+<div class="plate bottom">
+  <p id="hint">Коснись своего стёклышка, потом — узора</p>
+  <div class="bowl" id="bowl"></div>
+  <div class="row">
+    <button class="btn ghost" id="peek" type="button">Что внутри?</button>
+    <button class="btn" id="save" type="button">Сохранить мой узор</button>
+  </div>
+</div>
+
+<div id="sheet" hidden>
+  <h2>Пробы</h2>
+  <p class="note">Этого участник не увидит: здесь вы сравниваете варианты. Узор можно крутить пальцем, касание — мягкий поворот трубки.</p>
+  <div><div class="lbl">Что внутри трубки</div><div class="chips" data-k="src">
+    <button class="chip" type="button" data-v="sky" aria-pressed="true">небо</button>
+    <button class="chip" type="button" data-v="flower">рисунок Миры</button>
+    <button class="chip" type="button" data-v="swirl2">МАК-карта</button>
+    <button class="chip" type="button" data-v="leaf">листок в небе</button></div></div>
+  <div><div class="lbl">Что кладёт человек</div><div class="chips" data-k="mode">
+    <button class="chip" type="button" data-v="glass">стёклышки</button>
+    <button class="chip" type="button" data-v="spark">искры света</button>
+    <button class="chip" type="button" data-v="both" aria-pressed="true">то и другое</button></div></div>
+  <div><div class="lbl">Зеркал</div><div class="chips" data-k="n">
+    <button class="chip" type="button" data-v="8">8</button>
+    <button class="chip" type="button" data-v="12" aria-pressed="true">12 (как в эскизе)</button>
+    <button class="chip" type="button" data-v="16">16</button></div></div>
+  <div><div class="lbl">Скорость перетекания</div><div class="chips" data-k="speed">
+    <button class="chip" type="button" data-v="0.5">тише</button>
+    <button class="chip" type="button" data-v="1" aria-pressed="true">как в эскизе</button>
+    <button class="chip" type="button" data-v="2">живее</button></div></div>
+  <div><div class="lbl">Ярче и сочнее</div><input type="range" id="briR" min="80" max="170" value="100" aria-label="Яркость узора"></div>
+  <div><div class="lbl">Приглушить узор под надписями</div><input type="range" id="dimR" min="0" max="60" value="12" aria-label="Приглушить узор"></div>
+  <div class="row"><button class="btn ghost" id="reset" type="button">Вернуть все стёклышки в чашу</button><button class="btn" id="close" type="button">Готово</button></div>
+</div>
+
+<div id="saved" hidden>
+  <div class="plate">
+    <b>Твой узор сохранён</b>
+    <canvas id="door" width="340" height="520" aria-label="Узор в контуре двери"></canvas>
+    <p>Так он ляжет в контур твоей двери. На устройстве хранится только: какая картинка, поворот трубки и где лежат твои стёклышки.</p>
+    <button class="btn ghost" id="again" type="button">Покрутить ещё</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var IMG = __IMGS__;
+  var REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var cv = document.getElementById('cv'), g = cv.getContext('2d');
+  var wc = document.createElement('canvas'), wg = wc.getContext('2d');
+  var S = { src: 'sky', mode: 'both', n: 12, speed: 1, ang: 0, vel: 0, t: 0, reveal: false, frozen: false, sel: -1, q: Math.min(1.5, window.devicePixelRatio || 1) };
+  var imgs = {};
+  function img(k) { if (!imgs[k]) { var im = new Image(); im.onload = function () { if (S.frozen || REDUCED) draw(); }; im.src = IMG[k]; imgs[k] = im; } return imgs[k]; }
+
+  // Стёклышки и искры человека (в пробе — пять, как будто собрал за пять дней)
+  var COLS = [[214, 46, 72], [38, 180, 190], [240, 168, 52], [150, 96, 220], [40, 170, 110]];
+  var SPARK = [[255, 214, 140], [255, 160, 170], [190, 220, 255], [255, 240, 210], [255, 190, 120]];
+  var mine = [];
+  function build() {
+    mine = [];
+    for (var i = 0; i < 5; i++) {
+      var kind = S.mode === 'both' ? (i % 2 ? 'spark' : 'glass') : S.mode;
+      mine.push({ kind: kind, c: kind === 'glass' ? COLS[i] : SPARK[i], s: kind === 'glass' ? .055 + (i % 3) * .01 : .05, sides: 3 + (i * 7) % 4, rot: i * 1.3, ph: i * 1.7, at: null });
+    }
+    S.sel = -1; bowl(); hint();
+  }
+  function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function lift(c, k) { return [Math.round(c[0] + (255 - c[0]) * k), Math.round(c[1] + (255 - c[1]) * k), Math.round(c[2] + (255 - c[2]) * k)]; }
+
+  // Одно стёклышко / искра в точке (0,0), радиус r
+  function piece(x, it, r, tw) {
+    if (it.kind === 'glass') {
+      x.save(); x.rotate(it.rot);
+      var gr = x.createRadialGradient(-r * .35, -r * .35, r * .05, 0, 0, r * 1.1);
+      gr.addColorStop(0, rgba(lift(it.c, .75), .95)); gr.addColorStop(.45, rgba(it.c, .85)); gr.addColorStop(1, rgba(it.c, .55));
+      x.fillStyle = gr; x.beginPath();
+      for (var j = 0; j < it.sides; j++) { var b = j * 6.2832 / it.sides, rr = r * (j % 2 ? .82 : 1); x[j ? 'lineTo' : 'moveTo'](Math.cos(b) * rr, Math.sin(b) * rr); }
+      x.closePath(); x.shadowColor = rgba(lift(it.c, .4), .8); x.shadowBlur = r * .6; x.globalAlpha = .72; x.fill(); x.shadowBlur = 0;
+      x.globalAlpha = .45; x.strokeStyle = 'rgba(255,255,255,.8)'; x.lineWidth = Math.max(.7, r * .035); x.stroke();
+      x.globalAlpha = .55; x.fillStyle = '#fff'; x.beginPath(); x.ellipse(-r * .3, -r * .32, r * .22, r * .1, -.6, 0, 6.2832); x.fill();
+      x.restore(); x.globalAlpha = 1;
+    } else {
+      var k = .75 + .25 * Math.sin(tw + it.ph), R = r * (2.1 + .4 * k);
+      x.save(); x.globalCompositeOperation = 'lighter';
+      var g2 = x.createRadialGradient(0, 0, 0, 0, 0, R);
+      g2.addColorStop(0, 'rgba(255,255,255,1)'); g2.addColorStop(.12, 'rgba(255,255,255,' + (.9 * k) + ')'); g2.addColorStop(.28, rgba(it.c, .75 * k)); g2.addColorStop(.6, rgba(it.c, .2 * k)); g2.addColorStop(1, rgba(it.c, 0));
+      x.fillStyle = g2; x.beginPath(); x.arc(0, 0, R, 0, 6.2832); x.fill();
+      x.strokeStyle = rgba(lift(it.c, .7), .85 * k); x.lineWidth = Math.max(.8, r * .06);
+      x.beginPath(); x.moveTo(-R * 1.1, 0); x.lineTo(R * 1.1, 0); x.moveTo(0, -R * 1.1); x.lineTo(0, R * 1.1); x.stroke();
+      x.restore();
+    }
+  }
+
+  // Чаша
+  var bowlEl = document.getElementById('bowl');
+  function bowl() {
+    bowlEl.innerHTML = '';
+    var left = 0;
+    mine.forEach(function (it, i) {
+      if (it.at) return; left++;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'it' + (S.sel === i ? ' on' : '');
+      b.setAttribute('aria-label', it.kind === 'glass' ? 'Стёклышко' : 'Искра света');
+      var c = document.createElement('canvas'); c.width = c.height = 92; b.appendChild(c);
+      var x = c.getContext('2d'); x.translate(46, 46); piece(x, it, 24, 1.2);
+      b.addEventListener('click', function () { S.sel = S.sel === i ? -1 : i; bowl(); hint(); });
+      bowlEl.appendChild(b);
+    });
+    if (!left) { var e = document.createElement('span'); e.className = 'empty'; e.textContent = 'Все твои стёклышки — в узоре'; bowlEl.appendChild(e); }
+  }
+  var hintEl = document.getElementById('hint');
+  function hint() {
+    var placed = mine.some(function (m) { return m.at; });
+    hintEl.textContent = S.sel >= 0 ? 'Теперь коснись узора — туда оно и ляжет'
+      : placed ? 'Коснись своего стёклышка в узоре — оно вернётся в чашу' : 'Коснись своего стёклышка, потом — узора';
+  }
+
+  // Геометрия: «камера» (картинка с камушками) сдвинута от центра и медленно поворачивается — узор перетекает
+  var W, H, R, A, PAD = 0;
+  function size() {
+    var w = Math.round(innerWidth * S.q), h = Math.round(innerHeight * S.q);
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    W = w; H = h; R = Math.hypot(W, H) / 2 + 2; A = 6.2832 / S.n;
+    PAD = Math.ceil(R * Math.sin(.03)) + 3;
+    var ww = Math.ceil(R) + 2, wh = Math.ceil(R * Math.sin(A + .03)) + PAD + 4;
+    if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
+  }
+  var CX = .28, CY = .1;
+  function camera(x, src) {
+    var sw = src.naturalWidth, sh = src.naturalHeight, sc = R * 2.3 / Math.min(sw, sh);
+    x.rotate(S.ang); x.drawImage(src, -sw * sc / 2, -sh * sc / 2, sw * sc, sh * sc);
+    mine.forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); piece(x, it, it.s * R, S.t * 2.2); x.restore(); });
+  }
+  function draw() {
+    size();
+    var src = img(S.src);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#07060b'; g.fillRect(0, 0, W, H);
+    if (!src.complete || !src.naturalWidth) return;
+    if (S.reveal) { g.save(); g.translate(W / 2, H / 2); camera(g, src); g.restore(); return; }
+    wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, wc.width, wc.height);
+    // клин чуть шире сектора: соседние отражения перекрываются, и на стыках нет тонких линий
+    wg.save(); wg.translate(0, PAD); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -.03, A + .03); wg.closePath(); wg.clip();
+    wg.translate(R * CX, R * CY); camera(wg, src); wg.restore();
+    g.save(); g.translate(W / 2, H / 2);
+    for (var k = 0; k < S.n; k++) {
+      g.save();
+      if (k % 2) { g.rotate((k + 1) * A); g.scale(1, -1); } else g.rotate(k * A);
+      g.drawImage(wc, 0, -PAD); g.restore();
+    }
+    var v = g.createRadialGradient(0, 0, R * .5, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.4)');
+    g.fillStyle = v; g.fillRect(-W / 2, -H / 2, W, H); g.restore();
+  }
+
+  // Точка экрана → точка «камеры» (через зеркала), в долях R
+  function toCam(ex, ey) {
+    var px = ex * S.q - W / 2, py = ey * S.q - H / 2;
+    if (S.reveal) { var c0 = Math.cos(-S.ang), s0 = Math.sin(-S.ang); return [(px * c0 - py * s0) / R, (px * s0 + py * c0) / R]; }
+    var r = Math.hypot(px, py), th = Math.atan2(py, px); if (th < 0) th += 6.2832;
+    var k = Math.floor(th / A), l = th - k * A; if (k % 2) l = A - l;
+    var wx = r * Math.cos(l) - R * CX, wy = r * Math.sin(l) - R * CY, c = Math.cos(-S.ang), s = Math.sin(-S.ang);
+    return [(wx * c - wy * s) / R, (wx * s + wy * c) / R];
+  }
+
+  // Жесты: провёл — повернул трубку; коснулся — положил стёклышко / вернул своё / мягкий поворот
+  var drag = null;
+  cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
+  cv.addEventListener('pointermove', function (e) {
+    if (!drag) return; var dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 4 || Math.abs(e.clientY - drag.y) > 4) drag.moved = true;
+    if (drag.moved) { S.ang = drag.a + dx * .006; S.vel = 0; if (REDUCED) draw(); }
+  });
+  cv.addEventListener('pointerup', function (e) {
+    if (!drag) return; var moved = drag.moved; drag = null; if (moved) return;
+    var p = toCam(e.clientX, e.clientY);
+    if (S.sel >= 0) { mine[S.sel].at = p; S.sel = -1; bowl(); hint(); if (REDUCED) draw(); return; }
+    for (var i = 0; i < mine.length; i++) {
+      var m = mine[i]; if (!m.at) continue;
+      if (Math.hypot(m.at[0] - p[0], m.at[1] - p[1]) < m.s * 1.6) { m.at = null; bowl(); hint(); if (REDUCED) draw(); return; }
+    }
+    S.vel += .045; if (REDUCED) { S.ang += .5; draw(); }
+  });
+
+  // Ход времени; если телефон не успевает — чуть меньше точек (узор тот же)
+  var last = 0, slow = 0;
+  function loop(ts) {
+    var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
+    if (!S.frozen) {
+      S.t += dt; S.ang += (REDUCED ? 0 : .072 * S.speed * dt) + S.vel; S.vel *= .95;
+      var t0 = performance.now(); draw();
+      if (performance.now() - t0 > 26) { if (++slow > 10 && S.q > .6) { S.q *= .85; slow = 0; } } else slow = 0;
+    }
+    requestAnimationFrame(loop);
+  }
+  addEventListener('resize', draw);
+
+  // Кнопки
+  document.getElementById('peek').addEventListener('click', function () { S.reveal = !S.reveal; this.textContent = S.reveal ? 'Снова узор' : 'Что внутри?'; if (REDUCED) draw(); });
+  var saved = document.getElementById('saved'), door = document.getElementById('door');
+  document.getElementById('save').addEventListener('click', function () {
+    S.frozen = true; S.reveal = false; document.getElementById('peek').textContent = 'Что внутри?'; draw();
+    var d = door.getContext('2d'), w = door.width, h = door.height, rr = w / 2;
+    d.clearRect(0, 0, w, h); d.save();
+    d.beginPath(); d.moveTo(0, h); d.lineTo(0, rr); d.arc(rr, rr, rr, Math.PI, 0); d.lineTo(w, h); d.closePath(); d.clip();
+    var k = Math.max(w / W, h / H) * 1.6; d.drawImage(cv, (w - W * k) / 2, (h - H * k) / 2, W * k, H * k); d.restore();
+    d.strokeStyle = 'rgba(241,217,166,.85)'; d.lineWidth = 3; d.shadowColor = 'rgba(255,220,150,.9)'; d.shadowBlur = 14;
+    d.beginPath(); d.moveTo(2, h - 1); d.lineTo(2, rr); d.arc(rr, rr, rr - 2, Math.PI, 0); d.lineTo(w - 2, h - 1); d.stroke();
+    saved.hidden = false;
+  });
+  document.getElementById('again').addEventListener('click', function () { saved.hidden = true; S.frozen = false; });
+  var sheet = document.getElementById('sheet');
+  document.getElementById('probe').addEventListener('click', function () { sheet.hidden = false; });
+  document.getElementById('close').addEventListener('click', function () { sheet.hidden = true; });
+  document.getElementById('reset').addEventListener('click', function () { mine.forEach(function (m) { m.at = null; }); S.sel = -1; bowl(); hint(); if (REDUCED) draw(); });
+  document.getElementById('briR').addEventListener('input', function () { var v = this.value / 100; cv.style.filter = v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8) + ')'; });
+  document.getElementById('dimR').addEventListener('input', function () { document.getElementById('dim').style.opacity = this.value / 100; });
+  [].forEach.call(document.querySelectorAll('.chips'), function (box) {
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip'); if (!b) return;
+      [].forEach.call(box.children, function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+      var k = box.getAttribute('data-k'), v = b.getAttribute('data-v');
+      if (k === 'src') S.src = v;
+      if (k === 'mode') { S.mode = v; build(); }
+      if (k === 'n') S.n = +v;
+      if (k === 'speed') S.speed = +v;
+      draw();
+    });
+  });
+
+  // Для снимков пробы: ?src=…&mode=…&put=1&t=…
+  var qs = {}; location.search.replace(/[?&]([^=&]+)=([^&]*)/g, function (m, a, b) { qs[a] = decodeURIComponent(b); });
+  if (qs.src && IMG[qs.src]) S.src = qs.src;
+  if (qs.mode) S.mode = qs.mode;
+  if (qs.n) S.n = +qs.n;
+  build();
+  if (qs.put) { var spots = [[.05, .04], [-.12, .1], [.16, -.08], [-.02, -.18], [.22, .14]]; mine.forEach(function (m, i) { if (i < +qs.put) m.at = spots[i]; }); bowl(); hint(); }
+  if (qs.t) { S.ang = +qs.t * .072; S.t = +qs.t; }
+  if (qs.reveal) S.reveal = true;
+  img(S.src);
+  if (qs.still) { S.frozen = true; img(S.src).addEventListener('load', draw); draw(); }
+  requestAnimationFrame(loop);
+})();
+</script>
