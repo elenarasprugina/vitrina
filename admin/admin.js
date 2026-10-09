@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009e';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261009f';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5026,27 +5026,68 @@
       glass: 'Стёклышко дня ложится в узор (если колода не нужна). Только у Путешествия и Погружения.',
       final: 'Открывает финальную сцену («За дверью» → «Финал»). Например, в пространстве 13-й двери.',
       figure: 'Собирает «Мою фигуру» — сцену, мир состоявшихся дней и личные следы на выбранных дверях — в одну картинку и сохраняет её на устройство человека. Удобно в финале.' };
-    // Калейдоскоп из картинки (09.10): узор вместо фона; маленький снимок узора — здесь же
-    var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 220, height: 220 });
-    // Картинка грузится один раз (контраст и чёткость считаются по ней заново только при новом значении); ползунок тянут — снимок через миг
-    var kIm = null, kSrc = '', kT = 0;
+    // Калейдоскоп из картинки (09.10): узор вместо фона; живой снимок узора и выбор оси вращения — здесь же
+    var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 220, height: 220 }), kpk = el('canvas', { class: 'a-kal-pick', width: 220, height: 220 });
+    // Картинка грузится один раз (контраст и чёткость считаются по ней заново только при новом значении)
+    var kIm = null, kSrc = '', kA = 0.6, kRun = true, kOn = false, kLast = 0;
+    function kNum(v, d) { v = v == null || v === '' || isNaN(+v) ? d : +v; return Math.max(15, Math.min(85, v)); }
     function kDraw() {
       if (!K.image) return;
-      clearTimeout(kT);
-      kT = setTimeout(function () {
-        function put() { var c = kpv.getContext('2d'); M.kalDraw(c, 220, 220, kIm, K, 0.6, false); kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : ''; }
-        var u = /^(data:|blob:|https?:)/.test(K.image) ? K.image : '../' + K.image;
-        if (kIm && kSrc === u) { if (kIm.complete && kIm.naturalWidth) put(); return; }
-        kSrc = u; kIm = new Image(); kIm.onload = put; kIm.src = u;
-      }, 120);
+      var u = /^(data:|blob:|https?:)/.test(K.image) ? K.image : '../' + K.image;
+      if (kIm && kSrc === u) { if (kIm.complete && kIm.naturalWidth) kPut(); return; }
+      kSrc = u; kIm = new Image(); kIm.onload = function () { kPut(); kLoop(); }; kIm.src = u;
     }
+    function kPut() {
+      if (!kIm || !kIm.naturalWidth) return;
+      M.kalDraw(kpv.getContext('2d'), 220, 220, kIm, K, kA, false);
+      kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
+      // Картинка с осью: точка — ось, круг — что попадает в узор (то, что ближе к оси, видно в узоре чаще)
+      var x = kpk.getContext('2d'), ox = kNum(K.px, 50) / 100, oy = kNum(K.py, 50) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
+      var rr = Math.min(.75 / (2.3 * Math.max(70, Math.min(130, +K.zoom || 100)) / 100), mg) * 220;
+      x.clearRect(0, 0, 220, 220); x.drawImage(kIm, 0, 0, 220, 220);
+      x.save(); x.fillStyle = 'rgba(0,0,0,.45)'; x.beginPath(); x.rect(0, 0, 220, 220); x.arc(ox * 220, oy * 220, rr, 0, 6.2832, true); x.fill('evenodd');
+      x.lineWidth = 1.5; x.strokeStyle = 'rgba(255,255,255,.85)'; x.setLineDash([4, 4]); x.beginPath(); x.arc(ox * 220, oy * 220, rr, 0, 6.2832); x.stroke(); x.setLineDash([]);
+      x.lineWidth = 3; x.strokeStyle = '#000'; x.beginPath(); x.arc(ox * 220, oy * 220, 7, 0, 6.2832); x.stroke();
+      x.lineWidth = 2; x.strokeStyle = '#fff'; x.stroke(); x.fillStyle = '#fff'; x.beginPath(); x.arc(ox * 220, oy * 220, 2, 0, 6.2832); x.fill(); x.restore();
+    }
+    // Снимок крутится сам (в 4 раза быстрее, чем на сайте) — видно, что стоит на месте, а что проплывает; убрали блок со страницы — останавливается
+    function kLoop() {
+      if (kOn) return; kOn = true;
+      function step(ts) {
+        if (!kpv.isConnected && kLast) { kOn = false; return; }
+        var dt = kLast ? Math.min(.1, (ts - kLast) / 1000) : 0; kLast = ts;
+        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kPut(); }
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    // Ось ставится касанием по картинке (можно вести пальцем); в черновик — когда отпустили
+    var kDrag = false;
+    function kAt(e) {
+      var b = kpk.getBoundingClientRect();
+      K.px = Math.round(kNum((e.clientX - b.left) / b.width * 100, 50) * 10) / 10; K.py = Math.round(kNum((e.clientY - b.top) / b.height * 100, 50) * 10) / 10;
+      kPut();
+    }
+    kpk.addEventListener('pointerdown', function (e) { kDrag = true; try { kpk.setPointerCapture(e.pointerId); } catch (er) {} kAt(e); e.preventDefault(); });
+    kpk.addEventListener('pointermove', function (e) { if (kDrag) kAt(e); });
+    function kUp() { if (!kDrag) return; kDrag = false; changed(); }
+    kpk.addEventListener('pointerup', kUp); kpk.addEventListener('pointercancel', kUp);
+    var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '⏸ Остановить', onclick: function () { kRun = !kRun; kStop.textContent = kRun ? '⏸ Остановить' : '▶ Крутить'; } });
+    var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kPut(); } });
+    var kPick = K.on && K.image ? el('div', { class: 'a-field a-kal-axis' }, [
+      el('span', { class: 'a-label', text: 'Ось вращения — коснитесь картинки' }),
+      el('div', { class: 'a-kal-two' }, [
+        el('div', { class: 'a-kal-cell' }, [kpk, el('span', { class: 'a-hint', text: 'Точка — ось, в круге — то, что попадает в узор' })]),
+        el('div', { class: 'a-kal-cell' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте)' })])]),
+      el('div', { class: 'a-backup-btns' }, [kMid, kStop]),
+      el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
     var kal = block('Калейдоскоп из картинки', [
       switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
         hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
       K.on ? el('div', { class: 'a-row' }, [
         imageIn(K, 'image', 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
-          hint: 'Своя у каждого дня (архетипа). Узор строится из середины картинки — там должно быть самое интересное. Чётче всего выходят мелкие детали и тонкие светлые линии на тёмном (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' }),
-        K.image ? field('Так выглядит узор (снимок)', kpv) : el('span')]) : null,
+          hint: 'Своя у каждого дня (архетипа). Узор строится вокруг оси вращения (ниже, по умолчанию — середина картинки): там не должно быть крупного яркого пятна. Чётче всего выходят мелкие детали и тонкие линии (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' })]) : null,
+      kPick,
       K.on ? el('div', { class: 'a-row' }, [
         selectIn(K, 'n', 'Зеркал', [['8', '8 — крупный узор'], ['12', '12 — как в эскизе'], ['16', '16 — мелкое кружево']], { def: '12', onChange: kDraw }),
         rangeIn(K, 'speed', 'Скорость перетекания', { min: 20, max: 300, step: 10, def: 100, unit: ' %', hint: '100 % — как в эскизе; меньше — тише, больше — живее.' })]) : null,
