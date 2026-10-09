@@ -46,6 +46,14 @@
 .ys-fx-aura-band{opacity:calc(.55 * var(--fx-p));transform:translateX(var(--x0)) skewX(-18deg);transform-origin:0 var(--cy)}
 .ys-dl.is-on .ys-fx-aura-band{animation:ys-fx-aura var(--fx-t) cubic-bezier(.45,0,.4,1) infinite}
 @keyframes ys-fx-aura{0%{transform:translateX(var(--x0)) skewX(-18deg)}55%,100%{transform:translateX(var(--x1)) skewX(-18deg)}}
+/* Свет из-за двери: ореол снаружи + кайма внутрь по краю, без линии и без тени-обводки; дышит. Светит (screen) — поэтому тише делать силой, а не прозрачностью слоя */
+.ys-fx-halo{filter:none;mix-blend-mode:screen}
+.ys-fx-halo path{stroke:none}
+.ys-fx-halo mask path{fill:#000}
+.ys-fx-halo .ys-fx-halo-out{fill:var(--fx-c);stroke:var(--fx-c);stroke-linejoin:round;opacity:min(1, calc(.9 * var(--fx-p)))}
+.ys-fx-halo .ys-fx-halo-in{fill:none;stroke:var(--fx-c);opacity:min(1, calc(.8 * var(--fx-p)))}
+.ys-dl.is-on .ys-fx-halo{animation:ys-fx-halo var(--fx-t) ease-in-out infinite}
+@keyframes ys-fx-halo{0%,100%{opacity:.62}50%{opacity:1}}
 @keyframes ys-fx-breath{0%,100%{opacity:calc(.35 * var(--fx-p))}50%{opacity:calc(.95 * var(--fx-p))}}
 @keyframes ys-fx-line{to{stroke-dashoffset:-100}}
 .ys-fx-star{position:absolute;width:calc(1.3% * var(--z,1));aspect-ratio:1;margin:calc(-.65% * var(--z,1)) 0 0 calc(-.65% * var(--z,1));background:var(--fx-c);-webkit-clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);filter:drop-shadow(0 0 3px var(--fx-c));opacity:0}
