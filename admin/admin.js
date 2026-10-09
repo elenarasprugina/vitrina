@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009d';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261009e';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4645,8 +4645,8 @@
           onChange: function (v) { if (!v) delete D.doorAssignmentMode; M.norm(r); st.n = 1; renderMain(); },
           hint: 'Можно переключать: настройки не теряются. «Выбирает сам»: дверей сколько угодно («＋ Дверь»), в день открывается одна; пространство и мир — у дня (вкладка «За дверью» → дни), след — по тону дня.' }),
         selectIn(D, 'first', 'Что открывается за дверью первым', [['', uc ? 'как принято: Карта дня' : 'как принято: сразу пространство'], ['card', 'Карта дня — одна для всех; глубже — по ключу'], ['space', 'сразу пространство дня (блоки)']], { def: '',
-          onChange: function (v) { if (!v) delete D.first; },
-          hint: 'Карта дня: дверь открывается всем без ключа, на Карте — живая кнопка «Есть ключ? Введи ключ» (видна и в Наблюдении). Закрыли карту — пространство дня, где блоки по форматам («кому видно»).' }),
+          onChange: function (v) { if (!v) delete D.first; renderMain(); },
+          hint: 'Карта дня: дверь открывается всем без ключа, на Карте — живая кнопка-лестница «Есть ключ? Поднимайся» (видна и в Наблюдении). Что за картой — ниже, «Карта дня и лестница».' }),
         uc ? el('div', { class: 'a-row' }, [
           switchIn(D, 'call', 'Блик по свободным дверям', { defTrue: true, hint: 'Пока сегодня дверь не выбрана — блик по очереди пробегает по свободным дверям. После выбора — до завтра блика нет.' }),
           switchIn(D, 'showDayNumbers', 'Числа дней на выбранных дверях', { hint: 'Маленькое число 1–13 под дверью, которую выбрали в этот день.' })]) : null,
@@ -4654,6 +4654,7 @@
           colorOptIn(D, 'callColor', 'Цвет блика', { none: 'тёплый белый #fff1c8', base: '#fff1c8', pick: '#fff1c8' }),
           rangeIn(D, 'callMs', 'Блик — пауза между дверями', { min: 600, max: 6000, step: 100, def: 1800, unit: ' мс' })]) : null
       ], { open: !D.desktop }),
+      M.first(r) === 'card' ? jdDeep(r) : null,
       warn.length ? el('div', {}, warn.map(function (w) { return el('p', { class: 'a-hint a-hint--warn', text: '⚠️ ' + w }); })) : null,
       block('Сцена с дверями', [
         el('div', { class: 'a-row' }, [
@@ -4669,7 +4670,7 @@
         el('div', { class: 'a-row' }, [textIn(tx, 'doorFuture', 'Нажали на будущую дверь', { ph: 'Эта дверь откроется {дата}' }), textIn(tx, 'doorPast', 'Нажали на прошедшую', { ph: 'Эта дверь уже закрылась — её день прошёл' })]),
         uc ? el('div', { class: 'a-row' }, [textIn(tx, 'doorBefore', 'Нажали до начала маршрута', { ph: 'Маршрут начнётся {начало}', hint: 'Метки {начало} и {конец} — даты первого и последнего дня.' }), textIn(tx, 'doorAfter', 'Нажали после конца маршрута', { ph: 'Маршрут пройден' })]) : null,
         el('div', { class: 'a-row' }, [uc ? null : textIn(tx, 'doorMissed', 'Нажали на прошедшую, в которую не входили', { ph: 'как у прошедшей' }), textIn(tx, 'doorBack', 'Кнопка из пространства', { ph: '← Назад к дверям' }),
-          M.first(r) === 'card' ? textIn(tx, 'doorKey', 'Кнопка на Карте дня — вход глубже', { ph: 'Есть ключ? Введи ключ', hint: 'Видна, пока у человека нет кода (и в Наблюдении). Ведёт в окно ключа.' }) : null]),
+          null]),
         el('div', { class: 'a-row' }, [textIn(tx, 'doorEnter', 'Кнопка, если у двери нет контура', { ph: 'Войти в дверь дня' }), textIn(tx, 'doorFinal', 'Кнопка финала над дверями', { ph: 'Финал', hint: 'Видна после входа в 13-ю дверь и после конца маршрута, если финал включён («За дверью» → «Финал»).' })]),
         el('p', { class: 'a-hint', text: 'Строки «Сегодня — день {день}», «до начала», «после конца» — во вкладке «Основное» → «Надписи на странице». ' + jTokensHint(r, false) })
       ], { open: !D.desktop }),
@@ -4969,13 +4970,57 @@
         make: function () { return { id: uid('w'), name: '', visible: true, when: 'after' }; }, addLabel: '+ Слой мира' })
     ], { open: false });
   }
+  /* Карта дня и лестница (её решение 08.10): второе нажатие на дверь, пространство — только по лестнице (ключ / код), значок и надписи */
+  function jdDeep(r) {
+    var M = window.M13D, D = r.doors, tx = r.texts = r.texts || {}, uc = M.isChoice(r), key = M.deep(r) === 'key';
+    // Как выглядит кнопка на Карте дня — с тем же движением, что на сайте
+    function look() {
+      var ic = M.keyIcon(r), text = key ? tx.doorKey || 'Есть ключ? Поднимайся' : tx.doorKey || 'Есть ключ? Введи ключ', box = el('div', { class: 'a-jd-keylook' });
+      if (ic.spiral) { var k = el('span', { class: 'ys-c-key' }); k.appendChild(el('span', { text: '◎' })); k.appendChild(el('span', { text: text })); box.appendChild(k); return box; }
+      var up = el('div', { class: 'ys-c-up' }), b = el('span', { class: 'ys-upbtn' });
+      if ((D.keyLabel || '') !== 'none') up.appendChild(el('p', { class: 'ys-c-up-t', text: text }));
+      if (ic.svg) {
+        var own = el('span', { class: 'ys-keyown' }); b.appendChild(own);
+        M.svgLoad(imgSrc(ic.svg), function (c) { if (!c) return; var sv = M.svgNode(c, ''); own.replaceChildren(sv); M.svgDraw(sv, 1800); });
+      } else b.insertAdjacentHTML('beforeend', ic.html);
+      up.appendChild(b); box.appendChild(up);
+      return box;
+    }
+    var bx = block('Карта дня и лестница — вход глубже', [
+      el('p', { class: 'a-hint', text: (uc && M.tap2(r) ? 'Человек нажал на свободную дверь → фактура уходит, дверь выбрана (заменить нельзя) → нажал ещё раз → Карта дня. ' : 'Дверь открывает Карту дня. ') +
+        (key ? 'Внизу карты — лестница: есть ключ или код Путешествия / Погружения → пространство дня (фон и блоки). Код помнит телефон — в другие дни лестница ведёт сразу, без ключа. Закрыли карту без ключа — снова двери. Из пространства — к дверям.' :
+          'Пространство дня лежит под картой: закрыли карту — пространство, блоки по форматам. Лестница на карте — окно ключа.') }),
+      el('div', { class: 'a-row' }, [
+        uc ? switchIn(D, 'tap2', 'Карта дня — по второму нажатию на дверь', { defTrue: true, onChange: function () { renderMain(); }, hint: 'Первое нажатие выбирает дверь (уходят слои «только свободная» — облака, вуаль), второе открывает Карту дня. Выключено — всё одним нажатием.' }) : null,
+        selectIn(D, 'deep', 'Пространство за Картой дня', [['', uc ? 'как принято: только по лестнице (ключ)' : 'как принято: всем, под картой'], ['key', 'только по лестнице — ключ или код Путешествия / Погружения'], ['all', 'всем — под картой, блоки по форматам']], { def: '',
+          onChange: function (v) { if (!v) delete D.deep; renderMain(); }, hint: 'По лестнице: Наблюдение видит Карту дня, а пространство (фон, медитация, аудио, «Оставить след») — Путешествие и Погружение.' })]),
+      sub('Значок входа'),
+      el('div', { class: 'a-row' }, [
+        el('div', {}, [
+          selectIn(D, 'keyIcon', 'Какой значок', M.KEY_NAMES, { def: 'rope', onChange: function () { renderMain(); }, hint: 'Лестница — отдельный светящийся знак, как спираль Солнца: перекладины по очереди загораются снизу вверх; верёвочная покачивается, огонёк над ступенями дышит. Спираль — прежняя кнопка с надписью.' }),
+          D.keyIcon === 'spiral' ? null : selectIn(D, 'keyLabel', 'Надпись у знака', [['', 'тонкой строкой над знаком'], ['none', 'без надписи — только знак']], { def: '', onChange: function (v) { if (!v) delete D.keyLabel; renderMain(); } })]),
+        look()]),
+      D.keyIcon === 'svg' ? imageIn(D, 'keySvg', 'Свой значок — SVG', { max: 600, svg: 'Значок входа', size: { w: 64, h: 80, note: 'SVG, линии без заливки (как знаки следов). Рисуется цветом кнопки' },
+        onChange: function () { renderMain(); }, hint: 'Когда карта открылась, значок прорисовывается линией, дальше мягко светится. Нет файла — верёвочная лестница.' }) : null,
+      sub('Надписи'),
+      el('div', { class: 'a-row' }, [
+        textIn(tx, 'doorKey', 'Надпись — пока нет кода', { ph: key ? 'Есть ключ? Поднимайся' : 'Есть ключ? Введи ключ', hint: 'Видна и в Наблюдении. Ведёт в окно ключа' + (key ? ', после ключа — в пространство.' : '.') }),
+        key ? textIn(tx, 'doorKeyIn', 'Надпись — код уже есть', { ph: 'Поднимайся', hint: 'Человек уже входил со своим ключом или кодом на этом устройстве — лестница ведёт сразу в пространство.' }) : null]),
+      el('div', { class: 'a-row' }, [
+        uc && M.tap2(r) ? textIn(tx, 'doorTap2', 'Над дверями — после первого нажатия', { ph: 'Коснитесь двери ещё раз' }) : null,
+        key ? textIn(tx, 'doorCardBack', 'Кнопка внизу карты — назад', { ph: 'К дверям' }) : null])
+    ], { open: !!ST.jdDeepOpen });
+    // Группа остаётся раскрытой, когда панель перерисовывается (выбрали значок, включили второе нажатие)
+    bx.addEventListener('toggle', function () { ST.jdDeepOpen = bx.open; });
+    return bx;
+  }
   // «За дверью»: пространство дня (и финал) — фон и блоки
   function jdBlockTitle(b) {
     var M = window.M13D, name = (M.BLOCKS.filter(function (k) { return k[0] === b.kind; })[0] || [0, b.kind])[1], t = String(b.text || b.label || '').split('\n')[0].trim();
     return name + (t ? ' · ' + (t.length > 44 ? t.slice(0, 44) + '…' : t) : '') + (b.auto ? ' · сразу' : '');
   }
   function jdSpaceForm(r, sp, n) {
-    var M = window.M13D;
+    var M = window.M13D, tx0 = r.texts || {};
     var BH = { dayCard: 'Открывает Карту дня этого дня — ту же, что на спирали (вкладки «Карта дня» и «13 дней»). У Путешествия и Погружения внизу карты — переход к колоде.',
       deck: 'Колода вслепую: выбор карты → личная карта → стёклышко дня в узор. Только у Путешествия и Погружения (у Наблюдения кнопки нет).',
       glass: 'Стёклышко дня ложится в узор (если колода не нужна). Только у Путешествия и Погружения.',
@@ -5032,6 +5077,13 @@
         body: function (b) {
           var out = [jWho(b, false)];
           if (b.kind === 'title' || b.kind === 'small' || b.kind === 'text') out.push(textIn(b, 'text', b.kind === 'text' ? 'Текст' : 'Строка', { multi: b.kind === 'text', rows: 5, hint: b.kind === 'text' ? 'Пустая строка — новый абзац.' : null }));
+          if (b.kind === 'text') out.push(el('div', { class: 'a-row' }, [
+            switchIn(b, 'fold', 'Свёрнут — раскрывается нажатием', { onChange: function () { renderMain(); }, hint: 'Виден только заголовок со стрелкой ▾; нажали — текст раскрылся. Для длинного текста медитации.' }),
+            b.fold ? textIn(b, 'foldTitle', 'Заголовок свёрнутого текста', { ph: 'Текст медитации' }) : null]));
+          if (b.kind === 'trace') {
+            out.push(el('p', { class: 'a-hint', text: 'Кнопка-ссылка в Telegram: у Путешествия — группа, у Погружения — вы лично. Ссылки — «Основное» → «Маршрут» → «Оставить след — куда ведёт кнопка». У Наблюдения кнопки нет.' + (r.trace && r.trace.journey && r.trace.immersion ? '' : ' ⚠️ Ссылки пока не вписаны.') }));
+            out.push(textIn(b, 'label', 'Надпись на кнопке', { ph: tx0.trace || 'Оставить след' }));
+          }
           if (b.kind === 'image') { out.push(imageIn(b, 'image', 'Картинка', { max: 1800 })); out.push(textIn(b, 'text', 'Подпись (необязательно)')); }
           if (b.kind === 'audio') {
             out.push(mediaIn(b, 'audio', 'Запись', { kind: 'audio', maxMB: 6, hint: '📐 MP3 или M4A, до 6 МБ (10–12 минут голоса). Хранится только на сайте, без сторонних сервисов; грузится, когда человек нажал кнопку.' }));
@@ -5050,7 +5102,10 @@
           var s = el('select', { class: 'a-input' }, M.BLOCKS.map(function (k) { return el('option', { value: k[0], text: k[1] }); }));
           s.value = 'text';
           return el('div', { class: 'a-row a-row--end' }, [field('Добавить блок', s), el('button', { type: 'button', class: 'a-btn a-add', text: '+ Добавить', onclick: function () {
-            push({ id: uid('s'), kind: s.value, visible: true, who: {}, text: s.value === 'audio' ? 'Послушать' : '' });
+            var nb = { id: uid('s'), kind: s.value, visible: true, who: {}, text: s.value === 'audio' ? 'Послушать' : '' };
+            // «Оставить след» — только Путешествию и Погружению
+            if (s.value === 'trace') nb.who = { observation: false };
+            push(nb);
           } })]);
         } })
     ];

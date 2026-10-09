@@ -642,3 +642,6 @@ audio.a-media{background:none;height:40px}
 
 /* Калейдоскоп пространства (09.10): снимок узора у картинки дня */
 .a-kal-pv{width:220px;height:220px;max-width:100%;border-radius:50%;display:block;background:#07060b}
+/* Как выглядит лестница на Карте дня (двери → «Карта дня и лестница») */
+.a-jd-keylook{display:flex;align-items:center;justify-content:center;min-height:110px;padding:12px;border-radius:12px;background:#1a110b}
+.a-jd-keylook .ys-c-key{cursor:default}
