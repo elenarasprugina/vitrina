@@ -703,9 +703,9 @@
     }
     /* Узор пространства на двери n (день day, поворот a); day = 0 — убрать. Лежит под следом тона, над слоями двери.
        Прозрачность и мягкий край — doors.patternOpacity, patternSoft; появляется мягко (now — сразу). */
-    function pattern(n, day, a, now, gl) {
+    function pattern(n, day, a, now, gl, h) {
       var x = G[n]; if (!x) return;
-      var my = day + ':' + a + ':' + JSON.stringify(gl || []);
+      var my = day + ':' + a + ':' + h + ':' + JSON.stringify(gl || []);
       if (x.pt && x.ptKey === my) return;
       if (x.pt) { x.pt.remove(); x.pt = null; x.ptKey = null; }
       if (!day || !x.poly) return;
@@ -722,7 +722,7 @@
           var f = kalFilter(kalOn(r, day)); if (f) cv.style.filter = f;
           box.appendChild(cv);
           if (now || REDUCED) box.classList.add('is-on'); else { void box.offsetWidth; box.classList.add('is-on'); }
-        }, gl);
+        }, gl, h);
       }
       if (img.complete && img.naturalWidth) put(); else img.addEventListener('load', put);
     }
@@ -806,9 +806,10 @@
   /* Калейдоскоп дня: { …kal, _neb — туманность (если включена, kalNeb) }; r и day нужны, чтобы взять общую туманность волны */
   function kalOf(sp, r, day) {
     var k = sp && sp.kal; if (!k || !k.on) return null;
-    var N = r ? kalNeb(r, day, k) : null, o = {}, x;
-    if (!N) return k.image ? k : null;
-    for (x in k) o[x] = k[x]; o._neb = N; return o;
+    var N = r ? kalNeb(r, day, k) : null, H = khCfg(r, k), o = {}, x;
+    if (!N && !k.image) return null;
+    if (!N && !H) return k;
+    for (x in k) o[x] = k[x]; if (N) o._neb = N; if (H) o._kh = H; return o;
   }
   function kalOn(r, day) { return kalOf(spaceOf(r, day), r, day); }
   // Туманность — «камера» без сдвига, как в пробе: ось в середине, от неё расходятся лучи и линии
@@ -1003,11 +1004,11 @@
 
   /* Узор в прямоугольник W×H (центр трубки — середина); reveal — сама картинка, без зеркал (кнопка «Что внутри?»).
      P — стёклышки в узоре (см. выше), ps — их размер в долях R, t — время (мерцание искр) */
-  function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t) {
+  function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t, kh) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
     // Туманность: кадр рисуется заново, только когда облака дышат; филигрань — только от картинки дня (mix)
-    var NB = im._neb, nb = !!NB, im0 = nb ? NB.photo : im, cl = nb ? nebCl(NB.N, t, NEB_S) : null;
+    var NB = im._neb, nb = !!NB, im0 = nb ? NB.photo : im, cl = nb ? nebCl(NB.N, t, NEB_S) : null, KO = khOf(im, k, n);
     if (nb) im = cl.on ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null, true) : kalPic(im, k); else im = kalPrep(im, k);
     // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
     var sc = R * 2.3 * num(k.zoom, 100, 70, 130) / 100 / Math.min(sw, sh);
@@ -1018,14 +1019,24 @@
     if (nb) sc = Math.min(W, H) / 2 / (512 * sw / (1485 * NEB_X)) * num(k.zoom, 100, 70, 130) / 100;
     else sc = Math.max(sc, R * .75 / (mg * Math.min(sw, sh)));
     var fl = im0 ? kalFil(im0, k, sc) : null, fa = num(k.filA, 80, 10, 100) / 100;
+    // Хоровод дня: фигуры вращаются вокруг вершины клина (оси трубки) — kh, свой поворот (нет — собранный)
+    var U = Math.min(W, H) / 2, th = KO ? (kh == null || !isFinite(+kh) ? KO.G.P[0] : +kh) : 0;
     function cam(x) {
-      x.rotate(ang); x.drawImage(im, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc);
+      x.save(); x.rotate(ang); x.drawImage(im, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc);
       if (cl && cl.on) nebClouds(x, NB.L, cl, -sw * sc * ox, -sh * sc * oy, sw * sc, sw);
       if (fl) { x.globalAlpha = fa; x.drawImage(fl, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc); x.globalAlpha = 1; }
-      (P || []).forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
+      x.restore();
     }
+    // Стёклышки — поверх фигур
+    function pcs(x) {
+      if (!P || !P.length) return;
+      x.save(); x.rotate(ang);
+      P.forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
+      x.restore();
+    }
+    function khor(x) { if (KO) khPut(x, KO, U, th); }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H);
-    if (reveal) { c.translate(W / 2, H / 2); cam(c); c.restore(); return; }
+    if (reveal) { c.translate(W / 2, H / 2); cam(c); khor(c); pcs(c); c.restore(); return; }
     // Клин чуть шире сектора: соседние отражения перекрываются, на стыках нет тонких линий
     var pad = Math.ceil(R * Math.sin(KPAD)) + 3, ww = Math.ceil(R) + 2, wh = Math.ceil(R * Math.sin(Math.min(A + KPAD, Math.PI / 2))) + pad + 4;
     var wc = kWedge = kWedge || document.createElement('canvas');
@@ -1035,10 +1046,12 @@
     if (cl && cl.on) {
       // Дышащие облака складываются со светом («lighter») — по обрезке клина это дало бы тонкие тёмные лучи на стыках; поэтому клин вырезается после
       wg.save(); wg.translate(0, pad); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
+      khor(wg); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
       wg.globalCompositeOperation = 'destination-in'; wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.fill(); wg.restore();
     } else {
       wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
-      wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
+      wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
+      khor(wg); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
     }
     c.translate(W / 2, H / 2);
     for (var i = 0; i < n; i++) {
@@ -1053,8 +1066,12 @@
     if (num(k.vign, 40, 0, 60)) { c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H); }
     c.restore();
   }
-  function kalImg(base, k, f) {
-    var N = k && k._neb;
+  function kalImg(base, k, f0) {
+    var N = k && k._neb, KH = k && k._kh, f = !KH ? f0 : function (im) {
+      // Хоровод: фигура дня грузится вместе с фоном (im._khi)
+      if (!im) { f0(im); return; }
+      var p = new Image(); p.onload = function () { im._khi = p; f0(im); }; p.onerror = function () { f0(im); }; p.src = src(base, KH.fig);
+    };
     if (N) {
       var L = nebBuild(N), mk = function (ph) { f({ _neb: { L: L, N: N, photo: ph }, naturalWidth: NEB_S, naturalHeight: NEB_S, width: NEB_S, height: NEB_S }); };
       if (N.src === 'mix' && k.image) { var p = new Image(); p.onload = function () { mk(p); }; p.onerror = function () { mk(null); }; p.src = src(base, k.image); }
@@ -1187,6 +1204,256 @@
   function kalPic(im, k) { var NB = im && im._neb; return NB ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null) : im; }
 
 
+  /* ---------- Хоровод (09.10, её решения — docs/doors.md, «Хоровод — решения 09.10») ----------
+     Хоровод дня: фигура архетипа дня (kal.khor.fig, PNG) лежит в «камере» на расстоянии от оси, зеркала собирают из неё круг;
+     в момент сборки движение притормаживает, фигуры светятся. Появляется всегда, когда у дня есть фигура; у участника кнопок нет.
+     Настройки — общие на волну (doors.khor) или свои у дня (kal.khor при kal.khorOwn):
+     { mode: '' — 12 целых (фигура в середине клина) | 'half' — 6 из половинок (фигура на зеркале), out — головой наружу (да; false — к центру),
+       slow — притормаживать при сборке (да), size — размер, % (42 | 58), dist — от центра, % (66 | 60), every — как часто собирается, с (14),
+       glow — свечение при сборке, % (40), white — убрать белый фон (да) }. Размер и расстояние — в долях половины меньшей стороны экрана.
+     doors.khorDoor: '' — на двери узор как сохранил | 'join' — всегда собранный хоровод. 13-го в хороводе дня нет — 13-й это человек. */
+  var KH_DEF = { whole: { size: 42, dist: 66 }, half: { size: 58, dist: 60 }, every: 14, glow: 40 };
+  function khSlow(a) { return 1 - .92 * Math.exp(-Math.pow(a / .07, 2)); }
+  // Сколько «лишнего» времени даёт торможение на одну сборку (чтобы сборка шла раз в T секунд)
+  var KH_EXTRA = (function () { var s = 0, a; for (a = -.6; a <= .6; a += .002) s += (1 / khSlow(a) - 1) * .002; return s; })();
+  function khCfg(r, k) {
+    var F = k && k.khor; if (!F || !F.fig) return null;
+    var D = cfg(r), S = D.khor && !k.khorOwn ? D.khor : F, o = {}, x;
+    for (x in S) if (x !== 'fig') o[x] = S[x];
+    o.fig = F.fig; return o;
+  }
+  // Белое → прозрачное, цвет восстанавливается («цвет в прозрачность»); фигура не больше 720 точек по высоте. Один раз на картинку.
+  function khFig(im, white) {
+    var key = white ? '_khW' : '_khR'; if (im[key]) return im[key];
+    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, f = Math.min(1, 720 / Math.max(1, h));
+    var c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * f)); c.height = Math.max(1, Math.round(h * f));
+    var g = c.getContext('2d'); g.drawImage(im, 0, 0, c.width, c.height);
+    if (white) {
+      try {
+        var d = g.getImageData(0, 0, c.width, c.height), p = d.data, i, mn, A;
+        for (i = 0; i < p.length; i += 4) {
+          mn = Math.min(p[i], p[i + 1], p[i + 2]); A = 1 - mn / 255;
+          if (A < .004) { p[i + 3] = 0; continue; }
+          p[i] = (p[i] - mn) / A; p[i + 1] = (p[i + 1] - mn) / A; p[i + 2] = (p[i + 2] - mn) / A; p[i + 3] = p[i + 3] * A;
+        }
+        g.putImageData(d, 0, 0);
+      } catch (e) {}
+    }
+    return (im[key] = c);
+  }
+  /* Устройство хоровода: P — повороты, при которых он собран (12 целых — середина клина; 6 — оба зеркала), m — копий фигуры в «камере»
+     (не больше, чем помещается без наложения, ≤ 6), v0 — скорость, чтобы сборка шла раз в every секунд с учётом торможения */
+  function khGeo(K, n, asp) {
+    var half = K.mode === 'half', d0 = half ? KH_DEF.half : KH_DEF.whole, A = 2 * Math.PI / n;
+    var h = num(K.size, d0.size, 10, 120) / 100, d = num(K.dist, d0.dist, 0, 120) / 100, w = h * asp;
+    var P = half ? [0, A] : [A / 2], k = P.length, T = num(K.every, KH_DEF.every, 4, 90);
+    var mMax = Math.max(1, Math.min(6, Math.floor(2 * Math.PI * d / (w * 1.05 + .002))));
+    var m = Math.max(1, Math.min(mMax, Math.round(2 * Math.PI / (.1 * k * T)))), per = 2 * Math.PI / m, slow = K.slow !== false;
+    return { h: h, w: w, d: d, P: P, m: m, per: per, slow: slow, out: K.out !== false, gl: num(K.glow, KH_DEF.glow, 0, 100) / 100,
+      v0: Math.max(.012, Math.min(.9, (per + (slow ? k * KH_EXTRA : 0)) / (k * T))) };
+  }
+  function khWrap(x, p) { x = ((x % p) + p) % p; return x > p / 2 ? x - p : x; }
+  // Насколько хоровод не собран (рад): 0 — собран
+  function khAl(G, th) { var b = 9, i, t; for (i = 0; i < G.P.length; i++) { t = khWrap(th - G.P[i], G.per); if (Math.abs(t) < Math.abs(b)) b = t; } return b; }
+  // Ближайший поворот, при котором хоровод собран
+  function khSnap(G, th) { var b = null, i, t; for (i = 0; i < G.P.length; i++) { t = G.P[i] + Math.round((th - G.P[i]) / G.per) * G.per; if (b === null || Math.abs(t - th) < Math.abs(b - th)) b = t; } return b; }
+  function khOf(im, k, n) {
+    var KH = k && k._kh; if (!KH || !im || !im._khi || !(im._khi.naturalWidth || im._khi.width)) return null;
+    var f = khFig(im._khi, KH.white !== false);
+    return { f: f, G: khGeo(KH, n || kalN(k), f.width / f.height) };
+  }
+  // Слой фигур (m копий по кругу) — один раз на размер экрана и настройки; U — точек на единицу (половина меньшей стороны)
+  function khLayer(KO, U) {
+    var G = KO.G, f = KO.f; U = Math.min(U, 1100);
+    var E = Math.ceil((G.d + Math.max(G.h, G.w) * .75) * U) + 2, key = [Math.round(U), G.m, G.d, G.h, G.w, G.out].join('|');
+    if (f._khL && f._khK === key) return f._khL;
+    var c = f._khL || document.createElement('canvas'); c.width = c.height = 2 * E;
+    var g = c.getContext('2d'), j, a, w = G.w * U, h = G.h * U;
+    g.clearRect(0, 0, 2 * E, 2 * E);
+    for (j = 0; j < G.m; j++) {
+      a = j * G.per;
+      g.save(); g.translate(E + Math.cos(a) * G.d * U, E + Math.sin(a) * G.d * U); g.rotate(a + (G.out ? Math.PI / 2 : -Math.PI / 2));
+      g.drawImage(f, -w / 2, -h / 2, w, h); g.restore();
+    }
+    f._khK = key; c._u = U; return (f._khL = c);
+  }
+  // Фигуры в клин (x — у вершины клина); при сборке — ещё раз светом
+  function khPut(x, KO, U, th) {
+    var L = khLayer(KO, U), s = U / L._u, E = L.width / 2 * s, gl = KO.G.gl * 1.2 * Math.exp(-Math.pow(khAl(KO.G, th) / .06, 2));
+    x.save(); x.rotate(th); x.drawImage(L, -E, -E, 2 * E, 2 * E);
+    if (gl > .01) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = Math.min(1, gl); x.drawImage(L, -E, -E, 2 * E, 2 * E); }
+    x.restore();
+  }
+
+  // Хоровод в предпросмотре панели: следующий поворот (null — с начала, за полсекунды до сборки)
+  function khTick(im, k, th, dt) {
+    var KO = khOf(im, k); if (!KO) return null;
+    if (th == null || !isFinite(th)) th = KO.G.P[0] - Math.min(.6, KO.G.per * .4);
+    return th + KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, th)) : 1) * dt;
+  }
+  /* ---------- Хоровод волны — в финале ----------
+     Круг из мест по числу дней: фигуры дней (kal.khor.fig у каждого) выезжают из центра и встают по очереди, потом круг медленно вращается;
+     фон — туманность / калейдоскоп без фигур, чуть приглушён. В центре — тринадцатый, человек: его стёклышки (одной формы, цвет свой у каждого).
+     doors.final.wave = { on, size — размер фигур, % (27), dist — от центра, % (70), speed — скорость круга, % (25), glow — свечение, % (35; после сборки
+       фигуры чуть пульсируют светом), out — головой наружу (да), white — убрать белый фон (да), dim — приглушить фон, % (35),
+       center: 'mflower' зеркало и цветок | 'flower' цветок | 'ring' малый круг | 'mirror' зеркало | 'star' звезда, shape: 'petal' лепесток | 'crystal' кристалл,
+       refl — отражение в зеркале, % (65), glare — блик по зеркалу (да) }.
+     o: { base, glass — цвета его стёклышек [[r, g, b], …] (только с его устройства), bg — холст фона (отражается в зеркале) }. */
+  var KW_DEF = { size: 27, dist: 70, speed: 25, glow: 35, dim: 35, refl: 65 };
+  function waveOn(r) { var F = cfg(r).final || {}; return !!(F.on && F.wave && F.wave.on); }
+  // Фон хоровода волны: калейдоскоп финала, иначе — общая туманность волны, иначе — туманность пробы
+  function waveBg(r, sp) {
+    var K = kalOf(sp, r, 0); if (K) { var o = {}, x; for (x in K) o[x] = K[x]; delete o._kh; return o; }
+    var N = cfg(r).neb, nb = {}, y;
+    if (N) for (y in N) nb[y] = N[y];
+    nb.src = 'neb'; if (nb.seed == null) nb.seed = NEB_DEF.seed;
+    return { on: true, n: 12, speed: 60, vign: 30, _neb: nb };
+  }
+  function khWave(r, V, o) {
+    var cv = el('canvas', 'ys-kal-cv ys-khw'), g = cv.getContext('2d'), N = days(r), figs = [], t = 0, ring = 0, last = 0, started = false, drag = null, q = Math.min(1.5, window.devicePixelRatio || 1);
+    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', 'Хоровод волны');
+    var white = V.white !== false, cm = { mflower: 1, flower: 1, ring: 1, mirror: 1, star: 1 }[V.center] ? V.center : 'mflower', crys = V.shape === 'crystal';
+    var GL = (o.glass || []).filter(function (c) { return c && c.length === 3; });
+    var ringDone = .8 + (N - 1) * .45 + .9;
+    if (REDUCED) t = ringDone + GL.length * .18 + 4;
+    for (var d = 1; d <= N; d++) (function (d) {
+      var u = ((spaceOf(r, d).kal || {}).khor || {}).fig; if (!u) return;
+      var im = new Image(); im.onload = function () { figs[d - 1] = khFig(im, white); if (REDUCED) draw(); }; im.src = src(o.base, u);
+    })(d);
+    function ease(x) { x = Math.max(0, Math.min(1, x)); return 1 - Math.pow(1 - x, 3); }
+    function dk(c, k) { return 'rgb(' + Math.round(c[0] * k) + ',' + Math.round(c[1] * k) + ',' + Math.round(c[2] * k) + ')'; }
+    // Одно стёклышко — лепесток или гранёный кристалл, остриём наружу
+    function piece(x, px, py, len, ang, col, a) {
+      var c = col.join(','), wid = len * (crys ? .5 : .42), gr, k;
+      x.save(); x.translate(px, py); x.rotate(ang); x.globalAlpha = a;
+      x.globalCompositeOperation = 'lighter';
+      gr = x.createRadialGradient(0, 0, 0, 0, 0, len * 1.1); gr.addColorStop(0, 'rgba(' + c + ',.35)'); gr.addColorStop(1, 'rgba(' + c + ',0)');
+      x.fillStyle = gr; x.beginPath(); x.arc(0, 0, len * 1.1, 0, 6.2832); x.fill();
+      x.globalCompositeOperation = 'source-over';
+      if (!crys) {
+        x.beginPath(); x.moveTo(-len / 2, 0); x.quadraticCurveTo(0, -wid, len / 2, 0); x.quadraticCurveTo(0, wid, -len / 2, 0);
+        gr = x.createLinearGradient(-len / 2, 0, len / 2, 0); gr.addColorStop(0, dk(col, .4)); gr.addColorStop(.55, 'rgb(' + c + ')'); gr.addColorStop(1, 'rgba(255,255,255,.95)');
+        x.fillStyle = gr; x.fill();
+        x.strokeStyle = 'rgba(255,255,255,.45)'; x.lineWidth = Math.max(.6, len * .025); x.beginPath(); x.moveTo(-len * .4, 0); x.lineTo(len * .42, 0); x.stroke();
+      } else {
+        var hw = wid / 2, P = [[len / 2, 0], [0, -hw], [-len / 2, 0], [0, hw]], sh = ['rgba(255,255,255,.55)', 'rgba(0,0,0,.05)', 'rgba(0,0,0,.35)', 'rgba(255,255,255,.15)'];
+        for (k = 0; k < 4; k++) {
+          x.beginPath(); x.moveTo(0, 0); x.lineTo(P[k][0], P[k][1]); x.lineTo(P[(k + 1) % 4][0], P[(k + 1) % 4][1]); x.closePath();
+          x.fillStyle = 'rgb(' + c + ')'; x.fill(); x.fillStyle = sh[k]; x.fill();
+        }
+        x.strokeStyle = 'rgba(255,255,255,.5)'; x.lineWidth = Math.max(.6, len * .02); x.beginPath(); x.moveTo(P[0][0], 0); for (k = 1; k <= 4; k++) x.lineTo(P[k % 4][0], P[k % 4][1]); x.stroke();
+      }
+      x.restore();
+    }
+    // Круглое зеркало: серебристо-розовая гладь, в ней отражается весь хоровод (с фоном), по глади наискосок проходит блик
+    function mirror(x, X, Y, rr, a) {
+      if (a <= 0) return;
+      var rf = num(V.refl, KW_DEF.refl, 0, 100) / 100, gr;
+      x.save(); x.globalAlpha = a; x.beginPath(); x.arc(X, Y, rr, 0, 6.2832); x.clip();
+      gr = x.createRadialGradient(X - rr * .2, Y - rr * .25, rr * .05, X, Y, rr); gr.addColorStop(0, '#6d5a66'); gr.addColorStop(.6, '#3a2a34'); gr.addColorStop(1, '#1a0f15');
+      x.fillStyle = gr; x.fillRect(X - rr, Y - rr, 2 * rr, 2 * rr);
+      if (rf > 0) {
+        var s = Math.min(cv.width, cv.height), sw = rr * 2.5 * cv.width / s, shh = rr * 2.5 * cv.height / s;
+        x.globalAlpha = a * rf; x.globalCompositeOperation = 'lighter'; x.translate(X, Y); x.scale(-1, 1);
+        if (o.bg && o.bg.width) x.drawImage(o.bg, -sw / 2, -shh / 2, sw, shh);
+        x.drawImage(cv, -sw / 2, -shh / 2, sw, shh); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
+      }
+      x.globalAlpha = a; gr = x.createRadialGradient(X, Y, rr * .55, X, Y, rr); gr.addColorStop(0, 'rgba(20,10,16,0)'); gr.addColorStop(1, 'rgba(20,10,16,.55)');
+      x.fillStyle = gr; x.fillRect(X - rr, Y - rr, 2 * rr, 2 * rr);
+      gr = x.createLinearGradient(X - rr, Y - rr, X + rr * .2, Y + rr * .2); gr.addColorStop(0, 'rgba(255,255,255,.25)'); gr.addColorStop(.5, 'rgba(255,255,255,0)');
+      x.fillStyle = gr; x.beginPath(); x.ellipse(X - rr * .25, Y - rr * .3, rr * .75, rr * .42, -.7, 0, 6.2832); x.fill();
+      if (V.glare !== false && !REDUCED) {
+        var p2 = (t % 6) / 6, bx = X - rr * 2.2 + p2 * rr * 4.4;
+        gr = x.createLinearGradient(bx - rr * .35, Y - rr * .35, bx + rr * .35, Y + rr * .35);
+        gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.45, 'rgba(255,250,240,.05)'); gr.addColorStop(.5, 'rgba(255,250,240,.55)'); gr.addColorStop(.55, 'rgba(255,250,240,.05)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        x.globalCompositeOperation = 'lighter'; x.fillStyle = gr; x.fillRect(X - rr, Y - rr, 2 * rr, 2 * rr); x.globalCompositeOperation = 'source-over';
+      }
+      x.restore();
+      x.save(); x.globalAlpha = a; x.strokeStyle = 'rgba(230,182,92,.9)'; x.lineWidth = Math.max(1.5, rr * .05); x.beginPath(); x.arc(X, Y, rr, 0, 6.2832); x.stroke();
+      x.strokeStyle = 'rgba(230,182,92,.35)'; x.lineWidth = Math.max(1, rr * .015); x.beginPath(); x.arc(X, Y, rr * 1.1, 0, 6.2832); x.stroke(); x.restore();
+    }
+    // Тринадцатый в центре — его стёклышки
+    function center(x, X, Y, Rc, t0) {
+      var n = GL.length, i, a, rr, e, pul, spin = -ring * .6 + t * .05, gr;
+      if (cm === 'star') {
+        var mergeT = t0 + n * .18 + 1.4, mq = n ? ease((t - mergeT) / 1.2) : 0;
+        for (i = 0; i < n; i++) {
+          var qa = ease((t - t0 - i * .18) / .6); if (qa <= 0) continue;
+          e = ease((t - t0 - i * .18 - .4) / (mergeT - t0 - i * .18 - .4 + 1));
+          a = i * 2 * Math.PI / n + spin + (1 - e) * 2.5; rr = Rc * (.95 - .95 * e);
+          piece(x, X + Math.cos(a) * rr, Y + Math.sin(a) * rr, Rc * .22 * (1 - .6 * e), a, GL[i], qa * (1 - mq));
+        }
+        if (mq > 0) {
+          pul = .9 + .1 * Math.sin(t * 1.7); x.save(); x.globalCompositeOperation = 'lighter';
+          for (i = 0; i < Math.min(n, 4); i++) {
+            var c = GL[i].join(','), ox = Math.cos(t * .4 + i * 1.57) * Rc * .06, oy = Math.sin(t * .4 + i * 1.57) * Rc * .06;
+            gr = x.createRadialGradient(X + ox, Y + oy, 0, X + ox, Y + oy, Rc * .55 * pul); gr.addColorStop(0, 'rgba(' + c + ',' + (.55 * mq) + ')'); gr.addColorStop(1, 'rgba(' + c + ',0)');
+            x.fillStyle = gr; x.beginPath(); x.arc(X + ox, Y + oy, Rc * .55 * pul, 0, 6.2832); x.fill();
+          }
+          x.strokeStyle = 'rgba(255,245,230,' + (.8 * mq) + ')'; x.lineCap = 'round';
+          for (i = 0; i < 8; i++) {
+            a = i * Math.PI / 4 + t * .05; var L = (i % 2 ? .45 : .9) * Rc * pul; x.lineWidth = Math.max(1, Rc * (i % 2 ? .012 : .02));
+            x.beginPath(); x.moveTo(X + Math.cos(a) * Rc * .08, Y + Math.sin(a) * Rc * .08); x.lineTo(X + Math.cos(a) * L, Y + Math.sin(a) * L); x.stroke();
+          }
+          gr = x.createRadialGradient(X, Y, 0, X, Y, Rc * .16); gr.addColorStop(0, 'rgba(255,255,255,' + mq + ')'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          x.fillStyle = gr; x.beginPath(); x.arc(X, Y, Rc * .16, 0, 6.2832); x.fill(); x.restore();
+        }
+        return;
+      }
+      var mr = 0, r0, len;
+      if (cm === 'mflower') { mr = Rc * .4; r0 = Rc * .68; len = Rc * .52; }
+      else if (cm === 'mirror') { mr = Rc * .6; r0 = Rc * .78; len = Rc * .26; }
+      else if (cm === 'flower') { r0 = Rc * .42; len = Rc * .62; }
+      else { r0 = Rc * .72; len = Rc * .26; }
+      if (mr) mirror(x, X, Y, mr, ease((t - t0 + .6) / 1.2));
+      if (cm === 'flower') {
+        var qf = ease(t - t0); gr = x.createRadialGradient(X, Y, 0, X, Y, Rc * .18); gr.addColorStop(0, 'rgba(255,240,215,' + (.9 * qf) + ')'); gr.addColorStop(1, 'rgba(230,182,92,0)');
+        x.fillStyle = gr; x.beginPath(); x.arc(X, Y, Rc * .18, 0, 6.2832); x.fill();
+      }
+      if (cm !== 'ring' && cm !== 'mirror') len = Math.min(len, Math.max(Rc * .3, len * Math.sqrt(13 / Math.max(n, 6))));
+      for (i = 0; i < n; i++) {
+        var qq = ease((t - t0 - .4 - i * .18) / .6); if (qq <= 0) continue;
+        a = -Math.PI / 2 + i * 2 * Math.PI / n + spin; pul = 1 + .05 * Math.sin(t * 2 + i); rr = r0 * (.6 + .4 * qq);
+        piece(x, X + Math.cos(a) * rr, Y + Math.sin(a) * rr, len * pul * (.6 + .4 * qq), a, GL[i], qq);
+      }
+    }
+    function draw() {
+      var W = Math.round((cv.clientWidth || window.innerWidth) * q), H = Math.round((cv.clientHeight || window.innerHeight) * q);
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      var x = g, R = Math.min(W, H) / 2, X = W / 2, Y = H / 2, i, p, e, a, rr, sc;
+      x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H);
+      x.fillStyle = 'rgba(8,3,6,' + num(V.dim, KW_DEF.dim, 0, 90) / 100 + ')'; x.fillRect(0, 0, W, H);
+      var h = num(V.size, KW_DEF.size, 8, 60) / 100 * R, dd = num(V.dist, KW_DEF.dist, 30, 100) / 100 * R, up = V.out !== false;
+      var full = ease((t - ringDone) / 1.2), gl = num(V.glow, KW_DEF.glow, 0, 100) / 100 * full * (.75 + .25 * Math.sin(t * 1.6));
+      for (i = 0; i < N; i++) {
+        var f = figs[i]; p = (t - (.8 + i * .45)) / .9; if (!f || p <= 0) continue; e = ease(p);
+        a = -Math.PI / 2 + i * 2 * Math.PI / N + ring; rr = dd * (.45 + .55 * e); sc = .7 + .3 * e;
+        var w = h * f.width / f.height;
+        x.save(); x.translate(X + Math.cos(a) * rr, Y + Math.sin(a) * rr); x.rotate(a + (up ? Math.PI / 2 : -Math.PI / 2)); x.globalAlpha = e;
+        x.drawImage(f, -w * sc / 2, -h * sc / 2, w * sc, h * sc);
+        if (gl > .01) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = e * gl; x.drawImage(f, -w * sc / 2, -h * sc / 2, w * sc, h * sc); }
+        x.restore();
+      }
+      var inner = Math.max(.14 * R, dd - h * .55);
+      center(x, X, Y, Math.min(inner * .92, .34 * R), ringDone + .2);
+    }
+    function loop(ts) {
+      if (started && !cv.isConnected) return;
+      if (cv.isConnected) started = true;
+      var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
+      if (!REDUCED) { t += dt; if (!drag) ring += num(V.speed, KW_DEF.speed, 0, 100) / 100 * .18 * dt; draw(); }
+      requestAnimationFrame(loop);
+    }
+    function ang(e) { var b = cv.getBoundingClientRect(); return Math.atan2(e.clientY - b.top - b.height / 2, e.clientX - b.left - b.width / 2); }
+    cv.addEventListener('pointerdown', function (e) { drag = { a: ang(e), r: ring }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
+    cv.addEventListener('pointermove', function (e) { if (!drag) return; ring = drag.r + ang(e) - drag.a; if (REDUCED) draw(); });
+    function up() { drag = null; }
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    window.addEventListener('resize', function () { if (cv.isConnected) draw(); });
+    requestAnimationFrame(function (ts) { draw(); loop(ts); });
+    return { node: cv };
+  }
+
   /* Живой калейдоскоп на весь экран пространства. Провёл — повернул трубку; коснулся — мягкий толчок (с затуханием).
      Выбрано стёклышко в чаше — касание кладёт его в узор; коснулся своего стёклышка в узоре — оно вернулось в чашу.
      o: { base, a — с какого поворота начать (сохранённый узор), still — без движения (предпросмотр снимка),
@@ -1194,17 +1461,22 @@
      Возвращает { node, ang(), mine, sel(i), placed(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
   function kalLive(k, o) {
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
-    var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1 }, drag = null, last = 0, slow = 0, started = false;
+    var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, slow = 0, started = false, KO = null;
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y)) at[p.id] = [+p.x, +p.y]; });
     var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null }; });
     var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
-    kalImg(o.base, k, function (x) { im = x; kalPre(mine, draw); draw(); });
+    kalImg(o.base, k, function (x) {
+      im = x; KO = khOf(im, k);
+      // Хоровод: с сохранённого поворота; нет — первая сборка через несколько секунд (без движения на экране — сразу собранный)
+      if (KO) S.kh = o.h != null && isFinite(+o.h) ? +o.h : REDUCED || o.still ? KO.G.P[0] : KO.G.P[0] - Math.min(.6, KO.G.per * .4);
+      kalPre(mine, draw); draw();
+    });
     function draw() {
       var w = Math.round((cv.clientWidth || window.innerWidth) * q), h = Math.round((cv.clientHeight || window.innerHeight) * q);
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-      if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal, mine, ps, S.t);
+      if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal, mine, ps, S.t, S.kh);
     }
     function loop(ts) {
       if (started && !cv.isConnected) return;
@@ -1212,7 +1484,10 @@
       var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
       if (!S.frozen && !o.still) {
         S.t += REDUCED ? 0 : dt;
-        S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel; S.vel *= .95;
+        S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel;
+        // Хоровод идёт своей скоростью и притормаживает в момент сборки; палец и толчок двигают его вместе с узором
+        if (KO && !drag) S.kh += (REDUCED ? 0 : KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, S.kh)) : 1) * dt) + S.vel;
+        S.vel *= .95;
         var t0 = performance.now(); draw();
         // Телефон не успевает — чуть меньше точек (узор тот же)
         if (performance.now() - t0 > 26) { if (++slow > 10 && q > .6) { q *= .85; slow = 0; } } else slow = 0;
@@ -1232,11 +1507,11 @@
       return [(wx * c - wy * s) / R, (wx * s + wy * c) / R];
     }
     function changed() { if (o.onPut) o.onPut(); if (REDUCED || o.still) draw(); }
-    cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
+    cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, h: S.kh, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
     cv.addEventListener('pointermove', function (e) {
       if (!drag) return; var dx = e.clientX - drag.x;
       if (Math.abs(dx) > 4 || Math.abs(e.clientY - drag.y) > 4) drag.moved = true;
-      if (drag.moved) { S.ang = drag.a + dx * .006; S.vel = 0; if (REDUCED) draw(); }
+      if (drag.moved) { S.ang = drag.a + dx * .006; if (KO) S.kh = drag.h + dx * .006; S.vel = 0; if (REDUCED) draw(); }
     });
     function up(e) {
       if (!drag) return; var m = drag.moved; drag = null; if (m || S.frozen) return;
@@ -1249,13 +1524,13 @@
           if (Math.sqrt(dx * dx + dy * dy) < ps * 1.7) { it.at = null; changed(); return; }
         }
       }
-      S.vel += .045; if (REDUCED) { S.ang += .5; draw(); }
+      S.vel += .045; if (REDUCED) { S.ang += .5; if (KO) S.kh += .5; draw(); }
     }
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', function () { drag = null; });
     window.addEventListener('resize', function () { if (cv.isConnected) draw(); });
     requestAnimationFrame(loop);
-    return { node: cv, ang: function () { return S.ang; }, draw: draw, mine: mine, ps: ps,
+    return { node: cv, ang: function () { return S.ang; }, kh: function () { return S.kh; }, draw: draw, mine: mine, ps: ps,
       sel: function (i) { if (i === undefined) return S.sel; S.sel = i; },
       placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { return { x: m.at[0], y: m.at[1], id: m.id, k: m.k, c: m.c, l: m.l }; }); },
       freeze: function (v) { S.frozen = !!v; S.vel = 0; draw(); },
@@ -1264,7 +1539,7 @@
 
   /* Узор на двери (сцена, обложка): холст в рамке двери, обрезан по контуру; центр трубки — середина рамки.
      key, poly — контур на этой картинке, scn — картинка сцены (её пропорции нужны для рамки), done(холст | null) */
-  function kalDoor(r, day, a, poly, scn, base, done, g) {
+  function kalDoor(r, day, a, poly, scn, base, done, g, h) {
     var k = kalOn(r, day); if (!k || !poly) { done(null); return; }
     var P = kalPcs(r, g, base);
     kalImg(base, k, function (im) { kalPre(P, function () { put(im); }); });
@@ -1272,17 +1547,19 @@
       if (!im) { done(null); return; }
       var b = bbox(poly), iw = scn.naturalWidth || 1600, ih = scn.naturalHeight || 900, rw = b.w * iw, rh = b.h * ih, s = 520 / Math.max(rw, rh);
       var cv = document.createElement('canvas'); cv.width = Math.max(8, Math.round(rw * s)); cv.height = Math.max(8, Math.round(rh * s));
-      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false, P, kalSize(r));
+      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false, P, kalSize(r), null, khDoorH(r, h));
       done(cv);
     }
   }
   /* Что видно на двери дня day сегодня (n): след тона и/или узор. P — сохранённые узоры этого устройства { день: { a, g — его стёклышки } }.
      doors.pattern: '' — узор и знак тона поверх | 'pattern' — только узор | 'mark' — только знак (как раньше);
      doors.patternNone: '' — не сохранил узор: знак тона | 'archetype' — узор архетипа (картинка дня, без его поворота) после конца дня. */
+  // Хоровод на двери: «всегда собранный» (doors.khorDoor = 'join') или как сохранил (поворота нет — собранный)
+  function khDoorH(r, h) { return cfg(r).khorDoor === 'join' || h == null || !isFinite(+h) ? null : +h; }
   function face(r, day, n, P) {
     var D = cfg(r), mk = markOn(r, day, n), p = (P || {})[day], show = D.pattern || '';
     if (!kalOn(r, day) || show === 'mark') return { mark: mk, pat: null };
-    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null };
+    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null, h: p.h != null && isFinite(+p.h) ? +p.h : null };
     if (D.patternNone === 'archetype' && mk) return { mark: show !== 'pattern', pat: 0 };
     return { mark: mk, pat: null };
   }
@@ -1295,14 +1572,21 @@
     var root = el('section', 'ys-space ys-space--' + (sp.place || 'center') + ' ys-space--' + (sp.plate || 'glass'));
     var bg = el('div', 'ys-space-bg');
     bg.style.backgroundColor = hexOk(sp.color) ? sp.color : '#0d0906';
-    var K = kalOf(sp, r, o.day), live = null;
-    if (K) {
-      live = kalLive(K, { base: o.base, a: o.kalA, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
+    var K = kalOf(sp, r, o.day), live = null, wv = o.wave && sp.wave && sp.wave.on ? sp.wave : null;
+    // Хоровод волны (финал): фон — калейдоскоп без фигур, сверху — круг фигур дней и тринадцатый в центре
+    if (wv) {
+      live = kalLive(waveBg(r, sp), { base: o.base, a: 0 });
+      var wave = khWave(r, wv, { base: o.base, glass: o.wave.glass, bg: live.node });
+      bg.appendChild(live.node); bg.appendChild(wave.node); root.classList.add('ys-space--kal', 'ys-space--wave');
+    }
+    else if (K) {
+      live = kalLive(K, { base: o.base, a: o.kalA, h: o.kalH, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
       bg.appendChild(live.node); root.classList.add('ys-space--kal');
       if (o.kalSave && o.kalBowl && o.kalBowl.length) root.classList.add('ys-space--bowl');
     }
     else if (bgSrc) bg.style.backgroundImage = 'url("' + src(o.base, bgSrc) + '")';
-    var dim = el('div', 'ys-space-dim'); dim.style.opacity = num(sp.dim, 30, 0, 90) / 100;
+    // С хороводом волны фон приглушает сам хоровод (wave.dim) — фигуры остаются яркими
+    var dim = el('div', 'ys-space-dim'); dim.style.opacity = wv ? 0 : num(sp.dim, 30, 0, 90) / 100;
     var back = el('button', 'ys-space-back', o.backText || '← Назад к дверям'); back.type = 'button';
     back.addEventListener('click', function () { if (o.onBack) o.onBack(); });
     var scroll = el('div', 'ys-space-in'), col = el('div', 'ys-space-col');
@@ -1344,7 +1628,7 @@
     if (!col.firstChild) col.appendChild(el('p', 'ys-sp-small', o.empty || ''));
     scroll.appendChild(col);
     root.appendChild(bg); root.appendChild(dim); root.appendChild(scroll); root.appendChild(back);
-    if (live) root.appendChild(kalBar(live, o));
+    if (live && !wv) root.appendChild(kalBar(live, o));
     return root;
   }
   /* Кнопки калейдоскопа внизу: чаша со стёклышками человека (если есть), «Что внутри?» (сама картинка, вращается)
@@ -1393,7 +1677,7 @@
       sv.addEventListener('click', function () {
         if (on) { on = false; live.reveal(false); peek.textContent = t.peek || 'Что внутри?'; }
         live.sel(-1); fill(); say();
-        live.freeze(true); o.kalSave(live.ang(), live.placed());
+        live.freeze(true); o.kalSave(live.ang(), live.placed(), live.kh());
         var done = el('div', 'ys-kal-done'), plate = el('div', 'ys-kal-plate'), r2 = el('div', 'ys-kal-row');
         plate.appendChild(el('b', '', t.saved || 'Ваш узор сохранён'));
         plate.appendChild(el('p', '', t.savedNote || 'Он ляжет на вашу дверь этого дня.'));
@@ -1560,7 +1844,7 @@
       for (d = 1; d <= count(r); d++) {
         var dd = ids[doorOf(r, d).id] || 0;
         sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
-        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g); }
+        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g, fc.h); }
         if (dd && cfg(r).showDayNumbers) sc.num(d, String(dd));
       }
     } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
@@ -1584,7 +1868,7 @@
     for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) {
       var fc = face(r, +k, n, o.pats);
       if (fc.mark) marks.push({ day: +k, d: doorOf(r, i) });
-      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, P: kalPcs(r, fc.g, o.base) });
+      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, h: fc.h, P: kalPcs(r, fc.g, o.base) });
     }
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
@@ -1624,7 +1908,7 @@
         var im = ims[1 + world.length + j], poly = zoneOf(p.d, key), b = bbox(poly), Dc = cfg(r), kk = kalOn(r, p.day);
         if (!im) return;
         var w = Math.max(8, Math.round(b.w * W)), h = Math.max(8, Math.round(b.h * H)), pc = document.createElement('canvas'); pc.width = w; pc.height = h;
-        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false, p.P, kalSize(r));
+        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false, p.P, kalSize(r), null, khDoorH(r, p.h));
         var lc = document.createElement('canvas'); lc.width = W; lc.height = H;
         var x = lc.getContext('2d'), f = kalFilter(kk);
         if (f && 'filter' in x) x.filter = f;
@@ -1668,7 +1952,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF,
+    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
