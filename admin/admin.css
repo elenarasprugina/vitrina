@@ -531,6 +531,8 @@ audio.a-media{background:none;height:40px}
 .a-lib-chips button.is-on{background:var(--a-dark);border-color:var(--a-dark);color:#fff}
 .a-lib-chips button.is-on small{color:#ccc}
 .a-lib-canon{display:flex;flex-wrap:wrap;gap:8px}
+.a-lib-desc{margin:0;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.a-lib-desc small{color:var(--a-muted);font-weight:700}
 .a-lib-canon span{background:var(--a-soft);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column}
 .a-lib-canon small{font-size:10px;color:var(--a-muted);text-transform:uppercase;letter-spacing:.05em}
 .a-lib-ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13px}

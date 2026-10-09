@@ -5304,6 +5304,7 @@
       var c = s.canonical;
       L.push(['Действие: ' + (c.action || ''), 'Суть: ' + (c.essence || ''), 'Сила: ' + (c.power || '')].concat(c.question ? ['Вопрос: ' + c.question] : []).join(' · '));
     }
+    if (s && kind === 'S') LIB_SEAL_DESC.forEach(function (f) { if (s[f[0]]) L.push(f[1] + ': ' + libPlain(s[f[0]])); });
     if (s && (s.workingHypotheses || []).length) { L.push('Рабочие гипотезы:'); s.workingHypotheses.forEach(function (h) { L.push('- ' + libPlain(h.text)); }); }
     var note = libMine()[kind === 'T' ? 'tone' : 'seal'][n]; if (note) L.push('Моё: ' + note);
     var cs = libCards().filter(function (c) { return libAnchor(c) === a; });
@@ -5516,6 +5517,9 @@
   }
 
   /* ---------- Тоны и печати ---------- */
+  // Описание печати (её таблица «20 солнечных печатей», 09.10): [поле, подпись, в одну строку]
+  var LIB_SEAL_DESC = [['keywords', 'Ключевые слова', 1], ['force', 'Сила / энергия', 1], ['description', 'Описание', 0],
+    ['symbols', 'Символы и образы', 0], ['abilities', 'Способности и акценты', 0], ['source', 'Источник', 1]];
   function libSignBody(a, o) {
     o = o || {};
     var kind = a.charAt(0), n = +a.slice(1), s = libSign(kind, n), P = 'signs', out = [];
@@ -5527,6 +5531,11 @@
         if (kind === 'T') out.push(libText(c, 'question', 'Вопрос тона', P, { line: true }));
       } else out.push(el('div', { class: 'a-lib-canon' }, [['Действие', c.action], ['Суть', c.essence], ['Сила', c.power], ['Вопрос', c.question]].filter(function (x) { return x[1]; })
         .map(function (x) { return el('span', {}, [el('small', { text: x[0] }), el('b', { text: x[1] })]); })));
+      if (kind === 'S') {
+        out.push(el('div', { class: 'a-lib-grpt', text: 'Описание' }));
+        if (o.edit) LIB_SEAL_DESC.forEach(function (f) { out.push(libText(s, f[0], f[1], P, { line: !!f[2] })); });
+        else LIB_SEAL_DESC.forEach(function (f) { if (s[f[0]]) out.push(el('p', { class: 'a-lib-desc' }, [el('small', { text: f[1] + ': ' }), document.createTextNode(s[f[0]])])); });
+      }
       var H = s.workingHypotheses = s.workingHypotheses || [];
       out.push(el('div', { class: 'a-lib-grpt', text: 'Рабочие гипотезы (' + H.length + ')' }));
       if (o.edit) {
@@ -5723,6 +5732,16 @@
     });
     return bad;
   }
+  // Файл тонов/печатей дополняет то, что уже есть: поля из файла заменяются, остальные (канон, гипотезы, описание) остаются
+  function libMergeSigns(old, add) {
+    var r = { add: 0, upd: 0 }, list = (old || []).slice();
+    add.forEach(function (x) {
+      var n = +x.number, cur = list.filter(function (y) { return +y.number === n; })[0];
+      if (!cur) { list.push(x); r.add++; return; }
+      Object.keys(x).forEach(function (k) { if (k !== 'id' && k !== 'number') cur[k] = x[k]; }); r.upd++;
+    });
+    r.list = list; return r;
+  }
   function libNormSigns(list, kind) {
     list.forEach(function (s) { var n = +s.number; if (n >= 1) s.name = kind === 'T' ? libToneName(n) : libSealShort(n); });
     return list.slice().sort(function (a, b) { return a.number - b.number; });
@@ -5843,8 +5862,8 @@
         if (o && o.app === LIB_APP && o.parts) { plan.push(['all', o.parts]); lines.push('«' + g.name + '» — вся библиотека (копия): заменит всё, что сейчас здесь.'); }
         else if (o && Array.isArray(o.waves)) { plan.push(['atlas', o]); lines.push('«' + g.name + '» — атлас: волн ' + o.waves.length + '. Заменит атлас целиком' + (libAtlas() ? ' (правки, сделанные здесь в атласе, заменятся файлом)' : '') + '.'); }
         else if (first && first.cardType) { plan.push(['cards', o]); lines.push('«' + g.name + '» — карточки «космолёта»: ' + o.length + '. Новые добавятся; уже загруженные заменятся, кроме тех, что вы правили или отметили «моя».'); }
-        else if (first && /^T\d/.test(first.id || '')) { plan.push(['tones', o]); lines.push('«' + g.name + '» — тоны: ' + o.length + '.'); }
-        else if (first && /^S\d/.test(first.id || '')) { plan.push(['seals', o]); lines.push('«' + g.name + '» — печати: ' + o.length + '.'); }
+        else if (first && /^T\d/.test(first.id || '')) { plan.push(['tones', o]); lines.push('«' + g.name + '» — тоны: ' + o.length + '. Поля из файла заменятся, остальное у тонов останется.'); }
+        else if (first && /^S\d/.test(first.id || '')) { plan.push(['seals', o]); lines.push('«' + g.name + '» — печати: ' + o.length + '. Поля из файла заменятся, остальное у печатей (канон, гипотезы, описание) останется.'); }
         else warn.push('«' + g.name + '» — не узнан (нужен атлас .json, cards.json, tones.json или seals.json из «космолёта», либо скачанная отсюда копия библиотеки).');
       });
       if (!plan.length) { dialog({ title: 'Нечего загрузить', body: warn.join(' ') || 'Файлы не выбраны.' }); return; }
@@ -5862,7 +5881,9 @@
           } else if (p[0] === 'cards') { var r = libMergeCards(p[1]); LIB.pending.cards = 1; done.push('карточки: новых ' + r.add + ', обновлено ' + r.upd + (r.kept ? ', ваши оставлены как есть: ' + r.kept : '')); }
           else {
             var S = LIB.parts.signs = LIB.parts.signs || { tones: [], seals: [] };
-            S[p[0]] = libNormSigns(clone(p[1]), p[0] === 'tones' ? 'T' : 'S'); LIB.pending.signs = 1; done.push(p[0] === 'tones' ? 'тоны' : 'печати');
+            var mg = libMergeSigns(S[p[0]], clone(p[1]));
+            S[p[0]] = libNormSigns(mg.list, p[0] === 'tones' ? 'T' : 'S'); LIB.pending.signs = 1;
+            done.push((p[0] === 'tones' ? 'тоны' : 'печати') + ': новых ' + mg.add + ', дополнено ' + mg.upd);
           }
         });
         changed(); libKeep(); renderMain();
