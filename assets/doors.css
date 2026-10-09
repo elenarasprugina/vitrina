@@ -35,8 +35,18 @@
 .ys-dl.is-on .ys-fx-glint i{animation:ys-fx-glint var(--fx-t) ease-in-out infinite}
 @keyframes ys-fx-glint{0%{transform:translateX(-120%)}45%,100%{transform:translateX(230%)}}
 .ys-fx-line{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.ys-fx-line polygon{fill:none;stroke:var(--fx-c);stroke-width:calc(2.4px * var(--fx-p));vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-dasharray:14 86;filter:drop-shadow(0 0 4px var(--fx-c))}
-.ys-dl.is-on .ys-fx-line polygon{animation:ys-fx-line var(--fx-t) linear infinite}
+.ys-fx-line{filter:drop-shadow(0 0 3px var(--fx-c)) drop-shadow(0 0 9px var(--fx-c))}
+.ys-fx-line path{fill:none;stroke:var(--fx-c);stroke-linejoin:round;stroke-linecap:round}
+.ys-fx-line-glow{stroke-width:calc(1.6px * var(--fx-p) * var(--k,1));opacity:.55}
+.ys-fx-line-run{stroke:#fff8e6!important;stroke-width:calc(2.6px * var(--fx-p) * var(--k,1));stroke-dasharray:22 78;opacity:.9}
+.ys-dl.is-on .ys-fx-line-glow{animation:ys-fx-breath var(--fx-t) ease-in-out infinite}
+.ys-dl.is-on .ys-fx-line-run{animation:ys-fx-line var(--fx-t) linear infinite}
+.ys-fx-aura .ys-fx-line-glow{stroke-width:calc(2.2px * var(--fx-p) * var(--k,1))}
+/* Сияющий контур с бликом: косая полоса света проходит по двери (обрезана контуром), пауза, снова */
+.ys-fx-aura-band{opacity:calc(.55 * var(--fx-p));transform:translateX(var(--x0)) skewX(-18deg);transform-origin:0 var(--cy)}
+.ys-dl.is-on .ys-fx-aura-band{animation:ys-fx-aura var(--fx-t) cubic-bezier(.45,0,.4,1) infinite}
+@keyframes ys-fx-aura{0%{transform:translateX(var(--x0)) skewX(-18deg)}55%,100%{transform:translateX(var(--x1)) skewX(-18deg)}}
+@keyframes ys-fx-breath{0%,100%{opacity:calc(.35 * var(--fx-p))}50%{opacity:calc(.95 * var(--fx-p))}}
 @keyframes ys-fx-line{to{stroke-dashoffset:-100}}
 .ys-fx-star{position:absolute;width:calc(1.3% * var(--z,1));aspect-ratio:1;margin:calc(-.65% * var(--z,1)) 0 0 calc(-.65% * var(--z,1));background:var(--fx-c);-webkit-clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);clip-path:polygon(50% 0,58% 42%,100% 50%,58% 58%,50% 100%,42% 58%,0 50%,42% 42%);filter:drop-shadow(0 0 3px var(--fx-c));opacity:0}
 .ys-dl.is-on .ys-fx-star{animation:ys-fx-star var(--fx-t) ease-in-out infinite}
@@ -61,7 +71,7 @@
 .ys-dl.is-on .ys-fx-flow.is-back{animation-direction:reverse}
 @keyframes ys-fx-flow-h{from{transform:translateX(var(--d))}to{transform:translateX(0)}}
 @keyframes ys-fx-flow-v{from{transform:translateY(var(--d))}to{transform:translateY(0)}}
-@media (prefers-reduced-motion:reduce){.ys-dl,.ys-dl *{animation:none!important}.ys-fx-glint,.ys-fx-star{display:none}}
+@media (prefers-reduced-motion:reduce){.ys-dl,.ys-dl *{animation:none!important}.ys-fx-glint,.ys-fx-star,.ys-fx-aura g{display:none}}
 /* v2 (выбор двери участником): мировые слои, след тона, число дня, блик по свободным дверям */
 .ys-dworld{position:absolute;inset:0;pointer-events:none}
 .ys-dpoly.is-can{cursor:pointer}
