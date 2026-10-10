@@ -361,7 +361,7 @@
           "glow": true,
           "statusAuto": true,
           "statusBefore": {
-            "value": "Вход открыт",
+            "value": "✧ СКОРО",
             "show": true
           },
           "statusDuring": {
