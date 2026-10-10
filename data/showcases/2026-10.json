@@ -237,8 +237,7 @@
             "value": "Маршрут завершён",
             "show": true
           }
-        },
-        "dayEdge": "strong"
+        }
       },
       "back": {
         "type": "blocks",
@@ -328,7 +327,7 @@
       "visible": true,
       "interactive": true,
       "front": {
-        "image": null,
+        "image": "media/6ee212fe7a4a8199503c.webp",
         "eyebrow": "Маршрут",
         "title": "Красный Небесный Странник",
         "subtitle": {
@@ -345,8 +344,8 @@
         },
         "phase": {
           "on": true,
-          "from": "",
-          "to": "",
+          "from": "2026-10-18",
+          "to": "2026-10-30",
           "before": {
             "value": "скоро",
             "show": true
@@ -376,22 +375,108 @@
         },
         "style": {
           "patternColor": "#cfe0ff",
-          "glow": "off",
-          "glowColor": "#6f9df2",
+          "glow": "soft",
+          "glowColor": "#fc1303",
           "glowStrength": "medium",
           "glowDir": "bottom",
-          "lid": {}
-        }
+          "lid": {
+            "mode": "",
+            "open": "book",
+            "from": "left",
+            "speed": "slow",
+            "pause": 0.5,
+            "shadow": "deep",
+            "mat": "color",
+            "glass": 35,
+            "blur": 8,
+            "rim": "gold",
+            "feel": "soft"
+          },
+          "overlay": "inherit",
+          "rim": "inherit",
+          "glowTempo": "inherit"
+        },
+        "dayShow": true,
+        "dayBg": ""
       },
       "back": {
         "type": "blocks",
         "routeId": "red-skywalker",
-        "blocks": [],
-        "stub": {
-          "on": true,
-          "text": "Маршрут начнётся 18 октября. Подробное описание, форматы участия и запись появятся здесь совсем скоро.\n\nЕсли хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.",
-          "sandbox": true
-        }
+        "blocks": [
+          {
+            "id": "b-d4726y",
+            "kind": "desc",
+            "visible": true,
+            "text": ""
+          },
+          {
+            "id": "b-qv6a7n",
+            "kind": "day",
+            "visible": true
+          },
+          {
+            "id": "b-hh9jyn",
+            "kind": "formats",
+            "visible": true,
+            "formats": [
+              {
+                "formatId": "observe",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "telegram": "",
+                  "host": "red_skywalker_observation",
+                  "message": "Привет! Напомни про начало Маршрута \"Красный Небесный Странник\"."
+                }
+              },
+              {
+                "formatId": "journey",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "7 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "telegram": "red_skywalker_journey",
+                  "host": "red_skywalker_journey",
+                  "message": "Привет! Хочу на маршрут \"Красный Небесный Странник\", формат \"Путешествие\""
+                }
+              },
+              {
+                "formatId": "immersion",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "18 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "telegram": "red_skywalker_immersion",
+                  "host": "red_skywalker_immersion",
+                  "message": "Привет! Хочу на маршрут \"Красный Небесный Странник\", формат \"Погружение\"."
+                }
+              }
+            ],
+            "closed": "dim"
+          },
+          {
+            "id": "b-jgbz6",
+            "kind": "sandbox",
+            "visible": true,
+            "label": "Как устроены маршруты 13 MIRRORS"
+          }
+        ]
       }
     },
     {
@@ -450,7 +535,8 @@
           "glow": "off",
           "glowColor": "#6f9df2",
           "glowStrength": "medium",
-          "glowDir": "bottom"
+          "glowDir": "bottom",
+          "lid": {}
         }
       },
       "back": {
