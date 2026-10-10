@@ -316,7 +316,7 @@
   function layerNode(L, d, n, key, base) {
     var poly = zoneOf(d, key), area = L.area === 'scene' || L.area === 'frag' || L.area === 'mark' ? L.area : 'door';
     if (area !== 'scene' && !poly) return null;
-    var ln = el('div', 'ys-dl'), box = el('div', 'ys-dl-box'), inner = el('div', 'ys-dl-in'), b = poly ? bbox(poly) : null, pic = area === 'mark' ? L.image || L[key] : L[key];
+    var ln = el('div', 'ys-dl'), box = el('div', 'ys-dl-box'), inner = el('div', 'ys-dl-in'), b = poly ? bbox(poly) : null, pic = area === 'mark' ? L.image || L[key] : area === 'frag' ? L[key] || L.desktop || L.mobile : L[key];
     var k = num(L.speed, 100, 20, 400) / 100, p = num(L.power, 100, 10, 300) / 100, f = FX[L.fx] || FX.none, color = hexOk(L.color) ? L.color : '#ffe2a0';
     ln.style.setProperty('--o', num(L.opacity, 100, 0, 100) / 100);
     ln.style.setProperty('--fade', num(L.fade, 900, 0, 8000) + 'ms');
@@ -342,6 +342,8 @@
         im.className = 'ys-dl-frag';
         im.style.left = ((b.cx - b.w * sc / 2) * 100) + '%'; im.style.top = ((b.cy - b.h * sc / 2) * 100) + '%';
         im.style.width = (b.w * sc * 100) + '%'; im.style.height = (b.h * sc * 100) + '%';
+        // Как вписать (10.10): «заполнить» — без искажений, лишнее обрезает контур; «целиком» — весь фрагмент внутри рамки; нет — растянуть по рамке
+        if (L.fit === 'cover' || L.fit === 'contain') im.style.objectFit = L.fit;
       }
       inner.appendChild(im);
       // Окрасить картинку (утренние розовые облака, серые…): цвет ложится только на саму картинку, яркость её сохраняется

@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261009j';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261010a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4611,7 +4611,10 @@
       el('div', { class: 'a-row' }, [
         imageIn(L, 'desktop', 'Картинка слоя — компьютер', { max: 2400, size: size || { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
         imageIn(L, 'mobile', 'Картинка слоя — телефон', { max: 2000, size: size || { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon })]),
-      area === 'frag' ? rangeIn(L, 'scale', 'Фрагмент крупнее / мельче', { min: 50, max: 200, step: 1, def: 100, unit: ' %' }) : null,
+      area === 'frag' ? el('div', { class: 'a-row' }, [
+        selectIn(L, 'fit', 'Как вписать фрагмент', [['', 'растянуть по рамке двери'], ['cover', 'заполнить дверь без искажений (лишнее обрезается)'], ['contain', 'целиком внутри рамки, без искажений']], { def: '', onChange: liveSoon,
+          hint: 'Для фактур (песок, иней, шёлк) — «заполнить»: картинка не сплющивается, а контур двери срезает лишнее. Одной картинки хватает на оба экрана: нет картинки для телефона — берётся картинка для компьютера.' }),
+        rangeIn(L, 'scale', 'Фрагмент крупнее / мельче', { min: 50, max: 200, step: 1, def: 100, unit: ' %' })]) : null,
       el('div', { class: 'a-row' }, [
         colorOptIn(L, 'color', 'Цвет (заливка и движение)', { none: 'тёплый свет #ffe2a0', base: '#ffe2a0', pick: '#ffe2a0', onChange: liveSoon }),
         rangeIn(L, 'fill', 'Заливка цветом', { min: 0, max: 100, step: 5, def: 0, unit: ' %', hint: 'Без картинки слой может быть просто цветом: например, тёмная вуаль на пропущенной двери (чёрный, 50 %).' })]),
