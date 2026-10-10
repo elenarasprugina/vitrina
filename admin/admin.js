@@ -5328,6 +5328,50 @@
         } })
     ];
   }
+  /* «Это пространство — всем дням» (10.10): блоки (и фон) открытого дня — во все остальные дни сразу.
+     Файлы (аудио, картинки) не копируются — у каждого дня свои; калейдоскоп и мир дня не трогаются (у калейдоскопа своё «На всю волну»).
+     Выбор — в ST.jdsAll (не в черновике): тексты копировать или оставить пустыми, фон — да/нет, кому — пустым или всем. */
+  function jdSpaceAll(r, D, n, uc) {
+    var o = ST.jdsAll = ST.jdsAll || { texts: false, bg: true, who: 'empty' }, N = r.days.length;
+    function sw(key, label, hint) {
+      var cb = el('input', { type: 'checkbox', checked: !!o[key] });
+      cb.addEventListener('change', function () { o[key] = cb.checked; });
+      return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text' }, [label, hint ? el('small', { text: hint }) : null])]);
+    }
+    var who = el('select', { class: 'a-input' }, [['empty', 'только тем, где пространство пустое (нет блоков)'], ['all', 'всем — их блоки заменятся']].map(function (x) { return el('option', { value: x[0], text: x[1] }); }));
+    who.value = o.who; who.addEventListener('change', function () { o.who = who.value; });
+    function go() {
+      var src = window.M13D.spaceOf(r, n), y, T, k, put = 0, kept = 0;
+      if (!(src.blocks || []).length) { toast('В этом пространстве нет блоков — копировать нечего.', true); return; }
+      if (!confirm('Поставить устройство ' + (uc ? 'дня ' : 'двери ') + n + ' ' + (o.who === 'all' ? 'всем остальным (их блоки заменятся)' : 'тем, где пространство пустое') + '?' +
+        (o.texts ? ' Тексты скопируются как есть.' : ' Тексты будут пустые — впишете у каждого.') + ' Аудио и картинки не копируются.')) return;
+      for (y = 1; y <= N; y++) {
+        if (y === n) continue;
+        T = uc ? (D.days[y - 1] || {}).space : (D.items[y - 1] || {}).space;
+        if (!T) continue;
+        if (o.who !== 'all' && (T.blocks || []).length) { kept++; continue; }
+        T.blocks = clone(src.blocks).map(function (b) {
+          b.id = uid('s');
+          // Файлы у каждого дня свои: место под них остаётся пустым
+          if (b.kind === 'audio') { b.audio = ''; b.audioName = ''; }
+          if (b.kind === 'image') { b.image = ''; if (!o.texts) b.text = ''; }
+          if (!o.texts && (b.kind === 'title' || b.kind === 'small' || b.kind === 'text')) b.text = '';
+          return b;
+        });
+        if (o.bg) ['desktop', 'mobile', 'color', 'dim', 'place', 'plate'].forEach(function (k2) { if (src[k2] == null) delete T[k2]; else T[k2] = clone(src[k2]); });
+        put++;
+      }
+      changed(); renderMain();
+      toast(put ? 'Устройство поставлено ' + (uc ? 'дням' : 'дверям') + ': ' + put + (kept ? ', не тронуто (там уже есть блоки): ' + kept : '') + '. Аудио и картинки загрузите у каждого своё' + (o.texts ? '.' : ', тексты впишите.') : 'Никому не поставлено: у всех уже есть блоки. Выберите «всем — их блоки заменятся».');
+    }
+    return el('div', {}, [
+      el('p', { class: 'a-hint', text: 'Блоки этого ' + (uc ? 'дня' : 'пространства') + ' (порядок, «кому видно», «свёрнут» и заголовки, надписи кнопок) — сразу во все остальные. Аудио и картинки не копируются: место под них остаётся, загрузите у каждого своё. Калейдоскоп и мир дня не трогаются (у калейдоскопа — своё «На всю волну»). Удобно: собрали ' + (uc ? 'один день' : 'одну дверь') + ' как надо — поставили всем — потом в каждом вписали тексты и загрузили медитацию.' }),
+      field('Кому', who),
+      sw('texts', 'Копировать и тексты', 'Выключено — блоки будут пустые (тексты впишете у каждого). Включено — тексты как здесь, потом поменяете.'),
+      sw('bg', 'Копировать и фон с расположением', 'Картинки фона, цвет, приглушение, где содержание, подложка.'),
+      el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn', text: 'Поставить всем ' + (uc ? 'дням' : 'дверям') + ' устройство ' + (uc ? 'дня ' : 'двери ') + n, onclick: function () { ST.jdsAllOpen = true; go(); } })])
+    ]);
+  }
   function jSpaces(r) {
     var M = window.M13D;
     if (!M) return [el('p', { class: 'a-hint a-hint--warn', text: 'Двери не загрузились — обновите страницу.' })];
@@ -5341,7 +5385,7 @@
       el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть ' + (fin ? 'финал' : 'пространство'), onclick: function () { openJourneyPage(r, false, { mode: (ST.jpv || {}).mode || 'observation', q: '&door=' + (fin ? 'final' : st.n) + (fin ? '' : '&sim=' + st.n) }); } }),
       el('button', { type: 'button', class: 'a-btn', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true, { mode: (ST.jpv || {}).mode || 'observation', q: '&door=' + (fin ? 'final' : st.n) + (fin ? '' : '&sim=' + st.n) }); } }),
       fin || uc ? null : el('button', { type: 'button', class: 'a-btn a-btn--ghost', text: '→ Вид двери ' + st.n, onclick: function () { ST.jd = ST.jd || { n: 1, v: 'desktop', tool: 'draw', show: 'today_unvisited', others: true, zoom: false, undo: [] }; ST.jd.n = st.n; ST.jTab = 'doors'; renderMain(); window.scrollTo(0, 0); } })]);
-    var copy = fin ? null : block('Взять устройство из другого пространства', [
+    var copy = fin ? null : block('Копировать устройство: из другого дня или всем дням', [
       el('p', { class: 'a-hint', text: 'Фон, расположение и блоки другого дня — сюда, вместе с текстами (потом поменяйте). Пространство этого дня заменится.' }),
       el('div', { class: 'a-backup-btns' }, r.days.map(function (x, i) {
         if (i === st.n - 1) return null;
@@ -5350,7 +5394,9 @@
           var c = clone(M.spaceOf(r, i + 1)); c.blocks = c.blocks || []; c.blocks.forEach(function (b) { b.id = uid('s'); });
           if (uc) D.days[st.n - 1].space = c; else D.items[st.n - 1].space = c; changed(); renderMain();
         } });
-      }))], { open: false });
+      })),
+      sub('Это пространство — всем ' + (uc ? 'дням' : 'дверям')),
+      jdSpaceAll(r, D, st.n, uc)], { open: !!ST.jdsAllOpen });
     return [
       el('p', { class: 'a-hint', text: (uc ? 'Пространство дня — отдельный экран, куда человек входит через выбранную дверь (любую). Фон, расположение и блоки — у каждого дня свои; здесь же — мир дня (слои на всю сцену). ' :
         'Пространство за дверью — отдельный экран дня, куда человек входит через дверь. Фон, расположение и блоки — у каждой двери свои. ') + (M.first(r) === 'card' ? 'Первой открывается Карта дня, пространство — за ней. ' : '') + 'Существующие части маршрута (Карта дня, колода вслепую, стёклышко) подключаются блоками-кнопками — в одних маршрутах есть, в других нет.' }),
