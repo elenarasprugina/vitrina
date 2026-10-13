@@ -648,6 +648,9 @@ audio.a-media{background:none;height:40px}
 .a-kal-cell{display:flex;flex-direction:column;gap:6px;max-width:220px}
 .a-kal-cell--pv{max-width:300px}
 .a-kal-cell--pv .a-kal-pv{width:300px;height:auto;aspect-ratio:1}
+.a-kal-full{position:fixed;inset:0;z-index:3000;background:#07060b}
+.a-kal-full-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.a-kal-full-x{position:absolute;right:16px;top:calc(16px + env(safe-area-inset-top,0px));z-index:1}
 .a-neb-lay{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
 .a-neb-side{position:sticky;top:118px}
 @media (max-width:900px){.a-neb-lay{grid-template-columns:minmax(0,1fr)}.a-neb-side{position:static}}
