@@ -5248,7 +5248,8 @@
       el('div', { class: 'a-kal-two' }, [
         el('div', { class: 'a-kal-cell' }, [kpk, el('span', { class: 'a-hint', text: 'Точка — ось, в круге — то, что попадает в узор' })]),
         kNb ? null : kPv]),
-      el('div', { class: 'a-backup-btns' }, [kMid, kStop, el('button', { type: 'button', class: 'a-btn a-btn--small', text: '⛶ Во весь экран', title: 'Узор во весь экран — как у участника, со скоростью сайта. Закрыть — ✕ или Esc', onclick: kFull })]),
+      el('div', { class: 'a-backup-btns' }, [kMid, kStop, el('button', { type: 'button', class: 'a-btn a-btn--small', text: '⛶ Во весь экран', title: 'Узор во весь экран — как у участника, со скоростью сайта. Закрыть — ✕ или Esc', onclick: kFull }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🎬 Записать видео', title: 'Видео узора 15 или 30 секунд, по кругу без шва — для Инсты и Телеграма', onclick: kVideo })]),
       el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
     var kKh = K.on ? jdKhor(r, K, kDraw) : null, tri = K.tube === 'tri', kKhF = !!(K.khor && K.khor.fig);
     // Во весь экран (13.10): тот же живой узор, что у участника (M.kalLive) — со скоростью сайта; ✕ или Esc — закрыть
@@ -5265,6 +5266,8 @@
       document.addEventListener('keydown', key); document.addEventListener('fullscreenchange', fs);
       try { var pr = ov.requestFullscreen && ov.requestFullscreen(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
     }
+    // Видео узора (13.10): 15 или 30 с, бесшовная петля — для Инсты и Телеграма
+    function kVideo() { var E = M.kalOf(sp, r, n); if (!E) { toast('Сначала картинка или туманность'); return; } kalVideo(E, n); }
     var kal = block('Калейдоскоп из картинки', [
       switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
         hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
@@ -8015,6 +8018,170 @@
         return { data: D, date: t.date };
       });
     });
+  }
+
+  /* ---------- Видео узора калейдоскопа (13.10) ----------
+     Кадр за кадром, а не запись экрана: узор рисуется сразу в размер видео, браузер сам сжимает его в MP4 (WebCodecs + mp4-muxer из admin/vendor) —
+     ровно и чётко даже на слабом телефоне. Петля без шва: последние секунды плавно перетекают в первые. Файл остаётся на её устройстве. */
+  var VID_FPS = 30, VID_MUX = null;
+  function vidMuxer(done) {
+    if (window.Mp4Muxer) { done(true); return; }
+    if (VID_MUX) { VID_MUX.push(done); return; }
+    VID_MUX = [done];
+    var s = document.createElement('script'), fin = function (ok) { var L = VID_MUX; VID_MUX = null; L.forEach(function (f) { f(ok); }); };
+    s.src = 'vendor/mp4-muxer.js?v=' + (window.M13V || 1); s.onload = function () { fin(!!window.Mp4Muxer); }; s.onerror = function () { fin(false); };
+    document.head.appendChild(s);
+  }
+  function kalVideo(E0, day) {
+    var M = window.M13D, V = { len: '15', form: 'sq', round: false, spd: Math.max(50, Math.min(600, +E0.speed || 100)), soft: true };
+    var can = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
+    var ov = el('div', { class: 'a-dialog' }), pv = el('canvas', { class: 'a-vid-pv' }), im = null, open = true, rec = null, url = '';
+    var work = document.createElement('canvas');
+    // Настройки дня для видео: «для соцсетей» — тише самые мелкие линии (их сильнее всего портит сжатие)
+    function cfgOf() {
+      var E = {}, key; for (key in E0) E[key] = E0[key];
+      if (V.soft) {
+        if (+E.sharp > 25) E.sharp = 25;
+        if (E.filS) E.aj = Math.min(E.aj == null || E.aj === '' ? 55 : +E.aj, 30);
+        if (E.fil) E.filA = Math.round((E.filA == null || E.filA === '' ? 80 : +E.filA) * .8);
+      }
+      return E;
+    }
+    function bright(E) { var b = E.bright && +E.bright !== 100 ? +E.bright / 100 : 1; return b === 1 ? 'none' : 'brightness(' + b + ') saturate(' + (1 + (b - 1) * .8).toFixed(2) + ')'; }
+    // Кадр W×H: состояние A (время t, поворот хоровода h); B и w — второе состояние поверх (стык петли)
+    function paint(c, W, H, E, A, B, w) {
+      var d = V.round ? Math.round(Math.min(W, H) * .92) : 0, ww = d || W, wh = d || H, f = bright(E);
+      if (work.width !== ww || work.height !== wh) { work.width = ww; work.height = wh; }
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.filter = 'none'; c.fillStyle = V.round ? '#000' : '#07060b'; c.fillRect(0, 0, W, H); c.restore();
+      [[A, 1], [B, w]].forEach(function (L) {
+        var s = L[0]; if (!s || L[1] <= 0) return;
+        var x = work.getContext('2d');
+        M.kalDraw(x, ww, wh, im, E, .072 * V.spd / 100 * s.t, false, null, null, s.t, s.h, s.t);
+        if (d) {
+          // Окошко: круг с мягким краем
+          var g = x.createRadialGradient(d / 2, d / 2, d * .47, d / 2, d / 2, d / 2);
+          g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, d, d); x.restore();
+        }
+        c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = L[1]; c.filter = f; c.drawImage(work, (W - ww) / 2, (H - wh) / 2); c.restore();
+      });
+    }
+    function dims() { return V.form === 'vert' ? [1080, 1920] : [1080, 1080]; }
+    // Поворот хоровода по кадрам (у хоровода своя скорость и замедление в миг сборки)
+    function khAt(E, N) {
+      var L = [], h = null, i;
+      for (i = 0; i <= N; i++) { L.push(h); h = M.khTick(im, E, h, 1 / VID_FPS); }
+      return L;
+    }
+    // Предпросмотр: тот же узор в маленьком окошке, в настоящую скорость видео
+    var pT = 0, pH = null, pLast = 0;
+    function prev(ts) {
+      if (!open) return;
+      var dt = pLast ? Math.min(.1, (ts - pLast) / 1000) : 0; pLast = ts;
+      if (im && !rec) {
+        var D = dims(), k = 240 / D[0], E = cfgOf();
+        pT += dt; pH = M.khTick(im, E, pH, dt);
+        if (pv.width !== Math.round(D[0] * k) || pv.height !== Math.round(D[1] * k)) { pv.width = Math.round(D[0] * k); pv.height = Math.round(D[1] * k); }
+        paint(pv.getContext('2d'), pv.width, pv.height, E, { t: pT, h: pH });
+      }
+      requestAnimationFrame(prev);
+    }
+    function pick(label, key, opts, hint) {
+      var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      s.value = V[key]; s.addEventListener('change', function () { V[key] = s.value; });
+      return field(label, s, hint);
+    }
+    function tick(label, key, hint) {
+      var cb = el('input', { type: 'checkbox', checked: V[key] });
+      cb.addEventListener('change', function () { V[key] = cb.checked; });
+      return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text' }, [label, hint ? el('small', { text: hint }) : null])]);
+    }
+    var spOut = el('span', { class: 'a-range-val', text: V.spd + ' %' }), spR = el('input', { type: 'range', class: 'a-range', min: 50, max: 600, step: 10, value: V.spd });
+    spR.addEventListener('input', function () { V.spd = +spR.value; spOut.textContent = V.spd + ' %'; });
+    var bar = el('div', { class: 'a-vid-bar' }, el('i')), stat = el('p', { class: 'a-hint' }), res = el('div', { class: 'a-vid-res' });
+    var go = el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '🎬 Записать', onclick: start });
+    var stop = el('button', { type: 'button', class: 'a-btn', text: 'Отменить запись', hidden: true, onclick: function () { if (rec) rec.cancel = true; } });
+    var form = el('div', { class: 'a-vid-form' }, [
+      pick('Длина', 'len', [['15', '15 секунд'], ['30', '30 секунд']]),
+      pick('Форма', 'form', [['sq', 'Квадрат — лента Инсты, кружочек Телеграма'], ['vert', 'Вертикаль 9:16 — Reels и Сторис']]),
+      tick('Круглое окошко на чёрном', 'round', 'Как смотреть в настоящий калейдоскоп'),
+      field('Скорость в видео', el('div', { class: 'a-range-row' }, [spR, spOut]), 'На сайте — ' + (+E0.speed || 100) + ' %. В коротком видео узор живее на 200–300 %. Хоровод идёт своей скоростью.'),
+      tick('Для соцсетей — мягче мелкие линии', 'soft', 'Инста и Телеграм пережимают видео: мелкие искры и волоски рябят. Так узор переживёт сжатие чище.')]);
+    function close() { open = false; if (rec) rec.cancel = true; if (url) URL.revokeObjectURL(url); ov.remove(); document.removeEventListener('keydown', key); }
+    function key(e) { if (e.key === 'Escape' && !rec) close(); }
+    ov.appendChild(el('div', { class: 'a-dialog-box a-vid', role: 'dialog', 'aria-modal': 'true' }, [
+      el('h3', { text: '🎬 Видео узора' + (day ? ' · день ' + day : '') }),
+      can ? el('div', { class: 'a-vid-lay' }, [el('div', { class: 'a-vid-side' }, [pv, el('span', { class: 'a-hint', text: 'Так будет в видео' })]), form])
+        : el('p', { text: 'Этот браузер не умеет собирать видео. Откройте панель в Chrome (компьютер или Android) или в свежем Safari на iPhone и Mac.' }),
+      can ? el('p', { class: 'a-hint', text: 'Видео собирается здесь, на вашем устройстве, и никуда не отправляется. Идёт по кругу без шва. Звука нет — музыку можно добавить в Инсте или Телеграме.' }) : null,
+      bar, stat, res,
+      el('div', { class: 'a-dialog-btns' }, [can ? go : null, stop, el('button', { type: 'button', class: 'a-btn', text: 'Закрыть', onclick: close })])]));
+    bar.hidden = true;
+    document.body.appendChild(ov); document.addEventListener('keydown', key);
+    if (!can) return;
+    var E1 = cfgOf();
+    M.kalImg('../', E1, function (x) { im = x; requestAnimationFrame(prev); });
+    function say(s, err) { stat.textContent = s; stat.classList.toggle('a-hint--warn', !!err); }
+    function codec(W, H, br, done) {
+      var L = ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.640033'];
+      (function next(i) {
+        if (i >= L.length) { done(null); return; }
+        var c = { codec: L[i], width: W, height: H, bitrate: br, framerate: VID_FPS, avc: { format: 'avc' } };
+        VideoEncoder.isConfigSupported(c).then(function (s) { if (s && s.supported) done(c); else next(i + 1); }, function () { next(i + 1); });
+      })(0);
+    }
+    function start() {
+      if (rec || !im) return;
+      var D = dims(), W = D[0], H = D[1], len = +V.len, N = len * VID_FPS, NF = (len >= 30 ? 3 : 2) * VID_FPS, E = cfgOf();
+      var R = rec = { cancel: false }, KH = khAt(E, N + NF), oc = document.createElement('canvas'), oc2 = oc.getContext('2d'), mux = null, enc = null, bad = null;
+      oc.width = W; oc.height = H;
+      if (url) { URL.revokeObjectURL(url); url = ''; } res.textContent = '';
+      go.disabled = true; stop.hidden = false; form.classList.add('is-off'); bar.hidden = false; bar.firstChild.style.width = '0%'; say('Готовлю…');
+      function end(msg, err) { rec = null; go.disabled = false; stop.hidden = true; form.classList.remove('is-off'); bar.hidden = true; say(msg, err); try { if (enc && enc.state !== 'closed') enc.close(); } catch (e) {} }
+      function st(i) { return { t: i / VID_FPS, h: KH[i] }; }
+      vidMuxer(function (ok) {
+        if (!ok) { end('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.', true); return; }
+        codec(W, H, H > W ? 16e6 : 12e6, function (c) {
+          if (!c) { end('Этот браузер не умеет сжимать видео в MP4. Попробуйте Chrome или свежий Safari.', true); return; }
+          if (R.cancel) { end('Запись отменена'); return; }
+          mux = new window.Mp4Muxer.Muxer({ target: new window.Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: VID_FPS }, fastStart: 'in-memory' });
+          enc = new VideoEncoder({ output: function (ch, meta) { mux.addVideoChunk(ch, meta); }, error: function (e) { bad = e; } });
+          enc.configure(c);
+          step(0);
+        });
+      });
+      // Кадр i: первые секунды — конец петли, перетекающий в начало (последний кадр видео переходит в первый без шва)
+      function step(i) {
+        if (!open) return;
+        if (bad) { end('Не получилось собрать видео: ' + (bad.message || bad), true); return; }
+        if (R.cancel) { end('Запись отменена'); return; }
+        if (i >= N) { finish(); return; }
+        if (enc.encodeQueueSize > 4) { setTimeout(function () { step(i); }, 15); return; }
+        if (i < NF) paint(oc2, W, H, E, st(N + i), st(i), i / NF); else paint(oc2, W, H, E, st(i));
+        var vf = new VideoFrame(oc, { timestamp: Math.round(i * 1e6 / VID_FPS), duration: Math.round(1e6 / VID_FPS) });
+        enc.encode(vf, { keyFrame: i % (VID_FPS * 2) === 0 }); vf.close();
+        if (i % 6 === 0) { var p = Math.round(i / N * 100); bar.firstChild.style.width = p + '%'; say('Собираю видео… ' + p + ' %'); }
+        setTimeout(function () { step(i + 1); }, 0);
+      }
+      function finish() {
+        say('Собираю видео… 100 %');
+        enc.flush().then(function () {
+          if (!open) return;
+          mux.finalize();
+          var blob = new Blob([mux.target.buffer], { type: 'video/mp4' }), name = '13M-uzor' + (day ? '-den' + day : '') + '-' + len + 's' + (V.form === 'vert' ? '-9x16' : '') + (V.round ? '-krug' : '') + '.mp4';
+          url = URL.createObjectURL(blob);
+          end('Готово: ' + (blob.size / 1048576).toFixed(1).replace('.', ',') + ' МБ, ' + W + '×' + H + ', ' + len + ' с. Проверьте стык — видео идёт по кругу.');
+          var file = null; try { file = new File([blob], name, { type: 'video/mp4' }); } catch (e) {}
+          var share = file && navigator.canShare && navigator.canShare({ files: [file] }) ? el('button', { type: 'button', class: 'a-btn', text: 'Поделиться / в Фото…', onclick: function () {
+            navigator.share({ files: [file] }).catch(function () {}); } }) : null;
+          var v = el('video', { class: 'a-vid-out' + (H > W ? ' is-vert' : ''), src: url, loop: true, muted: true, autoplay: true, playsinline: true, controls: true });
+          v.muted = true;
+          res.textContent = '';
+          res.appendChild(v);
+          res.appendChild(el('div', { class: 'a-dialog-btns' }, [el('a', { class: 'a-btn a-btn--dark', href: url, download: name, text: '⬇ Сохранить видео' }), share]));
+        }, function (e) { end('Не получилось собрать видео: ' + (e && e.message || e), true); });
+      }
+    }
   }
 
   /* ---------- Окно-вопрос и окно «идёт работа» ---------- */
