@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261010a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261013a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5141,6 +5141,8 @@
     out.push(el('div', { class: 'a-row' }, [
       rangeIn(S, 'every', 'Как часто собирается', { min: 6, max: 45, step: 1, def: DEF.every, unit: ' с', onChange: upd, hint: 'Раз в столько секунд хоровод складывается. Узор справа — в настоящую скорость.' }),
       rangeIn(S, 'glow', 'Свечение при сборке', { min: 0, max: 100, step: 5, def: DEF.glow, unit: ' %', onChange: upd, hint: '0 — без свечения.' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(S, 'breath', 'Дыхание хоровода', { min: 0, max: 60, step: 5, def: 0, unit: ' %', onChange: upd, hint: 'Круг фигур медленно расходится и сходится — в такт «Одному вдоху-выдоху» трубки (ниже, «Движение»). 0 — без дыхания; мягко — 10–25 %.' })]));
     out.push(switchIn(S, 'white', 'Убрать белый фон у фигуры', { defTrue: true, onChange: upd, hint: 'Белое становится прозрачным прямо на устройстве, цвета фигуры сохраняются. Фигура уже на прозрачном фоне — галочка ей не мешает.' }));
     return el('div', { class: 'a-neb' }, out);
   }
@@ -5205,7 +5207,8 @@
       kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
       // Картинка с осью: точка — ось, круг — что попадает в узор (то, что ближе к оси, видно в узоре чаще)
       var x = kpk.getContext('2d'), ox = kNum(K.px, 50) / 100, oy = kNum(K.py, 50) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
-      var rr = Math.min(.75 / (2.3 * Math.max(70, Math.min(130, +K.zoom || 100)) / 100), mg) * 220;
+      // Треугольник: в узор попадает круг вокруг оси размером с треугольник (сколько картинки в нём — K.pic)
+      var rr = Math.min(K.tube === 'tri' ? .5774 / (Math.max(130, Math.min(500, +K.pic || 150)) / 100) : .75 / (2.3 * Math.max(70, Math.min(130, +K.zoom || 100)) / 100), mg) * 220;
       x.clearRect(0, 0, 220, 220); x.drawImage(M.kalPic(kIm, K), 0, 0, 220, 220);
       x.save(); x.fillStyle = 'rgba(0,0,0,.45)'; x.beginPath(); x.rect(0, 0, 220, 220); x.arc(ox * 220, oy * 220, rr, 0, 6.2832, true); x.fill('evenodd');
       x.lineWidth = 1.5; x.strokeStyle = 'rgba(255,255,255,.85)'; x.setLineDash([4, 4]); x.beginPath(); x.arc(ox * 220, oy * 220, rr, 0, 6.2832); x.stroke(); x.setLineDash([]);
@@ -5245,9 +5248,23 @@
       el('div', { class: 'a-kal-two' }, [
         el('div', { class: 'a-kal-cell' }, [kpk, el('span', { class: 'a-hint', text: 'Точка — ось, в круге — то, что попадает в узор' })]),
         kNb ? null : kPv]),
-      el('div', { class: 'a-backup-btns' }, [kMid, kStop]),
+      el('div', { class: 'a-backup-btns' }, [kMid, kStop, el('button', { type: 'button', class: 'a-btn a-btn--small', text: '⛶ Во весь экран', title: 'Узор во весь экран — как у участника, со скоростью сайта. Закрыть — ✕ или Esc', onclick: kFull })]),
       el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
-    var kKh = K.on ? jdKhor(r, K, kDraw) : null;
+    var kKh = K.on ? jdKhor(r, K, kDraw) : null, tri = K.tube === 'tri', kKhF = !!(K.khor && K.khor.fig);
+    // Во весь экран (13.10): тот же живой узор, что у участника (M.kalLive) — со скоростью сайта; ✕ или Esc — закрыть
+    function kFull() {
+      var E = M.kalOf(sp, r, n); if (!E) { toast('Сначала картинка или туманность'); return; }
+      var lv = M.kalLive(E, { base: '../' }), ov = el('div', { class: 'a-kal-full' }), was = false;
+      var x = el('button', { type: 'button', class: 'a-btn a-btn--small a-kal-full-x', text: '✕ Закрыть' });
+      lv.node.className = 'a-kal-full-cv';
+      function close() { document.removeEventListener('keydown', key); document.removeEventListener('fullscreenchange', fs); ov.remove(); if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); }
+      function key(e) { if (e.key === 'Escape') close(); }
+      function fs() { if (document.fullscreenElement) was = true; else if (was) close(); }
+      x.onclick = close;
+      ov.appendChild(lv.node); ov.appendChild(x); document.body.appendChild(ov);
+      document.addEventListener('keydown', key); document.addEventListener('fullscreenchange', fs);
+      try { var pr = ov.requestFullscreen && ov.requestFullscreen(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
+    }
     var kal = block('Калейдоскоп из картинки', [
       switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
         hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
@@ -5258,14 +5275,36 @@
         imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
           hint: 'Своя у каждого дня (архетипа). Узор строится вокруг оси вращения (ниже, по умолчанию — середина картинки): там не должно быть крупного яркого пятна. Чётче всего выходят мелкие детали и тонкие линии (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' })]) : null,
       kPick,
+      K.on ? sub('Трубка') : null,
       K.on ? el('div', { class: 'a-row' }, [
-        selectIn(K, 'n', 'Зеркал', [['8', '8 — крупный узор'], ['12', '12 — как в эскизе'], ['16', '16 — мелкое кружево']], { def: '12', onChange: kDraw }),
-        rangeIn(K, 'speed', 'Скорость перетекания', { min: 20, max: 300, step: 10, def: 100, unit: ' %', hint: '100 % — как в эскизе; меньше — тише, больше — живее.' })]) : null,
+        selectIn(K, 'tube', 'Какая трубка', [['', 'Круг — зеркала лучами из середины (как было)'], ['tri', 'Треугольник — три зеркала, узор мелкий по всему экрану']], { def: '',
+          onChange: function (v) { if (!v) delete K.tube; renderMain(); },
+          hint: 'Треугольник — как настоящий калейдоскоп из трёх зеркал: один треугольник с картинкой отражается во все стороны, узор повторяется по всему экрану мелко и не растянут — на большом экране не мутный, стыков зеркал не видно.' }),
+        tri ? null : selectIn(K, 'n', 'Зеркал', [['8', '8 — крупный узор'], ['12', '12 — как в эскизе'], ['16', '16 — мелкое кружево'], ['24', '24 — совсем мелкое кружево']], { def: '12', onChange: kDraw })]) : null,
+      K.on && tri ? el('div', { class: 'a-row' }, [
+        rangeIn(K, 'side', 'Размер треугольника', { min: 12, max: 60, step: 1, def: 28, unit: ' % экрана', onChange: kDraw, hint: 'От меньшей стороны экрана. Меньше — узор мельче и чаще повторяется.' }),
+        rangeIn(K, 'pic', 'Сколько картинки в треугольнике', { min: 130, max: 500, step: 10, def: 150, unit: ' %', onChange: kDraw, hint: 'Больше — в треугольник попадает только середина картинки (вокруг оси), крупнее; меньше — вся картинка, мельче.' })]) : null,
+      K.on && tri ? el('div', { class: 'a-row' }, [
+        rangeIn(K, 'spin', 'Поворот всего узора', { min: 0, max: 100, step: 5, def: 25, unit: ' %', onChange: kDraw, hint: 'Весь узор медленно поворачивается вокруг середины экрана. 0 — стоит.' }),
+        kKhF ? selectIn(K, 'triIn', 'Что в треугольнике', [['', 'Картинка дня' + (kNb ? ' (туманность)' : '')], ['fig', 'Фигура хоровода дня — на тёмном'], ['both', 'Картинка и фигура поверх неё']], { def: '',
+          onChange: function (v) { if (!v) delete K.triIn; renderMain(); }, hint: 'Фигура — та, что загружена в «Хоровод дня»; крутится вокруг своей середины.' }) : null]) : null,
+      K.on && tri && kKhF && K.triIn !== 'fig' ? el('div', { class: 'a-row' }, [
+        selectIn(K, 'triKh', 'Хоровод дня в треугольнике', [['', 'Кругом поверх узора — как в круглой трубке'], ['off', 'Без хоровода — только узор']], { def: '',
+          onChange: function (v) { if (!v) delete K.triKh; kDraw(); } })]) : null,
+      K.on ? el('div', { class: 'a-row' }, [
+        rangeIn(K, 'speed', 'Скорость перетекания', { min: 20, max: 400, step: 10, def: 100, unit: ' %', hint: '100 % — как в эскизе; меньше — тише, больше — живее. 400 % — как крутится узор здесь, в панели.' })]) : null,
+      K.on ? sub('Движение') : null,
+      K.on ? el('div', { class: 'a-row' }, [
+        selectIn(K, 'move', 'Как движется узор', [['', 'Только вращение (как было)'], ['breath', 'Дыхание — узор выходит из середины к краю и возвращается'], ['flow', tri ? 'Течение — узор плывёт в одну сторону без конца' : 'Течение — картинка съезжает и возвращается'], ['tunnel', 'Тоннель — узор рождается в середине и уходит за край']], { def: '',
+          onChange: function (v) { if (!v) delete K.move; renderMain(); } })]) : null,
+      K.on && K.move ? el('div', { class: 'a-row' }, [
+        K.move === 'breath' || (K.move === 'flow' && !tri) ? rangeIn(K, 'amp', 'Сила', { min: 5, max: 60, step: 5, def: 25, unit: ' %', onChange: kDraw }) : null,
+        rangeIn(K, 'per', K.move === 'breath' ? 'Один вдох-выдох' : 'Один проход', { min: 4, max: 30, step: 1, def: 10, unit: ' с', onChange: kDraw, hint: 'Больше — медленнее и спокойнее.' })]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'bright', 'Ярче и сочнее', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Тусклой картинке — 120–140 %.' }),
         kPic ? rangeIn(K, 'contrast', 'Контраст', { min: 80, max: 170, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Светлое светлее, тёмное темнее — узор не «мутный». Обычно 115–130 %.' }) : null]) : null,
       K.on ? el('div', { class: 'a-row' }, [
-        rangeIn(K, 'zoom', 'Крупность узора', { min: 70, max: 130, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Меньше — трубка берёт больше картинки и меньше её растягивает: узор мельче и чётче, как кружево (но в него попадает и то, что по краям картинки). Больше — крупнее и мягче.' }),
+        tri ? null : rangeIn(K, 'zoom', 'Крупность узора', { min: 70, max: 130, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: 'Меньше — трубка берёт больше картинки и меньше её растягивает: узор мельче и чётче, как кружево (но в него попадает и то, что по краям картинки). Больше — крупнее и мягче.' }),
         kPic ? rangeIn(K, 'sharp', 'Чёткость линий', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: 'Тонкие линии и края резче — проявляется «филигрань». Обычно 30–60 %; больше — появляются светлые ореолы у краёв.' }) : null]) : null,
       K.on ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'vign', 'Тень к краям', { min: 0, max: 60, step: 5, def: 40, unit: ' %', onChange: kDraw, hint: '0 — узор одинаково яркий до самого края экрана; 40 % — как было, края уходят в тень, узор глубже.' }),
@@ -5279,7 +5318,14 @@
         selectIn(K, 'fil', 'Филигрань — тонкие линии картинки', [['', 'нет'], ['champ', 'шампань — светлое золото'], ['gold', 'золото'], ['silver', 'серебро'], ['light', 'белый свет'], ['ink', 'цвет тональности']], { def: '', onChange: function (v) { if (!v) delete K.fil; renderMain(); } })]) : null,
       K.on && kPic && K.fil ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'thin', 'Филигрань: тонкость', { min: 0, max: 100, step: 5, def: 60, unit: ' %', onChange: kDraw, hint: 'Больше — кружево реже и тоньше; меньше — гуще.' }),
-        rangeIn(K, 'filA', 'Филигрань: сила', { min: 10, max: 100, step: 5, def: 80, unit: ' %', onChange: kDraw, hint: 'Меньше — кружево еле заметно.' })]) : null
+        rangeIn(K, 'filA', 'Филигрань: сила', { min: 10, max: 100, step: 5, def: 80, unit: ' %', onChange: kDraw, hint: 'Меньше — кружево еле заметно.' })]) : null,
+      K.on && kPic && K.fil ? el('div', { class: 'a-row' }, [
+        selectIn(K, 'filS', 'Филигрань: какая', [['', 'Как было — линии с двух сторон'], ['hair', 'Волосок — линия в одну точку экрана'], ['bead', 'Бисер — бусинки по линиям'], ['both', 'Волосок + бисер']], { def: '',
+          onChange: function (v) { if (!v) delete K.filS; renderMain(); }, hint: 'Волосок строится сразу на размер экрана — не растянут, на большом экране не мутный.' }),
+        K.filS ? rangeIn(K, 'aj', 'Ажур — сколько мелких линий', { min: 0, max: 100, step: 5, def: 55, unit: ' %', onChange: kDraw, hint: 'Больше — остаются и самые слабые, мелкие линии.' }) : null]) : null,
+      K.on && kPic && K.fil ? el('div', { class: 'a-row' }, [
+        rangeIn(K, 'filGlow', 'Филигрань: свечение', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: 'Мягкий ореол вокруг линий. 0 — без ореола.' }),
+        rangeIn(K, 'photo', 'Картинка под филигранью', { min: 0, max: 100, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: '0 — остаётся одно кружево на тёмном.' })]) : null
     ], { open: !!K.on });
     kDraw();
     return [

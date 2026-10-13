@@ -705,9 +705,9 @@
     }
     /* Узор пространства на двери n (день day, поворот a); day = 0 — убрать. Лежит под следом тона, над слоями двери.
        Прозрачность и мягкий край — doors.patternOpacity, patternSoft; появляется мягко (now — сразу). */
-    function pattern(n, day, a, now, gl, h) {
+    function pattern(n, day, a, now, gl, h, m) {
       var x = G[n]; if (!x) return;
-      var my = day + ':' + a + ':' + h + ':' + JSON.stringify(gl || []);
+      var my = day + ':' + a + ':' + h + ':' + m + ':' + JSON.stringify(gl || []);
       if (x.pt && x.ptKey === my) return;
       if (x.pt) { x.pt.remove(); x.pt = null; x.ptKey = null; }
       if (!day || !x.poly) return;
@@ -724,7 +724,7 @@
           var f = kalFilter(kalOn(r, day)); if (f) cv.style.filter = f;
           box.appendChild(cv);
           if (now || REDUCED) box.classList.add('is-on'); else { void box.offsetWidth; box.classList.add('is-on'); }
-        }, gl, h);
+        }, gl, h, m);
       }
       if (img.complete && img.naturalWidth) put(); else img.addEventListener('load', put);
     }
@@ -817,9 +817,9 @@
   // Туманность — «камера» без сдвига, как в пробе: ось в середине, от неё расходятся лучи и линии
   function kalCX(k) { return k && k._neb ? 0 : KCX; }
   function kalCY(k) { return k && k._neb ? 0 : KCY; }
-  function kalN(k) { var n = +k.n; return n === 8 || n === 16 ? n : 12; }
+  function kalN(k) { var n = +k.n; return n === 8 || n === 16 || n === 24 ? n : 12; }
   function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
-  var kWedge = null;
+  var kWedge = null, kOver = null;
   /* Контраст и чёткость линий (09.10) — один раз на картинку, прямо в точках: дальше узор рисуется как обычно, без лишней работы в кадре.
      Чёткость — «нерезкая маска»: к картинке прибавляется её разница с чуть размытой копией (линии и края резче).
      Мягкость (09.10, проба «филигрань»): цвет картинки уходит к тональности дня (tone), контраст тише; с филигранью (fil) исходные линии
@@ -866,31 +866,64 @@
      k.fil — цвет: champ (шампань) | gold | silver | light (белый свет) | ink (цвет тональности); k.thin — тонкость, % (60); k.filA — сила, % (80).
      z — во сколько раз картинка растянута в узоре: кружево считается крупнее (до 2 раз, не больше 2048 точек), чтобы край оставался чистым;
      на маленькой двери — мельче (быстрее). */
+  /* Волосок, бисер, ажур, свечение (13.10, проба «Треугольная трубка»): k.filS — '' как было | 'hair' волосок | 'bead' бисер | 'both' волосок + бисер.
+     Волосок — край только с одной стороны (там, где линий больше), кружево строится сразу на размер экрана: линия в одну точку экрана, не растянута.
+     k.aj — ажур, % (55): больше — остаются и самые слабые, мелкие линии; k.filGlow — свечение, % (0): мягкий ореол. */
+  function kalFilS(k) { return k.filS === 'hair' || k.filS === 'bead' || k.filS === 'both' ? k.filS : ''; }
   function kalFil(im, k, z) {
     if (!kalFilOn(k)) return null;
-    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, T = kalTone(k) || {};
-    var f = Math.max(.35, Math.min(2, z, 2048 / Math.max(w, h))); f = Math.round(f * 4) / 4 || .25;
-    var key = [k.fil, k.tone || '', num(k.thin, 60, 0, 100), f].join('/');
-    if (im._m13f && im._m13f.key === key) return im._m13f.cv;
-    var W = Math.round(w * f), H = Math.round(h * f), u, ux, U, B, fc, fx, FD, o, i, a, col, t0 = 6 + num(k.thin, 60, 0, 100) * .22, r = Math.max(.6, 1.5 * f);
+    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, T = kalTone(k) || {}, st = kalFilS(k);
+    var f = st ? Math.max(.5, Math.min(z, 2600 / Math.max(w, h))) : Math.max(.35, Math.min(2, z, 2048 / Math.max(w, h))); f = Math.round(f * 4) / 4 || .25;
+    var thin = num(k.thin, 60, 0, 100), aj = num(k.aj, 55, 0, 100), glo = num(k.filGlow, 0, 0, 100);
+    var key = [k.fil, k.tone || '', thin, f, st, st ? aj : '', glo].join('/'), FC = im._m13f = im._m13f || {};
+    if (FC[key]) return FC[key];
+    var W = Math.round(w * f), H = Math.round(h * f), u, ux, U, B, fc, fx, FD, o, i, a, col, t0 = st ? 2 + (100 - aj) / 100 * 22 : 6 + thin * .22;
+    var r = st ? .5 + (100 - thin) / 100 * 1.6 : Math.max(.6, 1.5 * f), dv = st ? 8 : 10;
     try {
-      u = document.createElement('canvas'); u.width = W; u.height = H; ux = u.getContext('2d'); ux.imageSmoothingQuality = 'high'; ux.drawImage(im, 0, 0, W, H);
+      u = document.createElement('canvas'); u.width = W; u.height = H; ux = u.getContext('2d'); ux.imageSmoothingQuality = 'high';
+      // Фигура на прозрачном — на тёмном (край фигуры тоже даёт линию)
+      if (st) { ux.fillStyle = '#07060b'; ux.fillRect(0, 0, W, H); }
+      ux.drawImage(im, 0, 0, W, H);
       U = ux.getImageData(0, 0, W, H).data;
       var bl = document.createElement('canvas'); bl.width = W; bl.height = H; var bx = bl.getContext('2d');
-      if ('filter' in bx) { bx.filter = 'blur(' + r.toFixed(1) + 'px)'; bx.drawImage(u, 0, 0); B = bx.getImageData(0, 0, W, H).data; }
+      if ('filter' in bx) { bx.filter = 'blur(' + r.toFixed(2) + 'px)'; bx.drawImage(u, 0, 0); B = bx.getImageData(0, 0, W, H).data; }
       else B = kalBlur(u, U, W, H);
       fc = document.createElement('canvas'); fc.width = W; fc.height = H; fx = fc.getContext('2d'); FD = fx.createImageData(W, H); o = FD.data;
     } catch (e) { return null; }
     col = k.fil === 'ink' ? (T.ink || [70, 60, 90]) : (T.dark && KFIL_DARK[k.fil]) || KFIL[k.fil];
+    // Волосок: линии темнее окружения или светлее — смотря чего на картинке больше
+    var sd = 0, sl = 0, L, Lb;
+    if (st) for (i = 0; i < U.length; i += 64) { L = kalLum(U, i); Lb = kalLum(B, i); if (Lb > L) sd += Lb - L; else sl += L - Lb; }
+    var dark = sd >= sl, Mk = st ? new Float32Array(W * H) : null;
     for (i = 0; i < U.length; i += 4) {
-      var L = kalLum(U, i), Lb = kalLum(B, i);
-      a = Math.max(Lb - L, 0) + Math.max(L - Lb, 0) * .7;
-      a = (a - t0) / 10; if (a <= 0) continue; if (a > 1) a = 1; else a = a * a * (3 - 2 * a);
+      L = kalLum(U, i); Lb = kalLum(B, i);
+      a = st ? (dark ? Lb - L : L - Lb) : Math.max(Lb - L, 0) + Math.max(L - Lb, 0) * .7;
+      a = (a - t0) / dv; if (a <= 0) continue; if (a > 1) a = 1; else a = a * a * (3 - 2 * a);
+      if (Mk) Mk[i >> 2] = a;
+      if (st === 'bead') continue;
       o[i] = col[0]; o[i + 1] = col[1]; o[i + 2] = col[2]; o[i + 3] = a * 255;
     }
     fx.putImageData(FD, 0, 0);
-    im._m13f = { key: key, cv: fc };
-    return fc;
+    if (Mk && st !== 'hair') {
+      // Бисер: в каждой клетке — бусинка в самой яркой точке линии
+      var cs = Math.max(4, Math.round(5 * Math.max(1, f * .6))), x, y, xx, yy, v, bv, bx2, by2, rad = Math.max(.9, cs * .22);
+      fx.fillStyle = 'rgb(' + col.join(',') + ')';
+      for (y = 0; y < H; y += cs) for (x = 0; x < W; x += cs) {
+        bv = 0; bx2 = 0; by2 = 0;
+        for (yy = y; yy < Math.min(H, y + cs); yy++) for (xx = x; xx < Math.min(W, x + cs); xx++) { v = Mk[yy * W + xx]; if (v > bv) { bv = v; bx2 = xx; by2 = yy; } }
+        if (bv > .55) { fx.globalAlpha = .55 + bv * .45; fx.beginPath(); fx.arc(bx2 + .5, by2 + .5, rad * (.7 + bv * .5), 0, 6.2832); fx.fill(); }
+      }
+      fx.globalAlpha = 1;
+    }
+    if (glo && 'filter' in fx) {
+      var gc = document.createElement('canvas'); gc.width = W; gc.height = H; var gx = gc.getContext('2d');
+      gx.filter = 'blur(' + (2 + 4 * f).toFixed(1) + 'px)'; gx.globalAlpha = glo / 100 * .9; gx.drawImage(fc, 0, 0);
+      gx.filter = 'none'; gx.globalAlpha = 1; gx.globalCompositeOperation = 'lighter'; gx.drawImage(fc, 0, 0);
+      fc = gc;
+    }
+    // Помнит несколько размеров (живой узор, предпросмотр, дверь)
+    var ks = Object.keys(FC); if (ks.length > 3) delete FC[ks[0]];
+    return (FC[key] = fc);
   }
   // Размытая копия: браузер умеет сам (быстро); не умеет — размытие на 1 точку по строкам и столбцам, два раза
   function kalBlur(im, o, w, h) {
@@ -1004,30 +1037,124 @@
     x.restore(); x.globalAlpha = 1;
   }
 
+  /* Движение (13.10, проба «Треугольная трубка»): k.move — '' только вращение | 'breath' дыхание (картинка в трубке больше-меньше: узор выходит из середины
+     к краю и возвращается) | 'flow' течение (круг — картинка съезжает и возвращается; треугольник — узор плывёт в одну сторону без конца) |
+     'tunnel' тоннель (узор всё время рождается в середине и уходит за край); k.amp — сила, % (25), k.per — один вдох-выдох / один проход, с (10).
+     mt — время движения, с: у сохранённого узора своё, чтобы на двери был тот же миг. */
+  function kalMove(k, mt, tri) {
+    var per = num(k.per, 10, 4, 30), A = num(k.amp, 25, 5, 60) / 100, ph = mt / per * 2 * Math.PI, m = { z: 1, dx: 0, dy: 0, tun: -1 };
+    if (k.move === 'breath') m.z = tri ? 1 + A * Math.sin(ph) : 1 + A * (1 - Math.cos(ph)) / 2;
+    else if (k.move === 'flow') {
+      if (tri) { m.dx = mt / per * .9; m.dy = mt / per * .35; }
+      else { m.dx = Math.sin(ph) * A * .25; m.dy = Math.cos(ph * .7) * A * .12; }
+    } else if (k.move === 'tunnel') m.tun = (mt / per) % 1;
+    return m;
+  }
+  /* Треугольная трубка (13.10): три зеркала — основной треугольник с картинкой отражается во все стороны, узор мелкий по всему экрану
+     (как в настоящем калейдоскопе из трёх зеркал) и не растянут. k.tube: '' круг | 'tri' треугольник; k.side — размер треугольника,
+     % меньшей стороны экрана (28); k.pic — сколько картинки в треугольнике, % (150); k.spin — поворот всего узора, % (25);
+     k.triIn — что в треугольнике: '' картинка дня (или туманность) | 'fig' фигура хоровода дня | 'both' картинка и фигура поверх;
+     k.triKh — хоровод дня: '' кругом поверх узора (как в круглой трубке) | 'off' без хоровода. Стёклышки человека — тоже кругом поверх. */
+  var S3 = Math.sqrt(3), kTriL = null, kTriB = {};
+  function triAp(A, v) { return [A[0] * v[0] + A[2] * v[1] + A[4], A[1] * v[0] + A[3] * v[1] + A[5]]; }
+  // Отражение через прямую p–q после преобразования A
+  function triRefl(A, p, q) {
+    var ux = q[0] - p[0], uy = q[1] - p[1], l = Math.sqrt(ux * ux + uy * uy); ux /= l; uy /= l;
+    var m00 = 2 * ux * ux - 1, m01 = 2 * ux * uy, m11 = 2 * uy * uy - 1, ex = A[4] - p[0], fy = A[5] - p[1];
+    return [m00 * A[0] + m01 * A[1], m01 * A[0] + m11 * A[1], m00 * A[2] + m01 * A[3], m01 * A[2] + m11 * A[3], m00 * ex + m01 * fy + p[0], m01 * ex + m11 * fy + p[1]];
+  }
+  // Сторона 1: вершины треугольника (середина — в нуле) и все его отражения, которые задевают ячейку повтора 3 × √3 (её угол — середина треугольника)
+  function triList() {
+    if (kTriL) return kTriL;
+    var R = 1 / S3, V = [[0, -R], [.5, R / 2], [-.5, R / 2]], seen = { '0,0': 1 }, list = [], qu = [[1, 0, 0, 1, 0, 0]], A, N, c, key, i;
+    while (qu.length) {
+      A = qu.shift(); list.push(A);
+      for (i = 0; i < 3; i++) {
+        N = triRefl(A, triAp(A, V[i]), triAp(A, V[(i + 1) % 3])); c = triAp(N, [0, 0]);
+        if (c[0] < -1 || c[0] > 4 || c[1] < -1 || c[1] > S3 + 1) continue;
+        key = Math.round(c[0] * 20) + ',' + Math.round(c[1] * 20);
+        if (seen[key]) continue; seen[key] = 1; qu.push(N);
+      }
+    }
+    return (kTriL = { V: V, R: R, list: list });
+  }
+  // Холсты треугольника и ячейки на сторону a (точек); помнит несколько размеров (живой узор, предпросмотр, дверь)
+  function triBufs(a) {
+    var key = Math.round(a); if (kTriB[key]) return kTriB[key];
+    var ks = Object.keys(kTriB); if (ks.length > 3) delete kTriB[ks[0]];
+    var R = a / S3, bw = Math.ceil(a) + 6, bh = Math.ceil(1.5 * R) + 6, tw = Math.max(8, Math.round(3 * a)), th = Math.max(8, Math.round(S3 * a));
+    var B = document.createElement('canvas'), T = document.createElement('canvas'); B.width = bw; B.height = bh; T.width = tw; T.height = th;
+    return (kTriB[key] = { B: B, T: T, bo: [bw / 2, R + 3], tw: tw, th: th, sx: tw / (3 * a), sy: th / (S3 * a) });
+  }
+  // Ячейка повтора — узором по всему экрану: поворот rot, размер z вокруг середины, сдвиг sh (в точках треугольника)
+  function triFill(c, W, H, TB, z, al, rot, sh) {
+    var pat = c.createPattern(TB.T, 'repeat'); if (!pat) return;
+    var co = Math.cos(rot) * z, si = Math.sin(rot) * z, a1 = co / TB.sx, b1 = si / TB.sx, c1 = -si / TB.sy, d1 = co / TB.sy;
+    var e1 = W / 2 + co * sh[0] - si * sh[1], f1 = H / 2 + si * sh[0] + co * sh[1], det = a1 * d1 - b1 * c1, x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    [[0, 0], [W, 0], [0, H], [W, H]].forEach(function (p) {
+      var X = p[0] - e1, Y = p[1] - f1, u = (d1 * X - c1 * Y) / det, v = (-b1 * X + a1 * Y) / det;
+      x0 = Math.min(x0, u); x1 = Math.max(x1, u); y0 = Math.min(y0, v); y1 = Math.max(y1, v);
+    });
+    c.save(); c.globalAlpha = al; c.setTransform(a1, b1, c1, d1, e1, f1); c.fillStyle = pat; c.fillRect(x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4); c.restore();
+  }
+
   /* Узор в прямоугольник W×H (центр трубки — середина); reveal — сама картинка, без зеркал (кнопка «Что внутри?»).
-     P — стёклышки в узоре (см. выше), ps — их размер в долях R, t — время (мерцание искр) */
-  function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t, kh) {
+     P — стёклышки в узоре (см. выше), ps — их размер в долях R, t — время (мерцание искр), kh — поворот хоровода, mt — время движения (нет — t) */
+  function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t, kh, mt) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
+    var tri = k.tube === 'tri', tIn = tri ? k.triIn || '' : '';
+    if (mt == null || !isFinite(mt)) mt = t || 0;
     // Туманность: кадр рисуется заново, только когда облака дышат; филигрань — только от картинки дня (mix)
     var NB = im._neb, nb = !!NB, im0 = nb ? NB.photo : im, cl = nb ? nebCl(NB.N, t, NEB_S) : null, KO = khOf(im, k, n);
     if (nb) im = cl.on ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null, true) : kalPic(im, k); else im = kalPrep(im, k);
+    var MV = kalMove(k, mt, tri), fA = k.move === 'flow' && !tri ? num(k.amp, 25, 5, 60) / 100 * .25 : 0;
     // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
     var sc = R * 2.3 * num(k.zoom, 100, 70, 130) / 100 / Math.min(sw, sh);
     // Ось вращения — точка картинки (px, py, % от левого и верхнего края; 50/50 — середина). Она видна в узоре всегда, остальное проплывает.
-    // Ось у края — картинка чуть крупнее, чтобы при любом повороте закрывала клин (до самого дальнего угла клина ≈ 0,75 R)
+    // Ось у края — картинка чуть крупнее, чтобы при любом повороте закрывала клин (до самого дальнего угла клина ≈ 0,75 R); течение — ещё чуть крупнее
     var ox = num(k.px, 50, 15, 85) / 100, oy = num(k.py, 50, 15, 85) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
     // Туманность — крупность как в пробе: половина меньшей стороны экрана = 512 точек пробы (её холст — середина кадра); кадр с запасом, тёмных углов нет
     if (nb) sc = Math.min(W, H) / 2 / (512 * sw / (1485 * NEB_X)) * num(k.zoom, 100, 70, 130) / 100;
-    else sc = Math.max(sc, R * .75 / (mg * Math.min(sw, sh)));
-    var fl = im0 ? kalFil(im0, k, sc) : null, fa = num(k.filA, 80, 10, 100) / 100;
-    // Хоровод дня: фигуры вращаются вокруг вершины клина (оси трубки) — kh, свой поворот (нет — собранный)
+    else sc = Math.max(sc, R * .75 / (Math.max(.05, mg - fA) * Math.min(sw, sh)));
+    // Треугольник: картинка — на его размер (сколько картинки в нём — k.pic), непрозрачная закрывает треугольник при любом повороте
+    var ta = tri ? Math.max(8, Math.min(W, H) * num(k.side, 28, 12, 60) / 100) : 0;
+    if (tri) { sc = ta * num(k.pic, 150, 130, 500) / 100 / sw; if (!nb) sc = Math.max(sc, ta / S3 * 1.08 / (mg * Math.min(sw, sh))); }
+    // Фигура хоровода в треугольнике (вместо картинки или поверх неё) — на тот же размер, её ось — середина фигуры
+    var TF = tri && tIn && KO ? KO.f : null, sf = TF ? ta * num(k.pic, 150, 130, 500) / 100 / TF.width : 0;
+    var fl = tIn === 'fig' ? (TF ? kalFil(TF, k, sf) : null) : im0 ? kalFil(im0, k, sc) : null, fa = num(k.filA, 80, 10, 100) / 100;
+    var fp = fl ? num(k.photo, 100, 0, 100) / 100 : 1;
+    // Хоровод дня: фигуры вращаются вокруг вершины клина (оси трубки) — kh, свой поворот (нет — собранный); дыхание хоровода — круг больше-меньше
     var U = Math.min(W, H) / 2, th = KO ? (kh == null || !isFinite(+kh) ? KO.G.P[0] : +kh) : 0;
-    function cam(x) {
-      x.save(); x.rotate(ang); x.drawImage(im, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc);
-      if (cl && cl.on) nebClouds(x, NB.L, cl, -sw * sc * ox, -sh * sc * oy, sw * sc, sw);
-      if (fl) { x.globalAlpha = fa; x.drawImage(fl, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc); x.globalAlpha = 1; }
+    var kb = KO && KO.G.br ? 1 + KO.G.br * Math.sin(mt / num(k.per, 10, 4, 30) * 2 * Math.PI) : 1, khOn = KO && !(tri && (k.triKh === 'off' || tIn === 'fig'));
+    function cam(x, dx, dy) {
+      var ga = x.globalAlpha, X = -sw * sc * (ox + (dx || 0)), Y = -sh * sc * (oy + (dy || 0));
+      x.save(); x.rotate(ang);
+      if (tIn !== 'fig') {
+        if (fp > 0) { x.globalAlpha = ga * fp; x.drawImage(im, X, Y, sw * sc, sh * sc); x.globalAlpha = ga; }
+        if (cl && cl.on) nebClouds(x, NB.L, cl, X, Y, sw * sc, sw);
+        if (fl && tIn !== 'fig') { x.globalAlpha = ga * fa; x.drawImage(fl, X, Y, sw * sc, sh * sc); x.globalAlpha = ga; }
+      }
+      if (TF) {
+        var fw = TF.width * sf, fh = TF.height * sf;
+        if (fp > 0 || tIn !== 'fig') { x.globalAlpha = ga * (tIn === 'fig' ? fp : 1); x.drawImage(TF, -fw / 2, -fh / 2, fw, fh); }
+        if (fl && tIn === 'fig') { x.globalAlpha = ga * fa; x.drawImage(fl, -fw / 2, -fh / 2, fw, fh); }
+        x.globalAlpha = ga;
+      }
       x.restore();
+    }
+    // Картинка в клине с движением: дыхание — больше-меньше от вершины клина (середины экрана); тоннель — растёт от 1 до 2 раз,
+    // поверх — она же вдвое крупнее и тает: на 2 подмена незаметна, картинка всегда закрывает клин
+    function camM(x) {
+      if (MV.tun >= 0) {
+        var f = MV.tun, sm = f * f * (3 - 2 * f), z;
+        [[Math.pow(2, f), 1], [Math.pow(2, f + 1), 1 - sm]].forEach(function (L) {
+          if (L[1] <= .003) return;
+          z = L[0]; x.save(); x.globalAlpha = L[1]; x.scale(z, z); x.translate(R * kalCX(k), R * kalCY(k)); cam(x); x.restore();
+        });
+        return;
+      }
+      x.save(); x.scale(MV.z, MV.z); x.translate(R * kalCX(k), R * kalCY(k)); cam(x, MV.dx, MV.dy); x.restore();
     }
     // Стёклышки — поверх фигур
     function pcs(x) {
@@ -1036,30 +1163,63 @@
       P.forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
       x.restore();
     }
-    function khor(x) { if (KO) khPut(x, KO, U, th); }
+    function khor(x) { if (!khOn) return; if (kb !== 1) { x.save(); x.scale(kb, kb); khPut(x, KO, U, th); x.restore(); } else khPut(x, KO, U, th); }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H);
     if (reveal) { c.translate(W / 2, H / 2); cam(c); khor(c); pcs(c); c.restore(); return; }
-    // Клин чуть шире сектора: соседние отражения перекрываются, на стыках нет тонких линий
-    var pad = Math.ceil(R * Math.sin(KPAD)) + 3, ww = Math.ceil(R) + 2, wh = Math.ceil(R * Math.sin(Math.min(A + KPAD, Math.PI / 2))) + pad + 4;
-    var wc = kWedge = kWedge || document.createElement('canvas');
-    if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
-    var wg = wc.getContext('2d');
-    wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, ww, wh);
-    if (cl && cl.on) {
-      // Дышащие облака складываются со светом («lighter») — по обрезке клина это дало бы тонкие тёмные лучи на стыках; поэтому клин вырезается после
-      wg.save(); wg.translate(0, pad); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
-      khor(wg); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
-      wg.globalCompositeOperation = 'destination-in'; wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.fill(); wg.restore();
+    var wc, wg, pad, ww, wh, i;
+    if (tri) {
+      // Основной треугольник: картинка вокруг оси (в середине треугольника); чуть больше треугольника (на точку с лишним за край) — стыки без щелей
+      var TL = triList(), TB = triBufs(ta), V = TL.V, bx = TB.B.getContext('2d'), e = ta + 3, tx = TB.T.getContext('2d');
+      bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, TB.B.width, TB.B.height);
+      // Треугольник вырезается после рисования (не «clip»): иначе тёмный фон просвечивает по краю и на стыках видны тонкие линии
+      bx.save(); bx.translate(TB.bo[0], TB.bo[1]);
+      bx.fillStyle = nb ? NB.L.c0 : tIn === 'fig' ? '#1a0d16' : '#07060b'; bx.fillRect(-ta, -ta, 2 * ta, 2 * ta);
+      cam(bx);
+      bx.globalCompositeOperation = 'destination-in'; bx.beginPath(); bx.moveTo(V[0][0] * e, V[0][1] * e); bx.lineTo(V[1][0] * e, V[1][1] * e); bx.lineTo(V[2][0] * e, V[2][1] * e); bx.closePath(); bx.fill();
+      bx.restore();
+      tx.setTransform(1, 0, 0, 1, 0, 0); tx.clearRect(0, 0, TB.tw, TB.th);
+      TL.list.forEach(function (M) { tx.setTransform(TB.sx * M[0], TB.sy * M[1], TB.sx * M[2], TB.sy * M[3], TB.sx * M[4] * ta, TB.sy * M[5] * ta); tx.drawImage(TB.B, -TB.bo[0], -TB.bo[1]); });
+      // Вершина-звезда — в середине экрана; течение — узор плывёт в одну сторону без конца
+      var rot = mt * .05 * num(k.spin, 25, 0, 100) / 100 * Math.PI / 3, shf = [(-V[0][0] - MV.dx) * ta % (3 * ta), (-V[0][1] - MV.dy) * ta % (S3 * ta)];
+      if (MV.tun >= 0) {
+        // Тоннель: узор растёт из середины от 1 до 2 раз; поверх проявляется он же вдвое меньше — на 2 подмена незаметна
+        var f2 = MV.tun, sm2 = f2 * f2 * (3 - 2 * f2);
+        triFill(c, W, H, TB, Math.pow(2, f2), 1, rot, shf); triFill(c, W, H, TB, Math.pow(2, f2 - 1), sm2, rot, shf);
+      } else triFill(c, W, H, TB, MV.z, 1, rot, shf);
+      // Хоровод и стёклышки — кругом поверх узора, как в круглой трубке (касание кладёт стёклышко туда же)
+      if (khOn || (P && P.length)) {
+        pad = 1; ww = Math.ceil(R) + 2; wh = Math.ceil(R * Math.sin(Math.min(A, Math.PI / 2))) + pad + 4;
+        wc = kOver = kOver || document.createElement('canvas');
+        if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
+        wg = wc.getContext('2d'); wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, ww, wh);
+        wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, 0, A); wg.closePath(); wg.clip();
+        khor(wg); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
+        c.translate(W / 2, H / 2);
+        for (i = 0; i < n; i++) { c.save(); if (i % 2) { c.rotate((i + 1) * A); c.scale(1, -1); } else c.rotate(i * A); c.drawImage(wc, 0, -pad); c.restore(); }
+      } else c.translate(W / 2, H / 2);
     } else {
-      wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
-      wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); cam(wg); wg.restore();
-      khor(wg); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
-    }
-    c.translate(W / 2, H / 2);
-    for (var i = 0; i < n; i++) {
-      c.save();
-      if (i % 2) { c.rotate((i + 1) * A); c.scale(1, -1); } else c.rotate(i * A);
-      c.drawImage(wc, 0, -pad); c.restore();
+      // Клин чуть шире сектора: соседние отражения перекрываются, на стыках нет тонких линий
+      pad = Math.ceil(R * Math.sin(KPAD)) + 3; ww = Math.ceil(R) + 2; wh = Math.ceil(R * Math.sin(Math.min(A + KPAD, Math.PI / 2))) + pad + 4;
+      wc = kWedge = kWedge || document.createElement('canvas');
+      if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
+      wg = wc.getContext('2d');
+      wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, ww, wh);
+      if (cl && cl.on) {
+        // Дышащие облака складываются со светом («lighter») — по обрезке клина это дало бы тонкие тёмные лучи на стыках; поэтому клин вырезается после
+        wg.save(); wg.translate(0, pad); camM(wg);
+        khor(wg); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
+        wg.globalCompositeOperation = 'destination-in'; wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.fill(); wg.restore();
+      } else {
+        wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
+        camM(wg);
+        khor(wg); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
+      }
+      c.translate(W / 2, H / 2);
+      for (i = 0; i < n; i++) {
+        c.save();
+        if (i % 2) { c.rotate((i + 1) * A); c.scale(1, -1); } else c.rotate(i * A);
+        c.drawImage(wc, 0, -pad); c.restore();
+      }
     }
     // Мягкая тень к краям — узор глубже
     // Мягкое пространство светлой тональности — тень цветом тональности, не чёрная
@@ -1171,10 +1331,10 @@
   }
   // Облака (оба слоя) в прямоугольник кадра X, Y, размер Z — складываются со светом под ними
   function nebClouds(x, L, c, X, Y, Z, S) {
-    var f = Z / S;
+    var f = Z / S, ga = x.globalAlpha;
     x.save(); x.globalCompositeOperation = 'lighter';
-    x.globalAlpha = (1 - c.m) * c.k; x.drawImage(L.ca, X + (c.dx - c.p) * f, Y + (c.dy - c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f);
-    if (c.m) { x.globalAlpha = c.m * c.k; x.drawImage(L.cb, X - (c.dx + c.p) * f, Y - (c.dy + c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f); }
+    x.globalAlpha = ga * (1 - c.m) * c.k; x.drawImage(L.ca, X + (c.dx - c.p) * f, Y + (c.dy - c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f);
+    if (c.m) { x.globalAlpha = ga * c.m * c.k; x.drawImage(L.cb, X - (c.dx + c.p) * f, Y - (c.dy + c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f); }
     x.restore();
   }
   /* Кадр туманности: основа, картинка дня (mix), облака, линии и звёзды — один раз (неподвижный: дверь, обложка, «Что внутри?»).
@@ -1212,7 +1372,8 @@
      Настройки — общие на волну (doors.khor) или свои у дня (kal.khor при kal.khorOwn):
      { mode: '' — 12 целых (фигура в середине клина) | 'half' — 6 из половинок (фигура на зеркале), out — головой наружу (да; false — к центру),
        slow — притормаживать при сборке (да), size — размер, % (42 | 58), dist — от центра, % (66 | 60), every — как часто собирается, с (14),
-       glow — свечение при сборке, % (40), white — убрать белый фон (да) }. Размер и расстояние — в долях половины меньшей стороны экрана.
+       glow — свечение при сборке, % (40), white — убрать белый фон (да), breath — дыхание хоровода, % (0; 13.10): круг медленно больше-меньше,
+       в такт движению трубки (kal.per) }. Размер и расстояние — в долях половины меньшей стороны экрана.
      doors.khorDoor: '' — на двери узор как сохранил | 'join' — всегда собранный хоровод. 13-го в хороводе дня нет — 13-й это человек. */
   var KH_DEF = { whole: { size: 42, dist: 66 }, half: { size: 58, dist: 60 }, every: 14, glow: 40 };
   function khSlow(a) { return 1 - .92 * Math.exp(-Math.pow(a / .07, 2)); }
@@ -1251,7 +1412,7 @@
     var P = half ? [0, A] : [A / 2], k = P.length, T = num(K.every, KH_DEF.every, 4, 90);
     var mMax = Math.max(1, Math.min(6, Math.floor(2 * Math.PI * d / (w * 1.05 + .002))));
     var m = Math.max(1, Math.min(mMax, Math.round(2 * Math.PI / (.1 * k * T)))), per = 2 * Math.PI / m, slow = K.slow !== false;
-    return { h: h, w: w, d: d, P: P, m: m, per: per, slow: slow, out: K.out !== false, gl: num(K.glow, KH_DEF.glow, 0, 100) / 100,
+    return { h: h, w: w, d: d, P: P, m: m, per: per, slow: slow, out: K.out !== false, gl: num(K.glow, KH_DEF.glow, 0, 100) / 100, br: num(K.breath, 0, 0, 60) / 100,
       v0: Math.max(.012, Math.min(.9, (per + (slow ? k * KH_EXTRA : 0)) / (k * T))) };
   }
   function khWrap(x, p) { x = ((x % p) + p) % p; return x > p / 2 ? x - p : x; }
@@ -1458,17 +1619,19 @@
 
   /* Живой калейдоскоп на весь экран пространства. Провёл — повернул трубку; коснулся — мягкий толчок (с затуханием).
      Выбрано стёклышко в чаше — касание кладёт его в узор; коснулся своего стёклышка в узоре — оно вернулось в чашу.
-     o: { base, a — с какого поворота начать (сохранённый узор), still — без движения (предпросмотр снимка),
+     o: { base, a — с какого поворота начать (сохранённый узор), m — время движения сохранённого узора, с, still — без движения (предпросмотр снимка),
           bowl — стёклышки человека [{ id, c, l, look, k }], g — сохранённые места [{ x, y, id }], ps — размер стёклышка (доли R), onPut — что-то положили/вернули }.
      Возвращает { node, ang(), mine, sel(i), placed(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
   function kalLive(k, o) {
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
-    var S = { ang: +o.a || 0, vel: 0, t: 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, started = false, KO = null;
+    var S = { ang: +o.a || 0, vel: 0, t: o.m != null && isFinite(+o.m) ? +o.m : 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, started = false, KO = null;
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y)) at[p.id] = [+p.x, +p.y]; });
     var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null }; });
     var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
+    // Размер холста — до kalImg: туманность готова сразу, и узор рисуется ещё до этой строки (13.10)
+    var CW = 0, CH = 0, Q0 = q, MAXP = 2.6e6;
     kalImg(o.base, k, function (x) {
       im = x; KO = khOf(im, k);
       // Хоровод: с сохранённого поворота; нет — первая сборка через несколько секунд (без движения на экране — сразу собранный)
@@ -1478,7 +1641,6 @@
     /* Плавность (09.10, её «тын-тын-тын»): размер экрана — только при изменении (чтение размера в каждом кадре заставляло браузер
        пересчитывать страницу); не больше ~2,6 млн точек (картинка дня всё равно растянута — лишние точки не прибавляют чёткости);
        не успевает — сначала меньше точек, потом ровные 30 кадров в секунду вместо рваных 60/30 */
-    var CW = 0, CH = 0, Q0 = q, MAXP = 2.6e6;
     function size() {
       CW = cv.clientWidth || window.innerWidth; CH = cv.clientHeight || window.innerHeight;
       q = Math.min(Q0, Math.sqrt(MAXP / Math.max(1, CW * CH)), q > .5 ? q : Q0);
@@ -1555,7 +1717,7 @@
     window.addEventListener('resize', function () { if (cv.isConnected) { size(); draw(); } });
     if (window.ResizeObserver) new ResizeObserver(function () { if (cv.isConnected) size(); }).observe(cv);
     requestAnimationFrame(loop);
-    return { node: cv, ang: function () { return S.ang; }, kh: function () { return S.kh; }, draw: draw, mine: mine, ps: ps,
+    return { node: cv, ang: function () { return S.ang; }, kh: function () { return S.kh; }, mt: function () { return S.t; }, draw: draw, mine: mine, ps: ps,
       sel: function (i) { if (i === undefined) return S.sel; S.sel = i; },
       placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { return { x: m.at[0], y: m.at[1], id: m.id, k: m.k, c: m.c, l: m.l }; }); },
       freeze: function (v) { S.frozen = !!v; S.vel = 0; draw(); },
@@ -1564,7 +1726,7 @@
 
   /* Узор на двери (сцена, обложка): холст в рамке двери, обрезан по контуру; центр трубки — середина рамки.
      key, poly — контур на этой картинке, scn — картинка сцены (её пропорции нужны для рамки), done(холст | null) */
-  function kalDoor(r, day, a, poly, scn, base, done, g, h) {
+  function kalDoor(r, day, a, poly, scn, base, done, g, h, m) {
     var k = kalOn(r, day); if (!k || !poly) { done(null); return; }
     var P = kalPcs(r, g, base);
     kalImg(base, k, function (im) { kalPre(P, function () { put(im); }); });
@@ -1572,7 +1734,7 @@
       if (!im) { done(null); return; }
       var b = bbox(poly), iw = scn.naturalWidth || 1600, ih = scn.naturalHeight || 900, rw = b.w * iw, rh = b.h * ih, s = 520 / Math.max(rw, rh);
       var cv = document.createElement('canvas'); cv.width = Math.max(8, Math.round(rw * s)); cv.height = Math.max(8, Math.round(rh * s));
-      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false, P, kalSize(r), null, khDoorH(r, h));
+      kalDraw(cv.getContext('2d'), cv.width, cv.height, im, k, a, false, P, kalSize(r), null, khDoorH(r, h), m);
       done(cv);
     }
   }
@@ -1584,7 +1746,7 @@
   function face(r, day, n, P) {
     var D = cfg(r), mk = markOn(r, day, n), p = (P || {})[day], show = D.pattern || '';
     if (!kalOn(r, day) || show === 'mark') return { mark: mk, pat: null };
-    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null, h: p.h != null && isFinite(+p.h) ? +p.h : null };
+    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null, h: p.h != null && isFinite(+p.h) ? +p.h : null, m: p.m != null && isFinite(+p.m) ? +p.m : null };
     if (D.patternNone === 'archetype' && mk) return { mark: show !== 'pattern', pat: 0 };
     return { mark: mk, pat: null };
   }
@@ -1605,7 +1767,7 @@
       bg.appendChild(live.node); bg.appendChild(wave.node); root.classList.add('ys-space--kal', 'ys-space--wave');
     }
     else if (K) {
-      live = kalLive(K, { base: o.base, a: o.kalA, h: o.kalH, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
+      live = kalLive(K, { base: o.base, a: o.kalA, h: o.kalH, m: o.kalM, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
       bg.appendChild(live.node); root.classList.add('ys-space--kal');
       if (o.kalSave && o.kalBowl && o.kalBowl.length) root.classList.add('ys-space--bowl');
     }
@@ -1658,7 +1820,7 @@
   }
   /* Кнопки калейдоскопа внизу: чаша со стёклышками человека (если есть), «Что внутри?» (сама картинка, вращается)
      и «Сохранить мой узор» (узор застывает и ложится на дверь дня вместе со стёклышками).
-     o.kalSave(a, g) — сохранить поворот и стёклышки (нет — кнопки «Сохранить» и чаши нет: Наблюдение, финал); o.kalTx — надписи; o.onBack — к дверям. */
+     o.kalSave(a, g, h, m) — сохранить поворот, стёклышки, поворот хоровода и время движения (нет — кнопки «Сохранить» и чаши нет: Наблюдение, финал); o.kalTx — надписи; o.onBack — к дверям. */
   function kalBar(live, o) {
     var t = o.kalTx || {}, bar = el('div', 'ys-kal-bar'), row = el('div', 'ys-kal-row'), hint = el('p', 'ys-kal-hint');
     var M = o.kalSave ? live.mine : [], bowl = null;
@@ -1702,7 +1864,7 @@
       sv.addEventListener('click', function () {
         if (on) { on = false; live.reveal(false); peek.textContent = t.peek || 'Что внутри?'; }
         live.sel(-1); fill(); say();
-        live.freeze(true); o.kalSave(live.ang(), live.placed(), live.kh());
+        live.freeze(true); o.kalSave(live.ang(), live.placed(), live.kh(), live.mt());
         var done = el('div', 'ys-kal-done'), plate = el('div', 'ys-kal-plate'), r2 = el('div', 'ys-kal-row');
         plate.appendChild(el('b', '', t.saved || 'Ваш узор сохранён'));
         plate.appendChild(el('p', '', t.savedNote || 'Он ляжет на вашу дверь этого дня.'));
@@ -1872,7 +2034,7 @@
       for (d = 1; d <= count(r); d++) {
         var dd = ids[doorOf(r, d).id] || 0;
         sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
-        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g, fc.h); }
+        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g, fc.h, fc.m); }
         if (dd && cfg(r).showDayNumbers) sc.num(d, String(dd));
       }
     } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
@@ -1896,7 +2058,7 @@
     for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) {
       var fc = face(r, +k, n, o.pats);
       if (fc.mark) marks.push({ day: +k, d: doorOf(r, i) });
-      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, h: fc.h, P: kalPcs(r, fc.g, o.base) });
+      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, h: fc.h, m: fc.m, P: kalPcs(r, fc.g, o.base) });
     }
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
@@ -1936,7 +2098,7 @@
         var im = ims[1 + world.length + j], poly = zoneOf(p.d, key), b = bbox(poly), Dc = cfg(r), kk = kalOn(r, p.day);
         if (!im) return;
         var w = Math.max(8, Math.round(b.w * W)), h = Math.max(8, Math.round(b.h * H)), pc = document.createElement('canvas'); pc.width = w; pc.height = h;
-        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false, p.P, kalSize(r), null, khDoorH(r, p.h));
+        kalDraw(pc.getContext('2d'), w, h, im, kk, p.a, false, p.P, kalSize(r), null, khDoorH(r, p.h), p.m);
         var lc = document.createElement('canvas'); lc.width = W; lc.height = H;
         var x = lc.getContext('2d'), f = kalFilter(kk);
         if (f && 'filter' in x) x.filter = f;
@@ -1980,7 +2142,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF,
+    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalLive: kalLive, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
