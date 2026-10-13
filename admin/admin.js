@@ -7570,7 +7570,7 @@
   }
   /* ---------- Выравнивание строки (страницы маршрутов): кнопки над полем, в котором пишут ----------
      Ставят в начало строки, где курсор, метку {слева} {по центру} {справа} {по ширине}; ✕ — убрать. Сайт — route.js (lineAlign). */
-  var AL_BTNS = [['слева', '⇤', 'Строка — слева'], ['по центру', '≡', 'Строка — по центру'], ['справа', '⇥', 'Строка — справа'], ['по ширине', '☰', 'Строка — по ширине'], ['', '✕', 'Убрать выравнивание строки']];
+  var AL_BTNS = [['слева', '⇤', 'Строка — слева'], ['по центру', '≡', 'Строка — по центру'], ['справа', '⇥', 'Строка — справа'], ['по ширине', '☰', 'Строка — по ширине'], ['', '✕', 'Убрать выравнивание строки и спрятать кнопки']];
   var alBar = null, alFor = null;
   function alPlace() {
     if (!alFor || !alFor.isConnected) { alBar.hidden = true; alFor = null; return; }
@@ -7590,7 +7590,7 @@
   }
   function alInit() {
     alBar = el('div', { class: 'a-al-bar', hidden: true }, [el('span', { text: 'Строка:' })].concat(AL_BTNS.map(function (x) {
-      return el('button', { type: 'button', text: x[1], title: x[2], onclick: function () { alSet(x[0]); } });
+      return el('button', { type: 'button', text: x[1], title: x[2], onclick: function () { alSet(x[0]); if (!x[0]) alBar.hidden = true; } });
     })));
     alBar.addEventListener('mousedown', function (e) { e.preventDefault(); });
     document.body.appendChild(alBar);
@@ -7600,6 +7600,11 @@
     });
     document.addEventListener('focusout', function () {
       setTimeout(function () { var a = document.activeElement; if (!(a && a.matches && a.matches('textarea.a-lines')) && !alBar.contains(a)) { alBar.hidden = true; alFor = null; } }, 0);
+    });
+    // ✕ спрятал кнопки — снова показать, когда щёлкнули в то же поле; поле исчезло (сменили раздел) — спрятать
+    document.addEventListener('click', function (e) {
+      if (alFor && e.target === alFor && alBar.hidden) { alBar.hidden = false; alPlace(); }
+      setTimeout(function () { if (alFor && !alFor.isConnected) { alBar.hidden = true; alFor = null; } }, 0);
     });
     window.addEventListener('scroll', function () { if (alFor) alPlace(); }, true);
     window.addEventListener('resize', function () { if (alFor) alPlace(); });
