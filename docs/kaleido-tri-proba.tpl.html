@@ -1,0 +1,477 @@
+<title>Треугольная трубка</title>
+<style>
+/* Один экран: живой узор во весь экран, настройки — выдвижная панель (справа на компьютере, снизу на телефоне). Тёмный мир калейдоскопа — одна тема намеренно. */
+:root {
+  --night: #0a0811;
+  --panel: rgba(20, 15, 28, .88);
+  --line: rgba(232, 200, 140, .22);
+  --text: #efe7da;
+  --muted: #b3a89a;
+  --gold: #e6b65c;
+  --gold-ink: #1b1209;
+  --f-display: "Cormorant Garamond", "Palatino Linotype", Palatino, Georgia, serif;
+  --f-body: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--night); color: var(--text); font: 14px/1.4 var(--f-body); overflow: hidden; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#cv.small { inset: auto; left: 50%; top: 50%; width: 300px; height: 300px; transform: translate(-50%, -50%); border-radius: 50%; box-shadow: 0 0 0 1px var(--line); }
+.panel { position: fixed; right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 340px; max-width: calc(100% - 32px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.panel h1 { margin: 0; font: 600 26px/1.1 var(--f-display); letter-spacing: .01em; color: var(--gold); text-wrap: balance; }
+.panel p { margin: 0; color: var(--muted); font-size: 13px; }
+.grp { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.grp > b { font: 600 12px/1 var(--f-body); text-transform: uppercase; letter-spacing: .1em; color: var(--gold); }
+.lbl { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.lbl output { color: var(--muted); font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; accent-color: var(--gold); margin: 4px 0 0; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button, .btn { font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.btn:focus-visible, .seg button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.note { font-size: 12px; color: var(--muted); }
+#fps { position: fixed; left: 16px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); font: 12px var(--f-body); color: var(--muted); font-variant-numeric: tabular-nums; background: var(--panel); padding: 4px 8px; border-radius: 8px; }
+#open { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+#open, #open:hover { background: var(--panel); }
+@media (max-width: 640px) {
+  .panel { left: 16px; right: 16px; top: auto; width: auto; max-width: none; max-height: 52%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+
+<canvas id="cv" aria-label="Живой калейдоскоп"></canvas>
+<div id="fps">… кадров в секунду</div>
+<button class="btn" id="open" type="button" hidden>Настройки</button>
+
+<div class="panel" id="panel">
+  <div>
+    <h1>Треугольная трубка</h1>
+    <p>Проба на вашей фигуре дня 1 Странника. Сравните «Круг — как на сайте» и «Треугольник». Внизу слева — сколько кадров в секунду успевает ваш телефон или компьютер (50–60 — плавно).</p>
+  </div>
+
+  <div class="grp">
+    <b>Трубка</b>
+    <div class="seg" id="mode">
+      <button type="button" data-v="circle">Круг — как на сайте</button>
+      <button type="button" data-v="tri">Треугольник</button>
+    </div>
+    <div id="circleBox">
+      <div class="lbl">Зеркал</div>
+      <div class="seg" id="n"><button type="button" data-v="8">8</button><button type="button" data-v="12">12</button><button type="button" data-v="16">16</button><button type="button" data-v="24">24</button></div>
+      <div class="lbl" style="margin-top:10px">Крупность узора <output id="zoomO"></output></div>
+      <input type="range" id="zoom" min="70" max="130" step="5" aria-label="Крупность узора">
+    </div>
+    <div id="triBox">
+      <div class="lbl">Размер треугольника <output id="sideO"></output></div>
+      <input type="range" id="side" min="12" max="60" step="1" aria-label="Размер треугольника">
+      <div class="lbl" style="margin-top:10px">Сколько картинки в треугольнике <output id="picO"></output></div>
+      <input type="range" id="pic" min="130" max="500" step="10" aria-label="Сколько картинки в треугольнике">
+      <div class="lbl" style="margin-top:10px">Поворот всего узора <output id="spinO"></output></div>
+      <input type="range" id="spin" min="0" max="100" step="5" aria-label="Поворот всего узора">
+    </div>
+    <div>
+      <div class="lbl">Скорость перетекания <output id="speedO"></output></div>
+      <input type="range" id="speed" min="0" max="400" step="10" aria-label="Скорость перетекания">
+      <div class="note">400 % — как крутится предпросмотр в панели.</div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <b>Движение</b>
+    <div class="seg" id="move">
+      <button type="button" data-v="none">Только вращение</button>
+      <button type="button" data-v="breath">Дыхание</button>
+      <button type="button" data-v="flow">Течение</button>
+      <button type="button" data-v="tunnel">Тоннель</button>
+    </div>
+    <p id="moveNote"></p>
+    <div id="ampBox">
+      <div class="lbl">Сила <output id="ampO"></output></div>
+      <input type="range" id="amp" min="5" max="60" step="5" aria-label="Сила движения">
+    </div>
+    <div>
+      <div class="lbl">Один вдох-выдох / один проход <output id="perO"></output></div>
+      <input type="range" id="per" min="4" max="30" step="1" aria-label="Длительность">
+    </div>
+  </div>
+
+  <div class="grp">
+    <b>Филигрань</b>
+    <div class="seg" id="fil">
+      <button type="button" data-v="off">Нет</button>
+      <button type="button" data-v="site">Как на сайте</button>
+      <button type="button" data-v="hair">Волосок</button>
+      <button type="button" data-v="bead">Бисер</button>
+      <button type="button" data-v="both">Волосок + бисер</button>
+      <button type="button" data-v="own" id="ownBtn" hidden>Своя</button>
+    </div>
+    <div>
+      <div class="lbl">Своя филигрань (PNG — светлые линии на прозрачном)</div>
+      <input type="file" id="ownFile" accept="image/png,image/webp,image/svg+xml" aria-label="Загрузить свою филигрань">
+      <div class="note">Ложится поверх фигуры тем же размером и крутится с ней.</div>
+    </div>
+    <div class="seg" id="fc">
+      <button type="button" data-v="champ">Шампань</button>
+      <button type="button" data-v="gold">Золото</button>
+      <button type="button" data-v="silver">Серебро</button>
+      <button type="button" data-v="light">Белый свет</button>
+    </div>
+    <div>
+      <div class="lbl">Тонкость <output id="thinO"></output></div>
+      <input type="range" id="thin" min="0" max="100" step="5" aria-label="Тонкость линий">
+    </div>
+    <div>
+      <div class="lbl">Ажур — сколько мелких линий <output id="ajO"></output></div>
+      <input type="range" id="aj" min="0" max="100" step="5" aria-label="Ажур">
+    </div>
+    <div>
+      <div class="lbl">Свечение <output id="glowO"></output></div>
+      <input type="range" id="glow" min="0" max="100" step="5" aria-label="Свечение филиграни">
+    </div>
+    <div>
+      <div class="lbl">Картинка под филигранью <output id="photoO"></output></div>
+      <input type="range" id="photo" min="0" max="100" step="5" aria-label="Картинка под филигранью">
+      <div class="note">0 — остаётся одно кружево на тёмном.</div>
+    </div>
+  </div>
+
+  <div class="grp">
+    <b>Сравнить</b>
+    <div class="row">
+      <button class="btn" type="button" id="small" aria-pressed="false">Окошко как в панели</button>
+      <button class="btn" type="button" id="reset">Как было в начале</button>
+    </div>
+    <div>
+      <div class="lbl">Своя картинка</div>
+      <input type="file" id="file" accept="image/*" aria-label="Выбрать картинку">
+      <div class="note">Остаётся только в этом браузере, никуда не отправляется.</div>
+    </div>
+    <div class="row"><button class="btn" type="button" id="hide">Скрыть настройки</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var IMG_SRC = '__IMG__';
+  // Фигура дня 1 Странника из черновика (на прозрачном фоне); ось — середина фигуры; фон — цвета её туманности (c0 → c1)
+  var AX = { px: 50, py: 50 }, BG0 = '#2a0c14', BG1 = '#07030a';
+  var DEF = { mode: 'tri', n: 16, zoom: 125, side: 28, pic: 150, spin: 25, speed: 100, move: 'breath', amp: 25, per: 10,
+    fil: 'hair', fc: 'champ', thin: 70, aj: 55, glow: 40, photo: 70 };
+  var FC = { champ: [236, 214, 166], gold: [232, 182, 80], silver: [208, 218, 238], light: [255, 255, 255] };
+  var KCX = .28, KCY = .1, KSPIN = .072, KPAD = .03, S3 = Math.sqrt(3), TAU = Math.PI * 2;
+  var P = {}, k; for (k in DEF) P[k] = DEF[k];
+  try { var sv = JSON.parse(localStorage.getItem('m13-tri-proba') || 'null'); if (sv) for (k in sv) if (k in P) P[k] = sv[k]; } catch (e) {}
+  function keep() { try { localStorage.setItem('m13-tri-proba', JSON.stringify(P)); } catch (e) {} }
+
+  var cv = document.getElementById('cv'), g = cv.getContext('2d');
+  var q = Math.min(1.5, window.devicePixelRatio || 1), W = 0, H = 0, small = false;
+  var pic = null, picE = null, opaque = true, own = null, filC = null, filKey = '', ang = 0, t = 0, last = 0;
+
+  function cvs(w, h) { var c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c; }
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------- Картинка: один раз — яркость и контраст (как в панели) ---------- */
+  function setImage(src) {
+    var im = new Image();
+    im.onload = function () {
+      var w = im.naturalWidth, h = im.naturalHeight, c = cvs(w, h), x = c.getContext('2d');
+      x.drawImage(im, 0, 0);
+      // прозрачный фон? — тогда картинке не нужно закрывать весь клин; для филиграни — та же фигура на тёмном
+      var d = x.getImageData(0, 0, w, h).data, n0 = 0, i;
+      for (i = 3; i < d.length; i += 4 * 97) if (d[i] < 200) n0++;
+      opaque = n0 < d.length / 4 / 97 * .02;
+      var e = cvs(w, h), ex = e.getContext('2d'); ex.fillStyle = BG1; ex.fillRect(0, 0, w, h); ex.drawImage(c, 0, 0);
+      pic = c; picE = e; filKey = ''; filC = null;
+    };
+    im.src = src;
+  }
+
+  /* ---------- Размер экрана ---------- */
+  function size() {
+    var cw = small ? 300 : window.innerWidth, ch = small ? 300 : window.innerHeight;
+    var qq = Math.min(q, Math.sqrt(2.6e6 / (cw * ch)));
+    W = Math.round(cw * qq); H = Math.round(ch * qq);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    filKey = '';
+  }
+  window.addEventListener('resize', size);
+
+  /* ---------- Филигрань ----------
+     «Как на сайте» — край с двух сторон, на размер картинки (на экране растянута).
+     «Волосок» — край только с одной стороны (там, где линий больше), и строится сразу на размер экрана: линия в 1 точку экрана.
+     «Ажур» — порог: больше — остаются и самые слабые, мелкие линии. «Бисер» — по линиям светящиеся бусинки. Свечение — мягкий ореол. */
+  function lum(d, i) { return .299 * d[i] + .587 * d[i + 1] + .114 * d[i + 2]; }
+  function picScale() {
+    // во сколько раз картинка растянута на экране (в точках холста)
+    var sw = pic.width;
+    if (P.mode === 'tri') { var a = triSide(); return a * P.pic / 100 / sw; }
+    var R = Math.sqrt(W * W + H * H) / 2;
+    return R * 2.3 * P.zoom / 100 / sw;
+  }
+  function buildFil() {
+    if (!pic || P.fil === 'off') return null;
+    if (P.fil === 'own') return own;
+    var z = picScale(), site = P.fil === 'site';
+    var f = site ? Math.max(.35, Math.min(2, z, 2048 / pic.width)) : Math.max(.5, Math.min(z, 2600 / pic.width));
+    var key = [P.fil, P.fc, P.thin, P.aj, P.glow, f.toFixed(2), pic.width].join('/');
+    if (key === filKey) return filC;
+    var w = Math.round(pic.width * f), h = Math.round(pic.height * f), u = cvs(w, h), ux = u.getContext('2d');
+    ux.imageSmoothingQuality = 'high'; ux.drawImage(picE, 0, 0, w, h);
+    var U = ux.getImageData(0, 0, w, h).data;
+    var r = site ? Math.max(.6, 1.5 * f) : .5 + (100 - P.thin) / 100 * 1.6;
+    var bl = cvs(w, h), bx = bl.getContext('2d'); bx.filter = 'blur(' + r.toFixed(2) + 'px)'; bx.drawImage(u, 0, 0);
+    var B = bx.getImageData(0, 0, w, h).data;
+    var out = cvs(w, h), ox = out.getContext('2d'), FD = ox.createImageData(w, h), o = FD.data, col = FC[P.fc], i, a, L, Lb;
+    var sd = 0, sl = 0;
+    if (!site) for (i = 0; i < U.length; i += 64) { L = lum(U, i); Lb = lum(B, i); if (Lb > L) sd += Lb - L; else sl += L - Lb; }
+    var dark = sd >= sl, t0 = site ? 6 + 60 * .22 : 2 + (100 - P.aj) / 100 * 22, M = site ? null : new Float32Array(w * h);
+    for (i = 0; i < U.length; i += 4) {
+      L = lum(U, i); Lb = lum(B, i);
+      a = site ? Math.max(Lb - L, 0) + Math.max(L - Lb, 0) * .7 : (dark ? Lb - L : L - Lb);
+      a = (a - t0) / (site ? 10 : 8); if (a <= 0) continue; if (a > 1) a = 1; else a = a * a * (3 - 2 * a);
+      if (M) M[i >> 2] = a;
+      if (P.fil === 'bead') continue;
+      o[i] = col[0]; o[i + 1] = col[1]; o[i + 2] = col[2]; o[i + 3] = a * 255;
+    }
+    ox.putImageData(FD, 0, 0);
+    if (M && (P.fil === 'bead' || P.fil === 'both')) {
+      // Бусинки: в каждой клетке — самая яркая точка линии
+      var st = Math.max(4, Math.round(5 * Math.max(1, f * .6))), x, y, bx2, by2, bv, xx, yy, v, rad = Math.max(.9, st * .22);
+      ox.fillStyle = 'rgb(' + col.join(',') + ')';
+      for (y = 0; y < h; y += st) for (x = 0; x < w; x += st) {
+        bv = 0; bx2 = 0; by2 = 0;
+        for (yy = y; yy < Math.min(h, y + st); yy++) for (xx = x; xx < Math.min(w, x + st); xx++) { v = M[yy * w + xx]; if (v > bv) { bv = v; bx2 = xx; by2 = yy; } }
+        if (bv > .55) { ox.globalAlpha = .55 + bv * .45; ox.beginPath(); ox.arc(bx2 + .5, by2 + .5, rad * (.7 + bv * .5), 0, TAU); ox.fill(); }
+      }
+      ox.globalAlpha = 1;
+    }
+    if (P.glow > 0) {
+      var gc = cvs(w, h), gx = gc.getContext('2d');
+      gx.filter = 'blur(' + (2 + 4 * f).toFixed(1) + 'px)'; gx.globalAlpha = P.glow / 100 * .9; gx.drawImage(out, 0, 0);
+      gx.filter = 'none'; gx.globalAlpha = 1; gx.globalCompositeOperation = 'lighter'; gx.drawImage(out, 0, 0);
+      out = gc;
+    }
+    filKey = key; filC = out;
+    return out;
+  }
+
+  /* ---------- Движение: дыхание / течение / тоннель ---------- */
+  function motion() {
+    var ph = t / P.per * TAU, A = P.amp / 100;
+    var m = { z: 1, dx: 0, dy: 0, tun: -1 };
+    if (P.move === 'breath') m.z = P.mode === 'tri' ? 1 + A * Math.sin(ph) : 1 + A * (1 - Math.cos(ph)) / 2;
+    else if (P.move === 'flow') {
+      if (P.mode === 'tri') { var s = t / P.per; m.dx = s * .9; m.dy = s * .35; }
+      else { m.dx = Math.sin(ph) * A * .25; m.dy = Math.cos(ph * .7) * A * .12; }
+    } else if (P.move === 'tunnel') m.tun = (t / P.per) % 1;
+    return m;
+  }
+
+  /* ---------- Картинка в клине / треугольнике: повёрнута вокруг оси ---------- */
+  function drawPic(x, sc, dx, dy) {
+    var sw = pic.width, sh = pic.height, ox = AX.px / 100 + (dx || 0), oy = AX.py / 100 + (dy || 0);
+    x.save(); x.rotate(ang);
+    var fil = buildFil(), pa = fil ? P.photo / 100 : 1;
+    if (pa > 0) { x.globalAlpha = pa; x.drawImage(pic, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc); }
+    if (fil) { x.globalAlpha = 1; x.drawImage(fil, -sw * sc * ox, -sh * sc * oy, sw * sc, sh * sc); }
+    x.restore(); x.globalAlpha = 1;
+  }
+
+  /* ---------- Фон — цвета её туманности ---------- */
+  function bg() {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    var R = Math.sqrt(W * W + H * H) / 2, v = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, R);
+    v.addColorStop(0, BG0); v.addColorStop(1, BG1); g.fillStyle = v; g.fillRect(0, 0, W, H);
+  }
+  function cover(sc, need, sw, sh, dx, dy) {
+    // непрозрачная картинка должна закрывать клин при любом повороте; фигура на прозрачном — не обязана
+    if (!opaque) return sc;
+    var mg = Math.min(AX.px, 100 - AX.px, AX.py, 100 - AX.py) / 100 - Math.abs(dx || 0) - Math.abs(dy || 0);
+    return Math.max(sc, need / (Math.max(.1, mg) * Math.min(sw, sh)));
+  }
+
+  /* ---------- Круг — как на сайте (doors.js kalDraw) ---------- */
+  var wc = cvs(1, 1);
+  function circleLayer(m, al) {
+    var R = Math.sqrt(W * W + H * H) / 2 + 2, n = P.n, A = TAU / n, sw = pic.width, sh = pic.height;
+    var sc = cover(R * 2.3 * P.zoom / 100 / Math.min(sw, sh), R * .75, sw, sh, m.dx, m.dy);
+    var pad = Math.ceil(R * Math.sin(KPAD)) + 3, ww = Math.ceil(R) + 2, wh = Math.ceil(R * Math.sin(Math.min(A + KPAD, Math.PI / 2))) + pad + 4;
+    if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
+    var wg = wc.getContext('2d');
+    wg.setTransform(1, 0, 0, 1, 0, 0); wg.clearRect(0, 0, ww, wh);
+    wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
+    // дыхание и тоннель — картинка в клине больше-меньше от вершины клина (середины экрана)
+    wg.scale(m.z, m.z); wg.translate(R * KCX, R * KCY); drawPic(wg, sc, m.dx, m.dy);
+    wg.restore();
+    g.setTransform(1, 0, 0, 1, W / 2, H / 2); g.globalAlpha = al;
+    for (var i = 0; i < n; i++) { g.save(); if (i % 2) { g.rotate((i + 1) * A); g.scale(1, -1); } else g.rotate(i * A); g.drawImage(wc, 0, -pad); g.restore(); }
+    g.globalAlpha = 1;
+  }
+  var tunC = null;
+  function circle(m) {
+    bg();
+    if (m.tun < 0) { circleLayer(m, 1); vign(); return; }
+    // тоннель: узор растёт от 1 до 2 раз; поверх проявляется он же вдвое меньше — на 2 подмена незаметна
+    var f = m.tun, sm = f * f * (3 - 2 * f);
+    circleLayer({ z: Math.pow(2, f), dx: 0, dy: 0 }, 1 - sm * .5);
+    circleLayer({ z: Math.pow(2, f - 1), dx: 0, dy: 0 }, sm);
+    vign();
+  }
+
+  /* ---------- Треугольник: три зеркала, узор повторяется по всему экрану ---------- */
+  var tri = { a: 0, B: null, T: null, list: null, tw: 0, th: 0 };
+  function triSide() { return Math.min(W, H) * P.side / 100; }
+  function refl(Aa, p, q2) {
+    // отражение через прямую p–q (в мировых координатах) после преобразования Aa
+    var ux = q2[0] - p[0], uy = q2[1] - p[1], l = Math.sqrt(ux * ux + uy * uy); ux /= l; uy /= l;
+    var m00 = 2 * ux * ux - 1, m01 = 2 * ux * uy, m11 = 2 * uy * uy - 1;
+    var a = Aa[0], b = Aa[1], c = Aa[2], d = Aa[3], e = Aa[4], f = Aa[5];
+    var na = m00 * a + m01 * b, nb = m01 * a + m11 * b, nc = m00 * c + m01 * d, nd = m01 * c + m11 * d;
+    var ex = e - p[0], fy = f - p[1];
+    return [na, nb, nc, nd, m00 * ex + m01 * fy + p[0], m01 * ex + m11 * fy + p[1]];
+  }
+  function ap(A, v) { return [A[0] * v[0] + A[2] * v[1] + A[4], A[1] * v[0] + A[3] * v[1] + A[5]]; }
+  function triPrep() {
+    var a = triSide(); if (Math.abs(a - tri.a) < .5 && tri.list) return;
+    var R = a / S3, V = [[0, -R], [a / 2, R / 2], [-a / 2, R / 2]];
+    // все треугольники, которые задевают одну ячейку повтора 3a × √3a (её угол — середина основного треугольника)
+    var TWl = 3 * a, THl = S3 * a, seen = {}, list = [], qu = [[1, 0, 0, 1, 0, 0]], A, c, key, i;
+    seen['0,0'] = 1;
+    while (qu.length) {
+      A = qu.shift(); list.push(A);
+      for (i = 0; i < 3; i++) {
+        var p = ap(A, V[i]), p2 = ap(A, V[(i + 1) % 3]), N = refl(A, p, p2);
+        c = ap(N, [0, 0]);
+        if (c[0] < -a || c[0] > TWl + a || c[1] < -a || c[1] > THl + a) continue;
+        key = Math.round(c[0] / a * 20) + ',' + Math.round(c[1] / a * 20);
+        if (seen[key]) continue; seen[key] = 1; qu.push(N);
+      }
+    }
+    tri.a = a; tri.V = V; tri.list = list; tri.R = R;
+    var bw = Math.ceil(a) + 6, bh = Math.ceil(1.5 * R) + 6;
+    tri.B = cvs(bw, bh); tri.bo = [bw / 2, R + 3];
+    tri.tw = Math.max(8, Math.round(TWl)); tri.th = Math.max(8, Math.round(THl));
+    tri.T = cvs(tri.tw, tri.th); tri.sx = tri.tw / TWl; tri.sy = tri.th / THl;
+  }
+  function triTile(z) {
+    // основной треугольник: картинка вокруг оси (в середине треугольника); чуть больше треугольника — стыки без щелей
+    var a = tri.a, R = tri.R, V = tri.V, bx = tri.B.getContext('2d'), sw = pic.width, sh = pic.height, m = motion();
+    var sc = a * P.pic / 100 / sw * (z || 1);
+    sc = cover(sc, R * 1.08, sw, sh);
+    bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, tri.B.width, tri.B.height);
+    bx.save(); bx.translate(tri.bo[0], tri.bo[1]);
+    var e = 1 + 1.6 / a; bx.beginPath(); bx.moveTo(V[0][0] * e, V[0][1] * e); bx.lineTo(V[1][0] * e, V[1][1] * e); bx.lineTo(V[2][0] * e, V[2][1] * e); bx.closePath(); bx.clip();
+    bx.fillStyle = BG0; bx.fillRect(-a, -a, 2 * a, 2 * a);
+    drawPic(bx, sc, 0, 0); bx.restore();
+    var T = tri.T, tx = T.getContext('2d');
+    tx.setTransform(1, 0, 0, 1, 0, 0); tx.clearRect(0, 0, tri.tw, tri.th);
+    tri.list.forEach(function (A) {
+      tx.setTransform(tri.sx * A[0], tri.sy * A[1], tri.sx * A[2], tri.sy * A[3], tri.sx * A[4], tri.sy * A[5]);
+      tx.drawImage(tri.B, -tri.bo[0], -tri.bo[1]);
+    });
+    return m;
+  }
+  var flowOff = [0, 0];
+  function triFill(z, al, rot, sh) {
+    // ячейка повтора — узором по всему экрану: поворот, размер (дыхание/тоннель) вокруг середины экрана
+    var pat = g.createPattern(tri.T, 'repeat');
+    var c = Math.cos(rot) * z, s = Math.sin(rot) * z;
+    // экран = середина + поворот·z·(точка + сдвиг); точка ячейки в её точках → делим на sx, sy
+    var a1 = c / tri.sx, b1 = s / tri.sx, c1 = -s / tri.sy, d1 = c / tri.sy;
+    var e1 = W / 2 + c * sh[0] - s * sh[1], f1 = H / 2 + s * sh[0] + c * sh[1];
+    g.save(); g.globalAlpha = al; g.setTransform(a1, b1, c1, d1, e1, f1);
+    // углы экрана в точках ячейки
+    var det = a1 * d1 - b1 * c1, xs = [], ys = [];
+    [[0, 0], [W, 0], [0, H], [W, H]].forEach(function (p) {
+      var X = p[0] - e1, Y = p[1] - f1; xs.push((d1 * X - c1 * Y) / det); ys.push((-b1 * X + a1 * Y) / det);
+    });
+    var x0 = Math.min.apply(0, xs), x1 = Math.max.apply(0, xs), y0 = Math.min.apply(0, ys), y1 = Math.max.apply(0, ys);
+    g.fillStyle = pat; g.fillRect(x0 - 2, y0 - 2, x1 - x0 + 4, y1 - y0 + 4);
+    g.restore();
+  }
+  function triangle() {
+    triPrep();
+    var m = triTile(1), rot = t * .05 * P.spin / 100 * TAU / 6;
+    // сдвиг: вершина-звезда в середине экрана (+ течение — узор плывёт в одну сторону без конца)
+    var a = tri.a, sh = [-tri.V[0][0] - m.dx * a, -tri.V[0][1] - m.dy * a];
+    sh[0] = sh[0] % (3 * a); sh[1] = sh[1] % (S3 * a);
+    bg();
+    if (m.tun >= 0) {
+      // тоннель: узор растёт из середины от 1 до 2 раз; поверх проявляется он же вдвое меньше — на 2 подмена незаметна
+      var f = m.tun, sm = f * f * (3 - 2 * f);
+      triFill(Math.pow(2, f), 1, rot, sh);
+      triFill(Math.pow(2, f - 1), sm, rot, sh);
+    } else triFill(m.z, 1, rot, sh);
+    vign();
+  }
+  function vign() {
+    var R = Math.sqrt(W * W + H * H) / 2; g.setTransform(1, 0, 0, 1, W / 2, H / 2);
+    var v = g.createRadialGradient(0, 0, R * .55, 0, 0, R); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.18)');
+    g.fillStyle = v; g.fillRect(-W, -H, 2 * W, 2 * H); g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  /* ---------- Кадр ---------- */
+  var fr = 0, ft = 0;
+  function loop(now) {
+    requestAnimationFrame(loop);
+    var dt = last ? Math.min(.1, (now - last) / 1000) : 0; last = now;
+    if (!pic) return;
+    t += dt; ang += KSPIN * P.speed / 100 * dt;
+    if (P.mode === 'tri') triangle(); else circle(motion());
+    fr++; ft += dt; if (ft > 1) { $('fps').textContent = Math.round(fr / ft) + ' кадров в секунду'; fr = 0; ft = 0; }
+  }
+
+  /* ---------- Панель ---------- */
+  var NOTES = {
+    none: 'Как сейчас: картинка только поворачивается вокруг оси.',
+    breath: 'Узор медленно выходит из середины к краю и возвращается — как вдох и выдох.',
+    flow: 'Треугольник: узор плывёт в одну сторону без конца. Круг: картинка съезжает и возвращается.',
+    tunnel: 'Узор всё время рождается в середине и уходит за край, без возврата. Проба для калейдоскопа-медитации.'
+  };
+  function seg(id, key, num) {
+    var box = $(id);
+    function show() { [].forEach.call(box.children, function (b) { b.setAttribute('aria-pressed', String(String(P[key]) === b.dataset.v)); }); }
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      P[key] = num ? +b.dataset.v : b.dataset.v; show(); ui(); keep();
+    });
+    show();
+    return show;
+  }
+  var UNIT = { zoom: ' %', pic: ' %', spin: ' %', speed: ' %', amp: ' %', thin: ' %', aj: ' %', glow: ' %', photo: ' %', side: ' % экрана', per: ' с' };
+  var rngs = ['zoom', 'side', 'pic', 'spin', 'speed', 'amp', 'per', 'thin', 'aj', 'glow', 'photo'];
+  rngs.forEach(function (id) {
+    var r = $(id);
+    r.value = P[id];
+    r.addEventListener('input', function () { P[id] = +r.value; ui(); keep(); });
+  });
+  var shows = [seg('mode', 'mode'), seg('n', 'n', true), seg('move', 'move'), seg('fil', 'fil'), seg('fc', 'fc')];
+  function ui() {
+    rngs.forEach(function (id) { $(id).value = P[id]; $(id + 'O').textContent = P[id] + UNIT[id]; });
+    $('circleBox').hidden = P.mode !== 'circle'; $('triBox').hidden = P.mode !== 'tri';
+    $('ampBox').hidden = P.move === 'none' || P.move === 'tunnel' || (P.move === 'flow' && P.mode === 'tri');
+    $('moveNote').textContent = NOTES[P.move];
+    var off = P.fil === 'off';
+    ['fc', 'thin', 'aj', 'glow', 'photo'].forEach(function (id) { var el = $(id); (el.closest('div.seg') || el.parentNode).style.opacity = off ? .4 : 1; });
+  }
+  $('small').addEventListener('click', function () {
+    small = !small; this.setAttribute('aria-pressed', String(small)); cv.classList.toggle('small', small); size();
+  });
+  $('reset').addEventListener('click', function () { for (var k2 in DEF) P[k2] = DEF[k2]; shows.forEach(function (f) { f(); }); ui(); keep(); });
+  $('hide').addEventListener('click', function () { $('panel').hidden = true; $('open').hidden = false; });
+  $('open').addEventListener('click', function () { $('panel').hidden = false; $('open').hidden = true; });
+  $('ownFile').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var rd = new FileReader(); rd.onload = function () {
+      var im = new Image(); im.onload = function () { own = im; $('ownBtn').hidden = false; P.fil = 'own'; shows[3](); ui(); }; im.src = rd.result;
+    }; rd.readAsDataURL(f);
+  });
+  $('file').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var rd = new FileReader(); rd.onload = function () { setImage(rd.result); }; rd.readAsDataURL(f);
+  });
+
+  size(); ui(); setImage(IMG_SRC); requestAnimationFrame(loop);
+})();
+</script>
