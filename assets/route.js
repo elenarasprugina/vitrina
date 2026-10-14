@@ -707,7 +707,8 @@
      { bg: '' как задумано (тёплый коричневый) | 'color' | 'glass' | 'texture'; c1, c2 — цвет сверху и снизу (c2 пусто — один цвет);
        glass — прозрачность стекла, % (0…90, по умолчанию 45), blur — размытие, px (0…30, 14); texture — картинка (у дня своя: day.cardTexture), dim — приглушить цветом c1, % (0…90, 35);
        melt — картинка дня тает в фон карты, meltDepth — насколько глубоко, % высоты картинки (20…90, 55);
-       text: '' сам по фону | 'light' | 'dark'; rim: '' золотая каёмка и свечение | 'own' (rimColor) | 'none'; scene — затемнение сцены за картой, % (0…95; не задано — как задумано) } */
+       text: '' сам по фону | 'light' | 'dark'; rim: '' золотая каёмка и свечение | 'own' (rimColor) | 'none'; scene — затемнение сцены за картой, % (0…95; не задано — как задумано);
+       back: '' за картой сцена | 'day' — картинка дня во весь экран, размытая (её решение 14.10; нет картинки у дня — сцена), backBlur — размытие, px (0…60, 24) } */
   function lumOf(c) { return (.2126 * c[0] + .7152 * c[1] + .0722 * c[2]) / 255; }
   function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
   function inkAcc(c) { var k = 1; while (k > .2 && lumOf(c.map(function (v) { return v * k; })) > .32) k -= .05; return c.map(function (v) { return Math.round(v * k); }); }
@@ -766,8 +767,15 @@
       root.style.setProperty('--ys-melt', (numIn(L.meltDepth, 55, 20, 90) / 100).toFixed(2));
     }
     // Сцена за картой (спираль, двери): насколько затемнить; у стекла по умолчанию светлее, чтобы сцена просвечивала
-    var sc = L.scene != null && L.scene !== '' ? numIn(L.scene, 80, 0, 95) : bg === 'glass' ? 35 : null;
+    var back = L.back === 'day' && day.image;
+    var sc = L.scene != null && L.scene !== '' ? numIn(L.scene, 80, 0, 95) : bg === 'glass' ? 35 : back ? 30 : null;
     if (sc != null) root.setAttribute('data-scene', (sc / 100).toFixed(2));
+    // За картой — картинка дня, размытая (на телефоне — её кадр для телефона)
+    if (back) {
+      root.setAttribute('data-back', imgSrc(base, day.image));
+      if (day.imagePhone) root.setAttribute('data-back-m', imgSrc(base, day.imagePhone));
+      root.setAttribute('data-back-blur', numIn(L.backBlur, 24, 0, 60));
+    }
   }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
@@ -1540,6 +1548,8 @@
     // Карта со своим оформлением: сцена за ней затемнена, как задано в панели (и на телефоне — сквозь стекло видна)
     var sc = node.getAttribute && node.getAttribute('data-scene');
     if (sc) ov.style.background = 'rgba(5,3,1,' + sc + ')';
+    var bk = node.getAttribute && node.getAttribute('data-back');
+    if (bk) ov.appendChild(backNode(node, sc));
     ov.appendChild(node);
     ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);
@@ -1547,6 +1557,17 @@
     slideCalm(750);
     requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('is-in'); }); });
     return ov;
+  }
+  // Фон за картой — картинка дня во весь экран, размытая и затемнённая (cardLook.back = 'day'); края размытия уходят за экран
+  function backNode(node, sc) {
+    var src = node.getAttribute('data-back'), m = node.getAttribute('data-back-m'), bl = +node.getAttribute('data-back-blur') || 0;
+    if (m && window.matchMedia && matchMedia('(max-width:560px)').matches) src = m;
+    var b = el('div', 'ys-cbk'), d = el('div', 'ys-cbk-dim');
+    b.style.backgroundImage = 'url("' + src + '")';
+    if (bl) { b.style.filter = 'blur(' + bl + 'px)'; b.style.inset = (-bl * 2) + 'px'; }
+    d.style.background = 'rgba(5,3,1,' + (sc || 0) + ')';
+    var w = el('div', 'ys-cbk-w'); w.appendChild(b); w.appendChild(d);
+    return w;
   }
   // Пока карта выезжает — всё остальное замирает (растения, дыхание камня, точки кнопки), чтобы не было рывков
   function slideCalm(ms) {

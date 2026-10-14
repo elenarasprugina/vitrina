@@ -2858,7 +2858,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261014b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261014c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3250,8 +3250,11 @@
       selectIn(L, 'rim', 'Каёмка и свечение вокруг карты', [['', 'Как задумано — золотые'], ['own', 'Свой цвет'], ['none', 'Без каёмки и свечения']], { def: '', onChange: again,
         hint: 'Свой цвет красит и мелкие подписи, линии на карте. На телефоне карта во весь экран — свечения там не видно.' }));
     if (L.rim === 'own') out.push(colorOptIn(L, 'rimColor', 'Цвет каёмки', { base: '#ffd68c', none: 'золотой' }));
-    out.push(rangeIn(L, 'scene', 'Затемнение сцены за картой', { def: L.bg === 'glass' ? 35 : 80, min: 0, max: 95, unit: ' %',
-      hint: 'Спираль или двери вокруг карты. Не трогали — как задумано' + (L.bg === 'glass' ? ' (у стекла — 35 %)' : '') + '. На телефоне карта во весь экран — сцену видно только сквозь стекло.' }));
+    out.push(selectIn(L, 'back', 'Что за картой', [['', 'Сцена маршрута — спираль или двери'], ['day', 'Картинка дня — во весь экран, размытая']], { def: '', onChange: again,
+      hint: 'Картинка дня — своя у каждого дня (вкладка «13 дней»). У дня без картинки за картой остаётся сцена.' }));
+    if (L.back === 'day') out.push(rangeIn(L, 'backBlur', 'Размытие картинки за картой', { def: 24, min: 0, max: 60, unit: ' px', hint: '0 — чёткая, 60 — мягкий цветной туман.' }));
+    out.push(rangeIn(L, 'scene', L.back === 'day' ? 'Затемнение фона за картой' : 'Затемнение сцены за картой', { def: L.bg === 'glass' ? 35 : L.back === 'day' ? 30 : 80, min: 0, max: 95, unit: ' %',
+      hint: (L.back === 'day' ? 'Картинка дня вокруг карты' : 'Спираль или двери вокруг карты') + '. Не трогали — как задумано' + (L.bg === 'glass' ? ' (у стекла — 35 %)' : L.back === 'day' ? ' (30 %)' : '') + '. На телефоне карта во весь экран — фон видно только сквозь стекло.' }));
     if (others.length) out.push(el('div', { class: 'a-row a-row--end' }, [field('Взять оформление из маршрута', from),
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять', onclick: function () {
         var src = others[+from.value]; if (!src) return;
@@ -3300,9 +3303,13 @@
       // Под картой — основная сцена маршрута (двери или своя картинка-фон), затемнённая, как на странице: видно, что просвечивает сквозь стекло (её просьба 14.10)
       var D = r.doors || {}, pic = r.scene === 'doors' ? D.desktop || D.mobile : r.masterDesktop || r.masterMobile;
       var sc = c.getAttribute('data-scene'), dim = sc != null && sc !== '' ? +sc : .7;
-      box.classList.toggle('ys-pv--scene', !!pic);
-      box.style.background = pic ? 'linear-gradient(rgba(5,3,1,' + dim + '),rgba(5,3,1,' + dim + ')),url("' + imgSrc(pic) + '") center/cover #0d0804' : '';
-      box.replaceChildren(c);
+      // «Что за картой» — картинка дня, размытая
+      var bk = c.getAttribute('data-back'), bl = +c.getAttribute('data-back-blur') || 0;
+      box.classList.toggle('ys-pv--scene', !!(pic || bk));
+      box.style.background = pic && !bk ? 'linear-gradient(rgba(5,3,1,' + dim + '),rgba(5,3,1,' + dim + ')),url("' + imgSrc(pic) + '") center/cover #0d0804' : '';
+      box.replaceChildren(bk ? el('div', { class: 'ys-pv-back' }, [
+        el('div', { class: 'ys-cbk', style: 'background-image:url("' + bk + '");' + (bl ? 'filter:blur(' + bl + 'px);inset:' + (-bl * 2) + 'px' : '') }),
+        el('div', { class: 'ys-cbk-dim', style: 'background:rgba(5,3,1,' + dim + ')' })]) : null, c);
     }
     function sel(opts, key) {
       var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
