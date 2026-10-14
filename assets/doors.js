@@ -1107,6 +1107,7 @@
     if (mt == null || !isFinite(mt)) mt = t || 0;
     // Туманность: кадр рисуется заново, только когда облака дышат; филигрань — только от картинки дня (mix)
     var NB = im._neb, nb = !!NB, im0 = nb ? NB.photo : im, cl = nb ? nebCl(NB.N, t, NEB_S) : null, KO = khOf(im, k, n);
+    var nph = nb && NB.photo && cl.on && NB.L.op ? kalPrep(NB.photo, k) : null, nmx = nph ? nebV(NB.N, 'mix', 0, 100) / 100 : 0;
     if (nb) im = cl.on ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null, true) : kalPic(im, k); else im = kalPrep(im, k);
     var MV = kalMove(k, mt, tri), fA = k.move === 'flow' && !tri ? num(k.amp, 25, 5, 60) / 100 * .25 : 0;
     // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
@@ -1132,7 +1133,7 @@
       x.save(); x.rotate(ang);
       if (tIn !== 'fig') {
         if (fp > 0) { x.globalAlpha = ga * fp; x.drawImage(im, X, Y, sw * sc, sh * sc); x.globalAlpha = ga; }
-        if (cl && cl.on) nebClouds(x, NB.L, cl, X, Y, sw * sc, sw);
+        if (cl && cl.on) nebClouds(x, NB.L, cl, X, Y, sw * sc, sw, nph, nmx);
         if (fl && tIn !== 'fig') { x.globalAlpha = ga * fa; x.drawImage(fl, X, Y, sw * sc, sh * sc); x.globalAlpha = ga; }
       }
       if (TF) {
@@ -1277,16 +1278,202 @@
   function nebV(N, k, lo, hi) { return num(N[k], NEB_DEF[k], lo, hi); }
   function nebPal(N) {
     var p = NEB_PAL[(+N.pal || 13) - 1] || NEB_PAL[12], c = Array.isArray(N.c) && N.c.length === 6 ? N.c.map(function (x, i) { return hexOk(x) ? x : p.c[i]; }) : p.c;
-    return { c: c, c0: hexOk(N.c0) ? N.c0 : p.c0, c1: hexOk(N.c1) ? N.c1 : p.c1, lc: hexOk(N.lc) ? N.lc : p.lc };
+    var b = NEB_LITE[nebKind(N)] ? nebLite(p) : p;
+    return { c: c, c0: hexOk(N.c0) ? N.c0 : b.c0, c1: hexOk(N.c1) ? N.c1 : b.c1, lc: hexOk(N.lc) ? N.lc : p.lc };
   }
   function nebRng(s) { s = s >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
   function hexRgb(h) { h = String(h).replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+  /* ---------- Виды туманности (14.10, её решение): N.kind — '' ночное небо (как было) | 'bokeh' огоньки | 'aurora' северное сияние | 'water' свет под водой
+     | 'pearl' рассвет, перламутр и 'marble' акварель, мраморные разводы (светлые) | 'glass' витраж, самоцветы (чёткие цветные осколки с гранями).
+     Каждый вид — слои A и B (тот же узор, цвета или фаза сдвинуты: при дыхании B проступает сквозь A) и слой линий и звёзд tp.
+     Светлые и витраж — непрозрачные (L.op): кладутся поверх основы, картинка дня (mix) и линии — поверх них. Ползунки: «сколько» — плотность, «размер» — крупность, «яркость» — сила цвета. ---------- */
+  var NEB_KINDS = [['', 'ночное небо'], ['bokeh', 'огоньки'], ['aurora', 'северное сияние'], ['water', 'свет под водой'], ['pearl', 'рассвет, перламутр (светлая)'], ['marble', 'акварель, мраморные разводы (светлая)'], ['glass', 'витраж, самоцветы']];
+  var NEB_LITE = { pearl: 1, marble: 1 }, NEB_OP = { pearl: 1, marble: 1, glass: 1 };
+  // Что поставить при выборе вида (панель; дальше она правит сама)
+  var NEB_KDEF = { '': { lines: 70, stars: 500, breath: 40 }, bokeh: { lines: 0, stars: 250, breath: 60 }, aurora: { lines: 0, stars: 600, breath: 60 }, water: { lines: 0, stars: 0, breath: 70 },
+    pearl: { lines: 0, stars: 0, breath: 50 }, marble: { lines: 0, stars: 0, breath: 50 }, glass: { lines: 0, stars: 0, breath: 40 } };
+  function nebKind(N) { var k = N && N.kind; return k && NEB_KDEF[k] && k !== '' ? k : ''; }
+  function mixC(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function rgbHex(c) { return '#' + c.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }).join(''); }
+  // Светлая основа для набора цветов: середина — цвет линий почти белый, край — третий цвет облаков, высветленный
+  function nebLite(p) { var w = [255, 255, 255]; return { c0: rgbHex(mixC(hexRgb(p.lc), w, .72)), c1: rgbHex(mixC(hexRgb(p.c[2]), w, .5)) }; }
+  // Гладкий шум (значения в узлах сетки, плавно между ними) и его «слоёная» версия fbm — для разводов, перламутра, лучей сияния
+  function nebNoise(R) {
+    var P = new Uint8Array(512), V = new Float32Array(256), i, j, t;
+    for (i = 0; i < 256; i++) { P[i] = i; V[i] = R(); }
+    for (i = 255; i > 0; i--) { j = Math.floor(R() * (i + 1)); t = P[i]; P[i] = P[j]; P[j] = t; }
+    for (i = 0; i < 256; i++) P[i + 256] = P[i];
+    function n(x, y) {
+      var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, a, b, c, d, u, v;
+      xi &= 255; yi &= 255;
+      a = V[P[P[xi] + yi]]; b = V[P[P[xi + 1] + yi]]; c = V[P[P[xi] + yi + 1]]; d = V[P[P[xi + 1] + yi + 1]];
+      u = xf * xf * (3 - 2 * xf); v = yf * yf * (3 - 2 * yf);
+      return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+    }
+    n.fbm = function (x, y, o) { var s = 0, w = .5, k, z = 0; for (k = 0; k < o; k++) { s += w * n(x, y); z += w; x = x * 2.03 + 17.1; y = y * 2.03 + 31.7; w *= .5; } return s / z; };
+    return n;
+  }
+  // Холст Z×Z, каждая точка — fn(u, v, o): u, v — точки пробы от середины кадра (−E/2…E/2), o — [r, g, b]
+  function nebPix(Z, E, fn) {
+    var cv = document.createElement('canvas'), g, im, d, x, y, i = 0, o = [0, 0, 0], f = E / Z;
+    cv.width = cv.height = Z; g = cv.getContext('2d'); im = g.createImageData(Z, Z); d = im.data;
+    for (y = 0; y < Z; y++) for (x = 0; x < Z; x++, i += 4) { o[0] = o[1] = o[2] = 0; fn((x + .5) * f - E / 2, (y + .5) * f - E / 2, o); d[i] = o[0]; d[i + 1] = o[1]; d[i + 2] = o[2]; d[i + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    return cv;
+  }
+  function sstep(a, b, x) { x = Math.max(0, Math.min(1, (x - a) / (b - a))); return x * x * (3 - 2 * x); }
+  // Цвет из шести по дробному номеру (по кругу, мягко между соседними)
+  function palAt(cs, f) { f = ((f % 6) + 6) % 6; var i = Math.floor(f), t = sstep(0, 1, f - i); return mixC(cs[i], cs[(i + 1) % 6], t); }
+  function nebKindBuild(N, P, kd, seed) {
+    var E = 1485 * NEB_X, R = nebRng(seed * 7 + 101), nz = nebNoise(R), cs = P.c.map(hexRgb), W = [255, 255, 255];
+    var sz = nebV(N, 'size', 50, 200) / 100, gl = nebV(N, 'glow', 30, 200) / 100, cn = nebV(N, 'clouds', 20, 200) / 100, A, B, Z, i;
+    function cv(z) { var c = document.createElement('canvas'); c.width = c.height = z; return c; }
+    if (kd === 'bokeh') {
+      // Огоньки: круглые пятна света не в фокусе — край чуть ярче, свет складывается; в B те же огоньки другим цветом и другой яркостью (мерцают)
+      Z = 1200; A = cv(Z); B = cv(Z);
+      var ga = A.getContext('2d'), gb = B.getContext('2d'), fz = Z / E, n = Math.round(1100 * cn);
+      ga.globalCompositeOperation = gb.globalCompositeOperation = 'lighter';
+      for (i = 0; i < n; i++) {
+        var x = R() * Z, y = R() * Z, r = Math.max(1.5, (8 + R() * R() * 90) * sz * fz), j = Math.floor(R() * 6), a1 = Math.min(1, (.08 + R() * .32) * gl), a2 = Math.min(1, (.03 + R() * .37) * gl);
+        [[ga, cs[j], a1], [gb, cs[(j + 1) % 6], a2]].forEach(function (q) {
+          var g = q[0].createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, rgbA(q[1].map(Math.round), q[2] * .45)); g.addColorStop(.72, rgbA(q[1].map(Math.round), q[2] * .6));
+          g.addColorStop(.92, rgbA(q[1].map(Math.round), q[2])); g.addColorStop(1, rgbA(q[1].map(Math.round), 0));
+          q[0].fillStyle = g; q[0].beginPath(); q[0].arc(x, y, r, 0, 6.2832); q[0].fill();
+        });
+      }
+    } else if (kd === 'aurora') {
+      // Северное сияние: полосы-занавесы — яркий нижний край, свет тает вверх, по ним тонкие лучи; в B полосы чуть сдвинуты волной (колышутся)
+      var rb = [], nr = Math.max(2, Math.round(6 * cn));
+      for (i = 0; i < nr; i++) {
+        var j2 = Math.floor(R() * 6), th = R() * Math.PI;
+        rb.push({ cs: Math.cos(th), sn: Math.sin(th), t0: (R() - .5) * E * .5, a1: (40 + R() * 140) * sz, f1: 6.2832 / ((300 + R() * 600) * sz), p1: R() * 6.28,
+          a2: (10 + R() * 40) * sz, f2: 6.2832 / ((120 + R() * 200) * sz), p2: R() * 6.28, w: (60 + R() * 120) * sz, c1: cs[j2], c2: cs[(j2 + 2) % 6], br: (.55 + R() * .5) * gl, ns: R() * 200 });
+      }
+      var au = function (sh) {
+        return function (u, v, o) {
+          for (var k = 0; k < nr; k++) {
+            var q = rb[k], s = u * q.cs + v * q.sn, t = -u * q.sn + v * q.cs, d = t - (q.t0 + q.a1 * Math.sin(s * q.f1 + q.p1 + sh * .9) + q.a2 * Math.sin(s * q.f2 + q.p2 + sh * 1.7));
+            if (d < -q.w * .4 || d > q.w * 2.5) continue;
+            var I = d < 0 ? Math.exp(-(d * d) / (q.w * q.w * .012)) : Math.exp(-d / (q.w * .55)), st = nz(s / (16 * sz) + q.ns + sh * 2.5, q.ns), m = Math.min(1, Math.max(0, d) / q.w), c = mixC(q.c1, q.c2, m);
+            I *= (.3 + .7 * st * st) * q.br * 255 / 200;
+            o[0] += c[0] * I; o[1] += c[1] * I; o[2] += c[2] * I;
+          }
+        };
+      };
+      A = nebPix(560, E, au(0)); B = nebPix(560, E, au(1));
+    } else if (kd === 'water') {
+      // Свет под водой: сеть бликов, как на дне бассейна в солнечный день (каустика); цвет сети плавно меняется по шести цветам; в B — та же вода мигом позже
+      var cl = 400 * sz, wx = R(), wy = R(), pw = 10 / Math.max(.4, cn), T0 = 7 + R() * 20, tc = 520 * sz;
+      var wa = function (sh) {
+        return function (u, v, o) {
+          var px = ((u / cl + wx) % 1 + 1) % 1 * 6.2832 - 250, py = ((v / cl + wy) % 1 + 1) % 1 * 6.2832 - 250, ix = px, iy = py, c = 1, n2, t, jx;
+          for (n2 = 0; n2 < 5; n2++) {
+            t = (T0 + sh * .9) * (1 - 3.5 / (n2 + 1));
+            jx = px + Math.cos(t - ix) + Math.sin(t + iy); iy = py + Math.sin(t - iy) + Math.cos(t + ix); ix = jx;
+            c += 1 / Math.sqrt(Math.pow(px / (Math.sin(ix + t) / .005), 2) + Math.pow(py / (Math.cos(iy + t) / .005), 2));
+          }
+          c = 1.17 - Math.pow(c / 5, 1.4); c = Math.pow(Math.abs(c), pw);
+          var col = palAt(cs, nz.fbm(u / tc + 50, v / tc + 50, 2) * 9 + sh * .5), k1 = c * 2.4 * gl, k2 = .08 * gl, wh = Math.max(0, c - .4) * 1.6 * gl * 255;
+          o[0] = col[0] * (k1 + k2) + wh; o[1] = col[1] * (k1 + k2) + wh; o[2] = col[2] * (k1 + k2) + wh;
+        };
+      };
+      A = nebPix(720, E, wa(0)); B = nebPix(720, E, wa(1));
+    } else if (kd === 'pearl') {
+      // Рассвет, перламутр: светлая основа, нежные пятна высветленных цветов и переливы, как внутри ракушки; в B переливы сдвинуты
+      var pc = cs.map(function (c) { return mixC(c, W, .4); }), pb = hexRgb(P.c0), ps = 520 * sz, st2 = Math.min(1, .8 * gl);
+      var pe = function (sh) {
+        return function (u, v, o) {
+          var q = u / ps, w = v / ps, a = nz.fbm(q + sh * .35, w, 4), b = nz.fbm(q * 1.3 + 5.2, w * 1.3 + 1.3 - sh * .3, 4), z = (a * 9 + b * 5) * cn;
+          var c = mixC(pb, palAt(pc, (a * 2.2 + b) * 4), st2), h = Math.pow(.5 + .5 * Math.sin(z + sh * 1.2), 10), ir = Math.pow(.5 + .5 * Math.sin(z * 2 + 2), 3);
+          c = mixC(c, palAt(pc, (a * 2.2 + b) * 4 + 3), .4 * ir); c = mixC(c, W, .7 * h);
+          o[0] = c[0]; o[1] = c[1]; o[2] = c[2];
+        };
+      };
+      A = nebPix(512, E, pe(0)); B = nebPix(512, E, pe(1));
+    } else if (kd === 'marble') {
+      // Акварель, мраморные разводы: краска на воде закручивается полосами (через полосу — светлая основа, «бумага»), между полосами тонкая жилка; в B краска чуть утекла
+      var paper = hexRgb(P.c0), K = Math.round(4 + 8 * cn), ms = 520 * sz, mk = Math.min(1, .5 + .45 * gl), sq = [];
+      for (i = 0; i < 6; i++) { sq.push(mixC(paper, mixC(cs[i], W, .12), mk)); if (i % 2) sq.push(paper); }
+      var ma = function (sh) {
+        return function (u, v, o) {
+          var q = u / ms + 20, w = v / ms + 20, qx = nz.fbm(q, w, 4), qy = nz.fbm(q + 5.2, w + 1.3, 4), rr = nz.fbm(q + 4 * qx + sh * .25, w + 4 * qy - sh * .15, 4);
+          var vv = rr * K * 2, id = Math.floor(vv), f = vv - id, c = sq[((id % sq.length) + sq.length) % sq.length], e = sstep(0, .07, f) * (1 - sstep(.93, 1, f));
+          c = mixC(mixC(c, [40, 30, 40], .45), c, e); var tx = .93 + .14 * nz(q * 9, w * 9);
+          o[0] = c[0] * tx; o[1] = c[1] * tx; o[2] = c[2] * tx;
+        };
+      };
+      A = nebPix(640, E, ma(0)); B = nebPix(640, E, ma(1));
+    } else {
+      // Витраж, самоцветы: квадрат кадра режется прямыми на осколки (каждый раз — самый большой, через его середину); у осколка грани от внутренней точки —
+      // свет с одной стороны, свинцовая щель между осколками и тонкий блик по краю. Чётко: холст 2048 точек. В B — те же осколки, цвета сдвинуты на один
+      Z = 2048; A = cv(Z); B = cv(Z);
+      var nG = Math.min(900, Math.round(240 * cn / (sz * sz))), pl = [[[0, 0], [Z, 0], [Z, Z], [0, Z]]], ar = [Z * Z];
+      var area = function (p) { var s = 0, k, m = p.length; for (k = 0; k < m; k++) s += p[k][0] * p[(k + 1) % m][1] - p[(k + 1) % m][0] * p[k][1]; return Math.abs(s) / 2; };
+      var cen = function (p) { var x = 0, y = 0; p.forEach(function (q) { x += q[0]; y += q[1]; }); return [x / p.length, y / p.length]; };
+      while (pl.length < nG) {
+        var mi = 0, k3;
+        for (k3 = 1; k3 < ar.length; k3++) if (ar[k3] > ar[mi]) mi = k3;
+        var p0 = pl[mi], c0 = cen(p0), rr2 = Math.sqrt(ar[mi]) * .25, cx = c0[0] + (R() - .5) * rr2, cy = c0[1] + (R() - .5) * rr2, an = R() * Math.PI, nx = Math.cos(an), ny = Math.sin(an), PA = [], PB = [];
+        for (k3 = 0; k3 < p0.length; k3++) {
+          var a0 = p0[k3], b0 = p0[(k3 + 1) % p0.length], da = (a0[0] - cx) * nx + (a0[1] - cy) * ny, db = (b0[0] - cx) * nx + (b0[1] - cy) * ny;
+          if (da >= 0) PA.push(a0); if (da <= 0) PB.push(a0);
+          if ((da > 0 && db < 0) || (da < 0 && db > 0)) { var t2 = da / (da - db), mm = [a0[0] + (b0[0] - a0[0]) * t2, a0[1] + (b0[1] - a0[1]) * t2]; PA.push(mm); PB.push(mm); }
+        }
+        if (PA.length < 3 || PB.length < 3) { ar[mi] = 0; continue; }
+        pl[mi] = PA; ar[mi] = area(PA); pl.push(PB); ar.push(area(PB));
+      }
+      var la = R() * 6.2832, lead = rgbA(hexRgb(P.c1), 1), lw2 = 3.2 * sz, sh2 = pl.map(function (p) {
+        var c = cen(p), r = Math.sqrt(area(p)) * .3;
+        return { p: p, c: c, ip: [c[0] + (R() - .5) * r, c[1] + (R() - .5) * r], j: Math.floor(R() * 6), fr: p.map(function () { return R(); }) };
+      });
+      [[A, 0], [B, 1]].forEach(function (L) {
+        var g = L[0].getContext('2d');
+        g.fillStyle = lead; g.fillRect(0, 0, Z, Z); g.lineJoin = 'round';
+        sh2.forEach(function (s) {
+          var col = cs[(s.j + L[1]) % 6], p = s.p, m = p.length, k, a, b, md, f, gr, c1, c2;
+          for (k = 0; k < m; k++) {
+            a = p[k]; b = p[(k + 1) % m]; md = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            f = (.72 + .42 * Math.cos(Math.atan2(md[1] - s.ip[1], md[0] - s.ip[0]) - la - L[1] * .7) + (s.fr[k] - .5) * .2) * Math.min(1.35, .75 + .25 * gl);
+            c1 = mixC(col.map(function (v) { return v * f; }), W, .18 * f); c2 = col.map(function (v) { return v * f * .78; });
+            gr = g.createLinearGradient(s.ip[0], s.ip[1], md[0], md[1]); gr.addColorStop(0, rgbHex(c1)); gr.addColorStop(1, rgbHex(c2));
+            g.fillStyle = g.strokeStyle = gr; g.lineWidth = 1;
+            g.beginPath(); g.moveTo(s.ip[0], s.ip[1]); g.lineTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.closePath(); g.fill(); g.stroke();
+          }
+          g.strokeStyle = lead; g.lineWidth = lw2; g.beginPath(); g.moveTo(p[0][0], p[0][1]);
+          for (k = 1; k < m; k++) g.lineTo(p[k][0], p[k][1]);
+          g.closePath(); g.stroke();
+          var ins = p.map(function (q) { var dx = q[0] - s.c[0], dy = q[1] - s.c[1], d = Math.sqrt(dx * dx + dy * dy) || 1, k2 = Math.max(0, 1 - (lw2 + 2.5) / d); return [s.c[0] + dx * k2, s.c[1] + dy * k2]; });
+          g.strokeStyle = 'rgba(255,255,255,' + Math.min(.5, .22 * gl).toFixed(2) + ')'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(ins[0][0], ins[0][1]);
+          for (k = 1; k < m; k++) g.lineTo(ins[k][0], ins[k][1]);
+          g.closePath(); g.stroke();
+        });
+      });
+    }
+    return { A: A, B: B };
+  }
+  // Линии и звёзды для новых видов — как у ночного неба, но по всему кадру сразу
+  function nebTp(N, P, seed) {
+    var S = NEB_S, E = 1485 * NEB_X, fs = S / E, R = nebRng(seed * 13 + 7), tp = document.createElement('canvas'), gt, i, X, Y, d;
+    tp.width = tp.height = S; gt = tp.getContext('2d'); gt.lineCap = 'round';
+    var lc = hexRgb(P.lc), la = nebV(N, 'la', 0, 200) / 100, lw = nebV(N, 'lw', 50, 250) / 100, ln = Math.round(nebV(N, 'lines', 0, 150) * NEB_X * NEB_X), sn = Math.round(nebV(N, 'stars', 0, 1500) * NEB_X * NEB_X);
+    for (i = 0; i < ln; i++) {
+      gt.strokeStyle = rgbA(lc, Math.min(1, (.12 + R() * .3) * la)); gt.lineWidth = (.6 + R() * 1.6) * lw * fs;
+      X = R() * S; Y = R() * S; d = 500 * fs;
+      gt.beginPath(); gt.moveTo(X, Y);
+      gt.bezierCurveTo(X + (R() - .5) * d, Y + (R() - .5) * d, X + (R() - .5) * d, Y + (R() - .5) * d, X + (R() - .5) * d * 1.2, Y + (R() - .5) * d * 1.2); gt.stroke();
+    }
+    for (i = 0; i < sn; i++) { gt.fillStyle = 'rgba(255,240,220,' + (.2 + R() * .7).toFixed(2) + ')'; gt.beginPath(); gt.arc(R() * S, R() * S, (.5 + R() * 1.8) * fs, 0, 6.2832); gt.fill(); }
+    return tp;
+  }
   // Облака (два слоя: те же места, цвета сдвинуты на один — для «переливания»), линии и звёзды; один раз на набор настроек
   function nebBuild(N) {
-    var key = JSON.stringify([N.c, N.c0, N.c1, N.lc, N.pal, N.clouds, N.size, N.glow, N.lines, N.lw, N.la, N.stars, N.seed]);
+    var kd = nebKind(N), key = JSON.stringify([kd, N.c, N.c0, N.c1, N.lc, N.pal, N.clouds, N.size, N.glow, N.lines, N.lw, N.la, N.stars, N.seed]);
     if (nebCache[key]) return nebCache[key];
     if (++nebN > 4) { nebCache = {}; nebN = 1; }
-    var P = nebPal(N), seed = Math.round(+N.seed || NEB_DEF.seed), S = NEB_S, C = NEB_C, E = 1485 * NEB_X, o = (E - 1485) / 2, fc = C / E, fs = S / E, R = nebRng(seed);
+    var P = nebPal(N), seed = Math.round(+N.seed || NEB_DEF.seed);
+    if (kd) { var KB = nebKindBuild(N, P, kd, seed); return (nebCache[key] = { ca: KB.A, cb: KB.B, tp: nebTp(N, P, seed), c0: P.c0, c1: P.c1, op: !!NEB_OP[kd], lite: !!NEB_LITE[kd], fr: null, fk: '' }); }
+    var S = NEB_S, C = NEB_C, E = 1485 * NEB_X, o = (E - 1485) / 2, fc = C / E, fs = S / E, R = nebRng(seed);
     var cs = P.c.map(hexRgb), ca = document.createElement('canvas'), cb = document.createElement('canvas'), tp = document.createElement('canvas');
     ca.width = ca.height = cb.width = cb.height = C; tp.width = tp.height = S;
     var ga = ca.getContext('2d'), gb = cb.getContext('2d'), gt = tp.getContext('2d');
@@ -1330,8 +1517,17 @@
     return { m: b * (.5 - .5 * Math.cos(w)), k: 1 - .2 * b * (.5 + .5 * Math.sin(w * 1.7)), dx: Math.sin(w * .8) * S * .012 * b, dy: Math.cos(w * .6) * S * .012 * b, p: S * .02, on: true };
   }
   // Облака (оба слоя) в прямоугольник кадра X, Y, размер Z — складываются со светом под ними
-  function nebClouds(x, L, c, X, Y, Z, S) {
+  // Непрозрачные виды (L.op): A целиком, B проступает сквозь него на том же месте, сверху картинка дня (ph, сколько — mx) и линии со звёздами
+  function nebClouds(x, L, c, X, Y, Z, S, ph, mx) {
     var f = Z / S, ga = x.globalAlpha;
+    if (L.op) {
+      var q = c.p, w = (S + 2 * q) * f, X1 = X + (c.dx - q) * f, Y1 = Y + (c.dy - q) * f;
+      x.save(); x.drawImage(L.ca, X1, Y1, w, w);
+      if (c.m) { x.globalAlpha = ga * c.m; x.drawImage(L.cb, X1, Y1, w, w); }
+      if (ph && mx) { x.globalAlpha = ga * mx; x.drawImage(ph, X, Y, Z, Z); }
+      x.globalAlpha = ga; x.globalCompositeOperation = L.lite ? 'source-over' : 'lighter'; x.drawImage(L.tp, X, Y, Z, Z);
+      x.restore(); return;
+    }
     x.save(); x.globalCompositeOperation = 'lighter';
     x.globalAlpha = ga * (1 - c.m) * c.k; x.drawImage(L.ca, X + (c.dx - c.p) * f, Y + (c.dy - c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f);
     if (c.m) { x.globalAlpha = ga * c.m * c.k; x.drawImage(L.cb, X - (c.dx + c.p) * f, Y - (c.dy + c.p) * f, (S + 2 * c.p) * f, (S + 2 * c.p) * f); }
@@ -1348,9 +1544,12 @@
     x = cv.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
     g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2 / NEB_X); g.addColorStop(0, L.c0); g.addColorStop(1, L.c1);
     x.fillStyle = g; x.fillRect(0, 0, S, S);
-    if (ph) { x.globalAlpha = mx; x.drawImage(ph, 0, 0, S, S); x.globalAlpha = 1; }
-    if (!bare) nebClouds(x, L, nebCl(N, null, S), 0, 0, S, S);
-    x.globalCompositeOperation = 'lighter'; x.drawImage(L.tp, 0, 0); x.globalCompositeOperation = 'source-over';
+    if (L.op) { if (!bare) nebClouds(x, L, nebCl(N, null, S), 0, 0, S, S, ph, mx); }
+    else {
+      if (ph) { x.globalAlpha = mx; x.drawImage(ph, 0, 0, S, S); x.globalAlpha = 1; }
+      if (!bare) nebClouds(x, L, nebCl(N, null, S), 0, 0, S, S);
+      x.globalCompositeOperation = 'lighter'; x.drawImage(L.tp, 0, 0); x.globalCompositeOperation = 'source-over';
+    }
     F[key] = { cv: cv, ph: ph };
     return cv;
   }
@@ -2142,7 +2341,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalLive: kalLive, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF,
+    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalLive: kalLive, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF, NEB_KINDS: NEB_KINDS, NEB_KDEF: NEB_KDEF, NEB_LITE: NEB_LITE, nebLite: nebLite,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
