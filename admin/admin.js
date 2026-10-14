@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261013a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261014a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5030,7 +5030,26 @@
     for (i = 0; i < P.length; i++) if (t.indexOf(P[i].n.split(' ').slice(1).join(' ')) >= 0) return i + 1;
     return 13;
   }
-  function nebSet(N, i) { var p = window.M13D.NEB_PAL[i - 1]; N.pal = i; N.c = p.c.slice(); N.c0 = p.c0; N.c1 = p.c1; N.lc = p.lc; }
+  function nebSet(N, i) {
+    var M = window.M13D, p = M.NEB_PAL[i - 1], b = M.NEB_LITE[N.kind] ? M.nebLite(p) : p;
+    N.pal = i; N.c = p.c.slice(); N.c0 = b.c0; N.c1 = b.c1; N.lc = p.lc;
+  }
+  // Вид туманности (14.10): при выборе — подобранные линии, звёзды, дыхание; светлый вид — светлая основа, тёмный — тёмная (из набора цветов)
+  var NEB_KHINT = {
+    '': 'Тёмная основа, светящиеся облака, золотая филигрань и звёздная пыль.',
+    bokeh: 'Круглые огоньки не в фокусе, как гирлянда. «Сколько» — число огоньков, «размер» — их крупность. Дыхание — огоньки мерцают и меняют цвет.',
+    aurora: 'Светящиеся полосы-занавесы с тонкими лучами. «Сколько» — число полос, «размер» — их ширина и волна. Дыхание — полосы колышутся.',
+    water: 'Сеть бликов, как на дне бассейна в солнечный день. «Размер» — крупность ячеек, «сколько» — толщина бликов. Дыхание — вода переливается.',
+    pearl: 'Светлая: нежные цвета и переливы, как внутри ракушки. «Сколько» — сколько переливов, «яркость» — сила цвета. Светлому узору лучше «Тень к краям» 0–10 %.',
+    marble: 'Светлая: краска на воде закручивается полосами, через полосу — светлая основа. «Сколько» — число полос, «размер» — крупность завитков. Светлому узору лучше «Тень к краям» 0–10 %.',
+    glass: 'Чёткие цветные осколки с гранями и тёмной щелью между ними (цвет щели — «основа — край»). «Сколько» — число осколков, «размер» — их крупность. Дыхание — цвета перетекают из осколка в осколок.'
+  };
+  function nebKindSet(N, v) {
+    var M = window.M13D, d = M.NEB_KDEF[v] || M.NEB_KDEF[''], lt = !!M.NEB_LITE[v], c0 = String(N.c0 || '#000000'), was = parseInt(c0.slice(1, 3), 16) + parseInt(c0.slice(3, 5), 16) + parseInt(c0.slice(5, 7), 16) > 380, x;
+    if (v) N.kind = v; else delete N.kind;
+    for (x in d) N[x] = d[x];
+    if (lt !== was) { var p = M.NEB_PAL[(+N.pal || 13) - 1] || M.NEB_PAL[12], b = lt ? M.nebLite(p) : p; N.c0 = b.c0; N.c1 = b.c1; }
+  }
   function jdNeb(r, K, redraw) {
     var M = window.M13D, D = r.doors, sh = !!(D.neb && !K.nebOwn), N = sh ? D.neb : (K.neb = K.neb || {}), DEF = M.NEB_DEF, N0 = r.days.length;
     function upd() { changed(); redraw(); }
@@ -5065,6 +5084,8 @@
     ]));
     if (!on) return el('div', { class: 'a-neb' }, out);
     var P = M.NEB_PAL, pals = P.map(function (p, i) { return [String(i + 1), (i + 1) + ' · ' + p.n]; }).concat([['own', 'свои цвета']]);
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(N, 'kind', 'Вид туманности', M.NEB_KINDS, { def: '', onChange: function (v) { nebKindSet(N, v); changed(); renderMain(); }, hint: NEB_KHINT[N.kind || ''] })]));
     out.push(el('div', { class: 'a-row' }, [
       selectIn(N, 'pal', 'Набор цветов — по печатям', pals, { def: String(nebSeal(r)), onChange: function (v) { if (v !== 'own') nebSet(N, +v); upd(); renderMain(); },
         hint: 'Цвета облаков, основы и линий. Любой цвет ниже можно поменять — набор станет «свои цвета».' })]));
@@ -5241,13 +5262,12 @@
     var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '⏸ Остановить', onclick: function () { kRun = !kRun; kStop.textContent = kRun ? '⏸ Остановить' : '▶ Крутить'; } });
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
     var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
-    // Живой узор: у туманности — справа от её настроек (на компьютере не уезжает при прокрутке), у картинки — рядом с осью
     var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' })]);
     var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
       el('span', { class: 'a-label', text: 'Ось вращения — коснитесь картинки' }),
       el('div', { class: 'a-kal-two' }, [
         el('div', { class: 'a-kal-cell' }, [kpk, el('span', { class: 'a-hint', text: 'Точка — ось, в круге — то, что попадает в узор' })]),
-        kNb ? null : kPv]),
+        ]),
       el('div', { class: 'a-backup-btns' }, [kMid, kStop, el('button', { type: 'button', class: 'a-btn a-btn--small', text: '⛶ Во весь экран', title: 'Узор во весь экран — как у участника, со скоростью сайта. Закрыть — ✕ или Esc', onclick: kFull }),
         el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🎬 Записать видео', title: 'Видео узора 15 или 30 секунд, по кругу без шва — для Инсты и Телеграма', onclick: kVideo })]),
       el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
@@ -5268,12 +5288,9 @@
     }
     // Видео узора (13.10): 15 или 30 с, бесшовная петля — для Инсты и Телеграма
     function kVideo() { var E = M.kalOf(sp, r, n); if (!E) { toast('Сначала картинка или туманность'); return; } kalVideo(E, n); }
-    var kal = block('Калейдоскоп из картинки', [
-      switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
-        hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
-      // Хоровод — под туманностью, в той же колонке: живой узор справа виден, пока двигаете ползунки
-      K.on ? (kNb ? el('div', { class: 'a-neb-lay' }, [el('div', {}, [jdNeb(r, K, kDraw), kKh]), el('div', { class: 'a-neb-side' }, [kPv])]) : jdNeb(r, K, kDraw)) : null,
-      K.on && !kNb ? kKh : null,
+    var kalItems = [
+      K.on ? jdNeb(r, K, kDraw) : null,
+      K.on ? kKh : null,
       K.on && kPic ? el('div', { class: 'a-row' }, [
         imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
           hint: 'Своя у каждого дня (архетипа). Узор строится вокруг оси вращения (ниже, по умолчанию — середина картинки): там не должно быть крупного яркого пятна. Чётче всего выходят мелкие детали и тонкие линии (кружево, иней, прожилки листа, орнамент, витраж); небо и облака дают мягкий узор. Меньше 2000 точек — узор на большом экране расплывается.' })]) : null,
@@ -5329,6 +5346,12 @@
       K.on && kPic && K.fil ? el('div', { class: 'a-row' }, [
         rangeIn(K, 'filGlow', 'Филигрань: свечение', { min: 0, max: 100, step: 5, def: 0, unit: ' %', onChange: kDraw, hint: 'Мягкий ореол вокруг линий. 0 — без ореола.' }),
         rangeIn(K, 'photo', 'Картинка под филигранью', { min: 0, max: 100, step: 5, def: 100, unit: ' %', onChange: kDraw, hint: '0 — остаётся одно кружево на тёмном.' })]) : null
+    ];
+    // Живой узор (14.10, её просьба) — справа от всех настроек калейдоскопа и не уезжает при прокрутке, пока листаешь весь блок (на телефоне — маленький сверху справа)
+    var kal = block('Калейдоскоп из картинки', [
+      switchIn(K, 'on', 'Фон пространства — живой калейдоскоп', { onChange: function () { renderMain(); },
+        hint: 'Картинка лежит внутри трубки и медленно поворачивается, зеркала превращают её в перетекающий узор (как в «Эскизе гримуара»). Человек проводит пальцем — трубка поворачивается; касание — мягкий толчок. Фон-картинка ниже тогда не нужен.' }),
+      K.on ? el('div', { class: 'a-neb-lay' }, [el('div', {}, kalItems), kE0 ? el('div', { class: 'a-neb-side' }, [kPv]) : null]) : null
     ], { open: !!K.on });
     kDraw();
     return [
