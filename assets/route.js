@@ -694,11 +694,75 @@
   // у блока — своё (b.align, '' — как у карты; у строк и заголовков '' — по центру, как задумано)
   var AL_OK = { left: 1, center: 1, right: 1, justify: 1 }, AL_PARA = { text: 1, question: 1, note: 1, disk: 1, wayback: 1 };
   function blockAlign(b, cardAl) { return AL_OK[b.align] ? b.align : AL_PARA[b.kind] && AL_OK[cardAl] ? cardAl : ''; }
+  /* Оформление карты (её решение 14.10) — одно на Карту дня и личную карту: route.cardLook
+     { bg: '' как задумано (тёплый коричневый) | 'color' | 'glass' | 'texture'; c1, c2 — цвет сверху и снизу (c2 пусто — один цвет);
+       glass — прозрачность стекла, % (0…90, по умолчанию 45), blur — размытие, px (0…30, 14); texture — картинка (у дня своя: day.cardTexture), dim — приглушить цветом c1, % (0…90, 35);
+       melt — картинка дня тает в фон карты, meltDepth — насколько глубоко, % высоты картинки (20…90, 55);
+       text: '' сам по фону | 'light' | 'dark'; rim: '' золотая каёмка и свечение | 'own' (rimColor) | 'none'; scene — затемнение сцены за картой, % (0…95; не задано — как задумано) } */
+  function lumOf(c) { return (.2126 * c[0] + .7152 * c[1] + .0722 * c[2]) / 255; }
+  function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function inkAcc(c) { var k = 1; while (k > .2 && lumOf(c.map(function (v) { return v * k; })) > .32) k -= .05; return c.map(function (v) { return Math.round(v * k); }); }
+  function cardLook(route, n, root, base) {
+    var L = route.cardLook || {}, bg = L.bg || '', day = (route.days || [])[n - 1] || {};
+    var c1 = hexRgb(L.c1 || (bg === 'glass' ? '#140c05' : '#2e1e0a')), c2 = L.c2 ? hexRgb(L.c2) : c1, lum = null;
+    function grad(a) { return 'linear-gradient(170deg,' + rgba(c1, a) + ',' + rgba(c2, a) + ' 60%)'; }
+    if (bg) root.classList.add('ys-card--look');
+    if (bg === 'color') {
+      root.style.setProperty('--ys-cbg', grad(1));
+      root.style.setProperty('--ys-cfade', rgba(c1, .95));
+      lum = (lumOf(c1) + lumOf(c2)) / 2;
+    } else if (bg === 'glass') {
+      var a = 1 - numIn(L.glass, 45, 0, 90) / 100, bl = numIn(L.blur, 14, 0, 30) + 'px';
+      root.style.setProperty('--ys-cbg', grad(a.toFixed(2)));
+      root.style.setProperty('--ys-cblur', 'blur(' + bl + ')');
+      root.classList.add('ys-card--glass');
+      lum = (lumOf(c1) + lumOf(c2)) / 2 * a + .08 * (1 - a);
+    } else if (bg === 'texture') {
+      var tx = day.cardTexture || L.texture, dm = numIn(L.dim, 35, 0, 90) / 100;
+      root.style.setProperty('--ys-cbg', (dm ? grad(dm) + ',' : '') + (tx ? 'url("' + imgSrc(base, tx) + '") center top/cover' : rgba(c1, 1)));
+      lum = lumOf(c1);
+      // Светлая ли фактура — по средней яркости картинки (сама картинка никуда не уходит)
+      if (tx && !L.text) {
+        var im = new Image();
+        im.onload = function () {
+          try {
+            var cv = document.createElement('canvas'); cv.width = cv.height = 8;
+            var g = cv.getContext('2d'); g.drawImage(im, 0, 0, 8, 8);
+            var d = g.getImageData(0, 0, 8, 8).data, s = 0, i;
+            for (i = 0; i < d.length; i += 4) s += lumOf([d[i], d[i + 1], d[i + 2]]);
+            ink(s / 16 * (1 - dm) + lumOf(c1) * dm > .55);
+          } catch (e) {}
+        };
+        im.src = imgSrc(base, tx);
+        lum = lumOf(c1) * dm + .1 * (1 - dm);
+      }
+    }
+    function ink(on) {
+      root.classList.toggle('ys-card--ink', on);
+      if (L.rim === 'own' && L.rimColor) root.style.setProperty('--ys-cacc', rgba(on ? inkAcc(hexRgb(L.rimColor)) : hexRgb(L.rimColor), 1));
+    }
+    ink(L.text === 'dark' || (!L.text && lum != null && lum > .55));
+    if (L.rim === 'own' && L.rimColor) {
+      var rc = hexRgb(L.rimColor);
+      root.classList.add('ys-card--acc');
+      root.style.setProperty('--ys-cline', rgba(rc, .3));
+      root.style.setProperty('--ys-csh', '0 0 0 1px ' + rgba(rc, .4) + ',0 0 60px ' + rgba(rc, .24) + ',0 30px 80px rgba(0,0,0,.5)');
+    } else if (L.rim === 'none') root.style.setProperty('--ys-csh', '0 24px 70px rgba(0,0,0,.45)');
+    if (L.rim) root.classList.add('ys-card--rim');
+    if (L.melt) {
+      root.classList.add('ys-card--melt');
+      root.style.setProperty('--ys-melt', (numIn(L.meltDepth, 55, 20, 90) / 100).toFixed(2));
+    }
+    // Сцена за картой (спираль, двери): насколько затемнить; у стекла по умолчанию светлее, чтобы сцена просвечивала
+    var sc = L.scene != null && L.scene !== '' ? numIn(L.scene, 80, 0, 95) : bg === 'glass' ? 35 : null;
+    if (sc != null) root.setAttribute('data-scene', (sc / 100).toFixed(2));
+  }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
     var cfg = (kind === 'personal' ? route.personalCard : route.dayCard) || {}, list = cfg.blocks || [];
     var ctx = ctxOf(route, n, kind === 'personal' ? perm : null), fin = kind === 'day' && n === daysCount(route);
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
+    cardLook(route, n, root, o.base);
     var inner = el('div', 'ys-card-in');
     list.forEach(function (b) {
       if (!b || b.visible === false) return;
@@ -1461,6 +1525,9 @@
   function layer(node, cls, from, sticky) {
     var ov = el('div', 'ys-layer' + (cls ? ' ' + cls : ''));
     if (from) { ov.style.setProperty('--ys-ox', Math.round(from.x) + 'px'); ov.style.setProperty('--ys-oy', Math.round(from.y) + 'px'); }
+    // Карта со своим оформлением: сцена за ней затемнена, как задано в панели (и на телефоне — сквозь стекло видна)
+    var sc = node.getAttribute && node.getAttribute('data-scene');
+    if (sc) ov.style.background = 'rgba(5,3,1,' + sc + ')';
     ov.appendChild(node);
     ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);

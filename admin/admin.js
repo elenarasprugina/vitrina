@@ -2615,7 +2615,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261014a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261014b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -2981,6 +2981,41 @@
     return selectIn(c, 'align', 'Выравнивание текста на карте', [['', 'Как задумано — абзацы слева, строки и заголовки по центру']].concat(J_ALIGN), { def: '',
       hint: 'Для абзацев: фокус, вопрос, практика, тексты диска — все 13 дней сразу. У блока можно своё (раскройте блок ниже). У одной строки — тоже своё: поставьте курсор в строку и нажмите кнопку над полем: ⇤ слева, ≡ по центру, ⇥ справа, ☰ по ширине (в начале строки появится метка, например {по центру}; ✕ — убрать).' });
   }
+  // Оформление карты (её решение 14.10): фон, текст, каёмка, сцена за картой — одно на Карту дня и личную карту (route.cardLook; устройство — в route.js, cardLook)
+  function jCardLook(r) {
+    var L = r.cardLook = r.cardLook || {}, bg = L.bg || '';
+    function again() { renderMain(); }
+    var others = DATA.journeys.items.filter(function (x) { return x !== r && x.cardLook && x.cardLook.bg !== undefined; });
+    var from = el('select', { class: 'a-input' }, others.map(function (x, i) { return el('option', { value: String(i), text: x.title || x.id }); }));
+    var out = [
+      el('p', { class: 'a-hint', text: 'Одно на Карту дня и личную карту. Сразу видно в предпросмотре справа; на сайте — после «Опубликовать».' }),
+      selectIn(L, 'bg', 'Фон карты', [['', 'Как задумано — тёплый коричневый'], ['color', 'Цвет — один или переход из двух'], ['glass', 'Стекло — сквозь карту видна сцена'], ['texture', 'Фактура — картинка']], { def: '', onChange: again })];
+    if (bg) out.push(el('div', { class: 'a-row' }, [
+      colorOptIn(L, 'c1', bg === 'texture' ? 'Цвет приглушения' : bg === 'glass' ? 'Цвет стекла — сверху' : 'Цвет — сверху', { base: bg === 'glass' ? '#140c05' : '#2e1e0a', none: 'тёмно-коричневый' }),
+      bg === 'texture' ? null : colorOptIn(L, 'c2', 'Цвет — снизу', { none: 'тот же, что сверху', hint: 'Пусто — один цвет. Задан — плавный переход сверху вниз.' })]));
+    if (bg === 'glass') out.push(
+      rangeIn(L, 'glass', 'Прозрачность стекла', { def: 45, min: 0, max: 90, unit: ' %', hint: '0 — плотная карта, 90 — почти прозрачная.' }),
+      rangeIn(L, 'blur', 'Размытие сцены сквозь стекло', { def: 14, min: 0, max: 30, unit: ' px', hint: 'Сквозь стекло видно, что за картой (спираль, двери). Предпросмотр здесь — на тёмном, на странице — над сценой.' }));
+    if (bg === 'texture') out.push(
+      imageIn(L, 'texture', 'Фактура — общая для всех дней', { max: 1600, size: { w: 1000, h: 1600, note: 'лучше вертикальная, спокойная' }, hint: 'Бумага, ткань, акварельный размыв… У дня можно поставить свою — вкладка «13 дней». Растягивается на всю карту.' }),
+      rangeIn(L, 'dim', 'Приглушить фактуру', { def: 35, min: 0, max: 90, unit: ' %', hint: 'Поверх фактуры — «Цвет приглушения», чтобы текст читался.' }));
+    out.push(
+      switchIn(L, 'melt', 'Картинка дня тает в фон карты', { onChange: again, hint: 'Картинка сверху не обрывается, а растворяется вниз, текст начинается на ней.' }));
+    if (L.melt) out.push(rangeIn(L, 'meltDepth', 'Насколько глубоко тает', { def: 55, min: 20, max: 90, unit: ' %', hint: 'Доля картинки, которая растворяется.' }));
+    out.push(
+      selectIn(L, 'text', 'Цвет текста', [['', 'Сам по фону — светлый на тёмном, тёмный на светлом'], ['light', 'Светлый'], ['dark', 'Тёмный']], { def: '' }),
+      selectIn(L, 'rim', 'Каёмка и свечение вокруг карты', [['', 'Как задумано — золотые'], ['own', 'Свой цвет'], ['none', 'Без каёмки и свечения']], { def: '', onChange: again,
+        hint: 'Свой цвет красит и мелкие подписи, линии на карте. На телефоне карта во весь экран — свечения там не видно.' }));
+    if (L.rim === 'own') out.push(colorOptIn(L, 'rimColor', 'Цвет каёмки', { base: '#ffd68c', none: 'золотой' }));
+    out.push(rangeIn(L, 'scene', 'Затемнение сцены за картой', { def: L.bg === 'glass' ? 35 : 80, min: 0, max: 95, unit: ' %',
+      hint: 'Спираль или двери вокруг карты. Не трогали — как задумано' + (L.bg === 'glass' ? ' (у стекла — 35 %)' : '') + '. На телефоне карта во весь экран — сцену видно только сквозь стекло.' }));
+    if (others.length) out.push(el('div', { class: 'a-row a-row--end' }, [field('Взять оформление из маршрута', from),
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять', onclick: function () {
+        var src = others[+from.value]; if (!src) return;
+        r.cardLook = clone(src.cardLook); changed(); renderMain(); toast('Оформление карты взято из «' + (src.title || src.id) + '». Своя фактура у дней — не тронута.');
+      } })]));
+    return block('Оформление карты', out);
+  }
   function jBlocksForm(r, list, personal) {
     var kinds = J_KINDS.filter(function (k) { return personal || !J_PERSONAL_ONLY[k[0]]; });
     return collection(list, { visible: true, ordered: false, title: jBlockTitle,
@@ -3310,6 +3345,7 @@
           el('div', { class: 'a-row' }, [textIn(d, 'cardOperation', 'Что делаем с картой — {что делаем}', { multi: true, rows: 2, ph: 'Где я на этом колесе сейчас', hint: 'Тон задаёт действие с картой.' }),
             textIn(d, 'environment', 'Среда (печать) — {среда}', { multi: true, rows: 2, ph: 'жизнь, свет, видимость', hint: 'Печать задаёт среду, в которой идёт действие.' })]),
           imageIn(d, 'image', 'Картинка дня', { max: 1600, size: { w: 1600, h: 900, note: 'горизонтальная, 16:9' }, hint: 'Сверху Карты дня. Пусто — солнце-заглушка.' }),
+          (r.cardLook || {}).bg === 'texture' ? imageIn(d, 'cardTexture', 'Фактура Карты дня — своя у этого дня', { max: 1600, size: { w: 1000, h: 1600, note: 'лучше вертикальная, спокойная' }, hint: 'Пусто — общая фактура (вкладка «Карта дня» → «Оформление карты»).' }) : null,
           colorOptIn(d, 'glowColor', 'Цвет свечения камня', { inh: function () { return r.glow.color; }, inhLabel: 'общий', base: '#ffcf5a', hint: 'Пусто — общий цвет из «Основное» → «Свет кирпичей».' }),
           sub('Карта дня — общая для всех')]
           .concat([].concat.apply([], dayTexts.map(function (b) {
@@ -5511,9 +5547,10 @@
     try {
     if (t === 'dayCard') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Карта дня — общая для всех трёх форматов: появляется из центра спирали, когда человек нажимает на кирпич дня. Блоки можно добавлять, убирать, двигать; у каждого — «кому видно». Внизу всегда кнопка-спираль: у Наблюдения — назад на спираль, у Путешествия и Погружения — к выбору карты из колоды.' }),
-        jCardAlign(r.dayCard), jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
+        jCardLook(r), jCardAlign(r.dayCard), jBlocksForm(r, r.dayCard.blocks, false)]), jPreview(r, 'day')])];
     else if (t === 'personal') body = [el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         el('p', { class: 'a-hint', text: 'Личная карта — после выбора карты из колоды (Путешествие и Погружение). Сверху — диск выпавшей карты (вкладка «Диск»). Тексты собираются из шаблонов дня (вкладка «13 дней») и слов карты (вкладка «Колода»). Внизу — «Оставить след» и кнопка-спираль.' }),
+        el('p', { class: 'a-hint', text: 'Оформление (фон, текст, каёмка) — то же, что у Карты дня: вкладка «Карта дня» → «Оформление карты».' }),
         jCardAlign(r.personalCard), jBlocksForm(r, r.personalCard.blocks, true)]), jPreview(r, 'personal')])];
     else if (t === 'days') body = jDays(r);
     else if (t === 'bricks') body = jBricks(r);
