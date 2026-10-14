@@ -597,16 +597,201 @@
     rd.onerror = function () { toast('Не получилось прочитать этот файл.', true); };
     rd.readAsText(f);
   }
+  /* ---------- Редактор картинки (её решение 14.10) ----------
+     У любой загруженной картинки — кнопка «✎ Настроить»: кадр (крупность, сдвиг, наклон, отразить) и свет и цвет (яркость, контраст, тени, светлые места,
+     насыщенность, теплее / холоднее, резкость). Правка «запекается» здесь, в панели: obj[key] — уже поправленная картинка (её и видит сайт, на сайте ничего не считается),
+     исходник — obj['_' + key + 'Src'], настройки — obj['_' + key + 'Fx'] (с «_» — только в черновике, на сайт не уходят, cleanDeep). Открыли снова — правка от исходника, а не поверх.
+     o.noFrame — картинка совпадает с разметкой (контуры дверей, зоны спирали, слои сцены): только свет и цвет.
+     o.phone — можно свой кадр для телефона: obj[key + 'Phone'] (сайт берёт её на узком экране); свет и цвет — общие. o.phoneAr — форма кадра телефона (высота / ширина: фактура — экран телефона).
+     o.guide — какая часть видна на сайте (ширина / высота, по центру): пунктирная рамка. */
+  var IED_DEF = { z: 100, x: 0, y: 0, rot: 0, flip: false };
+  var IED_TONE = [['br', 'Яркость', -100, 100], ['ct', 'Контраст', -100, 100], ['sh', 'Тени (− гуще, + светлее)', -100, 100], ['hl', 'Светлые места (− приглушить)', -100, 100],
+    ['sat', 'Насыщенность', -100, 100], ['warm', 'Холоднее ← → теплее', -100, 100], ['sharp', 'Резкость', 0, 100]];
+  function iedPlain(fx) {
+    var f = fx || {}, k;
+    for (k = 0; k < IED_TONE.length; k++) if (+f[IED_TONE[k][0]]) return false;
+    return iedFramePlain(f.pc) && !(f.phone && f.phone.on);
+  }
+  function iedFramePlain(fr) { fr = fr || {}; return (+fr.z || 100) === 100 && !+fr.x && !+fr.y && !+fr.rot && !fr.flip; }
+  function iedLoad(src) {
+    return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = imgSrc(src); });
+  }
+  // Кадр: размер выхода W×H (ar — высота / ширина; нет — как у исходника), масштаб и сдвиг
+  function iedGeo(im, fr, ar) {
+    var iw = im.naturalWidth, ih = im.naturalHeight, W = iw, H = ih;
+    if (ar) { if (ih / iw > ar) { W = iw; H = iw * ar; } else { H = ih; W = ih / ar; } }
+    var a = Math.abs((+fr.rot || 0) * Math.PI / 180), c = Math.cos(a), s = Math.sin(a);
+    var bw = W * c + H * s, bh = W * s + H * c, base = Math.max(bw / iw, bh / ih), sc = base * (+fr.z || 100) / 100;
+    return { W: Math.round(W), H: Math.round(H), sc: sc, rx: Math.max(0, (iw * sc - bw) / 2), ry: Math.max(0, (ih * sc - bh) / 2), iw: iw, ih: ih };
+  }
+  function iedPaint(cv, im, fr, ar, fx, k) {
+    var g = iedGeo(im, fr, ar), W = Math.max(1, Math.round(g.W * k)), H = Math.max(1, Math.round(g.H * k));
+    cv.width = W; cv.height = H;
+    var x = smooth(cv.getContext('2d'));
+    x.clearRect(0, 0, W, H); x.save();
+    x.translate(W / 2 + (+fr.x || 0) * g.rx * k, H / 2 + (+fr.y || 0) * g.ry * k);
+    x.rotate((+fr.rot || 0) * Math.PI / 180);
+    x.scale(g.sc * k * (fr.flip ? -1 : 1), g.sc * k);
+    x.drawImage(im, -g.iw / 2, -g.ih / 2);
+    x.restore();
+    iedTone(x, W, H, fx);
+    return g;
+  }
+  // Свет и цвет — по точкам; резкость — «нерезкая маска» 3×3
+  function iedTone(x, W, H, fx) {
+    var br = +fx.br || 0, ct = +fx.ct || 0, sh = +fx.sh || 0, hl = +fx.hl || 0, sat = +fx.sat || 0, wm = +fx.warm || 0, shp = +fx.sharp || 0;
+    if (!br && !ct && !sh && !hl && !sat && !wm && !shp) return;
+    var img = x.getImageData(0, 0, W, H), d = img.data, n = d.length, i, r, gg, b, l, cf = ct * 1.28, f = 259 * (cf + 255) / (255 * (259 - cf)), sf = 1 + sat / 100;
+    for (i = 0; i < n; i += 4) {
+      r = d[i]; gg = d[i + 1]; b = d[i + 2];
+      l = (.2126 * r + .7152 * gg + .0722 * b) / 255;
+      var add = br * .9 + sh * .75 * (1 - l) * (1 - l) + hl * .75 * l * l;
+      r += add + wm * .28; gg += add + wm * .05; b += add - wm * .32;
+      if (ct) { r = (r - 128) * f + 128; gg = (gg - 128) * f + 128; b = (b - 128) * f + 128; }
+      if (sat) { l = .2126 * r + .7152 * gg + .0722 * b; r = l + (r - l) * sf; gg = l + (gg - l) * sf; b = l + (b - l) * sf; }
+      d[i] = r; d[i + 1] = gg; d[i + 2] = b;
+    }
+    if (shp && W > 2 && H > 2) {
+      var s = new Uint8ClampedArray(d), a = shp / 45, row = W * 4, y, xx, j, c;
+      for (y = 1; y < H - 1; y++) for (xx = 1; xx < W - 1; xx++) {
+        j = y * row + xx * 4;
+        for (c = 0; c < 3; c++) {
+          var m = (s[j - row - 4 + c] + s[j - row + c] + s[j - row + 4 + c] + s[j - 4 + c] + s[j + c] + s[j + 4 + c] + s[j + row - 4 + c] + s[j + row + c] + s[j + row + 4 + c]) / 9;
+          d[j + c] = s[j + c] + a * (s[j + c] - m);
+        }
+      }
+    }
+    x.putImageData(img, 0, 0);
+  }
+  function iedOut(cv) {
+    var d = cv.toDataURL('image/webp', 0.9);
+    if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(cv) ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.9);
+    return d;
+  }
+  function imageEdit(obj, key, o, done) {
+    var src = obj['_' + key + 'Src'] || obj[key];
+    busy('Открываем картинку…');
+    iedLoad(src).then(function (im) { busy(null); iedOpen(im, src, obj, key, o, done); }, function () { busy(null); toast('Не получилось открыть картинку для правки.', true); });
+  }
+  function iedOpen(im, src, obj, key, o, done) {
+    var old = obj['_' + key + 'Fx'] || {}, fx = JSON.parse(JSON.stringify(old));
+    fx.pc = fx.pc || {}; Object.keys(IED_DEF).forEach(function (k) { if (fx.pc[k] == null) fx.pc[k] = IED_DEF[k]; });
+    if (o.phone) { fx.phone = fx.phone || { on: false }; Object.keys(IED_DEF).forEach(function (k) { if (fx.phone[k] == null) fx.phone[k] = IED_DEF[k]; }); }
+    var st = { which: 'pc' }, cv = el('canvas', { class: 'a-ied-cv' }), guide = el('div', { class: 'a-ied-guide' }), stage = el('div', { class: 'a-ied-stage' }, el('div', { class: 'a-ied-wrap' }, [cv, guide]));
+    var warn = el('p', { class: 'a-hint a-hint--warn' }), ctrls = el('div', { class: 'a-ied-ctrl' }), raf = 0;
+    function fr() { return st.which === 'phone' ? fx.phone : fx.pc; }
+    function ar() { return st.which === 'phone' && o.phoneAr ? o.phoneAr : null; }
+    function k() { var g = iedGeo(im, fr(), ar()); return Math.min(1, 560 / g.W, 420 / g.H); }
+    function paint() {
+      raf = 0;
+      var kk = k(), g = iedPaint(cv, im, fr(), ar(), fx, kk);
+      var gar = st.which === 'phone' ? (o.phoneGuide || o.guide) : o.guide;
+      if (gar && !ar()) {
+        var gw = g.W, gh = g.W / gar; if (gh > g.H) { gh = g.H; gw = g.H * gar; }
+        guide.style.cssText = 'display:block;width:' + (gw / g.W * 100) + '%;height:' + (gh / g.H * 100) + '%';
+      } else guide.style.display = 'none';
+      // Сколько точек исходника приходится на ширину кадра: меньше ~900 — на сайте может стать мягче
+      var px = Math.round(g.W / g.sc);
+      warn.textContent = !o.noFrame && px < 900 && (+fr().z || 100) > 100 ? 'Сильно приблизили: от исходника осталось ' + px + ' точек по ширине — на сайте картинка может стать мягче. Если нужно так близко — лучше загрузить картинку крупнее.' : '';
+    }
+    function again() { if (!raf) raf = requestAnimationFrame(paint); }
+    function slider(objR, kk, label, min, max, unit) {
+      var v = +objR[kk] || (kk === 'z' ? 100 : 0), out = el('span', { class: 'a-range-val', text: v + (unit || '') });
+      var r = el('input', { type: 'range', class: 'a-range', min: min, max: max, step: 1, value: v });
+      r.addEventListener('input', function () { objR[kk] = +r.value; out.textContent = r.value + (unit || ''); again(); });
+      r.addEventListener('dblclick', function () { objR[kk] = kk === 'z' ? 100 : 0; drawCtrls(); again(); });
+      return field(label, el('div', { class: 'a-range-row' }, [r, out]));
+    }
+    function drawCtrls() {
+      var f = fr(), kids = [];
+      if (o.phone) kids.push(el('div', { class: 'a-ied-tabs' }, [['pc', '🖥 Компьютер'], ['phone', '📱 Телефон']].map(function (t) {
+        return el('button', { type: 'button', class: 'a-btn a-btn--small' + (st.which === t[0] ? ' a-btn--dark' : ''), text: t[1], onclick: function () { st.which = t[0]; drawCtrls(); again(); } });
+      })));
+      if (st.which === 'phone') {
+        var sw = el('input', { type: 'checkbox', checked: fx.phone.on });
+        sw.addEventListener('change', function () { fx.phone.on = sw.checked; drawCtrls(); again(); });
+        kids.push(el('label', { class: 'a-ied-sw' }, [sw, ' На телефоне — свой кадр']));
+        if (!fx.phone.on) kids.push(el('p', { class: 'a-hint', text: 'Выключено — на телефоне тот же кадр, что на компьютере. Свет и цвет у них всегда общие.' }));
+      }
+      var frameOn = !o.noFrame && (st.which === 'pc' || fx.phone.on);
+      if (frameOn) {
+        kids.push(sub('Кадр'), el('p', { class: 'a-hint', text: 'Тяните картинку мышкой или пальцем, чтобы сдвинуть. Двойной щелчок по ползунку — вернуть как было.' }),
+          slider(f, 'z', 'Крупность', 100, 300, ' %'), slider(f, 'rot', 'Наклон', -10, 10, '°'));
+        var fl = el('input', { type: 'checkbox', checked: f.flip });
+        fl.addEventListener('change', function () { f.flip = fl.checked; again(); });
+        kids.push(el('div', { class: 'a-row' }, [el('label', { class: 'a-ied-sw' }, [fl, ' Отразить зеркально']),
+          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Кадр как было', onclick: function () { Object.keys(IED_DEF).forEach(function (q) { f[q] = IED_DEF[q]; }); drawCtrls(); again(); } })]));
+      } else if (o.noFrame) kids.push(el('p', { class: 'a-hint', text: 'У этой картинки кадр не меняется: по ней размечены контуры или зоны — сдвиг увёл бы их мимо. Можно править свет и цвет.' }));
+      kids.push(sub('Свет и цвет'));
+      IED_TONE.forEach(function (t) { kids.push(slider(fx, t[0], t[1], t[2], t[3])); });
+      kids.push(el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Свет и цвет как было', onclick: function () { IED_TONE.forEach(function (t) { fx[t[0]] = 0; }); drawCtrls(); again(); } }));
+      ctrls.replaceChildren(); add(ctrls, kids);
+    }
+    // Сдвиг — перетаскиванием по картинке
+    var drag = null;
+    stage.addEventListener('pointerdown', function (e) {
+      if (o.noFrame || (st.which === 'phone' && !fx.phone.on)) return;
+      var g = iedGeo(im, fr(), ar()), kk = k();
+      drag = { x: e.clientX, y: e.clientY, fx: +fr().x || 0, fy: +fr().y || 0, rx: g.rx * kk, ry: g.ry * kk };
+      stage.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    stage.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var f = fr();
+      f.x = drag.rx ? Math.max(-1, Math.min(1, drag.fx + (e.clientX - drag.x) / drag.rx)) : 0;
+      f.y = drag.ry ? Math.max(-1, Math.min(1, drag.fy + (e.clientY - drag.y) / drag.ry)) : 0;
+      again();
+    });
+    stage.addEventListener('pointerup', function () { drag = null; });
+    stage.addEventListener('pointercancel', function () { drag = null; });
+    stage.addEventListener('wheel', function (e) {
+      if (o.noFrame || (st.which === 'phone' && !fx.phone.on)) return;
+      e.preventDefault(); var f = fr(); f.z = Math.max(100, Math.min(300, (+f.z || 100) - Math.sign(e.deltaY) * 5)); drawCtrls(); again();
+    }, { passive: false });
+    var ov = el('div', { class: 'a-dialog' });
+    function close() { ov.remove(); document.removeEventListener('keydown', esc); }
+    function esc(e) { if (e.key === 'Escape') close(); }
+    function save() {
+      // Ничего не меняли (или вернули всё) — на сайте исходник
+      if (iedPlain(fx)) { obj[key] = src; delete obj['_' + key + 'Src']; delete obj['_' + key + 'Fx']; delete obj[key + 'Phone']; close(); done(); return; }
+      busy('Готовим картинку…');
+      setTimeout(function () {
+        try {
+          var c = document.createElement('canvas');
+          iedPaint(c, im, fx.pc, null, fx, 1); var pc = iedOut(c), ph = null;
+          if (o.phone && fx.phone.on) { iedPaint(c, im, fx.phone, o.phoneAr || null, fx, 1); ph = iedOut(c); }
+          obj['_' + key + 'Src'] = src; obj['_' + key + 'Fx'] = fx; obj[key] = pc;
+          if (ph) obj[key + 'Phone'] = ph; else delete obj[key + 'Phone'];
+          busy(null); close(); done();
+        } catch (e) { busy(null); toast('Не получилось сохранить правку картинки.', true); }
+      }, 30);
+    }
+    add(ov, el('div', { class: 'a-dialog-box a-ied', role: 'dialog', 'aria-modal': 'true' }, [
+      el('h3', { text: 'Настроить картинку' }),
+      el('p', { class: 'a-hint', text: 'Исходная картинка не портится: она хранится в черновике, и в любой момент можно вернуться к ней. На сайт уходит уже поправленная.' }),
+      el('div', { class: 'a-ied-body' }, [el('div', { class: 'a-ied-left' }, [stage, warn]), ctrls]),
+      el('div', { class: 'a-dialog-btns' }, [
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Готово', onclick: save }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Отмена', onclick: close }),
+        obj['_' + key + 'Src'] ? el('button', { type: 'button', class: 'a-btn a-btn--ghost', text: 'Вернуть исходную картинку', onclick: function () {
+          obj[key] = src; delete obj['_' + key + 'Src']; delete obj['_' + key + 'Fx']; delete obj[key + 'Phone']; close(); done();
+        } }) : null])]));
+    document.body.appendChild(ov);
+    document.addEventListener('keydown', esc);
+    drawCtrls(); paint();
+  }
   function imageIn(obj, key, label, o) {
     o = o || {};
     var box = el('div', { class: 'a-field' });
+    // Новая картинка или «Убрать» — правка (исходник, настройки, кадр телефона) больше не нужна
+    function forget() { delete obj['_' + key + 'Src']; delete obj['_' + key + 'Fx']; delete obj[key + 'Phone']; }
     function draw() {
       var v = obj[key];
       var file = el('input', { type: 'file', accept: 'image/*', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
-        if (o.svg && (/svg/i.test(f.type) || /\.svg$/i.test(f.name || '')) && window.M13D) { svgIn(f, o.svg, function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); }); return; }
-        compressImage(f, o.max, o.crop).then(function (d) { obj[key] = d; changed(); draw(); if (o.onChange) o.onChange(); })
+        if (o.svg && (/svg/i.test(f.type) || /\.svg$/i.test(f.name || '')) && window.M13D) { svgIn(f, o.svg, function (d) { obj[key] = d; forget(); changed(); draw(); if (o.onChange) o.onChange(); }); return; }
+        compressImage(f, o.max, o.crop).then(function (d) { obj[key] = d; forget(); changed(); draw(); if (o.onChange) o.onChange(); })
           .catch(function () { toast('Не получилось открыть эту картинку. Попробуйте файл JPG или PNG.', true); });
       });
       box.replaceChildren();
@@ -614,7 +799,10 @@
         el('div', { class: 'a-img' }, [
           el('div', { class: 'a-img-thumb' + (o.crop ? ' a-img-thumb--wide' : ''), style: (v ? "background-image:url('" + imgSrc(v) + "');" : '') + sizeShape(o.size) || null, text: v ? '' : 'нет' }),
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить картинку' : 'Загрузить картинку', onclick: function () { file.click(); } }),
-          v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать', onclick: function () { obj[key] = null; changed(); draw(); if (o.onChange) o.onChange(); } }) : null,
+          v && !/^data:image\/svg/.test(v) ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: obj['_' + key + 'Src'] ? '✎ Настроить · поправлена' : '✎ Настроить', onclick: function () {
+            imageEdit(obj, key, o, function () { changed(); draw(); if (o.onChange) o.onChange(); });
+          } }) : null,
+          v ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать', onclick: function () { obj[key] = null; forget(); changed(); draw(); if (o.onChange) o.onChange(); } }) : null,
           file]),
         o.hint ? el('span', { class: 'a-hint', text: o.hint }) : null]);
     }
@@ -2456,8 +2644,8 @@
           switchIn(f, 'dayShow', 'Пока маршрут идёт — показывать карту сегодняшнего дня', { defTrue: true,
             hint: 'Если у маршрута есть страница по дням (раздел «Страницы маршрутов»): при открытии карточки — картинка, кин и фокус сегодняшнего дня, как их видит Наблюдение, и кнопка «Открыть маршрут». Оборот — как обычно.' }),
           el('div', { class: 'a-row' }, [
-            selectIn(f, 'dayEdge', 'Край картинки дня', [['', 'Мягкий — уходит в тёмный цвет карточки'], ['strong', 'Сильно тающий — сквозь край видна картинка карточки'], ['hard', 'Ровный, без перехода']]),
-            rangeIn(f, 'dayEdgeH', 'Высота перехода', { min: 5, max: 70, step: 1, def: 22, unit: ' %', hint: 'Какая часть картинки снизу тает. У «ровного» не действует.' })]),
+            selectIn(f, 'dayEdge', 'Край картинки дня', [['', 'Мягкий — уходит в тёмный цвет карточки'], ['strong', 'Сильно тающий — сквозь край видна картинка карточки'], ['hard', 'Ровный, без перехода'], ['oval', 'Овал — тает со всех сторон'], ['bg', 'Картинка — фон карточки (сверху, ниже темнеет)']]),
+            rangeIn(f, 'dayEdgeH', 'Высота перехода', { min: 5, max: 70, step: 1, def: 22, unit: ' %', hint: 'Какая часть картинки снизу тает (у «Овала» — ширина тающего края со всех сторон). Не трогали — у «Овала» 30 %, у «Картинки — фона» 45 %. У «ровного» не действует.' })]),
           selectIn(f, 'dayBg', 'Фон под картой дня', [['', 'Картинка карточки (затемнённая)'], ['dark', 'Ровный тёмный']]),
           switchIn(f, 'finalShow', 'После окончания — играть финальный ролик', { defTrue: true,
             hint: 'Ролик загружается у маршрута: «Маршруты» → маршрут → «Финальный ролик».' }),
@@ -2997,7 +3185,7 @@
       rangeIn(L, 'glass', 'Прозрачность стекла', { def: 45, min: 0, max: 90, unit: ' %', hint: '0 — плотная карта, 90 — почти прозрачная.' }),
       rangeIn(L, 'blur', 'Размытие сцены сквозь стекло', { def: 14, min: 0, max: 30, unit: ' px', hint: 'Сквозь стекло видно, что за картой (спираль, двери). Предпросмотр здесь — на тёмном, на странице — над сценой.' }));
     if (bg === 'texture') out.push(
-      imageIn(L, 'texture', 'Фактура — общая для всех дней', { max: 1600, size: { w: 1000, h: 1600, note: 'лучше вертикальная, спокойная' }, hint: 'Бумага, ткань, акварельный размыв… У дня можно поставить свою — вкладка «13 дней». Растягивается на всю карту.' }),
+      imageIn(L, 'texture', 'Фактура — общая для всех дней', { phone: true, phoneAr: 19.5 / 9, max: 1600, size: { w: 1000, h: 1600, note: 'лучше вертикальная, спокойная' }, hint: 'Бумага, ткань, акварельный размыв… У дня можно поставить свою — вкладка «13 дней». Растягивается на всю карту.' }),
       rangeIn(L, 'dim', 'Приглушить фактуру', { def: 35, min: 0, max: 90, unit: ' %', hint: 'Поверх фактуры — «Цвет приглушения», чтобы текст читался.' }));
     out.push(
       switchIn(L, 'melt', 'Картинка дня тает в фон карты', { onChange: again, hint: 'Картинка сверху не обрывается, а растворяется вниз, текст начинается на ней.' }));
@@ -3051,9 +3239,15 @@
     function mode() { return kind === 'personal' && st.mode === 'observation' ? 'journey' : st.mode; }
     function run() {
       if (!window.M13R) { box.textContent = 'Предпросмотр не загрузился — обновите страницу.'; return; }
-      box.replaceChildren(window.M13R.card(r, st.day, mode(), kind, r.deck.cards[st.perm] || r.deck.cards[0], { base: '../', onSpiral: function () {
+      var c = window.M13R.card(r, st.day, mode(), kind, r.deck.cards[st.perm] || r.deck.cards[0], { base: '../', onSpiral: function () {
         toast(kind === 'personal' ? 'Кнопка-спираль: назад на спираль.' : mode() === 'observation' ? 'Кнопка-спираль: у Наблюдения — назад на спираль.' : st.day === r.days.length ? '«Собрать маршрут»: дальше финал на спирали — вкладка «Финал» → «Посмотреть финал».' : 'Кнопка-спираль: дальше — выбор карты из колоды.');
-      } }));
+      } });
+      // Под картой — основная сцена маршрута (двери или своя картинка-фон), затемнённая, как на странице: видно, что просвечивает сквозь стекло (её просьба 14.10)
+      var D = r.doors || {}, pic = r.scene === 'doors' ? D.desktop || D.mobile : r.masterDesktop || r.masterMobile;
+      var sc = c.getAttribute('data-scene'), dim = sc != null && sc !== '' ? +sc : .7;
+      box.classList.toggle('ys-pv--scene', !!pic);
+      box.style.background = pic ? 'linear-gradient(rgba(5,3,1,' + dim + '),rgba(5,3,1,' + dim + ')),url("' + imgSrc(pic) + '") center/cover #0d0804' : '';
+      box.replaceChildren(c);
     }
     function sel(opts, key) {
       var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
@@ -3241,8 +3435,8 @@
       block('Слова маршрута', jWords(r), { open: false }),
       r.scene === 'doors' ? null : block('Спираль (фон страницы)', [
         el('div', { class: 'a-row' }, [
-          imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
-          imageIn(r, 'masterMobile', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Спираль на телефоне — во всю ширину.', onChange: liveSoon })]),
+          imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
+          imageIn(r, 'masterMobile', 'Для телефона — вертикальная', { noFrame: true, max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, hint: 'Спираль на телефоне — во всю ширину.', onChange: liveSoon })]),
         rangeIn(r, 'dimTop', 'Приглушить свет сверху', { min: 0, max: 90, step: 5, def: 60, unit: ' %', hint: 'Затемнение от верха до середины кадра: чтобы луч не слепил и читалась надпись. 0 — без затемнения.' }),
         jBgLive(r),
         sub('Где спираль на экране'),
@@ -3344,8 +3538,8 @@
           el('div', { class: 'a-row' }, [textIn(d, 'seal', 'Печать', { ph: 'Красный Змей' }), textIn(d, 'tone', 'Тон', { ph: 'Ритмический' })]),
           el('div', { class: 'a-row' }, [textIn(d, 'cardOperation', 'Что делаем с картой — {что делаем}', { multi: true, rows: 2, ph: 'Где я на этом колесе сейчас', hint: 'Тон задаёт действие с картой.' }),
             textIn(d, 'environment', 'Среда (печать) — {среда}', { multi: true, rows: 2, ph: 'жизнь, свет, видимость', hint: 'Печать задаёт среду, в которой идёт действие.' })]),
-          imageIn(d, 'image', 'Картинка дня', { max: 1600, size: { w: 1600, h: 900, note: 'горизонтальная, 16:9' }, hint: 'Сверху Карты дня. Пусто — солнце-заглушка.' }),
-          (r.cardLook || {}).bg === 'texture' ? imageIn(d, 'cardTexture', 'Фактура Карты дня — своя у этого дня', { max: 1600, size: { w: 1000, h: 1600, note: 'лучше вертикальная, спокойная' }, hint: 'Пусто — общая фактура (вкладка «Карта дня» → «Оформление карты»).' }) : null,
+          imageIn(d, 'image', 'Картинка дня', { phone: true, guide: 16 / 9, max: 1600, size: { w: 1600, h: 900, note: 'горизонтальная, 16:9' }, hint: 'Сверху Карты дня. Пусто — солнце-заглушка.' }),
+          (r.cardLook || {}).bg === 'texture' ? imageIn(d, 'cardTexture', 'Фактура Карты дня — своя у этого дня', { phone: true, phoneAr: 19.5 / 9, max: 1600, size: { w: 1000, h: 1600, note: 'лучше вертикальная, спокойная' }, hint: 'Пусто — общая фактура (вкладка «Карта дня» → «Оформление карты»).' }) : null,
           colorOptIn(d, 'glowColor', 'Цвет свечения камня', { inh: function () { return r.glow.color; }, inhLabel: 'общий', base: '#ffcf5a', hint: 'Пусто — общий цвет из «Основное» → «Свет кирпичей».' }),
           sub('Карта дня — общая для всех')]
           .concat([].concat.apply([], dayTexts.map(function (b) {
@@ -3722,7 +3916,7 @@
       el('p', { class: 'a-hint', text: 'На личной карте вместо колеса — диск. Человек касается диска — зона светится, остальные приглушаются, под диском её название, слово карты и «Узнаю себя, если…». Можно примерить другую зону. После первой примерки — кнопка «Здесь»: выбор окончательный. Тогда зона светится ровно, камушек формы этой зоны ложится в узор (и в финальное Солнце), под диском открывается дорога назад в центр — только для этой зоны. До полуночи открывается та же отметка. Отметка хранится только на устройстве человека, в код не входит.' }),
       el('div', { class: 'a-jgrid' }, [el('div', { class: 'a-jform' }, [
         block('Картинка и видео', [
-          imageIn(DK, 'image', 'Картинка диска', { max: 1600, size: { w: 1200, h: 1200, note: 'квадрат, диск по центру; можно больше' }, onChange: function () { pic(); marks(); liveSoon(); }, hint: 'PNG/WebP с прозрачностью тоже можно. Пусто — диск, нарисованный кодом. Поменяли картинку — проверьте разметку зон ниже.' }),
+          imageIn(DK, 'image', 'Картинка диска', { noFrame: true, max: 1600, size: { w: 1200, h: 1200, note: 'квадрат, диск по центру; можно больше' }, onChange: function () { pic(); marks(); liveSoon(); }, hint: 'PNG/WebP с прозрачностью тоже можно. Пусто — диск, нарисованный кодом. Поменяли картинку — проверьте разметку зон ниже.' }),
           mediaIn(DK, 'video', 'Видео-петля (необязательно)', { kind: 'video', maxMB: 12, hint: 'MP4, без звука, тот же кадр и размер, что у картинки, конец переходит в начало. Пока видео грузится — видна картинка. Если у человека в телефоне включено «уменьшить движение», видео не грузится — остаётся картинка.' })
         ], { open: !DK.image }),
         block('Названия зон', [el('p', { class: 'a-hint', text: 'Так зона подписана под диском. ↑ — сторона «слишком много», ↓ — «слишком мало». Эти же названия — в подписях вкладки «Колода» и в сообщении о подарке.' })].concat(
@@ -4645,8 +4839,8 @@
       selectIn(L, 'area', 'Где лежит', [['door', 'внутри контура двери (картинка размером со сцену)'], ['scene', 'по всей сцене, без контура (свет вокруг двери и т. п.)'], ['frag', 'готовый фрагмент двери — в рамку контура']],
         { def: 'door', onChange: rerender, hint: 'Картинка-слой «внутри контура» и «по всей сцене» — того же размера, что картинка сцены (удобно: слой рисуется прямо поверх сцены в редакторе и сохраняется отдельно). Готовый фрагмент — вырезанная дверь, растянется по рамке контура.' }),
       el('div', { class: 'a-row' }, [
-        imageIn(L, 'desktop', 'Картинка слоя — компьютер', { max: 2400, size: size || { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
-        imageIn(L, 'mobile', 'Картинка слоя — телефон', { max: 2000, size: size || { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon })]),
+        imageIn(L, 'desktop', 'Картинка слоя — компьютер', { noFrame: true, max: 2400, size: size || { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
+        imageIn(L, 'mobile', 'Картинка слоя — телефон', { noFrame: true, max: 2000, size: size || { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon })]),
       area === 'frag' ? el('div', { class: 'a-row' }, [
         selectIn(L, 'fit', 'Как вписать фрагмент', [['', 'растянуть по рамке двери'], ['cover', 'заполнить дверь без искажений (лишнее обрезается)'], ['contain', 'целиком внутри рамки, без искажений']], { def: '', onChange: liveSoon,
           hint: 'Для фактур (песок, иней, шёлк) — «заполнить»: картинка не сплющивается, а контур двери срезает лишнее. Одной картинки хватает на оба экрана: нет картинки для телефона — берётся картинка для компьютера.' }),
@@ -4697,8 +4891,8 @@
       warn.length ? el('div', {}, warn.map(function (w) { return el('p', { class: 'a-hint a-hint--warn', text: '⚠️ ' + w }); })) : null,
       block('Сцена с дверями', [
         el('div', { class: 'a-row' }, [
-          imageIn(D, 'desktop', 'Для компьютера — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
-          imageIn(D, 'mobile', 'Для телефона — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, onChange: liveSoon, hint: 'Своя композиция и свои контуры дверей. Нет её — на телефоне будет картинка для компьютера.' })]),
+          imageIn(D, 'desktop', 'Для компьютера — горизонтальная', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
+          imageIn(D, 'mobile', 'Для телефона — вертикальная', { noFrame: true, max: 2000, size: { w: 1080, h: 1920, note: '9:16' }, onChange: liveSoon, hint: 'Своя композиция и свои контуры дверей. Нет её — на телефоне будет картинка для компьютера.' })]),
         el('div', { class: 'a-row' }, [
           selectIn(D, 'fit', 'Как лежит на экране', [['', 'целиком — по краям та же картинка, размыто'], ['cover', 'во весь экран — края срезаются']], { def: '', hint: 'Целиком — ни одна дверь не срежется на необычном экране.' }),
           rangeIn(D, 'dim', 'Приглушить сверху', { min: 0, max: 90, step: 5, def: 45, unit: ' %', hint: 'Затемнение от верха к середине — чтобы читались надписи.' })]),
@@ -4746,8 +4940,8 @@
         el('p', { class: 'a-hint', text: 'Что происходит после касания: дверь откликается (короткая вспышка), потом — если загружена «открытая дверь» — внутри контура проступает открытая дверь, и человек входит в пространство дня.' }),
         selectIn(op, 'type', 'Как входим', Object.keys(M.OPEN).map(function (k) { return [k, M.OPEN[k]]; }), { def: 'portal' }),
         el('div', { class: 'a-row' }, [
-          imageIn(op, 'desktop', 'Открытая дверь — компьютер', { max: 2400, size: { w: 2400, h: 1350, note: 'та же сцена, где эта дверь открыта' }, onChange: liveSoon }),
-          imageIn(op, 'mobile', 'Открытая дверь — телефон', { max: 2000, size: { w: 1080, h: 1920, note: 'та же сцена, где эта дверь открыта' }, onChange: liveSoon })]),
+          imageIn(op, 'desktop', 'Открытая дверь — компьютер', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: 'та же сцена, где эта дверь открыта' }, onChange: liveSoon }),
+          imageIn(op, 'mobile', 'Открытая дверь — телефон', { noFrame: true, max: 2000, size: { w: 1080, h: 1920, note: 'та же сцена, где эта дверь открыта' }, onChange: liveSoon })]),
         el('p', { class: 'a-hint', text: 'Опыт с «настоящим» открытием: картинка — вся сцена, в которой открыта только эта дверь (остальное совпадает до мелочей). Видна будет только часть внутри контура, с мягким краем. Не загружена — дверь входит без неё.' }),
         el('div', { class: 'a-row' }, [
           rangeIn(op, 'hold', 'Сколько видна открытая дверь до входа', { min: 0, max: 4000, step: 100, def: 900, unit: ' мс' }),
@@ -4835,8 +5029,8 @@
         body: function (k) { return [
           textIn(k, 'name', 'Название', { ph: 'Например: облака' }),
           el('div', { class: 'a-row' }, [
-            imageIn(k, 'desktop', 'Компьютер — горизонтальная', { max: 2400, size: { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
-            imageIn(k, 'mobile', 'Телефон — вертикальная', { max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon, hint: 'Нет — на телефоне будет картинка для компьютера (растянется по сцене).' })])
+            imageIn(k, 'desktop', 'Компьютер — горизонтальная', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon }),
+            imageIn(k, 'mobile', 'Телефон — вертикальная', { noFrame: true, max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' }, onChange: liveSoon, hint: 'Нет — на телефоне будет картинка для компьютера (растянется по сцене).' })])
         ]; },
         make: function () { return { id: uid('sky'), name: '' }; }, addLabel: '+ Общая картинка' }),
       D.skies.length ? el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Погода «' + (D.skies[0].name || 'картинка 1') + '» — всем дням без погоды', onclick: function () {
@@ -4998,8 +5192,8 @@
             onChange: function (v) { if (v === '') delete L.sky; rerender(); },
             hint: skies.length ? 'Общая картинка грузится один раз, сколько бы дней её ни взяли; у каждого дня — свой цвет, яркость, движение.' : 'Общих картинок пока нет — добавьте их во вкладке «Двери» → «Мир дней и погода».' }),
           own ? el('div', { class: 'a-row' }, [
-            imageIn(L, 'desktop', 'Картинка — компьютер', { max: 2400, size: { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' } }),
-            imageIn(L, 'mobile', 'Картинка — телефон', { max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' } })]) : null,
+            imageIn(L, 'desktop', 'Картинка — компьютер', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: 'как сцена, PNG/WebP с прозрачностью' } }),
+            imageIn(L, 'mobile', 'Картинка — телефон', { noFrame: true, max: 2000, size: { w: 1080, h: 1920, note: 'как сцена, PNG/WebP с прозрачностью' } })]) : null,
           el('div', { class: 'a-row' }, [colorOptIn(L, 'tint', 'Окрасить картинку', { none: 'без окраски', base: '#f2b8a8', pick: '#f2b8a8' }),
             rangeIn(L, 'tintPow', 'Сила окраски', { min: 0, max: 100, step: 5, def: 0, unit: ' %', hint: 'Цвет ложится только на саму картинку, светлое остаётся светлым: утренние розовые облака, золотые, сизые.' }),
             rangeIn(L, 'bright', 'Яркость', { min: 30, max: 200, step: 5, def: 100, unit: ' %', hint: 'Меньше 100 — темнее (серые, грозовые), больше — светлее.' })]),
