@@ -678,3 +678,17 @@ audio.a-media{background:none;height:40px}
 /* Как выглядит лестница на Карте дня (двери → «Карта дня и лестница») */
 .a-jd-keylook{display:flex;align-items:center;justify-content:center;min-height:110px;padding:12px;border-radius:12px;background:#1a110b}
 .a-jd-keylook .ys-c-key{cursor:default}
+/* Редактор картинки (14.10) */
+.a-dialog-box.a-ied{width:min(980px,100%)}
+.a-ied-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.a-ied-left{position:sticky;top:0}
+.a-ied-stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:200px;background:repeating-conic-gradient(#e9e9e6 0 25%,#f6f6f4 0 50%) 0 0/18px 18px;border-radius:12px;padding:10px;cursor:grab;touch-action:none;user-select:none}
+.a-ied-stage:active{cursor:grabbing}
+.a-ied-cv{display:block;max-width:100%;height:auto;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.a-ied-wrap{position:relative;line-height:0;max-width:100%}
+.a-ied-guide{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);outline:2px dashed rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.5),0 0 0 999px rgba(0,0,0,.28);pointer-events:none}
+.a-ied-wrap{overflow:hidden}
+.a-ied-ctrl .a-field{margin-bottom:6px}
+.a-ied-tabs{display:flex;gap:6px;margin-bottom:8px}
+.a-ied-sw{display:flex;align-items:center;gap:6px;cursor:pointer;margin:6px 0}
+@media (max-width:760px){.a-ied-body{grid-template-columns:1fr}.a-ied-left{position:static}}

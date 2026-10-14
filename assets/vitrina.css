@@ -159,6 +159,15 @@ body.m13-locked{overflow:hidden}
   background:linear-gradient(180deg,rgba(17,12,7,0),rgba(17,12,7,.6) calc(100% - 100px),rgba(17,12,7,.92) calc(100% - 60px),rgba(17,12,7,0))}
 .m13-dce-strong .m13-dc-img{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - var(--m13-dce,22%)),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - var(--m13-dce,22%)),transparent)}
 /* Картинка дня всегда целиком (квадратная не обрезается сверху и снизу); по бокам — та же картинка, размытая */
+.m13-dc-img picture{display:contents}
+/* Овал: картинка тает со всех сторон овалом, без размытой подложки по бокам */
+.m13-dce-oval .m13-dc-img{background:transparent;-webkit-mask-image:radial-gradient(closest-side,#000 calc(100% - var(--m13-dce,30%)),transparent);mask-image:radial-gradient(closest-side,#000 calc(100% - var(--m13-dce,30%)),transparent)}
+/* Картинка — фон карточки: сверху во всю ширину, ниже темнеет до ровного тёмного фона; картинки карточки под ней нет */
+.m13-front.m13-front--day.m13-dce-bg{background-color:#0e0a06}
+.m13-dce-bg .m13-dc-img{aspect-ratio:4/3;background:transparent;margin-bottom:calc(var(--m13-dce,45%) * -.6);-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - var(--m13-dce,45%)),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - var(--m13-dce,45%)),transparent)}
+.m13-dce-bg .m13-dc-img ~ *{position:relative}
+.m13-dce-oval .m13-dc-img img.m13-dc-bg,.m13-dce-bg .m13-dc-img img.m13-dc-bg{display:none}
+.m13-dce-oval .m13-dc-img img,.m13-dce-bg .m13-dc-img img,.m13-dce-oval .m13-dc-img--narrow img:not(.m13-dc-bg),.m13-dce-bg .m13-dc-img--narrow img:not(.m13-dc-bg){width:100%;object-fit:cover;-webkit-mask-image:none;mask-image:none}
 .m13-dc-img img{position:relative;display:block;width:100%;height:100%;object-fit:contain}
 .m13-dc-img img.m13-dc-bg{position:absolute;inset:0;object-fit:cover;filter:blur(20px) brightness(.85);transform:scale(1.2)}
 .m13-dc-img--narrow img:not(.m13-dc-bg){width:auto;max-width:100%;margin:0 auto;

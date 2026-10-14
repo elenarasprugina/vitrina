@@ -800,7 +800,9 @@
       // День 13 — урезанная карта, как на странице маршрута (route.final.blocks)
       if (fin && !(fb[b.id] != null ? fb[b.id] !== false : (b.kind === 'small' || b.kind === 'title' || b.kind === 'question'))) return;
       var t, tt;
-      if (b.kind === 'image') { if (d.image) out += '<div class="m13-dc-img"><img class="m13-dc-bg" src="' + esc(media(d.image)) + '" alt="" aria-hidden="true"><img src="' + esc(media(d.image)) + '" alt=""></div>'; return; }
+      // Свой кадр для телефона (d.imagePhone, панель → «✎ Настроить»): <picture> — на узком экране браузер берёт его
+      if (b.kind === 'image') { if (d.image) { var ph = d.imagePhone ? '<source media="(max-width:560px)" srcset="' + esc(media(d.imagePhone)) + '">' : '';
+        out += '<div class="m13-dc-img"><picture>' + ph + '<img class="m13-dc-bg" src="' + esc(media(d.image)) + '" alt="" aria-hidden="true"></picture><picture>' + ph + '<img src="' + esc(media(d.image)) + '" alt=""></picture></div>'; } return; }
       if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') {
         t = jFill(b.text, ctx); if (t) out += '<div class="m13-dc-' + b.kind + '">' + (b.kind === 'note' ? paras(t) : txt(t)) + '</div>';
         return;
@@ -1159,10 +1161,11 @@
       // Край картинки дня (её выбор 07.10, панель → карточка → «Увеличенная карточка маршрута»): f.dayEdge '' — мягкий, уходит в тёмный цвет карточки |
       // 'strong' — тает в прозрачность (сквозь край видна картинка карточки) | 'hard' — ровный; f.dayEdgeH — высота перехода, % картинки (обычно 22);
       // f.dayBg 'dark' — под картой дня ровный тёмный фон вместо картинки карточки
-      var de = { hard: 1, strong: 1 }[f.dayEdge] ? f.dayEdge : 'soft', dh = parseFloat(f.dayEdgeH);
+      // 'oval' — тает со всех сторон овалом, без размытых боков; 'bg' — картинка — фон карточки: сверху во всю ширину, ниже темнеет до ровного фона (её выбор 07.10, сделано 14.10)
+      var de = { hard: 1, strong: 1, oval: 1, bg: 1 }[f.dayEdge] ? f.dayEdge : 'soft', dh = parseFloat(f.dayEdgeH);
       front.classList.add('m13-dce-' + de);
-      front.style.setProperty('--m13-dce', (isNaN(dh) ? 22 : Math.max(5, Math.min(70, dh))) + '%');
-      if (f.dayBg === 'dark') front.style.backgroundImage = '';
+      front.style.setProperty('--m13-dce', (isNaN(dh) ? (de === 'bg' ? 45 : de === 'oval' ? 30 : 22) : Math.max(5, Math.min(70, dh))) + '%');
+      if (f.dayBg === 'dark' || de === 'bg') front.style.backgroundImage = '';
       (function (box) {
         function fit() { if (document.documentElement.contains(box)) dcFit(stage, box); }
         dcMore(box); fit(); [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', fit); });

@@ -166,6 +166,7 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 .ys-card-in > :first-child:not(.ys-c-img):not(.ys-c-perm):not(.ys-wheel):not(.ys-disk){margin-top:26px}
 .ys-c-img{margin:0 -26px 2px;aspect-ratio:16/9;background:#140c05;overflow:hidden;position:relative}
 .ys-c-img img,.ys-c-img svg{display:block;width:100%;height:100%;object-fit:cover}
+.ys-c-img picture{display:contents}
 .ys-c-img::after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(to top,rgba(30,19,7,.95),rgba(30,19,7,0))}
 .ys-c-small{margin:0;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:#e9c77e;text-align:center}
 .ys-c-title{margin:-4px 0 0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:30px;line-height:1.12;text-align:center;color:#fff3d6}
@@ -281,6 +282,7 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-card--personal .ys-card-in{gap:16px}
 /* Оформление карты из панели (route.cardLook): фон — цвет / стекло / фактура, каёмка, тёмный текст на светлом фоне, картинка дня тает в фон */
 .ys-card.ys-card--look{background:var(--ys-cbg)}
+@media (max-width:560px){.ys-card.ys-card--look{background:var(--ys-cbgm,var(--ys-cbg))}}
 .ys-card.ys-card--glass{-webkit-backdrop-filter:var(--ys-cblur);backdrop-filter:var(--ys-cblur)}
 .ys-card.ys-card--rim{box-shadow:var(--ys-csh)}
 .ys-card--look .ys-c-img{background:transparent}
@@ -456,6 +458,7 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 /* ---------- Предпросмотр в панели (карта без слоя) ---------- */
 .ys-pv{background:#0d0804;border-radius:14px;padding:18px 12px;display:flex;justify-content:center}
 .ys-pv .ys-card{width:min(400px,100%)}
+.ys-pv.ys-pv--scene{padding:30px 22px}
 .ys-pv .ys-card-in{padding:0 20px 18px}
 .ys-pv .ys-c-img{margin:0 -20px 2px}
 .ys-pv .ys-c-title{font-size:26px}

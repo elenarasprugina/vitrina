@@ -549,11 +549,20 @@
     });
     return box;
   }
+  // Картинка с отдельным кадром для телефона: <picture> — браузер сам берёт нужную (и при повороте экрана)
+  function phonePic(img, base, ph) {
+    if (!ph) return img;
+    var p = el('picture'), s = document.createElement('source');
+    s.media = '(max-width:560px)'; s.srcset = imgSrc(base, ph);
+    p.appendChild(s); p.appendChild(img);
+    return p;
+  }
   function blockNode(b, route, n, perm, ctx, o) {
     var d = dayOf(route, n), t;
     if (b.kind === 'image') {
       var fig = el('div', 'ys-c-img');
-      if (d.image) { var img = el('img'); img.src = imgSrc(o.base, d.image); img.alt = ''; fig.appendChild(img); }
+      // Свой кадр для телефона (панель → «✎ Настроить» → «📱 Телефон»): day.imagePhone — на узком экране
+      if (d.image) { var img = el('img'); img.src = imgSrc(o.base, d.image); img.alt = ''; fig.appendChild(phonePic(img, o.base, d.imagePhone)); }
       else fig.innerHTML = dayPlaceholder(n);
       return fig;
     }
@@ -719,7 +728,10 @@
       lum = (lumOf(c1) + lumOf(c2)) / 2 * a + .08 * (1 - a);
     } else if (bg === 'texture') {
       var tx = day.cardTexture || L.texture, dm = numIn(L.dim, 35, 0, 90) / 100;
+      // Свой кадр фактуры для телефона (cardTexturePhone / texturePhone — панель, «✎ Настроить»)
+      var txp = day.cardTexture ? day.cardTexturePhone : L.texturePhone;
       root.style.setProperty('--ys-cbg', (dm ? grad(dm) + ',' : '') + (tx ? 'url("' + imgSrc(base, tx) + '") center top/cover' : rgba(c1, 1)));
+      if (tx && txp) root.style.setProperty('--ys-cbgm', (dm ? grad(dm) + ',' : '') + 'url("' + imgSrc(base, txp) + '") center top/cover');
       lum = lumOf(c1);
       // Светлая ли фактура — по средней яркости картинки (сама картинка никуда не уходит)
       if (tx && !L.text) {
