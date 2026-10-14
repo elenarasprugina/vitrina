@@ -603,8 +603,10 @@
      исходник — obj['_' + key + 'Src'], настройки — obj['_' + key + 'Fx'] (с «_» — только в черновике, на сайт не уходят, cleanDeep). Открыли снова — правка от исходника, а не поверх.
      o.noFrame — картинка совпадает с разметкой (контуры дверей, зоны спирали, слои сцены): только свет и цвет.
      o.phone — можно свой кадр для телефона: obj[key + 'Phone'] (сайт берёт её на узком экране); свет и цвет — общие. o.phoneAr — форма кадра телефона (высота / ширина: фактура — экран телефона).
-     o.guide — какая часть видна на сайте (ширина / высота, по центру): пунктирная рамка. */
-  var IED_DEF = { z: 100, x: 0, y: 0, rot: 0, flip: false };
+     o.guide — какая часть видна на сайте (ширина / высота, по центру): пунктирная рамка.
+     Перспектива (её просьба 14.10, как в PicsArt): ph — по горизонтали (+ правый край ближе), pv — по вертикали (+ верх ближе; так выпрямляют здания), −100…100;
+     картинку «поворачиваем» в пространстве и сами приближаем, чтобы не было пустых углов. */
+  var IED_DEF = { z: 100, x: 0, y: 0, rot: 0, flip: false, ph: 0, pv: 0 };
   var IED_TONE = [['br', 'Яркость', -100, 100], ['ct', 'Контраст', -100, 100], ['sh', 'Тени (− гуще, + светлее)', -100, 100], ['hl', 'Светлые места (− приглушить)', -100, 100],
     ['sat', 'Насыщенность', -100, 100], ['warm', 'Холоднее ← → теплее', -100, 100], ['sharp', 'Резкость', 0, 100]];
   function iedPlain(fx) {
@@ -612,7 +614,7 @@
     for (k = 0; k < IED_TONE.length; k++) if (+f[IED_TONE[k][0]]) return false;
     return iedFramePlain(f.pc) && !(f.phone && f.phone.on);
   }
-  function iedFramePlain(fr) { fr = fr || {}; return (+fr.z || 100) === 100 && !+fr.x && !+fr.y && !+fr.rot && !fr.flip; }
+  function iedFramePlain(fr) { fr = fr || {}; return (+fr.z || 100) === 100 && !+fr.x && !+fr.y && !+fr.rot && !fr.flip && !+fr.ph && !+fr.pv; }
   function iedLoad(src) {
     return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = imgSrc(src); });
   }
@@ -624,15 +626,67 @@
     var bw = W * c + H * s, bh = W * s + H * c, base = Math.max(bw / iw, bh / ih), sc = base * (+fr.z || 100) / 100;
     return { W: Math.round(W), H: Math.round(H), sc: sc, rx: Math.max(0, (iw * sc - bw) / 2), ry: Math.max(0, (ih * sc - bh) / 2), iw: iw, ih: ih };
   }
+  // Перспектива: куда на исходнике попадает точка кадра (u, v) — 4 угла → 4 угла (гомография), и насколько приблизить, чтобы углы не опустели
+  function iedHomo(from, to) {
+    var A = [], i, j, r, c, m;
+    for (i = 0; i < 4; i++) {
+      var u = from[i][0], v = from[i][1], x = to[i][0], y = to[i][1];
+      A.push([u, v, 1, 0, 0, 0, -u * x, -v * x, x]); A.push([0, 0, 0, u, v, 1, -u * y, -v * y, y]);
+    }
+    for (c = 0; c < 8; c++) {
+      for (m = c, r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[m][c])) m = r;
+      var t = A[c]; A[c] = A[m]; A[m] = t;
+      for (r = 0; r < 8; r++) if (r !== c) { var q = A[r][c] / A[c][c]; for (j = c; j < 9; j++) A[r][j] -= q * A[c][j]; }
+    }
+    var h = []; for (i = 0; i < 8; i++) h.push(A[i][8] / A[i][i]);
+    return h;
+  }
+  function iedPersp(im, fr, maxSide) {
+    var ph = +fr.ph || 0, pv = +fr.pv || 0;
+    if (!ph && !pv) return null;
+    var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height, r = Math.min(1, maxSide / Math.max(iw, ih));
+    var ow = Math.max(1, Math.round(iw * r)), oh = Math.max(1, Math.round(ih * r)), id = ph + '|' + pv + '|' + ow;
+    if (im._iedP && im._iedP._id === id) return im._iedP;
+    var a = ph / 100 * 35 * Math.PI / 180, b = pv / 100 * 35 * Math.PI / 180, D = 1.3 * Math.max(iw, ih), cx = iw / 2, cy = ih / 2;
+    var src = [[0, 0], [iw, 0], [iw, ih], [0, ih]], dst = src.map(function (p) {
+      var x = p[0] - cx, y = p[1] - cy, x1 = x * Math.cos(a), z1 = -x * Math.sin(a);
+      var y2 = y * Math.cos(b) - z1 * Math.sin(b), z2 = y * Math.sin(b) + z1 * Math.cos(b), s = D / (D + z2);
+      return [x1 * s + cx, y2 * s + cy];
+    });
+    var h = iedHomo(dst, src);
+    function map(u, v) { var w = h[6] * u + h[7] * v + 1; return [(h[0] * u + h[1] * v + h[2]) / w, (h[3] * u + h[4] * v + h[5]) / w]; }
+    // Наименьшее приближение, при котором кадр целиком на картинке
+    function fits(z) {
+      for (var i = 0; i < 4; i++) { var q = map(cx + (src[i][0] - cx) / z, cy + (src[i][1] - cy) / z); if (q[0] < -.5 || q[1] < -.5 || q[0] > iw + .5 || q[1] > ih + .5) return false; }
+      return true;
+    }
+    var lo = .2, hi = 8, n;
+    for (n = 0; n < 40; n++) { var mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+    var z = hi;
+    var sc = document.createElement('canvas'); sc.width = ow; sc.height = oh;
+    var sx = smooth(sc.getContext('2d')); sx.drawImage(im, 0, 0, ow, oh);
+    var sd = sx.getImageData(0, 0, ow, oh).data, out = sx.createImageData(ow, oh), d = out.data, X, Y, j = 0;
+    for (Y = 0; Y < oh; Y++) for (X = 0; X < ow; X++, j += 4) {
+      var q = map(cx + ((X + .5) / r - cx) / z, cy + ((Y + .5) / r - cy) / z);
+      var fx = Math.max(0, Math.min(ow - 1.001, q[0] * r - .5)), fy = Math.max(0, Math.min(oh - 1.001, q[1] * r - .5));
+      var x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, i0 = (y0 * ow + x0) * 4, i1 = i0 + ow * 4;
+      for (var c = 0; c < 4; c++) d[j + c] = (sd[i0 + c] * (1 - tx) + sd[i0 + 4 + c] * tx) * (1 - ty) + (sd[i1 + c] * (1 - tx) + sd[i1 + 4 + c] * tx) * ty;
+    }
+    sx.putImageData(out, 0, 0);
+    sc._z = z; sc._id = id; im._iedP = sc;
+    return sc;
+  }
   function iedPaint(cv, im, fr, ar, fx, k) {
     var g = iedGeo(im, fr, ar), W = Math.max(1, Math.round(g.W * k)), H = Math.max(1, Math.round(g.H * k));
+    var pim = iedPersp(im, fr, k < 1 ? 1400 : 1e5);
+    g.pz = pim ? pim._z : 1;
     cv.width = W; cv.height = H;
     var x = smooth(cv.getContext('2d'));
     x.clearRect(0, 0, W, H); x.save();
     x.translate(W / 2 + (+fr.x || 0) * g.rx * k, H / 2 + (+fr.y || 0) * g.ry * k);
     x.rotate((+fr.rot || 0) * Math.PI / 180);
     x.scale(g.sc * k * (fr.flip ? -1 : 1), g.sc * k);
-    x.drawImage(im, -g.iw / 2, -g.ih / 2);
+    x.drawImage(pim || im, -g.iw / 2, -g.ih / 2, g.iw, g.ih);
     x.restore();
     iedTone(x, W, H, fx);
     return g;
@@ -691,8 +745,8 @@
         guide.style.cssText = 'display:block;width:' + (gw / g.W * 100) + '%;height:' + (gh / g.H * 100) + '%';
       } else guide.style.display = 'none';
       // Сколько точек исходника приходится на ширину кадра: меньше ~900 — на сайте может стать мягче
-      var px = Math.round(g.W / g.sc);
-      warn.textContent = !o.noFrame && px < 900 && (+fr().z || 100) > 100 ? 'Сильно приблизили: от исходника осталось ' + px + ' точек по ширине — на сайте картинка может стать мягче. Если нужно так близко — лучше загрузить картинку крупнее.' : '';
+      var px = Math.round(g.W / g.sc / g.pz);
+      warn.textContent = !o.noFrame && px < 900 && ((+fr().z || 100) > 100 || g.pz > 1) ? 'Сильно приблизили: от исходника осталось ' + px + ' точек по ширине — на сайте картинка может стать мягче. Если нужно так близко — лучше загрузить картинку крупнее.' : '';
     }
     function again() { if (!raf) raf = requestAnimationFrame(paint); }
     function slider(objR, kk, label, min, max, unit) {
@@ -716,7 +770,8 @@
       var frameOn = !o.noFrame && (st.which === 'pc' || fx.phone.on);
       if (frameOn) {
         kids.push(sub('Кадр'), el('p', { class: 'a-hint', text: 'Тяните картинку мышкой или пальцем, чтобы сдвинуть. Двойной щелчок по ползунку — вернуть как было.' }),
-          slider(f, 'z', 'Крупность', 100, 300, ' %'), slider(f, 'rot', 'Наклон', -10, 10, '°'));
+          slider(f, 'z', 'Крупность', 100, 300, ' %'), slider(f, 'rot', 'Наклон', -10, 10, '°'),
+          slider(f, 'ph', 'Перспектива по горизонтали (+ правый край ближе)', -100, 100), slider(f, 'pv', 'Перспектива по вертикали (+ верх ближе)', -100, 100));
         var fl = el('input', { type: 'checkbox', checked: f.flip });
         fl.addEventListener('change', function () { f.flip = fl.checked; again(); });
         kids.push(el('div', { class: 'a-row' }, [el('label', { class: 'a-ied-sw' }, [fl, ' Отразить зеркально']),
@@ -2803,7 +2858,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261014b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261014c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3195,8 +3250,11 @@
       selectIn(L, 'rim', 'Каёмка и свечение вокруг карты', [['', 'Как задумано — золотые'], ['own', 'Свой цвет'], ['none', 'Без каёмки и свечения']], { def: '', onChange: again,
         hint: 'Свой цвет красит и мелкие подписи, линии на карте. На телефоне карта во весь экран — свечения там не видно.' }));
     if (L.rim === 'own') out.push(colorOptIn(L, 'rimColor', 'Цвет каёмки', { base: '#ffd68c', none: 'золотой' }));
-    out.push(rangeIn(L, 'scene', 'Затемнение сцены за картой', { def: L.bg === 'glass' ? 35 : 80, min: 0, max: 95, unit: ' %',
-      hint: 'Спираль или двери вокруг карты. Не трогали — как задумано' + (L.bg === 'glass' ? ' (у стекла — 35 %)' : '') + '. На телефоне карта во весь экран — сцену видно только сквозь стекло.' }));
+    out.push(selectIn(L, 'back', 'Что за картой', [['', 'Сцена маршрута — спираль или двери'], ['day', 'Картинка дня — во весь экран, размытая']], { def: '', onChange: again,
+      hint: 'Картинка дня — своя у каждого дня (вкладка «13 дней»). У дня без картинки за картой остаётся сцена.' }));
+    if (L.back === 'day') out.push(rangeIn(L, 'backBlur', 'Размытие картинки за картой', { def: 24, min: 0, max: 60, unit: ' px', hint: '0 — чёткая, 60 — мягкий цветной туман.' }));
+    out.push(rangeIn(L, 'scene', L.back === 'day' ? 'Затемнение фона за картой' : 'Затемнение сцены за картой', { def: L.bg === 'glass' ? 35 : L.back === 'day' ? 30 : 80, min: 0, max: 95, unit: ' %',
+      hint: (L.back === 'day' ? 'Картинка дня вокруг карты' : 'Спираль или двери вокруг карты') + '. Не трогали — как задумано' + (L.bg === 'glass' ? ' (у стекла — 35 %)' : L.back === 'day' ? ' (30 %)' : '') + '. На телефоне карта во весь экран — фон видно только сквозь стекло.' }));
     if (others.length) out.push(el('div', { class: 'a-row a-row--end' }, [field('Взять оформление из маршрута', from),
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Взять', onclick: function () {
         var src = others[+from.value]; if (!src) return;
@@ -3245,9 +3303,13 @@
       // Под картой — основная сцена маршрута (двери или своя картинка-фон), затемнённая, как на странице: видно, что просвечивает сквозь стекло (её просьба 14.10)
       var D = r.doors || {}, pic = r.scene === 'doors' ? D.desktop || D.mobile : r.masterDesktop || r.masterMobile;
       var sc = c.getAttribute('data-scene'), dim = sc != null && sc !== '' ? +sc : .7;
-      box.classList.toggle('ys-pv--scene', !!pic);
-      box.style.background = pic ? 'linear-gradient(rgba(5,3,1,' + dim + '),rgba(5,3,1,' + dim + ')),url("' + imgSrc(pic) + '") center/cover #0d0804' : '';
-      box.replaceChildren(c);
+      // «Что за картой» — картинка дня, размытая
+      var bk = c.getAttribute('data-back'), bl = +c.getAttribute('data-back-blur') || 0;
+      box.classList.toggle('ys-pv--scene', !!(pic || bk));
+      box.style.background = pic && !bk ? 'linear-gradient(rgba(5,3,1,' + dim + '),rgba(5,3,1,' + dim + ')),url("' + imgSrc(pic) + '") center/cover #0d0804' : '';
+      box.replaceChildren(bk ? el('div', { class: 'ys-pv-back' }, [
+        el('div', { class: 'ys-cbk', style: 'background-image:url("' + bk + '");' + (bl ? 'filter:blur(' + bl + 'px);inset:' + (-bl * 2) + 'px' : '') }),
+        el('div', { class: 'ys-cbk-dim', style: 'background:rgba(5,3,1,' + dim + ')' })]) : null, c);
     }
     function sel(opts, key) {
       var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));

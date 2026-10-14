@@ -153,6 +153,10 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 /* ---------- Слой поверх спирали ---------- */
 .ys-layer{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;background:radial-gradient(circle at 50% 50%,rgba(40,24,6,.55),rgba(5,3,1,.82));opacity:0;transition:opacity .35s ease}
 .ys-layer.is-in{opacity:1}
+/* За картой — картинка дня, размытая (cardLook.back = 'day') */
+.ys-cbk-w{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#0d0804}
+.ys-cbk{position:absolute;inset:0;background:center/cover no-repeat}
+.ys-cbk-dim{position:absolute;inset:0}
 .ys-layer.is-out{opacity:0}
 /* Карта появляется из центра спирали: --ys-ox / --ys-oy — где центр относительно середины экрана */
 .ys-layer .ys-card{transform:translate(var(--ys-ox,0px),var(--ys-oy,0px)) scale(.18);opacity:0;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
@@ -458,7 +462,8 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 /* ---------- Предпросмотр в панели (карта без слоя) ---------- */
 .ys-pv{background:#0d0804;border-radius:14px;padding:18px 12px;display:flex;justify-content:center}
 .ys-pv .ys-card{width:min(400px,100%)}
-.ys-pv.ys-pv--scene{padding:30px 22px}
+.ys-pv.ys-pv--scene{padding:30px 22px;position:relative;overflow:hidden;isolation:isolate}
+.ys-pv-back{position:absolute;inset:0;z-index:-1;overflow:hidden;background:#0d0804}
 .ys-pv .ys-card-in{padding:0 20px 18px}
 .ys-pv .ys-c-img{margin:0 -20px 2px}
 .ys-pv .ys-c-title{font-size:26px}
