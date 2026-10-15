@@ -599,16 +599,18 @@
   }
   /* ---------- Редактор картинки (её решение 14.10) ----------
      У любой загруженной картинки — кнопка «✎ Настроить»: кадр (крупность, сдвиг, наклон, отразить) и свет и цвет (яркость, контраст, тени, светлые места,
-     насыщенность, теплее / холоднее, резкость). Правка «запекается» здесь, в панели: obj[key] — уже поправленная картинка (её и видит сайт, на сайте ничего не считается),
+     насыщенность, теплее / холоднее, чёткость, резкость). Правка «запекается» здесь, в панели: obj[key] — уже поправленная картинка (её и видит сайт, на сайте ничего не считается),
      исходник — obj['_' + key + 'Src'], настройки — obj['_' + key + 'Fx'] (с «_» — только в черновике, на сайт не уходят, cleanDeep). Открыли снова — правка от исходника, а не поверх.
      o.noFrame — картинка совпадает с разметкой (контуры дверей, зоны спирали, слои сцены): только свет и цвет.
      o.phone — можно свой кадр для телефона: obj[key + 'Phone'] (сайт берёт её на узком экране); свет и цвет — общие. o.phoneAr — форма кадра телефона (высота / ширина: фактура — экран телефона).
      o.guide — какая часть видна на сайте (ширина / высота, по центру): пунктирная рамка.
      Перспектива (её просьба 14.10, как в PicsArt): ph — по горизонтали (+ правый край ближе), pv — по вертикали (+ верх ближе; так выпрямляют здания), −100…100;
-     картинку «поворачиваем» в пространстве и сами приближаем, чтобы не было пустых углов. */
+     картинку «поворачиваем» в пространстве (до ±50°) и ставим кадр туда, где он самый большой без пустых углов, — к большому краю, малый уходит вглубь (15.10);
+     с перспективой x, y — ход кадра по повёрнутой картинке (к краю — приближается сам), z — ещё ближе. */
   var IED_DEF = { z: 100, x: 0, y: 0, rot: 0, flip: false, ph: 0, pv: 0 };
   var IED_TONE = [['br', 'Яркость', -100, 100], ['ct', 'Контраст', -100, 100], ['sh', 'Тени (− гуще, + светлее)', -100, 100], ['hl', 'Светлые места (− приглушить)', -100, 100],
-    ['sat', 'Насыщенность', -100, 100], ['warm', 'Холоднее ← → теплее', -100, 100], ['sharp', 'Резкость', 0, 100]];
+    ['sat', 'Насыщенность', -100, 100], ['warm', 'Холоднее ← → теплее', -100, 100],
+    ['clar', 'Чёткость (− мягче, + объёмнее)', -100, 100], ['sharp', 'Резкость', 0, 100]];
   function iedPlain(fx) {
     var f = fx || {}, k;
     for (k = 0; k < IED_TONE.length; k++) if (+f[IED_TONE[k][0]]) return false;
@@ -645,9 +647,40 @@
     var ph = +fr.ph || 0, pv = +fr.pv || 0;
     if (!ph && !pv) return null;
     var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height, r = Math.min(1, maxSide / Math.max(iw, ih));
-    var ow = Math.max(1, Math.round(iw * r)), oh = Math.max(1, Math.round(ih * r)), id = ph + '|' + pv + '|' + ow;
+    var ow = Math.max(1, Math.round(iw * r)), oh = Math.max(1, Math.round(ih * r));
+    var zu = Math.max(1, (+fr.z || 100) / 100), ux = Math.max(-1, Math.min(1, +fr.x || 0)), uy = Math.max(-1, Math.min(1, +fr.y || 0));
+    var id = [ph, pv, ow, zu, ux, uy].join('|');
     if (im._iedP && im._iedP._id === id) return im._iedP;
-    var a = ph / 100 * 35 * Math.PI / 180, b = pv / 100 * 35 * Math.PI / 180, D = 1.3 * Math.max(iw, ih), cx = iw / 2, cy = ih / 2;
+    var Q = iedPQuad(im, ph, pv), map = Q.map;
+    // Центр кадра: от лучшего места (p0) к краю — насколько потянули (x, y); кадр — наибольший, что помещается там (не больше, чем позволяет «Крупность»)
+    var px = Q.p0[0] - ux * (ux > 0 ? Q.p0[0] - Q.ex[0] : Q.ex[1] - Q.p0[0]), py = Q.p0[1] - uy * (uy > 0 ? Q.p0[1] - Q.ey[0] : Q.ey[1] - Q.p0[1]);
+    var lo = 0, hi = 1, n;
+    if (Q.size(px, py) < Q.smin) {
+      for (n = 0; n < 24; n++) { var t = (lo + hi) / 2; if (Q.size(Q.p0[0] + (px - Q.p0[0]) * t, Q.p0[1] + (py - Q.p0[1]) * t) >= Q.smin) lo = t; else hi = t; }
+      px = Q.p0[0] + (px - Q.p0[0]) * lo; py = Q.p0[1] + (py - Q.p0[1]) * lo;
+    }
+    var s = Math.min(Q.s0 / zu, Q.size(px, py));
+    var sc = document.createElement('canvas'); sc.width = ow; sc.height = oh;
+    var sx = smooth(sc.getContext('2d')); sx.drawImage(im, 0, 0, ow, oh);
+    var sd = sx.getImageData(0, 0, ow, oh).data, out = sx.createImageData(ow, oh), d = out.data, X, Y, j = 0;
+    for (Y = 0; Y < oh; Y++) for (X = 0; X < ow; X++, j += 4) {
+      var q = map(px + ((X + .5) / r - iw / 2) * s, py + ((Y + .5) / r - ih / 2) * s);
+      var fx = Math.max(0, Math.min(ow - 1.001, q[0] * r - .5)), fy = Math.max(0, Math.min(oh - 1.001, q[1] * r - .5));
+      var x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, i0 = (y0 * ow + x0) * 4, i1 = i0 + ow * 4;
+      for (var c = 0; c < 4; c++) d[j + c] = (sd[i0 + c] * (1 - tx) + sd[i0 + 4 + c] * tx) * (1 - ty) + (sd[i1 + c] * (1 - tx) + sd[i1 + 4 + c] * tx) * ty;
+    }
+    sx.putImageData(out, 0, 0);
+    // Для перетаскивания: на сколько точек исходника уходит центр при x = ±1
+    sc._z = 1 / s; sc._id = id; sc._span = [(Q.ex[1] - Q.ex[0]) / 2 / s, (Q.ey[1] - Q.ey[0]) / 2 / s];
+    im._iedP = sc;
+    return sc;
+  }
+  // Повёрнутая картинка — четырёхугольник; ищем, где в нём помещается самый большой кадр формы картинки (так кадр встаёт к большому краю, а малый уходит вглубь)
+  function iedPQuad(im, ph, pv) {
+    var key = ph + '|' + pv;
+    if (im._iedQ && im._iedQ.key === key) return im._iedQ;
+    var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height;
+    var a = ph / 100 * 50 * Math.PI / 180, b = pv / 100 * 50 * Math.PI / 180, D = Math.max(iw, ih), cx = iw / 2, cy = ih / 2;
     var src = [[0, 0], [iw, 0], [iw, ih], [0, ih]], dst = src.map(function (p) {
       var x = p[0] - cx, y = p[1] - cy, x1 = x * Math.cos(a), z1 = -x * Math.sin(a);
       var y2 = y * Math.cos(b) - z1 * Math.sin(b), z2 = y * Math.sin(b) + z1 * Math.cos(b), s = D / (D + z2);
@@ -655,35 +688,51 @@
     });
     var h = iedHomo(dst, src);
     function map(u, v) { var w = h[6] * u + h[7] * v + 1; return [(h[0] * u + h[1] * v + h[2]) / w, (h[3] * u + h[4] * v + h[5]) / w]; }
-    // Наименьшее приближение, при котором кадр целиком на картинке
-    function fits(z) {
-      for (var i = 0; i < 4; i++) { var q = map(cx + (src[i][0] - cx) / z, cy + (src[i][1] - cy) / z); if (q[0] < -.5 || q[1] < -.5 || q[0] > iw + .5 || q[1] > ih + .5) return false; }
-      return true;
+    function inQ(x, y) { var q = map(x, y); return q[0] >= -.5 && q[1] >= -.5 && q[0] <= iw + .5 && q[1] <= ih + .5; }
+    // Доля исходного размера наибольшего кадра с центром (x, y): 0 — не помещается, 1 — целиком
+    function size(x, y) {
+      if (!inQ(x, y)) return 0;
+      var lo = 0, hi = 1, n, k, ok;
+      for (n = 0; n < 22; n++) {
+        var m = (lo + hi) / 2, dx = m * iw / 2, dy = m * ih / 2;
+        for (ok = true, k = 0; k < 4 && ok; k++) ok = inQ(x + (k & 1 ? dx : -dx), y + (k & 2 ? dy : -dy));
+        if (ok) lo = m; else hi = m;
+      }
+      return lo;
     }
-    var lo = .2, hi = 8, n;
-    for (n = 0; n < 40; n++) { var mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
-    var z = hi;
-    var sc = document.createElement('canvas'); sc.width = ow; sc.height = oh;
-    var sx = smooth(sc.getContext('2d')); sx.drawImage(im, 0, 0, ow, oh);
-    var sd = sx.getImageData(0, 0, ow, oh).data, out = sx.createImageData(ow, oh), d = out.data, X, Y, j = 0;
-    for (Y = 0; Y < oh; Y++) for (X = 0; X < ow; X++, j += 4) {
-      var q = map(cx + ((X + .5) / r - cx) / z, cy + ((Y + .5) / r - cy) / z);
-      var fx = Math.max(0, Math.min(ow - 1.001, q[0] * r - .5)), fy = Math.max(0, Math.min(oh - 1.001, q[1] * r - .5));
-      var x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, i0 = (y0 * ow + x0) * 4, i1 = i0 + ow * 4;
-      for (var c = 0; c < 4; c++) d[j + c] = (sd[i0 + c] * (1 - tx) + sd[i0 + 4 + c] * tx) * (1 - ty) + (sd[i1 + c] * (1 - tx) + sd[i1 + 4 + c] * tx) * ty;
+    var xs = dst.map(function (p) { return p[0]; }), ys = dst.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    // Сетка, потом всё мельче вокруг лучшего места; при равенстве — ближе к середине
+    var bx = cx, by = cy, bs = -1, stx = (x1 - x0) / 20, sty = (y1 - y0) / 20, r, i, j;
+    for (r = 0; r < 4; r++) {
+      var ax = r ? bx - stx * 2 : x0, ay = r ? by - sty * 2 : y0, nn = r ? 4 : 20;
+      for (i = 0; i <= nn; i++) for (j = 0; j <= nn; j++) {
+        var X = ax + i * stx, Y = ay + j * sty, v = size(X, Y) - 1e-9 * ((X - cx) * (X - cx) + (Y - cy) * (Y - cy));
+        if (v > bs) { bs = v; bx = X; by = Y; }
+      }
+      stx /= 4; sty /= 4;
     }
-    sx.putImageData(out, 0, 0);
-    sc._z = z; sc._id = id; im._iedP = sc;
-    return sc;
+    var s0 = size(bx, by), smin = s0 * .6;
+    // Докуда можно тянуть кадр в стороны: сам приближает не больше чем в ~1,7 раза
+    function reach(dx, dy) {
+      var lo = 0, hi = Math.max(iw, ih), n;
+      for (n = 0; n < 24; n++) { var m = (lo + hi) / 2; if (size(bx + dx * m, by + dy * m) >= smin) lo = m; else hi = m; }
+      return lo;
+    }
+    im._iedQ = { key: key, map: map, size: size, p0: [bx, by], s0: s0, smin: smin, ex: [bx - reach(-1, 0), bx + reach(1, 0)], ey: [by - reach(0, -1), by + reach(0, 1)] };
+    return im._iedQ;
   }
+  // Предпросмотр перспективы считаем чуть крупнее окна (быстро тянуть), готовую — в полный размер
+  function iedPMax(im, k) { return k < 1 ? Math.min(900, Math.round(Math.max(im.naturalWidth, im.naturalHeight) * k * 1.3)) : 1e5; }
   function iedPaint(cv, im, fr, ar, fx, k) {
-    var g = iedGeo(im, fr, ar), W = Math.max(1, Math.round(g.W * k)), H = Math.max(1, Math.round(g.H * k));
-    var pim = iedPersp(im, fr, k < 1 ? 1400 : 1e5);
+    // С перспективой крупность и сдвиг считает iedPersp (кадр ходит по повёрнутой картинке), здесь — только наклон и зеркало
+    var pim = iedPersp(im, fr, iedPMax(im, k)), pf = pim ? { z: 100, x: 0, y: 0, rot: fr.rot } : fr;
+    var g = iedGeo(im, pf, ar), W = Math.max(1, Math.round(g.W * k)), H = Math.max(1, Math.round(g.H * k));
     g.pz = pim ? pim._z : 1;
     cv.width = W; cv.height = H;
     var x = smooth(cv.getContext('2d'));
     x.clearRect(0, 0, W, H); x.save();
-    x.translate(W / 2 + (+fr.x || 0) * g.rx * k, H / 2 + (+fr.y || 0) * g.ry * k);
+    x.translate(W / 2 + (+pf.x || 0) * g.rx * k, H / 2 + (+pf.y || 0) * g.ry * k);
     x.rotate((+fr.rot || 0) * Math.PI / 180);
     x.scale(g.sc * k * (fr.flip ? -1 : 1), g.sc * k);
     x.drawImage(pim || im, -g.iw / 2, -g.ih / 2, g.iw, g.ih);
@@ -691,10 +740,10 @@
     iedTone(x, W, H, fx);
     return g;
   }
-  // Свет и цвет — по точкам; резкость — «нерезкая маска» 3×3
+  // Свет и цвет — по точкам; чёткость — местный контраст в средних тонах (крупное размытие, ~1,5 % кадра); резкость — «нерезкая маска» 3×3
   function iedTone(x, W, H, fx) {
-    var br = +fx.br || 0, ct = +fx.ct || 0, sh = +fx.sh || 0, hl = +fx.hl || 0, sat = +fx.sat || 0, wm = +fx.warm || 0, shp = +fx.sharp || 0;
-    if (!br && !ct && !sh && !hl && !sat && !wm && !shp) return;
+    var br = +fx.br || 0, ct = +fx.ct || 0, sh = +fx.sh || 0, hl = +fx.hl || 0, sat = +fx.sat || 0, wm = +fx.warm || 0, shp = +fx.sharp || 0, cl = +fx.clar || 0;
+    if (!br && !ct && !sh && !hl && !sat && !wm && !shp && !cl) return;
     var img = x.getImageData(0, 0, W, H), d = img.data, n = d.length, i, r, gg, b, l, cf = ct * 1.28, f = 259 * (cf + 255) / (255 * (259 - cf)), sf = 1 + sat / 100;
     for (i = 0; i < n; i += 4) {
       r = d[i]; gg = d[i + 1]; b = d[i + 2];
@@ -705,6 +754,7 @@
       if (sat) { l = .2126 * r + .7152 * gg + .0722 * b; r = l + (r - l) * sf; gg = l + (gg - l) * sf; b = l + (b - l) * sf; }
       d[i] = r; d[i + 1] = gg; d[i + 2] = b;
     }
+    if (cl && W > 2 && H > 2) iedClarity(d, W, H, cl);
     if (shp && W > 2 && H > 2) {
       var s = new Uint8ClampedArray(d), a = shp / 45, row = W * 4, y, xx, j, c;
       for (y = 1; y < H - 1; y++) for (xx = 1; xx < W - 1; xx++) {
@@ -716,6 +766,30 @@
       }
     }
     x.putImageData(img, 0, 0);
+  }
+  function iedClarity(d, W, H, cl) {
+    var n = W * H, L = new Float32Array(n), B, i, p, rad = Math.max(2, Math.round(Math.min(W, H) * .015)), a = cl / 100 * (cl > 0 ? 1.6 : 1);
+    for (i = 0, p = 0; i < n; i++, p += 4) L[i] = .2126 * d[p] + .7152 * d[p + 1] + .0722 * d[p + 2];
+    // Три прохода «окном» по строкам и столбцам — почти гауссово размытие
+    B = L; for (i = 0; i < 3; i++) B = iedBox(iedBox(B, W, H, rad, 1), W, H, rad, W);
+    for (i = 0, p = 0; i < n; i++, p += 4) {
+      // Вес — только средние тоны (у тёмных букв на светлом нет ореолов); разница мягко ограничена (~35)
+      var l = L[i] / 255, w = 1 - (2 * l - 1) * (2 * l - 1), e = (L[i] - B[i]) / 35, add = a * 35 * e / (1 + Math.abs(e)) * w * w;
+      d[p] += add; d[p + 1] += add; d[p + 2] += add;
+    }
+  }
+  // Среднее по отрезку 2·rad+1 вдоль строк (st = 1) или столбцов (st = W), края — повтором крайней точки
+  function iedBox(S, W, H, rad, st) {
+    var O = new Float32Array(S.length), len = st === 1 ? W : H, lines = st === 1 ? H : W, step = st === 1 ? W : 1, k, j, m = 2 * rad + 1;
+    for (k = 0; k < lines; k++) {
+      var b = k * step, sum = 0;
+      for (j = -rad; j <= rad; j++) sum += S[b + Math.max(0, Math.min(len - 1, j)) * st];
+      for (j = 0; j < len; j++) {
+        O[b + j * st] = sum / m;
+        sum += S[b + Math.min(len - 1, j + rad + 1) * st] - S[b + Math.max(0, j - rad) * st];
+      }
+    }
+    return O;
   }
   function iedOut(cv) {
     var d = cv.toDataURL('image/webp', 0.9);
@@ -786,8 +860,10 @@
     var drag = null;
     stage.addEventListener('pointerdown', function (e) {
       if (o.noFrame || (st.which === 'phone' && !fx.phone.on)) return;
-      var g = iedGeo(im, fr(), ar()), kk = k();
+      var g = iedGeo(im, fr(), ar()), kk = k(), pim = iedPersp(im, fr(), iedPMax(im, kk));
       drag = { x: e.clientX, y: e.clientY, fx: +fr().x || 0, fy: +fr().y || 0, rx: g.rx * kk, ry: g.ry * kk };
+      // С перспективой: ход кадра по повёрнутой картинке, в точках экрана (картинка идёт за пальцем)
+      if (pim) { var u = cv.getBoundingClientRect().width / g.W * g.sc; drag.rx = pim._span[0] * u; drag.ry = pim._span[1] * u; }
       stage.setPointerCapture(e.pointerId); e.preventDefault();
     });
     stage.addEventListener('pointermove', function (e) {
