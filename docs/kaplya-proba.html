@@ -1,0 +1,358 @@
+<title>Капля в воде · проба</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Infant:ital,wght@0,500;1,500&display=swap">
+<style>
+/* Сцена во весь экран — тёмная вода; панель настроек справа (на телефоне — снизу, сворачивается). Один тёмный мир, без светлой темы. */
+:root{
+  --water:#061530; --deep:#020812; --panel:rgba(8,16,34,.86); --line:rgba(170,195,255,.16);
+  --fg:#e9eefb; --mute:#94a3c6; --pearl:#f6f3ea; --accent:#9cc0ff;
+  --display:"Cormorant Infant", "Cormorant", Georgia, serif;
+  --ui:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--deep);color:var(--fg);font-family:var(--ui);overflow:hidden;font-size:14px}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.cap{position:fixed;left:0;top:0;padding-bottom:18px;background:radial-gradient(120% 100% at 0 0,rgba(2,8,18,.72),rgba(2,8,18,0) 75%);padding:calc(14px + env(safe-area-inset-top,0px)) 16px 0 max(16px,env(safe-area-inset-left,0px));pointer-events:none;max-width:min(560px,100%)}
+.cap h1{font-family:var(--display);font-weight:500;font-size:clamp(22px,3.4vw,34px);margin:0;letter-spacing:.01em;text-shadow:0 1px 12px rgba(0,0,0,.6)}
+.cap p{margin:4px 0 0;color:var(--mute);font-size:13px;text-shadow:0 1px 8px rgba(0,0,0,.8);max-width:46ch}
+.cap .no{font-variant-numeric:tabular-nums;color:var(--pearl)}
+.pan{position:fixed;right:0;top:0;bottom:0;width:320px;max-width:100%;background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-left:1px solid var(--line);overflow:auto;
+  padding-block:calc(14px + env(safe-area-inset-top,0px)) calc(18px + env(safe-area-inset-bottom,0px));padding-left:16px;padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+.pan.closed{transform:translateX(100%)}
+.pan{transition:transform .3s ease}
+.grp{display:flex;flex-direction:column;gap:8px}
+.lab{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--mute)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg.two{grid-template-columns:repeat(2,1fr)}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+button,.chip{font:inherit;color:var(--fg);background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px;padding:8px 6px;cursor:pointer;line-height:1.2}
+button:hover{border-color:rgba(170,195,255,.4)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"]{background:rgba(156,192,255,.16);border-color:var(--accent)}
+.mode b{display:block;font-family:var(--display);font-size:22px;font-weight:500}
+.mode span{font-size:11.5px;color:var(--mute)}
+.mode{padding:8px 4px}
+.hint{font-size:12.5px;color:var(--mute);line-height:1.45;margin:0}
+.sw{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sw button{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid rgba(255,255,255,.18)}
+.sw button[aria-pressed="true"]{border-color:var(--fg);box-shadow:0 0 0 2px var(--deep),0 0 0 4px var(--accent)}
+.sw input[type=color]{width:38px;height:34px;border:1px solid var(--line);border-radius:8px;background:transparent;padding:2px;cursor:pointer}
+.row{display:flex;align-items:center;gap:10px}
+.row label{flex:1;min-width:0}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.val{font-variant-numeric:tabular-nums;color:var(--mute);font-size:12px;min-width:44px;text-align:right}
+.ck{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--fg);cursor:pointer}
+.ck input{margin-top:2px;accent-color:var(--accent)}
+.big{background:rgba(246,243,234,.12);border-color:rgba(246,243,234,.35);padding:12px;font-size:15px}
+.tog{position:fixed;right:max(12px,calc(12px + env(safe-area-inset-right,0px)));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:3;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:10px 14px;border-radius:999px}
+.drop-fab{position:fixed;left:max(12px,calc(12px + env(safe-area-inset-left,0px)));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:3;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:10px 16px;border-radius:999px}
+@media (min-width:761px){.pan:not(.closed)~.tog{right:calc(332px + env(safe-area-inset-right,0px))}}
+@media (max-width:760px){
+  .pan{top:auto;left:0;width:100%;height:56%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .pan.closed{transform:translateY(100%)}
+  .pan:not(.closed)~.tog,.pan:not(.closed)~.drop-fab{bottom:calc(56% + 10px)}
+}
+</style>
+
+<canvas id="stage" aria-label="Тёмная вода: нажмите, чтобы капнуть краску"></canvas>
+
+<div class="cap">
+  <h1 id="capT">Капля внутри трубки</h1>
+  <p id="capP">Краска растекается неровно, зеркала собирают из неё узор.</p>
+  <p>Узор <span class="no" id="no">№ —</span> · каждая капля новая, повторов нет</p>
+</div>
+
+<aside class="pan" id="pan" aria-label="Настройки пробы">
+  <div class="grp">
+    <div class="lab">Вариант</div>
+    <div class="seg" id="modes">
+      <button class="mode" data-m="A" aria-pressed="true"><b>А</b><span>капля в трубке</span></button>
+      <button class="mode" data-m="B" aria-pressed="false"><b>Б</b><span>без зеркал</span></button>
+      <button class="mode" data-m="C" aria-pressed="false"><b>В</b><span>поверх узора</span></button>
+    </div>
+    <p class="hint" id="modeHint"></p>
+  </div>
+
+  <button class="big" id="dropBtn" type="button">💧 Капнуть</button>
+
+  <div class="grp">
+    <div class="lab">Цвет краски</div>
+    <div class="sw" id="sw">
+      <button data-c="#f7f4ec" style="background:#f7f4ec" aria-label="Белая" aria-pressed="true" title="Белая"></button>
+      <button data-c="#e5332a" style="background:#e5332a" aria-label="Красная" aria-pressed="false" title="Красная"></button>
+      <button data-c="#2b78ff" style="background:#2b78ff" aria-label="Синяя" aria-pressed="false" title="Синяя"></button>
+      <button data-c="#ffc423" style="background:#ffc423" aria-label="Жёлтая" aria-pressed="false" title="Жёлтая"></button>
+      <button data-c="#d9a441" style="background:#d9a441" aria-label="Золото" aria-pressed="false" title="Золото"></button>
+      <input type="color" id="own" value="#7fffd4" aria-label="Свой цвет" title="Свой цвет">
+    </div>
+    <label class="ck"><input type="checkbox" id="mix"> Каждая капля — следующим цветом (красный, белый, синий, жёлтый)</label>
+  </div>
+
+  <div class="grp">
+    <div class="lab">Вода</div>
+    <div class="seg two" id="waters">
+      <button data-w="blue" aria-pressed="true">глубокая синяя</button>
+      <button data-w="black" aria-pressed="false">чёрная</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="lab">Капли</div>
+    <div class="seg two" id="autos">
+      <button data-a="1" aria-pressed="true">падают сами</button>
+      <button data-a="0" aria-pressed="false">только по нажатию</button>
+    </div>
+    <div class="row"><label for="every">Как часто</label><span class="val" id="everyV"></span></div>
+    <input type="range" id="every" min="3" max="25" value="8">
+  </div>
+
+  <div class="grp" id="mirG">
+    <div class="lab">Зеркал</div>
+    <div class="seg four" id="mirs">
+      <button data-s="8" aria-pressed="false">8</button>
+      <button data-s="12" aria-pressed="true">12</button>
+      <button data-s="16" aria-pressed="false">16</button>
+      <button data-s="24" aria-pressed="false">24</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <div class="row"><label for="speed">Скорость</label><span class="val" id="speedV"></span></div>
+    <input type="range" id="speed" min="25" max="250" value="100">
+    <div class="row"><label for="dens">Сколько краски</label><span class="val" id="densV"></span></div>
+    <input type="range" id="dens" min="40" max="220" value="100">
+    <div class="row"><label for="size">Размер капли</label><span class="val" id="sizeV"></span></div>
+    <input type="range" id="size" min="50" max="200" value="100">
+    <div class="row"><label for="swirl">Завитки</label><span class="val" id="swirlV"></span></div>
+    <input type="range" id="swirl" min="0" max="250" value="100">
+    <div class="row"><label for="fade">Растворяется</label><span class="val" id="fadeV"></span></div>
+    <input type="range" id="fade" min="0" max="100" value="35">
+  </div>
+
+  <button id="clear" type="button">Очистить воду</button>
+  <p class="hint">Нажмите прямо на воду, чтобы капнуть (в Б и В — в это место). Всё рисуется на устройстве: ни картинок, ни отправки данных.</p>
+</aside>
+<button class="tog" id="tog" type="button" aria-expanded="true">Скрыть настройки</button>
+<button class="drop-fab" id="fab" type="button">💧</button>
+
+<script>
+(function(){
+'use strict';
+var cv=document.getElementById('stage'), cx=cv.getContext('2d');
+var DPR=Math.min(window.devicePixelRatio||1,1.5);
+var W=0,H=0;
+
+/* ---------- шум (Перлин) ---------- */
+var P=new Uint8Array(512);
+function reseedNoise(){var p=[],i,j,t;for(i=0;i<256;i++)p[i]=i;for(i=255;i>0;i--){j=Math.floor(Math.random()*(i+1));t=p[i];p[i]=p[j];p[j]=t;}for(i=0;i<512;i++)P[i]=p[i&255];}
+reseedNoise();
+var GX=[1,-1,1,-1,1.41,-1.41,0,0],GY=[1,1,-1,-1,0,0,1.41,-1.41];
+function fd(t){return t*t*t*(t*(t*6-15)+10);}
+function noise(x,y){
+  var X=Math.floor(x),Y=Math.floor(y),xf=x-X,yf=y-Y;X&=255;Y&=255;
+  var a=P[X+P[Y]]&7,b=P[X+1+P[Y]]&7,c=P[X+P[Y+1]]&7,d=P[X+1+P[Y+1]]&7;
+  var u=fd(xf),v=fd(yf);
+  var n00=GX[a]*xf+GY[a]*yf,n10=GX[b]*(xf-1)+GY[b]*yf,n01=GX[c]*xf+GY[c]*(yf-1),n11=GX[d]*(xf-1)+GY[d]*(yf-1);
+  return (n00+(n10-n00)*u)+((n01+(n11-n01)*u)-(n00+(n10-n00)*u))*v;
+}
+
+/* ---------- состояние ---------- */
+var st={mode:'A',color:'#f7f4ec',mix:false,water:'blue',auto:true,every:8,S:12,speed:1,dens:1,size:1,swirl:1,fade:.35};
+var MIX=['#e5332a','#f7f4ec','#2b78ff','#ffc423'],mixI=0;
+var ink=document.createElement('canvas'),ic=ink.getContext('2d');
+var drops=[],simT=0,lastDrop=0,rot=0,noOff=Math.random()*1000;
+var bgK=null; // картинка-узор для варианта В
+
+function U(){return st.mode==='A'?ink.width*0.62*vis():Math.min(ink.width,ink.height)*0.5;}
+/* какая часть трубки видна на экране (на узком телефоне — меньше) */
+function vis(){var R=Math.hypot(W,H)/2;return Math.min(1,Math.min(W,H)/2*1.35/R)/0.95;}
+
+/* ---------- геометрия трубки (вариант А) ---------- */
+function geo(){
+  var R=Math.hypot(W,H)/2, th=2*Math.PI/st.S, D=R*1.15;
+  return {R:R,th:th,D:D,Cx:0.55*R,Cy:0.55*R*Math.tan(th/2)};
+}
+function kal(ctx,src,g,angle){
+  ctx.save();ctx.translate(W/2,H/2);ctx.rotate(angle);
+  for(var k=0;k<st.S;k++){
+    ctx.save();ctx.rotate(k*g.th);
+    if(k%2){ctx.rotate(g.th);ctx.scale(1,-1);}
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,g.R*1.02,-0.004,g.th+0.004);ctx.closePath();ctx.clip();
+    ctx.drawImage(src,g.Cx-g.D/2,g.Cy-g.D/2,g.D,g.D);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* ---------- капля ---------- */
+function pickColor(){if(st.mix){var c=MIX[mixI%MIX.length];mixI++;return c;}return st.color;}
+function addDrop(px,py){
+  var u=U(), x, y;
+  if(st.mode==='A'){
+    var g=geo(), r=g.R*Math.min(0.78,0.95*vis())*(0.08+0.92*Math.pow(Math.random(),0.8)), a=g.th*(0.12+0.76*Math.random());
+    var wx=r*Math.cos(a), wy=r*Math.sin(a);
+    x=(wx-(g.Cx-g.D/2))/g.D*ink.width; y=(wy-(g.Cy-g.D/2))/g.D*ink.height;
+  } else if(px!=null){x=px*DPR;y=py*DPR;}
+  else {var wide=innerWidth>760&&!pan.classList.contains('closed');x=ink.width*(wide?0.12+0.5*Math.random():0.2+0.6*Math.random());y=ink.height*(0.2+0.6*Math.random());}
+  var R0=u*(0.035+0.045*Math.random())*st.size;
+  var d={x:x,y:y,R0:R0,t0:simT,col:pickColor(),parts:[],vort:[],
+    drift:{x:(Math.random()-.5)*u*0.012,y:(Math.random()-.5)*u*0.012},
+    no:Math.floor(10000+Math.random()*89999)};
+  // «пальцы» — у каждой капли свой набор волн по краю
+  var waves=[],nw=3+Math.floor(Math.random()*3),i;
+  for(i=0;i<nw;i++)waves.push({k:3+Math.floor(Math.random()*12),ph:Math.random()*6.283,a:0.25+Math.random()*0.6});
+  function finger(an){var s=0;for(var j=0;j<waves.length;j++)s+=waves[j].a*Math.sin(waves[j].k*an+waves[j].ph);return Math.max(0,0.55+0.45*s);}
+  d.edge=[];for(i=0;i<72;i++){var an=i/72*6.283;d.edge.push(1+0.22*(finger(an)-0.55)+0.06*(Math.random()-.5));}
+  // вихри вокруг капли
+  var nv=3+Math.floor(Math.random()*5);
+  for(i=0;i<nv;i++){var va=Math.random()*6.283,vr=R0*(1+Math.random()*2.6),rc=R0*(0.35+Math.random()*0.9);
+    d.vort.push({x:x+Math.cos(va)*vr,y:y+Math.sin(va)*vr,rc:rc,g:(Math.random()<.5?-1:1)*(0.6+Math.random())*0.05*u*2*Math.PI*rc/0.63});}
+  // частицы краски
+  var n=Math.round(1500*st.dens);
+  for(i=0;i<n;i++){
+    var A=Math.random()*6.283, rr=R0*Math.sqrt(Math.random())*0.95, f=finger(A);
+    var thick=Math.random()<(st.mode==='A'?0.38:0.5);
+    var sp=u*0.32*(0.25+f*f*1.3)*(0.35+rr/R0)*(0.7+Math.random()*0.6)*(thick?0.7:1);
+    d.parts.push({x:x+Math.cos(A)*rr,y:y+Math.sin(A)*rr,vx:Math.cos(A)*sp,vy:Math.sin(A)*sp,
+      life:7+Math.random()*14,th:thick,w:thick?(1.6+Math.random()*2.2):(0.6+Math.random()*0.9)});
+  }
+  drops.push(d);
+  document.getElementById('no').textContent='№ '+d.no;
+  lastDrop=performance.now();
+  if(drops.length>7)drops.shift();
+}
+
+/* ---------- шаг краски ---------- */
+var fadeAcc=0;
+function step(dt){
+  var u=U(), f=2.6/u, amp=u*0.035*st.swirl, e=0.35;
+  simT+=dt;
+  fadeAcc+=dt*(0.01+st.fade*0.12);
+  if(fadeAcc>0.04){ic.save();ic.globalCompositeOperation='destination-out';ic.fillStyle='rgba(0,0,0,'+fadeAcc.toFixed(3)+')';ic.fillRect(0,0,ink.width,ink.height);ic.restore();fadeAcc=0;}
+  ic.lineCap='round';ic.lineJoin='round';
+  var T=simT*0.06+noOff;
+  for(var di=0;di<drops.length;di++){
+    var d=drops[di], age=simT-d.t0;
+    // «бух» — тело капли
+    if(age<0.45){
+      var k=1-Math.pow(1-age/0.45,3);
+      ic.fillStyle=d.col;ic.globalAlpha=1;ic.beginPath();
+      for(var q=0;q<=72;q++){var an=q/72*6.283,rr=d.R0*k*d.edge[q%72];q?ic.lineTo(d.x+Math.cos(an)*rr,d.y+Math.sin(an)*rr):ic.moveTo(d.x+Math.cos(an)*rr,d.y+Math.sin(an)*rr);}
+      ic.fill();
+    }
+    if(!d.parts.length)continue;
+    var grow=Math.min(1,age/1.6), vdec=Math.exp(-age/9);
+    var pThick=new Path2D(), pThin=new Path2D(), alive=[];
+    for(var i=0;i<d.parts.length;i++){
+      var p=d.parts[i]; if(age>p.life)continue;
+      var drag=Math.exp(-1.25*dt); p.vx*=drag;p.vy*=drag;
+      var nx=p.x*f, ny=p.y*f;
+      var cxv=(noise(nx,ny+e+T)-noise(nx,ny-e+T))/(2*e), cyv=-(noise(nx+e,ny+T)-noise(nx-e,ny+T))/(2*e);
+      var nx2=nx*2.3+11.1, ny2=ny*2.3-5.7;
+      cxv+=0.45*(noise(nx2,ny2+e-T)-noise(nx2,ny2-e-T))/(2*e); cyv-=0.45*(noise(nx2+e,ny2-T)-noise(nx2-e,ny2-T))/(2*e);
+      var fx=cxv*amp*grow+d.drift.x, fy=cyv*amp*grow+d.drift.y;
+      for(var v=0;v<d.vort.length;v++){var w=d.vort[v],dx=p.x-w.x,dy=p.y-w.y,r2=dx*dx+dy*dy+1;
+        var s=w.g*vdec*st.swirl*(1-Math.exp(-r2/(w.rc*w.rc)))/(6.283*r2);fx+=-dy*s;fy+=dx*s;}
+      var ox=p.x,oy=p.y; p.x+=(p.vx+fx)*dt; p.y+=(p.vy+fy)*dt;
+      var path=p.th?pThick:pThin; path.moveTo(ox,oy); path.lineTo(p.x,p.y);
+      alive.push(p);
+    }
+    d.parts=alive;
+    var al=Math.max(0,1-age/22);
+    ic.strokeStyle=d.col;
+    ic.globalAlpha=0.55*al; ic.lineWidth=3.2*DPR*Math.sqrt(st.size); ic.stroke(pThick);
+    ic.globalAlpha=0.8*al; ic.lineWidth=1.1*DPR; ic.stroke(pThin);
+    ic.globalAlpha=1;
+  }
+}
+
+/* ---------- фон ---------- */
+function water(){
+  var g=cx.createRadialGradient(W*0.5,H*0.45,0,W*0.5,H*0.5,Math.hypot(W,H)*0.6);
+  if(st.water==='blue'){g.addColorStop(0,'#0b2350');g.addColorStop(0.55,'#061530');g.addColorStop(1,'#020812');}
+  else {g.addColorStop(0,'#101016');g.addColorStop(1,'#030304');}
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+}
+function makeBgK(){
+  var c=document.createElement('canvas');c.width=c.height=512;var g=c.getContext('2d');
+  g.fillStyle='#050a1c';g.fillRect(0,0,512,512);g.globalCompositeOperation='lighter';
+  var pal=['#3a2a8c','#1b5f9e','#7a2f7e','#14707a','#5a4fd0','#2a3f9a'];
+  for(var i=0;i<46;i++){var x=Math.random()*512,y=Math.random()*512,r=30+Math.random()*120,col=pal[i%pal.length];
+    var gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,col);gr.addColorStop(1,'rgba(0,0,0,0)');g.globalAlpha=0.55;g.fillStyle=gr;g.fillRect(0,0,512,512);}
+  g.globalCompositeOperation='source-over';g.globalAlpha=1;g.strokeStyle='rgba(180,200,255,.12)';
+  for(i=0;i<8;i++){g.lineWidth=0.5+Math.random()*1.5;g.beginPath();var x0=Math.random()*512,y0=Math.random()*512;g.moveTo(x0,y0);g.bezierCurveTo(Math.random()*512,Math.random()*512,Math.random()*512,Math.random()*512,Math.random()*512,Math.random()*512);g.stroke();}
+  return c;
+}
+
+/* ---------- кадр ---------- */
+var last=performance.now();
+function frame(now){
+  var dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(st.auto && now-lastDrop>st.every*1000)addDrop();
+  step(dt*st.speed);
+  rot+=dt*0.035*st.speed;
+  water();
+  if(st.mode==='A'){kal(cx,ink,geo(),rot);}
+  else if(st.mode==='B'){cx.drawImage(ink,0,0,W,H);}
+  else {
+    cx.globalAlpha=0.6;var g=geo();kal(cx,bgK,{R:g.R,th:g.th,D:g.D,Cx:g.Cx,Cy:g.Cy},rot*0.8);cx.globalAlpha=1;
+    cx.fillStyle='rgba(2,6,16,.3)';cx.fillRect(0,0,W,H);
+    cx.drawImage(ink,0,0,W,H);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- размеры ---------- */
+function setInk(){
+  if(st.mode==='A'){ink.width=ink.height=1024;}
+  else {ink.width=Math.round(W);ink.height=Math.round(H);}
+  ic=ink.getContext('2d');
+}
+function resize(){
+  var w=Math.round(innerWidth*DPR),h=Math.round(innerHeight*DPR);
+  if(w===W&&h===H)return;
+  var oldW=W,oldH=H;W=cv.width=w;H=cv.height=h;
+  if(st.mode!=='A'&&oldW){
+    var tmp=document.createElement('canvas');tmp.width=ink.width;tmp.height=ink.height;tmp.getContext('2d').drawImage(ink,0,0);
+    var sx=W/ink.width,sy=H/ink.height;setInk();ic.drawImage(tmp,0,0,ink.width,ink.height);
+    drops.forEach(function(d){d.x*=sx;d.y*=sy;d.vort.forEach(function(v){v.x*=sx;v.y*=sy;});d.parts.forEach(function(p){p.x*=sx;p.y*=sy;});});
+  }
+}
+function restart(){drops=[];setInk();ic.clearRect(0,0,ink.width,ink.height);reseedNoise();noOff=Math.random()*1000;addDrop();}
+
+/* ---------- панель ---------- */
+var HINTS={
+  A:['Капля внутри трубки','Краска растекается неровно, зеркала собирают из неё узор.','Внутри — живая неровная краска, снаружи — симметрия зеркал. Капли падают в разные места трубки: у центра — цветок, у края — кружево по кругу. Это кандидат в «Вид туманности: капля в воде».'],
+  B:['Капля без зеркал','Просто тёмная вода и краска — совсем неравномерно.','Без симметрии: как настоящая капля в стакане. Можно сделать входом в пространство дня или отдельным фоном. Нажмите на воду — капля упадёт туда.'],
+  C:['Капля поверх узора','Калейдоскоп внизу остаётся симметричным, краска сверху течёт свободно.','Узор под краской здесь условный (на сайте — туманность или картинка дня). Краска живёт отдельно от зеркал. Нажмите на воду — капля упадёт туда.']
+};
+function sel(groupId,attr,val){[].forEach.call(document.querySelectorAll('#'+groupId+' button'),function(b){b.setAttribute('aria-pressed',String(b.getAttribute(attr)===String(val)));});}
+function showMode(){var h=HINTS[st.mode];document.getElementById('capT').textContent=h[0];document.getElementById('capP').textContent=h[1];document.getElementById('modeHint').textContent=h[2];document.getElementById('mirG').hidden=(st.mode==='B');}
+document.getElementById('modes').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;st.mode=b.dataset.m;sel('modes','data-m',st.mode);showMode();restart();});
+document.getElementById('sw').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;st.color=b.dataset.c;st.mix=false;document.getElementById('mix').checked=false;sel('sw','data-c',st.color);});
+document.getElementById('own').addEventListener('input',function(){st.color=this.value;st.mix=false;document.getElementById('mix').checked=false;sel('sw','data-c','-');});
+document.getElementById('mix').addEventListener('change',function(){st.mix=this.checked;});
+document.getElementById('waters').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;st.water=b.dataset.w;sel('waters','data-w',st.water);});
+document.getElementById('autos').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;st.auto=b.dataset.a==='1';sel('autos','data-a',b.dataset.a);lastDrop=performance.now();});
+document.getElementById('mirs').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;st.S=+b.dataset.s;sel('mirs','data-s',st.S);});
+function rng(id,key,scale,fmt){var el=document.getElementById(id),out=document.getElementById(id+'V');function upd(){st[key]=el.value*scale;out.textContent=fmt(el.value);}el.addEventListener('input',upd);upd();}
+var pct=function(v){return v+' %';};
+rng('every','every',1,function(v){return 'раз в '+v+' с';});
+rng('speed','speed',0.01,pct);rng('dens','dens',0.01,pct);rng('size','size',0.01,pct);rng('swirl','swirl',0.01,pct);
+rng('fade','fade',0.01,function(v){return v<15?'почти нет':v<45?'медленно':v<75?'средне':'быстро';});
+function dropNow(){addDrop();}
+document.getElementById('dropBtn').addEventListener('click',dropNow);
+document.getElementById('fab').addEventListener('click',dropNow);
+document.getElementById('clear').addEventListener('click',function(){drops=[];ic.clearRect(0,0,ink.width,ink.height);});
+var pan=document.getElementById('pan'),tog=document.getElementById('tog');
+tog.addEventListener('click',function(){var c=pan.classList.toggle('closed');tog.textContent=c?'Настройки':'Скрыть настройки';tog.setAttribute('aria-expanded',String(!c));});
+if(innerWidth<=760){pan.classList.add('closed');tog.textContent='Настройки';tog.setAttribute('aria-expanded','false');}
+cv.addEventListener('pointerdown',function(e){if(st.mode==='A')addDrop();else addDrop(e.clientX,e.clientY);});
+addEventListener('resize',resize);
+
+resize();bgK=makeBgK();showMode();restart();requestAnimationFrame(frame);
+})();
+</script>
