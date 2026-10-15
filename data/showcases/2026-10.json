@@ -902,7 +902,8 @@
           "glowColor": "#6f9df2",
           "glowStrength": "medium",
           "glowDir": "bottom",
-          "patternColor": "#cfe0ff"
+          "patternColor": "#cfe0ff",
+          "lid": {}
         }
       },
       "back": {
@@ -935,7 +936,8 @@
                 },
                 "action": {
                   "kind": "contact",
-                  "label": "Записаться"
+                  "label": "Записаться",
+                  "host": "individual_session"
                 }
               },
               {
@@ -953,7 +955,8 @@
                 },
                 "action": {
                   "kind": "contact",
-                  "label": "Узнать подробности"
+                  "label": "Узнать подробности",
+                  "host": "shamanic_wheel"
                 }
               },
               {
@@ -971,7 +974,8 @@
                 },
                 "action": {
                   "kind": "contact",
-                  "label": "Записаться"
+                  "label": "Записаться",
+                  "host": "regression_session"
                 }
               },
               {
@@ -989,7 +993,8 @@
                 },
                 "action": {
                   "kind": "contact",
-                  "label": "Записаться"
+                  "label": "Записаться",
+                  "host": "constellations"
                 }
               }
             ],
