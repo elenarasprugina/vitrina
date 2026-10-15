@@ -2858,7 +2858,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261014c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261015a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5410,6 +5410,91 @@
     out.push(field('Номер узора', el('div', { class: 'a-neb-seed' }, [sd, dice]), 'Нажимайте 🎲, пока не понравится: те же цвета и настройки, другое расположение облаков и линий. Понравился номер — его можно записать и вернуть.' + (sh ? ' У дней волны узоры разные: к номеру прибавляется номер дня.' : '')));
     return el('div', { class: 'a-neb' }, out);
   }
+  /* Капля в воде (15.10, её «делаем» по пробе docs/kaplya-proba.html): kal.drop — модель в assets/doors.js («Капля в воде»).
+     ink() — движок живого узора справа (капнуть, очистить воду). Всё выбирает она; участник смотрит, капает касанием, размешивает пальцем. */
+  var KAP_PAINT = [['#f7f4ec', 'белая'], ['#e5332a', 'красная'], ['#2b78ff', 'синяя'], ['#ffc423', 'жёлтая'], ['#d9a441', 'золото'], ['#1b1640', 'чернила — для светлой воды']];
+  function jdDrop(r, K, redraw, ink) {
+    var M = window.M13D, D = K.drop = K.drop || {}, DEF = M.KAP_DEF, out = [], md = M.kapMode(D);
+    function upd() { changed(); redraw(); }
+    out.push(el('div', { class: 'a-neb-h', text: '💧 Капля в воде — краска растекается в воде' }));
+    out.push(switchIn(D, 'on', 'Включить каплю в воде', { onChange: function () { if (D.on && !D.colors) D.colors = ['#f7f4ec']; renderMain(); },
+      hint: 'Капля насыщенной краски падает в воду и растекается неровно; каждая капля рисует новый узор, повторов нет. Участник смотрит, касанием капает сам, пальцем размешивает краску.' }));
+    if (!D.on) return el('div', { class: 'a-neb' }, out);
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'mode', 'Где капля', [['', 'А — внутри трубки: зеркала собирают из краски узор'], ['free', 'Б — без зеркал: просто вода и краска'], ['over', 'В — поверх узора: калейдоскоп внизу, краска течёт сверху']], { def: '',
+        onChange: function (v) { if (!v) delete D.mode; renderMain(); } }),
+      md === 'over' ? null : selectIn(D, 'bg', 'Под водой', [['', 'вода — цвет ниже'], ['kal', 'картинка дня или туманность (что в трубке) — размытая']], { def: '',
+        onChange: function (v) { if (!v) delete D.bg; renderMain(); }, hint: 'Картинка дня и туманность настраиваются выше, в этом же блоке.' })]));
+    var wat = md !== 'over' && D.bg !== 'kal';
+    if (wat) {
+      var W = M.KAP_WATER, wl = Object.keys(W).map(function (x) { return [x, W[x][2]]; }).concat([['own', 'свой цвет']]);
+      out.push(el('div', { class: 'a-row' }, [
+        selectIn(D, 'water', 'Вода', wl, { def: 'blue', onChange: function (v) { if (v === 'own' && !D.w0) { D.w0 = '#0b2350'; D.w1 = '#020812'; } renderMain(); },
+          hint: 'На светлой воде белая краска не видна — для неё краска «чернила» или любая тёмная.' }),
+        rangeIn(D, 'live', 'Живая вода — блики, поверхность дышит', { min: 0, max: 100, step: 5, def: DEF.live, unit: ' %', onChange: redraw })]));
+      if (D.water === 'own') {
+        var w0 = el('input', { type: 'color', class: 'a-neb-c', 'aria-label': 'Вода — середина' }), w1 = el('input', { type: 'color', class: 'a-neb-c', 'aria-label': 'Вода — край' });
+        w0.value = D.w0 || '#0b2350'; w1.value = D.w1 || D.w0 || '#020812';
+        w0.addEventListener('input', function () { D.w0 = w0.value; upd(); }); w1.addEventListener('input', function () { D.w1 = w1.value; upd(); });
+        out.push(el('div', { class: 'a-row' }, [
+          field('Цвет воды', el('div', { class: 'a-neb-cs' }, [el('label', { class: 'a-neb-one' }, [w0, el('span', { text: D.wdir === 'v' ? 'верх' : 'середина' })]), el('label', { class: 'a-neb-one' }, [w1, el('span', { text: D.wdir === 'v' ? 'низ' : 'край' })]),
+            el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Один цвет', onclick: function () { D.w1 = D.w0; upd(); renderMain(); } })])),
+          selectIn(D, 'wdir', 'Переход', [['', 'от середины к краю'], ['v', 'сверху вниз']], { def: '', onChange: function (v) { if (!v) delete D.wdir; upd(); renderMain(); } })]));
+      }
+    } else out.push(el('div', { class: 'a-row' }, [
+      md === 'over' ? null : rangeIn(D, 'blur', 'Размытие под водой', { min: 0, max: 100, step: 5, def: DEF.blur, unit: ' %', onChange: redraw, hint: 'У дышащей туманности облака не размываются.' }),
+      rangeIn(D, 'dim', 'Затемнение под краской', { min: 0, max: 80, step: 5, def: DEF.dim, unit: ' %', onChange: redraw, hint: 'Узор темнее — краска ярче.' })]));
+    // Цвета краски: до 6, готовые и свои; «по очереди» и «вперемешку» — каждая капля своим цветом
+    var C = D.colors = Array.isArray(D.colors) && D.colors.length ? D.colors : ['#f7f4ec'], cs = [];
+    C.forEach(function (x, i) {
+      var c = el('input', { type: 'color', class: 'a-neb-c', title: 'Цвет краски ' + (i + 1), 'aria-label': 'Цвет краски ' + (i + 1) }); c.value = x;
+      c.addEventListener('input', function () { C[i] = c.value; changed(); });
+      cs.push(c);
+    });
+    if (C.length > 1) cs.push(el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '− цвет', onclick: function () { C.pop(); changed(); renderMain(); } }));
+    if (C.length < 6) cs.push(el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '+ цвет', onclick: function () { C.push(KAP_PAINT[C.length % KAP_PAINT.length][0]); changed(); renderMain(); } }));
+    out.push(field('Цвет краски', el('div', { class: 'a-neb-cs' }, cs)));
+    out.push(el('div', { class: 'a-backup-btns' }, KAP_PAINT.map(function (p) {
+      return el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: p[1], style: 'border-left:14px solid ' + p[0], onclick: function () { D.colors = [p[0]]; changed(); renderMain(); } });
+    }).concat([el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🎨 Цвета печати дня', onclick: function () {
+      var P = M.NEB_PAL[nebSeal(r) - 1] || M.NEB_PAL[12]; D.colors = P.c.slice(); if (!D.mix) D.mix = 'seq'; changed(); renderMain(); toast('Шесть цветов печати «' + P.n + '» — капли по очереди.'); } })])));
+    out.push(el('div', { class: 'a-row' }, [
+      C.length > 1 ? selectIn(D, 'mix', 'Несколько цветов', [['', 'все капли — первым цветом'], ['seq', 'каждая капля — следующим цветом'], ['rand', 'вперемешку']], { def: '', onChange: function (v) { if (!v) delete D.mix; } }) : null,
+      selectIn(D, 'kind', 'Характер узора', M.KAP_KINDS, { def: '', onChange: function (v) { if (!v) delete D.kind; },
+        hint: 'Внутри характера рисунок всё равно каждый раз новый, но по духу понятно, что получится. Нажмите «💧 Капнуть» — увидите.' })]));
+    out.push(sub('Как падает капля'));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(D, 'force', 'Сила удара', { min: 20, max: 200, step: 10, def: DEF.force, unit: ' %', hint: 'Меньше — маленькая аккуратная капля, больше — тяжёлое «бух», краска разлетается широко.' }),
+      rangeIn(D, 'thick', 'Густота краски', { min: 0, max: 100, step: 5, def: DEF.thick, unit: ' %', hint: '0 — жидкая: расходится быстро и тонко. 100 — густая, акриловая: движется медленно, держит плотные «языки».' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'fall', 'Как попадает в воду', [['', 'одной каплей'], ['stream', 'тонкой струйкой — краска льётся и тянется следом'], ['angle', 'под углом — тянется в одну сторону хвостом']], { def: '', onChange: function (v) { if (!v) delete D.fall; } }),
+      selectIn(D, 'splash', 'Брызги', [['', 'нет'], ['few', 'немного'], ['many', 'много']], { def: '', onChange: function (v) { if (!v) delete D.splash; }, hint: 'Мелкие капельки вокруг, у каждой свой маленький узор.' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'count', 'Сколько капель за раз', [['', 'одна'], ['3', '2–3 рядом — слипаются и смешиваются']], { def: '', onChange: function (v) { if (!v) delete D.count; } }),
+      selectIn(D, 'rings', 'Круги по воде в момент удара', [['', 'да'], ['off', 'нет']], { def: '', onChange: function (v) { if (!v) delete D.rings; } })]));
+    out.push(sub('Узор краски'));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(D, 'cloud', 'Нити ↔ Облака', { min: 0, max: 100, step: 5, def: DEF.cloud, unit: ' %', hint: '0 — только нити и «языки», 100 — больше мягких клубов. У «Дыма» облака всегда.' }),
+      rangeIn(D, 'swirl', 'Завитки', { min: 0, max: 250, step: 10, def: DEF.swirl, unit: ' %' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(D, 'dens', 'Сколько краски', { min: 40, max: 220, step: 10, def: DEF.dens, unit: ' %', hint: 'Больше — гуще, но телефону тяжелее.' }),
+      rangeIn(D, 'size', 'Размер капли', { min: 50, max: 200, step: 10, def: DEF.size, unit: ' %' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      rangeIn(D, 'speed', 'Скорость краски', { min: 25, max: 300, step: 5, def: DEF.speed, unit: ' %', hint: 'Скорость самой краски; вращение трубки — «Скорость перетекания» ниже.' }),
+      rangeIn(D, 'fade', 'Как быстро растворяется', { min: 0, max: 100, step: 5, def: DEF.fade, unit: ' %', hint: '0 — краска почти не уходит, узор копится; больше — старые разводы тают.' })]));
+    out.push(sub('Капли и участник'));
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'drops', 'Капли', [['', 'падают сами'], ['hand', 'только по касанию']], { def: '', onChange: function (v) { if (!v) delete D.drops; renderMain(); } }),
+      D.drops === 'hand' ? null : rangeIn(D, 'every', 'Как часто', { min: 3, max: 25, step: 1, def: DEF.every, unit: ' с', hint: 'Раз в столько секунд падает новая капля.' })]));
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'touch', 'Что может участник', [['', 'касание — капля, вести пальцем — размешать краску'], ['tap', 'только капнуть касанием'], ['off', 'ничего — палец крутит узор, как раньше']], { def: '', onChange: function (v) { if (!v) delete D.touch; },
+        hint: 'В треугольной трубке касание кладёт каплю туда, где её видно (не точно под пальцем). Размешанное ложится и в «Сохранить мой узор» — на дверь.' })]));
+    out.push(el('div', { class: 'a-backup-btns' }, [
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: '💧 Капнуть', onclick: function () { var I = ink(); if (I) I.drop(D); } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Очистить воду', onclick: function () { var I = ink(); if (I) I.clear(); } })]));
+    out.push(el('p', { class: 'a-hint', text: 'В живом узоре справа можно капнуть касанием' + (md === 'tube' ? '' : ' и размешать, ведя мышкой') + '. Как у участника, с пальцем, — «⛶ Во весь экран». В «🎬 Записать видео» капли пока нет. Всё рисуется на телефоне участника, ничего не уходит.' }));
+    return el('div', { class: 'a-neb' }, out);
+  }
   /* Хоровод дня (09.10, её решения — docs/doors.md, «Хоровод — решения 09.10»): фигура архетипа своя у каждого дня (kal.khor.fig);
      настройки — общие на волну (doors.khor) или свои у дня (kal.khor при kal.khorOwn), как у туманности. У участника кнопок нет. */
   function jdKhor(r, K, redraw) {
@@ -5508,10 +5593,12 @@
     function kNum(v, d) { v = v == null || v === '' || isNaN(+v) ? d : +v; return Math.max(15, Math.min(85, v)); }
     function kDraw() {
       var E = kE = n === 'final' ? null : M.kalOf(sp, r, n); if (!E) return;
-      var kf = E._kh ? E._kh.fig : '', key = JSON.stringify(E._neb || null) + '|' + (E.image || '') + '|' + kf.length + kf.slice(-48);
+      var kf = E._kh ? E._kh.fig : '', DK = E.drop || {}, key = JSON.stringify(E._neb || null) + '|' + (E.image || '') + '|' + kf.length + kf.slice(-48) + (E._wat ? '|W' + JSON.stringify([DK.water, DK.w0, DK.w1, DK.wdir]) : '');
       if (kIm && kSrc === key) { kPut(); return; }
       kSrc = key;
-      M.kalImg('../', E, function (im) { if (kSrc !== key) return; kIm = im; kPut(); kLoop(); });
+      // Капля в воде: движок живёт в картинке узора; картинка новая (сменилась вода, картинка дня) — краска переезжает на новый движок
+      var old = kIm && kIm._ink;
+      M.kalImg('../', E, function (im) { if (kSrc !== key) return; kIm = im; if (M.kapOn(E)) { kIm._ink = old || M.kapNew(); if (!old) kIm._ink.drop(E.drop); } kPut(); kLoop(); });
     }
     function kPut() {
       if (!kIm || !kIm.naturalWidth || !kE) return;
@@ -5535,7 +5622,7 @@
         if (!kpv.isConnected && kLast) { kOn = false; return; }
         var dt = kLast ? Math.min(.1, (ts - kLast) / 1000) : 0; kLast = ts;
         // Хоровод — в настоящую скорость: видно, как часто он собирается
-        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kT += dt; if (kE) kH = M.khTick(kIm, kE, kH, dt); kPut(); }
+        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kT += dt; if (kE) kH = M.khTick(kIm, kE, kH, dt); if (kIm && kIm._ink && kE && M.kapOn(kE)) kIm._ink.step(dt, kE); kPut(); }
         requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
@@ -5551,6 +5638,16 @@
     kpk.addEventListener('pointermove', function (e) { if (kDrag) kAt(e); });
     function kUp() { if (!kDrag) return; kDrag = false; changed(); }
     kpk.addEventListener('pointerup', kUp); kpk.addEventListener('pointercancel', kUp);
+    // Капля: касание живого узора — капля (без зеркал и поверх узора — в это место), мышкой с нажатой кнопкой — размешать
+    var kpD = null;
+    function kpAt(e) { var I = kIm && kIm._ink, b = kpv.getBoundingClientRect(); if (!I || !I.mode() || I.mode() === 'tube') return null; return [(e.clientX - b.left) / b.width * I.cv.width, (e.clientY - b.top) / b.height * I.cv.height]; }
+    kpv.addEventListener('pointerdown', function (e) { if (!(kIm && kIm._ink)) return; kpD = { p: kpAt(e), moved: false, x: e.clientX, y: e.clientY }; try { kpv.setPointerCapture(e.pointerId); } catch (er) {} });
+    kpv.addEventListener('pointermove', function (e) {
+      if (!kpD) return; if (Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > 5) kpD.moved = true;
+      var q = kpAt(e); if (kpD.moved && q && kpD.p) kIm._ink.stir(q[0], q[1], q[0] - kpD.p[0], q[1] - kpD.p[1]); kpD.p = q;
+    });
+    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE)) return; var q = kpAt(e); kIm._ink.drop(kE.drop, q && q[0], q && q[1]); });
+    kpv.addEventListener('pointercancel', function () { kpD = null; });
     var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '⏸ Остановить', onclick: function () { kRun = !kRun; kStop.textContent = kRun ? '⏸ Остановить' : '▶ Крутить'; } });
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
     var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
@@ -5582,6 +5679,7 @@
     function kVideo() { var E = M.kalOf(sp, r, n); if (!E) { toast('Сначала картинка или туманность'); return; } kalVideo(E, n); }
     var kalItems = [
       K.on ? jdNeb(r, K, kDraw) : null,
+      K.on ? jdDrop(r, K, kDraw, function () { return kIm && kIm._ink; }) : null,
       K.on ? kKh : null,
       K.on && kPic ? el('div', { class: 'a-row' }, [
         imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
