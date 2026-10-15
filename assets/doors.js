@@ -705,9 +705,9 @@
     }
     /* Узор пространства на двери n (день day, поворот a); day = 0 — убрать. Лежит под следом тона, над слоями двери.
        Прозрачность и мягкий край — doors.patternOpacity, patternSoft; появляется мягко (now — сразу). */
-    function pattern(n, day, a, now, gl, h, m) {
+    function pattern(n, day, a, now, gl, h, m, w) {
       var x = G[n]; if (!x) return;
-      var my = day + ':' + a + ':' + h + ':' + m + ':' + JSON.stringify(gl || []);
+      var my = day + ':' + a + ':' + h + ':' + m + ':' + JSON.stringify(gl || []) + ':' + (w ? w.length + w.slice(-24) : '');
       if (x.pt && x.ptKey === my) return;
       if (x.pt) { x.pt.remove(); x.pt = null; x.ptKey = null; }
       if (!day || !x.poly) return;
@@ -724,7 +724,7 @@
           var f = kalFilter(kalOn(r, day)); if (f) cv.style.filter = f;
           box.appendChild(cv);
           if (now || REDUCED) box.classList.add('is-on'); else { void box.offsetWidth; box.classList.add('is-on'); }
-        }, gl, h, m);
+        }, gl, h, m, w);
       }
       if (img.complete && img.naturalWidth) put(); else img.addEventListener('load', put);
     }
@@ -809,14 +809,16 @@
   function kalOf(sp, r, day) {
     var k = sp && sp.kal; if (!k || !k.on) return null;
     var N = r ? kalNeb(r, day, k) : null, H = khCfg(r, k), o = {}, x;
-    if (!N && !k.image) return null;
-    if (!N && !H) return k;
-    for (x in k) o[x] = k[x]; if (N) o._neb = N; if (H) o._kh = H; return o;
+    // Капля в воде (15.10): без картинки и туманности в трубке — вода; «под водой — вода» — вода и при картинке (у «поверх узора» — сам узор)
+    var DK = kapOn(k) ? k.drop : null, wat = !!DK && ((kapMode(DK) !== 'over' && DK.bg !== 'kal') || (!N && !k.image));
+    if (!N && !k.image && !DK) return null;
+    if (!N && !H && !DK) return k;
+    for (x in k) o[x] = k[x]; if (N && !wat) o._neb = N; if (H) o._kh = H; if (wat) o._wat = 1; return o;
   }
   function kalOn(r, day) { return kalOf(spaceOf(r, day), r, day); }
   // Туманность — «камера» без сдвига, как в пробе: ось в середине, от неё расходятся лучи и линии
-  function kalCX(k) { return k && k._neb ? 0 : KCX; }
-  function kalCY(k) { return k && k._neb ? 0 : KCY; }
+  function kalCX(k) { return k && (k._neb || k._wat) ? 0 : KCX; }
+  function kalCY(k) { return k && (k._neb || k._wat) ? 0 : KCY; }
   function kalN(k) { var n = +k.n; return n === 8 || n === 16 || n === 24 ? n : 12; }
   function kalFilter(k) { var v = num(k.bright, 100, 50, 200) / 100; return v === 1 ? '' : 'brightness(' + v + ') saturate(' + (1 + (v - 1) * .8).toFixed(2) + ')'; }
   var kWedge = null, kOver = null;
@@ -1103,12 +1105,17 @@
   function kalDraw(c, W, H, im, k, ang, reveal, P, ps, t, kh, mt) {
     var R = Math.sqrt(W * W + H * H) / 2 + 2, n = kalN(k), A = 2 * Math.PI / n, sw = im.naturalWidth || im.width, sh = im.naturalHeight || im.height;
     if (!sw || !sh) return;
+    // Капля в воде: INK — краска (живой движок или снимок на двери); Б — без зеркал, рисуется отдельно
+    var DK = kapOn(k) ? k.drop : null, INK = DK ? im._ink || null : null, dm = DK ? kapMode(DK) : '', dA = DK && !k._wat ? kapV(DK, 'dim', 0, 80) / 100 : 0;
+    if (dm === 'free') { kapFree(c, W, H, im, k, DK, INK); return; }
     var tri = k.tube === 'tri', tIn = tri ? k.triIn || '' : '';
     if (mt == null || !isFinite(mt)) mt = t || 0;
     // Туманность: кадр рисуется заново, только когда облака дышат; филигрань — только от картинки дня (mix)
     var NB = im._neb, nb = !!NB, im0 = nb ? NB.photo : im, cl = nb ? nebCl(NB.N, t, NEB_S) : null, KO = khOf(im, k, n);
     var nph = nb && NB.photo && cl.on && NB.L.op ? kalPrep(NB.photo, k) : null, nmx = nph ? nebV(NB.N, 'mix', 0, 100) / 100 : 0;
     if (nb) im = cl.on ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null, true) : kalPic(im, k); else im = kalPrep(im, k);
+    // Под водой — картинка дня / туманность, размытая (дышащие облака не размываются)
+    if (dm === 'tube' && !k._wat && !(cl && cl.on)) im = kapBlur(im, kapV(DK, 'blur', 0, 100));
     var MV = kalMove(k, mt, tri), fA = k.move === 'flow' && !tri ? num(k.amp, 25, 5, 60) / 100 * .25 : 0;
     // Крупность: 100 % — как было; меньше — в клин попадает больше картинки, она меньше растянута (не меньше 70 %: картинка закрывает клин при любом повороте)
     var sc = R * 2.3 * num(k.zoom, 100, 70, 130) / 100 / Math.min(sw, sh);
@@ -1128,6 +1135,9 @@
     // Хоровод дня: фигуры вращаются вокруг вершины клина (оси трубки) — kh, свой поворот (нет — собранный); дыхание хоровода — круг больше-меньше
     var U = Math.min(W, H) / 2, th = KO ? (kh == null || !isFinite(+kh) ? KO.G.P[0] : +kh) : 0;
     var kb = KO && KO.G.br ? 1 + KO.G.br * Math.sin(mt / num(k.per, 10, 4, 30) * 2 * Math.PI) : 1, khOn = KO && !(tri && (k.triKh === 'off' || tIn === 'fig'));
+    // Краска в трубке — квадрат со стороной 2 IE вокруг оси (закрывает всё, что попадает в клин при любом повороте)
+    var IE = tri ? ta * .62 : R * (1.02 + Math.sqrt(kalCX(k) * kalCX(k) + kalCY(k) * kalCY(k)));
+    if (INK && dm === 'tube') INK.vis = { ang: ang, A: A, cx: kalCX(k), cy: kalCY(k), R: R, E: IE, tri: tri };
     function cam(x, dx, dy) {
       var ga = x.globalAlpha, X = -sw * sc * (ox + (dx || 0)), Y = -sh * sc * (oy + (dy || 0));
       x.save(); x.rotate(ang);
@@ -1135,6 +1145,10 @@
         if (fp > 0) { x.globalAlpha = ga * fp; x.drawImage(im, X, Y, sw * sc, sh * sc); x.globalAlpha = ga; }
         if (cl && cl.on) nebClouds(x, NB.L, cl, X, Y, sw * sc, sw, nph, nmx);
         if (fl && tIn !== 'fig') { x.globalAlpha = ga * fa; x.drawImage(fl, X, Y, sw * sc, sh * sc); x.globalAlpha = ga; }
+      }
+      if (INK && dm === 'tube') {
+        if (dA) { x.fillStyle = 'rgba(0,0,0,' + dA + ')'; x.fillRect(-2 * R, -2 * R, 4 * R, 4 * R); }
+        x.drawImage(INK.cv, -IE, -IE, 2 * IE, 2 * IE); if (INK.fxOn) x.drawImage(INK.fx, -IE, -IE, 2 * IE, 2 * IE);
       }
       if (TF) {
         var fw = TF.width * sf, fh = TF.height * sf;
@@ -1200,7 +1214,8 @@
       } else c.translate(W / 2, H / 2);
     } else {
       // Клин чуть шире сектора: соседние отражения перекрываются, на стыках нет тонких линий
-      pad = Math.ceil(R * Math.sin(KPAD)) + 3; ww = Math.ceil(R) + 2; wh = Math.ceil(R * Math.sin(Math.min(A + KPAD, Math.PI / 2))) + pad + 4;
+      var kp = KPAD;
+      pad = Math.ceil(R * Math.sin(kp)) + 3; ww = Math.ceil(R) + 2; wh = Math.ceil(R * Math.sin(Math.min(A + kp, Math.PI / 2))) + pad + 4;
       wc = kWedge = kWedge || document.createElement('canvas');
       if (wc.width !== ww || wc.height !== wh) { wc.width = ww; wc.height = wh; }
       wg = wc.getContext('2d');
@@ -1209,18 +1224,28 @@
         // Дышащие облака складываются со светом («lighter») — по обрезке клина это дало бы тонкие тёмные лучи на стыках; поэтому клин вырезается после
         wg.save(); wg.translate(0, pad); camM(wg);
         khor(wg); wg.save(); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
-        wg.globalCompositeOperation = 'destination-in'; wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.fill(); wg.restore();
+        wg.globalCompositeOperation = 'destination-in'; wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -kp, A + kp); wg.closePath(); wg.fill(); wg.restore();
       } else {
-        wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -KPAD, A + KPAD); wg.closePath(); wg.clip();
+        wg.save(); wg.translate(0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 2, -kp, A + kp); wg.closePath(); wg.clip();
         camM(wg);
         khor(wg); wg.translate(R * kalCX(k), R * kalCY(k)); pcs(wg); wg.restore();
       }
+      // Краска у зеркала не симметрична: нахлёст клина — отражение его же края, иначе на стыках видны тонкие швы
+      if (INK && dm === 'tube') kalMirror(wc, wg, R, A, kp, pad);
       c.translate(W / 2, H / 2);
       for (i = 0; i < n; i++) {
         c.save();
         if (i % 2) { c.rotate((i + 1) * A); c.scale(1, -1); } else c.rotate(i * A);
         c.drawImage(wc, 0, -pad); c.restore();
       }
+    }
+    // В — краска поверх узора, во весь экран
+    if (INK && dm === 'over') {
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+      if (INK.fit) INK.fit(W / H);
+      if (dA) { c.fillStyle = 'rgba(0,0,0,' + dA + ')'; c.fillRect(0, 0, W, H); }
+      kapCover(c, INK.cv, W, H); if (INK.fxOn) kapCover(c, INK.fx, W, H);
+      c.restore();
     }
     // Мягкая тень к краям — узор глубже
     // Мягкое пространство светлой тональности — тень цветом тональности, не чёрная
@@ -1229,12 +1254,24 @@
     if (num(k.vign, 40, 0, 60)) { c.fillStyle = v; c.fillRect(-W / 2, -H / 2, W, H); }
     c.restore();
   }
+  var kMir = null;
+  function kalMirror(wc, wg, R, A, kp, pad) {
+    var t = kMir = kMir || document.createElement('canvas'), tx;
+    if (t.width !== wc.width || t.height !== wc.height) { t.width = wc.width; t.height = wc.height; }
+    tx = t.getContext('2d'); tx.setTransform(1, 0, 0, 1, 0, 0); tx.clearRect(0, 0, t.width, t.height); tx.drawImage(wc, 0, 0);
+    [[-kp, 0, 0], [A, A + kp, A]].forEach(function (b) {
+      wg.save(); wg.setTransform(1, 0, 0, 1, 0, pad); wg.beginPath(); wg.moveTo(0, 0); wg.arc(0, 0, R + 4, b[0], b[1]); wg.closePath(); wg.clip();
+      wg.clearRect(-2, -pad - 2, wc.width + 4, wc.height + 4);
+      wg.rotate(b[2]); wg.scale(1, -1); wg.rotate(-b[2]); wg.drawImage(t, 0, -pad); wg.restore();
+    });
+  }
   function kalImg(base, k, f0) {
     var N = k && k._neb, KH = k && k._kh, f = !KH ? f0 : function (im) {
       // Хоровод: фигура дня грузится вместе с фоном (im._khi)
       if (!im) { f0(im); return; }
       var p = new Image(); p.onload = function () { im._khi = p; f0(im); }; p.onerror = function () { f0(im); }; p.src = src(base, KH.fig);
     };
+    if (k && k._wat) { f(kapWaterCv(k.drop)); return null; }
     if (N) {
       var L = nebBuild(N), mk = function (ph) { f({ _neb: { L: L, N: N, photo: ph }, naturalWidth: NEB_S, naturalHeight: NEB_S, width: NEB_S, height: NEB_S }); };
       if (N.src === 'mix' && k.image) { var p = new Image(); p.onload = function () { mk(p); }; p.onerror = function () { mk(null); }; p.src = src(base, k.image); }
@@ -1564,6 +1601,460 @@
   // Что рисовать в трубке: картинку или кадр туманности (для «Что внутри?» и выбора оси в панели)
   function kalPic(im, k) { var NB = im && im._neb; return NB ? nebFrame(NB.L, NB.N, NB.photo ? kalPrep(NB.photo, k) : null) : im; }
 
+  /* ---------- Капля в воде (15.10, её «делаем» по пробе docs/kaplya-proba.html; docs/doors.md, «Сделано 15.10 … капля») ----------
+     Капля насыщенной краски падает в тёмную воду и растекается неровно; каждый раз узор новый (случайные место, «пальцы» по краю, вихри).
+     kal.drop = { on, mode: 'tube' А — внутри трубки (зеркала собирают узор) | 'free' Б — без зеркал | 'over' В — поверх узора калейдоскопа,
+       bg: '' под краской вода | 'kal' — то, что в трубке (картинка дня / туманность), blur — её размытие, %, dim — затемнение под краской, %,
+       water: набор воды (KAP_WATER) | 'own' (w0 — середина или верх, w1 — край или низ, нет — один цвет; wdir: '' от середины к краю | 'v' сверху вниз),
+       live — живая вода (блики, поверхность дышит), %, colors — цвета краски (до 6), mix: '' первым цветом | 'seq' по очереди | 'rand' вперемешку,
+       kind — характер узора: '' свободный | flower цветок | feather перья | smoke дым | swirl водоворот | marble мрамор | jelly медуза | roots корни | 'rand' у каждой капли свой,
+       force — сила удара, %, splash: '' | 'few' | 'many' — брызги, thick — густота краски, % (0 жидкая — 100 густая), fall: '' капля | 'stream' струйка | 'angle' под углом,
+       count: '' одна | '3' — 2–3 рядом, rings: '' круги по воде | 'off', cloud — нити ↔ облака, %, drops: '' падают сами | 'hand' только касанием, every — раз в N секунд,
+       speed, dens — сколько краски, size — размер капли, swirl — завитки (всё %), fade — как быстро растворяется, %,
+       touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок) }.
+     Краска — частицы, оставляющие след на своём холсте (cv); течение воды — шум (Перлин) + вихри каждой капли. В трубке холст лежит в «камере» поверх картинки,
+     без зеркал и поверх узора — во весь экран. Всё считается на устройстве участника, ничего не уходит. Узор на двери — снимок холста (w, на устройстве). */
+  var KAP_DEF = { force: 100, thick: 55, cloud: 30, every: 8, speed: 100, dens: 100, size: 100, swirl: 100, fade: 35, live: 30, blur: 40, dim: 30 };
+  var KAP_WATER = {
+    blue: ['#0b2350', '#020812', 'глубокая синяя'], black: ['#16161c', '#030304', 'чёрная'], violet: ['#2b1850', '#07040f', 'сумеречная фиолетовая'],
+    emerald: ['#0c3d35', '#020a09', 'тёмный изумруд'], wine: ['#41101f', '#0a0306', 'бордо'], gold: ['#3d2c0c', '#0a0703', 'ночное золото'],
+    milk: ['#fbf7ee', '#e3d8c4', 'молочная — светлая'], mist: ['#f1f5f8', '#c6d4df', 'туманная — светлая']
+  };
+  var KAP_KINDS = [['', 'Свободный — как в пробе'], ['flower', 'Цветок — лепестки, 5–9'], ['feather', 'Перья — длинные плавные пряди'], ['smoke', 'Дым — мягкие клубы, почти без нитей'],
+    ['swirl', 'Водоворот — краска закручивается спиралью'], ['marble', 'Мрамор — тонкие разводы, как эбру'], ['jelly', 'Медуза — купол и щупальца вниз'], ['roots', 'Корни — краска ветвится'], ['ebru', 'Эбру — круги раздвигают краску, между ними тонкие прожилки'],
+    ['rand', 'У каждой капли — свой характер']];
+  var KAP_K = ['', 'flower', 'feather', 'smoke', 'swirl', 'marble', 'jelly', 'roots'];
+  function kapOn(k) { return !!(k && k.drop && k.drop.on); }
+  function kapMode(D) { return D && (D.mode === 'free' || D.mode === 'over') ? D.mode : 'tube'; }
+  function kapV(D, key, lo, hi) { return num(D[key], KAP_DEF[key], lo, hi); }
+  function kapWat(D) {
+    var w = KAP_WATER[D.water] || KAP_WATER.blue;
+    if (D.water === 'own' && hexOk(D.w0)) return [D.w0, hexOk(D.w1) ? D.w1 : D.w0];
+    return w;
+  }
+  function kapLite(D) { var c = hexRgb(kapWat(D)[0]); return c[0] + c[1] + c[2] > 420; }
+  // Вода: от середины к краю или сверху вниз — на холст w × h
+  function kapWater(x, w, h, D) {
+    var c = kapWat(D), g;
+    if (D.water === 'own' && D.wdir === 'v') g = x.createLinearGradient(0, 0, 0, h);
+    else { var cx = w / 2, cy = h * .45; g = x.createRadialGradient(cx, cy, 0, w / 2, h / 2, Math.sqrt(w * w + h * h) * .6); }
+    g.addColorStop(0, c[0]);
+    if (!(D.water === 'own' && D.wdir === 'v')) g.addColorStop(.55, rgbHex(mixC(hexRgb(c[0]), hexRgb(c[1]), .45)));
+    g.addColorStop(1, c[1]);
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+  }
+  function kapWaterCv(D) { var cv = document.createElement('canvas'); cv.width = cv.height = 512; kapWater(cv.getContext('2d'), 512, 512, D); return cv; }
+  // Размытие картинки под водой — уменьшить и растянуть обратно (работает и там, где нет ctx.filter); один раз на картинку и силу
+  function kapBlur(im, b) {
+    if (!b) return im;
+    if (im._kb && im._kb.b === b) return im._kb.cv;
+    var w = im.naturalWidth || im.width, h = im.naturalHeight || im.height, f = 1 / (1 + b * .12), s = document.createElement('canvas'), o = document.createElement('canvas'), m = document.createElement('canvas');
+    m.width = Math.max(8, Math.round(w * Math.sqrt(f))); m.height = Math.max(8, Math.round(h * Math.sqrt(f)));
+    s.width = Math.max(4, Math.round(w * f)); s.height = Math.max(4, Math.round(h * f)); o.width = w; o.height = h;
+    m.getContext('2d').drawImage(im, 0, 0, m.width, m.height); s.getContext('2d').drawImage(m, 0, 0, s.width, s.height);
+    var x = o.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(s, 0, 0, w, h);
+    im._kb = { b: b, cv: o };
+    return o;
+  }
+  // Холст во весь кадр без искажений (лишнее срезается)
+  function kapCover(c, src, W, H) {
+    var sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height; if (!sw || !sh) return;
+    var s = Math.max(W / sw, H / sh); c.drawImage(src, (W - sw * s) / 2, (H - sh * s) / 2, sw * s, sh * s);
+  }
+  // Б — без зеркал: вода (или картинка дня / туманность, размытая) и краска во весь экран
+  function kapFree(c, W, H, im, k, D, I) {
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+    if (k._wat || !im) kapWater(c, W, H, D);
+    else { c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H); kapCover(c, kapBlur(im._neb ? kalPic(im, k) : kalPrep(im, k), kapV(D, 'blur', 0, 100)), W, H); }
+    var dm = k._wat ? 0 : kapV(D, 'dim', 0, 80) / 100;
+    if (dm) { c.fillStyle = 'rgba(0,0,0,' + dm + ')'; c.fillRect(0, 0, W, H); }
+    if (I) { if (I.fit) I.fit(W / H); kapCover(c, I.cv, W, H); if (I.fxOn) kapCover(c, I.fx, W, H); }
+    c.restore();
+  }
+  /* Движок капли: kapNew() → { cv — холст краски, fx — круги и блики (заново каждый кадр), step(dt, k), drop(D, x, y), stir(x, y, dx, dy), clear(), shot(), load(url), warm(D), fit(asp), mode() }.
+     vis — где сейчас видна трубка (кладёт kalDraw): капля «сама» падает туда, где её видно. */
+  function kapNew() {
+    var cv = document.createElement('canvas'), ic = cv.getContext('2d'), fx = document.createElement('canvas'), fc = fx.getContext('2d'), pc = document.createElement('canvas');
+    var P = new Uint8Array(512), drops = [], rings = [], sim = 0, real = 0, lastDrop = -1e9, ci = 0, mode = '', asp = 1, fadeAcc = 0, T0 = Math.random() * 1000, frame = 0, spr = {}, Dk = {};
+    var I = { cv: cv, fx: fx, vis: null, fxOn: false };
+    (function () { var p = [], i, j, t; for (i = 0; i < 256; i++) p[i] = i; for (i = 255; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); t = p[i]; p[i] = p[j]; p[j] = t; } for (i = 0; i < 512; i++) P[i] = p[i & 255]; })();
+    var GX = [1, -1, 1, -1, 1.41, -1.41, 0, 0], GY = [1, 1, -1, -1, 0, 0, 1.41, -1.41];
+    function fd(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    function noise(x, y) {
+      var X = Math.floor(x), Y = Math.floor(y), xf = x - X, yf = y - Y; X &= 255; Y &= 255;
+      var a = P[X + P[Y]] & 7, b = P[X + 1 + P[Y]] & 7, c = P[X + P[Y + 1]] & 7, d = P[X + 1 + P[Y + 1]] & 7, u = fd(xf), v = fd(yf);
+      var n00 = GX[a] * xf + GY[a] * yf, n10 = GX[b] * (xf - 1) + GY[b] * yf, n01 = GX[c] * xf + GY[c] * (yf - 1), n11 = GX[d] * (xf - 1) + GY[d] * (yf - 1);
+      var x0 = n00 + (n10 - n00) * u; return x0 + ((n01 + (n11 - n01) * u) - x0) * v;
+    }
+    function setup(m, a) {
+      var big = window.innerWidth > 700 ? 1280 : 1024;
+      mode = m; asp = a || asp || 1;
+      if (mode === 'tube') cv.width = cv.height = big;
+      else if (asp >= 1) { cv.width = big; cv.height = Math.max(64, Math.round(big / asp)); } else { cv.height = big; cv.width = Math.max(64, Math.round(big * asp)); }
+      fx.width = cv.width; fx.height = cv.height; ic = cv.getContext('2d'); fc = fx.getContext('2d'); drops = []; rings = [];
+    }
+    function U() { return mode === 'tube' ? cv.width * .27 : Math.min(cv.width, cv.height) * .5; }
+    function S1() { return cv.width / 1024; }
+    function color(D) {
+      var C = (Array.isArray(D.colors) ? D.colors : []).filter(hexOk); if (!C.length) C = [kapLite(D) ? '#1b1640' : '#f7f4ec'];
+      if (D.mix === 'seq') return C[ci++ % C.length];
+      if (D.mix === 'rand') return C[Math.floor(Math.random() * C.length)];
+      return C[0];
+    }
+    // Где сейчас видна трубка: точка в клине (в трубке) или в середине экрана
+    function spot() {
+      var V = I.vis, s = cv.width / 2, r, a;
+      if (mode !== 'tube') return [cv.width * (.2 + .6 * Math.random()), cv.height * (.2 + .6 * Math.random())];
+      if (!V || V.tri) { r = .62 * Math.sqrt(Math.random()); a = Math.random() * 6.283; return [s + Math.cos(a) * r * s, s + Math.sin(a) * r * s]; }
+      r = V.R * .8 * (.08 + .92 * Math.pow(Math.random(), .8)); a = V.A * (.12 + .76 * Math.random());
+      var wx = r * Math.cos(a) - V.R * V.cx, wy = r * Math.sin(a) - V.R * V.cy, c = Math.cos(V.ang), n = Math.sin(V.ang);
+      return [s + (wx * c + wy * n) / V.E * s, s + (-wx * n + wy * c) / V.E * s];
+    }
+    function sprite(col) {
+      if (spr[col]) return spr[col];
+      var c = document.createElement('canvas'), x = c.getContext('2d'), g, rgb = hexRgb(col.length === 4 ? '#' + col[1] + col[1] + col[2] + col[2] + col[3] + col[3] : col);
+      c.width = c.height = 64; g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, rgbA(rgb, 1)); g.addColorStop(.45, rgbA(rgb, .55)); g.addColorStop(1, rgbA(rgb, 0));
+      x.fillStyle = g; x.fillRect(0, 0, 64, 64); spr[col] = c; return c;
+    }
+    /* Одна капля. o: { R0, col, kind, small — брызги } */
+    function one(D, x, y, o) {
+      o = o || {};
+      var u = U(), sz = kapV(D, 'size', 50, 200) / 100, fo = kapV(D, 'force', 20, 200) / 100, th = kapV(D, 'thick', 0, 100) / 100, de = kapV(D, 'dens', 40, 220) / 100 * (window.innerWidth < 700 ? .7 : 1);
+      var kind = o.kind != null ? o.kind : D.kind === 'rand' ? KAP_K[Math.floor(Math.random() * KAP_K.length)] : KAP_K.indexOf(D.kind) >= 0 ? D.kind : '';
+      var R0 = o.R0 || u * (.035 + .045 * Math.random()) * sz * (.8 + .25 * fo), sm = !!o.small, fall = sm ? '' : D.fall || '';
+      var cs = Math.max(kapV(D, 'cloud', 0, 100) / 100, kind === 'smoke' ? .85 : 0);
+      var d = { x: x, y: y, R0: R0, t0: sim, col: o.col || color(D), kind: kind, parts: [], cl: [], vort: [], sat: [], th: th, fo: fo, br: 0,
+        drift: { x: (Math.random() - .5) * u * .012, y: (Math.random() - .5) * u * .012 + (kind === 'jelly' ? u * .035 : 0) }, nf: kind === 'marble' ? 2.3 : kind === 'smoke' ? .6 : 1,
+        amp: kind === 'roots' ? .12 : kind === 'smoke' ? 1.5 : kind === 'flower' ? .12 : kind === 'swirl' ? .5 : kind === 'marble' ? .5 : kind === 'jelly' ? .4 : 1, ph: Math.random() * 6.283,
+        dir: Math.random() * 6.283, emit: null, body: fall === 'angle' ? 1.7 : fall === 'stream' ? .55 : 1, small: sm };
+      // «Пальцы» по краю: у каждой капли свой набор волн; у цветка — лепестки
+      var waves = [], nw, i, pet = 5 + Math.floor(Math.random() * 5);
+      if (kind === 'flower') waves.push({ k: pet, ph: Math.random() * 6.283, a: 1.3 });
+      else if (kind === 'feather') { nw = 2 + Math.floor(Math.random() * 2); for (i = 0; i < nw; i++) waves.push({ k: 2 + Math.floor(Math.random() * 3), ph: Math.random() * 6.283, a: .5 + Math.random() * .5 }); }
+      else { nw = 3 + Math.floor(Math.random() * 3); for (i = 0; i < nw; i++) waves.push({ k: 3 + Math.floor(Math.random() * 12), ph: Math.random() * 6.283, a: .25 + Math.random() * .6 }); }
+      function finger(an) {
+        var s = 0, j; for (j = 0; j < waves.length; j++) s += waves[j].a * Math.sin(waves[j].k * an + waves[j].ph);
+        if (kind === 'flower') { s = Math.max(0, s / 1.3); return .08 + .92 * s; }
+        return Math.max(0, .55 + .45 * s);
+      }
+      d.edge = []; for (i = 0; i < 72; i++) d.edge.push(1 + .22 * (finger(i / 72 * 6.283) - .55) + .06 * (Math.random() - .5));
+      // Вихри вокруг капли — завитки; у водоворота один большой, у цветка — пары на кончиках лепестков, у корней — нет
+      var nv, va, vr, rc, sg = Math.random() < .5 ? -1 : 1;
+      function vort(vx, vy, rc, g) { d.vort.push({ x: vx, y: vy, rc: rc, g: g * .05 * u * 2 * Math.PI * rc / .63 }); }
+      if (kind === 'swirl') vort(x, y, R0 * 2.2, sg * 2.6);
+      else if (kind === 'flower') for (i = 0; i < pet; i++) {
+        va = waves[0].ph; var pa = (Math.PI / 2 - va) / pet + i * 6.283 / pet, h2 = Math.PI / pet * .45;
+        vort(x + Math.cos(pa - h2) * R0 * 2.4, y + Math.sin(pa - h2) * R0 * 2.4, R0 * .6, 1); vort(x + Math.cos(pa + h2) * R0 * 2.4, y + Math.sin(pa + h2) * R0 * 2.4, R0 * .6, -1);
+      }
+      else if (kind !== 'roots' && !sm) {
+        nv = kind === 'feather' ? 4 + Math.floor(Math.random() * 3) : 3 + Math.floor(Math.random() * 5);
+        for (i = 0; i < nv; i++) { va = Math.random() * 6.283; vr = R0 * (1 + Math.random() * 2.6); rc = R0 * (.35 + Math.random() * .9);
+          vort(x + Math.cos(va) * vr, y + Math.sin(va) * vr, rc, (kind === 'feather' ? sg : Math.random() < .5 ? -1 : 1) * (.6 + Math.random())); }
+      }
+      // Частицы краски: нити (часть — толстые «языки») и облака
+      var n = Math.round((sm ? 110 : 1500) * de * (1 - cs * .55) * (kind === 'roots' ? .12 : 1)), sp0 = u * .27 * Math.pow(fo, .7) * (1.25 - .55 * th);
+      var thinP = kind === 'marble' ? .95 : kind === 'feather' ? .75 : kind === 'roots' ? .35 : kind === 'flower' ? .35 : .6;
+      for (i = 0; i < n; i++) d.parts.push(part(d, finger, sp0, thinP));
+      var nc = Math.round((sm ? 12 : kind === 'smoke' ? 520 : 280) * de * cs), smk = kind === 'smoke';
+      for (i = 0; i < nc; i++) {
+        var A = Math.random() * 6.283, rr = R0 * Math.sqrt(Math.random()), sp = sp0 * (smk ? .65 : .45) * (.3 + finger(A)) * (.5 + Math.random());
+        d.cl.push({ x: x + Math.cos(A) * rr, y: y + Math.sin(A) * rr, vx: Math.cos(A) * sp, vy: Math.sin(A) * sp, life: 9 + Math.random() * 16, s0: R0 * (smk ? .4 + Math.random() * .5 : .25 + Math.random() * .4) });
+      }
+      // Под углом — краска тянется в одну сторону хвостом
+      if (fall === 'angle') d.parts.forEach(function (p) { p.vx += Math.cos(d.dir) * sp0 * .55; p.vy += Math.sin(d.dir) * sp0 * .55; });
+      // Струйка — краска льётся ещё секунду-полторы, точка чуть смещается: тянется следом
+      if (fall === 'stream') d.emit = { until: sim + 1.1 + Math.random() * .7, acc: 0, rate: 700 * de, fing: finger, sp0: sp0 * .55, thinP: .8 };
+      // Брызги — мелкие капельки вокруг, каждая со своим маленьким узором
+      if (!sm && D.splash) {
+        var ns = D.splash === 'many' ? 8 + Math.floor(Math.random() * 7) : 3 + Math.floor(Math.random() * 3);
+        for (i = 0; i < ns; i++) { va = Math.random() * 6.283; vr = R0 * (2 + Math.random() * 4.5) * (.7 + .3 * fo);
+          d.sat.push({ at: sim + .04 + Math.random() * .25, x: x + Math.cos(va) * vr, y: y + Math.sin(va) * vr, R0: R0 * (.12 + Math.random() * .18) }); }
+      }
+      if (D.rings !== 'off') rings.push({ x: x, y: y, t0: sim, R: R0, sm: sm });
+      drops.push(d);
+      if (drops.length > 9) drops.shift();
+      return d;
+    }
+    function part(d, finger, sp0, thinP, px, py) {
+      var A = Math.random() * 6.283, kind = d.kind, jl = 0, t;
+      // Цветок: краска уходит в лепестки (между лепестками почти пусто)
+      if (kind === 'flower') for (t = 0; t < 8 && Math.random() > finger(A); t++) A = Math.random() * 6.283;
+      var rr = d.R0 * Math.sqrt(Math.random()) * .95, f = finger(A), th = Math.random() > thinP;
+      var sp = sp0 * (kind === 'flower' ? .05 + Math.sqrt(f) * 1.1 : .25 + f * f * 1.3) * (.35 + rr / d.R0) * (.7 + Math.random() * .6) * (th ? .7 : 1) * (kind === 'feather' ? 1.35 : kind === 'flower' ? 1.7 : kind === 'smoke' ? .55 : kind === 'marble' ? .7 : kind === 'roots' ? .9 : 1);
+      var x = px != null ? px : d.x + Math.cos(A) * rr, y = py != null ? py : d.y + Math.sin(A) * rr, vx = Math.cos(A) * sp, vy = Math.sin(A) * sp;
+      // Медуза: купол — краска расходится вверх и в стороны; часть — щупальца, тянутся вниз и колышутся
+      if (kind === 'jelly') {
+        if (!d.tn) { d.tn = []; for (t = 5 + Math.floor(Math.random() * 6); t > 0; t--) d.tn.push((Math.random() - .5) * d.R0 * 3); }
+        if (Math.random() < .28) { x = d.x + d.tn[Math.floor(Math.random() * d.tn.length)] + (Math.random() - .5) * d.R0 * .18; y = d.y + d.R0 * .2; vx = (x - d.x) / d.R0 * sp0 * .05; vy = sp0 * (.35 + .55 * Math.random()); th = false; jl = 1; }
+        else { A = Math.PI * (1.04 + .92 * Math.random()); sp = sp0 * (.85 + .35 * Math.random()); vx = Math.cos(A) * sp * 1.15; vy = Math.sin(A) * sp * .75; }
+      }
+      // Живая линия: у каждой нити свой изгиб (поворачивает понемногу), у перьев и водоворота — в одну сторону
+      var bend = kind === 'feather' ? (A % 1.2 < .6 ? 1 : -1) * (.5 + Math.random() * .8) : kind === 'swirl' ? 1.1 + Math.random() * .5 : kind === 'roots' || kind === 'jelly' ? 0 : (Math.random() - .5) * (kind === 'marble' ? .4 : kind === 'flower' ? .3 : .9);
+      if (kind === 'roots') { vx *= 1.7; vy *= 1.7; }
+      if (kind === 'swirl') { var tx = -vy, ty = vx; vx += tx * .8; vy += ty * .8; }
+      var life = (7 + Math.random() * 14) * (.75 + .7 * d.th) * (jl ? 2 : 1) * (kind === 'smoke' ? .6 : kind === 'marble' ? 1.6 : kind === 'roots' ? 1.3 : 1);
+      var w0 = (th ? 1.6 + Math.random() * 2.2 : .6 + Math.random() * .9) * (.8 + .6 * d.th) * (kind === 'marble' ? .6 : kind === 'roots' ? 1.5 : jl ? 1.4 : 1);
+      return { x: x, y: y, vx: vx, vy: vy, life: life, age: 0, w0: w0, bend: bend, jl: jl, ph: Math.random() * 6.283, turn: kind === 'roots' ? .3 + Math.random() * .4 : 0 };
+    }
+    /* Эбру (15.10, её фото): краска лежит на воде пятнами-многоугольниками; новая капля раздвигает всё, что уже лежит, сохраняя площадь
+       (точка на расстоянии r от центра уходит на √(r² + ΔR²)) — старая краска сжимается в тонкие прожилки между кругами. Капля растёт плавно. */
+    var eb = [], ebN = 0;
+    function ebDrop(D, x, y, r) {
+      var sz = kapV(D, 'size', 50, 200) / 100, R = r || U() * (.1 + .22 * Math.random()) * sz, pts = [], i;
+      for (i = 0; i < 90; i++) pts.push(x, y);
+      eb.push({ col: color(D), x: x, y: y, R2: R * R, cur: 0, pts: pts, rate: R * R / (.55 + .5 * Math.random()) * kapV(D, 'force', 20, 200) / 100 });
+    }
+    function ebStep(D, dt) {
+      var u = U(), i, j, P, q, ms = u * .025, tot = 0, sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, T = sim * .03 + T0, f = 1.6 / u, am = u * .004 * sw;
+      for (i = 0; i < eb.length; i++) {
+        var g = eb[i]; if (g.cur >= g.R2) continue;
+        var nr = Math.min(g.R2, g.cur + g.rate * dt), dA = nr - g.cur, rr = Math.sqrt(nr); g.cur = nr;
+        // раздвинуть всю краску, что уже лежит (и капли, что ещё растут рядом)
+        for (j = 0; j < eb.length; j++) {
+          if (j === i) continue; P = eb[j].pts;
+          for (q = 0; q < P.length; q += 2) { var dx = P[q] - g.x, dy = P[q + 1] - g.y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + dA / d2); P[q] = g.x + dx * k; P[q + 1] = g.y + dy * k; }
+        }
+        for (q = 0; q < g.pts.length; q += 2) { var an = q / g.pts.length * 6.283; g.pts[q] = g.x + Math.cos(an) * rr; g.pts[q + 1] = g.y + Math.sin(an) * rr; }
+      }
+      // вода чуть течёт — прожилки живые; растянутые края — гуще точки
+      for (i = 0; i < eb.length; i++) {
+        P = eb[i].pts; var out = [];
+        for (q = 0; q < P.length; q += 2) {
+          if (am) { var nx = P[q] * f, ny = P[q + 1] * f; P[q] += (noise(nx, ny + e + T) - noise(nx, ny - e + T)) / (2 * e) * am * dt; P[q + 1] -= (noise(nx + e, ny + T) - noise(nx - e, ny + T)) / (2 * e) * am * dt; }
+          out.push(P[q], P[q + 1]);
+          var n2 = (q + 2) % P.length, ax = P[n2] - P[q], ay = P[n2 + 1] - P[q + 1];
+          if (P.length < 3000 && ax * ax + ay * ay > ms * ms) out.push(P[q] + ax / 2, P[q + 1] + ay / 2);
+        }
+        eb[i].pts = out; tot += out.length;
+      }
+      // Ушли за край — убрать; краски слишком много — уходят самые старые (они уже тонкие прожилки)
+      eb = eb.filter(function (g) { var P2 = g.pts, m = u * .2; for (var z = 0; z < P2.length; z += 2) if (P2[z] > -m && P2[z] < cv.width + m && P2[z + 1] > -m && P2[z + 1] < cv.height + m) return true; tot -= P2.length; return false; });
+      while (eb.length > 4 && (tot > 200000 || eb.length > 140)) tot -= eb.shift().pts.length;
+      ic.setTransform(1, 0, 0, 1, 0, 0); ic.clearRect(0, 0, cv.width, cv.height); ic.globalAlpha = 1; ic.lineJoin = 'round';
+      for (i = 0; i < eb.length; i++) {
+        P = eb[i].pts; ic.beginPath(); ic.moveTo(P[0], P[1]); for (q = 2; q < P.length; q += 2) ic.lineTo(P[q], P[q + 1]); ic.closePath();
+        ic.fillStyle = eb[i].col; ic.fill();
+        ic.globalAlpha = .35; ic.strokeStyle = rgbHex(mixC(hexRgb(eb[i].col), [40, 40, 60], .35)); ic.lineWidth = S1(); ic.stroke(); ic.globalAlpha = 1;
+      }
+    }
+    function ebStir(x, y, dx, dy) {
+      var l = U() * .14, i, q, P;
+      for (i = 0; i < eb.length; i++) { P = eb[i].pts; for (q = 0; q < P.length; q += 2) { var ex = P[q] - x, ey = P[q + 1] - y, w = Math.exp(-Math.sqrt(ex * ex + ey * ey) / l); P[q] += dx * w; P[q + 1] += dy * w; } }
+    }
+    I.drop = function (D, x, y) {
+      if (!mode) setup(kapMode(D), asp);
+      var given = x != null && isFinite(x);
+      // В трубке ещё не нарисован ни один кадр — неизвестно, какая часть видна: капля упадёт, как только узор нарисуется
+      if (!given && mode === 'tube' && !I.vis) { I.pend = D; return; }
+      if (!given) { var p = spot(); x = p[0]; y = p[1]; }
+      // Эбру: капли падают россыпью — одна крупная и несколько мелких рядом
+      if (D.kind === 'ebru') {
+        // Эбру: капли ложатся густо, друг в друга (в середину холста, без зеркал — около середины экрана)
+        // чаще всего — прямо в уже лежащую краску (так и получаются прожилки)
+        var hit = false, tr, cx0 = cv.width / 2, cy0 = cv.height / 2, lim = Math.min(cv.width, cv.height) * (mode === 'tube' ? .3 : .38);
+        if (!given && eb.length > 2 && Math.random() < .55) for (tr = 0; tr < 12 && !hit; tr++) {
+          var g0 = eb[Math.floor(Math.random() * eb.length)], q0 = Math.floor(Math.random() * g0.pts.length / 2) * 2, tx2 = (g0.pts[q0] + g0.x) / 2, ty2 = (g0.pts[q0 + 1] + g0.y) / 2;
+          if (Math.abs(tx2 - cx0) < lim * (cv.width / Math.min(cv.width, cv.height)) && Math.abs(ty2 - cy0) < lim) { x = tx2; y = ty2; hit = true; }
+        }
+        if (hit) {}
+        else if (mode !== 'tube' && !given) { var gx = (Math.random() + Math.random() + Math.random()) / 3 - .5, gy = (Math.random() + Math.random() + Math.random()) / 3 - .5; x = cv.width * (.5 + gx * 1.3); y = cv.height * (.5 + gy * 1.3); }
+        var R = U() * (.1 + .22 * Math.random()) * kapV(D, 'size', 50, 200) / 100, k2, n2 = String(D.count) === '3' ? 3 + Math.floor(Math.random() * 4) : Math.random() < .5 ? 1 : 2;
+        ebDrop(D, x, y, R);
+        for (k2 = 1; k2 < n2; k2++) { var a2 = Math.random() * 6.283, r2 = R * (1.2 + Math.random() * 2.5); ebDrop(D, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2, R * (.3 + Math.random() * .6)); }
+        lastDrop = real; return;
+      }
+      var d = one(D, x, y), k, n;
+      // 2–3 капли рядом: слипаются и смешиваются
+      if (String(D.count) === '3') for (k = 0, n = 1 + (Math.random() < .5 ? 1 : 2); k < n; k++) {
+        var a = Math.random() * 6.283, r = d.R0 * (1.6 + Math.random() * 1.6);
+        one(D, x + Math.cos(a) * r, y + Math.sin(a) * r, { kind: d.kind, R0: d.R0 * (.6 + Math.random() * .4) });
+      }
+      lastDrop = real;
+    };
+    I.clear = function () { drops = []; rings = []; eb = []; ic.clearRect(0, 0, cv.width, cv.height); };
+    I.mode = function () { return mode; };
+    I.fit = function (a) {
+      if (mode === 'tube' || !a || Math.abs(a - asp) / asp < .03) return;
+      var t = document.createElement('canvas'), ow = cv.width, oh = cv.height; t.width = ow; t.height = oh; t.getContext('2d').drawImage(cv, 0, 0);
+      var keep = drops; setup(mode, a); drops = keep;
+      var sx = cv.width / ow, sy = cv.height / oh; ic.drawImage(t, 0, 0, cv.width, cv.height);
+      eb.forEach(function (g) { g.x *= sx; g.y *= sy; for (var q = 0; q < g.pts.length; q += 2) { g.pts[q] *= sx; g.pts[q + 1] *= sy; } });
+      drops.forEach(function (d) { d.x *= sx; d.y *= sy; d.vort.forEach(function (v) { v.x *= sx; v.y *= sy; }); d.parts.concat(d.cl).forEach(function (p) { p.x *= sx; p.y *= sy; }); });
+    };
+    // Размешать пальцем: краска тянется за пальцем (мазок), живые нити подхватывают движение, из-под пальца тянутся новые тонкие нити
+    I.stir = function (x, y, dx, dy) {
+      if (!mode) return;
+      if (eb.length) { ebStir(x, y, dx, dy); return; }
+      var L = Math.sqrt(dx * dx + dy * dy), r = U() * .2, i, n, s = Math.ceil(r * 2);
+      if (L < .5 || L > U() * 1.5) return;
+      if (pc.width !== s) { pc.width = pc.height = s; }
+      var px = pc.getContext('2d'), st = Math.max(1, Math.ceil(L / (r * .3)));
+      for (i = 1; i <= st; i++) {
+        var fx0 = x - dx * (1 - (i - 1) / st), fy0 = y - dy * (1 - (i - 1) / st), tx = x - dx * (1 - i / st), ty = y - dy * (1 - i / st);
+        px.globalCompositeOperation = 'source-over'; px.clearRect(0, 0, s, s); px.drawImage(cv, fx0 - r, fy0 - r, s, s, 0, 0, s, s);
+        var g = px.createRadialGradient(r, r, 0, r, r, r); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        px.globalCompositeOperation = 'destination-in'; px.fillStyle = g; px.fillRect(0, 0, s, s);
+        ic.globalAlpha = .55; ic.drawImage(pc, tx - r, ty - r); ic.globalAlpha = 1;
+      }
+      drops.forEach(function (d) { d.parts.forEach(function (p) {
+        var ex = p.x - x, ey = p.y - y, q = ex * ex + ey * ey, R2 = r * r * 2.5; if (q > R2) return;
+        // Нить подхватывает движение пальца (не разгоняется сверх него)
+        var f = (1 - q / R2) * .35; p.vx += (dx * 9 - p.vx) * f; p.vy += (dy * 9 - p.vy) * f;
+      }); });
+      // Новые нити — в своей «капле» пальца (у старой капли краска уже почти прозрачная)
+      var d = drops[drops.length - 1];
+      if (!d || !d.stirD || sim - d.t0 > 8) {
+        var c0 = d ? d.col : color(Dk);
+        d = { x: x, y: y, R0: U() * .05, t0: sim, col: c0, kind: '', parts: [], cl: [], vort: [], sat: [], th: .5, fo: 1, br: 0, drift: { x: 0, y: 0 }, nf: 1, amp: 1, ph: 0, dir: 0, emit: null, body: 1, small: true, edge: [], stirD: true };
+        drops.push(d); if (drops.length > 9) drops.shift();
+      }
+      for (i = 0, n = Math.min(8, Math.round(L / 3)); i < n; i++) {
+        var a = Math.atan2(dy, dx) + (Math.random() - .5) * 1.2, sp = L * (4 + Math.random() * 5);
+        d.parts.push({ x: x + (Math.random() - .5) * r * .5, y: y + (Math.random() - .5) * r * .5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 2.5 + Math.random() * 3, age: 0, w0: .6 + Math.random() * .9, bend: (Math.random() - .5) * 2, jl: 0, ph: 0, turn: 0 });
+      }
+    };
+    // Снимок краски — для узора на двери (на устройстве участника): небольшой, чтобы поместился в память браузера
+    I.shot = function () {
+      if (!mode) return null;
+      var f = 384 / Math.max(cv.width, cv.height), c = document.createElement('canvas'), u;
+      c.width = Math.round(cv.width * f); c.height = Math.round(cv.height * f); c.getContext('2d').drawImage(cv, 0, 0, c.width, c.height);
+      try { u = c.toDataURL('image/webp', .82); if (u.indexOf('data:image/webp') !== 0) u = c.toDataURL('image/png'); } catch (e) { return null; }
+      return u.length < 260000 ? u : null;
+    };
+    // Вернулся в пространство — краска с того места, где сохранил узор
+    I.load = function (url, D) {
+      if (!url) return; if (!mode) setup(kapMode(D), asp);
+      var p = new Image(); p.onload = function () { ic.drawImage(p, 0, 0, cv.width, cv.height); }; p.src = url;
+    };
+    // Без движения (настройка телефона «меньше движения»): одна капля, сразу растёкшаяся
+    I.warm = function (D) { if (!mode) setup(kapMode(D), asp); I.drop(D); for (var i = 0; i < 140; i++) I.step(.05, { drop: D }, true); };
+    I.step = function (dtR, k, quiet) {
+      var D = k && k.drop || Dk; Dk = D;
+      var md = kapMode(D); if (md !== mode) setup(md, asp);
+      real += dtR;
+      if (I.pend && I.vis) { var pd = I.pend; I.pend = null; I.drop(pd); }
+      if (!quiet && D.drops !== 'hand' && real - lastDrop > kapV(D, 'every', 2, 40)) I.drop(D);
+      var dt = dtR * kapV(D, 'speed', 25, 300) / 100, u = U(), sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, s1 = S1(), i, j;
+      if (!dt) return;
+      sim += dt; frame++;
+      // Эбру — своя вода: краска не течёт нитями, а лежит пятнами
+      if (D.kind === 'ebru') { if (drops.length) { drops = []; ic.clearRect(0, 0, cv.width, cv.height); } ebStep(D, dt); fxDraw(D); return; }
+      if (eb.length) { eb = []; ic.setTransform(1, 0, 0, 1, 0, 0); ic.clearRect(0, 0, cv.width, cv.height); }
+      fadeAcc += dt * (.01 + kapV(D, 'fade', 0, 100) / 100 * .12);
+      if (fadeAcc > .04) { ic.save(); ic.globalCompositeOperation = 'destination-out'; ic.fillStyle = 'rgba(0,0,0,' + Math.min(1, fadeAcc).toFixed(3) + ')'; ic.fillRect(0, 0, cv.width, cv.height); ic.restore(); fadeAcc = 0; }
+      ic.lineCap = 'round'; ic.lineJoin = 'round';
+      var T = sim * .06 + T0, live = [];
+      for (var di = 0; di < drops.length; di++) {
+        var d = drops[di], age = sim - d.t0, f = 2.6 / u * d.nf, amp = u * .035 * sw * d.amp, kd = .9 + 1.4 * d.th;
+        // Брызги — по очереди, чуть позже основной капли
+        if (d.sat.length) d.sat = d.sat.filter(function (s) { if (sim < s.at) return true; one(D, s.x, s.y, { R0: s.R0, col: d.col, kind: d.kind, small: true }); return false; });
+        // Струйка: краска ещё льётся, точка ползёт в сторону
+        if (d.emit && sim < d.emit.until) {
+          d.emit.acc += dt * d.emit.rate; var ex = d.x + Math.cos(d.dir) * d.R0 * (sim - d.t0) * 1.4, ey = d.y + Math.sin(d.dir) * d.R0 * (sim - d.t0) * 1.4;
+          for (; d.emit.acc >= 1; d.emit.acc--) d.parts.push(part(d, d.emit.fing, d.emit.sp0, d.emit.thinP, ex + (Math.random() - .5) * d.R0 * .4, ey + (Math.random() - .5) * d.R0 * .4));
+          ic.fillStyle = d.col; ic.globalAlpha = .9; ic.beginPath(); ic.arc(ex, ey, d.R0 * .28, 0, 6.283); ic.fill(); ic.globalAlpha = 1;
+        }
+        // «Бух» — тело капли
+        var bd = .5 / (.6 + .4 * d.fo);
+        if (age < bd && !d.stirD) {
+          var kk = 1 - Math.pow(1 - age / bd, 3), q; if (d.kind === 'jelly') kk *= .8;
+          ic.save(); ic.translate(d.x, d.y); ic.rotate(d.dir); ic.scale(d.body, 1 / Math.sqrt(d.body)); ic.fillStyle = d.col; ic.globalAlpha = 1; ic.beginPath();
+          for (q = 0; q <= 72; q++) { var an = q / 72 * 6.283, rr = d.R0 * kk * d.edge[q % 72]; if (q) ic.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); else ic.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+          ic.fill(); ic.restore();
+        }
+        if (!d.parts.length && !d.cl.length && !d.sat.length && !(d.emit && sim < d.emit.until)) continue;
+        live.push(d);
+        // Завихрения начинаются сразу (не прямые лучи): нить гнётся с первой секунды
+        var grow = Math.min(1, .35 + age / 1.2), vdec = Math.exp(-age / 9), drag = Math.exp(-kd * dt * (d.kind === 'roots' ? .3 : 1));
+        var B = [new Path2D(), new Path2D(), new Path2D(), new Path2D()], alive = [];
+        for (i = 0; i < d.parts.length; i++) {
+          var p = d.parts[i]; p.age += dt; if (p.age > p.life) continue;
+          if (p.jl) { p.vx *= Math.exp(-.35 * dt); p.vy *= Math.exp(-.35 * dt); } else { p.vx *= drag; p.vy *= drag; }
+          // Изгиб нити: собственная скорость понемногу поворачивает (у медузы щупальца колышутся)
+          var bn = p.jl ? Math.sin(p.age * 1.6 + p.ph) * .9 : p.bend;
+          if (bn) { var ca = Math.cos(bn * dt), sa = Math.sin(bn * dt), vx = p.vx; p.vx = vx * ca - p.vy * sa; p.vy = vx * sa + p.vy * ca; }
+          // Корни: нить идёт отрезками, на изломе иногда ветвится
+          if (p.turn) {
+            p.turn -= dt;
+            if (p.turn <= 0) {
+              var ta = (Math.random() < .5 ? -1 : 1) * (.25 + Math.random() * .45), c2 = Math.cos(ta), s2 = Math.sin(ta), v0 = p.vx;
+              if (d.br < 600 && p.w0 > .5 && Math.random() < .45) { d.br++; var ch = { x: p.x, y: p.y, vx: v0 * c2 + p.vy * s2, vy: -v0 * s2 + p.vy * c2, life: p.age + (p.life - p.age) * .7, age: p.age, w0: p.w0 * .7, bend: 0, jl: 0, ph: 0, turn: .2 + Math.random() * .4 }; alive.push(ch); }
+              p.vx = v0 * c2 - p.vy * s2; p.vy = v0 * s2 + p.vy * c2; p.turn = .3 + Math.random() * .5;
+            }
+          }
+          var nx = p.x * f, ny = p.y * f;
+          var cx = (noise(nx, ny + e + T) - noise(nx, ny - e + T)) / (2 * e), cy = -(noise(nx + e, ny + T) - noise(nx - e, ny + T)) / (2 * e);
+          var nx2 = nx * 2.3 + 11.1, ny2 = ny * 2.3 - 5.7;
+          cx += .45 * (noise(nx2, ny2 + e - T) - noise(nx2, ny2 - e - T)) / (2 * e); cy -= .45 * (noise(nx2 + e, ny2 - T) - noise(nx2 - e, ny2 - T)) / (2 * e);
+          var fx2 = cx * amp * grow + d.drift.x, fy2 = cy * amp * grow + d.drift.y;
+          // Мрамор: течение полосами — разводы тянутся в тонкие прожилки
+          if (d.kind === 'marble') { fx2 += Math.sin(p.y * f * .7 + d.ph) * u * .22 * sw * grow; fy2 += Math.sin(p.x * f * .45 - d.ph) * u * .05 * sw * grow; }
+          if (p.jl) fy2 += u * .06;
+          for (j = 0; j < d.vort.length; j++) {
+            var w = d.vort[j], dx = p.x - w.x, dy = p.y - w.y, r2 = dx * dx + dy * dy + 1;
+            var sv = w.g * vdec * sw * (1 - Math.exp(-r2 / (w.rc * w.rc))) / (6.283 * r2); fx2 += -dy * sv; fy2 += dx * sv;
+          }
+          var ox = p.x, oy = p.y; p.x += (p.vx + fx2) * dt; p.y += (p.vy + fy2) * dt;
+          // Нить толще у основания, тоньше к кончику: ширина убывает с возрастом
+          var wd = p.w0 * (.3 + .7 * Math.pow(1 - p.age / p.life, .7)), b = wd < .8 ? 0 : wd < 1.5 ? 1 : wd < 2.6 ? 2 : 3;
+          B[b].moveTo(ox, oy); B[b].lineTo(p.x, p.y);
+          alive.push(p);
+        }
+        d.parts = alive;
+        var al = Math.max(0, 1 - age / 26);
+        ic.strokeStyle = d.col;
+        [[.85, .6], [.75, 1.15], [.6, 2], [.5, 3.2]].forEach(function (L, bi) { ic.globalAlpha = L[0] * al; ic.lineWidth = L[1] * s1 * Math.sqrt(kapV(D, 'size', 50, 200) / 100); ic.stroke(B[bi]); });
+        ic.globalAlpha = 1;
+        // Облака: мягкие клубы, расползаются и тают (рисуются через кадр — дешевле)
+        if (d.cl.length) {
+          var sp = sprite(d.col), odd = frame % 2 === 0, cl2 = [];
+          for (i = 0; i < d.cl.length; i++) {
+            var c = d.cl[i], ca2 = (sim - d.t0); if (ca2 > c.life) continue;
+            c.vx *= drag; c.vy *= drag;
+            var mx = c.x * f * .6, my = c.y * f * .6;
+            var qx = (noise(mx, my + e + T) - noise(mx, my - e + T)) / (2 * e), qy = -(noise(mx + e, my + T) - noise(mx - e, my + T)) / (2 * e);
+            c.x += (c.vx + qx * amp * .8 + d.drift.x) * dt; c.y += (c.vy + qy * amp * .8 + d.drift.y) * dt;
+            if (odd) { var rs = c.s0 * (1 + ca2 * .22 * (1.3 - d.th)), aa = .07 * Math.pow(1 - ca2 / c.life, 1.4) * Math.min(1, ca2 * 3 + .3); ic.globalAlpha = aa; ic.drawImage(sp, c.x - rs, c.y - rs, rs * 2, rs * 2); }
+            cl2.push(c);
+          }
+          ic.globalAlpha = 1; d.cl = cl2;
+        }
+      }
+      drops = live.concat(drops.filter(function (d) { return live.indexOf(d) < 0 && sim - d.t0 < 1; }));
+      fxDraw(D);
+    };
+    // Круги по воде в момент удара; живая вода — мягкие блики плывут, поверхность чуть дышит
+    function fxDraw(D) {
+      var lv = kapV(D, 'live', 0, 100) / 100, s1 = S1(), lite = kapLite(D), u = U(), i;
+      rings = rings.filter(function (r) { return sim - r.t0 < 2.6; });
+      I.fxOn = !!(rings.length || lv);
+      if (!I.fxOn) return;
+      fc.setTransform(1, 0, 0, 1, 0, 0); fc.clearRect(0, 0, fx.width, fx.height);
+      if (lv) {
+        fc.globalCompositeOperation = lite ? 'source-over' : 'lighter';
+        for (i = 0; i < 6; i++) {
+          var gx = (.5 + .55 * noise(real * .05 + i * 7.3, 3.1)) * fx.width, gy = (.5 + .55 * noise(5.7, real * .05 + i * 4.1)) * fx.height, gr = Math.min(fx.width, fx.height) * (.22 + .1 * Math.sin(i * 2.1 + real * .2));
+          var ga = lv * (.05 + .03 * Math.sin(real * .7 + i * 1.9)), g = fc.createRadialGradient(gx, gy, 0, gx, gy, gr);
+          g.addColorStop(0, lite ? 'rgba(255,255,255,' + (ga * 2.2).toFixed(3) + ')' : 'rgba(190,220,255,' + ga.toFixed(3) + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          fc.fillStyle = g; fc.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+        }
+        fc.globalCompositeOperation = 'source-over';
+      }
+      rings.forEach(function (r) {
+        var a = sim - r.t0, k2 = 1 - a / 2.6, n = r.sm ? 1 : 3, j;
+        for (j = 0; j < n; j++) {
+          var rr = r.R * 1.3 + (a - j * .22) * u * (r.sm ? .12 : .3); if (rr <= 0) continue;
+          fc.globalAlpha = Math.max(0, k2 * k2 * (r.sm ? .25 : .4) * (1 - j * .25));
+          fc.strokeStyle = lite ? '#3a4660' : '#dfe9ff'; fc.lineWidth = (r.sm ? 1 : 1.6) * s1;
+          fc.beginPath(); fc.arc(r.x, r.y, rr, 0, 6.283); fc.stroke();
+        }
+      });
+      fc.globalAlpha = 1;
+    }
+    return I;
+  }
+
 
   /* ---------- Хоровод (09.10, её решения — docs/doors.md, «Хоровод — решения 09.10») ----------
      Хоровод дня: фигура архетипа дня (kal.khor.fig, PNG) лежит в «камере» на расстоянии от оси, зеркала собирают из неё круг;
@@ -1831,8 +2322,11 @@
     var f = kalFilter(k); if (f) cv.style.filter = f;
     // Размер холста — до kalImg: туманность готова сразу, и узор рисуется ещё до этой строки (13.10)
     var CW = 0, CH = 0, Q0 = q, MAXP = 2.6e6;
+    var KD = kapOn(k) ? k.drop : null, tch = KD ? KD.touch || '' : 'off';
     kalImg(o.base, k, function (x) {
       im = x; KO = khOf(im, k);
+      // Капля в воде: свой движок у каждого живого узора; вернулся — краска с сохранённого узора; «меньше движения» — одна растёкшаяся капля
+      if (KD && im) { im._ink = kapNew(); if (o.w) im._ink.load(o.w, KD); else if (REDUCED || o.still) { draw(); im._ink.warm(KD); } }
       // Хоровод: с сохранённого поворота; нет — первая сборка через несколько секунд (без движения на экране — сразу собранный)
       if (KO) S.kh = o.h != null && isFinite(+o.h) ? +o.h : REDUCED || o.still ? KO.G.P[0] : KO.G.P[0] - Math.min(.6, KO.G.per * .4);
       kalPre(mine, draw); draw();
@@ -1869,6 +2363,7 @@
       if (!S.frozen && !o.still) {
         var f60 = dt * 60;
         S.t += REDUCED ? 0 : dt;
+        if (im && im._ink && !REDUCED) im._ink.step(dt, k);
         S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel * f60;
         // Хоровод идёт своей скоростью и притормаживает в момент сборки; палец и толчок двигают его вместе с узором
         if (KO && !drag) S.kh += (REDUCED ? 0 : KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, S.kh)) : 1) * dt) + S.vel * f60;
@@ -1891,12 +2386,24 @@
       }
       return [(wx * c - wy * s) / R, (wx * s + wy * c) / R];
     }
+    // Точка на экране → место на холсте краски (null — куда видно: в треугольнике путь через зеркала не считается)
+    function inkAt(ex, ey) {
+      var I = im && im._ink; if (!I || !I.mode()) return null;
+      var bx = cv.getBoundingClientRect(), V = I.vis;
+      if (I.mode() !== 'tube') return [(ex - bx.left) / (bx.width || 1) * I.cv.width, (ey - bx.top) / (bx.height || 1) * I.cv.height];
+      if (!V || V.tri) return null;
+      var p = toCam(ex, ey), h = I.cv.width / 2;
+      return [h + p[0] * V.R / V.E * h, h + p[1] * V.R / V.E * h];
+    }
     function changed() { if (o.onPut) o.onPut(); if (REDUCED || o.still) draw(); }
-    cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, h: S.kh, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
+    cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, h: S.kh, moved: false, ip: tch === '' ? inkAt(e.clientX, e.clientY) : null }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
     cv.addEventListener('pointermove', function (e) {
       if (!drag) return; var dx = e.clientX - drag.x;
       if (Math.abs(dx) > 4 || Math.abs(e.clientY - drag.y) > 4) drag.moved = true;
-      if (drag.moved) { S.ang = drag.a + dx * .006; if (KO) S.kh = drag.h + dx * .006; S.vel = 0; if (REDUCED) draw(); }
+      if (!drag.moved) return;
+      // Капля: палец размешивает краску (трубка крутится сама)
+      if (tch === '' && im && im._ink) { var q = inkAt(e.clientX, e.clientY), p0 = drag.ip; if (q && p0) im._ink.stir(q[0], q[1], q[0] - p0[0], q[1] - p0[1]); drag.ip = q; if (REDUCED) draw(); return; }
+      S.ang = drag.a + dx * .006; if (KO) S.kh = drag.h + dx * .006; S.vel = 0; if (REDUCED) draw();
     });
     function up(e) {
       if (!drag) return; var m = drag.moved; drag = null; if (m || S.frozen) return;
@@ -1909,6 +2416,8 @@
           if (Math.sqrt(dx * dx + dy * dy) < ps * 1.7) { it.at = null; changed(); return; }
         }
       }
+      // Касание — капля падает в это место
+      if (tch !== 'off' && im && im._ink) { var ip = inkAt(e.clientX, e.clientY); im._ink.drop(KD, ip && ip[0], ip && ip[1]); if (REDUCED) { for (var w = 0; w < 120; w++) im._ink.step(.05, k); draw(); } return; }
       S.vel += .045; if (REDUCED) { S.ang += .5; if (KO) S.kh += .5; draw(); }
     }
     cv.addEventListener('pointerup', up);
@@ -1917,18 +2426,24 @@
     if (window.ResizeObserver) new ResizeObserver(function () { if (cv.isConnected) size(); }).observe(cv);
     requestAnimationFrame(loop);
     return { node: cv, ang: function () { return S.ang; }, kh: function () { return S.kh; }, mt: function () { return S.t; }, draw: draw, mine: mine, ps: ps,
+      ink: function () { return im && im._ink ? im._ink.shot() : null; },
       sel: function (i) { if (i === undefined) return S.sel; S.sel = i; },
       placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { return { x: m.at[0], y: m.at[1], id: m.id, k: m.k, c: m.c, l: m.l }; }); },
       freeze: function (v) { S.frozen = !!v; S.vel = 0; draw(); },
       reveal: function (v) { S.reveal = !!v; draw(); } };
   }
 
+  // Капля: на двери — снимок краски, сохранённый вместе с узором (нет снимка — узор без краски)
+  function kapShot(im, k, w, ok) {
+    if (!im || !w || !kapOn(k)) { ok(); return; }
+    var p = new Image(); p.onload = function () { im._ink = { cv: p, fxOn: false }; ok(); }; p.onerror = function () { ok(); }; p.src = w;
+  }
   /* Узор на двери (сцена, обложка): холст в рамке двери, обрезан по контуру; центр трубки — середина рамки.
      key, poly — контур на этой картинке, scn — картинка сцены (её пропорции нужны для рамки), done(холст | null) */
-  function kalDoor(r, day, a, poly, scn, base, done, g, h, m) {
+  function kalDoor(r, day, a, poly, scn, base, done, g, h, m, w) {
     var k = kalOn(r, day); if (!k || !poly) { done(null); return; }
     var P = kalPcs(r, g, base);
-    kalImg(base, k, function (im) { kalPre(P, function () { put(im); }); });
+    kalImg(base, k, function (im) { kalPre(P, function () { kapShot(im, k, w, function () { put(im); }); }); });
     function put(im) {
       if (!im) { done(null); return; }
       var b = bbox(poly), iw = scn.naturalWidth || 1600, ih = scn.naturalHeight || 900, rw = b.w * iw, rh = b.h * ih, s = 520 / Math.max(rw, rh);
@@ -1945,7 +2460,7 @@
   function face(r, day, n, P) {
     var D = cfg(r), mk = markOn(r, day, n), p = (P || {})[day], show = D.pattern || '';
     if (!kalOn(r, day) || show === 'mark') return { mark: mk, pat: null };
-    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null, h: p.h != null && isFinite(+p.h) ? +p.h : null, m: p.m != null && isFinite(+p.m) ? +p.m : null };
+    if (p && typeof p === 'object' && isFinite(+p.a)) return { mark: show !== 'pattern' && mk, pat: +p.a, g: p.g || null, h: p.h != null && isFinite(+p.h) ? +p.h : null, m: p.m != null && isFinite(+p.m) ? +p.m : null, w: typeof p.w === 'string' && p.w.indexOf('data:image/') === 0 ? p.w : null };
     if (D.patternNone === 'archetype' && mk) return { mark: show !== 'pattern', pat: 0 };
     return { mark: mk, pat: null };
   }
@@ -1966,7 +2481,7 @@
       bg.appendChild(live.node); bg.appendChild(wave.node); root.classList.add('ys-space--kal', 'ys-space--wave');
     }
     else if (K) {
-      live = kalLive(K, { base: o.base, a: o.kalA, h: o.kalH, m: o.kalM, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
+      live = kalLive(K, { base: o.base, a: o.kalA, h: o.kalH, m: o.kalM, w: o.kalW, still: o.still, bowl: o.kalBowl, g: o.kalG, ps: o.kalPs, onPut: function () { if (live.onPut) live.onPut(); } });
       bg.appendChild(live.node); root.classList.add('ys-space--kal');
       if (o.kalSave && o.kalBowl && o.kalBowl.length) root.classList.add('ys-space--bowl');
     }
@@ -2063,7 +2578,7 @@
       sv.addEventListener('click', function () {
         if (on) { on = false; live.reveal(false); peek.textContent = t.peek || 'Что внутри?'; }
         live.sel(-1); fill(); say();
-        live.freeze(true); o.kalSave(live.ang(), live.placed(), live.kh(), live.mt());
+        live.freeze(true); o.kalSave(live.ang(), live.placed(), live.kh(), live.mt(), live.ink());
         var done = el('div', 'ys-kal-done'), plate = el('div', 'ys-kal-plate'), r2 = el('div', 'ys-kal-row');
         plate.appendChild(el('b', '', t.saved || 'Ваш узор сохранён'));
         plate.appendChild(el('p', '', t.savedNote || 'Он ляжет на вашу дверь этого дня.'));
@@ -2233,7 +2748,7 @@
       for (d = 1; d <= count(r); d++) {
         var dd = ids[doorOf(r, d).id] || 0;
         sc.set(d, !dd ? 'free' : dd === n ? 'today' : 'past', true, false);
-        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g, fc.h, fc.m); }
+        if (dd) { var fc = face(r, dd, n, o.pats); if (fc.mark) sc.mark(d, dd, true); if (fc.pat != null) sc.pattern(d, dd, fc.pat, true, fc.g, fc.h, fc.m, fc.w); }
         if (dd && cfg(r).showDayNumbers) sc.num(d, String(dd));
       }
     } else for (d = 1; d <= N; d++) sc.set(d, d > n ? 'future' : (d === n ? 'today_' : 'past_') + (vis[d] === 'v' ? 'visited' : 'unvisited'), true, false);
@@ -2257,11 +2772,11 @@
     for (k in log) for (i = 1; i <= count(r); i++) if (doorOf(r, i).id === log[k] && doorOf(r, i).on !== false && zoneOf(doorOf(r, i), key)) {
       var fc = face(r, +k, n, o.pats);
       if (fc.mark) marks.push({ day: +k, d: doorOf(r, i) });
-      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, h: fc.h, m: fc.m, P: kalPcs(r, fc.g, o.base) });
+      if (fc.pat != null) pats.push({ day: +k, d: doorOf(r, i), a: fc.pat, h: fc.h, m: fc.m, w: fc.w, P: kalPcs(r, fc.g, o.base) });
     }
     jobs.push(load(D[key]));
     world.forEach(function (L) { jobs.push(load(L[key])); });
-    pats.forEach(function (p) { jobs.push(new Promise(function (ok) { kalImg(o.base, kalOn(r, p.day), function (im) { kalPre(p.P, function () { ok(im); }); }); })); });
+    pats.forEach(function (p) { jobs.push(new Promise(function (ok) { var kk = kalOn(r, p.day); kalImg(o.base, kk, function (im) { kalPre(p.P, function () { kapShot(im, kk, p.w, function () { ok(im); }); }); }); })); });
     marks.forEach(function (m) {
       var M = markOf(r, m.day);
       jobs.push(isSvg(M.image) ? new Promise(function (ok) { svgImg(src(o.base, M.image), hexOk(M.color) ? M.color : '#ffe2a0', ok, M); }) : load(M.image));
@@ -2341,7 +2856,7 @@
   }
 
   window.M13D = { STATES: STATES, STATES_UC: STATES_UC, STATE_NAMES: STATE_NAMES, FX: FX, FLOW_DIR: FLOW_DIR, FLOW_SEAM: FLOW_SEAM, OPEN: OPEN, BLEND: BLEND, BLOCKS: BLOCKS, BTN_DEF: BTN_DEF, OUT: OUT, OUT_DIR: OUT_DIR, AU_NAMES: AU_NAMES,
-    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalLive: kalLive, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF, NEB_KINDS: NEB_KINDS, NEB_KDEF: NEB_KDEF, NEB_LITE: NEB_LITE, nebLite: nebLite,
+    worldOn: worldOn, markOn: markOn, tap2: tap2, deep: deep, keyIcon: keyIcon, KEY_NAMES: KEY_NAMES, weather: weather, hush: hush, face: face, waveOn: waveOn, khTick: khTick, KH_DEF: KH_DEF, KW_DEF: KW_DEF, kalOf: kalOf, kalOn: kalOn, kalDraw: kalDraw, kalLive: kalLive, kalSize: kalSize, kalImg: kalImg, kalPic: kalPic, kapOn: kapOn, kapNew: kapNew, kapMode: kapMode, KAP_DEF: KAP_DEF, KAP_WATER: KAP_WATER, KAP_KINDS: KAP_KINDS, NEB_PAL: NEB_PAL, NEB_DEF: NEB_DEF, NEB_KINDS: NEB_KINDS, NEB_KDEF: NEB_KDEF, NEB_LITE: NEB_LITE, nebLite: nebLite,
     cfg: cfg, doorOf: doorOf, isChoice: isChoice, statesOf: statesOf, count: count, first: first, dayCfg: dayCfg, spaceOf: spaceOf, markOf: markOf, uid: uid, zoneOf: zoneOf, pick: pick, norm: norm, layerOn: layerOn, bbox: bbox, inPoly: inPoly, ptsOk: ptsOk,
     scene: scene, fit: fit, space: space, autoBlocks: autoBlocks, go: go, back: back, cover: cover, coverPic: coverPic, figure: figure,
     isSvg: isSvg, svgClean: svgClean, svgLoad: svgLoad, svgNode: svgNode, svgDraw: svgDraw };
