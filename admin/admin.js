@@ -5492,7 +5492,7 @@
     out.push(el('div', { class: 'a-backup-btns' }, [
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: '💧 Капнуть', onclick: function () { var I = ink(); if (I) I.drop(D); } }),
       el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Очистить воду', onclick: function () { var I = ink(); if (I) I.clear(); } })]));
-    out.push(el('p', { class: 'a-hint', text: 'В живом узоре справа можно капнуть касанием' + (md === 'tube' ? '' : ' и размешать, ведя мышкой') + '. Как у участника, с пальцем, — «⛶ Во весь экран». В «🎬 Записать видео» капли пока нет. Всё рисуется на телефоне участника, ничего не уходит.' }));
+    out.push(el('p', { class: 'a-hint', text: 'В живом узоре справа можно капнуть касанием' + (md === 'tube' ? '' : ' и размешать, ведя мышкой') + '. Как у участника, с пальцем, — «⛶ Во весь экран». В «🎬 Записать видео» капли падают сами (как настроено выше), видео тоже идёт по кругу без шва. Всё рисуется на телефоне участника, ничего не уходит.' }));
     return el('div', { class: 'a-neb' }, out);
   }
   /* Хоровод дня (09.10, её решения — docs/doors.md, «Хоровод — решения 09.10»): фигура архетипа своя у каждого дня (kal.khor.fig);
@@ -5601,7 +5601,7 @@
       M.kalImg('../', E, function (im) { if (kSrc !== key) return; kIm = im; if (M.kapOn(E)) { kIm._ink = old || M.kapNew(); if (!old) kIm._ink.drop(E.drop); } kPut(); kLoop(); });
     }
     function kPut() {
-      if (!kIm || !kIm.naturalWidth || !kE) return;
+      if (!kIm || !(kIm.naturalWidth || kIm.width) || !kE) return;
       var K = kE;
       M.kalDraw(kpv.getContext('2d'), 600, 600, kIm, K, kA, false, null, null, kT, kH);
       kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
@@ -8470,6 +8470,8 @@
       [[A, 1], [B, w]].forEach(function (L) {
         var s = L[0]; if (!s || L[1] <= 0) return;
         var x = work.getContext('2d');
+        // Капля в воде: у каждого состояния своя краска (живой движок или снимок начала петли)
+        if (s.ink) im._ink = s.ink;
         M.kalDraw(x, ww, wh, im, E, .072 * V.spd / 100 * s.t, false, null, null, s.t, s.h, s.t);
         if (d) {
           // Окошко: круг с мягким краем
@@ -8495,6 +8497,7 @@
       if (im && !rec) {
         var D = dims(), k = 240 / D[0], E = cfgOf();
         pT += dt; pH = M.khTick(im, E, pH, dt);
+        if (im._ink && M.kapOn(E)) im._ink.step(dt, E);
         if (pv.width !== Math.round(D[0] * k) || pv.height !== Math.round(D[1] * k)) { pv.width = Math.round(D[0] * k); pv.height = Math.round(D[1] * k); }
         paint(pv.getContext('2d'), pv.width, pv.height, E, { t: pT, h: pH });
       }
@@ -8534,7 +8537,7 @@
     document.body.appendChild(ov); document.addEventListener('keydown', key);
     if (!can) return;
     var E1 = cfgOf();
-    M.kalImg('../', E1, function (x) { im = x; requestAnimationFrame(prev); });
+    M.kalImg('../', E1, function (x) { im = x; if (M.kapOn(E1)) { im._ink = M.kapNew(); im._ink.drop(E1.drop); } requestAnimationFrame(prev); });
     function say(s, err) { stat.textContent = s; stat.classList.toggle('a-hint--warn', !!err); }
     function codec(W, H, br, done) {
       var L = ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.640033'];
@@ -8551,7 +8554,10 @@
       oc.width = W; oc.height = H;
       if (url) { URL.revokeObjectURL(url); url = ''; } res.textContent = '';
       go.disabled = true; stop.hidden = false; form.classList.add('is-off'); bar.hidden = false; bar.firstChild.style.width = '0%'; say('Готовлю…');
-      function end(msg, err) { rec = null; go.disabled = false; stop.hidden = true; form.classList.remove('is-off'); bar.hidden = true; say(msg, err); try { if (enc && enc.state !== 'closed') enc.close(); } catch (e) {} }
+      // Капля в воде (15.10): краска считается кадр за кадром своим движком. Видео — время NF…N+NF; последние секунды перетекают
+      // в снимки краски первых NF кадров (время 0…NF) — последний кадр переходит в первый без шва
+      var pInk = im._ink, INK = M.kapOn(E) ? M.kapNew() : null, snap = [];
+      function end(msg, err) { if (INK) im._ink = pInk; rec = null; go.disabled = false; stop.hidden = true; form.classList.remove('is-off'); bar.hidden = true; say(msg, err); try { if (enc && enc.state !== 'closed') enc.close(); } catch (e) {} }
       function st(i) { return { t: i / VID_FPS, h: KH[i] }; }
       vidMuxer(function (ok) {
         if (!ok) { end('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.', true); return; }
@@ -8561,17 +8567,36 @@
           mux = new window.Mp4Muxer.Muxer({ target: new window.Mp4Muxer.ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: VID_FPS }, fastStart: 'in-memory' });
           enc = new VideoEncoder({ output: function (ch, meta) { mux.addVideoChunk(ch, meta); }, error: function (e) { bad = e; } });
           enc.configure(c);
-          step(0);
+          if (INK) inkPre(); else step(0);
         });
       });
       // Кадр i: первые секунды — конец петли, перетекающий в начало (последний кадр видео переходит в первый без шва)
+      function inkPre() {
+        // один кадр — чтобы краска знала, какая часть трубки видна
+        paint(oc2, W, H, E, inkSt(0, INK));
+        INK.drop(E.drop);
+        for (var j = 0; j < VID_FPS; j++) INK.step(1 / VID_FPS, E);
+        for (j = 0; j < NF; j++) {
+          INK.step(1 / VID_FPS, E);
+          var sc = document.createElement('canvas'), f = 640 / Math.max(INK.cv.width, INK.cv.height);
+          sc.width = Math.round(INK.cv.width * f); sc.height = Math.round(INK.cv.height * f); sc.getContext('2d').drawImage(INK.cv, 0, 0, sc.width, sc.height);
+          snap.push({ cv: sc, fxOn: false });
+        }
+        step(0);
+      }
+      function inkSt(T, ink) { var o = st(T); o.ink = ink; return o; }
       function step(i) {
         if (!open) return;
         if (bad) { end('Не получилось собрать видео: ' + (bad.message || bad), true); return; }
         if (R.cancel) { end('Запись отменена'); return; }
         if (i >= N) { finish(); return; }
         if (enc.encodeQueueSize > 4) { setTimeout(function () { step(i); }, 15); return; }
-        if (i < NF) paint(oc2, W, H, E, st(N + i), st(i), i / NF); else paint(oc2, W, H, E, st(i));
+        if (INK) {
+          INK.step(1 / VID_FPS, E);
+          var j0 = i - (N - NF);
+          if (j0 >= 0) paint(oc2, W, H, E, inkSt(NF + i, INK), inkSt(j0, snap[j0]), (j0 + 1) / NF); else paint(oc2, W, H, E, inkSt(NF + i, INK));
+        }
+        else if (i < NF) paint(oc2, W, H, E, st(N + i), st(i), i / NF); else paint(oc2, W, H, E, st(i));
         var vf = new VideoFrame(oc, { timestamp: Math.round(i * 1e6 / VID_FPS), duration: Math.round(1e6 / VID_FPS) });
         enc.encode(vf, { keyFrame: i % (VID_FPS * 2) === 0 }); vf.close();
         if (i % 6 === 0) { var p = Math.round(i / N * 100); bar.firstChild.style.width = p + '%'; say('Собираю видео… ' + p + ' %'); }

@@ -1801,12 +1801,12 @@
        (точка на расстоянии r от центра уходит на √(r² + ΔR²)) — старая краска сжимается в тонкие прожилки между кругами. Капля растёт плавно. */
     var eb = [], ebN = 0;
     function ebDrop(D, x, y, r) {
-      var sz = kapV(D, 'size', 50, 200) / 100, R = r || U() * (.07 + .16 * Math.random()) * sz, pts = [], i;
+      var sz = kapV(D, 'size', 50, 200) / 100, R = r || U() * (.1 + .22 * Math.random()) * sz, pts = [], i;
       for (i = 0; i < 90; i++) pts.push(x, y);
       eb.push({ col: color(D), x: x, y: y, R2: R * R, cur: 0, pts: pts, rate: R * R / (.55 + .5 * Math.random()) * kapV(D, 'force', 20, 200) / 100 });
     }
     function ebStep(D, dt) {
-      var u = U(), i, j, P, q, ms = u * .025, tot = 0, sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, T = sim * .03 + T0, f = 1.6 / u, am = u * .012 * sw;
+      var u = U(), i, j, P, q, ms = u * .025, tot = 0, sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, T = sim * .03 + T0, f = 1.6 / u, am = u * .004 * sw;
       for (i = 0; i < eb.length; i++) {
         var g = eb[i]; if (g.cur >= g.R2) continue;
         var nr = Math.min(g.R2, g.cur + g.rate * dt), dA = nr - g.cur, rr = Math.sqrt(nr); g.cur = nr;
@@ -1845,12 +1845,21 @@
     I.drop = function (D, x, y) {
       if (!mode) setup(kapMode(D), asp);
       var given = x != null && isFinite(x);
+      // В трубке ещё не нарисован ни один кадр — неизвестно, какая часть видна: капля упадёт, как только узор нарисуется
+      if (!given && mode === 'tube' && !I.vis) { I.pend = D; return; }
       if (!given) { var p = spot(); x = p[0]; y = p[1]; }
       // Эбру: капли падают россыпью — одна крупная и несколько мелких рядом
       if (D.kind === 'ebru') {
         // Эбру: капли ложатся густо, друг в друга (в середину холста, без зеркал — около середины экрана)
-        if (mode !== 'tube' && !given) { var gx = (Math.random() + Math.random() + Math.random()) / 3 - .5, gy = (Math.random() + Math.random() + Math.random()) / 3 - .5; x = cv.width * (.5 + gx * 1.3); y = cv.height * (.5 + gy * 1.3); }
-        var R = U() * (.07 + .16 * Math.random()) * kapV(D, 'size', 50, 200) / 100, k2, n2 = String(D.count) === '3' ? 3 + Math.floor(Math.random() * 4) : Math.random() < .5 ? 1 : 2;
+        // чаще всего — прямо в уже лежащую краску (так и получаются прожилки)
+        var hit = false, tr, cx0 = cv.width / 2, cy0 = cv.height / 2, lim = Math.min(cv.width, cv.height) * (mode === 'tube' ? .3 : .38);
+        if (!given && eb.length > 2 && Math.random() < .55) for (tr = 0; tr < 12 && !hit; tr++) {
+          var g0 = eb[Math.floor(Math.random() * eb.length)], q0 = Math.floor(Math.random() * g0.pts.length / 2) * 2, tx2 = (g0.pts[q0] + g0.x) / 2, ty2 = (g0.pts[q0 + 1] + g0.y) / 2;
+          if (Math.abs(tx2 - cx0) < lim * (cv.width / Math.min(cv.width, cv.height)) && Math.abs(ty2 - cy0) < lim) { x = tx2; y = ty2; hit = true; }
+        }
+        if (hit) {}
+        else if (mode !== 'tube' && !given) { var gx = (Math.random() + Math.random() + Math.random()) / 3 - .5, gy = (Math.random() + Math.random() + Math.random()) / 3 - .5; x = cv.width * (.5 + gx * 1.3); y = cv.height * (.5 + gy * 1.3); }
+        var R = U() * (.1 + .22 * Math.random()) * kapV(D, 'size', 50, 200) / 100, k2, n2 = String(D.count) === '3' ? 3 + Math.floor(Math.random() * 4) : Math.random() < .5 ? 1 : 2;
         ebDrop(D, x, y, R);
         for (k2 = 1; k2 < n2; k2++) { var a2 = Math.random() * 6.283, r2 = R * (1.2 + Math.random() * 2.5); ebDrop(D, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2, R * (.3 + Math.random() * .6)); }
         lastDrop = real; return;
@@ -1924,6 +1933,7 @@
       var D = k && k.drop || Dk; Dk = D;
       var md = kapMode(D); if (md !== mode) setup(md, asp);
       real += dtR;
+      if (I.pend && I.vis) { var pd = I.pend; I.pend = null; I.drop(pd); }
       if (!quiet && D.drops !== 'hand' && real - lastDrop > kapV(D, 'every', 2, 40)) I.drop(D);
       var dt = dtR * kapV(D, 'speed', 25, 300) / 100, u = U(), sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, s1 = S1(), i, j;
       if (!dt) return;
@@ -2316,7 +2326,7 @@
     kalImg(o.base, k, function (x) {
       im = x; KO = khOf(im, k);
       // Капля в воде: свой движок у каждого живого узора; вернулся — краска с сохранённого узора; «меньше движения» — одна растёкшаяся капля
-      if (KD && im) { im._ink = kapNew(); if (o.w) im._ink.load(o.w, KD); else if (REDUCED || o.still) im._ink.warm(KD); }
+      if (KD && im) { im._ink = kapNew(); if (o.w) im._ink.load(o.w, KD); else if (REDUCED || o.still) { draw(); im._ink.warm(KD); } }
       // Хоровод: с сохранённого поворота; нет — первая сборка через несколько секунд (без движения на экране — сразу собранный)
       if (KO) S.kh = o.h != null && isFinite(+o.h) ? +o.h : REDUCED || o.still ? KO.G.P[0] : KO.G.P[0] - Math.min(.6, KO.G.per * .4);
       kalPre(mine, draw); draw();
