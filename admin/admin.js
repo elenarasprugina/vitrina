@@ -5604,6 +5604,10 @@
       selectIn(D, 'even', 'Капли эбру', [['', 'разные — крупная и мелкие рядом, как сами упадут'], ['fix', 'ровные — каждая точно заданного размера, одна']], { def: '', onChange: function (v) { if (!v) delete D.even; renderMain(); },
         hint: 'Ровные — чтобы рисовать знак: капля за каплей одного размера (капюшон, плащ, круг в круге). Капля в каплю — раздвигает прежнюю краску кольцом.' }),
       D.even === 'fix' ? rangeIn(D, 'dsize', 'Поперечник капли', { min: 2, max: 60, step: 1, def: 15, unit: ' %', hint: 'Доля окошка: 10 % — капля в десятую часть ширины. Можно менять прямо во время записи — следующая капля будет нового размера.' }) : null]));
+    if (D.kind === 'ebru') out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'brush', 'Кисть — только у вас, в живом окошке', [['', 'нет — палец размешивает'], ['push', 'кисть — раздвигает краску'], ['top', 'кисть — ложится сверху']], { def: '', onChange: function (v) { if (!v) delete D.brush; renderMain(); },
+        hint: '«Раздвигает» — как капля: краска отходит в стороны. «Сверху» — как тушь на бумаге. Ведёте мышкой с нажатой кнопкой или пальцем — за ним ложится густая краска. Медленно — линия толще, быстро — тоньше, в конце сходит на нет; перо планшета — по нажиму. Касание без движения — капля. Отпустили — мазок течёт с водой («Завитки», в трубке — поворот), новые капли его раздвигают. Можно переключать во время записи. Писать знак удобнее «Б — без зеркал». У участников на сайте кисти нет.' }),
+      D.brush ? rangeIn(D, 'bw', 'Толщина кисти', { min: 1, max: 30, step: 1, def: 5, unit: ' %', hint: 'Доля окошка. Можно менять прямо во время записи.' }) : null]));
     out.push(el('div', { class: 'a-row' }, [
       rangeIn(D, 'speed', 'Скорость краски', { min: 25, max: 300, step: 5, def: DEF.speed, unit: ' %', hint: 'Скорость самой краски; вращение трубки — «Скорость перетекания» ниже.' }),
       rangeIn(D, 'fade', 'Как быстро растворяется', { min: 0, max: 100, step: 5, def: DEF.fade, unit: ' %', hint: '0 — краска почти не уходит, узор копится; больше — старые разводы тают.' })]));
@@ -5781,22 +5785,43 @@
     // Как у участника («Что может участник»): «только капнуть» — линий нет, любое касание — капля. Палец дрожит — до 12 px это ещё касание;
     // мышь без нажатой кнопки ничего не рисует (16.10: узор рисовался, хотя она не нажимала)
     var kpD = null;
-    function kpAt(e) { var I = KS.im && KS.im._ink, b = kpv.getBoundingClientRect(); if (!I || !I.mode() || I.mode() === 'tube') return null; return [(e.clientX - b.left) / b.width * I.cv.width, (e.clientY - b.top) / b.height * I.cv.height]; }
+    // В трубке — через зеркала, как у участника (inkAt в doors.js): где коснулась, там и краска (16.10, для кисти; раньше капля падала куда видно)
+    function kpAt(e) {
+      var I = KS.im && KS.im._ink, b0 = kpv.getBoundingClientRect(), b = { left: b0.left, top: b0.top, width: b0.width || 1, height: b0.height || 1 }; if (!I || !I.mode()) return null;
+      // Пишет видео с круглым окошком — узор в квадрате посередине (92 % меньшей стороны, как recFrame)
+      if (REC && REC.key === KK && REC.round && /^(count|prep|rec|end)$/.test(REC.st)) { var dd = Math.min(b.width, b.height) * .92; b = { left: b.left + (b.width - dd) / 2, top: b.top + (b.height - dd) / 2, width: dd, height: dd }; }
+      if (I.mode() !== 'tube') return [(e.clientX - b.left) / b.width * I.cv.width, (e.clientY - b.top) / b.height * I.cv.height];
+      var V = I.vis; if (!V || V.tri) return null;
+      var W = b.width, H = b.height, R = Math.sqrt(W * W + H * H) / 2 + 2, px = e.clientX - b.left - W / 2, py = e.clientY - b.top - H / 2;
+      var r = Math.sqrt(px * px + py * py), th = Math.atan2(py, px); if (th < 0) th += 2 * Math.PI;
+      var i = Math.floor(th / V.A), l = th - i * V.A; if (i % 2) l = V.A - l;
+      var wx = r * Math.cos(l) - R * V.cx, wy = r * Math.sin(l) - R * V.cy, c = Math.cos(-V.ang), s = Math.sin(-V.ang), h = I.cv.width / 2;
+      return [h + (wx * c - wy * s) / R * V.R / V.E * h, h + (wx * s + wy * c) / R * V.R / V.E * h];
+    }
     function kpStir() { return !!(kE && kE.drop && !kE.drop.touch); }
+    // Кисть эбру (только у неё в панели): вести — мазок, касание без движения — по-прежнему капля
+    function kpBrush() { return !!(kE && kE.drop && kE.drop.kind === 'ebru' && kE.drop.brush && M.kapOn(kE)); }
+    function kpPr(e) { return e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : null; }
     kpv.addEventListener('pointerdown', function (e) { if (!(KS.im && KS.im._ink)) return; if (e.pointerType === 'mouse' && e.button !== 0) return; kpD = { p: kpAt(e), moved: false, x: e.clientX, y: e.clientY, sl: e.pointerType === 'mouse' ? 5 : 12 }; try { kpv.setPointerCapture(e.pointerId); } catch (er) {} e.preventDefault(); });
     kpv.addEventListener('pointermove', function (e) {
       if (!kpD) return;
-      if (e.pointerType === 'mouse' && !(e.buttons & 1)) { kpD = null; return; }
+      if (e.pointerType === 'mouse' && !(e.buttons & 1)) { if (kpD.br && KS.im && KS.im._ink) KS.im._ink.brush(kE.drop, 0, 0, 2); kpD = null; return; }
+      if (kpBrush()) {
+        var I = KS.im._ink, q0 = kpAt(e);
+        if (!kpD.moved && Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > kpD.sl) { kpD.moved = true; kpD.br = true; if (kpD.p) I.brush(kE.drop, kpD.p[0], kpD.p[1], 0, kpPr(e)); }
+        if (kpD.br && q0) { I.brush(kE.drop, q0[0], q0[1], 1, kpPr(e)); if (!KS.run) kPut(); }
+        return;
+      }
       if (!kpStir()) return;
       if (Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > kpD.sl) kpD.moved = true;
       var q = kpAt(e); if (kpD.moved && q && kpD.p) KS.im._ink.stir(q[0], q[1], q[0] - kpD.p[0], q[1] - kpD.p[1]); kpD.p = q;
     });
-    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE) || !KS.im || !KS.im._ink) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1]); if (!KS.run) kPut(); });
-    kpv.addEventListener('pointercancel', function () { kpD = null; });
+    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; if (kpD.br && KS.im && KS.im._ink) { var qb = kpAt(e); KS.im._ink.brush(kE.drop, qb ? qb[0] : 0, qb ? qb[1] : 0, 2); } kpD = null; if (m || !kE || !M.kapOn(kE) || !KS.im || !KS.im._ink) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1]); if (!KS.run) kPut(); });
+    kpv.addEventListener('pointercancel', function () { if (kpD && kpD.br && KS.im && KS.im._ink) KS.im._ink.brush(kE.drop, 0, 0, 2); kpD = null; });
     var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: KS.run ? '⏸ Остановить' : '▶ Крутить', onclick: function () { KS.run = !KS.run; kStop.textContent = KS.run ? '⏸ Остановить' : '▶ Крутить'; } });
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
     var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
-    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' + (kE0 && M.kapOn(kE0) ? (kE0.drop.touch ? '. Касание — капля, линий нет (размешивание выключено в «Что может участник»).' : '. Касание — капля, вести с нажатой кнопкой или пальцем — размешать. Только капли — «Что может участник» → «только капнуть касанием».') : '') }), kE0 ? recUI(KK, n) : null]);
+    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' + (kE0 && M.kapOn(kE0) ? (kE0.drop.kind === 'ebru' && kE0.drop.brush ? '. Кисть: вести — мазок густой краской (медленно — толще), касание — капля.' : kE0.drop.touch ? '. Касание — капля, линий нет (размешивание выключено в «Что может участник»).' : '. Касание — капля, вести с нажатой кнопкой или пальцем — размешать. Только капли — «Что может участник» → «только капнуть касанием».') : '') }), kE0 ? recUI(KK, n) : null]);
     // Для записи и кадра: узор этого дня в любом размере — то же состояние, что в окошке
     KDRAW[KK] = { fn: function (c, W, H) { if (KS.im && kE) M.kalDraw(c, W, H, KS.im, kE, KS.a, false, null, null, KS.t, KS.h); }, E: function () { return kE; } };
     var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
