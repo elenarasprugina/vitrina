@@ -5608,8 +5608,8 @@
       selectIn(D, 'drops', 'Капли', [['', 'падают сами'], ['hand', 'только по касанию']], { def: '', onChange: function (v) { if (!v) delete D.drops; renderMain(); } }),
       D.drops === 'hand' ? null : rangeIn(D, 'every', 'Как часто', { min: 3, max: 25, step: 1, def: DEF.every, unit: ' с', hint: 'Раз в столько секунд падает новая капля.' })]));
     out.push(el('div', { class: 'a-row' }, [
-      selectIn(D, 'touch', 'Что может участник', [['', 'касание — капля, вести пальцем — размешать краску'], ['tap', 'только капнуть касанием'], ['off', 'ничего — палец крутит узор, как раньше']], { def: '', onChange: function (v) { if (!v) delete D.touch; },
-        hint: 'В треугольной трубке касание кладёт каплю туда, где её видно (не точно под пальцем). Размешанное ложится и в «Сохранить мой узор» — на дверь.' })]));
+      selectIn(D, 'touch', 'Что может участник', [['', 'касание — капля, вести пальцем — размешать краску'], ['tap', 'только капнуть касанием'], ['off', 'ничего — палец крутит узор, как раньше']], { def: '', onChange: function (v) { if (!v) delete D.touch; renderMain(); },
+        hint: 'Живое окошко справа слушается этого же: «только капнуть» — линий нет, любое касание — капля. В треугольной трубке касание кладёт каплю туда, где её видно (не точно под пальцем). Размешанное ложится и в «Сохранить мой узор» — на дверь.' })]));
     out.push(el('div', { class: 'a-backup-btns' }, [
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: '💧 Капнуть', onclick: function () { var I = ink(); if (I) I.drop(D); } }),
       el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Очистить воду', onclick: function () { var I = ink(); if (I) I.clear(); } })]));
@@ -5751,7 +5751,13 @@
         // Хоровод — в настоящую скорость: видно, как часто он собирается
         // Пауза записи — узор замирает (время в видео не идёт), окошко всё равно рисуется: видно, что меняют настройки
         var RP = REC && REC.key === KK && REC.paused;
-        if (KS.run && !RP && kpv.isConnected) { KS.a += .072 * 4 * (+K.speed || 100) / 100 * dt; KS.t += dt; if (kE) KS.h = M.khTick(KS.im, kE, KS.h, dt); if (KS.im && KS.im._ink && kE && M.kapOn(kE)) KS.im._ink.step(dt, kE); kPut(); }
+        // «Остановить» останавливает поворот, а краска течёт дальше — капли видны, запись идёт (16.10, её «запись не идёт»)
+        var KI = KS.im && KS.im._ink && kE && M.kapOn(kE);
+        if (!RP && kpv.isConnected) {
+          if (KS.run) { KS.a += .072 * 4 * (+K.speed || 100) / 100 * dt; KS.t += dt; if (kE) KS.h = M.khTick(KS.im, kE, KS.h, dt); }
+          if (KI) KS.im._ink.step(dt, kE);
+          if (KS.run || KI || (REC && REC.key === KK)) kPut();
+        }
         requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
@@ -5767,20 +5773,26 @@
     kpk.addEventListener('pointermove', function (e) { if (kDrag) kAt(e); });
     function kUp() { if (!kDrag) return; kDrag = false; changed(); }
     kpk.addEventListener('pointerup', kUp); kpk.addEventListener('pointercancel', kUp);
-    // Капля: касание живого узора — капля (без зеркал и поверх узора — в это место), мышкой с нажатой кнопкой — размешать
+    // Капля: касание живого узора — капля (без зеркал и поверх узора — в это место), вести с нажатой кнопкой / пальцем — размешать.
+    // Как у участника («Что может участник»): «только капнуть» — линий нет, любое касание — капля. Палец дрожит — до 12 px это ещё касание;
+    // мышь без нажатой кнопки ничего не рисует (16.10: узор рисовался, хотя она не нажимала)
     var kpD = null;
     function kpAt(e) { var I = KS.im && KS.im._ink, b = kpv.getBoundingClientRect(); if (!I || !I.mode() || I.mode() === 'tube') return null; return [(e.clientX - b.left) / b.width * I.cv.width, (e.clientY - b.top) / b.height * I.cv.height]; }
-    kpv.addEventListener('pointerdown', function (e) { if (!(KS.im && KS.im._ink)) return; kpD = { p: kpAt(e), moved: false, x: e.clientX, y: e.clientY }; try { kpv.setPointerCapture(e.pointerId); } catch (er) {} });
+    function kpStir() { return !!(kE && kE.drop && !kE.drop.touch); }
+    kpv.addEventListener('pointerdown', function (e) { if (!(KS.im && KS.im._ink)) return; if (e.pointerType === 'mouse' && e.button !== 0) return; kpD = { p: kpAt(e), moved: false, x: e.clientX, y: e.clientY, sl: e.pointerType === 'mouse' ? 5 : 12 }; try { kpv.setPointerCapture(e.pointerId); } catch (er) {} e.preventDefault(); });
     kpv.addEventListener('pointermove', function (e) {
-      if (!kpD) return; if (Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > 5) kpD.moved = true;
+      if (!kpD) return;
+      if (e.pointerType === 'mouse' && !(e.buttons & 1)) { kpD = null; return; }
+      if (!kpStir()) return;
+      if (Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > kpD.sl) kpD.moved = true;
       var q = kpAt(e); if (kpD.moved && q && kpD.p) KS.im._ink.stir(q[0], q[1], q[0] - kpD.p[0], q[1] - kpD.p[1]); kpD.p = q;
     });
-    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE)) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1]); });
+    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE) || !KS.im || !KS.im._ink) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1]); if (!KS.run) kPut(); });
     kpv.addEventListener('pointercancel', function () { kpD = null; });
     var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: KS.run ? '⏸ Остановить' : '▶ Крутить', onclick: function () { KS.run = !KS.run; kStop.textContent = KS.run ? '⏸ Остановить' : '▶ Крутить'; } });
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
     var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
-    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' }), kE0 ? recUI(KK, n) : null]);
+    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' + (kE0 && M.kapOn(kE0) ? (kE0.drop.touch ? '. Касание — капля, линий нет (размешивание выключено в «Что может участник»).' : '. Касание — капля, вести с нажатой кнопкой или пальцем — размешать. Только капли — «Что может участник» → «только капнуть касанием».') : '') }), kE0 ? recUI(KK, n) : null]);
     // Для записи и кадра: узор этого дня в любом размере — то же состояние, что в окошке
     KDRAW[KK] = { fn: function (c, W, H) { if (KS.im && kE) M.kalDraw(c, W, H, KS.im, kE, KS.a, false, null, null, KS.t, KS.h); }, E: function () { return kE; } };
     var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
