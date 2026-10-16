@@ -2979,7 +2979,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261015a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261016a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5595,7 +5595,7 @@
       selectIn(D, 'rings', 'Круги по воде в момент удара', [['', 'да'], ['off', 'нет']], { def: '', onChange: function (v) { if (!v) delete D.rings; } })]));
     out.push(sub('Узор краски'));
     out.push(el('div', { class: 'a-row' }, [
-      rangeIn(D, 'cloud', 'Нити ↔ Облака', { min: 0, max: 100, step: 5, def: DEF.cloud, unit: ' %', hint: '0 — только нити и «языки», 100 — больше мягких клубов. У «Дыма» облака всегда.' }),
+      rangeIn(D, 'cloud', 'Нити ↔ Облака', { min: 0, max: 100, step: 5, def: DEF.cloud, unit: ' %', hint: '0 — только нити и «языки», 100 — почти одни мягкие клубы, нитей мало. У «Дыма» облака всегда.' }),
       rangeIn(D, 'swirl', 'Завитки', { min: 0, max: 250, step: 10, def: DEF.swirl, unit: ' %' })]));
     out.push(el('div', { class: 'a-row' }, [
       rangeIn(D, 'dens', 'Сколько краски', { min: 40, max: 220, step: 10, def: DEF.dens, unit: ' %', hint: 'Больше — гуще, но телефону тяжелее.' }),
@@ -5610,6 +5610,18 @@
     out.push(el('div', { class: 'a-row' }, [
       selectIn(D, 'touch', 'Что может участник', [['', 'касание — капля, вести пальцем — размешать краску'], ['tap', 'только капнуть касанием'], ['off', 'ничего — палец крутит узор, как раньше']], { def: '', onChange: function (v) { if (!v) delete D.touch; renderMain(); },
         hint: 'Живое окошко справа слушается этого же: «только капнуть» — линий нет, любое касание — капля. В треугольной трубке касание кладёт каплю туда, где её видно (не точно под пальцем). Размешанное ложится и в «Сохранить мой узор» — на дверь.' })]));
+    // Как размешивает палец (16.10, её «делаем»): выбирает она, у участника кнопок нет
+    if (!D.touch) {
+      out.push(el('div', { class: 'a-row' }, [
+        selectIn(D, 'stir', 'Как размешивает палец', [['', 'гребень эбру — краска тянется языками, края чёткие'], ['awl', 'шило — тонкие прожилки, как иглой'], ['whirl', 'водоворот — закручивает краску'],
+          ['soft', 'мягко размазать — без нитей'], ['threads', 'размазать с нитями — нитей столько, сколько в «Нити ↔ Облака»']], { def: '', onChange: function (v) { if (!v) delete D.stir; } }),
+        selectIn(D, 'fring', 'Круги от пальца', [['', 'нет'], ['on', 'да — за пальцем по воде лёгкая рябь']], { def: '', onChange: function (v) { if (!v) delete D.fring; } })]));
+      out.push(el('div', { class: 'a-row' }, [
+        rangeIn(D, 'brush', 'Толщина кисти', { min: 30, max: 250, step: 10, def: DEF.brush, unit: ' %', hint: 'Меньше — тонкая игла, больше — широкая ладонь.' }),
+        rangeIn(D, 'pull', 'Сила', { min: 20, max: 200, step: 10, def: DEF.pull, unit: ' %', hint: 'Насколько далеко палец утаскивает краску.' })]));
+    }
+    if (C.length > 1) out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'tcol', 'Что даёт касание', [['', 'капля — цветом, как у капель выше'], ['next', 'каждое касание — следующим цветом (рисовать разными)']], { def: '', onChange: function (v) { if (!v) delete D.tcol; } })]));
     out.push(el('div', { class: 'a-backup-btns' }, [
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: '💧 Капнуть', onclick: function () { var I = ink(); if (I) I.drop(D); } }),
       el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Очистить воду', onclick: function () { var I = ink(); if (I) I.clear(); } })]));
@@ -5787,7 +5799,7 @@
       if (Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > kpD.sl) kpD.moved = true;
       var q = kpAt(e); if (kpD.moved && q && kpD.p) KS.im._ink.stir(q[0], q[1], q[0] - kpD.p[0], q[1] - kpD.p[1]); kpD.p = q;
     });
-    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE) || !KS.im || !KS.im._ink) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1]); if (!KS.run) kPut(); });
+    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE) || !KS.im || !KS.im._ink) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1], true); if (!KS.run) kPut(); });
     kpv.addEventListener('pointercancel', function () { kpD = null; });
     var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: KS.run ? '⏸ Остановить' : '▶ Крутить', onclick: function () { KS.run = !KS.run; kStop.textContent = KS.run ? '⏸ Остановить' : '▶ Крутить'; } });
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
