@@ -703,5 +703,6 @@ audio.a-media{background:none;height:40px}
 .a-ied-wrap{overflow:hidden}
 .a-ied-ctrl .a-field{margin-bottom:6px}
 .a-ied-tabs{display:flex;gap:6px;margin-bottom:8px}
+.a-ied-tabs--wrap{flex-wrap:wrap;margin-bottom:2px}
 .a-ied-sw{display:flex;align-items:center;gap:6px;cursor:pointer;margin:6px 0}
 @media (max-width:760px){.a-ied-body{grid-template-columns:1fr}.a-ied-left{position:static}}

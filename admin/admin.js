@@ -606,8 +606,9 @@
      o.guide — какая часть видна на сайте (ширина / высота, по центру): пунктирная рамка.
      Перспектива (её просьба 14.10, как в PicsArt): ph — по горизонтали (+ правый край ближе), pv — по вертикали (+ верх ближе; так выпрямляют здания), −100…100;
      картинку «поворачиваем» в пространстве (до ±50°) и ставим кадр туда, где он самый большой без пустых углов, — к большому краю, малый уходит вглубь (15.10);
-     с перспективой x, y — ход кадра по повёрнутой картинке (к краю — приближается сам), z — ещё ближе. */
-  var IED_DEF = { z: 100, x: 0, y: 0, rot: 0, flip: false, ph: 0, pv: 0 };
+     с перспективой x, y — ход кадра по повёрнутой картинке (к краю — приближается сам), z — ещё ближе.
+     pfill (её «делаем» 16.10, «Не заполнять углы»): '' — обрезать, как выше; 'blur' — видна вся повёрнутая картинка, пустые углы — её размытая копия; 'clear' — углы прозрачные. */
+  var IED_DEF = { z: 100, x: 0, y: 0, rot: 0, flip: false, ph: 0, pv: 0, pfill: '' };
   var IED_TONE = [['br', 'Яркость', -100, 100], ['ct', 'Контраст', -100, 100], ['sh', 'Тени (− гуще, + светлее)', -100, 100], ['hl', 'Светлые места (− приглушить)', -100, 100],
     ['sat', 'Насыщенность', -100, 100], ['warm', 'Холоднее ← → теплее', -100, 100],
     ['clar', 'Чёткость (− мягче, + объёмнее)', -100, 100], ['sharp', 'Резкость', 0, 100]];
@@ -649,9 +650,10 @@
     var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height, r = Math.min(1, maxSide / Math.max(iw, ih));
     var ow = Math.max(1, Math.round(iw * r)), oh = Math.max(1, Math.round(ih * r));
     var zu = Math.max(1, (+fr.z || 100) / 100), ux = Math.max(-1, Math.min(1, +fr.x || 0)), uy = Math.max(-1, Math.min(1, +fr.y || 0));
-    var id = [ph, pv, ow, zu, ux, uy].join('|');
+    var pf = fr.pfill === 'blur' || fr.pfill === 'clear' ? fr.pfill : '', id = [ph, pv, ow, zu, ux, uy, pf].join('|');
     if (im._iedP && im._iedP._id === id) return im._iedP;
     var Q = iedPQuad(im, ph, pv), map = Q.map;
+    if (pf) return iedPerspAll(im, Q, pf, r, ow, oh, zu, ux, uy, id);
     // Центр кадра: от лучшего места (p0) к краю — насколько потянули (x, y); кадр — наибольший, что помещается там (не больше, чем позволяет «Крупность»)
     var px = Q.p0[0] - ux * (ux > 0 ? Q.p0[0] - Q.ex[0] : Q.ex[1] - Q.p0[0]), py = Q.p0[1] - uy * (uy > 0 ? Q.p0[1] - Q.ey[0] : Q.ey[1] - Q.p0[1]);
     var lo = 0, hi = 1, n;
@@ -719,8 +721,41 @@
       for (n = 0; n < 24; n++) { var m = (lo + hi) / 2; if (size(bx + dx * m, by + dy * m) >= smin) lo = m; else hi = m; }
       return lo;
     }
-    im._iedQ = { key: key, map: map, size: size, p0: [bx, by], s0: s0, smin: smin, ex: [bx - reach(-1, 0), bx + reach(1, 0)], ey: [by - reach(0, -1), by + reach(0, 1)] };
+    im._iedQ = { key: key, map: map, size: size, bb: [x0, y0, x1, y1], p0: [bx, by], s0: s0, smin: smin, ex: [bx - reach(-1, 0), bx + reach(1, 0)], ey: [by - reach(0, -1), by + reach(0, 1)] };
     return im._iedQ;
+  }
+  // «Не заполнять углы»: в кадре вся повёрнутая картинка (по её рамке), z — ближе, x, y — ход по ней; углы — размытая копия или прозрачные, край мягкий
+  function iedPerspAll(im, Q, pf, r, ow, oh, zu, ux, uy, id) {
+    var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height, b = Q.bb, map = Q.map;
+    var s = Math.max((b[2] - b[0]) / iw, (b[3] - b[1]) / ih) / zu;
+    var hx = Math.max(0, (b[2] - b[0] - iw * s) / 2), hy = Math.max(0, (b[3] - b[1] - ih * s) / 2);
+    var px = (b[0] + b[2]) / 2 - ux * hx, py = (b[1] + b[3]) / 2 - uy * hy;
+    var sc = document.createElement('canvas'); sc.width = ow; sc.height = oh;
+    var sx = smooth(sc.getContext('2d')); sx.drawImage(im, 0, 0, ow, oh);
+    var sd = sx.getImageData(0, 0, ow, oh).data, out = sx.createImageData(ow, oh), d = out.data, X, Y, j = 0, e = r / s;
+    for (Y = 0; Y < oh; Y++) for (X = 0; X < ow; X++, j += 4) {
+      var q = map(px + ((X + .5) / r - iw / 2) * s, py + ((Y + .5) / r - ih / 2) * s);
+      // Насколько точка внутри картинки (в точках кадра): ≤ −0,5 — угол, пусто
+      var a = Math.max(0, Math.min(1, Math.min(q[0], q[1], iw - q[0], ih - q[1]) * e + .5));
+      if (!a) continue;
+      var fx = Math.max(0, Math.min(ow - 1.001, q[0] * r - .5)), fy = Math.max(0, Math.min(oh - 1.001, q[1] * r - .5));
+      var x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, i0 = (y0 * ow + x0) * 4, i1 = i0 + ow * 4;
+      for (var c = 0; c < 3; c++) d[j + c] = (sd[i0 + c] * (1 - tx) + sd[i0 + 4 + c] * tx) * (1 - ty) + (sd[i1 + c] * (1 - tx) + sd[i1 + 4 + c] * tx) * ty;
+      d[j + 3] = a * 255;
+    }
+    if (pf === 'blur') {
+      // Размытая копия: уменьшить до ~24 точек и растянуть обратно (так размывает любой браузер), чуть темнее — чтобы картинка читалась поверх
+      var t = document.createElement('canvas'), tw = 24, th = Math.max(2, Math.round(24 * oh / ow)), t2 = document.createElement('canvas');
+      t.width = tw * 4; t.height = th * 4; smooth(t.getContext('2d')).drawImage(im, 0, 0, t.width, t.height);
+      t2.width = tw; t2.height = th; smooth(t2.getContext('2d')).drawImage(t, 0, 0, tw, th);
+      sx.clearRect(0, 0, ow, oh); sx.drawImage(t2, 0, 0, ow, oh);
+      sx.fillStyle = 'rgba(0,0,0,.12)'; sx.fillRect(0, 0, ow, oh);
+      var fg = document.createElement('canvas'); fg.width = ow; fg.height = oh; fg.getContext('2d').putImageData(out, 0, 0);
+      sx.drawImage(fg, 0, 0);
+    } else sx.putImageData(out, 0, 0);
+    sc._z = 1 / s; sc._id = id; sc._span = [hx / s, hy / s];
+    im._iedP = sc;
+    return sc;
   }
   // Предпросмотр перспективы считаем чуть крупнее окна (быстро тянуть), готовую — в полный размер
   function iedPMax(im, k) { return k < 1 ? Math.min(900, Math.round(Math.max(im.naturalWidth, im.naturalHeight) * k * 1.3)) : 1e5; }
@@ -845,7 +880,10 @@
       if (frameOn) {
         kids.push(sub('Кадр'), el('p', { class: 'a-hint', text: 'Тяните картинку мышкой или пальцем, чтобы сдвинуть. Двойной щелчок по ползунку — вернуть как было.' }),
           slider(f, 'z', 'Крупность', 100, 300, ' %'), slider(f, 'rot', 'Наклон', -10, 10, '°'),
-          slider(f, 'ph', 'Перспектива по горизонтали (+ правый край ближе)', -100, 100), slider(f, 'pv', 'Перспектива по вертикали (+ верх ближе)', -100, 100));
+          slider(f, 'ph', 'Перспектива по горизонтали (+ правый край ближе)', -100, 100), slider(f, 'pv', 'Перспектива по вертикали (+ верх ближе)', -100, 100),
+          el('div', { class: 'a-field' }, [el('span', { class: 'a-label', text: 'Углы при перспективе' }), el('div', { class: 'a-ied-tabs a-ied-tabs--wrap' }, [['', 'Обрезать'], ['blur', 'Вся · углы размытые'], ['clear', 'Вся · углы прозрачные']].map(function (t) {
+            return el('button', { type: 'button', class: 'a-btn a-btn--small' + ((f.pfill || '') === t[0] ? ' a-btn--dark' : ''), text: t[1], onclick: function () { f.pfill = t[0]; f.x = 0; f.y = 0; drawCtrls(); again(); } });
+          })), el('span', { class: 'a-hint', text: '«Обрезать» — без пустых углов, но край, уходящий вглубь, отрезается. «Вся» — видна вся повёрнутая картинка, поворот заметнее; сквозь прозрачные углы на сайте виден фон.' })]));
         var fl = el('input', { type: 'checkbox', checked: f.flip });
         fl.addEventListener('change', function () { f.flip = fl.checked; again(); });
         kids.push(el('div', { class: 'a-row' }, [el('label', { class: 'a-ied-sw' }, [fl, ' Отразить зеркально']),
