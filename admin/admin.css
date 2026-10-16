@@ -719,6 +719,8 @@ audio.a-media{background:none;height:40px}
 .a-ebt-kal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);object-fit:contain;pointer-events:none;display:none}
 .a-ebt-ring{position:absolute;display:none;border:1.5px solid rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.45);border-radius:50%;pointer-events:none;box-sizing:border-box}
 .a-ebt-ring.is-needle{border-style:dashed}
+.a-ebt-ring.is-erase{border:2px dotted #fff;box-shadow:0 0 0 1px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.25)}
+.a-ebt-dot--o{background:none;border:1.5px solid currentColor;box-sizing:border-box}
 .a-kal-cell--pv.is-big{position:fixed;inset:0;z-index:3000;max-width:none;background:#f4f2ec;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));box-sizing:border-box;align-items:center;overflow:auto;gap:10px}
 .a-kal-cell--pv.is-big .a-ebt{align-items:center}
 .a-kal-cell--pv.is-big .a-ebt-row{justify-content:center}

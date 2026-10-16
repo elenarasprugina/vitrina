@@ -5596,7 +5596,7 @@
   }
   // Инструменты эбру над живым окошком (16.10): выбранный инструмент и размер капли — общие для всех дней (в процентах окошка, как «Поперечник капли»)
   // dsz / nsz = 'set' (по умолчанию, 17.10 — её «настройки панели не подхватываются»): как в настройках — «Капли эбру», «Поперечник капли», «Ширина иглы»
-  var EBT = { tool: 'drop', dsz: 'set', DS: { xs: 2.5, s: 4, m: 8, l: 15 }, nsz: 'set', NS: { xs: .7, s: 1.5, m: 4, l: 10 }, col: -1, bigEl: null, paint: null };
+  var EBT = { tool: 'drop', dsz: 'set', DS: { xs: 2.5, s: 4, m: 8, l: 15 }, nsz: 'set', NS: { xs: .7, s: 1.5, m: 4, l: 10 }, esz: 'm', ES: { xs: 1.5, s: 3, m: 6, l: 12 }, col: -1, bigEl: null, paint: null };
   function ebtSet(w) { return function () { EBT[w] = 'set'; if (EBT.paint) EBT.paint(); }; }   // тронула ползунок в панели — окошко берёт его
   function signStop() { if (SIGN.timer) clearInterval(SIGN.timer); SIGN.timer = null; SIGN.left = 0; }
   function signGo(D, ink) {
@@ -5936,25 +5936,42 @@
     function kpNd() { var n = EBT.NS[EBT.nsz] || +(kE && kE.drop && kE.drop.needle) || 14; return Math.min(30, Math.max(.5, n)); }
     // кружок под мышкой для «как в настройках»: ровные — их поперечник, разные — средняя капля
     function kpRingR(I) { var D = kE.drop, r = kpDropR(I); if (r) return r; return D.even === 'fix' ? I.U() * Math.min(80, Math.max(2, +D.dsize || 15)) / 100 : I.U() * .21 * Math.min(200, Math.max(50, +D.size || 100)) / 100; }
-    function kpUndoPush(sn) { if (!sn) return; var U = KS.undo = KS.undo || []; U.push(sn); if (U.length > 40) U.shift(); }
+    // ↶ Отменить / ↷ Вернуть (17.10, её «делаем»): отменённое — в KS.redo, новое движение его забывает
+    function kpUndoPush(sn) { if (!sn) return; var U = KS.undo = KS.undo || []; U.push(sn); if (U.length > 40) U.shift(); KS.redo = []; }
     function kpUndo() {
       var I = KS.im && KS.im._ink, U = KS.undo || [];
       if (!I || !I.put || !U.length) { toast('Отменять нечего'); return; }
+      var R = KS.redo = KS.redo || []; R.push(I.snap()); if (R.length > 40) R.shift();
       I.put(U.pop()); kPut();
     }
+    function kpRedo() {
+      var I = KS.im && KS.im._ink, R = KS.redo || [];
+      if (!I || !I.put || !R.length) { toast('Возвращать нечего'); return; }
+      var U = KS.undo = KS.undo || []; U.push(I.snap()); if (U.length > 40) U.shift();
+      I.put(R.pop()); kPut();
+    }
+    // 🩹 Ластик (17.10, её «делаем»): кружок стирает краску — там снова чистая вода; ничего не раздвигает. Размер — EBT.ES, % от половины меньшей стороны
+    function kpErD() { var D = Object.create(kE.drop); D.brush = 'erase'; D.bw = EBT.ES[EBT.esz] || 6; return D; }
+    function kpErR(I) { return I.U() * (EBT.ES[EBT.esz] || 6) / 100; }
     function kpSm(o, q) { if (!q) return o; if (!o) return q; return [o[0] + (q[0] - o[0]) * .55, o[1] + (q[1] - o[1]) * .55]; }   // мышь дрожит — ведём за сглаженной точкой
     kpv.addEventListener('pointerdown', function (e) {
       if (!(KS.im && KS.im._ink)) return; if (e.pointerType === 'mouse' && e.button !== 0) return;
       var I = KS.im._ink, p = kpAt(e);
       kpD = { p: p, p0: p, s: p, moved: false, x: e.clientX, y: e.clientY, sl: e.pointerType === 'mouse' ? 5 : 12, snap: kpEb() && I.snap ? I.snap() : null };
+      if (kpTool() === 'erase' && p) { kpD.br = true; kpD.bD = kpErD(); kpD.moved = true; I.brush(kpD.bD, p[0], p[1], 0); if (!KS.run) kPut(); }
       try { kpv.setPointerCapture(e.pointerId); } catch (er) {} e.preventDefault();
     });
     kpv.addEventListener('pointermove', function (e) {
       kpRing(e);
       if (!kpD) return;
-      if (e.pointerType === 'mouse' && !(e.buttons & 1)) { if (kpD.br && KS.im && KS.im._ink) KS.im._ink.brush(kE.drop, 0, 0, 2); kpD = null; return; }
+      if (e.pointerType === 'mouse' && !(e.buttons & 1)) { if (kpD.br && KS.im && KS.im._ink) { KS.im._ink.brush(kpD.bD || kE.drop, 0, 0, 2); if (kpD.bD) kpUndoPush(kpD.snap); } kpD = null; return; }
       var tl = kpTool(), far = Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > kpD.sl;
       if (tl === 'drop' || tl === 'water') return;   // капля — по отпусканию, туда, где коснулась; движение не рисует
+      if (tl === 'erase') {
+        var qe0 = kpAt(e); if (!qe0 || !kpD.br) return;
+        qe0 = kpD.s = kpSm(kpD.s, qe0); KS.im._ink.brush(kpD.bD, qe0[0], qe0[1], 1); if (!KS.run) kPut();
+        return;
+      }
       if (tl === 'needle') {
         if (far) kpD.moved = true;
         var qn = kpAt(e); if (!qn || !kpD.moved) return; kpD.q = qn;
@@ -5980,11 +5997,11 @@
         if (I && qe && se) I.stir(qe[0], qe[1], qe[0] - se[0], qe[1] - se[1], kpNd());
         return;
       }
-      if (kpD.br && I) { var qb = kpD.s || kpAt(e); I.brush(kE.drop, qb ? qb[0] : 0, qb ? qb[1] : 0, 2); }
+      if (kpD.br && I) { var qb = kpD.s || kpAt(e); I.brush(kpD.bD || kE.drop, qb ? qb[0] : 0, qb ? qb[1] : 0, 2); }
       kpD = null; if (m) kpUndoPush(sn);
       if (m || !kE || !M.kapOn(kE) || !I) return; var q = kpAt(e); kpUndoPush(sn); I.drop(kE.drop, q && q[0], q && q[1], { water: kE.drop.kind === 'ebru' && kE.drop.brush === 'water' }); if (!KS.run) kPut();
     });
-    kpv.addEventListener('pointercancel', function () { if (kpD && kpD.br && KS.im && KS.im._ink) KS.im._ink.brush(kE.drop, 0, 0, 2); kpD = null; });
+    kpv.addEventListener('pointercancel', function () { if (kpD && kpD.br && KS.im && KS.im._ink) { KS.im._ink.brush(kpD.bD || kE.drop, 0, 0, 2); if (kpD.bD) kpUndoPush(kpD.snap); } kpD = null; });
     kpv.addEventListener('pointerleave', function () { kRing.style.display = 'none'; });
     // Кружок под мышкой: капля — её размер, игла — где она берёт краску (пальцем не видно — не показываем)
     var kRing = el('i', { class: 'a-ebt-ring' }), kKal = el('img', { class: 'a-ebt-kal', alt: '' }), kWrap = el('div', { class: 'a-ebt-w' }, [kpv, kKal, kRing]);
@@ -5997,8 +6014,8 @@
       var I = KS.im && KS.im._ink, tl = kpTool(); kRing.style.display = 'none';
       if (!I || !I.mode() || !tl || e.pointerType === 'touch') return;
       var b = kpv.getBoundingClientRect(), sc = kpScale(I, b); if (!sc) return;
-      var rr = (tl !== 'needle' ? kpRingR(I) : I.U() * kpNd() / 100) * sc;
-      kRing.className = 'a-ebt-ring' + (tl === 'needle' ? ' is-needle' : '');
+      var rr = (tl === 'erase' ? kpErR(I) : tl !== 'needle' ? kpRingR(I) : I.U() * kpNd() / 100) * sc;
+      kRing.className = 'a-ebt-ring' + (tl === 'needle' ? ' is-needle' : tl === 'erase' ? ' is-erase' : '');
       kRing.style.cssText = 'display:block;width:' + 2 * rr + 'px;height:' + 2 * rr + 'px;left:' + (e.clientX - b.left - rr) + 'px;top:' + (e.clientY - b.top - rr) + 'px';
     }
     // Калька: картинка знака светлым посередине, размер — «Размер знака» (как у «Нарисовать знак»)
@@ -6017,15 +6034,16 @@
     });
     // Большое окно: то же окошко (та же краска, та же запись) — во весь экран, чтобы было где развернуться; ✕ или Esc — обратно
     var kBig = false, kHome = null;
-    // Клавиши в большом окне: Esc — свернуть, Ctrl+Z — отменить, пробел — остановить / отпустить воду, 1–4 — размер капли или иглы, 0 — как в настройках
+    // Клавиши в большом окне: Esc — свернуть, Ctrl+Z — отменить, Ctrl+Y или Ctrl+Shift+Z — вернуть, пробел — остановить / отпустить воду, 1–4 — размер капли или иглы, 0 — как в настройках
     function kBigKey(e) {
       var t = e.target && e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
       if (e.key === 'Escape') { kpBig(false); return; }
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey))) { e.preventDefault(); kpRedo(); return; }
       if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ')) { e.preventDefault(); kpUndo(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.code === 'Space') { e.preventDefault(); var I2 = KS.im && KS.im._ink; if (I2) { I2.freeze = !I2.freeze; ebtPaint(); } return; }
       var z = e.key === '0' ? 'set' : ['xs', 's', 'm', 'l'][+e.key - 1]; if (!z) return;
-      if (EBT.tool === 'needle') EBT.nsz = z; else EBT.dsz = z; ebtPaint();
+      if (EBT.tool === 'erase') { if (z !== 'set') EBT.esz = z; } else if (EBT.tool === 'needle') EBT.nsz = z; else EBT.dsz = z; ebtPaint();
     }
     function kpBig(on) {
       if (on === kBig) return; kBig = on;
@@ -6057,8 +6075,13 @@
       if (EBT.tool === 'needle') [['xs', 1, 'волосок — усы, тончайшие прожилки'], ['s', 1.5, 'тонкая — рога, языки'], ['m', 3, 'средняя'], ['l', 6, 'широкая — тянет всё пятно']].forEach(function (z) {
         row.push(b('Игла ' + z[2], EBT.nsz === z[0], function () { EBT.nsz = z[0]; }, 'Игла ' + z[2] + kb, 'a-ebt-sz', [el('i', { class: 'a-ebt-line', style: 'height:' + z[1] + 'px' })]));
       });
+      row.push(b('🩹 Ластик', EBT.tool === 'erase', function () { EBT.tool = 'erase'; }, 'Вести кружком — краска под ним стирается, там снова чистая вода (ничего не сдвигает). Коснуться — стереть точку'));
+      if (EBT.tool === 'erase') [['xs', 3, 'тонкий'], ['s', 6, 'небольшой'], ['m', 10, 'средний'], ['l', 16, 'крупный']].forEach(function (z) {
+        row.push(b('Ластик ' + z[2], EBT.esz === z[0], function () { EBT.esz = z[0]; }, 'Ластик ' + z[2] + kb, 'a-ebt-sz', [el('i', { class: 'a-ebt-dot a-ebt-dot--o', style: 'width:' + z[1] + 'px;height:' + z[1] + 'px' })]));
+      });
       if (D0.brush) row.push(b('🖌 Кисть', EBT.tool === 'brush', function () { EBT.tool = 'brush'; }, 'Как в «Палец в живом окошке»: вести — мазок, касание — капля'));
-      row.push(b('↶ Отменить', false, kpUndo, 'Убрать последнюю каплю или движение иглы' + (kBig ? ' (Ctrl+Z)' : '')));
+      row.push(b('↶ Отменить', false, kpUndo, 'Убрать последнюю каплю, движение иглы или ластика' + (kBig ? ' (Ctrl+Z)' : '')));
+      row.push(b('↷ Вернуть', false, kpRedo, 'Вернуть то, что отменили' + (kBig ? ' (Ctrl+Y)' : '')));
       row.push(b('🧽 Чистая вода', false, function () { var I2 = KS.im && KS.im._ink; if (!I2 || !I2.snap) return; kpUndoPush(I2.snap()); I2.put([]); kPut(); }, 'Убрать всю краску (можно вернуть — «↶ Отменить»)'));
       row.push(b(fz ? '🌊 Отпустить воду' : '✋ Остановить воду', fz, function () { var I2 = KS.im && KS.im._ink; if (!I2) { toast('Живой узор ещё не готов'); return; } I2.freeze = !I2.freeze; },
         (fz ? 'Сейчас вода стоит: капли не толкают друг друга и не плывут. Нажмите — вода оживёт' : 'Вода остановится: новые капли ложатся сверху, ничего не сдвигают — удобно рисовать знак') + (kBig ? ' (пробел)' : '')));
@@ -6088,7 +6111,7 @@
     // Большое окно от прошлой перестройки страницы — убрать (иначе два окошка рисуют одну краску)
     if (EBT.bigEl) { EBT.bigEl.remove(); EBT.bigEl = null; document.body.classList.remove('a-noscroll'); }
     var kEb0 = !!(kE0 && M.kapOn(kE0) && kE0.drop.kind === 'ebru');
-    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kEb0 ? kTools : null, kWrap, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' + (kEb0 ? '. Рисовать знак: «✋ Остановить воду» — капли не толкают друг друга и не плывут; 💧 — капля туда, где коснулись (размер — точки рядом); ◌ — капля чистой воды (дырочка в краске); 〰 — вести иглой (волосок — самая тонкая); ↶ — отменить. Нарисовали — «🌊 Отпустить воду», знак оживает. Калька видна только вам. В большом окне: Ctrl+Z — отменить, пробел — остановить / отпустить воду, 1–4 — размер.' : kE0 && M.kapOn(kE0) ? (kE0.drop.kind === 'ebru' && kE0.drop.brush === 'water' ? '. Вода: вести — прозрачная дорожка раздвигает краску, касание — капля воды.' : kE0.drop.kind === 'ebru' && kE0.drop.brush ? '. Кисть: вести — мазок густой краской (медленно — толще), касание — капля.' : kE0.drop.touch ? '. Касание — капля, линий нет (размешивание выключено в «Что может участник»).' : '. Касание — капля, вести с нажатой кнопкой или пальцем — размешать. Только капли — «Что может участник» → «только капнуть касанием».') : '') }), kE0 ? recUI(KK, n) : null]);
+    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kEb0 ? kTools : null, kWrap, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' + (kEb0 ? '. Рисовать знак: «✋ Остановить воду» — капли не толкают друг друга и не плывут; 💧 — капля туда, где коснулись (размер — точки рядом); ◌ — капля чистой воды (дырочка в краске); 〰 — вести иглой (волосок — самая тонкая); 🩹 — ластик: стереть кружком лишнее; ↶ — отменить, ↷ — вернуть отменённое. Нарисовали — «🌊 Отпустить воду», знак оживает. Калька видна только вам. В большом окне: Ctrl+Z — отменить, Ctrl+Y — вернуть, пробел — остановить / отпустить воду, 1–4 — размер.' : kE0 && M.kapOn(kE0) ? (kE0.drop.kind === 'ebru' && kE0.drop.brush === 'water' ? '. Вода: вести — прозрачная дорожка раздвигает краску, касание — капля воды.' : kE0.drop.kind === 'ebru' && kE0.drop.brush ? '. Кисть: вести — мазок густой краской (медленно — толще), касание — капля.' : kE0.drop.touch ? '. Касание — капля, линий нет (размешивание выключено в «Что может участник»).' : '. Касание — капля, вести с нажатой кнопкой или пальцем — размешать. Только капли — «Что может участник» → «только капнуть касанием».') : '') }), kE0 ? recUI(KK, n) : null]);
     if (kEb0) ebtPaint();
     // Для записи и кадра: узор этого дня в любом размере — то же состояние, что в окошке
     KDRAW[KK] = { fn: function (c, W, H) { if (KS.im && kE) M.kalDraw(c, W, H, KS.im, kE, KS.a, false, null, null, KS.t, KS.h); }, E: function () { return kE; } };

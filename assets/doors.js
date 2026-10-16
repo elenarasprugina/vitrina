@@ -1883,6 +1883,8 @@
     /* Кисть эбру (16.10, её «делаем»; только в панели — у участника на сайте её нет): вести пальцем / мышкой — за ним ложится полоса густой краски.
        Медленно — толще, быстро — тоньше, в конце мазок сходит на нет; перо — по нажиму. D.brush: 'push' — мазок раздвигает лежащую краску
        (по краю — прожилка, как у капли) | 'top' — ложится сверху, как тушь | 'water' — вода: раздвигает, а краски нет (дорожка воды, место держит невидимый многоугольник); D.bw — толщина, % меньшей стороны окошка (1–30, 5).
+       'erase' — ластик (17.10, её «делаем»; только кнопка 🩹 над окошком): краску под кружком стирает, ничего не раздвигает, толщина ровная, без кончика;
+       стёртое место — чистая вода: игла тянет его вместе с краской, новая капля ложится поверх.
        Пока ведёт — мазок стоит; отпустила — он такая же краска, как капли: течёт («Завитки»), его раздвигают новые капли. */
     var bs = null;
     function bsW(D) { return U() * num(D.bw, 5, 1, 30) / 100; }
@@ -1915,9 +1917,9 @@
     I.brush = function (D, x, y, ph, pr) {
       if (!mode) setup(kapMode(D), asp);
       if (D.kind !== 'ebru' || !D.brush) return;
-      var now = performance.now(), W0 = bsW(D), pk = pr > 0 ? .35 + pr * 1.1 : 1, push = D.brush !== 'top';
+      var now = performance.now(), W0 = bsW(D), er = D.brush === 'erase', pk = pr > 0 && !er ? .35 + pr * 1.1 : 1, push = D.brush !== 'top' && !er;
       if (ph === 0 || !bs) {
-        bs = { g: { col: D.brush === 'water' ? null : color(D), x: x, y: y, R2: 0, cur: 0, pts: [], live: true }, c: [x, y], w: [W0 * pk * .8], t: now, D: D };
+        bs = { g: { col: D.brush === 'water' || er ? null : color(D), x: x, y: y, R2: 0, cur: 0, pts: [], live: true }, c: [x, y], w: [W0 * pk * (er ? 1 : .8)], t: now, D: D };
         eb.push(bs.g); if (push) bsRound(x, y, W0 * pk * .8); bsOut(bs); lastDrop = real; return;
       }
       if (eb.indexOf(bs.g) < 0) eb.push(bs.g);
@@ -1925,7 +1927,7 @@
       if (ph === 1 && L >= sp) {
         // скорость — в окошках в секунду: медленно — толще (до 1,15), быстро — тоньше (до 0,3)
         var v = L / Math.max(8, now - bs.t) * 1000 / U(); bs.v = bs.v == null ? v : bs.v * .7 + v * .3; v = bs.v;
-        var tg = Math.max(.3, Math.min(1.15, 1.2 - v * .45)) * W0 * pk, st = Math.ceil(L / sp), ww = w[n - 1];
+        var tg = er ? W0 : Math.max(.3, Math.min(1.15, 1.2 - v * .45)) * W0 * pk, st = Math.ceil(L / sp), ww = w[n - 1];
         for (i = 1; i <= st; i++) {
           var nx2 = lx + dx * i / st, ny2 = ly + dy * i / st, px0 = c[c.length - 2], py0 = c[c.length - 1];
           ww += (tg - ww) * .35;
@@ -1939,7 +1941,7 @@
       }
       if (ph === 2) {
         // Кончик: последняя часть мазка (≈ 3 толщины) сходит на нет
-        var acc = 0, tl = W0 * 3;
+        var acc = 0, tl = er ? 0 : W0 * 3;   // ластик — без кончика
         for (i = w.length - 1; i > 0 && acc < tl; i--) { var f = acc / tl; w[i] *= .12 + .88 * f; acc += Math.sqrt(Math.pow(c[i * 2] - c[i * 2 - 2], 2) + Math.pow(c[i * 2 + 1] - c[i * 2 - 1], 2)); }
         bsOut(bs); bs.g.live = false; bs = null;
       }
