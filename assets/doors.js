@@ -956,7 +956,7 @@
   // Сохранённые стёклышки → для рисования (узор на двери, обложка, фигура)
   function kalPcs(r, g, base) {
     return (Array.isArray(g) ? g : []).filter(function (s) { return s && isFinite(+s.x) && isFinite(+s.y) && Array.isArray(s.c); })
-      .map(function (s, i) { return { at: [+s.x, +s.y], c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: cfg(r).kalGlow, cry: cfg(r).kalGlass === 'crystal' }; });
+      .map(function (s, i) { return { at: [+s.x, +s.y], f: s.f ? 1 : 0, c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: cfg(r).kalGlow, cry: cfg(r).kalGlass === 'crystal' }; });
   }
   // Картинки камней («своя картинка») — загрузить до того, как узор рисуется один раз (дверь, фигура)
   function kalPre(P, done) {
@@ -1107,7 +1107,9 @@
     if (!sw || !sh) return;
     // Капля в воде: INK — краска (живой движок или снимок на двери); Б — без зеркал, рисуется отдельно
     var DK = kapOn(k) ? k.drop : null, INK = DK ? im._ink || null : null, dm = DK ? kapMode(DK) : '', dA = DK && !k._wat ? kapV(DK, 'dim', 0, 80) / 100 : 0;
-    if (dm === 'free') { kapFree(c, W, H, im, k, DK, INK); return; }
+    if (dm === 'free') { kapFree(c, W, H, im, k, DK, INK, P, ps, t); return; }
+    // Стёклышки в зеркалах — только в трубке (в В они лежат на воде поверх краски)
+    var PF = P; if (DK && dm === 'over') P = null;
     var tri = k.tube === 'tri', tIn = tri ? k.triIn || '' : '';
     if (mt == null || !isFinite(mt)) mt = t || 0;
     // Туманность: кадр рисуется заново, только когда облака дышат; филигрань — только от картинки дня (mix)
@@ -1175,7 +1177,7 @@
     function pcs(x) {
       if (!P || !P.length) return;
       x.save(); x.rotate(ang);
-      P.forEach(function (it) { if (!it.at) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
+      P.forEach(function (it) { if (!it.at || it.f) return; x.save(); x.translate(it.at[0] * R, it.at[1] * R); kalPiece(x, it, (ps || KGLASS) * R, t || 1.2); x.restore(); });
       x.restore();
     }
     function khor(x) { if (!khOn) return; if (kb !== 1) { x.save(); x.scale(kb, kb); khPut(x, KO, U, th); x.restore(); } else khPut(x, KO, U, th); }
@@ -1247,6 +1249,7 @@
       kapCover(c, INK.cv, W, H); if (INK.fxOn) kapCover(c, INK.fx, W, H);
       c.restore();
     }
+    if (DK && dm === 'over') { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); kapPcs(c, W, H, INK, PF, ps, t); c.restore(); }
     // Мягкая тень к краям — узор глубже
     // Мягкое пространство светлой тональности — тень цветом тональности, не чёрная
     var T = kalTone(k), vs = num(k.soft, 0, 0, 100), va = num(k.vign, 40, 0, 60) / 100 * (1 - vs / 140);
@@ -1614,7 +1617,9 @@
        brush, bw (эбру, только панель): кисть — см. I.brush в kapNew ('water' — невидимая кисть: раздвигает, краски нет),
        needle (эбру) — ширина иглы, % (1–30, 14), flow — течение воды (0–100, 10), circ — вода кружит (−100…100, 0),
        even (эбру): '' капли разные | 'fix' — каждая ровно dsize % (поперечник — доля меньшей стороны окошка, 2–80, по умолчанию 15), одна, без мелких рядом,
-       touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок) }.
+       touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок),
+       gdrop: '' стёклышко просто ложится в узор | 'ink' — падает каплей своего цвета (17.10), reset: '' у участника есть «Начать сначала» | 'off' — нет }.
+     Стёклышки в Б и В (17.10) лежат на воде поверх краски (у них f: 1, x, y — доли холста краски); в эбру их несёт вода, игла и новые капли (I.float).
      Краска — частицы, оставляющие след на своём холсте (cv); течение воды — шум (Перлин) + вихри каждой капли. В трубке холст лежит в «камере» поверх картинки,
      без зеркал и поверх узора — во весь экран. Всё считается на устройстве участника, ничего не уходит. Узор на двери — снимок холста (w, на устройстве). */
   var KAP_DEF = { force: 100, thick: 55, cloud: 30, every: 8, speed: 100, dens: 100, size: 100, swirl: 100, fade: 35, live: 30, blur: 40, dim: 30 };
@@ -1665,14 +1670,22 @@
     var s = Math.max(W / sw, H / sh); c.drawImage(src, (W - sw * s) / 2, (H - sh * s) / 2, sw * s, sh * s);
   }
   // Б — без зеркал: вода (или картинка дня / туманность, размытая) и краска во весь экран
-  function kapFree(c, W, H, im, k, D, I) {
+  function kapFree(c, W, H, im, k, D, I, P, ps, t) {
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
     if (k._wat || !im) kapWater(c, W, H, D);
     else { c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H); kapCover(c, kapBlur(im._neb ? kalPic(im, k) : kalPrep(im, k), kapV(D, 'blur', 0, 100)), W, H); }
     var dm = k._wat ? 0 : kapV(D, 'dim', 0, 80) / 100;
     if (dm) { c.fillStyle = 'rgba(0,0,0,' + dm + ')'; c.fillRect(0, 0, W, H); }
     if (I) { if (I.fit) I.fit(W / H); kapCover(c, I.cv, W, H); if (I.fxOn) kapCover(c, I.fx, W, H); }
+    kapPcs(c, W, H, I, P, ps, t);
     c.restore();
+  }
+  /* Стёклышки на воде (Б и В, 17.10): поверх краски, без зеркал — каждое одно, там, где лежит (at — доли холста краски, холст — «по размеру экрана», как kapCover) */
+  function kapPcs(c, W, H, I, P, ps, t) {
+    if (!P || !P.length) return;
+    var src = I && I.cv, sw = src ? src.naturalWidth || src.width : W, sh = src ? src.naturalHeight || src.height : H; if (!sw || !sh) { sw = W; sh = H; }
+    var s = Math.max(W / sw, H / sh), x0 = (W - sw * s) / 2, y0 = (H - sh * s) / 2, R = Math.sqrt(W * W + H * H) / 2 + 2;
+    P.forEach(function (it) { if (!it.at || !it.f) return; c.save(); c.translate(x0 + it.at[0] * sw * s, y0 + it.at[1] * sh * s); kalPiece(c, it, (ps || KGLASS) * R, t || 1.2); c.restore(); });
   }
   /* Движок капли: kapNew() → { cv — холст краски, fx — круги и блики (заново каждый кадр), step(dt, k), drop(D, x, y), stir(x, y, dx, dy), clear(), shot(), load(url), warm(D), fit(asp), mode() }.
      vis — где сейчас видна трубка (кладёт kalDraw): капля «сама» падает туда, где её видно. */
@@ -1803,12 +1816,17 @@
     /* Эбру (15.10, её фото): краска лежит на воде пятнами-многоугольниками; новая капля раздвигает всё, что уже лежит, сохраняя площадь
        (точка на расстоянии r от центра уходит на √(r² + ΔR²)) — старая краска сжимается в тонкие прожилки между кругами. Капля растёт плавно. */
     var eb = [], ebN = 0;
+    /* Стёклышки на воде (17.10, её «пусть плывут вслед за краской»): FL — [{ p: [x, y] на холсте краски, g — своя капля (пока растёт, не толкает его) }].
+       Двигаются так же, как краска эбру: капли раздвигают, вода течёт и кружит, игла тянет. Не уходят за край. */
+    var FL = [], BG = null;
+    function flPush(x, y, dA, g) { for (var i = 0; i < FL.length; i++) { if (g && FL[i].g === g) continue; var p = FL[i].p, dx = p[0] - x, dy = p[1] - y, k = Math.sqrt(1 + dA / (dx * dx + dy * dy + 1e-6)); p[0] = x + dx * k; p[1] = y + dy * k; } }
     // Размер капли эбру: '' — каждая своя (от размера ±), 'fix' — ровно dsize % поперечника окошка (16.10, её «делаем»: рисовать знак каплями одного размера)
     function ebR(D) { return D.even === 'fix' ? U() * num(D.dsize, 15, 2, 80) / 100 : U() * (.1 + .22 * Math.random()) * kapV(D, 'size', 50, 200) / 100; }
     function ebDrop(D, x, y, r, water, col) {
       var R = r || ebR(D), pts = [], i;
       for (i = 0; i < 90; i++) pts.push(x, y);
-      eb.push({ col: water ? null : col && hexOk(col) ? col : color(D), x: x, y: y, R2: R * R, cur: 0, pts: pts, rate: R * R / (.55 + .5 * Math.random()) * kapV(D, 'force', 20, 200) / 100 });
+      var g = { col: water ? null : col && hexOk(col) ? col : color(D), x: x, y: y, R2: R * R, cur: 0, pts: pts, rate: R * R / (.55 + .5 * Math.random()) * kapV(D, 'force', 20, 200) / 100 };
+      eb.push(g); return g;
     }
     function ebStep(D, dt) {
       // Течение (D.flow, 0–100, 10 — как было): сильнее — краска заметно плывёт; кружение (D.circ, −100…100): вода медленно ходит по кругу, у середины быстрее — узор закручивается
@@ -1824,14 +1842,20 @@
           if (j === i) continue; P = eb[j].pts;
           for (q = 0; q < P.length; q += 2) { var dx = P[q] - g.x, dy = P[q + 1] - g.y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + dA / d2); P[q] = g.x + dx * k; P[q + 1] = g.y + dy * k; }
         }
+        if (!fz || !g.col) flPush(g.x, g.y, dA, g);
         for (q = 0; q < g.pts.length; q += 2) { var an = q / g.pts.length * 6.283; g.pts[q] = g.x + Math.cos(an) * rr; g.pts[q + 1] = g.y + Math.sin(an) * rr; }
       }
       // вода чуть течёт — прожилки живые; растянутые края — гуще точки
+      function flow(P, q) {
+        if (om) { var rx = P[q] - ccx, ry = P[q + 1] - ccy, ra = om * (1.15 - .75 * Math.min(1, Math.sqrt(rx * rx + ry * ry) / cr)), ca = Math.cos(ra), sa = Math.sin(ra); P[q] = ccx + rx * ca - ry * sa; P[q + 1] = ccy + rx * sa + ry * ca; }
+        if (am) { var nx = P[q] * f, ny = P[q + 1] * f; P[q] += (noise(nx, ny + e + T) - noise(nx, ny - e + T)) / (2 * e) * am * dt; P[q + 1] -= (noise(nx + e, ny + T) - noise(nx - e, ny + T)) / (2 * e) * am * dt; }
+      }
+      // стёклышки плывут с водой и не уходят за край
+      for (i = 0; i < FL.length; i++) { P = FL[i].p; flow(P, 0); P[0] = Math.max(u * .04, Math.min(cv.width - u * .04, P[0])); P[1] = Math.max(u * .04, Math.min(cv.height - u * .04, P[1])); }
       for (i = 0; i < eb.length; i++) {
         P = eb[i].pts; if (eb[i].live) { tot += P.length; continue; } var out = [];
         for (q = 0; q < P.length; q += 2) {
-          if (om) { var rx = P[q] - ccx, ry = P[q + 1] - ccy, ra = om * (1.15 - .75 * Math.min(1, Math.sqrt(rx * rx + ry * ry) / cr)), ca = Math.cos(ra), sa = Math.sin(ra); P[q] = ccx + rx * ca - ry * sa; P[q + 1] = ccy + rx * sa + ry * ca; }
-          if (am) { var nx = P[q] * f, ny = P[q + 1] * f; P[q] += (noise(nx, ny + e + T) - noise(nx, ny - e + T)) / (2 * e) * am * dt; P[q + 1] -= (noise(nx + e, ny + T) - noise(nx - e, ny + T)) / (2 * e) * am * dt; }
+          flow(P, q);
           out.push(P[q], P[q + 1]);
           var n2 = (q + 2) % P.length, ax = P[n2] - P[q], ay = P[n2 + 1] - P[q + 1];
           if (P.length < 12000 && ax * ax + ay * ay > ms * ms) out.push(P[q] + ax / 2, P[q + 1] + ay / 2);
@@ -1842,6 +1866,8 @@
       eb = eb.filter(function (g) { var P2 = g.pts, m = u * .2; for (var z = 0; z < P2.length; z += 2) if (P2[z] > -m && P2[z] < cv.width + m && P2[z + 1] > -m && P2[z + 1] < cv.height + m) return true; tot -= P2.length; return false; });
       while (eb.length > 4 && (tot > 240000 || eb.length > 400)) tot -= eb.shift().pts.length;
       ic.setTransform(1, 0, 0, 1, 0, 0); ic.clearRect(0, 0, cv.width, cv.height); ic.globalAlpha = 1; ic.lineJoin = 'round';
+      // Вернулся в пространство — сохранённая краска лежит снизу (раньше она пропадала в первом же кадре), новые капли — поверх
+      if (BG) ic.drawImage(BG, 0, 0, cv.width, cv.height);
       for (i = 0; i < eb.length; i++) {
         P = eb[i].pts; ic.beginPath(); ic.moveTo(P[0], P[1]); for (q = 2; q < P.length; q += 2) ic.lineTo(P[q], P[q + 1]); ic.closePath();
         // капля воды и невидимая кисть — краски нет, а под ними чистая вода: краска, что лежала раньше, там вымыта (дырочка, глаз)
@@ -1878,6 +1904,7 @@
           if (pn) { if (d2 > 6.25 * l * l) continue; w = .92 * Math.exp(-d2 / (l * l)); } else { w = Math.exp(-Math.sqrt(d2) / l); if (w < .005) continue; }
           P[q] += sx * w; P[q + 1] += sy * w;
         } }
+        for (i = 0; i < FL.length; i++) { P = FL[i].p; var fx2 = P[0] - cx, fy2 = P[1] - cy, f2 = fx2 * fx2 + fy2 * fy2, w2 = pn ? (f2 > 6.25 * l * l ? 0 : .92 * Math.exp(-f2 / (l * l))) : Math.exp(-Math.sqrt(f2) / l); P[0] += sx * w2; P[1] += sy * w2; }
       }
     }
     /* Кисть эбру (16.10, её «делаем»; только в панели — у участника на сайте её нет): вести пальцем / мышкой — за ним ложится полоса густой краски.
@@ -1908,6 +1935,7 @@
     function bsRound(x, y, w) {
       if (I.freeze) return;
       for (var j = 0; j < eb.length; j++) { if (eb[j] === bs.g) continue; var P = eb[j].pts; for (var q = 0; q < P.length; q += 2) { var dx = P[q] - x, dy = P[q + 1] - y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + w * w / d2); P[q] = x + dx * k; P[q + 1] = y + dy * k; } }
+      flPush(x, y, w * w);
     }
     // Шаг мазка длиной l и полушириной w добавляет площадь 2·w·l — раздвигаем от его точки, как капля такой площади (плавно, без зубцов на изгибах)
     function bsSeg(x, y, w, l) { bsRound(x, y, Math.sqrt(2 * w * l / Math.PI)); }
@@ -1962,24 +1990,28 @@
         }
         if (hit) {}
         else if (mode !== 'tube' && !given) { var gx = (Math.random() + Math.random() + Math.random()) / 3 - .5, gy = (Math.random() + Math.random() + Math.random()) / 3 - .5; x = cv.width * (.5 + gx * 1.3); y = cv.height * (.5 + gy * 1.3); }
-        // ровная капля — одна, без мелких рядом
-        var R = o.r || ebR(D), k2, n2 = o.r || o.water || D.even === 'fix' ? 1 : String(D.count) === '3' ? 3 + Math.floor(Math.random() * 4) : Math.random() < .5 ? 1 : 2;
-        ebDrop(D, x, y, R, o.water, o.col);
+        // «Сколько капель за раз: одна» — ровно одна (17.10: раньше у «разных» в половине случаев рядом падала вторая, мелкая); ровная капля — тоже одна
+        var R = o.r || ebR(D), k2, n2 = o.r || o.water || o.one || D.even === 'fix' || String(D.count) !== '3' ? 1 : 3 + Math.floor(Math.random() * 4);
+        var g1 = ebDrop(D, x, y, R, o.water, o.col);
         for (k2 = 1; k2 < n2; k2++) { var a2 = Math.random() * 6.283, r2 = R * (1.2 + Math.random() * 2.5); ebDrop(D, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2, R * (.3 + Math.random() * .6)); }
-        lastDrop = real; return;
+        lastDrop = real; return g1;
       }
-      var d = one(D, x, y), k, n;
+      var d = one(D, x, y, o.col ? { col: o.col } : null), k, n;
       // 2–3 капли рядом: слипаются и смешиваются
-      if (String(D.count) === '3') for (k = 0, n = 1 + (Math.random() < .5 ? 1 : 2); k < n; k++) {
+      if (String(D.count) === '3' && !o.one) for (k = 0, n = 1 + (Math.random() < .5 ? 1 : 2); k < n; k++) {
         var a = Math.random() * 6.283, r = d.R0 * (1.6 + Math.random() * 1.6);
         one(D, x + Math.cos(a) * r, y + Math.sin(a) * r, { kind: d.kind, R0: d.R0 * (.6 + Math.random() * .4) });
       }
-      lastDrop = real;
+      lastDrop = real; return d;
     };
     // Отменить (только панель): снимок краски эбру до касания и возврат к нему
     I.snap = function () { return eb.map(function (g) { var c = {}, k; for (k in g) c[k] = g[k]; c.pts = g.pts.slice(); return c; }); };
     I.put = function (s) { bs = null; eb = s; };
-    I.clear = function () { drops = []; rings = []; eb = []; bs = null; ic.clearRect(0, 0, cv.width, cv.height); };
+    I.clear = function () { drops = []; rings = []; eb = []; FL = []; BG = null; bs = null; I.pend = null; lastDrop = real; ic.clearRect(0, 0, cv.width, cv.height); };
+    // Стёклышко на воду: u, v — доли холста краски; g — своя капля. Возвращает { p } — где оно сейчас (I.frac — в долях)
+    I.float = function (D, u, v, g) { if (!mode) setup(kapMode(D), asp); var o = { p: [u * cv.width, v * cv.height], g: g || null }; FL.push(o); return o; };
+    I.unfloat = function (o) { FL = FL.filter(function (q) { return q !== o; }); };
+    I.frac = function (o) { return [o.p[0] / cv.width, o.p[1] / cv.height]; };
     I.mode = function () { return mode; };
     I.U = function () { return U(); };
     I.fit = function (a) {
@@ -1988,13 +2020,14 @@
       var keep = drops; setup(mode, a); drops = keep;
       var sx = cv.width / ow, sy = cv.height / oh; ic.drawImage(t, 0, 0, cv.width, cv.height);
       eb.forEach(function (g) { g.x *= sx; g.y *= sy; for (var q = 0; q < g.pts.length; q += 2) { g.pts[q] *= sx; g.pts[q + 1] *= sy; } });
+      FL.forEach(function (o) { o.p[0] *= sx; o.p[1] *= sy; });
       drops.forEach(function (d) { d.x *= sx; d.y *= sy; d.vort.forEach(function (v) { v.x *= sx; v.y *= sy; }); d.parts.concat(d.cl).forEach(function (p) { p.x *= sx; p.y *= sy; }); });
     };
     // Размешать пальцем: краска тянется за пальцем (мазок), живые нити подхватывают движение, из-под пальца тянутся новые тонкие нити
     // nd (только панель, эбру) — ширина иглы, % окошка; без него — «Ширина иглы» из настроек
     I.stir = function (x, y, dx, dy, nd) {
       if (!mode) return;
-      if (eb.length) { ebStir(x, y, dx, dy, nd); return; }
+      if (eb.length || Dk.kind === 'ebru' && FL.length) { ebStir(x, y, dx, dy, nd); return; }
       var L = Math.sqrt(dx * dx + dy * dy), r = U() * .2, i, n, s = Math.ceil(r * 2);
       if (L < .5 || L > U() * 1.5) return;
       if (pc.width !== s) { pc.width = pc.height = s; }
@@ -2034,7 +2067,7 @@
     // Вернулся в пространство — краска с того места, где сохранил узор
     I.load = function (url, D) {
       if (!url) return; if (!mode) setup(kapMode(D), asp);
-      var p = new Image(); p.onload = function () { ic.drawImage(p, 0, 0, cv.width, cv.height); }; p.src = url;
+      var p = new Image(); p.onload = function () { ic.drawImage(p, 0, 0, cv.width, cv.height); if (D && D.kind === 'ebru') BG = p; }; p.src = url;
     };
     // Без движения (настройка телефона «меньше движения»): одна капля, сразу растёкшаяся
     I.warm = function (D) { if (!mode) setup(kapMode(D), asp); I.drop(D); for (var i = 0; i < 140; i++) I.step(.05, { drop: D }, true); };
@@ -2424,18 +2457,20 @@
   function kalLive(k, o) {
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
     var S = { ang: +o.a || 0, vel: 0, t: o.m != null && isFinite(+o.m) ? +o.m : 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, started = false, KO = null;
-    var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y)) at[p.id] = [+p.x, +p.y]; });
-    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null }; });
+    var KD = kapOn(k) ? k.drop : null, tch = KD ? KD.touch || '' : 'off', FLAT = !!KD && kapMode(KD) !== 'tube';
+    // Б и В (17.10): стёклышки лежат на воде (f: 1, место — доли холста краски); сохранены при другом виде — вернулись в чашу
+    var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y) && !p.f === !FLAT) at[p.id] = [+p.x, +p.y]; });
+    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null, f: FLAT ? 1 : 0, fo: null }; });
     var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
     // Размер холста — до kalImg: туманность готова сразу, и узор рисуется ещё до этой строки (13.10)
     var CW = 0, CH = 0, Q0 = q, MAXP = 2.6e6;
-    var KD = kapOn(k) ? k.drop : null, tch = KD ? KD.touch || '' : 'off';
     kalImg(o.base, k, function (x) {
       im = x; KO = khOf(im, k);
       // Капля в воде: свой движок у каждого живого узора; вернулся — краска с сохранённого узора; «меньше движения» — одна растёкшаяся капля
-      if (KD && im) { im._ink = kapNew(); if (o.w) im._ink.load(o.w, KD); else if (REDUCED || o.still) { draw(); im._ink.warm(KD); } }
+      if (KD && im) { im._ink = kapNew(); if (o.w) im._ink.load(o.w, KD); else if (REDUCED || o.still) { draw(); im._ink.warm(KD); }
+        if (FLAT) mine.forEach(function (m) { if (m.at) m.fo = im._ink.float(KD, m.at[0], m.at[1]); }); }
       // Хоровод: с сохранённого поворота; нет — первая сборка через несколько секунд (без движения на экране — сразу собранный)
       if (KO) S.kh = o.h != null && isFinite(+o.h) ? +o.h : REDUCED || o.still ? KO.G.P[0] : KO.G.P[0] - Math.min(.6, KO.G.per * .4);
       kalPre(mine, draw); draw();
@@ -2451,6 +2486,7 @@
       if (!CW) size();
       var w = Math.round(CW * q), h = Math.round(CH * q);
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+      if (im && im._ink && FLAT) mine.forEach(function (m) { if (m.fo) m.at = im._ink.frac(m.fo); });
       if (im) kalDraw(g, w, h, im, k, S.ang, S.reveal, mine, ps, S.t, S.kh);
     }
     var fr = [], half = false, odd = false, base = 1e9, QMIN = Math.min(Q0, .75);
@@ -2505,6 +2541,31 @@
       return [h + p[0] * V.R / V.E * h, h + p[1] * V.R / V.E * h];
     }
     function changed() { if (o.onPut) o.onPut(); if (REDUCED || o.still) draw(); }
+    // «Стёклышко падает каплей своего цвета» (drop.gdrop, 17.10): там, где легло, раскрывается краска его цвета; возвращает каплю (эбру — пятно)
+    function inkOf(it, ip) {
+      if (!KD || KD.gdrop !== 'ink' || !ip || !im || !im._ink || !Array.isArray(it.c)) return null;
+      var d = im._ink.drop(KD, ip[0], ip[1], { col: rgbHex(it.c), one: true });
+      if (REDUCED) { for (var w = 0; w < 120; w++) im._ink.step(.05, k); draw(); }
+      return d && d.pts ? d : null;
+    }
+    /* Б и В: касание со стёклышком в чаше — оно ложится на воду (и плывёт с краской); касание своего стёклышка — вернулось в чашу.
+       true — касание занято стёклышком (капли нет) */
+    function flatTap(ex, ey) {
+      var I = im && im._ink, ip = inkAt(ex, ey); if (!I || !ip) return false;
+      if (S.sel >= 0 && mine[S.sel]) {
+        var it = mine[S.sel], g0 = inkOf(it, ip);
+        if (it.fo) I.unfloat(it.fo);
+        it.fo = I.float(KD, ip[0] / I.cv.width, ip[1] / I.cv.height, g0); it.at = I.frac(it.fo); S.sel = -1; changed(); return true;
+      }
+      // Радиус касания — как в трубке: 1,7 размера стёклышка (на экране), в точках холста краски
+      var W = cv.width, H = cv.height, sc = Math.max(W / I.cv.width, H / I.cv.height), hr = ps * 1.7 * (Math.sqrt(W * W + H * H) / 2 + 2) / sc, i;
+      for (i = mine.length - 1; i >= 0; i--) {
+        var m = mine[i]; if (!m.at || !m.fo) continue;
+        var dx = m.fo.p[0] - ip[0], dy = m.fo.p[1] - ip[1];
+        if (Math.sqrt(dx * dx + dy * dy) < hr) { I.unfloat(m.fo); m.fo = null; m.at = null; changed(); return true; }
+      }
+      return false;
+    }
     cv.addEventListener('pointerdown', function (e) { if (S.frozen) return; drag = { x: e.clientX, y: e.clientY, a: S.ang, h: S.kh, moved: false, ip: tch === '' ? inkAt(e.clientX, e.clientY) : null }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} });
     cv.addEventListener('pointermove', function (e) {
       if (!drag) return; var dx = e.clientX - drag.x;
@@ -2516,9 +2577,10 @@
     });
     function up(e) {
       if (!drag) return; var m = drag.moved; drag = null; if (m || S.frozen) return;
-      if (mine.length) {
+      if (mine.length && FLAT) { if (flatTap(e.clientX, e.clientY)) return; }
+      else if (mine.length) {
         var p = toCam(e.clientX, e.clientY), i;
-        if (S.sel >= 0 && mine[S.sel]) { mine[S.sel].at = [Math.round(p[0] * 1000) / 1000, Math.round(p[1] * 1000) / 1000]; S.sel = -1; changed(); return; }
+        if (S.sel >= 0 && mine[S.sel]) { mine[S.sel].at = [Math.round(p[0] * 1000) / 1000, Math.round(p[1] * 1000) / 1000]; inkOf(mine[S.sel], inkAt(e.clientX, e.clientY)); S.sel = -1; changed(); return; }
         for (i = mine.length - 1; i >= 0; i--) {
           var it = mine[i]; if (!it.at) continue;
           var dx = it.at[0] - p[0], dy = it.at[1] - p[1];
@@ -2537,7 +2599,13 @@
     return { node: cv, ang: function () { return S.ang; }, kh: function () { return S.kh; }, mt: function () { return S.t; }, draw: draw, mine: mine, ps: ps,
       ink: function () { return im && im._ink ? im._ink.shot() : null; },
       sel: function (i) { if (i === undefined) return S.sel; S.sel = i; },
-      placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { return { x: m.at[0], y: m.at[1], id: m.id, k: m.k, c: m.c, l: m.l }; }); },
+      placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { var q = { x: Math.round(m.at[0] * 1000) / 1000, y: Math.round(m.at[1] * 1000) / 1000, id: m.id, k: m.k, c: m.c, l: m.l }; if (m.f) q.f = 1; return q; }); },
+      // «Начать сначала» (17.10): краски нет — только фон; стёклышки — в чаше
+      canReset: !!KD && KD.reset !== 'off',
+      reset: function () {
+        if (im && im._ink && im._ink.clear) im._ink.clear();
+        mine.forEach(function (m) { m.at = null; m.fo = null; }); S.sel = -1; changed(); draw();
+      },
       freeze: function (v) { S.frozen = !!v; S.vel = 0; draw(); },
       reveal: function (v) { S.reveal = !!v; draw(); } };
   }
@@ -2650,6 +2718,16 @@
     var peek = el('button', 'ys-kal-btn ys-kal-btn--ghost', t.peek || 'Что внутри?'), on = false; peek.type = 'button';
     peek.addEventListener('click', function () { on = !on; live.reveal(on); peek.textContent = on ? t.unpeek || 'Снова узор' : t.peek || 'Что внутри?'; });
     row.appendChild(peek);
+    // «Начать сначала» (17.10, её «делаем»): у Путешествия и Погружения, в дне с каплей в воде; переспрашивает — чтобы не стереть узор случайно
+    if (o.kalSave && live.canReset) {
+      var rs = el('button', 'ys-kal-btn ys-kal-btn--ghost', t.reset || 'Начать сначала'); rs.type = 'button';
+      rs.addEventListener('click', function () {
+        if (!window.confirm(t.resetQ || 'Начать сначала? Краска уйдёт, стёклышки вернутся в чашу.')) return;
+        if (on) { on = false; live.reveal(false); peek.textContent = t.peek || 'Что внутри?'; }
+        live.reset(); fill(); say();
+      });
+      row.appendChild(rs);
+    }
     // Подсказка: своя из панели — пока ничего не выбрано и не положено; дальше — что делать сейчас
     function say() {
       var sel = live.sel(), placed = M.some(function (m) { return m.at; }), s;
