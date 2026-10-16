@@ -2979,7 +2979,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261015a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261016a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5599,7 +5599,11 @@
       rangeIn(D, 'swirl', 'Завитки', { min: 0, max: 250, step: 10, def: DEF.swirl, unit: ' %' })]));
     out.push(el('div', { class: 'a-row' }, [
       rangeIn(D, 'dens', 'Сколько краски', { min: 40, max: 220, step: 10, def: DEF.dens, unit: ' %', hint: 'Больше — гуще, но телефону тяжелее.' }),
-      rangeIn(D, 'size', 'Размер капли', { min: 50, max: 200, step: 10, def: DEF.size, unit: ' %' })]));
+      D.even === 'fix' && D.kind === 'ebru' ? null : rangeIn(D, 'size', 'Размер капли', { min: 50, max: 200, step: 10, def: DEF.size, unit: ' %' })]));
+    if (D.kind === 'ebru') out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'even', 'Капли эбру', [['', 'разные — крупная и мелкие рядом, как сами упадут'], ['fix', 'ровные — каждая точно заданного размера, одна']], { def: '', onChange: function (v) { if (!v) delete D.even; renderMain(); },
+        hint: 'Ровные — чтобы рисовать знак: капля за каплей одного размера (капюшон, плащ, круг в круге). Капля в каплю — раздвигает прежнюю краску кольцом.' }),
+      D.even === 'fix' ? rangeIn(D, 'dsize', 'Поперечник капли', { min: 2, max: 60, step: 1, def: 15, unit: ' %', hint: 'Доля окошка: 10 % — капля в десятую часть ширины. Можно менять прямо во время записи — следующая капля будет нового размера.' }) : null]));
     out.push(el('div', { class: 'a-row' }, [
       rangeIn(D, 'speed', 'Скорость краски', { min: 25, max: 300, step: 5, def: DEF.speed, unit: ' %', hint: 'Скорость самой краски; вращение трубки — «Скорость перетекания» ниже.' }),
       rangeIn(D, 'fade', 'Как быстро растворяется', { min: 0, max: 100, step: 5, def: DEF.fade, unit: ' %', hint: '0 — краска почти не уходит, узор копится; больше — старые разводы тают.' })]));
