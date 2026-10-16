@@ -1805,20 +1805,22 @@
     var eb = [], ebN = 0;
     // Размер капли эбру: '' — каждая своя (от размера ±), 'fix' — ровно dsize % поперечника окошка (16.10, её «делаем»: рисовать знак каплями одного размера)
     function ebR(D) { return D.even === 'fix' ? U() * num(D.dsize, 15, 2, 80) / 100 : U() * (.1 + .22 * Math.random()) * kapV(D, 'size', 50, 200) / 100; }
-    function ebDrop(D, x, y, r, water) {
+    function ebDrop(D, x, y, r, water, col) {
       var R = r || ebR(D), pts = [], i;
       for (i = 0; i < 90; i++) pts.push(x, y);
-      eb.push({ col: water ? null : color(D), x: x, y: y, R2: R * R, cur: 0, pts: pts, rate: R * R / (.55 + .5 * Math.random()) * kapV(D, 'force', 20, 200) / 100 });
+      eb.push({ col: water ? null : col && hexOk(col) ? col : color(D), x: x, y: y, R2: R * R, cur: 0, pts: pts, rate: R * R / (.55 + .5 * Math.random()) * kapV(D, 'force', 20, 200) / 100 });
     }
     function ebStep(D, dt) {
       // Течение (D.flow, 0–100, 10 — как было): сильнее — краска заметно плывёт; кружение (D.circ, −100…100): вода медленно ходит по кругу, у середины быстрее — узор закручивается
       var u = U(), i, j, P, q, ms = u * .025, tot = 0, sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, T = sim * (.03 + Math.max(0, num(D.flow, 10, 0, 100) - 10) * .002) + T0, f = 1.6 / u, am = u * .004 * sw * num(D.flow, 10, 0, 100) / 10;
-      var om = num(D.circ, 0, -100, 100) / 100 * .5 * dt, ccx = cv.width / 2, ccy = cv.height / 2, cr = Math.max(cv.width, cv.height) * .7;
+      // «Вода замерла» (I.freeze, только панель): вода стоит, новая краска ложится сверху и ничего не раздвигает — рисовать знак
+      var fz = I.freeze; if (fz) am = 0;
+      var om = fz ? 0 : num(D.circ, 0, -100, 100) / 100 * .5 * dt, ccx = cv.width / 2, ccy = cv.height / 2, cr = Math.max(cv.width, cv.height) * .7;
       for (i = 0; i < eb.length; i++) {
         var g = eb[i]; if (g.cur >= g.R2) continue;
         var nr = Math.min(g.R2, g.cur + g.rate * dt), dA = nr - g.cur, rr = Math.sqrt(nr); g.cur = nr;
         // раздвинуть всю краску, что уже лежит (и капли, что ещё растут рядом)
-        for (j = 0; j < eb.length; j++) {
+        for (j = 0; j < eb.length && !fz; j++) {
           if (j === i) continue; P = eb[j].pts;
           for (q = 0; q < P.length; q += 2) { var dx = P[q] - g.x, dy = P[q + 1] - g.y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + dA / d2); P[q] = g.x + dx * k; P[q + 1] = g.y + dy * k; }
         }
@@ -1849,11 +1851,14 @@
     }
     /* Игла (биз) — размешать эбру: краска тянется за пальцем, ближе к игле — сильнее. Dk.needle — ширина иглы, % окошка (1–30; 14 — как было, широко).
        Тонкая (16.10, её «делаем»): как настоящая игла эбру — из кругов тянутся языки, «ёлочки», сердечки. Сдвиг затухает от иглы (e^(−d/λ)), путь — мелкими шагами, чтобы тонкая игла не перескакивала краску. */
-    function ebStir(x, y, dx, dy) {
-      var nd = num(Dk.needle, 14, 1, 30), l = U() * nd / 100, L = Math.sqrt(dx * dx + dy * dy), n = Math.max(1, Math.min(40, Math.ceil(L / (l * .5)))), i, q, P, k;
+    function ebStir(x, y, dx, dy, nd0) {
+      // Игла из панели (nd0): краска под самым кончиком (co) идёт за иглой до конца — длинные тонкие рога и языки
+      var nd = nd0 > 0 ? nd0 : num(Dk.needle, 14, 1, 30), l = U() * nd / 100, co = nd0 > 0 ? l * .9 : 0, L = Math.sqrt(dx * dx + dy * dy), n = Math.max(1, Math.min(40, Math.ceil(L / (l * .5)))), i, q, P, k;
+      // Капля ещё растекается — иначе каждый кадр она снова станет кругом и сотрёт след иглы: растечь до конца сразу
+      for (i = 0; i < eb.length; i++) { var g0 = eb[i]; if (g0.live || g0.cur >= g0.R2) continue; g0.cur = g0.R2; var r0 = Math.sqrt(g0.R2); for (q = 0; q < g0.pts.length; q += 2) { var a0 = q / g0.pts.length * 6.283; g0.pts[q] = g0.x + Math.cos(a0) * r0; g0.pts[q + 1] = g0.y + Math.sin(a0) * r0; } }
       for (k = 1; k <= n; k++) {
         var cx = x - dx * (1 - k / n), cy = y - dy * (1 - k / n), sx = dx / n, sy = dy / n;
-        for (i = 0; i < eb.length; i++) { if (eb[i].live) continue; P = eb[i].pts; for (q = 0; q < P.length; q += 2) { var ex = P[q] - cx, ey = P[q + 1] - cy, d = Math.sqrt(ex * ex + ey * ey), w = Math.exp(-d / l); if (w < .005) continue; P[q] += sx * w; P[q + 1] += sy * w; } }
+        for (i = 0; i < eb.length; i++) { if (eb[i].live) continue; P = eb[i].pts; for (q = 0; q < P.length; q += 2) { var ex = P[q] - cx, ey = P[q + 1] - cy, d = Math.sqrt(ex * ex + ey * ey), w = Math.exp(-Math.max(0, d - co) / l); if (w < .005) continue; P[q] += sx * w; P[q + 1] += sy * w; } }
       }
     }
     /* Кисть эбру (16.10, её «делаем»; только в панели — у участника на сайте её нет): вести пальцем / мышкой — за ним ложится полоса густой краски.
@@ -1882,6 +1887,7 @@
     }
     // Раздвинуть краску вокруг точки (как капля: площадь сохраняется)
     function bsRound(x, y, w) {
+      if (I.freeze) return;
       for (var j = 0; j < eb.length; j++) { if (eb[j] === bs.g) continue; var P = eb[j].pts; for (var q = 0; q < P.length; q += 2) { var dx = P[q] - x, dy = P[q + 1] - y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + w * w / d2); P[q] = x + dx * k; P[q + 1] = y + dy * k; } }
     }
     // Шаг мазка длиной l и полушириной w добавляет площадь 2·w·l — раздвигаем от его точки, как капля такой площади (плавно, без зубцов на изгибах)
@@ -1919,7 +1925,7 @@
         bsOut(bs); bs.g.live = false; bs = null;
       }
     };
-    // o (только панель): water — капля воды (раздвигает, краски нет), r — ровно такой радиус, одна (знак по картинке)
+    // o (только панель): water — капля воды (раздвигает, краски нет), r — ровно такой радиус, одна (знак по картинке); col — этим цветом
     I.drop = function (D, x, y, o) {
       if (!mode) setup(kapMode(D), asp); o = o || {};
       var given = x != null && isFinite(x);
@@ -1939,7 +1945,7 @@
         else if (mode !== 'tube' && !given) { var gx = (Math.random() + Math.random() + Math.random()) / 3 - .5, gy = (Math.random() + Math.random() + Math.random()) / 3 - .5; x = cv.width * (.5 + gx * 1.3); y = cv.height * (.5 + gy * 1.3); }
         // ровная капля — одна, без мелких рядом
         var R = o.r || ebR(D), k2, n2 = o.r || o.water || D.even === 'fix' ? 1 : String(D.count) === '3' ? 3 + Math.floor(Math.random() * 4) : Math.random() < .5 ? 1 : 2;
-        ebDrop(D, x, y, R, o.water);
+        ebDrop(D, x, y, R, o.water, o.col);
         for (k2 = 1; k2 < n2; k2++) { var a2 = Math.random() * 6.283, r2 = R * (1.2 + Math.random() * 2.5); ebDrop(D, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2, R * (.3 + Math.random() * .6)); }
         lastDrop = real; return;
       }
@@ -1951,6 +1957,9 @@
       }
       lastDrop = real;
     };
+    // Отменить (только панель): снимок краски эбру до касания и возврат к нему
+    I.snap = function () { return eb.map(function (g) { var c = {}, k; for (k in g) c[k] = g[k]; c.pts = g.pts.slice(); return c; }); };
+    I.put = function (s) { bs = null; eb = s; };
     I.clear = function () { drops = []; rings = []; eb = []; bs = null; ic.clearRect(0, 0, cv.width, cv.height); };
     I.mode = function () { return mode; };
     I.U = function () { return U(); };
@@ -1963,9 +1972,10 @@
       drops.forEach(function (d) { d.x *= sx; d.y *= sy; d.vort.forEach(function (v) { v.x *= sx; v.y *= sy; }); d.parts.concat(d.cl).forEach(function (p) { p.x *= sx; p.y *= sy; }); });
     };
     // Размешать пальцем: краска тянется за пальцем (мазок), живые нити подхватывают движение, из-под пальца тянутся новые тонкие нити
-    I.stir = function (x, y, dx, dy) {
+    // nd (только панель, эбру) — ширина иглы, % окошка; без него — «Ширина иглы» из настроек
+    I.stir = function (x, y, dx, dy, nd) {
       if (!mode) return;
-      if (eb.length) { ebStir(x, y, dx, dy); return; }
+      if (eb.length) { ebStir(x, y, dx, dy, nd); return; }
       var L = Math.sqrt(dx * dx + dy * dy), r = U() * .2, i, n, s = Math.ceil(r * 2);
       if (L < .5 || L > U() * 1.5) return;
       if (pc.width !== s) { pc.width = pc.height = s; }
@@ -2014,7 +2024,7 @@
       var md = kapMode(D); if (md !== mode) setup(md, asp);
       real += dtR;
       if (I.pend && I.vis) { var pd = I.pend; I.pend = null; I.drop(pd); }
-      if (!quiet && D.drops !== 'hand' && real - lastDrop > kapV(D, 'every', 2, 40)) I.drop(D);
+      if (!quiet && !I.freeze && D.drops !== 'hand' && real - lastDrop > kapV(D, 'every', 2, 40)) I.drop(D);
       var dt = dtR * kapV(D, 'speed', 25, 300) / 100, u = U(), sw = kapV(D, 'swirl', 0, 250) / 100, e = .35, s1 = S1(), i, j;
       if (!dt) return;
       sim += dt; frame++;
