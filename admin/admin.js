@@ -5595,7 +5595,9 @@
     return { pts: out, asp: w / h, w: w, h: h };
   }
   // Инструменты эбру над живым окошком (16.10): выбранный инструмент и размер капли — общие для всех дней (в процентах окошка, как «Поперечник капли»)
-  var EBT = { tool: 'drop', dsz: 'm', DS: { xs: 2.5, s: 4, m: 8, l: 15 }, nsz: 's', NS: { xs: .7, s: 1.5, m: 4, l: 10 }, col: -1, bigEl: null };
+  // dsz / nsz = 'set' (по умолчанию, 17.10 — её «настройки панели не подхватываются»): как в настройках — «Капли эбру», «Поперечник капли», «Ширина иглы»
+  var EBT = { tool: 'drop', dsz: 'set', DS: { xs: 2.5, s: 4, m: 8, l: 15 }, nsz: 'set', NS: { xs: .7, s: 1.5, m: 4, l: 10 }, col: -1, bigEl: null, paint: null };
+  function ebtSet(w) { return function () { EBT[w] = 'set'; if (EBT.paint) EBT.paint(); }; }   // тронула ползунок в панели — окошко берёт его
   function signStop() { if (SIGN.timer) clearInterval(SIGN.timer); SIGN.timer = null; SIGN.left = 0; }
   function signGo(D, ink) {
     var I = ink(); if (!I) { toast('Живой узор ещё не готов — подождите секунду'); return; }
@@ -5698,14 +5700,14 @@
     if (D.kind === 'ebru') {
       out.push(sub('Эбру — капли, игла, кисть, знак'));
       out.push(el('div', { class: 'a-row' }, [
-        selectIn(D, 'even', 'Капли эбру', [['', 'разные — крупная и мелкие рядом'], ['fix', 'ровные — точно заданного размера']], { def: '', onChange: function (v) { if (!v) delete D.even; renderMain(); },
+        selectIn(D, 'even', 'Капли эбру', [['', 'разные — крупная и мелкие рядом'], ['fix', 'ровные — точно заданного размера']], { def: '', onChange: function (v) { if (!v) delete D.even; EBT.dsz = 'set'; renderMain(); },
           hint: 'Ровные — чтобы рисовать знак: капля за каплей одного размера (капюшон, плащ, круг в круге). Капля в каплю — раздвигает прежнюю краску кольцом.' }),
-        D.even === 'fix' ? rangeIn(D, 'dsize', 'Поперечник капли', { min: 2, max: 60, step: 1, def: 15, unit: ' %', hint: 'Доля окошка: 10 % — капля в десятую часть ширины. Можно менять прямо во время записи — следующая капля будет нового размера.' }) : null]));
+        D.even === 'fix' ? rangeIn(D, 'dsize', 'Поперечник капли', { min: 2, max: 60, step: 1, def: 15, unit: ' %', onChange: ebtSet('dsz'), hint: 'Доля окошка: 10 % — капля в десятую часть ширины. Можно менять прямо во время записи — следующая капля будет нового размера. Над окошком — «⚙ как в настройках» (или свой размер кнопками).' }) : null]));
       out.push(el('div', { class: 'a-row' }, [
         selectIn(D, 'brush', 'Палец в живом окошке (только у вас)', [['', 'игла — тянет краску'], ['water', 'вода — невидимая кисть'], ['push', 'кисть — раздвигает краску'], ['top', 'кисть — ложится сверху']], { def: '', onChange: function (v) { if (!v) delete D.brush; renderMain(); },
           hint: 'Игла — как в эбру: ведёте сквозь краску, она тянется языками (из кругов — сердечки, «ёлочки», перья). Вода — краски нет: вести — прозрачная дорожка раздвигает узор, коснуться — капля чистой воды (дыра в краске). Кисть — мазок густой краской. Касание без движения — капля (у «воды» — капля воды). У участников на сайте палец — как в «Что может участник».' }),
         D.brush ? rangeIn(D, 'bw', D.brush === 'water' ? 'Ширина дорожки' : 'Толщина кисти', { min: 1, max: 30, step: 1, def: 5, unit: ' %', hint: 'Доля окошка. Медленно — шире, быстро — уже. Можно менять во время записи.' })
-          : rangeIn(D, 'needle', 'Ширина иглы', { min: 1, max: 30, step: 1, def: 14, unit: ' %', hint: '1–4 — тонкая игла, как в эбру: чёткие языки и прожилки. 14 и больше — широко, как размешивать пальцем (так было раньше; так же у участников).' })]));
+          : rangeIn(D, 'needle', 'Ширина иглы', { min: 1, max: 30, step: 1, def: 14, unit: ' %', onChange: ebtSet('nsz'), hint: 'Над окошком у «〰 Игла» — «⚙ как в настройках» (или толщина кнопками). ' + '1–4 — тонкая игла, как в эбру: чёткие языки и прожилки. 14 и больше — широко, как размешивать пальцем (так было раньше; так же у участников).' })]));
       out.push(el('div', { class: 'a-row' }, [
         rangeIn(D, 'flow', 'Течение воды', { min: 0, max: 100, step: 5, def: 10, unit: ' %', hint: 'Как сильно краска сама плывёт и изгибается. 10 — как было (почти стоит), 40–100 — заметно течёт. Вместе с «Завитками» и «Скоростью краски».' }),
         rangeIn(D, 'circ', 'Вода кружит', { min: -100, max: 100, step: 5, def: 0, unit: ' %', hint: 'Вода медленно ходит по кругу, у середины быстрее — узор закручивается спиралью. Минус — в другую сторону, 0 — стоит. «Скорость перетекания» ниже — это поворот зеркал трубки, в «Б — без зеркал» её нет.' })]));
@@ -5930,7 +5932,10 @@
        в запись не попадает), ⛶ большое окно. Кружок под мышкой — какого размера будет капля / где берёт игла. Игла и кисть сглаживаются. */
     function kpEb() { return !!(kE0 && kE0.drop && kE0.drop.kind === 'ebru' && kE && kE.drop && kE.drop.kind === 'ebru' && M.kapOn(kE)); }
     function kpTool() { return kpEb() && EBT.tool !== 'brush' ? EBT.tool : ''; }   // '' — как раньше: касание — капля, вести — игла или кисть
-    function kpDropR(I) { return I.U() * EBT.DS[EBT.dsz] / 100; }
+    function kpDropR(I) { return EBT.DS[EBT.dsz] ? I.U() * EBT.DS[EBT.dsz] / 100 : 0; }   // 0 — капля как в настройках (разные / ровные, поперечник)
+    function kpNd() { var n = EBT.NS[EBT.nsz] || +(kE && kE.drop && kE.drop.needle) || 14; return Math.min(30, Math.max(.5, n)); }
+    // кружок под мышкой для «как в настройках»: ровные — их поперечник, разные — средняя капля
+    function kpRingR(I) { var D = kE.drop, r = kpDropR(I); if (r) return r; return D.even === 'fix' ? I.U() * Math.min(80, Math.max(2, +D.dsize || 15)) / 100 : I.U() * .21 * Math.min(200, Math.max(50, +D.size || 100)) / 100; }
     function kpUndoPush(sn) { if (!sn) return; var U = KS.undo = KS.undo || []; U.push(sn); if (U.length > 40) U.shift(); }
     function kpUndo() {
       var I = KS.im && KS.im._ink, U = KS.undo || [];
@@ -5953,7 +5958,7 @@
       if (tl === 'needle') {
         if (far) kpD.moved = true;
         var qn = kpAt(e); if (!qn || !kpD.moved) return; kpD.q = qn;
-        var sn = kpSm(kpD.s, qn); if (kpD.s) KS.im._ink.stir(sn[0], sn[1], sn[0] - kpD.s[0], sn[1] - kpD.s[1], EBT.NS[EBT.nsz]); kpD.s = sn; if (!KS.run) kPut();
+        var sn = kpSm(kpD.s, qn); if (kpD.s) KS.im._ink.stir(sn[0], sn[1], sn[0] - kpD.s[0], sn[1] - kpD.s[1], kpNd()); kpD.s = sn; if (!KS.run) kPut();
         return;
       }
       if (kpBrush()) {
@@ -5968,11 +5973,11 @@
     });
     kpv.addEventListener('pointerup', function (e) {
       if (!kpD) return; var m = kpD.moved, sn = kpD.snap, tl = kpTool(), I = KS.im && KS.im._ink;
-      if (tl === 'drop' || tl === 'water') { var p0 = kpD.p0; kpD = null; if (I && p0) { kpUndoPush(sn); I.drop(kE.drop, p0[0], p0[1], { r: kpDropR(I), col: (kE.drop.colors || [])[EBT.col], water: tl === 'water' }); if (!KS.run) kPut(); } return; }
+      if (tl === 'drop' || tl === 'water') { var p0 = kpD.p0; kpD = null; if (I && p0) { kpUndoPush(sn); var o = { col: (kE.drop.colors || [])[EBT.col], water: tl === 'water' }, r = kpDropR(I); if (r) o.r = r; I.drop(kE.drop, p0[0], p0[1], o); if (!KS.run) kPut(); } return; }
       if (tl === 'needle') {
         // сглаженная точка отстаёт — довести иглу до того места, где отпустила
         var qe = kpD.q, se = kpD.s; kpD = null; if (!m) return; kpUndoPush(sn);
-        if (I && qe && se) I.stir(qe[0], qe[1], qe[0] - se[0], qe[1] - se[1], EBT.NS[EBT.nsz]);
+        if (I && qe && se) I.stir(qe[0], qe[1], qe[0] - se[0], qe[1] - se[1], kpNd());
         return;
       }
       if (kpD.br && I) { var qb = kpD.s || kpAt(e); I.brush(kE.drop, qb ? qb[0] : 0, qb ? qb[1] : 0, 2); }
@@ -5992,7 +5997,7 @@
       var I = KS.im && KS.im._ink, tl = kpTool(); kRing.style.display = 'none';
       if (!I || !I.mode() || !tl || e.pointerType === 'touch') return;
       var b = kpv.getBoundingClientRect(), sc = kpScale(I, b); if (!sc) return;
-      var rr = (tl !== 'needle' ? kpDropR(I) : I.U() * EBT.NS[EBT.nsz] / 100) * sc;
+      var rr = (tl !== 'needle' ? kpRingR(I) : I.U() * kpNd() / 100) * sc;
       kRing.className = 'a-ebt-ring' + (tl === 'needle' ? ' is-needle' : '');
       kRing.style.cssText = 'display:block;width:' + 2 * rr + 'px;height:' + 2 * rr + 'px;left:' + (e.clientX - b.left - rr) + 'px;top:' + (e.clientY - b.top - rr) + 'px';
     }
@@ -6012,14 +6017,14 @@
     });
     // Большое окно: то же окошко (та же краска, та же запись) — во весь экран, чтобы было где развернуться; ✕ или Esc — обратно
     var kBig = false, kHome = null;
-    // Клавиши в большом окне: Esc — свернуть, Ctrl+Z — отменить, пробел — остановить / отпустить воду, 1–4 — размер капли или иглы
+    // Клавиши в большом окне: Esc — свернуть, Ctrl+Z — отменить, пробел — остановить / отпустить воду, 1–4 — размер капли или иглы, 0 — как в настройках
     function kBigKey(e) {
       var t = e.target && e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
       if (e.key === 'Escape') { kpBig(false); return; }
       if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ')) { e.preventDefault(); kpUndo(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.code === 'Space') { e.preventDefault(); var I2 = KS.im && KS.im._ink; if (I2) { I2.freeze = !I2.freeze; ebtPaint(); } return; }
-      var z = ['xs', 's', 'm', 'l'][+e.key - 1]; if (!z) return;
+      var z = e.key === '0' ? 'set' : ['xs', 's', 'm', 'l'][+e.key - 1]; if (!z) return;
       if (EBT.tool === 'needle') EBT.nsz = z; else EBT.dsz = z; ebtPaint();
     }
     function kpBig(on) {
@@ -6032,14 +6037,15 @@
       kPut(); ebtPaint();
     }
     var kTools = el('div', { class: 'a-ebt' });
+    EBT.paint = function () { if (kTools.isConnected) ebtPaint(); };
     function ebtPaint() {
       kTools.innerHTML = ''; kalPaint();
       if (!kpEb() && !(kE0 && kE0.drop && kE0.drop.kind === 'ebru' && M.kapOn(kE0))) { kTools.style.display = 'none'; return; }
       kTools.style.display = '';
       var I = KS.im && KS.im._ink, fz = !!(I && I.freeze), D0 = kE0.drop;
       function b(txt, on, fn, ttl, cls, kids) { return el('button', { type: 'button', class: 'a-btn a-btn--small' + (on ? ' a-btn--dark' : ' a-btn--ghost') + (cls ? ' ' + cls : ''), text: kids ? null : txt, title: ttl || '', 'aria-label': kids ? txt : null, onclick: function () { fn(); ebtPaint(); } }, kids); }
-      var kb = kBig ? ' (клавиши 1–4)' : '';
-      function sizes() { [['xs', 3, 'крошечная'], ['s', 5, 'мелкая'], ['m', 9, 'средняя'], ['l', 15, 'крупная']].forEach(function (z) {
+      var kb = kBig ? ' (клавиши 1–4)' : '', set = function (w, ttl) { row.push(b('⚙ как в настройках', EBT[w] === 'set', function () { EBT[w] = 'set'; }, ttl + (kBig ? ' (клавиша 0)' : ''), 'a-ebt-set')); };
+      function sizes() { set('dsz', 'Капли — как в настройках ниже: «Капли эбру» (разные или ровные) и «Поперечник капли»'); [['xs', 3, 'крошечная'], ['s', 5, 'мелкая'], ['m', 9, 'средняя'], ['l', 15, 'крупная']].forEach(function (z) {
         row.push(b('Капля ' + z[2], EBT.dsz === z[0], function () { EBT.dsz = z[0]; }, 'Капля ' + z[2] + kb, 'a-ebt-sz', [el('i', { class: 'a-ebt-dot', style: 'width:' + z[1] + 'px;height:' + z[1] + 'px' })]));
       }); }
       var row = [b('💧 Капля', EBT.tool === 'drop', function () { EBT.tool = 'drop'; }, 'Коснуться — капля ровно туда. Движение не рисует')];
@@ -6047,6 +6053,7 @@
       row.push(b('◌ Вода', EBT.tool === 'water', function () { EBT.tool = 'water'; }, 'Капля чистой воды: раздвигает краску — дырочка, глаз, просвет (и в остановленной воде)'));
       if (EBT.tool === 'water') sizes();
       row.push(b('〰 Игла', EBT.tool === 'needle', function () { EBT.tool = 'needle'; }, 'Вести — игла тянет краску. Касание ничего не делает'));
+      if (EBT.tool === 'needle') set('nsz', 'Игла — «Ширина иглы» из настроек ниже');
       if (EBT.tool === 'needle') [['xs', 1, 'волосок — усы, тончайшие прожилки'], ['s', 1.5, 'тонкая — рога, языки'], ['m', 3, 'средняя'], ['l', 6, 'широкая — тянет всё пятно']].forEach(function (z) {
         row.push(b('Игла ' + z[2], EBT.nsz === z[0], function () { EBT.nsz = z[0]; }, 'Игла ' + z[2] + kb, 'a-ebt-sz', [el('i', { class: 'a-ebt-line', style: 'height:' + z[1] + 'px' })]));
       });
