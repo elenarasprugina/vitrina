@@ -1820,7 +1820,7 @@
         var g = eb[i]; if (g.cur >= g.R2) continue;
         var nr = Math.min(g.R2, g.cur + g.rate * dt), dA = nr - g.cur, rr = Math.sqrt(nr); g.cur = nr;
         // раздвинуть всю краску, что уже лежит (и капли, что ещё растут рядом)
-        for (j = 0; j < eb.length && !fz; j++) {
+        for (j = 0; j < eb.length && (!fz || !g.col); j++) {   // капля чистой воды раздвигает и в стоячей воде
           if (j === i) continue; P = eb[j].pts;
           for (q = 0; q < P.length; q += 2) { var dx = P[q] - g.x, dy = P[q + 1] - g.y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + dA / d2); P[q] = g.x + dx * k; P[q + 1] = g.y + dy * k; }
         }
@@ -1834,7 +1834,7 @@
           if (am) { var nx = P[q] * f, ny = P[q + 1] * f; P[q] += (noise(nx, ny + e + T) - noise(nx, ny - e + T)) / (2 * e) * am * dt; P[q + 1] -= (noise(nx + e, ny + T) - noise(nx - e, ny + T)) / (2 * e) * am * dt; }
           out.push(P[q], P[q + 1]);
           var n2 = (q + 2) % P.length, ax = P[n2] - P[q], ay = P[n2 + 1] - P[q + 1];
-          if (P.length < 3000 && ax * ax + ay * ay > ms * ms) out.push(P[q] + ax / 2, P[q + 1] + ay / 2);
+          if (P.length < 12000 && ax * ax + ay * ay > ms * ms) out.push(P[q] + ax / 2, P[q + 1] + ay / 2);
         }
         eb[i].pts = out; tot += out.length;
       }
@@ -1843,8 +1843,9 @@
       while (eb.length > 4 && (tot > 240000 || eb.length > 400)) tot -= eb.shift().pts.length;
       ic.setTransform(1, 0, 0, 1, 0, 0); ic.clearRect(0, 0, cv.width, cv.height); ic.globalAlpha = 1; ic.lineJoin = 'round';
       for (i = 0; i < eb.length; i++) {
-        if (!eb[i].col) continue;   // капля воды и невидимая кисть — место держат, краски нет
         P = eb[i].pts; ic.beginPath(); ic.moveTo(P[0], P[1]); for (q = 2; q < P.length; q += 2) ic.lineTo(P[q], P[q + 1]); ic.closePath();
+        // капля воды и невидимая кисть — краски нет, а под ними чистая вода: краска, что лежала раньше, там вымыта (дырочка, глаз)
+        if (!eb[i].col) { ic.globalCompositeOperation = 'destination-out'; ic.fillStyle = '#000'; ic.fill(); ic.globalCompositeOperation = 'source-over'; continue; }
         ic.fillStyle = eb[i].col; ic.fill();
         ic.globalAlpha = .35; ic.strokeStyle = rgbHex(mixC(hexRgb(eb[i].col), [40, 40, 60], .35)); ic.lineWidth = S1(); ic.stroke(); ic.globalAlpha = 1;
       }
@@ -1852,13 +1853,31 @@
     /* Игла (биз) — размешать эбру: краска тянется за пальцем, ближе к игле — сильнее. Dk.needle — ширина иглы, % окошка (1–30; 14 — как было, широко).
        Тонкая (16.10, её «делаем»): как настоящая игла эбру — из кругов тянутся языки, «ёлочки», сердечки. Сдвиг затухает от иглы (e^(−d/λ)), путь — мелкими шагами, чтобы тонкая игла не перескакивала краску. */
     function ebStir(x, y, dx, dy, nd0) {
-      // Игла из панели (nd0): краска под самым кончиком (co) идёт за иглой до конца — длинные тонкие рога и языки
-      var nd = nd0 > 0 ? nd0 : num(Dk.needle, 14, 1, 30), l = U() * nd / 100, co = nd0 > 0 ? l * .9 : 0, L = Math.sqrt(dx * dx + dy * dy), n = Math.max(1, Math.min(40, Math.ceil(L / (l * .5)))), i, q, P, k;
+      // Игла из панели (nd0, 16.10 вечер — её «острые клинья»): краска сдвигается почти только под кружком (спад — колокол, за 2 кружка — ноль)
+      // и не прилипает к игле (раньше «захват» тащил точки края за иглой — пятно вытягивалось в прямые клинья). У участника — прежняя мягкая игла.
+      var pn = nd0 > 0, nd = pn ? nd0 : num(Dk.needle, 14, 1, 30), l = U() * nd / 100, L = Math.sqrt(dx * dx + dy * dy), n = Math.max(1, Math.min(80, Math.ceil(L / (l * (pn ? .3 : .5))))), i, q, P, k;
       // Капля ещё растекается — иначе каждый кадр она снова станет кругом и сотрёт след иглы: растечь до конца сразу
       for (i = 0; i < eb.length; i++) { var g0 = eb[i]; if (g0.live || g0.cur >= g0.R2) continue; g0.cur = g0.R2; var r0 = Math.sqrt(g0.R2); for (q = 0; q < g0.pts.length; q += 2) { var a0 = q / g0.pts.length * 6.283; g0.pts[q] = g0.x + Math.cos(a0) * r0; g0.pts[q + 1] = g0.y + Math.sin(a0) * r0; } }
+      // Край пятна рядом с иглой — гуще точки (иначе игла проскакивает между точками, а растянутый край остаётся прямой линией)
+      var ax = x - dx, ay = y - dy, R = l * (pn ? 2.5 : 4), ms = l * (pn ? .3 : .5);
+      function near(px, py) { var t = L ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (L * L))) : 0, ex = px - ax - dx * t, ey = py - ay - dy * t; return ex * ex + ey * ey < R * R; }
+      for (i = 0; i < eb.length; i++) {
+        if (eb[i].live) continue; P = eb[i].pts; var m = P.length, hit = false, o = [];
+        for (q = 0; q < m; q += 2) if (Math.abs(P[q] - ax - dx / 2) < L / 2 + R && Math.abs(P[q + 1] - ay - dy / 2) < L / 2 + R) { hit = true; break; }
+        if (!hit || m > 40000) continue;
+        for (q = 0; q < m; q += 2) {
+          var n2 = (q + 2) % m, bx = P[n2] - P[q], by = P[n2 + 1] - P[q + 1], el2 = bx * bx + by * by; o.push(P[q], P[q + 1]);
+          if (el2 > ms * ms && (near(P[q], P[q + 1]) || near(P[n2], P[n2 + 1]))) for (var c = Math.ceil(Math.sqrt(el2) / ms), j = 1; j < c; j++) o.push(P[q] + bx * j / c, P[q + 1] + by * j / c);
+        }
+        eb[i].pts = o;
+      }
       for (k = 1; k <= n; k++) {
         var cx = x - dx * (1 - k / n), cy = y - dy * (1 - k / n), sx = dx / n, sy = dy / n;
-        for (i = 0; i < eb.length; i++) { if (eb[i].live) continue; P = eb[i].pts; for (q = 0; q < P.length; q += 2) { var ex = P[q] - cx, ey = P[q + 1] - cy, d = Math.sqrt(ex * ex + ey * ey), w = Math.exp(-Math.max(0, d - co) / l); if (w < .005) continue; P[q] += sx * w; P[q + 1] += sy * w; } }
+        for (i = 0; i < eb.length; i++) { if (eb[i].live) continue; P = eb[i].pts; for (q = 0; q < P.length; q += 2) {
+          var ex = P[q] - cx, ey = P[q + 1] - cy, d2 = ex * ex + ey * ey, w;
+          if (pn) { if (d2 > 6.25 * l * l) continue; w = .92 * Math.exp(-d2 / (l * l)); } else { w = Math.exp(-Math.sqrt(d2) / l); if (w < .005) continue; }
+          P[q] += sx * w; P[q + 1] += sy * w;
+        } }
       }
     }
     /* Кисть эбру (16.10, её «делаем»; только в панели — у участника на сайте её нет): вести пальцем / мышкой — за ним ложится полоса густой краски.
