@@ -664,11 +664,24 @@ audio.a-media{background:none;height:40px}
 .a-vid-out{display:block;width:320px;max-width:100%;border-radius:10px;background:#000;margin-top:6px}
 .a-vid-out.is-vert{width:220px}
 @media (max-width:600px){.a-vid-lay{grid-template-columns:minmax(0,1fr)}.a-vid-pv{width:200px}}
+/* Запись узора «как рисую» (16.10): кнопки под живым узором; во время записи окошко — кадр видео */
+.a-kal-cell--pv .a-kal-pv.is-rec{aspect-ratio:auto;border-radius:10px;background:#000}
+.a-kal-cell--pv .a-kal-pv.is-vert{width:190px;align-self:center}
+.a-kal-pv.is-on{box-shadow:0 0 0 3px #d23c3c}
+.a-rec{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.a-rec-btns{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.a-rec-time{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.a-rec-set summary{cursor:pointer;font-size:13px;color:#6b6b68}
+.a-rec-set[open]{display:flex;flex-direction:column;gap:10px}
+.a-rec-res .a-vid-out{width:100%}.a-rec-res .a-vid-out.is-vert{width:170px}
 .a-neb-lay{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
 .a-neb-side{position:sticky;top:118px}
 /* Телефон и узкое окно: живой узор — маленький кружок сверху справа, едет вместе с экраном, пока листаешь блок калейдоскопа */
 @media (max-width:900px){.a-neb-lay{grid-template-columns:minmax(0,1fr);gap:0}.a-neb-side{order:-1;justify-self:end;z-index:5;height:0;overflow:visible;top:calc(var(--a-toph,56px) + 48px)}
-  .a-neb-side .a-kal-cell--pv{max-width:none}.a-neb-side .a-kal-pv{width:120px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:2px solid #fff}.a-neb-side .a-hint{display:none}}
+  .a-neb-side .a-kal-cell--pv{max-width:none}.a-neb-side .a-kal-pv{width:120px;box-shadow:0 2px 10px rgba(0,0,0,.35);border:2px solid #fff}.a-neb-side .a-hint{display:none}
+  .a-neb-side .a-kal-cell--pv{align-items:flex-end}.a-neb-side .a-rec{width:auto;max-width:200px;align-items:flex-end}.a-neb-side .a-rec-btns{justify-content:flex-end}
+  .a-neb-side .a-rec-time{background:#fff;border-radius:8px;padding:2px 8px;box-shadow:0 2px 8px rgba(0,0,0,.2)}.a-neb-side .a-rec-set,.a-neb-side .a-rec-res video{display:none}
+  .a-neb-side .a-kal-pv.is-vert{width:80px}}
 .a-neb-h{font-weight:600;font-size:14px;margin-top:6px}
 .a-neb{display:flex;flex-direction:column;gap:12px;margin:4px 0 8px}
 .a-neb-cs{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}

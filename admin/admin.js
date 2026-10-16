@@ -1450,7 +1450,14 @@
     renderMain();
   }
   function renderMain() {
-    var m = document.getElementById('a-main');
+    // Страница перестраивается целиком (после выбора в списке и т. п.) — остаёмся на том же месте, а не улетаем наверх (16.10)
+    var m = document.getElementById('a-main'), y = window.scrollY || 0;
+    m.style.minHeight = m.offsetHeight + 'px';
+    renderMain0(m);
+    m.style.minHeight = '';
+    if (y) window.scrollTo(0, y);
+  }
+  function renderMain0(m) {
     FIND.hits = []; FIND.i = -1; FIND.auto = []; FIND.list = false;
     m.replaceChildren(el('div', { class: 'a-foldbar' }, [findBox(), el('span', { class: 'a-foldbtns', id: 'a-foldbar', hidden: true }, [
       el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Свернуть всё', title: 'Свернуть все группы, блоки и открытые пункты', onclick: function () { foldAll(false); } }),
@@ -5703,27 +5710,33 @@
     var K = sp.kal = sp.kal || {}, kpv = el('canvas', { class: 'a-kal-pv', width: 600, height: 600 }), kpk = el('canvas', { class: 'a-kal-pick', width: 220, height: 220 });
     // Картинка (или туманность) готовится один раз: заново — только когда поменялась картинка или настройки туманности
     // kE — калейдоскоп дня с учётом общей туманности волны (M.kalOf); kT — время (облака туманности дышат)
-    var kIm = null, kSrc = '', kA = 0.6, kRun = true, kOn = false, kLast = 0, kE = null, kT = 0, kH = null;
+    // Состояние живого узора (краска, поворот, время) — у каждого дня своё и переживает перестройку страницы (16.10): выбрали в списке — краска не пропадает, запись видео идёт дальше
+    var KK = r.id + '|' + n, KS = KPV[KK] = KPV[KK] || { im: null, src: '', a: .6, run: true, t: 0, h: null }, kOn = false, kLast = 0, kE = null;
     function kNum(v, d) { v = v == null || v === '' || isNaN(+v) ? d : +v; return Math.max(15, Math.min(85, v)); }
     function kDraw() {
       var E = kE = n === 'final' ? null : M.kalOf(sp, r, n); if (!E) return;
       var kf = E._kh ? E._kh.fig : '', DK = E.drop || {}, key = JSON.stringify(E._neb || null) + '|' + (E.image || '') + '|' + kf.length + kf.slice(-48) + (E._wat ? '|W' + JSON.stringify([DK.water, DK.w0, DK.w1, DK.wdir]) : '');
-      if (kIm && kSrc === key) { kPut(); return; }
-      kSrc = key;
+      if (KS.im && KS.src === key) { kPut(); kLoop(); return; }
+      KS.src = key;
       // Капля в воде: движок живёт в картинке узора; картинка новая (сменилась вода, картинка дня) — краска переезжает на новый движок
-      var old = kIm && kIm._ink;
-      M.kalImg('../', E, function (im) { if (kSrc !== key) return; kIm = im; if (M.kapOn(E)) { kIm._ink = old || M.kapNew(); if (!old) kIm._ink.drop(E.drop); } kPut(); kLoop(); });
+      var old = KS.im && KS.im._ink;
+      M.kalImg('../', E, function (im) { if (KS.src !== key) return; KS.im = im; if (M.kapOn(E)) { KS.im._ink = old || M.kapNew(); if (!old) KS.im._ink.drop(E.drop); } kPut(); kLoop(); });
     }
     function kPut() {
-      if (!kIm || !(kIm.naturalWidth || kIm.width) || !kE) return;
+      if (!KS.im || !(KS.im.naturalWidth || KS.im.width) || !kE) return;
       var K = kE;
-      M.kalDraw(kpv.getContext('2d'), 600, 600, kIm, K, kA, false, null, null, kT, kH);
-      kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
+      // Идёт запись этого дня — окошко показывает кадр видео (его форма, окошко, уход в конце)
+      if (REC && REC.key === KK) recDraw(REC, kpv, K);
+      else {
+        if (kpv.width !== 600 || kpv.height !== 600) { kpv.width = kpv.height = 600; kpv.className = 'a-kal-pv'; }
+        M.kalDraw(kpv.getContext('2d'), 600, 600, KS.im, K, KS.a, false, null, null, KS.t, KS.h);
+        kpv.style.filter = K.bright && +K.bright !== 100 ? 'brightness(' + K.bright / 100 + ') saturate(' + (1 + (K.bright / 100 - 1) * .8).toFixed(2) + ')' : '';
+      }
       // Картинка с осью: точка — ось, круг — что попадает в узор (то, что ближе к оси, видно в узоре чаще)
       var x = kpk.getContext('2d'), ox = kNum(K.px, 50) / 100, oy = kNum(K.py, 50) / 100, mg = Math.min(ox, 1 - ox, oy, 1 - oy);
       // Треугольник: в узор попадает круг вокруг оси размером с треугольник (сколько картинки в нём — K.pic)
       var rr = Math.min(K.tube === 'tri' ? .5774 / (Math.max(130, Math.min(500, +K.pic || 150)) / 100) : .75 / (2.3 * Math.max(70, Math.min(130, +K.zoom || 100)) / 100), mg) * 220;
-      x.clearRect(0, 0, 220, 220); x.drawImage(M.kalPic(kIm, K), 0, 0, 220, 220);
+      x.clearRect(0, 0, 220, 220); x.drawImage(M.kalPic(KS.im, K), 0, 0, 220, 220);
       x.save(); x.fillStyle = 'rgba(0,0,0,.45)'; x.beginPath(); x.rect(0, 0, 220, 220); x.arc(ox * 220, oy * 220, rr, 0, 6.2832, true); x.fill('evenodd');
       x.lineWidth = 1.5; x.strokeStyle = 'rgba(255,255,255,.85)'; x.setLineDash([4, 4]); x.beginPath(); x.arc(ox * 220, oy * 220, rr, 0, 6.2832); x.stroke(); x.setLineDash([]);
       x.lineWidth = 3; x.strokeStyle = '#000'; x.beginPath(); x.arc(ox * 220, oy * 220, 7, 0, 6.2832); x.stroke();
@@ -5736,7 +5749,9 @@
         if (!kpv.isConnected && kLast) { kOn = false; return; }
         var dt = kLast ? Math.min(.1, (ts - kLast) / 1000) : 0; kLast = ts;
         // Хоровод — в настоящую скорость: видно, как часто он собирается
-        if (kRun && kpv.isConnected) { kA += .072 * 4 * (+K.speed || 100) / 100 * dt; kT += dt; if (kE) kH = M.khTick(kIm, kE, kH, dt); if (kIm && kIm._ink && kE && M.kapOn(kE)) kIm._ink.step(dt, kE); kPut(); }
+        // Пауза записи — узор замирает (время в видео не идёт), окошко всё равно рисуется: видно, что меняют настройки
+        var RP = REC && REC.key === KK && REC.paused;
+        if (KS.run && !RP && kpv.isConnected) { KS.a += .072 * 4 * (+K.speed || 100) / 100 * dt; KS.t += dt; if (kE) KS.h = M.khTick(KS.im, kE, KS.h, dt); if (KS.im && KS.im._ink && kE && M.kapOn(kE)) KS.im._ink.step(dt, kE); kPut(); }
         requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
@@ -5754,25 +5769,27 @@
     kpk.addEventListener('pointerup', kUp); kpk.addEventListener('pointercancel', kUp);
     // Капля: касание живого узора — капля (без зеркал и поверх узора — в это место), мышкой с нажатой кнопкой — размешать
     var kpD = null;
-    function kpAt(e) { var I = kIm && kIm._ink, b = kpv.getBoundingClientRect(); if (!I || !I.mode() || I.mode() === 'tube') return null; return [(e.clientX - b.left) / b.width * I.cv.width, (e.clientY - b.top) / b.height * I.cv.height]; }
-    kpv.addEventListener('pointerdown', function (e) { if (!(kIm && kIm._ink)) return; kpD = { p: kpAt(e), moved: false, x: e.clientX, y: e.clientY }; try { kpv.setPointerCapture(e.pointerId); } catch (er) {} });
+    function kpAt(e) { var I = KS.im && KS.im._ink, b = kpv.getBoundingClientRect(); if (!I || !I.mode() || I.mode() === 'tube') return null; return [(e.clientX - b.left) / b.width * I.cv.width, (e.clientY - b.top) / b.height * I.cv.height]; }
+    kpv.addEventListener('pointerdown', function (e) { if (!(KS.im && KS.im._ink)) return; kpD = { p: kpAt(e), moved: false, x: e.clientX, y: e.clientY }; try { kpv.setPointerCapture(e.pointerId); } catch (er) {} });
     kpv.addEventListener('pointermove', function (e) {
       if (!kpD) return; if (Math.abs(e.clientX - kpD.x) + Math.abs(e.clientY - kpD.y) > 5) kpD.moved = true;
-      var q = kpAt(e); if (kpD.moved && q && kpD.p) kIm._ink.stir(q[0], q[1], q[0] - kpD.p[0], q[1] - kpD.p[1]); kpD.p = q;
+      var q = kpAt(e); if (kpD.moved && q && kpD.p) KS.im._ink.stir(q[0], q[1], q[0] - kpD.p[0], q[1] - kpD.p[1]); kpD.p = q;
     });
-    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE)) return; var q = kpAt(e); kIm._ink.drop(kE.drop, q && q[0], q && q[1]); });
+    kpv.addEventListener('pointerup', function (e) { if (!kpD) return; var m = kpD.moved; kpD = null; if (m || !kE || !M.kapOn(kE)) return; var q = kpAt(e); KS.im._ink.drop(kE.drop, q && q[0], q && q[1]); });
     kpv.addEventListener('pointercancel', function () { kpD = null; });
-    var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '⏸ Остановить', onclick: function () { kRun = !kRun; kStop.textContent = kRun ? '⏸ Остановить' : '▶ Крутить'; } });
+    var kStop = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: KS.run ? '⏸ Остановить' : '▶ Крутить', onclick: function () { KS.run = !KS.run; kStop.textContent = KS.run ? '⏸ Остановить' : '▶ Крутить'; } });
     var kMid = el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '◎ Ось — в середину', onclick: function () { delete K.px; delete K.py; changed(); kDraw(); } });
     var kE0 = n === 'final' ? null : M.kalOf(sp, r, n), kNb = kE0 && kE0._neb, kPic = !kNb || kNb.src === 'mix';
-    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' })]);
+    var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kpv, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте)' }), kE0 ? recUI(KK, n) : null]);
+    // Для записи и кадра: узор этого дня в любом размере — то же состояние, что в окошке
+    KDRAW[KK] = { fn: function (c, W, H) { if (KS.im && kE) M.kalDraw(c, W, H, KS.im, kE, KS.a, false, null, null, KS.t, KS.h); }, E: function () { return kE; } };
     var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
       el('span', { class: 'a-label', text: 'Ось вращения — коснитесь картинки' }),
       el('div', { class: 'a-kal-two' }, [
         el('div', { class: 'a-kal-cell' }, [kpk, el('span', { class: 'a-hint', text: 'Точка — ось, в круге — то, что попадает в узор' })]),
         ]),
       el('div', { class: 'a-backup-btns' }, [kMid, kStop, el('button', { type: 'button', class: 'a-btn a-btn--small', text: '⛶ Во весь экран', title: 'Узор во весь экран — как у участника, со скоростью сайта. Закрыть — ✕ или Esc', onclick: kFull }),
-        el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🎬 Записать видео', title: 'Видео узора 15 или 30 секунд, по кругу без шва — для Инсты и Телеграма', onclick: kVideo })]),
+        el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🎬 Видео-петля 15 / 30 с', title: 'Узор сам, без ваших капель: 15 или 30 секунд, по кругу без шва. Записать, как рисуете вы, — «● Записать» под живым узором', onclick: kVideo })]),
       el('span', { class: 'a-hint', text: 'Картинка вращается вокруг этой точки: то, что в ней, видно в узоре всегда и на одном месте, остальное проплывает. Поставьте ось на тонкие линии и мелкие детали, а не на крупное яркое пятно (солнце в середине даёт неподвижные красные круги). Можно вести пальцем — узор меняется сразу. Ось у края картинки — узор чуть крупнее (чтобы не было тёмных углов).' })]) : null;
     var kKh = K.on ? jdKhor(r, K, kDraw) : null, tri = K.tube === 'tri', kKhF = !!(K.khor && K.khor.fig);
     // Во весь экран (13.10): тот же живой узор, что у участника (M.kalLive) — со скоростью сайта; ✕ или Esc — закрыть
@@ -5793,7 +5810,7 @@
     function kVideo() { var E = M.kalOf(sp, r, n); if (!E) { toast('Сначала картинка или туманность'); return; } kalVideo(E, n); }
     var kalItems = [
       K.on ? jdNeb(r, K, kDraw) : null,
-      K.on ? jdDrop(r, K, kDraw, function () { return kIm && kIm._ink; }) : null,
+      K.on ? jdDrop(r, K, kDraw, function () { return KS.im && KS.im._ink; }) : null,
       K.on ? kKh : null,
       K.on && kPic ? el('div', { class: 'a-row' }, [
         imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
@@ -8552,6 +8569,8 @@
      Кадр за кадром, а не запись экрана: узор рисуется сразу в размер видео, браузер сам сжимает его в MP4 (WebCodecs + mp4-muxer из admin/vendor) —
      ровно и чётко даже на слабом телефоне. Петля без шва: последние секунды плавно перетекают в первые. Файл остаётся на её устройстве. */
   var VID_FPS = 30, VID_MUX = null;
+  // Живые узоры калейдоскопа в «За дверью» — по «маршрут|день» (jdSpaceForm)
+  var KPV = {};
   function vidMuxer(done) {
     if (window.Mp4Muxer) { done(true); return; }
     if (VID_MUX) { VID_MUX.push(done); return; }
@@ -8735,6 +8754,228 @@
         }, function (e) { end('Не получилось собрать видео: ' + (e && e.message || e), true); });
       }
     }
+  }
+
+  /* ---------- Запись узора «как рисую» (16.10) ----------
+     Пишется то, что идёт в живом окошке калейдоскопа в «За дверью» (капли, размешивание, настройки), но не экран: узор рисуется
+     заново в размер видео и сразу сжимается в MP4. Мышки и панели в видео нет. Видео — на её устройстве (в Chrome — сразу в файл). */
+  var KDRAW = {}, KRES = {}, REC = null, RUI = [], RSET = { form: 'sq', round: false, end: '' };
+  var REC_FILE_MAX = 15 * 60, REC_MEM_MAX = 5 * 60;
+  function recCan() { return typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'; }
+  function recBright(E) { var b = E && E.bright && +E.bright !== 100 ? +E.bright / 100 : 1; return b === 1 ? 'none' : 'brightness(' + b + ') saturate(' + (1 + (b - 1) * .8).toFixed(2) + ')'; }
+  function recTime(s) { s = Math.max(0, Math.floor(s)); var m = Math.floor(s / 60); s -= m * 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+  function recDims(form, k) { var W = form === 'vert' ? 1080 : 1080, H = form === 'vert' ? 1920 : 1080; k = k || 1; return [Math.round(W * k / 2) * 2, Math.round(H * k / 2) * 2]; }
+  // Кадр видео: узор (окошко — круг с мягким краем) и, в конце, уход — стекает в центр / уходит за края / тает
+  function recFrame(o, c, W, H, E, e) {
+    var D = KDRAW[o.key]; if (!D) return 0;
+    var d = o.round ? Math.round(Math.min(W, H) * .92) : 0, ww = d || W, wh = d || H, t0 = performance.now();
+    var wk = o.work = o.work || document.createElement('canvas');
+    if (wk.width !== ww || wk.height !== wh) { wk.width = ww; wk.height = wh; }
+    var x = wk.getContext('2d');
+    x.save(); D.fn(x, ww, wh); x.restore();
+    var mask = function (r0, r1) {
+      var g = x.createRadialGradient(ww / 2, wh / 2, Math.max(0, r0), ww / 2, wh / 2, Math.max(1, r1));
+      g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, ww, wh); x.restore();
+    };
+    if (d) mask(d * .47, d / 2);
+    var hyp = Math.sqrt(ww * ww + wh * wh) / 2, s = 1, rot = 0, al = 1;
+    if (e > 0) {
+      e = e * e * (3 - 2 * e);
+      if (o.end === 'in') { var rr = hyp * (1 - e); mask(rr * .55, rr + 1); s = 1 - .45 * e; rot = 1.1 * e; }
+      else if (o.end === 'out') { s = 1 + 1.4 * e; al = 1 - e; }
+      else al = 1 - e;
+    }
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.filter = 'none'; c.fillStyle = o.round ? '#000' : '#07060b'; c.fillRect(0, 0, W, H);
+    c.globalAlpha = al; c.filter = recBright(E); c.translate(W / 2, H / 2); if (rot) c.rotate(rot); if (s !== 1) c.scale(s, s);
+    c.drawImage(wk, -ww / 2, -wh / 2); c.restore();
+    return performance.now() - t0;
+  }
+  // Живое окошко во время записи: кадр в размер видео (не чаще 30 в секунду), в окошке — он же, уменьшенный
+  function recDraw(R, pv, E) {
+    var now = performance.now(), pw = R.W >= R.H ? 600 : Math.round(600 * R.W / R.H), ph = R.H >= R.W ? 600 : Math.round(600 * R.H / R.W);
+    if (pv.width !== pw || pv.height !== ph) { pv.width = pw; pv.height = ph; }
+    pv.className = 'a-kal-pv is-rec' + (R.H > R.W ? ' is-vert' : '') + (R.st === 'rec' && !R.paused ? ' is-on' : '');
+    pv.style.filter = '';
+    var due = now - (R.lastDraw || 0) >= 1000 / VID_FPS - 4 || R.paused;
+    if (due) {
+      R.lastDraw = now;
+      var c = R.oc.getContext('2d'), e = R.st === 'end' ? Math.min(1, (now - R.e0) / 2000) : 0, ms = recFrame(R, c, R.W, R.H, E, e);
+      if (R.st === 'count') R.meas.push(ms);
+      if ((R.st === 'rec' && !R.paused) || R.st === 'end') recPush(R, now);
+      if (R.st === 'end' && e >= 1) recFinish(R);
+    }
+    pv.getContext('2d').drawImage(R.oc, 0, 0, pw, ph);
+  }
+  function recPush(R, now) {
+    // Не было кадров дольше полсекунды (ушла в другой раздел, вкладка в фоне, узор остановлен) — в видео этого перерыва нет
+    if (R.lastFeed && now - R.lastFeed > 600) R.gap += now - R.lastFeed - 1000 / VID_FPS;
+    R.lastFeed = now;
+    var ts = Math.round((now - R.t0 - R.gap) * 1000);
+    if (ts <= R.lastTs) return;
+    if (R.enc.encodeQueueSize > 8) return;
+    var key = ts - R.lastKey >= 2e6 || R.lastKey < 0;
+    if (key) R.lastKey = ts;
+    var vf = new VideoFrame(R.oc, { timestamp: ts });
+    try { R.enc.encode(vf, { keyFrame: key }); } catch (er) { R.bad = er; }
+    vf.close(); R.lastTs = ts; R.dur = ts / 1e6;
+    if (R.st === 'rec' && R.dur >= R.max) recStop();
+  }
+  function recCodec(W, H, br, done) {
+    // H.264 (его берут Инста и Телеграм); нет — VP9 в том же MP4 (откроется в браузере и видеоредакторе, соцсети могут не принять)
+    var L = ['avc1.640033', 'avc1.640028', 'avc1.4d0033', 'avc1.4d0028', 'avc1.42e033', 'avc1.42e028', 'vp09.00.40.08'];
+    (function next(i) {
+      if (i >= L.length) { done(null); return; }
+      var c = { codec: L[i], width: W, height: H, bitrate: br, framerate: VID_FPS, latencyMode: 'realtime' };
+      if (L[i].slice(0, 4) === 'avc1') c.avc = { format: 'avc' };
+      VideoEncoder.isConfigSupported(c).then(function (s) { if (s && s.supported) done(c); else next(i + 1); }, function () { next(i + 1); });
+    })(0);
+  }
+  function recLeave(e) { if (REC) { e.preventDefault(); e.returnValue = ''; } }
+  function recName(R, ext) { var d = new Date(), p = function (v) { return (v < 10 ? '0' : '') + v; }; return '13M-uzor' + (R.day && R.day !== 'final' ? '-den' + R.day : '') + '-' + p(d.getDate()) + p(d.getMonth() + 1) + '-' + p(d.getHours()) + p(d.getMinutes()) + (R.form === 'vert' ? '-9x16' : '') + (R.round ? '-krug' : '') + '.' + ext; }
+  function recStart(key, day) {
+    if (REC) return;
+    if (!recCan()) { dialog({ title: 'Запись не получится в этом браузере', body: 'Откройте панель в Chrome на компьютере — там видео пишется сразу в файл.' }); return; }
+    if (!KDRAW[key]) { toast('Сначала картинка или туманность'); return; }
+    var R = { key: key, day: day, form: RSET.form, round: RSET.round, end: RSET.end, st: 'count', meas: [], gap: 0, lastTs: -1, lastKey: -1, dur: 0, paused: false, oc: document.createElement('canvas') };
+    var D = recDims(R.form); R.W = D[0]; R.H = D[1]; R.oc.width = R.W; R.oc.height = R.H;
+    delete KRES[key];
+    function go(fh) {
+      R.fh = fh; R.max = fh ? REC_FILE_MAX : REC_MEM_MAX; R.c0 = performance.now(); REC = R;
+      window.addEventListener('beforeunload', recLeave);
+      R.tick = setInterval(recTickUI, 250);
+      vidMuxer(function () {});
+      setTimeout(function () { if (REC === R && R.st === 'count') recPrep(R); }, 3000);
+      recPaint();
+    }
+    // Chrome на компьютере: файл выбирается сразу, видео пишется прямо в него (15 минут — больше гигабайта, в памяти не держим)
+    if (window.showSaveFilePicker) {
+      window.showSaveFilePicker({ suggestedName: recName(R, 'mp4'), types: [{ description: 'Видео MP4', accept: { 'video/mp4': ['.mp4'] } }] })
+        .then(function (h) { return h.createWritable().then(function (w) { go({ h: h, w: w }); }); }, function (er) { if (er && er.name === 'AbortError') return; go(null); })
+        .catch(function () { go(null); });
+    } else go(null);
+  }
+  // После отсчёта: компьютер не успевает рисовать 1080 — пишем 720 (видео не дёргается, чуть мягче)
+  function recPrep(R) {
+    R.st = 'prep'; recPaint();
+    var m = R.meas.slice(-40).sort(function (a, b) { return a - b; }), med = m.length ? m[Math.floor(m.length / 2)] : 0;
+    if (med > 26) { var D = recDims(R.form, 2 / 3); R.W = D[0]; R.H = D[1]; R.oc.width = R.W; R.oc.height = R.H; R.small = true; }
+    vidMuxer(function (ok) {
+      if (REC !== R) return;
+      if (!ok) { recFail(R, 'Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.'); return; }
+      var br = Math.round((R.H > R.W ? 14e6 : 10e6) * (R.small ? .55 : 1) * (R.fh ? 1 : .7));
+      recCodec(R.W, R.H, br, function (c) {
+        if (REC !== R) return;
+        if (!c) { recFail(R, 'Этот браузер не умеет сжимать видео в MP4. Попробуйте Chrome.'); return; }
+        var X = window.Mp4Muxer;
+        R.mux = new X.Muxer({ target: R.fh ? new X.FileSystemWritableFileStreamTarget(R.fh.w) : new X.ArrayBufferTarget(), video: { codec: c.avc ? 'avc' : 'vp9', width: R.W, height: R.H, frameRate: VID_FPS }, fastStart: R.fh ? false : 'in-memory', firstTimestampBehavior: 'offset' });
+        R.enc = new VideoEncoder({ output: function (ch, meta) { try { R.mux.addVideoChunk(ch, meta); } catch (er) { R.bad = er; } }, error: function (er) { R.bad = er; } });
+        R.enc.configure(c); R.vp9 = !c.avc;
+        R.st = 'rec'; R.t0 = performance.now(); R.lastFeed = 0; recPaint();
+      });
+    });
+  }
+  function recPause() { var R = REC; if (!R || R.st !== 'rec') return; var now = performance.now(); if (R.paused) { R.gap += now - R.p0; R.lastFeed = now; R.paused = false; } else { R.paused = true; R.p0 = now; } recPaint(); }
+  function recStop() {
+    var R = REC; if (!R) return;
+    if (R.st === 'count' || R.st === 'prep') { recDrop(R); recPaint(); return; }
+    if (R.st !== 'rec') return;
+    if (R.paused) recPause();
+    if (R.end && R.dur > 1) { R.st = 'end'; R.e0 = performance.now(); setTimeout(function () { if (REC === R && R.st === 'end') recFinish(R); }, 3500); recPaint(); }
+    else recFinish(R);
+  }
+  function recDrop(R) {
+    clearInterval(R.tick); window.removeEventListener('beforeunload', recLeave);
+    try { if (R.enc && R.enc.state !== 'closed') R.enc.close(); } catch (e) {}
+    if (R.fh) { try { R.fh.w.abort ? R.fh.w.abort() : R.fh.w.close(); } catch (e) {} }
+    if (REC === R) REC = null;
+  }
+  function recFail(R, msg) { recDrop(R); KRES[R.key] = { err: msg }; recPaint(); }
+  function recFinish(R) {
+    if (R.st === 'save') return;
+    R.st = 'save'; recPaint();
+    if (R.bad) { recFail(R, 'Не получилось записать видео: ' + (R.bad.message || R.bad)); return; }
+    if (R.lastTs < 0) { recDrop(R); recPaint(); return; }
+    R.enc.flush().then(function () {
+      R.mux.finalize();
+      var name = R.fh ? R.fh.h.name : recName(R, 'mp4'), info = { name: name, dur: R.dur, W: R.W, H: R.H, file: !!R.fh, small: !!R.small, vp9: R.vp9 };
+      if (R.fh) return R.fh.w.close().then(function () { return R.fh.h.getFile(); }).then(function (f) { info.size = f.size; info.url = URL.createObjectURL(f); return info; });
+      var blob = new Blob([R.mux.target.buffer], { type: 'video/mp4' }); info.size = blob.size; info.url = URL.createObjectURL(blob); return info;
+    }).then(function (info) {
+      clearInterval(R.tick); window.removeEventListener('beforeunload', recLeave);
+      try { if (R.enc.state !== 'closed') R.enc.close(); } catch (e) {}
+      var old = KRES[R.key]; if (old && old.url) URL.revokeObjectURL(old.url);
+      KRES[R.key] = info; if (REC === R) REC = null; recPaint();
+    }, function (er) { recFail(R, 'Не получилось записать видео: ' + (er && er.message || er)); });
+  }
+  // Снимок кадра PNG в полном размере видео (идёт запись — тот же кадр, что в видео)
+  function recShot(key, day) {
+    var R = REC && REC.key === key ? REC : null, cv = R ? R.oc : null, E = KDRAW[key] ? KDRAW[key].E() : null;
+    if (!cv) {
+      if (!KDRAW[key]) { toast('Сначала картинка или туманность'); return; }
+      var o = { key: key, round: RSET.round, form: RSET.form }, D = recDims(RSET.form); cv = document.createElement('canvas'); cv.width = D[0]; cv.height = D[1];
+      recFrame(o, cv.getContext('2d'), D[0], D[1], E, 0);
+    }
+    cv.toBlob(function (b) {
+      if (!b) { toast('Не получилось сохранить кадр', true); return; }
+      var u = URL.createObjectURL(b), a = el('a', { href: u, download: recName(R || { day: day, form: RSET.form, round: RSET.round }, 'png') });
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+      toast('Кадр сохранён — в «Загрузках»');
+    }, 'image/png');
+  }
+  function recPaint() { RUI = RUI.filter(function (u) { return u.node.isConnected || !u.seen; }); RUI.forEach(function (u) { if (u.node.isConnected) u.seen = true; u.draw(); }); }
+  function recTickUI() { RUI.forEach(function (u) { if (u.node.isConnected && u.time) u.time(); }); }
+  // Кнопки записи под живым окошком (перестраиваются вместе со страницей; сама запись живёт отдельно)
+  function recUI(key, day) {
+    var box = el('div', { class: 'a-rec' }), tm = el('span', { class: 'a-rec-time' }), U = { node: box };
+    function btn(t, f, cls, ttl) { return el('button', { type: 'button', class: 'a-btn a-btn--small' + (cls ? ' ' + cls : ''), text: t, title: ttl || null, onclick: f }); }
+    function pick(lbl, k, opts) {
+      var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      s.value = RSET[k]; s.addEventListener('change', function () { RSET[k] = s.value; });
+      return field(lbl, s);
+    }
+    U.time = function () {
+      var R = REC && REC.key === key ? REC : null; if (!R) return;
+      if (R.st === 'count') tm.textContent = 'Начинаю через ' + Math.max(1, Math.ceil((3000 - (performance.now() - R.c0)) / 1000)) + '…';
+      else if (R.st === 'prep') tm.textContent = 'Готовлю запись…';
+      else if (R.st === 'rec') tm.textContent = (R.paused ? '⏸ Пауза · ' : '● ') + recTime(R.dur) + ' из ' + recTime(R.max);
+      else if (R.st === 'end') tm.textContent = 'Заканчиваю…';
+      else tm.textContent = 'Сохраняю видео…';
+    };
+    U.draw = function () {
+      var R = REC && REC.key === key ? REC : null, other = REC && !R, res = KRES[key], kids = [];
+      box.textContent = '';
+      if (R) {
+        U.time(); kids.push(tm);
+        if (R.st === 'rec') kids.push(el('div', { class: 'a-rec-btns' }, [btn(R.paused ? '▶ Дальше' : '⏸ Пауза', recPause), btn('📷 Кадр', function () { recShot(key, day); }), btn('■ Стоп', recStop, 'a-btn--dark')]));
+        else if (R.st === 'count' || R.st === 'prep') kids.push(el('div', { class: 'a-rec-btns' }, [btn('Отменить', recStop)]));
+        if (R.st === 'rec' && !R.fh) kids.push(el('span', { class: 'a-hint', text: 'Этот браузер держит видео в памяти — до 5 минут. В Chrome на компьютере — до 15 минут, сразу в файл.' }));
+        if (R.small && R.st === 'rec') kids.push(el('span', { class: 'a-hint', text: 'Компьютер не успевал рисовать 1080 — пишу ' + R.W + '×' + R.H + ', так видео не дёргается.' }));
+      } else {
+        kids.push(el('div', { class: 'a-rec-btns' }, [
+          btn('● Записать', function () { recStart(key, day); }, 'a-btn--dark', 'Запись того, что идёт в окошке: капли, размешивание, настройки. Мышки и панели в видео нет.'),
+          btn('📷 Кадр', function () { recShot(key, day); }, '', 'Картинка PNG в размере видео')]));
+        if (other) kids.push(el('span', { class: 'a-hint', text: 'Идёт запись другого дня — сначала остановите её.' }));
+        kids.push(el('details', { class: 'a-rec-set' }, [el('summary', { text: 'Как записать' }),
+          pick('Форма', 'form', [['sq', 'Квадрат 1080×1080 — лента, кружочек'], ['vert', 'Вертикаль 9:16 — Reels, Сторис']]),
+          el('label', { class: 'a-switch' }, [(function () { var cb = el('input', { type: 'checkbox', checked: RSET.round }); cb.addEventListener('change', function () { RSET.round = cb.checked; }); return cb; })(), el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text', text: 'Круглое окошко на чёрном' })]),
+          pick('Конец (последние 2 секунды после «Стоп»)', 'end', [['', 'просто остановиться'], ['in', 'стекает в центр'], ['out', 'уходит за края'], ['fade', 'тает']]),
+          el('span', { class: 'a-hint', text: 'В видео — только узор: что капаете, размешиваете, какие настройки меняете. Мышки и панели нет. Пауза — узор замирает, время в видео не идёт. Видео остаётся у вас: Chrome на компьютере сразу спросит, куда его сохранить.' })]));
+        if (res && res.err) kids.push(el('span', { class: 'a-hint a-hint--warn', text: res.err }));
+        else if (res) {
+          var v = el('video', { class: 'a-vid-out' + (res.H > res.W ? ' is-vert' : ''), src: res.url, muted: true, playsinline: true, controls: true }); v.muted = true;
+          kids.push(el('div', { class: 'a-rec-res' }, [
+            el('span', { class: 'a-hint', text: 'Готово: ' + recTime(res.dur) + ', ' + res.W + '×' + res.H + ', ' + (res.size / 1048576).toFixed(1).replace('.', ',') + ' МБ.' + (res.file ? ' Уже сохранено: «' + res.name + '».' : '') }),
+            res.vp9 ? el('span', { class: 'a-hint a-hint--warn', text: 'Этот браузер не умеет формат H.264, видео — в VP9: смотреть и монтировать можно, а Инста и Телеграм могут не принять. Для соцсетей запишите в Chrome.' }) : null,
+            v,
+            el('div', { class: 'a-rec-btns' }, [res.file ? null : el('a', { class: 'a-btn a-btn--small a-btn--dark', href: res.url, download: res.name, text: '⬇ Сохранить видео' }),
+              btn('✕ Убрать', function () { URL.revokeObjectURL(res.url); delete KRES[key]; recPaint(); })])]));
+        }
+      }
+      add(box, kids);
+    };
+    RUI.push(U); U.draw();
+    return box;
   }
 
   /* ---------- Окно-вопрос и окно «идёт работа» ---------- */
