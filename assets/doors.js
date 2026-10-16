@@ -1611,6 +1611,7 @@
        force — сила удара, %, splash: '' | 'few' | 'many' — брызги, thick — густота краски, % (0 жидкая — 100 густая), fall: '' капля | 'stream' струйка | 'angle' под углом,
        count: '' одна | '3' — 2–3 рядом, rings: '' круги по воде | 'off', cloud — нити ↔ облака, %, drops: '' падают сами | 'hand' только касанием, every — раз в N секунд,
        speed, dens — сколько краски, size — размер капли, swirl — завитки (всё %), fade — как быстро растворяется, %,
+       brush, bw (эбру, только панель): кисть — см. I.brush в kapNew,
        even (эбру): '' капли разные | 'fix' — каждая ровно dsize % (поперечник — доля меньшей стороны окошка, 2–80, по умолчанию 15), одна, без мелких рядом,
        touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок) }.
      Краска — частицы, оставляющие след на своём холсте (cv); течение воды — шум (Перлин) + вихри каждой капли. В трубке холст лежит в «камере» поверх картинки,
@@ -1822,7 +1823,7 @@
       }
       // вода чуть течёт — прожилки живые; растянутые края — гуще точки
       for (i = 0; i < eb.length; i++) {
-        P = eb[i].pts; var out = [];
+        P = eb[i].pts; if (eb[i].live) { tot += P.length; continue; } var out = [];
         for (q = 0; q < P.length; q += 2) {
           if (am) { var nx = P[q] * f, ny = P[q + 1] * f; P[q] += (noise(nx, ny + e + T) - noise(nx, ny - e + T)) / (2 * e) * am * dt; P[q + 1] -= (noise(nx + e, ny + T) - noise(nx - e, ny + T)) / (2 * e) * am * dt; }
           out.push(P[q], P[q + 1]);
@@ -1845,6 +1846,69 @@
       var l = U() * .14, i, q, P;
       for (i = 0; i < eb.length; i++) { P = eb[i].pts; for (q = 0; q < P.length; q += 2) { var ex = P[q] - x, ey = P[q + 1] - y, w = Math.exp(-Math.sqrt(ex * ex + ey * ey) / l); P[q] += dx * w; P[q + 1] += dy * w; } }
     }
+    /* Кисть эбру (16.10, её «делаем»; только в панели — у участника на сайте её нет): вести пальцем / мышкой — за ним ложится полоса густой краски.
+       Медленно — толще, быстро — тоньше, в конце мазок сходит на нет; перо — по нажиму. D.brush: 'push' — мазок раздвигает лежащую краску
+       (по краю — прожилка, как у капли) | 'top' — ложится сверху, как тушь; D.bw — толщина, % меньшей стороны окошка (1–30, 5).
+       Пока ведёт — мазок стоит; отпустила — он такая же краска, как капли: течёт («Завитки»), его раздвигают новые капли. */
+    var bs = null;
+    function bsW(D) { return U() * num(D.bw, 5, 1, 30) / 100; }
+    function bsOut(b) {
+      var c = b.c, w = b.w, n = c.length / 2, o = [], i, k, a;
+      if (n === 1) { for (k = 0; k < 28; k++) { a = k / 28 * 6.283; o.push(c[0] + Math.cos(a) * w[0], c[1] + Math.sin(a) * w[0]); } b.g.pts = o; return; }
+      var L = [], Rt = [];
+      for (i = 0; i < n; i++) {
+        var i0 = Math.max(0, i - 1), i1 = Math.min(n - 1, i + 1), tx = c[i1 * 2] - c[i0 * 2], ty = c[i1 * 2 + 1] - c[i0 * 2 + 1], tl = Math.sqrt(tx * tx + ty * ty) || 1, nx = -ty / tl, ny = tx / tl;
+        L.push(c[i * 2] + nx * w[i], c[i * 2 + 1] + ny * w[i]); Rt.push(c[i * 2] - nx * w[i], c[i * 2 + 1] - ny * w[i]);
+      }
+      function cap(j, j2, ww) { // полукруг вокруг точки j — от левого края к правому, наружу от j2
+        var ax = c[j * 2] - c[j2 * 2], ay = c[j * 2 + 1] - c[j2 * 2 + 1], a0 = Math.atan2(ay, ax);
+        for (k = 1; k < 8; k++) { a = a0 + Math.PI / 2 - k / 8 * Math.PI; o.push(c[j * 2] + Math.cos(a) * ww, c[j * 2 + 1] + Math.sin(a) * ww); }
+      }
+      for (i = 0; i < n; i++) o.push(L[i * 2], L[i * 2 + 1]);
+      cap(n - 1, n - 2, w[n - 1]);
+      for (i = n - 1; i >= 0; i--) o.push(Rt[i * 2], Rt[i * 2 + 1]);
+      cap(0, 1, w[0]);
+      b.g.pts = o;
+    }
+    // Раздвинуть краску вокруг точки (как капля: площадь сохраняется)
+    function bsRound(x, y, w) {
+      for (var j = 0; j < eb.length; j++) { if (eb[j] === bs.g) continue; var P = eb[j].pts; for (var q = 0; q < P.length; q += 2) { var dx = P[q] - x, dy = P[q + 1] - y, d2 = dx * dx + dy * dy + 1e-6, k = Math.sqrt(1 + w * w / d2); P[q] = x + dx * k; P[q + 1] = y + dy * k; } }
+    }
+    // Шаг мазка длиной l и полушириной w добавляет площадь 2·w·l — раздвигаем от его точки, как капля такой площади (плавно, без зубцов на изгибах)
+    function bsSeg(x, y, w, l) { bsRound(x, y, Math.sqrt(2 * w * l / Math.PI)); }
+    // ph: 0 — коснулась, 1 — ведёт, 2 — отпустила; pr — нажим пера (0…1) или null
+    I.brush = function (D, x, y, ph, pr) {
+      if (!mode) setup(kapMode(D), asp);
+      if (D.kind !== 'ebru' || !D.brush) return;
+      var now = performance.now(), W0 = bsW(D), pk = pr > 0 ? .35 + pr * 1.1 : 1, push = D.brush !== 'top';
+      if (ph === 0 || !bs) {
+        bs = { g: { col: color(D), x: x, y: y, R2: 0, cur: 0, pts: [], live: true }, c: [x, y], w: [W0 * pk * .8], t: now, D: D };
+        eb.push(bs.g); if (push) bsRound(x, y, W0 * pk * .8); bsOut(bs); lastDrop = real; return;
+      }
+      if (eb.indexOf(bs.g) < 0) eb.push(bs.g);
+      var c = bs.c, w = bs.w, n = c.length / 2, lx = c[(n - 1) * 2], ly = c[(n - 1) * 2 + 1], dx = x - lx, dy = y - ly, L = Math.sqrt(dx * dx + dy * dy), sp = Math.max(1, W0 * .3), i;
+      if (ph === 1 && L >= sp) {
+        // скорость — в окошках в секунду: медленно — толще (до 1,15), быстро — тоньше (до 0,3)
+        var v = L / Math.max(8, now - bs.t) * 1000 / U(); bs.v = bs.v == null ? v : bs.v * .7 + v * .3; v = bs.v;
+        var tg = Math.max(.3, Math.min(1.15, 1.2 - v * .45)) * W0 * pk, st = Math.ceil(L / sp), ww = w[n - 1];
+        for (i = 1; i <= st; i++) {
+          var nx2 = lx + dx * i / st, ny2 = ly + dy * i / st, px0 = c[c.length - 2], py0 = c[c.length - 1];
+          ww += (tg - ww) * .35;
+          if (push) bsSeg(nx2, ny2, ww, Math.sqrt((nx2 - px0) * (nx2 - px0) + (ny2 - py0) * (ny2 - py0)));
+          c.push(nx2, ny2); w.push(ww);
+        }
+        bs.t = now; bsOut(bs);
+        // Очень длинный мазок — дальше новым куском того же цвета (иначе телефону тяжело)
+        if (c.length > 2400) { var g0 = bs.g; g0.live = false; bs = { g: { col: g0.col, x: x, y: y, R2: 0, cur: 0, pts: [], live: true }, c: [x, y], w: [ww], t: now, D: D }; eb.push(bs.g); bsOut(bs); }
+        lastDrop = real;
+      }
+      if (ph === 2) {
+        // Кончик: последняя часть мазка (≈ 3 толщины) сходит на нет
+        var acc = 0, tl = W0 * 3;
+        for (i = w.length - 1; i > 0 && acc < tl; i--) { var f = acc / tl; w[i] *= .12 + .88 * f; acc += Math.sqrt(Math.pow(c[i * 2] - c[i * 2 - 2], 2) + Math.pow(c[i * 2 + 1] - c[i * 2 - 1], 2)); }
+        bsOut(bs); bs.g.live = false; bs = null;
+      }
+    };
     I.drop = function (D, x, y) {
       if (!mode) setup(kapMode(D), asp);
       var given = x != null && isFinite(x);
@@ -1876,7 +1940,7 @@
       }
       lastDrop = real;
     };
-    I.clear = function () { drops = []; rings = []; eb = []; ic.clearRect(0, 0, cv.width, cv.height); };
+    I.clear = function () { drops = []; rings = []; eb = []; bs = null; ic.clearRect(0, 0, cv.width, cv.height); };
     I.mode = function () { return mode; };
     I.fit = function (a) {
       if (mode === 'tube' || !a || Math.abs(a - asp) / asp < .03) return;
