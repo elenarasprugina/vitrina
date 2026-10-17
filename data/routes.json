@@ -44,14 +44,26 @@
       "routeUrl": "",
       "glass": {},
       "finalWords": 1,
-      "finalText1": {
-        "value": "Маршрут пройден",
-        "show": true
-      },
-      "finalText2": {
-        "value": "Увидимся за поворотом…",
-        "show": true
-      }
+      "finalVideo": "media/bcbeb157e80eb67ebd12.mp4",
+      "finalVideoName": "yellow-sun-final.mp4",
+      "archive": false,
+      "archiveBlocks": [
+        {
+          "id": "sb-b29qp",
+          "kind": "text",
+          "visible": true,
+          "title": "Как это было",
+          "text": "",
+          "collapse": true
+        },
+        {
+          "id": "sb-6gend",
+          "kind": "images",
+          "visible": true,
+          "images": []
+        }
+      ],
+      "archiveActions": []
     },
     {
       "id": "blue-hand",

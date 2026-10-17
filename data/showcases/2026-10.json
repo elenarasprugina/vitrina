@@ -396,7 +396,7 @@
           "rim": "inherit",
           "glowTempo": "inherit"
         },
-        "dayShow": true,
+        "dayShow": false,
         "dayBg": ""
       },
       "back": {
@@ -428,11 +428,12 @@
                   "show": true
                 },
                 "action": {
-                  "kind": "contact",
-                  "label": "Написать",
+                  "kind": "link",
+                  "label": "Подробнее",
                   "telegram": "",
                   "host": "red_skywalker_observation",
-                  "message": "Привет! Напомни про начало Маршрута \"Красный Небесный Странник\"."
+                  "message": "Привет! Напомни про начало Маршрута \"Красный Небесный Странник\".",
+                  "url": "https://13mirrors.ru/vitrina/routes/red-skywalker/"
                 }
               },
               {
@@ -678,28 +679,7 @@
             "id": "b-rh4hv0",
             "kind": "items",
             "visible": true,
-            "items": [
-              {
-                "id": "m-01",
-                "visible": true,
-                "order": 1,
-                "date": {
-                  "value": "15 октября",
-                  "show": true
-                },
-                "title": "PRO MAK",
-                "price": {
-                  "value": "Свободный вход",
-                  "show": true
-                },
-                "action": {
-                  "kind": "event",
-                  "label": "Полюбопытствовать",
-                  "message": "Здравствуйте! Пришлите, пожалуйста, ссылку на встречу «МАК-карты» 8 октября.",
-                  "eventId": "ev-a4g8f"
-                }
-              }
-            ],
+            "items": [],
             "max": 10,
             "copyItems": false,
             "tpl": "container"
