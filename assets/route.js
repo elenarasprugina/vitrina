@@ -1424,7 +1424,7 @@
   function kalAll() { var o = kalLog(), k; for (k in S.kalTmp || {}) o[k] = S.kalTmp[k]; return o; }
   /* Чаша (шаг 2, 09.10): по стёклышку за каждый наступивший день + подаренные (слово-подарок, на этом устройстве). Не тратятся: в каждом дне — все.
      Что в чаше — doors.kalPut: '' стёклышки | 'spark' искры света | 'both' то и другое (через одно) | 'none' чаши нет. Вид — вкладка «Стёклышки» (дни, подарки);
-     doors.kalGlass: 'crystal' — яркий кристалл, doors.kalGlow — сияние, % (09.10). */
+     doors.kalGlass: 'crystal' — яркий кристалл, 'orb' — светящийся шарик, 'dot' — точка света (17.10), doors.kalGlow — сияние, % (09.10). */
   function kalBowl() {
     var r = S.route, put = doorsCfg().kalPut || '', L = [], n = glassDaysOf(r, curDay()), d;
     if (put === 'none') return L;
@@ -1433,7 +1433,7 @@
       var z = GIFT_ZONES[g[1]]; if (z) L.push({ id: 'g' + g[0] + '.' + g[1], c: giftColor(r, g[0], z), l: 'gifts.' + z, look: glassLook(r, 'gifts', z) });
     });
     var D = doorsCfg();
-    L.forEach(function (it, i) { it.k = put === 'spark' || (put === 'both' && i % 2) ? 'spark' : 'glass'; if (it.k === 'spark') it.c = mixW(it.c, .45); it.glow = D.kalGlow; it.cry = D.kalGlass === 'crystal'; });
+    L.forEach(function (it, i) { it.k = put === 'spark' || (put === 'both' && i % 2) ? 'spark' : 'glass'; if (it.k === 'spark') it.c = mixW(it.c, .45); it.glow = D.kalGlow; it.cry = D.kalGlass === 'crystal'; it.orb = D.kalGlass === 'orb' || D.kalGlass === 'dot' ? D.kalGlass : ''; });
     return L;
   }
   /* Тринадцатый в центре хоровода волны (финал): его стёклышки — по одному за каждый наступивший день маршрута + подаренные (как в чаше).
