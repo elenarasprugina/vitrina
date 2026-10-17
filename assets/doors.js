@@ -2706,7 +2706,11 @@
     if (!col.firstChild) col.appendChild(el('p', 'ys-sp-small', o.empty || ''));
     scroll.appendChild(col);
     root.appendChild(bg); root.appendChild(dim); root.appendChild(scroll); root.appendChild(back);
-    if (live && !wv) root.appendChild(kalBar(live, o));
+    // Кнопки и чаша внизу — поверх текста: место под ними у колонки — по их настоящей высоте (подсказка в две строки, полная чаша), иначе «Вопрос дня» уезжает под подсказку
+    if (live && !wv) {
+      var kb = root.appendChild(kalBar(live, o)), kh = function () { scroll.style.setProperty('--ys-kal-h', kb.offsetHeight + 'px'); };
+      if (window.ResizeObserver) new ResizeObserver(function () { if (kb.isConnected) kh(); }).observe(kb);
+    }
     return root;
   }
   /* Кнопки калейдоскопа внизу: чаша со стёклышками человека (если есть), «Что внутри?» (сама картинка, вращается)
