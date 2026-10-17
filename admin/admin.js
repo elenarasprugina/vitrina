@@ -2238,7 +2238,9 @@
   function coverDoors(D) {
     D = D || {};
     if ((D.cover || {}).on === false) return { cover: { on: false } };
+    // worldMode, skies — погода дня и её общие картинки (без них облака на обложке не видны); markWhen — когда виден след тона
     return { desktop: D.desktop, mobile: D.mobile, doorAssignmentMode: D.doorAssignmentMode, showDayNumbers: D.showDayNumbers, cover: D.cover || {}, marks: D.marks || [],
+      worldMode: D.worldMode, skies: D.skies || [], markWhen: D.markWhen,
       items: (D.items || []).map(function (d) { return { id: d.id, on: d.on, zone: d.zone, layers: d.layers, markFix: d.markFix }; }),
       days: (D.days || []).map(function (y) { return { world: (y && y.world) || [], gesture: y && y.gesture }; }) };
   }
