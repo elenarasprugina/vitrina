@@ -63,7 +63,8 @@
           "images": []
         }
       ],
-      "archiveActions": []
+      "archiveActions": [],
+      "filmSeed": 1
     },
     {
       "id": "blue-hand",
