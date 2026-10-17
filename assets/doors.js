@@ -956,7 +956,7 @@
   // Сохранённые стёклышки → для рисования (узор на двери, обложка, фигура)
   function kalPcs(r, g, base) {
     return (Array.isArray(g) ? g : []).filter(function (s) { return s && isFinite(+s.x) && isFinite(+s.y) && Array.isArray(s.c); })
-      .map(function (s, i) { return { at: [+s.x, +s.y], f: s.f ? 1 : 0, c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: cfg(r).kalGlow, cry: cfg(r).kalGlass === 'crystal' }; });
+      .map(function (s, i) { return { at: [+s.x, +s.y], f: s.f ? 1 : 0, c: s.c, look: kalLook(r, s.l, base), k: s.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: cfg(r).kalGlow, cry: cfg(r).kalGlass === 'crystal', orb: kalOrbOf(cfg(r).kalGlass) }; });
   }
   // Картинки камней («своя картинка») — загрузить до того, как узор рисуется один раз (дверь, фигура)
   function kalPre(P, done) {
@@ -992,7 +992,29 @@
     x.fillStyle = g; x.beginPath(); x.arc(0, -r * .2, r * .55, 0, 6.2832); x.fill();
     x.restore();
   }
+  /* Светящийся шарик (17.10, её «не искорки, а светящиеся шарики»): doors.kalGlass: 'orb' — шарик света (яркая серединка, мягкий ореол, медленно дышит),
+     'dot' — точка света (маленькая яркая бусина). Без крестика-блика; искры в чаше при этом — тоже точки света. Сияние — размер ореола (0 — как 50 %). */
+  function kalOrbOf(v) { return v === 'orb' || v === 'dot' ? v : ''; }
+  function kalOrb(x, it, r, t, inBowl) {
+    var dot = it.orb === 'dot' || it.k === 'spark', gl = num(it.glow, 0, 0, 100) / 100 || .5, br = .85 + .15 * Math.sin(t * 1.3 + it.ph);
+    var rc = r * num(it.look && it.look.size, 100, 50, 200) / 100 * (dot ? .38 : .7), HR = rc * (dot ? 3 + 3.5 * gl : 2 + 2.8 * gl) * br, c = it.c, h, g;
+    if (inBowl) HR = Math.min(HR, r * 1.38);
+    // Ореол — свет складывается с узором (как фонарик), к краю тает
+    x.save(); x.globalCompositeOperation = 'lighter';
+    h = x.createRadialGradient(0, 0, 0, 0, 0, HR);
+    h.addColorStop(0, rgbA(liftC(c, .45), .95)); h.addColorStop(.22, rgbA(liftC(c, .15), .5 * (.5 + .5 * gl) * br)); h.addColorStop(.55, rgbA(c, .16 * (.5 + .5 * gl)));
+    h.addColorStop(1, rgbA(c, 0));
+    x.fillStyle = h; x.beginPath(); x.arc(0, 0, HR, 0, 6.2832); x.fill();
+    x.restore(); x.save();
+    // Сам шарик: почти белая серединка, к краю — его цвет, край мягкий (без контура)
+    g = x.createRadialGradient(-rc * .12, -rc * .15, 0, 0, 0, rc);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(dot ? .35 : .3, rgbA(liftC(c, .7), .97));
+    g.addColorStop(.72, rgbA(liftC(c, .2), .85)); g.addColorStop(1, rgbA(c, 0));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, rc, 0, 6.2832); x.fill();
+    x.restore();
+  }
   function kalPiece(x, it, r, t, inBowl) {
+    if (it.orb) { kalOrb(x, it, r, t, inBowl); return; }
     if (it.k !== 'spark' && (it.glow || it.cry)) {
       var gl = num(it.glow, 0, 0, 100) / 100, tw = .8 + .2 * Math.sin(t * 2.3 + it.ph), rc = r * num(it.look.size, 100, 50, 200) / 100, k2;
       if (gl) {
@@ -1198,6 +1220,8 @@
       TL.list.forEach(function (M) { tx.setTransform(TB.sx * M[0], TB.sy * M[1], TB.sx * M[2], TB.sy * M[3], TB.sx * M[4] * ta, TB.sy * M[5] * ta); tx.drawImage(TB.B, -TB.bo[0], -TB.bo[1]); });
       // Вершина-звезда — в середине экрана; течение — узор плывёт в одну сторону без конца
       var rot = mt * .05 * num(k.spin, 25, 0, 100) / 100 * Math.PI / 3, shf = [(-V[0][0] - MV.dx) * ta % (3 * ta), (-V[0][1] - MV.dy) * ta % (S3 * ta)];
+      // Для «стёклышко падает каплей» (inkAt): как экран сложен из треугольника — поворот, сдвиг, размер (тоннель — нижний слой)
+      if (INK && dm === 'tube') { INK.vis.ta = ta; INK.vis.rot = rot; INK.vis.sh = shf; INK.vis.z = MV.tun >= 0 ? Math.pow(2, MV.tun) : MV.z; INK.vis.W = W; INK.vis.H = H; }
       if (MV.tun >= 0) {
         // Тоннель: узор растёт из середины от 1 до 2 раз; поверх проявляется он же вдвое меньше — на 2 подмена незаметна
         var f2 = MV.tun, sm2 = f2 * f2 * (3 - 2 * f2);
@@ -1618,7 +1642,7 @@
        needle (эбру) — ширина иглы, % (1–30, 14), flow — течение воды (0–100, 10), circ — вода кружит (−100…100, 0),
        even (эбру): '' капли разные | 'fix' — каждая ровно dsize % (поперечник — доля меньшей стороны окошка, 2–80, по умолчанию 15), одна, без мелких рядом,
        touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок),
-       gdrop: '' стёклышко просто ложится в узор | 'ink' — падает каплей своего цвета (17.10), reset: '' у участника есть «Начать сначала» | 'off' — нет }.
+       gdrop: '' (и старое 'ink') — стёклышко падает каплей своего цвета (17.10; так по умолчанию с 17.10, вечер) | 'lie' — просто ложится в узор, reset: '' у участника есть «Начать сначала» | 'off' — нет }.
      Стёклышки в Б и В (17.10) лежат на воде поверх краски (у них f: 1, x, y — доли холста краски); в эбру их несёт вода, игла и новые капли (I.float).
      Краска — частицы, оставляющие след на своём холсте (cv); течение воды — шум (Перлин) + вихри каждой капли. В трубке холст лежит в «камере» поверх картинки,
      без зеркал и поверх узора — во весь экран. Всё считается на устройстве участника, ничего не уходит. Узор на двери — снимок холста (w, на устройстве). */
@@ -2460,7 +2484,7 @@
     var KD = kapOn(k) ? k.drop : null, tch = KD ? KD.touch || '' : 'off', FLAT = !!KD && kapMode(KD) !== 'tube';
     // Б и В (17.10): стёклышки лежат на воде (f: 1, место — доли холста краски); сохранены при другом виде — вернулись в чашу
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y) && !p.f === !FLAT) at[p.id] = [+p.x, +p.y]; });
-    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, at: at[b.id] || null, f: FLAT ? 1 : 0, fo: null }; });
+    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, orb: b.orb, at: at[b.id] || null, f: FLAT ? 1 : 0, fo: null }; });
     var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
@@ -2531,19 +2555,39 @@
       }
       return [(wx * c - wy * s) / R, (wx * s + wy * c) / R];
     }
-    // Точка на экране → место на холсте краски (null — куда видно: в треугольнике путь через зеркала не считается)
+    // Точка на экране → место на холсте краски (null — не видно)
     function inkAt(ex, ey) {
       var I = im && im._ink; if (!I || !I.mode()) return null;
       var bx = cv.getBoundingClientRect(), V = I.vis;
       if (I.mode() !== 'tube') return [(ex - bx.left) / (bx.width || 1) * I.cv.width, (ey - bx.top) / (bx.height || 1) * I.cv.height];
-      if (!V || V.tri) return null;
+      if (!V) return null;
+      if (V.tri) return inkTri(V, (ex - bx.left) * cv.width / (bx.width || 1), (ey - bx.top) * cv.height / (bx.height || 1), I.cv.width / 2);
       var p = toCam(ex, ey), h = I.cv.width / 2;
       return [h + p[0] * V.R / V.E * h, h + p[1] * V.R / V.E * h];
     }
+    // Треугольная трубка (17.10): точка экрана → через зеркала обратно в основной треугольник → место краски в нём (как triFill и triList, наоборот)
+    function inkTri(V, px, py, h) {
+      if (!V.ta || !V.W) return null;
+      var dx = (px - V.W / 2) / V.z, dy = (py - V.H / 2) / V.z, co = Math.cos(-V.rot), si = Math.sin(-V.rot);
+      var u = (co * dx - si * dy - V.sh[0]) / V.ta, v = (si * dx + co * dy - V.sh[1]) / V.ta, TL = triList(), T = TL.V, i, M, d, x, y, q;
+      u = ((u % 3) + 3) % 3; v = ((v % S3) + S3) % S3;
+      function side(a, b, X, Y) { return (b[0] - a[0]) * (Y - a[1]) - (b[1] - a[1]) * (X - a[0]); }
+      for (i = 0; i < TL.list.length; i++) {
+        M = TL.list[i]; d = M[0] * M[3] - M[1] * M[2]; if (!d) continue;
+        x = (M[3] * (u - M[4]) - M[2] * (v - M[5])) / d; y = (-M[1] * (u - M[4]) + M[0] * (v - M[5])) / d;
+        q = [side(T[0], T[1], x, y), side(T[1], T[2], x, y), side(T[2], T[0], x, y)];
+        if ((q[0] >= -1e-3 && q[1] >= -1e-3 && q[2] >= -1e-3) || (q[0] <= 1e-3 && q[1] <= 1e-3 && q[2] <= 1e-3)) {
+          // Точка треугольника → поворот картинки ang назад → холст краски (квадрат 2 E вокруг оси)
+          x *= V.ta; y *= V.ta; co = Math.cos(-V.ang); si = Math.sin(-V.ang);
+          return [h + (co * x - si * y) / V.E * h, h + (si * x + co * y) / V.E * h];
+        }
+      }
+      return null;
+    }
     function changed() { if (o.onPut) o.onPut(); if (REDUCED || o.still) draw(); }
-    // «Стёклышко падает каплей своего цвета» (drop.gdrop, 17.10): там, где легло, раскрывается краска его цвета; возвращает каплю (эбру — пятно)
+    // «Стёклышко падает каплей своего цвета» (drop.gdrop, 17.10; по умолчанию — да, 'lie' — нет): там, где легло, раскрывается краска его цвета; возвращает каплю (эбру — пятно)
     function inkOf(it, ip) {
-      if (!KD || KD.gdrop !== 'ink' || !ip || !im || !im._ink || !Array.isArray(it.c)) return null;
+      if (!KD || KD.gdrop === 'lie' || !ip || !im || !im._ink || !Array.isArray(it.c)) return null;
       var d = im._ink.drop(KD, ip[0], ip[1], { col: rgbHex(it.c), one: true });
       if (REDUCED) { for (var w = 0; w < 120; w++) im._ink.step(.05, k); draw(); }
       return d && d.pts ? d : null;
