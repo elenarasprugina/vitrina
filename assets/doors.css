@@ -172,9 +172,14 @@
 .ys-kal-it canvas{width:44px;height:44px;display:block;pointer-events:none}
 .ys-kal-it.is-on{transform:translateY(-6px) scale(1.12);filter:drop-shadow(0 0 9px #ffe3a3)}
 .ys-kal-it:focus-visible{outline:2px solid #ffe3a3;outline-offset:2px}
+/* Цвет своей капли (18.10): кружки из цветов дня */
+.ys-kal-cols{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:2px 4px}
+.ys-kal-col{width:34px;height:34px;flex:none;border:2px solid rgba(255,240,215,.55);padding:0;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.45),transparent 45%),var(--c,#fff);box-shadow:0 2px 8px rgba(0,0,0,.55);cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s}
+.ys-kal-col.is-on{transform:scale(1.18);border-color:#fff3d6;box-shadow:0 0 0 3px rgba(255,227,163,.45),0 0 14px var(--c,#fff)}
+.ys-kal-col:focus-visible{outline:2px solid #ffe3a3;outline-offset:3px}
 .ys-kal-empty{font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-size:15px;color:#e8d3a6}
 .ys-space--kal.ys-space--bowl .ys-space-in:not([style*="--ys-kal-h"]){padding-bottom:calc(200px + env(safe-area-inset-bottom,0px))}
-@media (prefers-reduced-motion:reduce){.ys-kal-it{transition:none}}
+@media (prefers-reduced-motion:reduce){.ys-kal-it,.ys-kal-col{transition:none}}
 .ys-kal-done{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:16px;box-sizing:border-box;background:rgba(5,4,8,.35)}
 .ys-kal-plate{width:min(380px,100%);box-sizing:border-box;padding:20px;display:grid;gap:12px;justify-items:center;text-align:center;border-radius:20px;background:rgba(14,9,5,.55);border:1px solid rgba(255,214,140,.3);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#f6ead2}
 .ys-kal-plate b{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:26px;line-height:1.15;color:#fff3d6}
