@@ -1642,7 +1642,8 @@
        needle (эбру) — ширина иглы, % (1–30, 14), flow — течение воды (0–100, 10), circ — вода кружит (−100…100, 0),
        even (эбру): '' капли разные | 'fix' — каждая ровно dsize % (поперечник — доля меньшей стороны окошка, 2–80, по умолчанию 15), одна, без мелких рядом,
        touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок),
-       gdrop: '' (и старое 'ink') — стёклышко падает каплей своего цвета (17.10; так по умолчанию с 17.10, вечер) | 'lie' — просто ложится в узор, reset: '' у участника есть «Начать сначала» | 'off' — нет }.
+       gdrop: '' (и старое 'ink') — стёклышко падает каплей своего цвета (17.10; так по умолчанию с 17.10, вечер) | 'lie' — просто ложится в узор, reset: '' у участника есть «Начать сначала» | 'off' — нет,
+       pick (18.10): '' — цвет капли по настройке дня | 'day' — участник выбирает цвет своей капли из цветов дня (кружки над кнопками, если цветов 2 и больше; капли, что падают сами, — как настроено) }.
      Стёклышки в Б и В (17.10) лежат на воде поверх краски (у них f: 1, x, y — доли холста краски); в эбру их несёт вода, игла и новые капли (I.float).
      Краска — частицы, оставляющие след на своём холсте (cv); течение воды — шум (Перлин) + вихри каждой капли. В трубке холст лежит в «камере» поверх картинки,
      без зеркал и поверх узора — во весь экран. Всё считается на устройстве участника, ничего не уходит. Узор на двери — снимок холста (w, на устройстве). */
@@ -2019,7 +2020,7 @@
         // «Сколько капель за раз: одна» — ровно одна (17.10: раньше у «разных» в половине случаев рядом падала вторая, мелкая); ровная капля — тоже одна
         var R = o.r || ebR(D), k2, n2 = o.r || o.water || o.one || D.even === 'fix' || String(D.count) !== '3' ? 1 : 3 + Math.floor(Math.random() * 4);
         var g1 = ebDrop(D, x, y, R, o.water, o.col);
-        for (k2 = 1; k2 < n2; k2++) { var a2 = Math.random() * 6.283, r2 = R * (1.2 + Math.random() * 2.5); ebDrop(D, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2, R * (.3 + Math.random() * .6)); }
+        for (k2 = 1; k2 < n2; k2++) { var a2 = Math.random() * 6.283, r2 = R * (1.2 + Math.random() * 2.5); ebDrop(D, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2, R * (.3 + Math.random() * .6), false, o.col); }
         lastDrop = real; return g1;
       }
       var d = one(D, x, y, o.col ? { col: o.col } : null), k, n;
@@ -2633,8 +2634,8 @@
           if (Math.sqrt(dx * dx + dy * dy) < ps * 1.7) { it.at = null; changed(); return; }
         }
       }
-      // Касание — капля падает в это место
-      if (tch !== 'off' && im && im._ink) { var ip = inkAt(e.clientX, e.clientY); im._ink.drop(KD, ip && ip[0], ip && ip[1]); if (REDUCED) { for (var w = 0; w < 120; w++) im._ink.step(.05, k); draw(); } return; }
+      // Касание — капля падает в это место (цвет выбран участником — этим цветом)
+      if (tch !== 'off' && im && im._ink) { var ip = inkAt(e.clientX, e.clientY); im._ink.drop(KD, ip && ip[0], ip && ip[1], S.pcol ? { col: S.pcol } : null); if (REDUCED) { for (var w = 0; w < 120; w++) im._ink.step(.05, k); draw(); } return; }
       S.vel += .045; if (REDUCED) { S.ang += .5; if (KO) S.kh += .5; draw(); }
     }
     cv.addEventListener('pointerup', up);
@@ -2648,6 +2649,9 @@
       placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { var q = { x: Math.round(m.at[0] * 1000) / 1000, y: Math.round(m.at[1] * 1000) / 1000, id: m.id, k: m.k, c: m.c, l: m.l }; if (m.f) q.f = 1; return q; }); },
       // «Начать сначала» (17.10): краски нет — только фон; стёклышки — в чаше
       canReset: !!KD && KD.reset !== 'off',
+      // Цвет своей капли (18.10): кружки — цвета дня; pcol('') — снова как настроено
+      cols: KD && KD.pick === 'day' && tch !== 'off' ? (Array.isArray(KD.colors) ? KD.colors : []).filter(hexOk) : [],
+      pcol: function (c) { if (c === undefined) return S.pcol || ''; S.pcol = hexOk(c) ? c : ''; },
       reset: function () {
         if (im && im._ink && im._ink.clear) im._ink.clear();
         mine.forEach(function (m) { m.at = null; m.fo = null; }); S.sel = -1; changed(); draw();
@@ -2778,6 +2782,19 @@
       });
       row.appendChild(rs);
     }
+    // Цвет своей капли (18.10, её «делаем»): кружки из цветов дня; коснулся — капли касанием этим цветом, ещё раз — снова как настроено
+    if (live.cols && live.cols.length > 1) {
+      var cr = el('div', 'ys-kal-cols'); cr.setAttribute('role', 'group'); cr.setAttribute('aria-label', t.color || 'Цвет вашей капли');
+      live.cols.forEach(function (c, i) {
+        var b = el('button', 'ys-kal-col'); b.type = 'button'; b.style.setProperty('--c', c);
+        b.setAttribute('aria-label', (t.color || 'Цвет вашей капли') + ' ' + (i + 1)); b.setAttribute('aria-pressed', 'false');
+        b.addEventListener('click', function () {
+          live.pcol(live.pcol() === c ? '' : c);
+          Array.prototype.forEach.call(cr.children, function (x, j) { var y = live.pcol() === live.cols[j]; x.classList.toggle('is-on', y); x.setAttribute('aria-pressed', y ? 'true' : 'false'); });
+        });
+        cr.appendChild(b);
+      });
+    }
     // Подсказка: своя из панели — пока ничего не выбрано и не положено; дальше — что делать сейчас
     function say() {
       var sel = live.sel(), placed = M.some(function (m) { return m.at; }), s;
@@ -2831,6 +2848,7 @@
     }
     bar.appendChild(hint);
     if (bowl) bar.appendChild(bowl);
+    if (cr) bar.appendChild(cr);
     bar.appendChild(row);
     fill(); say();
     return bar;

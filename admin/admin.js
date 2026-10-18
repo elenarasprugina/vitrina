@@ -1807,6 +1807,53 @@
       img.src = imgSrc(src);
     }));
   }
+  /* Цвета Карты дня (18.10, её «давай попробуем»): вода и краски «Капли в воде» из картинки дня — считается здесь, в панели, никуда не уходит.
+       done({ w0 — середина воды, w1 — край, cols — до 4 красок, видных на этой воде, lite — вода светлая } | null) */
+  function cardPal(url, done) {
+    var img = new Image();
+    img.onload = function () {
+      var W = 72, H = Math.max(8, Math.round(W * img.naturalHeight / img.naturalWidth)), c = document.createElement('canvas'), g, d, P = [], i;
+      c.width = W; c.height = H; g = c.getContext('2d'); g.drawImage(img, 0, 0, W, H);
+      try { d = g.getImageData(0, 0, W, H).data; } catch (e) { done(null); return; }
+      for (i = 0; i < d.length; i += 4) P.push([d[i], d[i + 1], d[i + 2], (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000]);
+      P.sort(function (a, b) { return a[3] - b[3]; });
+      function avg(a, b) { var s = [0, 0, 0], n = 0, j; for (j = Math.floor(a * P.length); j < Math.floor(b * P.length); j++) { s[0] += P[j][0]; s[1] += P[j][1]; s[2] += P[j][2]; n++; } return [s[0] / n, s[1] / n, s[2] / n]; }
+      // Вода: середина — «тело» картинки (средние по яркости), край — её тени
+      var w0 = avg(.5, .92), w1 = avg(0, .3), hi = avg(.97, 1);
+      // Краски: k-средних по картинке, потом — самые живые и непохожие друг на друга
+      var K = 8, C = [], it, k, A;
+      for (k = 0; k < K; k++) C.push(P[Math.floor((k + .5) / K * P.length)].slice(0, 3));
+      for (it = 0; it < 8; it++) {
+        A = C.map(function () { return [0, 0, 0, 0]; });
+        P.forEach(function (p) { var b = 0, bd = 1e9; C.forEach(function (q, j) { var e = (p[0] - q[0]) * (p[0] - q[0]) + (p[1] - q[1]) * (p[1] - q[1]) + (p[2] - q[2]) * (p[2] - q[2]); if (e < bd) { bd = e; b = j; } }); A[b][0] += p[0]; A[b][1] += p[1]; A[b][2] += p[2]; A[b][3]++; });
+        C = A.map(function (a, j) { return a[3] ? [a[0] / a[3], a[1] / a[3], a[2] / a[3], a[3]] : C[j]; });
+      }
+      function hsl(q) { var r = q[0] / 255, gg = q[1] / 255, b = q[2] / 255, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = (mx + mn) / 2, s = 0, h = 0, dd = mx - mn;
+        if (dd) { s = dd / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((gg - b) / dd) % 6 : mx === gg ? (b - r) / dd + 2 : (r - gg) / dd + 4; h *= 60; if (h < 0) h += 360; } return [h, s, l]; }
+      function hex(h, s, l) { var a = s * Math.min(l, 1 - l), f = function (n) { var k2 = (n + h / 30) % 12; return ('0' + Math.round(255 * (l - a * Math.max(-1, Math.min(k2 - 3, 9 - k2, 1)))).toString(16)).slice(-2); }; return '#' + f(0) + f(8) + f(4); }
+      var lite = (w0[0] * 299 + w0[1] * 587 + w0[2] * 114) / 1000 > 140;
+      var cand = C.filter(function (q) { return q[3]; }).map(function (q) { var x = hsl(q); return { h: x[0], s: x[1], l: x[2], n: q[3], v: (x[1] + .15) * Math.sqrt(q[3]) }; }).sort(function (a, b) { return b.v - a.v; });
+      var out = [];
+      function add(h, s0, l0, raw) {
+        // краска — насыщеннее, чем на картинке, и видна на этой воде
+        var s = raw ? s0 : Math.min(1, s0 * 1.35 + .12), l = raw ? l0 : lite ? Math.min(l0, .42) : Math.max(l0, .58); l = Math.max(.16, Math.min(.9, l));
+        if (out.length >= 4 || out.some(function (o) { var dh = Math.min(Math.abs(o.h - h), 360 - Math.abs(o.h - h)); return (dh < 16 || o.s < .12 && s < .12) && Math.abs(o.l - l) < .13; })) return;
+        out.push({ h: h, s: s, l: l });
+      }
+      cand.forEach(function (q) { add(q.h, q.s, q.l); });
+      // Свет картинки (самые яркие точки) — светлая краска на тёмной воде
+      var hs = hsl(hi); if (!lite) add(hs[0], Math.min(1, hs[1] * 1.2), Math.max(hs[2], .8), true);
+      // Не хватает — оттенки главного цвета: светлее и темнее
+      var m = out[0] || { h: 0, s: 0, l: .5 }, st;
+      for (st = 1; out.length < 4 && st < 6; st++) add(m.h, m.s, lite ? m.l - .1 * st : m.l + (st % 2 ? .14 : -.12) * Math.ceil(st / 2), true);
+      var w = function (q) { var x = hsl(q); return hex(x[0], Math.min(1, x[1] * 1.25), x[2]); };
+      var x0 = hsl(w0);
+      // Совсем тёмная картинка — середина воды чуть светлее, чтобы был виден её цвет (вино, синева)
+      done({ w0: hex(x0[0], Math.min(1, x0[1] * 1.25), Math.max(x0[2], .13)), w1: w(w1), cols: out.map(function (o) { return hex(o.h, o.s, o.l); }), lite: lite });
+    };
+    img.onerror = function () { done(null); };
+    img.src = imgSrc(url);
+  }
   // bg(): {color, image, dim, part} — фон под надписью; fg(): цвет надписи; skip(): true — проверять не нужно (включена дымка)
   function readWarn(fg, bg, skip, what) {
     var node = el('p', { class: 'a-hint a-hint--warn a-readwarn', hidden: true });
@@ -2981,7 +3028,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261017c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261018a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5258,7 +5305,7 @@
       el('div', { class: 'a-row' }, [textIn(tx, 'kalAgain', 'Кнопка «покрутить ещё»', { ph: 'Покрутить ещё' }), textIn(tx, 'kalPick', 'Подсказка у чаши — сначала', { ph: 'Коснитесь своего стёклышка, потом — узора' })]),
       el('div', { class: 'a-row' }, [textIn(tx, 'kalPlace', 'Подсказка — стёклышко выбрано', { ph: 'Теперь коснитесь узора — туда оно и ляжет' }), textIn(tx, 'kalBack', 'Подсказка — стёклышки уже в узоре', { ph: 'Коснитесь своего стёклышка в узоре — оно вернётся в чашу' })]),
       el('div', { class: 'a-row' }, [textIn(tx, 'kalEmpty', 'Чаша пуста', { ph: 'Все ваши стёклышки — в узоре' }), textIn(tx, 'kalReset', 'Кнопка «Начать сначала» (дни с каплей в воде)', { ph: 'Начать сначала' })]),
-      el('div', { class: 'a-row' }, [textIn(tx, 'kalResetQ', '«Начать сначала» — переспросить', { ph: 'Начать сначала? Краска уйдёт, стёклышки вернутся в чашу.' }), el('span')])
+      el('div', { class: 'a-row' }, [textIn(tx, 'kalResetQ', '«Начать сначала» — переспросить', { ph: 'Начать сначала? Краска уйдёт, стёклышки вернутся в чашу.' }), textIn(tx, 'kalColor', 'Кружки цвета капли — для чтения с экрана', { ph: 'Цвет вашей капли' })])
     ], { open: false });
   }
   // «Моя фигура» (заход «б»): сцена + мир состоявшихся дней + личные следы — одной картинкой на устройство человека
@@ -5651,7 +5698,7 @@
         el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '■ Остановить', onclick: function () { signStop(); renderSignState(); } })]),
       el('span', { class: 'a-hint', text: 'Картинка — силуэт: чёрный знак на белом или PNG с прозрачным фоном. Она не сохраняется и никуда не уходит. Нарисовать знак самой — кнопка «🖼 Калька» над живым окошком: знак ляжет светлой подсказкой, обводите каплями и иглой («Размер знака» — и для кальки). «💧 Нарисовать знак» — капли кладёт панель. Цвет капель — как в «Цвет краски» и «Несколько цветов». Удобнее в «Б — без зеркал»; в трубке знак повторят зеркала. Можно нажать «● Записать», потом «Нарисовать знак», потом иглой оживить.' })]);
   }
-  function jdDrop(r, K, redraw, ink) {
+  function jdDrop(r, K, redraw, ink, n) {
     var M = window.M13D, D = K.drop = K.drop || {}, DEF = M.KAP_DEF, out = [], md = M.kapMode(D);
     function upd() { changed(); redraw(); }
     out.push(el('div', { class: 'a-neb-h', text: '💧 Капля в воде — краска растекается в воде' }));
@@ -5664,6 +5711,41 @@
       md === 'over' ? null : selectIn(D, 'bg', 'Под водой', [['', 'вода — цвет ниже'], ['kal', 'картинка дня или туманность (что в трубке) — размытая']], { def: '',
         onChange: function (v) { if (!v) delete D.bg; renderMain(); }, hint: 'Картинка дня и туманность настраиваются выше, в этом же блоке.' })]));
     var wat = md !== 'over' && D.bg !== 'kal';
+    // Вода и краски из Карты дня (18.10): картинка дня → «свой цвет» воды и цвета краски; «всем дням» — каждому из его Карты
+    var cimg = n && (r.days[n - 1] || {}).image;
+    function fromCard(T, im, w, c, ok) {
+      cardPal(im, function (p) {
+        if (!p) { ok(false); return; }
+        if (w) { T.water = 'own'; T.w0 = p.w0; T.w1 = p.w1; }
+        if (c && p.cols.length) { T.colors = p.cols; if (!T.mix) T.mix = 'seq'; }
+        ok(true);
+      });
+    }
+    // «Эту каплю — всем дням»: все настройки капли этого дня — в калейдоскоп каждого дня (где он включён), вода и краски — из Карты того дня
+    function cardAll() {
+      var N = r.days.length, todo = [], off = 0, y, Ky;
+      for (y = 1; y <= N; y++) {
+        Ky = M.spaceOf(r, y).kal;
+        if (!Ky || !Ky.on) { off++; continue; }
+        todo.push([Ky, y === n ? null : (r.days[y - 1] || {}).image, y]);
+      }
+      if (todo.length < 2) { toast('Калейдоскоп включён только в этом дне — переносить некуда.', true); return; }
+      if (!confirm('Поставить эту каплю всем дням с калейдоскопом (' + (todo.length - 1) + ')? Их настройки капли заменятся; вода и краски у каждого — из его Карты дня.' + (off ? ' Дней без калейдоскопа: ' + off + ' — их не трогаю.' : ''))) return;
+      var left = todo.length, okN = 0;
+      function one() { if (--left) return; changed(); renderMain(); toast('Капля — ' + (todo.length - 1) + ' дням; цвета из Карты дня: ' + okN + '. Если надо — поправьте у дня вручную.'); }
+      todo.forEach(function (x) {
+        if (x[2] === n) { fromCard(D, cimg, wat, true, function (ok) { if (ok) okN++; one(); }); return; }
+        x[0].drop = clone(D);
+        if (x[1]) fromCard(x[0].drop, x[1], wat, true, function (ok) { if (ok) okN++; one(); }); else one();
+      });
+    }
+    out.push(el('div', { class: 'a-backup-btns' }, cimg ? [
+      wat ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🖼 Вода из Карты дня', title: 'Цвет воды — из картинки Карты дня ' + n + ': середина — основной цвет картинки, край — её тени', onclick: function () {
+        fromCard(D, cimg, true, false, function (ok) { if (!ok) { toast('Картинку Карты дня не прочитать', true); return; } changed(); renderMain(); toast('Вода — из Карты дня ' + n + '.'); }); } }) : null,
+      el('button', { type: 'button', class: 'a-btn a-btn--small', text: '🖼 Краски из Карты дня', title: 'До 4 цветов краски из картинки Карты дня ' + n + ' — самые живые, видные на этой воде', onclick: function () {
+        fromCard(D, cimg, false, true, function (ok) { if (!ok) { toast('Картинку Карты дня не прочитать', true); return; } changed(); renderMain(); toast('Краски — из Карты дня ' + n + '.'); }); } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '💧 Эту каплю — всем дням (цвета — из их Карт)', title: 'Все настройки капли этого дня — каждому дню с калейдоскопом; вода и краски у каждого — из его Карты дня', onclick: cardAll })
+    ] : [el('p', { class: 'a-hint', text: 'Вода и краски из Карты дня — появятся, когда у дня есть картинка (вкладка «13 дней»).' })]));
     if (wat) {
       var W = M.KAP_WATER, wl = Object.keys(W).map(function (x) { return [x, W[x][2]]; }).concat([['own', 'свой цвет']]);
       out.push(el('div', { class: 'a-row' }, [
@@ -5750,6 +5832,11 @@
         hint: 'Участник кладёт своё стёклышко из чаши — вокруг него раскрывается краска цвета этого стёклышка (с 17.10 — так по умолчанию, и в треугольной трубке тоже). В «без зеркал» и «поверх узора» стёклышки лежат на воде поверх краски, у эбру — плывут вслед за ней (несёт вода, тянет игла, раздвигают новые капли).' }),
       selectIn(D, 'reset', 'Кнопка «Начать сначала»', [['', 'есть у участника'], ['off', 'нет']], { def: '', onChange: function (v) { if (!v) delete D.reset; },
         hint: 'Краска уходит — остаётся только фон, стёклышки возвращаются в чашу. Перед этим переспрашивает. Надпись — «Двери» → «Узор на двери» → «Надписи в пространстве».' })]));
+    // Цвет у участника (18.10, её «делаем»): кружки из цветов дня над кнопками
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'pick', 'Участник выбирает цвет', [['', 'нет — как настроено выше'], ['day', 'из цветов дня']], { def: '', onChange: function (v) { if (!v) delete D.pick; renderMain(); },
+        hint: 'Над кнопками — кружки из «Цвета краски» этого дня (нужно 2–6 цветов). Коснулся кружка — его капли касанием падают этим цветом; ещё раз — снова как настроено. Капли, что падают сами, — как в «Несколько цветов». Если «Что может участник» — «ничего», кружков нет. Выбор нигде не хранится.' }),
+      D.pick === 'day' && C.length < 2 ? el('p', { class: 'a-hint', text: '⚠ Сейчас цвет один — кружков у участника не будет. Добавьте цвета: «+ цвет» или «🎨 Цвета печати дня».' }) : el('span')]));
     out.push(el('p', { class: 'a-hint', text: 'В живом узоре справа можно капнуть касанием' + (md === 'tube' ? '' : ' и размешать, ведя мышкой') + '; под ним — «💧 Капнуть» и «🧽 Очистить воду». Как у участника, с пальцем, — «⛶ Во весь экран». В «🎬 Записать видео» капли падают сами (как настроено выше), видео тоже идёт по кругу без шва. Всё рисуется на телефоне участника, ничего не уходит.' }));
     return el('div', { class: 'a-neb' }, out);
   }
@@ -6188,7 +6275,7 @@
     function kVideo() { var E = M.kalOf(sp, r, n); if (!E) { toast('Сначала картинка или туманность'); return; } kalVideo(E, n); }
     var kalItems = [
       K.on ? jdNeb(r, K, kDraw) : null,
-      K.on ? jdDrop(r, K, kDraw, function () { return KS.im && KS.im._ink; }) : null,
+      K.on ? jdDrop(r, K, kDraw, function () { return KS.im && KS.im._ink; }, n) : null,
       K.on ? kKh : null,
       K.on && kPic ? el('div', { class: 'a-row' }, [
         imageIn(K, 'image', kNb ? 'Картинка дня — просвечивает сквозь туманность' : 'Картинка внутри трубки', { max: 2000, size: { w: 2000, h: 2000, note: 'квадратная, JPG или WebP' }, onChange: function () { renderMain(); liveSoon(); },
