@@ -1433,7 +1433,7 @@
       var z = GIFT_ZONES[g[1]]; if (z) L.push({ id: 'g' + g[0] + '.' + g[1], c: giftColor(r, g[0], z), l: 'gifts.' + z, look: glassLook(r, 'gifts', z) });
     });
     var D = doorsCfg();
-    L.forEach(function (it, i) { it.k = put === 'spark' || (put === 'both' && i % 2) ? 'spark' : 'glass'; if (it.k === 'spark') it.c = mixW(it.c, .45); it.glow = D.kalGlow; it.cry = D.kalGlass === 'crystal'; it.orb = D.kalGlass === 'orb' || D.kalGlass === 'dot' ? D.kalGlass : ''; });
+    L.forEach(function (it, i) { it.k = put === 'spark' || (put === 'both' && i % 2) ? 'spark' : 'glass'; if (it.k === 'spark') { it.c0 = it.c; it.c = mixW(it.c, .45); } it.glow = D.kalGlow; it.cry = D.kalGlass === 'crystal'; it.orb = D.kalGlass === 'orb' || D.kalGlass === 'dot' ? D.kalGlass : ''; });
     return L;
   }
   /* Тринадцатый в центре хоровода волны (финал): его стёклышки — по одному за каждый наступивший день маршрута + подаренные (как в чаше).
