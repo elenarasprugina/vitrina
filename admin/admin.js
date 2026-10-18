@@ -3028,7 +3028,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261018b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261018c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5305,7 +5305,8 @@
       el('div', { class: 'a-row' }, [textIn(tx, 'kalAgain', 'Кнопка «покрутить ещё»', { ph: 'Покрутить ещё' }), textIn(tx, 'kalPick', 'Подсказка у чаши — сначала', { ph: 'Коснитесь своего стёклышка, потом — узора' })]),
       el('div', { class: 'a-row' }, [textIn(tx, 'kalPlace', 'Подсказка — стёклышко выбрано', { ph: 'Теперь коснитесь узора — туда оно и ляжет' }), textIn(tx, 'kalBack', 'Подсказка — стёклышки уже в узоре', { ph: 'Коснитесь своего стёклышка в узоре — оно вернётся в чашу' })]),
       el('div', { class: 'a-row' }, [textIn(tx, 'kalEmpty', 'Чаша пуста', { ph: 'Все ваши стёклышки — в узоре' }), textIn(tx, 'kalReset', 'Кнопка «Начать сначала» (дни с каплей в воде)', { ph: 'Начать сначала' })]),
-      el('div', { class: 'a-row' }, [textIn(tx, 'kalResetQ', '«Начать сначала» — переспросить', { ph: 'Начать сначала? Краска уйдёт, стёклышки вернутся в чашу.' }), textIn(tx, 'kalColor', 'Кружки цвета капли — для чтения с экрана', { ph: 'Цвет вашей капли' })])
+      el('div', { class: 'a-row' }, [textIn(tx, 'kalResetQ', '«Начать сначала» — переспросить', { ph: 'Начать сначала? Краска уйдёт, стёклышки вернутся в чашу.' }), textIn(tx, 'kalColor', 'Кружки цвета капли — для чтения с экрана', { ph: 'Цвет вашей капли' })]),
+      el('div', { class: 'a-row' }, [textIn(tx, 'kalCalm', 'Кнопка «Остановить воду» (дни с каплей в воде)', { ph: '✋ Остановить воду' }), textIn(tx, 'kalFlow', 'Вода стоит — кнопка «Пустить воду»', { ph: '🌊 Пустить воду' })])
     ], { open: false });
   }
   // «Моя фигура» (заход «б»): сцена + мир состоявшихся дней + личные следы — одной картинкой на устройство человека
@@ -5835,8 +5836,12 @@
     // Цвет у участника (18.10, её «делаем»): кружки из цветов дня над кнопками
     out.push(el('div', { class: 'a-row' }, [
       selectIn(D, 'pick', 'Участник выбирает цвет', [['', 'нет — как настроено выше'], ['day', 'из цветов дня']], { def: '', onChange: function (v) { if (!v) delete D.pick; renderMain(); },
-        hint: 'Над кнопками — кружки из «Цвета краски» этого дня (нужно 2–6 цветов). Коснулся кружка — его капли касанием падают этим цветом; ещё раз — снова как настроено. Капли, что падают сами, — как в «Несколько цветов». Если «Что может участник» — «ничего», кружков нет. Выбор нигде не хранится.' }),
+        hint: 'Над кнопками — кружки из «Цвета краски» этого дня (нужно 2–6 цветов). Первый кружок выбран сразу, коснулся другого — его капли касанием падают этим цветом. «Несколько цветов» — только для капель, что падают сами. Если «Что может участник» — «ничего», кружков нет. Выбор нигде не хранится.' }),
       D.pick === 'day' && C.length < 2 ? el('p', { class: 'a-hint', text: '⚠ Сейчас цвет один — кружков у участника не будет. Добавьте цвета: «+ цвет» или «🎨 Цвета печати дня».' }) : el('span')]));
+    // «Остановить воду» у участника (18.10, её «важно»)
+    out.push(el('div', { class: 'a-row' }, [
+      selectIn(D, 'calm', 'Кнопка «✋ Остановить воду» у участника', [['', 'есть'], ['off', 'нет']], { def: '', onChange: function (v) { if (!v) delete D.calm; renderMain(); },
+        hint: 'Нажал — узор и краска замирают: можно рассмотреть и капнуть точно (у эбру капли ложатся сверху, ничего не раздвигают; сами капли не падают). Ещё раз — «🌊 Пустить воду». Надписи — «Двери» → «Узор на двери» → «Надписи в пространстве».' })]));
     out.push(el('p', { class: 'a-hint', text: 'В живом узоре справа можно капнуть касанием' + (md === 'tube' ? '' : ' и размешать, ведя мышкой') + '; под ним — «💧 Капнуть» и «🧽 Очистить воду». Как у участника, с пальцем, — «⛶ Во весь экран». В «🎬 Записать видео» капли падают сами (как настроено выше), видео тоже идёт по кругу без шва. Всё рисуется на телефоне участника, ничего не уходит.' }));
     return el('div', { class: 'a-neb' }, out);
   }
@@ -6247,7 +6252,8 @@
     var kPv = el('div', { class: 'a-kal-cell a-kal-cell--pv' }, [kWrap, kDr0 ? kTools : null, el('span', { class: 'a-hint', text: 'Так выглядит узор (крутится быстрее, чем на сайте; хоровод — как на сайте). Окошко слушается настроек слева' + (kEb0 ? ': коснуться — капля, вести — как в «Палец в живом окошке». Рисовать знак — «⛶ Рисовать знак»: там капля точно в место, вода, игла, кисть, ластик, размер ползунком, цвет, калька. Нарисовали — «🌊 Отпустить воду», знак оживает.' : kE0 && M.kapOn(kE0) ? (kE0.drop.touch ? ': касание — капля, линий нет (размешивание выключено в «Что может участник»).' : ': касание — капля, вести с нажатой кнопкой или пальцем — размешать. Только капли — «Что может участник» → «только капнуть касанием».') : '.') }), kE0 ? recUI(KK, n) : null]);
     if (kDr0) ebtPaint();
     // Для записи и кадра: узор этого дня в любом размере — то же состояние, что в окошке
-    KDRAW[KK] = { fn: function (c, W, H) { if (KS.im && kE) M.kalDraw(c, W, H, KS.im, kE, KS.a, false, null, null, KS.t, KS.h); }, E: function () { return kE; } };
+    KDRAW[KK] = { fn: function (c, W, H) { if (KS.im && kE) M.kalDraw(c, W, H, KS.im, kE, KS.a, false, null, null, KS.t, KS.h); }, E: function () { return kE; },
+      ink: function () { return KS.im && kE && M.kapOn(kE) ? KS.im._ink || null : null; } };
     var kPick = kE0 ? el('div', { class: 'a-field a-kal-axis' }, [
       el('span', { class: 'a-label', text: 'Ось вращения — коснитесь картинки' }),
       el('div', { class: 'a-kal-two' }, [
@@ -9224,20 +9230,53 @@
   /* ---------- Запись узора «как рисую» (16.10) ----------
      Пишется то, что идёт в живом окошке калейдоскопа в «За дверью» (капли, размешивание, настройки), но не экран: узор рисуется
      заново в размер видео и сразу сжимается в MP4. Мышки и панели в видео нет. Видео — на её устройстве (в Chrome — сразу в файл). */
-  var KDRAW = {}, KRES = {}, REC = null, RUI = [], RSET = { form: 'sq', round: false, end: '' };
+  var KDRAW = {}, KRES = {}, REC = null, RUI = [], RSET = { form: 'sq', round: false, end: '', endS: 2 };
   var REC_FILE_MAX = 15 * 60, REC_MEM_MAX = 5 * 60;
   function recCan() { return typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'; }
   function recBright(E) { var b = E && E.bright && +E.bright !== 100 ? +E.bright / 100 : 1; return b === 1 ? 'none' : 'brightness(' + b + ') saturate(' + (1 + (b - 1) * .8).toFixed(2) + ')'; }
   function recTime(s) { s = Math.max(0, Math.floor(s)); var m = Math.floor(s / 60); s -= m * 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   function recDims(form, k) { var W = form === 'vert' ? 1080 : 1080, H = form === 'vert' ? 1920 : 1080; k = k || 1; return [Math.round(W * k / 2) * 2, Math.round(H * k / 2) * 2]; }
-  // Кадр видео: узор (окошко — круг с мягким краем) и, в конце, уход — стекает в центр / уходит за края / тает
+  /* Конец видео — уходит только краска, фон дня остаётся (18.10, её «делаем»): холст краски I.cv → I.view (его рисует kalDraw вместо cv).
+     in — стекает в центр воронкой: краска съезжает к середине и закручивается (ближе к центру — сильнее), у середины тонет;
+     out — вытекает за края: краска разъезжается, середина очищается первой; fade — тает. e — 0…1 (уже сглаженный).
+     Каждая точка вида берёт краску «откуда пришла» (обратное отображение) — без ступенек; считается в уменьшенном холсте (до 640 точек), краска между точками — смешана (без ступенек на изгибах) */
+  function recInkEnd(I, kind, e) {
+    var src = I.cv, f = Math.min(1, 640 / Math.max(src.width, src.height)), w = Math.max(8, Math.round(src.width * f)), h = Math.max(8, Math.round(src.height * f));
+    var v = I._endCv = I._endCv || document.createElement('canvas'), sm = I._endSm = I._endSm || document.createElement('canvas');
+    if (v.width !== w || v.height !== h) { v.width = sm.width = w; v.height = sm.height = h; }
+    var x = v.getContext('2d'), sx = sm.getContext('2d');
+    x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.clearRect(0, 0, w, h);
+    if (kind === 'fade') { x.globalAlpha = 1 - e; x.drawImage(src, 0, 0, w, h); x.globalAlpha = 1; return v; }
+    sx.clearRect(0, 0, w, h); sx.drawImage(src, 0, 0, w, h);
+    var A = sx.getImageData(0, 0, w, h).data, O = x.createImageData(w, h), B = O.data, cx = w / 2, cy = h / 2, RM = Math.sqrt(cx * cx + cy * cy);
+    var V = e * RM * 1.08, G = e * 1.3, V0 = e * RM * .45, TW = e * 1.9, i, j;
+    for (j = 0; j < h; j++) for (i = 0; i < w; i++) {
+      var dx = i + .5 - cx, dy = j + .5 - cy, r1 = Math.sqrt(dx * dx + dy * dy), r0, tw, al;
+      if (kind === 'in') { r0 = r1 + V; tw = TW * RM / (r1 + RM * .2); al = Math.min(1, r1 / (RM * .07 + 1e-3)); }
+      else { if (r1 < V0) continue; r0 = (r1 - V0) / (1 + G); tw = -TW * .25 * (1 - r0 / RM); al = 1 - e * e; }
+      if (r0 > RM) continue;
+      var th = Math.atan2(dy, dx) - tw, fx = cx + r0 * Math.cos(th) - .5, fy = cy + r0 * Math.sin(th) - .5, X = Math.floor(fx), Y = Math.floor(fy);
+      if (X < 0 || Y < 0 || X >= w - 1 || Y >= h - 1) continue;
+      var u = fx - X, t = fy - Y, q = (Y * w + X) * 4, q2 = q + w * 4, o = (j * w + i) * 4;
+      var k00 = (1 - u) * (1 - t) * A[q + 3], k10 = u * (1 - t) * A[q + 7], k01 = (1 - u) * t * A[q2 + 3], k11 = u * t * A[q2 + 7], ks = k00 + k10 + k01 + k11;
+      if (ks < .5) continue;
+      for (var z = 0; z < 3; z++) B[o + z] = (k00 * A[q + z] + k10 * A[q + 4 + z] + k01 * A[q2 + z] + k11 * A[q2 + 4 + z]) / ks;
+      B[o + 3] = ks * al;
+    }
+    x.putImageData(O, 0, 0);
+    return v;
+  }
+  // Кадр видео: узор (окошко — круг с мягким краем) и, в конце, уход — стекает в центр / уходит за края / тает.
+  // Есть краска (капля в воде) и конец «краска …» — уходит только она; «весь узор …» или краски нет — уходит всё окошко (как раньше)
   function recFrame(o, c, W, H, E, e) {
     var D = KDRAW[o.key]; if (!D) return 0;
     var d = o.round ? Math.round(Math.min(W, H) * .92) : 0, ww = d || W, wh = d || H, t0 = performance.now();
     var wk = o.work = o.work || document.createElement('canvas');
     if (wk.width !== ww || wk.height !== wh) { wk.width = ww; wk.height = wh; }
-    var x = wk.getContext('2d');
-    x.save(); D.fn(x, ww, wh); x.restore();
+    var x = wk.getContext('2d'), end = o.end || '', IK = e > 0 && /^(in|out|fade)$/.test(end) && D.ink ? D.ink() : null;
+    if (end.charAt(0) === 'a') end = end.slice(1);
+    if (IK && IK.cv && IK.cv.width) { IK.view = recInkEnd(IK, end, e * e * (3 - 2 * e)); e = 0; }
+    try { x.save(); D.fn(x, ww, wh); x.restore(); } finally { if (IK) IK.view = null; }
     var mask = function (r0, r1) {
       var g = x.createRadialGradient(ww / 2, wh / 2, Math.max(0, r0), ww / 2, wh / 2, Math.max(1, r1));
       g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -9247,8 +9286,8 @@
     var hyp = Math.sqrt(ww * ww + wh * wh) / 2, s = 1, rot = 0, al = 1;
     if (e > 0) {
       e = e * e * (3 - 2 * e);
-      if (o.end === 'in') { var rr = hyp * (1 - e); mask(rr * .55, rr + 1); s = 1 - .45 * e; rot = 1.1 * e; }
-      else if (o.end === 'out') { s = 1 + 1.4 * e; al = 1 - e; }
+      if (end === 'in') { var rr = hyp * (1 - e); mask(rr * .55, rr + 1); s = 1 - .45 * e; rot = 1.1 * e; }
+      else if (end === 'out') { s = 1 + 1.4 * e; al = 1 - e; }
       else al = 1 - e;
     }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.filter = 'none'; c.fillStyle = o.round ? '#000' : '#07060b'; c.fillRect(0, 0, W, H);
@@ -9265,7 +9304,7 @@
     var due = now - (R.lastDraw || 0) >= 1000 / VID_FPS - 4 || R.paused;
     if (due) {
       R.lastDraw = now;
-      var c = R.oc.getContext('2d'), e = R.st === 'end' ? Math.min(1, (now - R.e0) / 2000) : 0, ms = recFrame(R, c, R.W, R.H, E, e);
+      var c = R.oc.getContext('2d'), e = R.st === 'end' ? Math.min(1, (now - R.e0) / (R.endS * 1000)) : 0, ms = recFrame(R, c, R.W, R.H, E, e);
       if (R.st === 'count') R.meas.push(ms);
       if ((R.st === 'rec' && !R.paused) || R.st === 'end') recPush(R, now);
       if (R.st === 'end' && e >= 1) recFinish(R);
@@ -9302,7 +9341,7 @@
     if (REC) return;
     if (!recCan()) { dialog({ title: 'Запись не получится в этом браузере', body: 'Откройте панель в Chrome на компьютере — там видео пишется сразу в файл.' }); return; }
     if (!KDRAW[key]) { toast('Сначала картинка или туманность'); return; }
-    var R = { key: key, day: day, form: RSET.form, round: RSET.round, end: RSET.end, st: 'count', meas: [], gap: 0, lastTs: -1, lastKey: -1, dur: 0, paused: false, oc: document.createElement('canvas') };
+    var R = { key: key, day: day, form: RSET.form, round: RSET.round, end: RSET.end, endS: +RSET.endS || 2, st: 'count', meas: [], gap: 0, lastTs: -1, lastKey: -1, dur: 0, paused: false, oc: document.createElement('canvas') };
     var D = recDims(R.form); R.W = D[0]; R.H = D[1]; R.oc.width = R.W; R.oc.height = R.H;
     delete KRES[key];
     function go(fh) {
@@ -9346,7 +9385,7 @@
     if (R.st === 'count' || R.st === 'prep') { recDrop(R); recPaint(); return; }
     if (R.st !== 'rec') return;
     if (R.paused) recPause();
-    if (R.end && R.dur > 1) { R.st = 'end'; R.e0 = performance.now(); setTimeout(function () { if (REC === R && R.st === 'end') recFinish(R); }, 3500); recPaint(); }
+    if (R.end && R.dur > 1) { R.st = 'end'; R.e0 = performance.now(); setTimeout(function () { if (REC === R && R.st === 'end') recFinish(R); }, R.endS * 1000 + 1500); recPaint(); }
     else recFinish(R);
   }
   function recDrop(R) {
@@ -9424,7 +9463,10 @@
         kids.push(el('details', { class: 'a-rec-set' }, [el('summary', { text: 'Как записать' }),
           pick('Форма', 'form', [['sq', 'Квадрат 1080×1080 — лента, кружочек'], ['vert', 'Вертикаль 9:16 — Reels, Сторис']]),
           el('label', { class: 'a-switch' }, [(function () { var cb = el('input', { type: 'checkbox', checked: RSET.round }); cb.addEventListener('change', function () { RSET.round = cb.checked; }); return cb; })(), el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text', text: 'Круглое окошко на чёрном' })]),
-          pick('Конец (последние 2 секунды после «Стоп»)', 'end', [['', 'просто остановиться'], ['in', 'стекает в центр'], ['out', 'уходит за края'], ['fade', 'тает']]),
+          pick('Конец (после «Стоп»)', 'end', [['', 'просто остановиться'], ['in', 'краска стекает в центр — остаётся фон дня'], ['out', 'краска вытекает за края — остаётся фон дня'], ['fade', 'краска тает — остаётся фон дня'],
+            ['ain', 'весь узор стекает в центр'], ['aout', 'весь узор уходит за края'], ['afade', 'весь узор тает']]),
+          pick('Длина конца', 'endS', [['2', '2 секунды'], ['3', '3 секунды'], ['4', '4 секунды'], ['6', '6 секунд']]),
+          el('span', { class: 'a-hint', text: '«Краска …» — уходит только краска капель, вода и картинка дня остаются. В дне без «Капли в воде» краски нет — тогда уходит весь узор.' }),
           el('span', { class: 'a-hint', text: 'В видео — только узор: что капаете, размешиваете, какие настройки меняете. Мышки и панели нет. Пауза — узор замирает, время в видео не идёт. Видео остаётся у вас: Chrome на компьютере сразу спросит, куда его сохранить.' })]));
         if (res && res.err) kids.push(el('span', { class: 'a-hint a-hint--warn', text: res.err }));
         else if (res) {

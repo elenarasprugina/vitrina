@@ -1172,7 +1172,7 @@
       }
       if (INK && dm === 'tube') {
         if (dA) { x.fillStyle = 'rgba(0,0,0,' + dA + ')'; x.fillRect(-2 * R, -2 * R, 4 * R, 4 * R); }
-        x.drawImage(INK.cv, -IE, -IE, 2 * IE, 2 * IE); if (INK.fxOn) x.drawImage(INK.fx, -IE, -IE, 2 * IE, 2 * IE);
+        x.drawImage(INK.view || INK.cv, -IE, -IE, 2 * IE, 2 * IE); if (INK.fxOn && !INK.view) x.drawImage(INK.fx, -IE, -IE, 2 * IE, 2 * IE);
       }
       if (TF) {
         var fw = TF.width * sf, fh = TF.height * sf;
@@ -1270,7 +1270,7 @@
       c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
       if (INK.fit) INK.fit(W / H);
       if (dA) { c.fillStyle = 'rgba(0,0,0,' + dA + ')'; c.fillRect(0, 0, W, H); }
-      kapCover(c, INK.cv, W, H); if (INK.fxOn) kapCover(c, INK.fx, W, H);
+      kapCover(c, INK.view || INK.cv, W, H); if (INK.fxOn && !INK.view) kapCover(c, INK.fx, W, H);
       c.restore();
     }
     if (DK && dm === 'over') { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); kapPcs(c, W, H, INK, PF, ps, t); c.restore(); }
@@ -1643,7 +1643,8 @@
        even (эбру): '' капли разные | 'fix' — каждая ровно dsize % (поперечник — доля меньшей стороны окошка, 2–80, по умолчанию 15), одна, без мелких рядом,
        touch: '' касание — капля, палец — размешать | 'tap' только капля | 'off' как у калейдоскопа (поворот, толчок),
        gdrop: '' (и старое 'ink') — стёклышко падает каплей своего цвета (17.10; так по умолчанию с 17.10, вечер) | 'lie' — просто ложится в узор, reset: '' у участника есть «Начать сначала» | 'off' — нет,
-       pick (18.10): '' — цвет капли по настройке дня | 'day' — участник выбирает цвет своей капли из цветов дня (кружки над кнопками, если цветов 2 и больше; капли, что падают сами, — как настроено) }.
+       pick (18.10): '' — цвет капли по настройке дня | 'day' — участник выбирает цвет своей капли из цветов дня (кружки над кнопками, если цветов 2 и больше; первый выбран сразу; капли, что падают сами, — как настроено);
+       calm (18.10): '' — у участника кнопка «✋ Остановить воду» | 'off' — нет }.
      Стёклышки в Б и В (17.10) лежат на воде поверх краски (у них f: 1, x, y — доли холста краски); в эбру их несёт вода, игла и новые капли (I.float).
      Краска — частицы, оставляющие след на своём холсте (cv); течение воды — шум (Перлин) + вихри каждой капли. В трубке холст лежит в «камере» поверх картинки,
      без зеркал и поверх узора — во весь экран. Всё считается на устройстве участника, ничего не уходит. Узор на двери — снимок холста (w, на устройстве). */
@@ -1720,7 +1721,7 @@
     else { c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H); kapCover(c, kapBlur(im._neb ? kalPic(im, k) : kalPrep(im, k), kapV(D, 'blur', 0, 100)), W, H); }
     var dm = k._wat ? 0 : kapV(D, 'dim', 0, 80) / 100;
     if (dm) { c.fillStyle = 'rgba(0,0,0,' + dm + ')'; c.fillRect(0, 0, W, H); }
-    if (I) { if (I.fit) I.fit(W / H); kapCover(c, I.cv, W, H); if (I.fxOn) kapCover(c, I.fx, W, H); }
+    if (I) { if (I.fit) I.fit(W / H); kapCover(c, I.view || I.cv, W, H); if (I.fxOn && !I.view) kapCover(c, I.fx, W, H); }
     kapPcs(c, W, H, I, P, ps, t);
     c.restore();
   }
@@ -1732,7 +1733,8 @@
     P.forEach(function (it) { if (!it.at || !it.f) return; c.save(); c.translate(x0 + it.at[0] * sw * s, y0 + it.at[1] * sh * s); kalPiece(c, it, (ps || KGLASS) * R, t || 1.2); c.restore(); });
   }
   /* Движок капли: kapNew() → { cv — холст краски, fx — круги и блики (заново каждый кадр), step(dt, k), drop(D, x, y), stir(x, y, dx, dy), clear(), shot(), load(url), warm(D), fit(asp), mode() }.
-     vis — где сейчас видна трубка (кладёт kalDraw): капля «сама» падает туда, где её видно. */
+     vis — где сейчас видна трубка (кладёт kalDraw): капля «сама» падает туда, где её видно.
+     view (18.10, только панель — конец видео): если есть, рисуется вместо cv (краска уходит, фон остаётся); круги и блики тогда не рисуются. */
   function kapNew() {
     var cv = document.createElement('canvas'), ic = cv.getContext('2d'), fx = document.createElement('canvas'), fc = fx.getContext('2d'), pc = document.createElement('canvas');
     var P = new Uint8Array(512), drops = [], rings = [], sim = 0, real = 0, lastDrop = -1e9, ci = 0, mode = '', asp = 1, fadeAcc = 0, T0 = Math.random() * 1000, frame = 0, spr = {}, Dk = {};
@@ -2502,7 +2504,7 @@
      Возвращает { node, ang(), mine, sel(i), placed(), freeze(да/нет), reveal(да/нет) }; останавливается сам, когда пространство убрали со страницы. */
   function kalLive(k, o) {
     var cv = el('canvas', 'ys-kal-cv'), g = cv.getContext('2d'), im = null, q = Math.min(1.5, window.devicePixelRatio || 1);
-    var S = { ang: +o.a || 0, vel: 0, t: o.m != null && isFinite(+o.m) ? +o.m : 0, frozen: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, started = false, KO = null;
+    var S = { ang: +o.a || 0, vel: 0, t: o.m != null && isFinite(+o.m) ? +o.m : 0, frozen: false, calm: false, reveal: false, sel: -1, kh: null }, drag = null, last = 0, started = false, KO = null;
     var KD = kapOn(k) ? k.drop : null, tch = KD ? KD.touch || '' : 'off', FLAT = !!KD && kapMode(KD) !== 'tube';
     // Б и В (17.10): стёклышки лежат на воде (f: 1, место — доли холста краски); сохранены при другом виде — вернулись в чашу
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y) && !p.f === !FLAT) at[p.id] = [+p.x, +p.y]; });
@@ -2552,12 +2554,14 @@
       if (cv.isConnected) started = true;
       var dt = last ? Math.min(.1, (ts - last) / 1000) : 0; last = ts;
       if (!S.frozen && !o.still) {
-        var f60 = dt * 60;
-        S.t += REDUCED ? 0 : dt;
-        if (im && im._ink && !REDUCED) im._ink.step(dt, k);
-        S.ang += (REDUCED ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel * f60;
+        // «Остановить воду» (S.calm, 18.10): узор и краска стоят; у эбру новые капли ложатся сверху (I.freeze), у нитей — ждут, пока вода пойдёт
+        var f60 = S.calm ? 0 : dt * 60, ebC = S.calm && KD && KD.kind === 'ebru';
+        if (im && im._ink) im._ink.freeze = !!S.calm;
+        S.t += REDUCED || S.calm ? 0 : dt;
+        if (im && im._ink && !REDUCED && (!S.calm || ebC)) im._ink.step(dt, k);
+        S.ang += (REDUCED || S.calm ? 0 : KSPIN * num(k.speed, 100, 10, 400) / 100 * dt) + S.vel * f60;
         // Хоровод идёт своей скоростью и притормаживает в момент сборки; палец и толчок двигают его вместе с узором
-        if (KO && !drag) S.kh += (REDUCED ? 0 : KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, S.kh)) : 1) * dt) + S.vel * f60;
+        if (KO && !drag) S.kh += (REDUCED || S.calm ? 0 : KO.G.v0 * (KO.G.slow ? khSlow(khAl(KO.G, S.kh)) : 1) * dt) + S.vel * f60;
         S.vel *= Math.pow(.95, f60);
         odd = !odd;
         if (!half || odd) { if (lastDraw) pace(ts - lastDraw); lastDraw = ts; draw(); }
@@ -2669,6 +2673,9 @@
       placed: function () { return mine.filter(function (m) { return m.at; }).map(function (m) { var q = { x: Math.round(m.at[0] * 1000) / 1000, y: Math.round(m.at[1] * 1000) / 1000, id: m.id, k: m.k, c: m.c, l: m.l }; if (m.f) q.f = 1; return q; }); },
       // «Начать сначала» (17.10): краски нет — только фон; стёклышки — в чаше
       canReset: !!KD && KD.reset !== 'off',
+      // «Остановить воду» (18.10, её «важно»): кнопка у участника, если в дне капля в воде и «меньше движения» не включено
+      canCalm: !!KD && KD.calm !== 'off' && !REDUCED && !o.still,
+      calm: function (v) { if (v === undefined) return S.calm; S.calm = !!v; S.vel = 0; },
       // Цвет своей капли (18.10): кружки — цвета дня; pcol('') — снова как настроено
       cols: KD && KD.pick === 'day' && tch !== 'off' ? (Array.isArray(KD.colors) ? KD.colors : []).filter(hexOk) : [],
       pcol: function (c) { if (c === undefined) return S.pcol || ''; S.pcol = hexOk(c) ? c : ''; },
@@ -2802,18 +2809,28 @@
       });
       row.appendChild(rs);
     }
-    // Цвет своей капли (18.10, её «делаем»): кружки из цветов дня; коснулся — капли касанием этим цветом, ещё раз — снова как настроено
+    // «Остановить воду» (18.10, её «важно»): узор и краска замирают — рассмотреть, капнуть точно; ещё раз — вода снова течёт
+    if (live.canCalm) {
+      var cm = el('button', 'ys-kal-btn ys-kal-btn--ghost', t.calm || '✋ Остановить воду'); cm.type = 'button'; cm.setAttribute('aria-pressed', 'false');
+      cm.addEventListener('click', function () {
+        live.calm(!live.calm());
+        cm.textContent = live.calm() ? t.flow || '🌊 Пустить воду' : t.calm || '✋ Остановить воду';
+        cm.setAttribute('aria-pressed', live.calm() ? 'true' : 'false');
+      });
+      row.appendChild(cm);
+    }
+    // Цвет своей капли (18.10, её «делаем»): кружки из цветов дня; первый выбран сразу (её «чтобы был выбор»), коснулся другого — капли этим цветом
     if (live.cols && live.cols.length > 1) {
       var cr = el('div', 'ys-kal-cols'); cr.setAttribute('role', 'group'); cr.setAttribute('aria-label', t.color || 'Цвет вашей капли');
       live.cols.forEach(function (c, i) {
         var b = el('button', 'ys-kal-col'); b.type = 'button'; b.style.setProperty('--c', c);
-        b.setAttribute('aria-label', (t.color || 'Цвет вашей капли') + ' ' + (i + 1)); b.setAttribute('aria-pressed', 'false');
-        b.addEventListener('click', function () {
-          live.pcol(live.pcol() === c ? '' : c);
-          Array.prototype.forEach.call(cr.children, function (x, j) { var y = live.pcol() === live.cols[j]; x.classList.toggle('is-on', y); x.setAttribute('aria-pressed', y ? 'true' : 'false'); });
-        });
+        b.setAttribute('aria-label', (t.color || 'Цвет вашей капли') + ' ' + (i + 1));
+        b.addEventListener('click', function () { live.pcol(c); mark(); });
         cr.appendChild(b);
       });
+      if (!live.pcol()) live.pcol(live.cols[0]);
+      var mark = function () { Array.prototype.forEach.call(cr.children, function (x, j) { var y = live.pcol() === live.cols[j]; x.classList.toggle('is-on', y); x.setAttribute('aria-pressed', y ? 'true' : 'false'); }); };
+      mark();
     }
     // Подсказка: своя из панели — пока ничего не выбрано и не положено; дальше — что делать сейчас
     function say() {
