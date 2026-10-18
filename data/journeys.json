@@ -3086,7 +3086,9 @@
         "journey": "10ea6270be6a9ce0c61421329d24f43ea5368177",
         "immersion": "d0872c1bcd461712dc91a0f962a4437d06d50e4c"
       },
-      "trace": {},
+      "trace": {
+        "journey": "https://t.me/RaElena"
+      },
       "texts": {
         "back": "← Вернуться на витрину",
         "after": "Маршрут пройден",
@@ -7348,7 +7350,7 @@
                 "n": "16",
                 "bright": 125,
                 "khor": {
-                  "fig": null,
+                  "fig": "media/2b981ed424863235610f.webp",
                   "white": true,
                   "every": 8,
                   "glow": 45,
@@ -7382,7 +7384,10 @@
                 "drop": {
                   "on": true,
                   "colors": [
-                    "#d50c01"
+                    "#29ff7b",
+                    "#ff293b",
+                    "#8f7eaf",
+                    "#d3c6c5"
                   ],
                   "kind": "ebru",
                   "live": 5,
@@ -7395,7 +7400,11 @@
                   "flow": 30,
                   "circ": 20,
                   "swirl": 130,
-                  "speed": 125
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#39090c",
+                  "w1": "#000000"
                 }
               },
               "dim": 20,
@@ -7500,7 +7509,30 @@
                   "lw": 90,
                   "stars": 850
                 },
-                "drop": {}
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#395a9d",
+                    "#22355f",
+                    "#675581"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#bfc8da",
+                  "w1": "#4d5872"
+                }
               },
               "dim": 20,
               "desktop": null,
@@ -7608,7 +7640,31 @@
                   "lw": 90,
                   "stars": 850
                 },
-                "drop": {}
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#2974ff",
+                    "#82b6fe",
+                    "#003dad",
+                    "#ccdeff"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#187bf8",
+                  "w1": "#0036bd"
+                }
               },
               "dim": 20,
               "desktop": null,
@@ -7704,6 +7760,30 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#f89d30",
+                    "#fada9e",
+                    "#a75e06"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#654119",
+                  "w1": "#0e0b07"
                 }
               },
               "dim": 20,
@@ -7800,6 +7880,31 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#f03a37",
+                    "#f39f66",
+                    "#f57c7a",
+                    "#fabdbc"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#692c27",
+                  "w1": "#270707"
                 }
               },
               "dim": 20,
@@ -7896,6 +8001,29 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#16253c",
+                    "#4c638b"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#b3bbc6",
+                  "w1": "#0e1218"
                 }
               },
               "dim": 20,
@@ -7992,6 +8120,31 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#292cff",
+                    "#296aff",
+                    "#bf97cd",
+                    "#bcc0dc"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#003f99",
+                  "w1": "#000222"
                 }
               },
               "dim": 20,
@@ -8088,6 +8241,31 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#d6b600",
+                    "#520400",
+                    "#cc4000",
+                    "#122c40"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#ffcc3f",
+                  "w1": "#3b0302"
                 }
               },
               "dim": 20,
@@ -8184,6 +8362,30 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#ff5a29",
+                    "#fbc79d",
+                    "#ad2800"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#9a2700",
+                  "w1": "#180200"
                 }
               },
               "dim": 20,
@@ -8280,6 +8482,30 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#00b7d6",
+                    "#0074d6",
+                    "#006070"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#eaf2fa",
+                  "w1": "#afbac8"
                 }
               },
               "dim": 20,
@@ -8376,6 +8602,30 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#295dff",
+                    "#a5c3f3",
+                    "#002bad"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#022168",
+                  "w1": "#030b30"
                 }
               },
               "dim": 20,
@@ -8472,6 +8722,29 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#8f3000",
+                    "#d67900"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#f2a130",
+                  "w1": "#8c2e00"
                 }
               },
               "dim": 20,
@@ -8568,6 +8841,30 @@
                   "lines": 100,
                   "lw": 90,
                   "stars": 850
+                },
+                "drop": {
+                  "on": true,
+                  "colors": [
+                    "#ff3529",
+                    "#f3b2a5",
+                    "#ad0a00"
+                  ],
+                  "kind": "ebru",
+                  "live": 5,
+                  "size": 70,
+                  "needle": 3,
+                  "dsize": 10,
+                  "every": 5,
+                  "mode": "free",
+                  "drops": "hand",
+                  "flow": 30,
+                  "circ": 20,
+                  "swirl": 130,
+                  "speed": 125,
+                  "mix": "seq",
+                  "water": "own",
+                  "w0": "#8d0900",
+                  "w1": "#230000"
                 }
               },
               "dim": 20,
@@ -8708,7 +9005,6 @@
         "keyIcon": "rope",
         "keyLabel": "none",
         "pattern": "pattern",
-        "kalPut": "spark",
         "kalGlass": "crystal",
         "kalGlow": 10
       },
@@ -8816,7 +9112,8 @@
         "rim": "",
         "back": "day",
         "backBlur": 22
-      }
+      },
+      "guide": "https://t.me/RaElena"
     }
   ]
 }
