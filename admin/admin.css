@@ -298,6 +298,9 @@ select.a-input{padding-right:28px}
 /* Предпросмотр главной страницы */
 .a-home-frame{display:block;width:100%;height:100%;border:0;background:#0d0a07}
 .a-preview:has(.a-home-frame){overflow:hidden}
+/* Плашка «← В панель» — на своей полосе под страницей, не закрывает кнопки внизу страницы (18.10, её снимок: закрывала «Что внутри?») */
+.a-preview:has(.a-home-frame){background:#161616}
+.a-preview .a-home-frame{height:calc(100% - 64px)}
 
 /* Ползунки и темы месяца */
 .a-range-row{display:flex;align-items:center;gap:10px}

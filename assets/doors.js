@@ -1675,6 +1675,25 @@
     if (!(D.water === 'own' && D.wdir === 'v')) g.addColorStop(.55, rgbHex(mixC(hexRgb(c[0]), hexRgb(c[1]), .45)));
     g.addColorStop(1, c[1]);
     x.fillStyle = g; x.fillRect(0, 0, w, h);
+    kapDither(x, w, h);
+  }
+  /* Без полос (18.10, её снимок: на тёмной воде — горизонтальные полосы): плавный переход тёмных цветов экран рисует ступеньками —
+     мелкое незаметное зерно (±2 оттенка) их растворяет. Воду считаем один раз на размер и цвета (kapWaterOn), а не каждый кадр. */
+  function kapDither(x, w, h) {
+    try {
+      var im = x.getImageData(0, 0, w, h), a = im.data, i, n, s = 1234567;
+      for (i = 0; i < a.length; i += 4) {
+        s = (s * 1103515245 + 12345) & 0x7fffffff; n = (s >> 16) % 5 - 2;
+        a[i] += n; a[i + 1] += n; a[i + 2] += n;
+      }
+      x.putImageData(im, 0, 0);
+    } catch (e) {}
+  }
+  var kWat = null;
+  function kapWaterOn(c, W, H, D) {
+    var key = [W, H, D.water, D.w0, D.w1, D.wdir].join('|');
+    if (!kWat || kWat.key !== key) { var cv = document.createElement('canvas'); cv.width = W; cv.height = H; kapWater(cv.getContext('2d'), W, H, D); kWat = { key: key, cv: cv }; }
+    c.drawImage(kWat.cv, 0, 0);
   }
   function kapWaterCv(D) { var cv = document.createElement('canvas'); cv.width = cv.height = 512; kapWater(cv.getContext('2d'), 512, 512, D); return cv; }
   // Размытие картинки под водой — уменьшить и растянуть обратно (работает и там, где нет ctx.filter); один раз на картинку и силу
@@ -1697,7 +1716,7 @@
   // Б — без зеркал: вода (или картинка дня / туманность, размытая) и краска во весь экран
   function kapFree(c, W, H, im, k, D, I, P, ps, t) {
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
-    if (k._wat || !im) kapWater(c, W, H, D);
+    if (k._wat || !im) kapWaterOn(c, W, H, D);
     else { c.fillStyle = '#07060b'; c.fillRect(0, 0, W, H); kapCover(c, kapBlur(im._neb ? kalPic(im, k) : kalPrep(im, k), kapV(D, 'blur', 0, 100)), W, H); }
     var dm = k._wat ? 0 : kapV(D, 'dim', 0, 80) / 100;
     if (dm) { c.fillStyle = 'rgba(0,0,0,' + dm + ')'; c.fillRect(0, 0, W, H); }
@@ -2487,7 +2506,7 @@
     var KD = kapOn(k) ? k.drop : null, tch = KD ? KD.touch || '' : 'off', FLAT = !!KD && kapMode(KD) !== 'tube';
     // Б и В (17.10): стёклышки лежат на воде (f: 1, место — доли холста краски); сохранены при другом виде — вернулись в чашу
     var at = {}; (o.g || []).forEach(function (p) { if (p && p.id != null && isFinite(+p.x) && isFinite(+p.y) && !p.f === !FLAT) at[p.id] = [+p.x, +p.y]; });
-    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, orb: b.orb, at: at[b.id] || null, f: FLAT ? 1 : 0, fo: null }; });
+    var mine = (o.bowl || []).map(function (b, i) { return { id: b.id, c: b.c, c0: b.c0, l: b.l, look: b.look || {}, k: b.k === 'spark' ? 'spark' : 'glass', ph: i * 1.7, glow: b.glow, cry: b.cry, orb: b.orb, at: at[b.id] || null, f: FLAT ? 1 : 0, fo: null }; });
     var ps = o.ps || KGLASS;
     cv.setAttribute('aria-label', 'Живой узор пространства'); cv.setAttribute('role', 'img');
     var f = kalFilter(k); if (f) cv.style.filter = f;
@@ -2591,7 +2610,8 @@
     // «Стёклышко падает каплей своего цвета» (drop.gdrop, 17.10; по умолчанию — да, 'lie' — нет): там, где легло, раскрывается краска его цвета; возвращает каплю (эбру — пятно)
     function inkOf(it, ip) {
       if (!KD || KD.gdrop === 'lie' || !ip || !im || !im._ink || !Array.isArray(it.c)) return null;
-      var d = im._ink.drop(KD, ip[0], ip[1], { col: rgbHex(it.c), one: true });
+      // Искра светится осветлённой (её цвет смешан с белым), а капает настоящим цветом дня (18.10: краска была бледной, «пудровой»)
+      var d = im._ink.drop(KD, ip[0], ip[1], { col: rgbHex(Array.isArray(it.c0) ? it.c0 : it.c), one: true });
       if (REDUCED) { for (var w = 0; w < 120; w++) im._ink.step(.05, k); draw(); }
       return d && d.pts ? d : null;
     }
