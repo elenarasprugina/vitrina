@@ -1875,3 +1875,13 @@ body.m13-locked{overflow:hidden}
 .m13-kin.m13-kin--own .m13-kin-out .m13-kin-link{color:var(--kin-tx)}
 .m13-kin.m13-kin--own .m13-kin-sec .m13-action:not(.m13-action--primary),.m13-kin.m13-kin--own .m13-kin-hunab .m13-action{background:transparent;border-color:var(--kin-line);color:var(--kin-tx)}
 .m13-kin.m13-kin--own .m13-kin-hunab .is-on{border-color:var(--kin-tx);box-shadow:inset 0 0 0 1px var(--kin-tx)}
+/* Страница кина (её правки 19.10): заголовок и колесо по центру, заголовок меньше; фон большого колеса — reflection.kin.page.bg */
+.m13-kin-page .m13-ihead{text-align:center}
+.m13-kin-page .m13-ihead p{margin-inline:auto}
+.m13-standalone .m13-kin-page .m13-ihead h2{font-size:calc(clamp(26px,4.4vw,38px) * var(--m13-tk,1));margin-bottom:10px}
+.m13-kin-page .m13-kin{margin-inline:auto}
+.m13-kin-page .m13-kin-links,.m13-kin-page .m13-kin-note{text-align:center}
+.m13-kin--pg-glass .m13-kw{background:color-mix(in srgb,var(--kw-bg,#1a1735) 30%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 10px 30px rgba(16,14,34,.18)}
+.m13-kin--pg-none .m13-kw{background:transparent;box-shadow:none}
+.m13-kin--pg-glass .m13-kw-hint,.m13-kin--pg-none .m13-kw-hint{color:var(--kw-ink);text-shadow:0 1px 8px rgba(0,0,0,.55)}

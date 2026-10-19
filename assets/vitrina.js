@@ -3382,8 +3382,10 @@
     return h + wheel + '</div>';
   }
   function kinFormHTML(mode) {
-    var lk = kinLook(), css = kinLookCss(lk);
-    return '<div class="m13-kin m13-kin--' + mode + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
+    var lk = kinLook(), css = kinLookCss(lk), pb = (kinCfg().page || {}).bg;
+    // фон большого колеса на странице кина — reflection.kin.page.bg: 'deep' (по умолч.) | 'glass' | 'none'
+    pb = mode === 'page' && { glass: 1, none: 1 }[pb] ? ' m13-kin--pg-' + pb : '';
+    return '<div class="m13-kin m13-kin--' + mode + pb + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
       '<div class="m13-kw"></div>' +
       '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
       '<button type="button" class="m13-kin-link m13-kin-typed">' + txt(kinT('wTyped')) + '</button></div>' +
