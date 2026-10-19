@@ -1,8 +1,7 @@
 <title>Колесо своего кина</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<!-- Проба 19.10.2026, заход 2 (docs/kin.md, «Колесо даты»). Исходник: вместо строки KINJS ниже — содержимое assets/kin.js
-     (сборка: sed '/<!--KINJS-->/{r assets/kin.js
-d}' — см. docs/kin.md). Ничего не отправляет и не хранит, кроме «звук выкл» на устройстве. -->
+<!-- Проба 19.10.2026, заход 3 (docs/kin.md, «Колесо даты»). Исходник: вместо строки KINJS ниже — содержимое assets/kin.js
+     (сборка: sed с адресом ^KINJS-строка$ и командами r assets/kin.js, d — см. docs/kin.md). Ничего не отправляет и не хранит, кроме «звук выкл» на устройстве. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap">
 <style>
@@ -23,6 +22,9 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(28px,7vw,38px);margi
 .stage{position:relative;width:100%;max-width:480px;aspect-ratio:1/1}
 canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
 canvas.drag{cursor:grabbing}
+canvas.tz{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Ccircle cx='14' cy='14' r='9' fill='none' stroke='%23100e22' stroke-opacity='.55' stroke-width='3'/%3E%3Ccircle cx='14' cy='14' r='9' fill='none' stroke='%23f0d68c' stroke-width='1.3'/%3E%3C/svg%3E") 14 14,crosshair}
+canvas.tz.arrow{cursor:default}
+canvas.tz.hand{cursor:grab}
 .snd{position:absolute;right:0;top:0;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--night2);
   color:var(--ink);font-size:17px;line-height:1;cursor:pointer;z-index:2}
 .ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
@@ -111,13 +113,24 @@ canvas.drag{cursor:grabbing}
     <div class="row" id="opns">
       <button class="pill" type="button" data-opn="lock" aria-pressed="true">Замок и звон</button>
       <button class="pill" type="button" data-opn="bowl" aria-pressed="false">Поющая чаша</button>
-      <button class="pill" type="button" data-opn="flow" aria-pressed="false">Перелив 13 колокольчиков</button>
     </div>
     <span class="lbl">Цолькин после «Открыть»</span>
     <div class="row" id="lays">
       <button class="pill" type="button" data-lay="waves" aria-pressed="true">Волны лучами</button>
       <button class="pill" type="button" data-lay="spiral" aria-pressed="false">Спираль</button>
       <button class="pill" type="button" data-lay="grid" aria-pressed="false">Таблица кругом</button>
+    </div>
+    <span class="lbl">Подсветка волны</span>
+    <div class="row" id="hls">
+      <button class="pill" type="button" data-hl="rings" aria-pressed="false">Колечки</button>
+      <button class="pill" type="button" data-hl="path" aria-pressed="false">Дорожка</button>
+      <button class="pill" type="button" data-hl="both" aria-pressed="true">Колечки и дорожка</button>
+    </div>
+    <span class="lbl">Указатель мыши над Цолькином (на компьютере)</span>
+    <div class="row" id="curs">
+      <button class="pill" type="button" data-cur="ring" aria-pressed="true">Золотое колечко</button>
+      <button class="pill" type="button" data-cur="arrow" aria-pressed="false">Стрелка</button>
+      <button class="pill" type="button" data-cur="hand" aria-pressed="false">Рука</button>
     </div>
     <label class="chk"><input type="checkbox" id="portals" checked> Отмечать 52 портала</label>
     <button class="link" type="button" id="demo">Поставить пример: 12.05.1987</button>
@@ -157,7 +170,7 @@ canvas.drag{cursor:grabbing}
     d: { n: 31, slots: 31, off: 0, rIn: .435, rOut: .58 }
   };
   ['y', 'm', 'd'].forEach(function (k) { var r = RING[k]; r.rot = 0; r.vel = 0; r.target = null; r.val = -1; r.set = false; r.drag = false; r.step = TAU / r.slots; });
-  var st = { mat: 'bronze', clk: 'safe', opn: 'lock', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
+  var st = { hover: 0, mat: 'bronze', clk: 'safe', opn: 'lock', hl: 'both', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
     routeW: -1, pos: [], dpr: 1, S: 300, live: '', liveT: 0, date: null };
   var sound = true;
   try { sound = localStorage.getItem('m13kinSnd') !== '0'; } catch (e) {}
@@ -239,10 +252,7 @@ canvas.drag{cursor:grabbing}
     burst(t, 'bandpass', 2600, 5, .8, .02); tone(t, 140, .3, .05);
     burst(t + .09, 'bandpass', 2400, 5, .8, .02); tone(t + .09, 130, .3, .05);
     if (st.opn === 'lock') { tone(t + .21, 70, .6, .3); bell(t + .24, 660, .06, 1.6); bell(t + .24, 990, .035, 1.2); return; }
-    if (st.opn === 'bowl') { tone(t + .2, 90, .35, .25); bell(t + .26, 392, .11, 4.5); return; }
-    // перелив: 13 тихих колокольчиков снизу вверх — как 13 тонов волны
-    var PEN = [0, 2, 4, 7, 9];
-    for (var i = 0; i < 13; i++) bell(t + .22 + i * .075, 392 * Math.pow(2, (PEN[i % 5] + 12 * Math.floor(i / 5)) / 12), .045, 1.4);
+    tone(t + .2, 90, .35, .25); bell(t + .26, 392, .11, 4.5); // поющая чаша
   }
   // колокольчик: основной тон + неровные обертоны, долгое затухание, высота не плывёт
   function bell(t, f, g, dur) {
@@ -393,7 +403,20 @@ canvas.drag{cursor:grabbing}
 
     // 260 точек: в середине колеса мерцают и медленно идут против часовой; после «Открыть» перелетают в Цолькин
     var mine = {}; st.mine.forEach(function (m) { mine[m] = 1; });
+    // размер точки — сколько позволяет раскладка без слипания: в волнах и таблице соседи в 11 f, в спирали — в 6,3 f
+    var big = { waves: 3.6, grid: 3.6, spiral: 2.7 }, gap = { waves: 11, grid: 11, spiral: 6.3 }, gr = big[st.lay], gg = gap[st.lay];
+    if (st.morph < 1 && st.from) { gr = big[st.from] + (gr - big[st.from]) * ease(st.morph); gg = gap[st.from] + (gg - gap[st.from]) * ease(st.morph); }
+    var hlR = st.hl !== 'path', hlP = st.hl !== 'rings';
     var tm = ease(st.morph), tpo = st.portals ? o : 0, pw = st.pick ? Math.floor((st.pick - 1) / 13) : -1;
+    if (hlP && o > .5 && st.routeW >= 0 && st.pos[st.routeW * 13 + 13]) {
+      // дорожка через 13 дней текущей волны — широкое свечение и тонкая золотая нить, под точками
+      var w0 = st.routeW * 13 + 1, pa0 = (o - .5) / .5;
+      ctx.save(); ctx.lineCap = ctx.lineJoin = 'round'; ctx.beginPath();
+      for (k = w0; k < w0 + 13; k++) { if (k === w0) ctx.moveTo(st.pos[k][0], st.pos[k][1]); else ctx.lineTo(st.pos[k][0], st.pos[k][1]); }
+      ctx.strokeStyle = 'rgba(240,214,140,.22)'; ctx.lineWidth = 7 * f; ctx.globalAlpha = pa0 * (.75 + .25 * Math.sin(now / 900)); ctx.stroke();
+      ctx.shadowColor = 'rgba(255,220,130,.9)'; ctx.shadowBlur = 6 * f; ctx.strokeStyle = GOLD; ctx.lineWidth = 1.3 * f; ctx.globalAlpha = .9 * pa0; ctx.stroke();
+      ctx.restore();
+    }
     for (k = 1; k <= 260; k++) {
       var d0 = reduce ? 0 : ((k * 37) % 260) / 260 * .35, ok = Math.max(0, Math.min(1, (o - d0) / .65)), e = ease(ok);
       var l0 = layout('ring', k, now), l1 = layout(st.lay, k, now);
@@ -402,13 +425,20 @@ canvas.drag{cursor:grabbing}
       st.pos[k] = [x, y];
       var col = mix(l0[2], l1[2], e); if (isGap[k] && tpo > 0) col = mix(l0[2], PORT, tpo);
       var inW = Math.floor((k - 1) / 13), al = o < .02 ? .5 + .4 * Math.sin(now / 700 + k * .45) : (pw >= 0 && inW !== pw && !mine[k] ? .42 : .92);
-      var rad = (o < .02 ? 1.05 : 1.1 + 1.6 * e) * f * (isGap[k] && tpo > .5 ? 1.2 : 1) * (pw === inW && o > .5 ? 1.25 : 1);
-      if (o > .5 && inW === st.routeW) { ctx.globalAlpha = .38 * o; ctx.beginPath(); ctx.arc(x, y, rad * 2.1, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.1 * f; ctx.stroke(); }
+      var rad = (o < .02 ? 1.05 : 1.1 + (gr - 1.1) * e) * f * (isGap[k] && tpo > .5 ? 1.2 : 1) * (pw === inW && o > .5 ? 1.25 : 1);
+      if (hlR && o > .5 && inW === st.routeW) {
+        // колечко текущей волны — ярче, с мягким золотым свечением; не шире половины шага до соседа, чтобы колечки не слипались
+        ctx.save(); ctx.globalAlpha = .85 * o; ctx.shadowColor = 'rgba(255,220,130,.95)'; ctx.shadowBlur = 7 * f;
+        ctx.beginPath(); ctx.arc(x, y, Math.min(rad + 1.6 * f, gg * .47 * f), 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4 * f; ctx.stroke(); ctx.restore();
+      }
       ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fillStyle = col; ctx.fill();
       if (mine[k] && o > 0) {
         var pulse = 1 + .25 * Math.sin(now / 420);
         ctx.globalAlpha = .18 * o; ctx.beginPath(); ctx.arc(x, y, 14 * f * pulse, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
         ctx.globalAlpha = o; ctx.beginPath(); ctx.arc(x, y, 7.5 * f, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * f; ctx.stroke();
+      }
+      if (st.hover === k && st.pick !== k && o > .5) {
+        ctx.globalAlpha = .8; ctx.beginPath(); ctx.arc(x, y, 7 * f, 0, TAU); ctx.strokeStyle = '#ece6f7'; ctx.lineWidth = 1 * f; ctx.stroke();
       }
       if (st.pick === k && o > .5) {
         ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(x, y, 9 * f, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 2 * f; ctx.stroke();
@@ -421,6 +451,7 @@ canvas.drag{cursor:grabbing}
       txt(String(sk), C, C + 9 * f, 24 * f, GOLD, '500', '"Cormorant Garamond", Georgia, serif');
       ctx.globalAlpha = 1;
     }
+    cv.classList.toggle('tz', st.openTo > 0 && st.open > .8);
     $('ctr').style.opacity = String(wheelA); $('ctr').style.visibility = wheelA > 0 && !st.openTo ? '' : 'hidden';
     if (st.live && now - st.liveT > 900 && !anyDrag()) { st.live = ''; center(); }
     requestAnimationFrame(frame);
@@ -466,6 +497,7 @@ canvas.drag{cursor:grabbing}
     hideHunab();
   });
   cv.addEventListener('pointermove', function (e) {
+    if (!drag && st.openTo && e.pointerType === 'mouse') { var hw = where(e); st.hover = nearest(hw.x, hw.y); return; }
     if (!drag) return;
     var w = where(e), r = RING[drag.k], da = wrapPi(w.a - drag.a), now = performance.now(), dt = Math.max(1, now - drag.t);
     r.rot += da; r.vel = r.vel * .6 + (da / dt) * .4; drag.a = w.a; drag.t = now;
@@ -483,6 +515,7 @@ canvas.drag{cursor:grabbing}
     } else if (reduce || performance.now() - drag.t > 80) { r.vel = 0; r.target = rotFor(k, under(k)); }
     r.set = true; drag = null; center();
   }
+  cv.addEventListener('pointerleave', function () { st.hover = 0; });
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
   /* ---------- даты ---------- */
@@ -550,12 +583,14 @@ canvas.drag{cursor:grabbing}
   });
 
   /* ---------- нажать на любой кин ---------- */
-  function pickAt(x, y) {
-    if (st.open < .8) return;
+  // ближайший кин к точке (в пределах ~16 px), 0 — мимо
+  function nearest(x, y) {
+    if (st.open < .8) return 0;
     var best = 0, bd = 16 * 16, k, dx, dy, d;
     for (k = 1; k <= 260; k++) { if (!st.pos[k]) continue; dx = st.pos[k][0] - x; dy = st.pos[k][1] - y; d = dx * dx + dy * dy; if (d < bd) { bd = d; best = k; } }
-    if (best) { tink(); showPick(best); }
+    return best;
   }
+  function pickAt(x, y) { var k = nearest(x, y); if (k) { tink(); showPick(k); } }
   function showPick(k) {
     if (st.mine.indexOf(k) >= 0) { st.pick = null; $('pick').hidden = true; hint(); return; }
     st.pick = k;
@@ -608,6 +643,8 @@ canvas.drag{cursor:grabbing}
   pills('mats', 'data-mat', function (v) { st.mat = v; });
   pills('opns', 'data-opn', function (v) { st.opn = v; lockSound(); });
   pills('clks', 'data-clk', function (v) { st.clk = v; click(false); setTimeout(function () { click(true); }, 260); });
+  pills('hls', 'data-hl', function (v) { st.hl = v; });
+  pills('curs', 'data-cur', function (v) { cv.classList.toggle('arrow', v === 'arrow'); cv.classList.toggle('hand', v === 'hand'); });
   pills('lays', 'data-lay', function (v) { if (v === st.lay) return; st.from = st.lay; st.lay = v; st.morph = st.open > 0 ? 0 : 1; });
   $('portals').addEventListener('change', function () { st.portals = this.checked; });
   $('demo').addEventListener('click', function () {
