@@ -1720,9 +1720,11 @@ body.m13-locked{overflow:hidden}
 .m13-back-dark .m13-kin-bad{color:#ff9d8f}
 @media (max-width:680px){ .m13-kin-page .m13-kin-sigt strong{font-size:calc(18px * var(--m13-tk,1))} .m13-kin-page .m13-kin-seal{width:52px;height:52px} .m13-kin-page .m13-kin-sig{gap:12px;padding:12px} .m13-kin-tone{width:24px} }
 
-/* Колесо даты (19.10, assets/kinwheel.js): ночной круг — колесо-сейф, после «Открыть» — Цолькин */
-.m13-kw{--kw-ink:#ece6f7;--kw-mut:#a59dc2;--kw-gold:#f0d68c;--kw-line:#3a3560;position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;
-  padding:14px 12px 16px;border-radius:20px;background:radial-gradient(120% 90% at 50% 40%,#1a1735 0%,#100e22 70%);color:var(--kw-ink);
+/* Колесо даты (19.10, assets/kinwheel.js): ночной круг — колесо-сейф, после «Открыть» — Цолькин.
+   Цвета — у месяца (showcase.kinLook, vitrina.js → kinLookCss): переменные ставятся на .m13-kin; ниже — ночные по умолчанию */
+.m13-kin{--kw-ink:#ece6f7;--kw-mut:#a59dc2;--kw-gold:#f0d68c;--kw-line:#3a3560;--kw-on:#100e22}
+.m13-kw{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:14px 12px 16px;border-radius:20px;background:radial-gradient(120% 90% at 50% 40%,var(--kw-bg,#1a1735) 0%,var(--kw-bg2,#100e22) 70%);color:var(--kw-ink);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 10px 30px rgba(16,14,34,.25)}
 .m13-kw:empty{min-height:120px}
 .m13-kw-hint{margin:0;min-height:2.9em;max-width:32em;font-size:13px;line-height:1.45;text-align:center;color:var(--kw-mut)}
@@ -1730,9 +1732,9 @@ body.m13-locked{overflow:hidden}
 .m13-kw-cv{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
 .m13-kw-cv.is-drag{cursor:grabbing}
 .m13-kw-cv.is-open{touch-action:manipulation;cursor:pointer}
-.m13 .m13-kw-snd{position:absolute;right:-4px;top:-4px;z-index:2;width:36px;height:36px;padding:0;border-radius:50%;border:1px solid var(--kw-line);background:#1a1735;
+.m13 .m13-kw-snd{position:absolute;right:-4px;top:-4px;z-index:2;width:36px;height:36px;padding:0;border-radius:50%;border:1px solid var(--kw-line);background:var(--kw-bg,#1a1735);
   color:var(--kw-ink);font-size:16px;line-height:1;cursor:pointer}
-.m13-kw-ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
+.m13-kw-ctr{--kw-ink:#ece6f7;--kw-mut:#a59dc2;--kw-gold:#f0d68c;color:#ece6f7;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
   pointer-events:none;text-align:center;transition:opacity .4s}
 .m13-kw-big{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;color:var(--kw-gold);font-size:clamp(24px,7.5vw,36px);line-height:1}
 .m13-kw-date{font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(15px,4.4vw,20px);line-height:1.15}
@@ -1743,9 +1745,9 @@ body.m13-locked{overflow:hidden}
 .m13-kw :is(button):focus-visible{outline:2px solid var(--kw-gold);outline-offset:2px}
 .m13-kw-lays{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 .m13 .m13-kw-pill{font:inherit;font-size:12.5px;border:1px solid var(--kw-line);background:transparent;color:var(--kw-ink);border-radius:999px;padding:6px 12px;cursor:pointer}
-.m13 .m13-kw-pill[aria-pressed="true"]{background:var(--kw-gold);color:#100e22;border-color:var(--kw-gold)}
+.m13 .m13-kw-pill[aria-pressed="true"]{background:var(--kw-gold);color:var(--kw-on);border-color:var(--kw-gold)}
 .m13-kw-pick{width:100%;max-width:400px;box-sizing:border-box;border:1px solid var(--kw-gold);border-radius:14px;padding:11px 13px;text-align:center;
-  display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(240,214,140,.06)}
+  display:flex;flex-direction:column;align-items:center;gap:3px;background:color-mix(in srgb,var(--kw-gold) 7%,transparent)}
 .m13-kw-pk{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;color:var(--kw-gold);line-height:1.1}
 .m13-kw-pn{font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;font-style:italic;line-height:1.2}
 .m13-kw-pick p{margin:0;font-size:13px;line-height:1.4}
@@ -1757,3 +1759,38 @@ body.m13-locked{overflow:hidden}
 .m13-kin-page .m13-kw-hint{font-size:calc(14px * var(--m13-tk,1))}
 .m13-look .m13-kin-link{color:var(--lk-tx)}
 .m13-kin [hidden]{display:none !important}
+/* Подписи к подсвеченным волнам (19.10): кружок — как обводка на Цолькине */
+.m13-kw-legend{width:100%;max-width:440px;display:flex;flex-direction:column;gap:7px;text-align:left}
+.m13-kw-lg{margin:0;display:flex;gap:9px;align-items:flex-start;font-size:14px;line-height:1.45}
+.m13-kw-mk{flex:none;width:12px;height:12px;margin-top:.3em;border-radius:50%;border:1.5px solid var(--kw-ink);opacity:.8}
+.m13-kw-lg--seal .m13-kw-mk{border-color:var(--kw-gold);opacity:1;box-shadow:0 0 6px color-mix(in srgb,var(--kw-gold) 60%,transparent)}
+/* Размер текста — как у остального сайта (её просьба 19.10): на обороте — как текст оборота, на странице — как текст страниц (и «Размер текста» страницы) */
+.m13-kin .m13-kw-hint{font-size:14px}
+.m13-kin .m13-kw-pick p{font-size:14px}
+.m13-kin .m13-kin-arch p{font-size:14px;line-height:1.45}
+.m13-kin .m13-kin-sigt span{font-size:12.5px}
+.m13 .m13-kin .m13-kw-link,.m13 .m13-kin .m13-kin-link,.m13 .m13-kin .m13-kw-pill{font-size:14px}
+.m13-kin-page .m13-kw-hint{font-size:calc(16px * var(--m13-tk,1));line-height:1.5}
+.m13-kin-page .m13-kw-pick p,.m13-kin-page .m13-kw-lg{font-size:calc(15.5px * var(--m13-tk,1))}
+.m13-kin-page .m13-kw-pk{font-size:calc(26px * var(--m13-tk,1))}.m13-kin-page .m13-kw-pn{font-size:calc(21px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-arch p,.m13-kin-page .m13-kin-sec p,.m13-kin-page .m13-kin-hunab p{font-size:calc(16px * var(--m13-tk,1));line-height:var(--m13-lh,1.6)}
+.m13-kin-page .m13-kin-sigt span{font-size:calc(14.5px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-note{font-size:calc(13.5px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-sec h3{font-size:calc(12.5px * var(--m13-tk,1))}
+.m13 .m13-kin-page .m13-kw-link,.m13 .m13-kin-page .m13-kin-link,.m13 .m13-kin-page .m13-kw-pill{font-size:calc(14.5px * var(--m13-tk,1))}
+@media (max-width:680px){
+  .m13-kin .m13-kw-hint,.m13-kin .m13-kin-arch p,.m13-kin .m13-kw-pick p,.m13-kin .m13-kw-lg{font-size:13.5px}
+  .m13-kin-page .m13-kw-hint,.m13-kin-page .m13-kin-arch p,.m13-kin-page .m13-kin-sec p,.m13-kin-page .m13-kin-hunab p{font-size:calc(15.5px * var(--m13-tk,1))}
+  .m13-kin-page .m13-kw-pick p,.m13-kin-page .m13-kw-lg{font-size:calc(15px * var(--m13-tk,1))}
+}
+/* «Размер текста оборота» у месяца — и для ответа кина */
+.m13-bs-lg .m13-back .m13-kin-out{zoom:1.12}.m13-bs-xl .m13-back .m13-kin-out{zoom:1.24}
+/* Свои плашки месяца (kinLook: фон под текстами) */
+.m13-kin.m13-kin--own :is(.m13-kin-sig,.m13-kin-sec,.m13-kin-arch,.m13-kin-hunab){background:var(--kin-pan);border:1px solid var(--kin-line);color:var(--kin-tx);
+  border-radius:14px;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:none}
+.m13-kin.m13-kin--own :is(.m13-kin-arch,.m13-kin-hunab){padding:12px 14px}
+.m13-kin.m13-kin--own :is(.m13-kin-sigt em,.m13-kin-sigt small,.m13-kin-sec h3){color:var(--kin-mut)}
+.m13-kin.m13-kin--own :is(.m13-kin-sigt span,.m13-kin-arch .m13-kin-arch-n){color:var(--kin-soft)}
+.m13-kin.m13-kin--own .m13-kin-out .m13-kin-link{color:var(--kin-tx)}
+.m13-kin.m13-kin--own .m13-kin-sec .m13-action:not(.m13-action--primary),.m13-kin.m13-kin--own .m13-kin-hunab .m13-action{background:transparent;border-color:var(--kin-line);color:var(--kin-tx)}
+.m13-kin.m13-kin--own .m13-kin-hunab .is-on{border-color:var(--kin-tx);box-shadow:inset 0 0 0 1px var(--kin-tx)}

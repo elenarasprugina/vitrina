@@ -130,13 +130,14 @@
   /* ---------- даты (для карточки любого кина) ---------- */
   function isoOf(y, m, d) { return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + d).slice(-2); }
   function addIso(iso, n) { return new Date(Date.parse(iso + 'T00:00:00Z') + n * DAY).toISOString().slice(0, 10); }
-  function todayIso() { var d = new Date(); return isoOf(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function todayIso() { if (window.M13_TODAY) return window.M13_TODAY; var d = new Date(); return isoOf(d.getFullYear(), d.getMonth(), d.getDate()); }
   function niceIso(iso) { var p = iso.split('-'); return +p[2] + ' ' + MONF[+p[1] - 1] + ' ' + p[0]; }
   function shortIso(iso) { var p = iso.split('-'); return p[2] + '.' + p[1]; }
 
   /* ================= одно колесо =================
      box — пустой элемент; o: { mat, clk, opn, lay, portals, laySwitch, T(ключ) — текст, onOpen(iso) — нажали «Открыть»,
-     waveTitle(отIso, название по первому дню) — название волны (маршрут из «Маршрутов», если есть) }.
+     waveTitle(отIso, название по первому дню) — название волны (маршрут из «Маршрутов», если есть),
+     look — цвета месяца { ink, mut, gold, light } (пусто — ночной круг, как было) }.
      Возвращает { setDate(iso), reveal(кины), reset(), pick(кин), wait(текст подсказки) }. */
   function mount(box, o) {
     var K = window.M13KIN, T = o.T || function () { return ''; };
@@ -146,9 +147,9 @@
       '<button type="button" class="m13-kw-snd"></button><div class="m13-kw-ctr"></div></div>' +
       (o.laySwitch ? '<div class="m13-kw-lays" hidden>' + [['waves', 'wLayWaves'], ['spiral', 'wLaySpiral'], ['grid', 'wLayGrid']].map(function (x) {
         return '<button type="button" class="m13-kw-pill" data-lay="' + x[0] + '">' + esc(T(x[1])) + '</button>'; }).join('') + '</div>' : '') +
-      '<div class="m13-kw-pick" hidden></div>';
+      '<div class="m13-kw-pick" hidden></div><div class="m13-kw-legend" hidden></div>';
     var cv = box.querySelector('canvas'), ctx = cv.getContext('2d'), hintEl = box.querySelector('.m13-kw-hint'), ctr = box.querySelector('.m13-kw-ctr'),
-      pickEl = box.querySelector('.m13-kw-pick'), laysEl = box.querySelector('.m13-kw-lays'), snd = box.querySelector('.m13-kw-snd');
+      pickEl = box.querySelector('.m13-kw-pick'), legEl = box.querySelector('.m13-kw-legend'), laysEl = box.querySelector('.m13-kw-lays'), snd = box.querySelector('.m13-kw-snd');
 
     // Кольца: n значений, slots делений по кругу (у лет 2 пустых у макушки), off — с какого деления начинаются значения
     var RING = {
@@ -158,9 +159,12 @@
     };
     ['y', 'm', 'd'].forEach(function (k) { var r = RING[k]; r.rot = 0; r.vel = 0; r.target = null; r.val = -1; r.set = false; r.drag = false; r.step = TAU / r.slots; });
     var st = { mat: MATS[o.mat] ? o.mat : 'bronze', clk: CLKS[o.clk] ? o.clk : 'safe', opn: OPNS[o.opn] ? o.opn : 'lock', lay: LAYS[o.lay] ? o.lay : 'waves',
-      portals: o.portals !== false, from: null, morph: 1, open: 0, openTo: 0, mine: [], pick: null, routeW: -1, pos: [], dpr: 1, S: 300,
+      portals: o.portals !== false, from: null, morph: 1, open: 0, openTo: 0, mine: [], pick: null, sealW: {}, nowW: -1, pos: [], dpr: 1, S: 300,
       live: '', liveT: 0, wait: '', run: false, seen: true };
     var bumpT = {};
+    // цвета месяца: надписи и золото на фоне круга; на светлом фоне белые печати темнее, свой кин — в круге цвета надписей
+    var LK = o.look || {}, GD = LK.gold || GOLD, MUT = LK.mut || 'rgb(165,157,194)', MINE = LK.light ? (LK.ink || '#2b2620') : '#fff';
+    function dotCol(c) { return LK.light && c === COL[1] ? '#bab1a1' : c; }
 
     function resize() {
       var r = cv.getBoundingClientRect(); if (!r.width) return;
@@ -318,25 +322,30 @@
         if (st.morph < 1 && st.from) { var lf = layout(st.from, k, now); l1 = [lf[0] + (l1[0] - lf[0]) * tm, lf[1] + (l1[1] - lf[1]) * tm, l1[2]]; }
         var pa = P(l0[0], l0[1]), pb = P(l1[0], l1[1]), x = pa[0] + (pb[0] - pa[0]) * e, y = pa[1] + (pb[1] - pa[1]) * e;
         st.pos[k] = [x, y];
-        var col = mix(l0[2], l1[2], e); if (isGap[k] && tpo > 0) col = mix(l0[2], PORT, tpo);
+        var col = mix(dotCol(l0[2]), dotCol(l1[2]), e); if (isGap[k] && tpo > 0) col = mix(l0[2], PORT, tpo);
         var inW = Math.floor((k - 1) / 13), al = op < .02 ? (reduce ? .7 : .5 + .4 * Math.sin(now / 700 + k * .45)) : (pw >= 0 && inW !== pw && !mine[k] ? .42 : .92);
         var rad = (op < .02 ? 1.05 : 1.1 + 1.6 * e) * f * (isGap[k] && tpo > .5 ? 1.2 : 1) * (pw === inW && op > .5 ? 1.25 : 1);
-        if (op > .5 && inW === st.routeW) { ctx.globalAlpha = .38 * op; ctx.beginPath(); ctx.arc(x, y, rad * 2.1, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.1 * f; ctx.stroke(); }
+        // волна, что идёт сейчас, — обводка цвета надписей; ближайшая волна с печатью человека — золотая
+        if (op > .5 && (st.sealW[inW] || inW === st.nowW)) {
+          ctx.globalAlpha = (st.sealW[inW] ? .5 : .42) * op; ctx.beginPath(); ctx.arc(x, y, rad * 2.1, 0, TAU);
+          ctx.strokeStyle = st.sealW[inW] ? GD : MINE; ctx.lineWidth = (st.sealW[inW] ? 1.3 : 1) * f; ctx.stroke();
+          if (st.sealW[inW] && inW === st.nowW) { ctx.globalAlpha = .42 * op; ctx.beginPath(); ctx.arc(x, y, rad * 2.1 + 2.2 * f, 0, TAU); ctx.strokeStyle = MINE; ctx.lineWidth = f; ctx.stroke(); }
+        }
         ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fillStyle = col; ctx.fill();
         if (mine[k] && op > 0) {
           var pulse = reduce ? 1 : 1 + .25 * Math.sin(now / 420);
-          ctx.globalAlpha = .18 * op; ctx.beginPath(); ctx.arc(x, y, 14 * f * pulse, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
-          ctx.globalAlpha = op; ctx.beginPath(); ctx.arc(x, y, 7.5 * f, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * f; ctx.stroke();
+          ctx.globalAlpha = .18 * op; ctx.beginPath(); ctx.arc(x, y, 14 * f * pulse, 0, TAU); ctx.fillStyle = MINE; ctx.fill();
+          ctx.globalAlpha = op; ctx.beginPath(); ctx.arc(x, y, 7.5 * f, 0, TAU); ctx.strokeStyle = MINE; ctx.lineWidth = 1.5 * f; ctx.stroke();
         }
         if (st.pick === k && op > .5) {
-          ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(x, y, 9 * f, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 2 * f; ctx.stroke();
+          ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(x, y, 9 * f, 0, TAU); ctx.strokeStyle = GD; ctx.lineWidth = 2 * f; ctx.stroke();
         }
       }
       ctx.globalAlpha = 1;
       if (op > .6 && st.lay !== 'spiral' && st.mine.length) {
         ctx.globalAlpha = (op - .6) / .4; var sk = st.pick || st.mine[0];
-        txt('Kin', C, C - 10 * f, 12 * fx, 'rgba(165,157,194,.95)');
-        txt(String(sk), C, C + 9 * f, 24 * fx, GOLD, '500', SERIF);
+        txt('Kin', C, C - 10 * f, 12 * fx, MUT);
+        txt(String(sk), C, C + 9 * f, 24 * fx, GD, '500', SERIF);
         ctx.globalAlpha = 1;
       }
       // середина с датой и «Открыть» после раскрытия убирается совсем — и для глаза, и для пальца
@@ -446,6 +455,34 @@
     }
     pickEl.addEventListener('click', function (e) { e.stopPropagation(); });
 
+    /* ---------- подписи к подсвеченным волнам (её просьба 19.10: «конкретика — эта волна идёт, а вот эта будет») ---------- */
+    function legend() {
+      var t = todayIso(), kt = K.kinOf(t), now = kt ? waveOf(t) : null, rows = [], seen = {};
+      st.sealW = {}; st.nowW = kt ? Math.floor((kt - 1) / 13) : -1;
+      if (now) {
+        var past = '';
+        st.mine.forEach(function (m) {
+          var sl = K.sealOf(m), i, d, k;
+          for (i = 1; i < now.day; i++) { d = addIso(t, -i); k = K.kinOf(d); if (k && K.sealOf(k) === sl && d >= now.from) { past = fill(T('wNowPast'), { 'дата': niceIso(d), 'день': String(K.toneOf(k)) }); break; } }
+        });
+        rows.push(['now', fill(T('wNow'), { 'маршрут': now.title, 'даты': shortIso(now.from) + '–' + shortIso(now.to), 'день': String(now.day) }) + (past ? ' ' + past : '')]);
+      }
+      st.mine.forEach(function (m) {
+        var sl = K.sealOf(m), i, d, k;
+        if (seen[sl]) return; seen[sl] = 1;
+        for (i = 0; i < 560; i++) {
+          d = addIso(t, i); k = K.kinOf(d);
+          if (!k || K.sealOf(k) !== sl) continue;
+          var w = waveOf(d), I = K.info(k), c = { 'дата': niceIso(d), 'кин': String(k), 'имя': I.kinName, 'день': String(w.day), 'маршрут': w.title, 'даты': shortIso(w.from) + '–' + shortIso(w.to) };
+          st.sealW[Math.floor((k - 1) / 13)] = 1;
+          rows.push(['seal', fill(T(i === 0 ? 'wSealToday' : now && w.from === now.from ? 'wSealHere' : 'wSeal'), c)]);
+          break;
+        }
+      });
+      legEl.innerHTML = rows.map(function (r) { return '<p class="m13-kw-lg m13-kw-lg--' + r[0] + '"><span class="m13-kw-mk" aria-hidden="true"></span><span>' + esc(r[1]) + '</span></p>'; }).join('');
+      legEl.hidden = !rows.length;
+    }
+
     /* ---------- вид Цолькина (если она разрешила участнику) ---------- */
     function laysUI() {
       if (!laysEl) return;
@@ -484,15 +521,12 @@
       reveal: function (kins, quiet) {
         if (!quiet) lockSound(st.opn);
         st.mine = kins.slice(); st.openTo = 1; st.from = null; st.morph = 1; st.pick = null; st.wait = '';
-        var I = K.info(kins[0]), t = todayIso(), i, d, k;
-        st.routeW = -1;
-        // ближайшая волна с его печатью — обведена золотом
-        for (i = 0; i < 560; i++) { d = addIso(t, i); k = K.kinOf(d); if (k && K.sealOf(k) === I.sealN) { st.routeW = Math.floor((k - 1) / 13); break; } }
+        legend();
         pickEl.hidden = true; cv.classList.add('is-open'); center(); laysUI(); go();
       },
       reset: function () {
-        st.openTo = 0; st.mine = []; st.pick = null; st.routeW = -1; st.wait = '';
-        pickEl.hidden = true; cv.classList.remove('is-open'); center(); laysUI(); go();
+        st.openTo = 0; st.mine = []; st.pick = null; st.sealW = {}; st.nowW = -1; st.wait = '';
+        pickEl.hidden = true; legEl.hidden = true; cv.classList.remove('is-open'); center(); laysUI(); go();
       },
       pick: function (k) { if (st.openTo) { showPick(k); go(); } },
       // подсказка над колесом, пока ждём ответа (29 февраля: до или после полудня)
