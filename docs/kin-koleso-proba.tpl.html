@@ -1,15 +1,14 @@
 <title>Колесо своего кина</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<!-- Проба 19.10.2026 (docs/kin.md, «Колесо даты»). Исходник: вместо строки KINJS ниже — содержимое assets/kin.js
+<!-- Проба 19.10.2026, заход 2 (docs/kin.md, «Колесо даты»). Исходник: вместо строки KINJS ниже — содержимое assets/kin.js
      (сборка: sed '/<!--KINJS-->/{r assets/kin.js
 d}' — см. docs/kin.md). Ничего не отправляет и не хранит, кроме «звук выкл» на устройстве. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap">
 <style>
-/* Ночной круг: колесо — главное на странице, текст тихий, под ним */
+/* Ночной круг: колесо-сейф — главное на странице, текст тихий, под ним */
 :root{
-  --night:#100e22; --night2:#1a1735; --ink:#ece6f7; --muted:#a59dc2; --gold:#f0d68c; --line:#3a3560;
-  --red:#e0533d; --white:#f2efe6; --blue:#4a86de; --yellow:#f2c62e; --portal:#5fd39a;
+  --night:#100e22; --night2:#1a1735; --ink:#ece6f7; --muted:#a59dc2; --gold:#f0d68c; --line:#3a3560; --portal:#5fd39a;
   --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif; --sans:Jost,"Segoe UI",Roboto,Arial,sans-serif;
   color-scheme:dark
 }
@@ -18,19 +17,40 @@ html,body{background:var(--night);color:var(--ink)}
 body{font-family:var(--sans);font-weight:300;line-height:1.45;padding-block:20px 40px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px;align-items:center}
-.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);text-align:center}
 h1{font-family:var(--serif);font-weight:400;font-size:clamp(28px,7vw,38px);margin:0;text-wrap:balance;text-align:center;color:var(--gold)}
 .hint{margin:0;font-size:14px;color:var(--muted);text-align:center;max-width:34em;min-height:2.9em}
 .stage{position:relative;width:100%;max-width:480px;aspect-ratio:1/1}
 canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
 canvas.drag{cursor:grabbing}
 .snd{position:absolute;right:0;top:0;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--night2);
-  color:var(--ink);font-size:17px;line-height:1;cursor:pointer}
+  color:var(--ink);font-size:17px;line-height:1;cursor:pointer;z-index:2}
+.ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
+  pointer-events:none;text-align:center;transition:opacity .4s}
+.ctr .big{font-family:var(--serif);font-weight:500;color:var(--gold);font-size:clamp(26px,8vw,38px);line-height:1}
+.ctr .date{font-family:var(--serif);font-size:clamp(16px,4.6vw,21px);line-height:1.15}
+.ctr .date i{font-style:normal;color:rgba(165,157,194,.6)}
+.open{pointer-events:auto;font:inherit;font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:7px 14px;border-radius:999px;
+  border:1px solid var(--gold);background:rgba(240,214,140,.14);color:var(--gold);cursor:pointer}
+.open:hover{background:rgba(240,214,140,.26)}
 .snd:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.res{text-align:center;display:flex;flex-direction:column;gap:4px;min-height:0}
-.res .k{font-family:var(--serif);font-size:34px;color:var(--gold);line-height:1.1}
-.res .n{font-family:var(--serif);font-size:22px;font-style:italic}
-.res .s{font-size:13px;color:var(--muted)}
+.res{width:100%;display:flex;flex-direction:column;gap:14px;align-items:center}
+.head{text-align:center;display:flex;flex-direction:column;gap:3px}
+.head .k{font-family:var(--serif);font-size:34px;color:var(--gold);line-height:1.1}
+.head .n{font-family:var(--serif);font-size:22px;font-style:italic}
+.head .s{font-size:13px;color:var(--muted)}
+.sec{width:100%;max-width:420px;border-top:1px solid var(--line);padding-top:10px}
+.sec h3{margin:0 0 4px;font-family:var(--serif);font-weight:500;font-size:19px;color:var(--gold)}
+.sec p{margin:0 0 6px;font-size:14px}
+.route{display:block;width:100%;text-align:left;font:inherit;font-size:14px;color:var(--ink);background:rgba(255,255,255,.03);border:1px solid var(--line);
+  border-radius:12px;padding:9px 12px;margin:0 0 8px;cursor:pointer}
+.route small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.pick{width:100%;max-width:420px;border:1px solid var(--gold);border-radius:14px;padding:12px 14px;text-align:center;display:flex;flex-direction:column;gap:4px;
+  background:rgba(240,214,140,.06)}
+.pick .k{font-family:var(--serif);font-size:24px;color:var(--gold)}
+.pick .n{font-family:var(--serif);font-size:19px;font-style:italic}
+.pick p{margin:0;font-size:13.5px}
+.pick .s{color:var(--muted)}
 .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .pill{font:inherit;font-size:14px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer}
 .pill[aria-pressed="true"]{background:var(--gold);color:var(--night);border-color:var(--gold)}
@@ -38,19 +58,21 @@ canvas.drag{cursor:grabbing}
 .typed{display:flex;gap:8px;width:100%;max-width:340px}
 .typed input{flex:1;min-width:0;font:inherit;font-size:16px;letter-spacing:.06em;padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:var(--night2);color:var(--ink)}
 .hunab{border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:center;font-size:14px;display:flex;flex-direction:column;gap:10px;max-width:380px}
-.note{font-size:12px;color:var(--muted);text-align:center;max-width:36em;margin:6px 0 0}
+.note{font-size:12px;color:var(--muted);text-align:center;max-width:36em;margin:0}
 .chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted);cursor:pointer}
 .chk input{accent-color:var(--portal);width:17px;height:17px}
-.proba{border-top:1px solid var(--line);padding-top:12px;width:100%;display:flex;flex-direction:column;gap:10px;align-items:center}
+.proba{border-top:1px solid var(--line);padding-top:12px;width:100%;display:flex;flex-direction:column;gap:12px;align-items:center}
+.proba .lbl{font-size:12px;color:var(--muted)}
 </style>
 
 <div class="wrap">
   <div class="eyebrow">13 MIRRORS · проба</div>
   <h1>Узнать свой кин</h1>
-  <p class="hint" id="hint">Проведите пальцем по внешнему кольцу — это год рождения. Потом — месяц, внутри — день.</p>
+  <p class="hint" id="hint"></p>
   <div class="stage">
-    <canvas id="cv" aria-label="Колесо даты рождения: внешнее кольцо — год, среднее — месяц, внутреннее — день"></canvas>
+    <canvas id="cv" aria-label="Колесо даты рождения: внешнее кольцо — год, среднее — месяц, внутреннее — день; стрелка наверху показывает выбранное"></canvas>
     <button class="snd" id="snd" type="button" aria-label="Звук щелчков">🔊</button>
+    <div class="ctr" id="ctr"></div>
   </div>
   <div class="hunab" id="hunab" hidden>
     <div>29 февраля в Dreamspell — 0.0 Хунаб Ку, день вне счёта: своего кина у него нет. Вы родились…</div>
@@ -60,10 +82,9 @@ canvas.drag{cursor:grabbing}
       <button class="pill" type="button" data-noon="x">не знаю</button>
     </div>
   </div>
+  <div class="pick" id="pick" hidden></div>
   <div class="res" id="res" hidden></div>
-  <div class="row" id="after" hidden>
-    <button class="link" type="button" id="again">← Другая дата</button>
-  </div>
+  <button class="link" type="button" id="again" hidden>← Изменить дату</button>
   <button class="link" type="button" id="toTyped">Ввести дату цифрами</button>
   <form class="typed" id="typed" hidden>
     <input id="din" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="ДД.ММ.ГГГГ" aria-label="Дата рождения">
@@ -73,13 +94,27 @@ canvas.drag{cursor:grabbing}
 
   <div class="proba">
     <div class="eyebrow">Только в пробе — на сайте это выбираете вы в панели</div>
+    <span class="lbl">Материал колеса</span>
+    <div class="row" id="mats">
+      <button class="pill" type="button" data-mat="bronze" aria-pressed="true">Бронза</button>
+      <button class="pill" type="button" data-mat="gold" aria-pressed="false">Старое золото</button>
+      <button class="pill" type="button" data-mat="silver" aria-pressed="false">Лунное серебро</button>
+      <button class="pill" type="button" data-mat="glass" aria-pressed="false">Ночное стекло</button>
+    </div>
+    <span class="lbl">Щелчок</span>
+    <div class="row" id="clks">
+      <button class="pill" type="button" data-clk="safe" aria-pressed="true">Сейф</button>
+      <button class="pill" type="button" data-clk="wood" aria-pressed="false">Дерево</button>
+      <button class="pill" type="button" data-clk="soft" aria-pressed="false">Мягкий</button>
+    </div>
+    <span class="lbl">Цолькин после «Открыть»</span>
     <div class="row" id="lays">
       <button class="pill" type="button" data-lay="waves" aria-pressed="true">Волны лучами</button>
       <button class="pill" type="button" data-lay="spiral" aria-pressed="false">Спираль</button>
       <button class="pill" type="button" data-lay="grid" aria-pressed="false">Таблица кругом</button>
     </div>
     <label class="chk"><input type="checkbox" id="portals" checked> Отмечать 52 портала</label>
-    <button class="link" type="button" id="demo">Показать на примере: 12.05.1987</button>
+    <button class="link" type="button" id="demo">Поставить пример: 12.05.1987</button>
   </div>
 </div>
 
@@ -90,8 +125,8 @@ canvas.drag{cursor:grabbing}
 (function () {
   'use strict';
   var K = window.M13KIN;
-  var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-  var Y0 = 1950, Y1 = new Date().getFullYear(), NY = Y1 - Y0 + 1;
+  var cv = document.getElementById('cv'), ctx = cv.getContext('2d'), $ = function (id) { return document.getElementById(id); };
+  var TAU = Math.PI * 2, Y0 = 1950, Y1 = new Date().getFullYear(), NY = Y1 - Y0 + 1;
   var MON = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
   var MONF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
   var MONN = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -101,25 +136,105 @@ canvas.drag{cursor:grabbing}
   var isGap = {}; GAP.forEach(function (k) { isGap[k] = 1; });
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Состояние: выбранные год / месяц (0–11) / день; кольцо под пальцем; раскрытие
-  var st = { y: null, m: null, d: null, ring: '', live: null, mine: [], lay: 'waves', portals: true,
-    open: 0, openTo: 0, morph: 1, from: null, to: null, bump: {}, dpr: 1, S: 300 };
+  // Материалы колеса: тёмный / средний / светлый край металла, блик, цвет надписей и их тень, окошко-стрелка
+  var MATS = {
+    bronze: { lo: '#3a2213', mid: '#8c5a2c', hi: '#e2ad72', sheen: 'rgba(255,226,180,.42)', ink: '#fdebd2', inkSh: 'rgba(30,14,4,.85)', dim: 'rgba(253,235,210,.22)', win: '#ffe1a6', well: '#120b08', alpha: 1 },
+    gold: { lo: '#5e4914', mid: '#b08f33', hi: '#f6e39a', sheen: 'rgba(255,250,215,.5)', ink: '#2a2005', inkSh: 'rgba(255,246,210,.55)', dim: 'rgba(42,32,5,.25)', win: '#fff3c4', well: '#14100a', alpha: 1 },
+    silver: { lo: '#4c5262', mid: '#9ba4b6', hi: '#f0f3f8', sheen: 'rgba(255,255,255,.55)', ink: '#1c2130', inkSh: 'rgba(255,255,255,.5)', dim: 'rgba(28,33,48,.25)', win: '#ffffff', well: '#0e0f18', alpha: 1 },
+    glass: { lo: 'rgba(70,80,170,.30)', mid: 'rgba(140,150,235,.20)', hi: 'rgba(235,235,255,.38)', sheen: 'rgba(255,255,255,.45)', ink: '#eef0ff', inkSh: 'rgba(10,10,40,.7)', dim: 'rgba(238,240,255,.2)', win: '#ffffff', well: 'rgba(8,8,24,.6)', alpha: 1 }
+  };
+
+  // Кольца: n значений, slots делений по кругу (у лет 2 пустых у макушки), off — с какого деления начинаются значения
+  var RING = {
+    y: { n: NY, slots: NY + 2, off: 1, rIn: .755, rOut: .905 },
+    m: { n: 12, slots: 12, off: 0, rIn: .595, rOut: .74 },
+    d: { n: 31, slots: 31, off: 0, rIn: .435, rOut: .58 }
+  };
+  ['y', 'm', 'd'].forEach(function (k) { var r = RING[k]; r.rot = 0; r.vel = 0; r.target = null; r.val = -1; r.set = false; r.drag = false; r.step = TAU / r.slots; });
+  var st = { mat: 'bronze', clk: 'safe', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
+    routeW: -1, pos: [], dpr: 1, S: 300, live: '', liveT: 0, date: null };
   var sound = true;
   try { sound = localStorage.getItem('m13kinSnd') !== '0'; } catch (e) {}
 
-  /* ---------- геометрия ---------- */
   function resize() {
     var r = cv.getBoundingClientRect(); st.dpr = Math.min(window.devicePixelRatio || 1, 2.5); st.S = r.width;
     cv.width = Math.round(r.width * st.dpr); cv.height = Math.round(r.width * st.dpr);
   }
-  var R = { yIn: .76, yOut: .86, yLab: .935, mIn: .585, mOut: .735, mR: .66, dIn: .42, dOut: .585, dR: .505, k: .34 };
-  function ang(i, n, slots, off) { return (i + (off || 0) + .5) / (slots || n) * Math.PI * 2; }
-  // Годы: NY делений + 2 пустых у макушки, чтобы начало и конец не сливались
-  function yA(i) { return ang(i, NY, NY + 2, 1); }
-  function mA(i) { return ang(i, 12); }
-  function dA(i) { return ang(i, 31); }
-  function daysIn(y, m) { return new Date(Date.UTC(y == null ? 2000 : y, m + 1, 0)).getUTCDate(); }
   function P(r, a) { var C = st.S / 2; return [C + r * C * Math.sin(a), C - r * C * Math.cos(a)]; }
+  function wrapPi(a) { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; }
+  function daysIn(y, m) { return new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); }
+
+  /* ---------- значения колец ---------- */
+  function yearOf() { return Y0 + RING.y.val; }
+  function maxIdx(k) { return k === 'd' ? daysIn(yearOf(), RING.m.val < 0 ? 0 : RING.m.val) - 1 : RING[k].n - 1; }
+  // какое значение сейчас под стрелкой (стрелка — наверху)
+  function under(k) {
+    var r = RING[k], s = Math.round(-r.rot / r.step - .5), i;
+    s = ((s % r.slots) + r.slots) % r.slots; i = s - r.off;
+    return Math.max(0, Math.min(maxIdx(k), i));
+  }
+  function rotFor(k, i) { var r = RING[k], t = -(i + r.off + .5) * r.step; return r.rot + wrapPi(t - r.rot); }
+  function heavy(k, i) { return k === 'y' ? (Y0 + i) % 10 === 0 : i === 0; }
+  function label(k, i) { return k === 'y' ? String(Y0 + i) : k === 'm' ? MONN[i] : String(i + 1); }
+  function check(k) {
+    var v = under(k), r = RING[k];
+    if (v === r.val) return;
+    var first = r.val < 0; r.val = v;
+    if (!first) { click(heavy(k, v)); bumpT[k] = performance.now(); st.live = label(k, v); st.liveT = performance.now(); }
+    if (k !== 'd') check('d');
+    center();
+  }
+  var bumpT = {};
+  function bump(k) { var b = bumpT[k]; if (!b) return 0; var t = (performance.now() - b) / 140; return t >= 1 ? 0 : Math.sin(t * Math.PI); }
+
+  /* ---------- звук: щелчки и замок ---------- */
+  var ac = null, noise = null;
+  function audio() {
+    if (!sound) return null;
+    try {
+      if (!ac) {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        noise = ac.createBuffer(1, ac.sampleRate * .3, ac.sampleRate);
+        var d = noise.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    } catch (e) { return null; }
+  }
+  function burst(t, type, f, q, g, dur) {
+    var s = ac.createBufferSource(), fl = ac.createBiquadFilter(), gn = ac.createGain();
+    s.buffer = noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    gn.gain.setValueAtTime(g, t); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    s.connect(fl); fl.connect(gn); gn.connect(ac.destination); s.start(t, Math.random() * .2); s.stop(t + dur + .01);
+  }
+  function tone(t, f, g, dur, type) {
+    var o = ac.createOscillator(), gn = ac.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * .7, t + dur);
+    gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + .002); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(gn); gn.connect(ac.destination); o.start(t); o.stop(t + dur + .02);
+  }
+  function click(hv) {
+    if (navigator.vibrate) { try { navigator.vibrate(hv ? 16 : 6); } catch (e) {} }
+    if (!audio()) return;
+    var t = ac.currentTime;
+    if (st.clk === 'safe') {
+      burst(t, 'bandpass', hv ? 2600 : 3600, 5, hv ? .9 : .55, hv ? .02 : .012); tone(t, hv ? 120 : 190, hv ? .35 : .16, hv ? .06 : .03);
+      if (hv) burst(t + .022, 'bandpass', 4200, 6, .25, .01);
+    } else if (st.clk === 'wood') {
+      burst(t, 'bandpass', hv ? 1000 : 1500, 3, hv ? .8 : .5, hv ? .03 : .02); tone(t, hv ? 300 : 440, hv ? .25 : .14, .03, 'triangle');
+    } else {
+      burst(t, 'lowpass', hv ? 600 : 800, 1, hv ? .5 : .3, hv ? .04 : .025);
+    }
+  }
+  function lockSound() {
+    if (navigator.vibrate) { try { navigator.vibrate([12, 60, 12, 90, 40]); } catch (e) {} }
+    if (!audio()) return;
+    var t = ac.currentTime;
+    burst(t, 'bandpass', 2600, 5, .8, .02); tone(t, 140, .3, .05);
+    burst(t + .09, 'bandpass', 2400, 5, .8, .02); tone(t + .09, 130, .3, .05);
+    burst(t + .21, 'lowpass', 900, 1, .7, .18); tone(t + .21, 70, .6, .3);
+    tone(t + .24, 660, .05, .9); tone(t + .24, 990, .03, .7);
+  }
 
   /* ---------- 260 точек: раскладки ---------- */
   function sealCol(k) { return COL[(K.sealOf(k) - 1) % 4]; }
@@ -130,255 +245,364 @@ canvas.drag{cursor:grabbing}
     var mx = out[259][0];
     return out.map(function (p) { return [p[0] / mx * .95, p[1]]; });
   })();
-  function layout(name, k) {
+  function layout(name, k, now) {
     var w, t, i;
-    if (name === 'ring') { w = Math.floor((k - 1) / 13); return [R.k, (k - 1 + w * 1.4) / (260 + 20 * 1.4) * Math.PI * 2, sealCol(k)]; }
-    if (name === 'waves') { w = Math.floor((k - 1) / 13); t = (k - 1) % 13; return [.25 + t * .058, w / 20 * Math.PI * 2, waveCol(k)]; }
-    if (name === 'grid') { i = (k - 1) % 20; t = Math.floor((k - 1) / 20); return [.25 + t * .058, i / 20 * Math.PI * 2, sealCol(k)]; }
+    if (name === 'ring') { w = Math.floor((k - 1) / 13); return [.345, (k - 1 + w * 1.4) / (260 + 20 * 1.4) * TAU - now / 60000, sealCol(k)]; }
+    if (name === 'waves') { w = Math.floor((k - 1) / 13); t = (k - 1) % 13; return [.25 + t * .058, w / 20 * TAU, waveCol(k)]; }
+    if (name === 'grid') { i = (k - 1) % 20; t = Math.floor((k - 1) / 20); return [.25 + t * .058, i / 20 * TAU, sealCol(k)]; }
     return [SPIRAL[k - 1][0], SPIRAL[k - 1][1], sealCol(k)];
   }
-  function xy(l) { return P(l[0], l[1]); }
   function hex(c) { return [parseInt(c.substr(1, 2), 16), parseInt(c.substr(3, 2), 16), parseInt(c.substr(5, 2), 16)]; }
   function mix(a, b, t) { var x = hex(a), y = hex(b); return 'rgb(' + [0, 1, 2].map(function (i) { return Math.round(x[i] + (y[i] - x[i]) * t); }).join(',') + ')'; }
   function ease(t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
-  /* ---------- щелчок: звук + вибрация + прыжок метки ---------- */
-  var ac = null;
-  function click(ring) {
-    st.bump[ring] = performance.now();
-    if (navigator.vibrate) { try { navigator.vibrate(7); } catch (e) {} }
-    if (!sound) return;
-    try {
-      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
-      if (ac.state === 'suspended') ac.resume();
-      var t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
-      o.type = 'triangle'; o.frequency.setValueAtTime(2300, t); o.frequency.exponentialRampToValueAtTime(900, t + .03);
-      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.09, t + .003); g.gain.exponentialRampToValueAtTime(.0001, t + .045);
-      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + .05);
-    } catch (e) {}
+  /* ---------- рисование колеса ---------- */
+  function annulus(rIn, rOut) { var C = st.S / 2; ctx.beginPath(); ctx.arc(C, C, rOut * C, 0, TAU); ctx.arc(C, C, rIn * C, 0, TAU, true); }
+  function txt(s, x, y, size, color, weight, font, sh) {
+    ctx.font = (weight || '400') + ' ' + size + 'px ' + (font || 'Jost, "Segoe UI", Roboto, Arial, sans-serif');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (sh) { ctx.fillStyle = sh; ctx.fillText(s, x, y + size * .08 + .4); }
+    ctx.fillStyle = color; ctx.fillText(s, x, y);
   }
-  function bumpK(ring) { var b = st.bump[ring]; if (!b) return 0; var t = (performance.now() - b) / 160; return t >= 1 ? 0 : Math.sin(t * Math.PI); }
+  function ringBody(k, M, f) {
+    var r = RING[k], C = st.S / 2, ro = r.rOut * C;
+    // тень под кольцом — кольца как ступеньки
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 12 * f; ctx.shadowOffsetY = 5 * f;
+    annulus(r.rIn, r.rOut); ctx.fillStyle = M.mid; ctx.fill(); ctx.restore();
+    // металл: свет слева сверху
+    var g = ctx.createLinearGradient(C - ro * .75, C - ro * .75, C + ro * .75, C + ro * .75);
+    g.addColorStop(0, M.hi); g.addColorStop(.5, M.mid); g.addColorStop(1, M.lo);
+    annulus(r.rIn, r.rOut); ctx.fillStyle = g; ctx.fill();
+    // блик точёного металла — стоит на месте, пока кольцо вращается
+    if (ctx.createConicGradient) {
+      var c = ctx.createConicGradient(-Math.PI / 2 - .7, C, C);
+      c.addColorStop(0, 'rgba(255,255,255,0)'); c.addColorStop(.07, M.sheen); c.addColorStop(.16, 'rgba(255,255,255,0)');
+      c.addColorStop(.45, 'rgba(0,0,0,.16)'); c.addColorStop(.57, M.sheen); c.addColorStop(.64, 'rgba(255,255,255,0)'); c.addColorStop(1, 'rgba(255,255,255,0)');
+      annulus(r.rIn, r.rOut); ctx.fillStyle = c; ctx.fill();
+    }
+    // фаска: внешний край светлый сверху, внутренний — тёмный сверху
+    function edge(rr, light) {
+      var gg = ctx.createLinearGradient(0, C - rr * C, 0, C + rr * C);
+      gg.addColorStop(0, light ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.55)'); gg.addColorStop(1, light ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.35)');
+      ctx.beginPath(); ctx.arc(C, C, rr * C, 0, TAU); ctx.strokeStyle = gg; ctx.lineWidth = 1.3 * f; ctx.stroke();
+    }
+    edge(r.rOut - .004, true); edge(r.rIn + .004, false);
+  }
+  function drawWheel(now, f, M) {
+    var C = st.S / 2, i, a, p, q, k;
+    // утопленная середина
+    var wg = ctx.createRadialGradient(C, C - C * .05, C * .05, C, C, C * .44);
+    wg.addColorStop(0, M.well); wg.addColorStop(.85, M.well); wg.addColorStop(1, 'rgba(0,0,0,.9)');
+    ctx.beginPath(); ctx.arc(C, C, C * .44, 0, TAU); ctx.fillStyle = wg; ctx.fill();
+    ['y', 'm', 'd'].forEach(function (k) { ringBody(k, M, f); });
 
-  /* ---------- рисование ---------- */
-  function txt(s, x, y, size, color, font, align) {
-    ctx.font = (font || '400 ') + size + 'px ' + (font && font.indexOf('serif') >= 0 ? '' : 'Jost, "Segoe UI", Roboto, Arial, sans-serif');
-    if (font && font.indexOf('serif') >= 0) ctx.font = font.replace('serif', '') + size + 'px "Cormorant Garamond", Georgia, serif';
-    ctx.fillStyle = color; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
+    // годы: насечки по краю, черточки, десятилетия подписаны
+    var Y = RING.y;
+    for (i = 0; i < 150; i++) {
+      a = i / 150 * TAU + Y.rot; p = P(Y.rOut - .002, a); q = P(Y.rOut - .02, a);
+      ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.strokeStyle = M.inkSh; ctx.lineWidth = .9 * f; ctx.stroke();
+    }
+    for (i = 0; i < NY; i++) {
+      var yr = Y0 + i, dec = yr % 10 === 0; a = (i + Y.off + .5) * Y.step + Y.rot;
+      p = P(dec ? .775 : .79, a); q = P(dec ? .845 : .825, a);
+      ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.lineWidth = (dec ? 1.8 : 1) * f; ctx.strokeStyle = M.ink; ctx.stroke();
+      if (dec && Math.abs(wrapPi(a)) > .2) { p = P(.868, a); txt(String(yr), p[0], p[1], 9.5 * f, M.ink, '500', 0, M.inkSh); }
+    }
+    // месяцы и дни — поворачиваются со своим кольцом
+    var Mr = RING.m, D = RING.d, dmax = maxIdx('d');
+    for (i = 0; i < 12; i++) {
+      a = (i + .5) * Mr.step + Mr.rot; p = P(.667, a);
+      txt(MON[i], p[0], p[1], 12.5 * f, M.ink, '500', 0, M.inkSh);
+      q = P(.6, a + Mr.step / 2); p = P(.625, a + Mr.step / 2);
+      ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.strokeStyle = M.dim; ctx.lineWidth = f; ctx.stroke();
+    }
+    for (i = 0; i < 31; i++) {
+      a = (i + .5) * D.step + D.rot; p = P(.508, a);
+      txt(String(i + 1), p[0], p[1], 10 * f, i <= dmax ? M.ink : M.dim, '500', 0, i <= dmax ? M.inkSh : 0);
+    }
+    // окошко-стрелка наверху: неподвижно, кольца едут под ним
+    var w = .07 * C, top = C - .93 * C, bot = C - .425 * C;
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(C - w, bot); ctx.lineTo(C - w * 1.25, top); ctx.lineTo(C + w * 1.25, top); ctx.lineTo(C + w, bot); ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill(); ctx.strokeStyle = M.win; ctx.globalAlpha = .75; ctx.lineWidth = 1.2 * f; ctx.stroke();
+    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(C - 7 * f, top - 9 * f); ctx.lineTo(C + 7 * f, top - 9 * f); ctx.lineTo(C, top - 1 * f); ctx.closePath();
+    ctx.fillStyle = M.win; ctx.fill();
+    // значения под окошком — крупно, светятся, когда кольцо выбрано
+    [['y', .83, 13], ['m', .667, 13.5], ['d', .508, 12]].forEach(function (x) {
+      var k = x[0], r = RING[k], s = 1 + .22 * bump(k), v = r.val < 0 ? under(k) : r.val;
+      var t = k === 'y' ? String(Y0 + v) : k === 'm' ? MON[v] : String(v + 1);
+      p = P(x[1], 0);
+      ctx.save(); ctx.shadowColor = r.set ? 'rgba(255,230,160,.9)' : 'rgba(0,0,0,0)'; ctx.shadowBlur = 10 * f;
+      ctx.beginPath(); ctx.ellipse(p[0], p[1], w * (k === 'y' ? 1.22 : .98), x[2] * f * .95, 0, 0, TAU);
+      ctx.fillStyle = r.set ? 'rgba(20,14,30,.82)' : 'rgba(20,14,30,.55)'; ctx.fill(); ctx.restore();
+      txt(t, p[0], p[1], x[2] * f * s, r.set ? GOLD : 'rgba(236,230,247,.75)', '500');
+    });
   }
-  function bead(r, a, ring, color) {
-    var p = P(r, a), C = st.S / 2, rr = C * (.032 + .018 * bumpK(ring));
-    ctx.beginPath(); ctx.arc(p[0], p[1], rr * 2.1, 0, 7); ctx.fillStyle = 'rgba(240,214,140,.16)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, 7); ctx.fillStyle = color || GOLD; ctx.fill();
-  }
-  function draw(now) {
-    var S = st.S, C = S / 2, f = C / 190, i, a, p, q, k, l0, l1, x, al;
+
+  /* ---------- кадр ---------- */
+  var lastT = performance.now();
+  function frame(now) {
+    var S = st.S, C = S / 2, f = C / 190, k, dt = Math.min(50, now - lastT); lastT = now;
     ctx.setTransform(st.dpr, 0, 0, st.dpr, 0, 0); ctx.clearRect(0, 0, S, S);
-    // раскрытие: o — 0 колесо, 1 Цолькин
-    var dt = 1 / 60, sp = reduce ? 1 : .9;
-    if (st.open < st.openTo) st.open = Math.min(st.openTo, st.open + dt * sp);
-    if (st.open > st.openTo) st.open = Math.max(st.openTo, st.open - dt * sp * 1.3);
-    if (st.morph < 1) st.morph = Math.min(1, st.morph + dt * (reduce ? 3 : .8));
-    var o = ease(st.open), wheelA = Math.max(0, 1 - o * 1.8);
+    // инерция и доводка колец
+    ['y', 'm', 'd'].forEach(function (key) {
+      var r = RING[key];
+      if (r.drag) return;
+      if (r.target != null) {
+        r.rot += (r.target - r.rot) * Math.min(1, dt / 70);
+        if (Math.abs(r.target - r.rot) < .0006) { r.rot = r.target; r.target = null; }
+        check(key);
+      } else if (r.vel) {
+        r.rot += r.vel * dt; r.vel *= Math.pow(.9935, dt);
+        check(key);
+        if (Math.abs(r.vel) < .00012) { r.vel = 0; r.target = rotFor(key, under(key)); }
+      }
+    });
+    var sp = reduce ? 4 : 1;
+    if (st.open < st.openTo) st.open = Math.min(1, st.open + dt / 1300 * sp);
+    if (st.open > st.openTo) st.open = Math.max(0, st.open - dt / 900 * sp);
+    if (st.morph < 1) st.morph = Math.min(1, st.morph + dt / 1200 * sp);
+    var o = ease(st.open), wheelA = Math.max(0, 1 - o * 1.8), M = MATS[st.mat];
 
     if (wheelA > 0) {
-      ctx.globalAlpha = wheelA;
-      // кольца-дорожки
-      [[R.yIn, R.yOut], [R.mIn, R.mOut], [R.dIn, R.dOut]].forEach(function (b, j) {
-        var act = st.ring === ['y', 'm', 'd'][j];
-        ctx.beginPath(); ctx.arc(C, C, (b[0] + b[1]) / 2 * C, 0, 7);
-        ctx.lineWidth = (b[1] - b[0]) * C; ctx.strokeStyle = act ? 'rgba(240,214,140,.10)' : 'rgba(255,255,255,.035)'; ctx.stroke();
-      });
-      // годы: черточки, десятилетия длиннее и подписаны
-      for (i = 0; i < NY; i++) {
-        var yr = Y0 + i, dec = yr % 10 === 0, sel = st.y === yr; a = yA(i);
-        p = P(dec ? R.yIn - .01 : R.yIn + .02, a); q = P(dec ? R.yOut + .005 : R.yOut - .02, a);
-        ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]);
-        ctx.lineWidth = (dec ? 1.6 : 1) * f; ctx.strokeStyle = sel ? GOLD : dec ? 'rgba(236,230,247,.85)' : 'rgba(236,230,247,.38)'; ctx.stroke();
-        if (dec) { p = P(R.yLab, a); txt(String(yr), p[0], p[1], 10.5 * f, 'rgba(236,230,247,.75)'); }
-      }
-      p = P(R.yLab, yA(NY - 1) + .07); txt(String(Y1), p[0], p[1], 9 * f, 'rgba(165,157,194,.9)');
-      // месяцы
-      for (i = 0; i < 12; i++) {
-        a = mA(i); p = P(R.mR, a);
-        txt(MON[i], p[0], p[1], 12 * f, st.m === i ? GOLD : 'rgba(236,230,247,.8)', st.m === i ? '500 ' : '300 ');
-        q = P(R.mIn + .005, a + Math.PI / 12); x = P(R.mIn + .03, a + Math.PI / 12);
-        ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(x[0], x[1]); ctx.lineWidth = f; ctx.strokeStyle = 'rgba(236,230,247,.25)'; ctx.stroke();
-      }
-      // дни (лишние в коротком месяце гаснут)
-      var dim = st.m == null ? 31 : daysIn(st.y, st.m);
-      for (i = 0; i < 31; i++) {
-        p = P(R.dR, dA(i));
-        txt(String(i + 1), p[0], p[1], 9.6 * f, st.d === i + 1 ? GOLD : i < dim ? 'rgba(236,230,247,.78)' : 'rgba(236,230,247,.16)', st.d === i + 1 ? '500 ' : '300 ');
-      }
-      // метки выбранного
-      if (st.y != null && st.y >= Y0 && st.y <= Y1) bead((R.yIn + R.yOut) / 2, yA(st.y - Y0), 'y');
-      if (st.m != null) { a = mA(st.m); p = P(R.mR, a); ctx.beginPath(); ctx.arc(p[0], p[1], C * (.065 + .02 * bumpK('m')), 0, 7); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4 * f; ctx.stroke(); }
-      if (st.d != null) { p = P(R.dR, dA(st.d - 1)); ctx.beginPath(); ctx.arc(p[0], p[1], C * (.05 + .018 * bumpK('d')), 0, 7); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4 * f; ctx.stroke(); }
-      ctx.globalAlpha = 1;
+      ctx.save(); ctx.globalAlpha = wheelA;
+      var sc = 1 + o * .25; ctx.translate(C, C); ctx.scale(sc, sc); ctx.translate(-C, -C);
+      drawWheel(now, f, M); ctx.restore();
     }
 
-    // 260 точек
-    var mineSet = {}; st.mine.forEach(function (m) { mineSet[m] = 1; });
-    var tm = ease(st.morph), tpo = st.portals ? o : 0;
+    // 260 точек: в середине колеса мерцают и медленно идут против часовой; после «Открыть» перелетают в Цолькин
+    var mine = {}; st.mine.forEach(function (m) { mine[m] = 1; });
+    var tm = ease(st.morph), tpo = st.portals ? o : 0, pw = st.pick ? Math.floor((st.pick - 1) / 13) : -1;
     for (k = 1; k <= 260; k++) {
-      // когда раскрываем — точки летят с лёгким разбросом по очереди
-      var st0 = reduce ? 0 : ((k * 37) % 260) / 260 * .35, ok = Math.max(0, Math.min(1, (o - st0) / (1 - .35)));
-      l0 = layout('ring', k); l1 = layout(st.lay, k);
-      if (st.morph < 1 && st.from) { var lf = layout(st.from, k); l1 = [lf[0] + (l1[0] - lf[0]) * tm, lf[1] + (l1[1] - lf[1]) * tm, l1[2]]; }
-      var e = ease(ok), pa = xy(l0), pb = xy(l1);
-      x = [pa[0] + (pb[0] - pa[0]) * e, pa[1] + (pb[1] - pa[1]) * e];
+      var d0 = reduce ? 0 : ((k * 37) % 260) / 260 * .35, ok = Math.max(0, Math.min(1, (o - d0) / .65)), e = ease(ok);
+      var l0 = layout('ring', k, now), l1 = layout(st.lay, k, now);
+      if (st.morph < 1 && st.from) { var lf = layout(st.from, k, now); l1 = [lf[0] + (l1[0] - lf[0]) * tm, lf[1] + (l1[1] - lf[1]) * tm, l1[2]]; }
+      var pa = P(l0[0], l0[1]), pb = P(l1[0], l1[1]), x = pa[0] + (pb[0] - pa[0]) * e, y = pa[1] + (pb[1] - pa[1]) * e;
+      st.pos[k] = [x, y];
       var col = mix(l0[2], l1[2], e); if (isGap[k] && tpo > 0) col = mix(l0[2], PORT, tpo);
-      al = o < .02 ? .55 + .35 * Math.sin(now / 900 + k * .45) : .9;
-      var rad = (o < .02 ? 1.05 : 1.05 + 1.6 * e) * f * (isGap[k] && tpo > .5 ? 1.25 : 1);
-      ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(x[0], x[1], rad, 0, 7); ctx.fillStyle = col; ctx.fill();
-      if (mineSet[k] && o > 0) {
+      var inW = Math.floor((k - 1) / 13), al = o < .02 ? .5 + .4 * Math.sin(now / 700 + k * .45) : (pw >= 0 && inW !== pw && !mine[k] ? .42 : .92);
+      var rad = (o < .02 ? 1.05 : 1.1 + 1.6 * e) * f * (isGap[k] && tpo > .5 ? 1.2 : 1) * (pw === inW && o > .5 ? 1.25 : 1);
+      if (o > .5 && inW === st.routeW) { ctx.globalAlpha = .38 * o; ctx.beginPath(); ctx.arc(x, y, rad * 2.1, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.1 * f; ctx.stroke(); }
+      ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); ctx.fillStyle = col; ctx.fill();
+      if (mine[k] && o > 0) {
         var pulse = 1 + .25 * Math.sin(now / 420);
-        ctx.globalAlpha = .18 * o; ctx.beginPath(); ctx.arc(x[0], x[1], 14 * f * pulse, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
-        ctx.globalAlpha = o; ctx.beginPath(); ctx.arc(x[0], x[1], 7.5 * f, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * f; ctx.stroke();
+        ctx.globalAlpha = .18 * o; ctx.beginPath(); ctx.arc(x, y, 14 * f * pulse, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.globalAlpha = o; ctx.beginPath(); ctx.arc(x, y, 7.5 * f, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * f; ctx.stroke();
+      }
+      if (st.pick === k && o > .5) {
+        ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(x, y, 9 * f, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 2 * f; ctx.stroke();
       }
     }
     ctx.globalAlpha = 1;
-
-    // центр
-    if (wheelA > 0) {
-      ctx.globalAlpha = wheelA;
-      if (st.live) {
-        txt(st.live, C, C, (st.ring === 'y' ? 34 : 30) * f, GOLD, '500 serif');
-      } else if (st.mine.length) {
-        txt('Kin ' + st.mine[0], C, C, 30 * f, GOLD, '500 serif');
-      } else {
-        var dd = st.d != null ? st.d : '··', mm = st.m != null ? MON[st.m] : '···', yy = st.y != null ? st.y : '····';
-        txt(dd + ' ' + mm, C, C - 9 * f, 17 * f, st.d != null || st.m != null ? '#ece6f7' : 'rgba(165,157,194,.7)', '400 serif');
-        txt(String(yy), C, C + 13 * f, 17 * f, st.y != null ? '#ece6f7' : 'rgba(165,157,194,.7)', '400 serif');
-      }
-      ctx.globalAlpha = 1;
-    }
     if (o > .6 && st.lay !== 'spiral' && st.mine.length) {
-      ctx.globalAlpha = (o - .6) / .4;
-      txt('Kin', C, C - 10 * f, 13 * f, 'rgba(165,157,194,.95)');
-      txt(String(st.mine[0]), C, C + 9 * f, 24 * f, GOLD, '500 serif');
+      ctx.globalAlpha = (o - .6) / .4; var sk = st.pick || st.mine[0];
+      txt('Kin', C, C - 10 * f, 12 * f, 'rgba(165,157,194,.95)');
+      txt(String(sk), C, C + 9 * f, 24 * f, GOLD, '500', '"Cormorant Garamond", Georgia, serif');
       ctx.globalAlpha = 1;
     }
-    requestAnimationFrame(draw);
+    $('ctr').style.opacity = String(wheelA);
+    if (st.live && now - st.liveT > 900 && !anyDrag()) { st.live = ''; center(); }
+    requestAnimationFrame(frame);
+  }
+  function anyDrag() { return RING.y.drag || RING.m.drag || RING.d.drag; }
+
+  /* ---------- середина: дата и «Открыть» ---------- */
+  function allSet() { return RING.y.set && RING.m.set && RING.d.set; }
+  function center() {
+    var h;
+    if (st.live) h = '<div class="big">' + st.live + '</div>';
+    else {
+      var d = RING.d.set ? String(RING.d.val + 1) : '<i>··</i>', m = RING.m.set ? MONF[RING.m.val] : '<i>···</i>', y = RING.y.set ? String(yearOf()) : '<i>····</i>';
+      h = '<div class="date">' + d + ' ' + m + '<br>' + y + '</div>' + (allSet() ? '<button class="open" type="button" id="openBtn">Открыть</button>' : '');
+    }
+    $('ctr').innerHTML = h;
+    var b = $('openBtn'); if (b) b.addEventListener('click', openIt);
+    hint();
+  }
+  function hint() {
+    $('hint').textContent = st.openTo ? (st.pick ? 'Нажимайте на любые кины. Золотом подсвечена волна, ваш — в белом круге.' : 'Ваше место в круге 260 дней. Нажмите на любую точку — покажу, что это за кин.') :
+      !RING.y.set ? 'Поверните внешнее кольцо пальцем — как диск сейфа. Под стрелку наверху — год рождения.' :
+      !RING.m.set ? 'Теперь среднее кольцо — месяц.' : !RING.d.set ? 'И внутреннее — день.' :
+      'Проверьте дату. Можно докрутить любое кольцо. Готово — «Открыть».';
   }
 
   /* ---------- палец по кольцу ---------- */
   function where(e) {
     var r = cv.getBoundingClientRect(), C = r.width / 2, dx = e.clientX - r.left - C, dy = e.clientY - r.top - C;
-    var a = Math.atan2(dx, -dy); if (a < 0) a += Math.PI * 2;
-    return { rr: Math.sqrt(dx * dx + dy * dy) / C, a: a };
+    var a = Math.atan2(dx, -dy); if (a < 0) a += TAU;
+    return { rr: Math.sqrt(dx * dx + dy * dy) / C, a: a, x: e.clientX - r.left, y: e.clientY - r.top };
   }
-  function ringAt(rr) { return rr > .74 && rr < 1.02 ? 'y' : rr > R.mIn - .01 ? (rr <= .74 ? 'm' : '') : rr > R.dIn - .03 ? 'd' : ''; }
-  function valAt(ring, a) {
-    var u = a / (Math.PI * 2);
-    if (ring === 'y') { var i = Math.floor(u * (NY + 2)) - 1; return Y0 + Math.max(0, Math.min(NY - 1, i)); }
-    if (ring === 'm') return Math.min(11, Math.floor(u * 12));
-    var d = Math.min(31, Math.floor(u * 31) + 1), mx = st.m == null ? 31 : daysIn(st.y, st.m);
-    return Math.min(d, mx);
-  }
-  function set(ring, v) {
-    var cur = ring === 'y' ? st.y : ring === 'm' ? st.m : st.d;
-    if (cur === v) return;
-    if (ring === 'y') st.y = v; else if (ring === 'm') st.m = v; else st.d = v;
-    if (st.d != null && st.m != null && st.d > daysIn(st.y, st.m)) st.d = daysIn(st.y, st.m);
-    st.live = ring === 'y' ? String(v) : ring === 'm' ? MONN[v] : String(v);
-    click(ring);
-  }
-  var timer = 0;
+  function ringAt(rr) { return rr > .745 && rr < 1.02 ? 'y' : rr > .585 && rr <= .745 ? 'm' : rr > .4 && rr <= .585 ? 'd' : ''; }
+  var drag = null;
   cv.addEventListener('pointerdown', function (e) {
-    if (st.openTo) return;
-    var w = where(e), ring = ringAt(w.rr);
-    if (!ring) return;
-    e.preventDefault(); cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
-    st.ring = ring; clearTimeout(timer); hideHunab(); set(ring, valAt(ring, w.a));
+    var w = where(e);
+    if (st.openTo) { pickAt(w.x, w.y); return; }
+    var k = ringAt(w.rr); if (!k) return;
+    e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+    audio(); cv.classList.add('drag');
+    var r = RING[k]; r.drag = true; r.vel = 0; r.target = null;
+    drag = { k: k, a: w.a, t: performance.now(), moved: 0, x0: w.x, y0: w.y, a0: w.a };
+    hideHunab();
   });
   cv.addEventListener('pointermove', function (e) {
-    if (!st.ring) return;
-    set(st.ring, valAt(st.ring, where(e).a));
+    if (!drag) return;
+    var w = where(e), r = RING[drag.k], da = wrapPi(w.a - drag.a), now = performance.now(), dt = Math.max(1, now - drag.t);
+    r.rot += da; r.vel = r.vel * .6 + (da / dt) * .4; drag.a = w.a; drag.t = now;
+    drag.moved = Math.max(drag.moved, Math.hypot(w.x - drag.x0, w.y - drag.y0));
+    check(drag.k);
   });
-  function up() {
-    if (!st.ring) return;
-    st.ring = ''; st.live = null; cv.classList.remove('drag');
-    hint();
-    if (st.y != null && st.m != null && st.d != null) timer = setTimeout(go, 650);
+  function up(e) {
+    if (!drag) return;
+    var k = drag.k, r = RING[k], w = where(e);
+    r.drag = false; cv.classList.remove('drag');
+    if (drag.moved < 6) {
+      // просто нажали на число — кольцо само подвезёт его под стрелку
+      var s = Math.floor((w.a - r.rot) / r.step), i = (((s % r.slots) + r.slots) % r.slots) - r.off;
+      i = Math.max(0, Math.min(maxIdx(k), i)); r.vel = 0; r.target = rotFor(k, i);
+    } else if (reduce || performance.now() - drag.t > 80) { r.vel = 0; r.target = rotFor(k, under(k)); }
+    r.set = true; drag = null; center();
   }
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
-  function hint() {
-    var h = document.getElementById('hint');
-    h.textContent = st.openTo ? 'Ваше место в круге 260 дней. Все 260 кинов — те же точки, что были в середине колеса.' :
-      st.y == null ? 'Проведите пальцем по внешнему кольцу — это год рождения. Потом — месяц, внутри — день.' :
-      st.m == null ? 'Теперь месяц — среднее кольцо.' : st.d == null ? 'И день — внутреннее кольцо.' : 'Можно поправить любое кольцо — или подождите секунду.';
+  /* ---------- даты ---------- */
+  var DAY = 864e5;
+  function isoOf(y, m, d) { return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + d).slice(-2); }
+  function add(iso, n) { return new Date(Date.parse(iso + 'T00:00:00Z') + n * DAY).toISOString().slice(0, 10); }
+  function today() { var d = new Date(); return isoOf(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function nice(iso) { var p = iso.split('-'); return +p[2] + ' ' + MONF[+p[1] - 1] + ' ' + p[0]; }
+  function short(iso) { var p = iso.split('-'); return p[2] + '.' + p[1]; }
+  function nextOf(kin) { var t = today(), i, d; for (i = 0; i < 262; i++) { d = add(t, i); if (K.kinOf(d) === kin) return d; } return ''; }
+  // волна (13 дней), в которой стоит дата: от, до, название — по первому дню (так называются маршруты)
+  function waveOf(d) {
+    var k = K.kinOf(d), day = K.toneOf(k), a = d, b = d, s = day, e = day;
+    while (s > 1) { a = add(a, -1); if (K.kinOf(a)) s--; }
+    while (e < 13) { b = add(b, 1); if (K.kinOf(b)) e++; }
+    return { date: d, kin: k, day: day, from: a, to: b, title: K.sealName(K.sealOf(k - day + 1)), w: Math.floor((k - day) / 13) };
+  }
+  function sealWaves(seal, n) {
+    var t = today(), out = [], i, d, k;
+    for (i = 0; i < 560 && out.length < n; i++) { d = add(t, i); k = K.kinOf(d); if (k && K.sealOf(k) === seal) out.push(waveOf(d)); }
+    return out;
   }
 
-  /* ---------- результат ---------- */
-  function iso(y, m, d) { return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + d).slice(-2); }
-  function go() {
-    if (st.m === 1 && st.d === 29) { document.getElementById('hunab').hidden = false; return; }
-    reveal([K.kinOf(iso(st.y, st.m, st.d))]);
+  /* ---------- «Открыть» и результат ---------- */
+  function openIt() {
+    st.date = { y: yearOf(), m: RING.m.val, d: RING.d.val + 1 };
+    if (st.date.m === 1 && st.date.d === 29) { $('hunab').hidden = false; return; }
+    lockSound(); reveal([K.kinOf(isoOf(st.date.y, st.date.m, st.date.d))]);
   }
-  function hideHunab() { document.getElementById('hunab').hidden = true; }
-  document.getElementById('hunab').addEventListener('click', function (e) {
+  function hideHunab() { $('hunab').hidden = true; }
+  $('hunab').addEventListener('click', function (e) {
     var n = e.target.getAttribute && e.target.getAttribute('data-noon'); if (!n) return;
-    var b = K.kinOf(iso(st.y, 1, 28)), a = K.kinOf(iso(st.y, 2, 1));
-    hideHunab(); reveal(n === 'b' ? [b] : n === 'a' ? [a] : [b, a], n === 'x');
+    var b = K.kinOf(isoOf(st.date.y, 1, 28)), a = K.kinOf(isoOf(st.date.y, 2, 1));
+    hideHunab(); lockSound(); reveal(n === 'b' ? [b] : n === 'a' ? [a] : [b, a], n === 'x');
   });
   function reveal(kins, both) {
-    st.mine = kins; st.openTo = 1; st.from = null; st.morph = 1;
-    var res = document.getElementById('res'), h = '';
+    st.mine = kins; st.openTo = 1; st.from = null; st.morph = 1; st.pick = null;
+    var h = '<div class="head">', I0 = K.info(kins[0]);
     kins.forEach(function (k, i) {
       var I = K.info(k);
       if (both) h += '<div class="s">' + (i ? 'если после полудня' : 'если до полудня') + '</div>';
       h += '<div class="k">Kin ' + k + '</div><div class="n">' + I.kinName + '</div>' +
         '<div class="s">Печать — ' + I.seal + ' · тон ' + I.toneN + ', ' + I.tone + (isGap[k] ? ' · портал' : '') + '</div>';
     });
-    res.innerHTML = h; res.hidden = false; document.getElementById('after').hidden = false; hint();
+    h += '</div>';
+    var nx = nextOf(I0.kin), ws = sealWaves(I0.sealN, 2);
+    st.routeW = ws.length ? ws[0].w : -1;
+    h += '<section class="sec"><h3>Ваш тон</h3><p>Тон ' + I0.toneN + ' — ' + I0.tone + '. В каждой 13-дневной волне ваш день — ' + I0.toneN + '-й.</p></section>';
+    if (nx) h += '<section class="sec"><h3>Галактический день рождения</h3><p>' + (nx === today() ? 'Сегодня ваш галактический день рождения!' :
+      'Ваш кин возвращается раз в 260 дней. Ближайший галактический день рождения — ' + nice(nx) + '.') + '</p></section>';
+    if (ws.length) h += '<section class="sec"><h3>Ваша печать в маршрутах 13 MIRRORS</h3>' + ws.map(function (w, i) {
+      return '<button class="route" type="button" data-k="' + w.kin + '">«' + w.title + '» · ' + short(w.from) + '–' + short(w.to) +
+        ' — ваша печать в день ' + w.day + ' (' + nice(w.date) + ').<small>' + (i ? 'Нажмите — покажу эту волну.' : 'Эта волна подсвечена золотом. Нажмите — покажу её.') +
+        ' На сайте здесь «Открыть маршрут» или «Информация скоро появится».</small></button>';
+    }).join('') + '</section>';
+    $('res').innerHTML = h; $('res').hidden = false; $('again').hidden = false; $('pick').hidden = true; hint();
   }
-  document.getElementById('again').addEventListener('click', function () {
-    st.openTo = 0; st.mine = []; document.getElementById('res').hidden = true; document.getElementById('after').hidden = true; hint();
+  $('res').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-k]'); if (!b) return;
+    showPick(+b.getAttribute('data-k')); $('pick').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  });
+  $('again').addEventListener('click', function () {
+    st.openTo = 0; st.mine = []; st.pick = null; st.routeW = -1;
+    $('res').hidden = true; $('again').hidden = true; $('pick').hidden = true; center();
   });
 
+  /* ---------- нажать на любой кин ---------- */
+  function pickAt(x, y) {
+    if (st.open < .8) return;
+    var best = 0, bd = 22 * 22, k, dx, dy, d;
+    for (k = 1; k <= 260; k++) { if (!st.pos[k]) continue; dx = st.pos[k][0] - x; dy = st.pos[k][1] - y; d = dx * dx + dy * dy; if (d < bd) { bd = d; best = k; } }
+    if (best) { click(false); showPick(best); }
+  }
+  function showPick(k) {
+    if (st.mine.indexOf(k) >= 0) { st.pick = null; $('pick').hidden = true; hint(); return; }
+    st.pick = k;
+    var I = K.info(k), nx = nextOf(k), w = nx ? waveOf(nx) : null;
+    $('pick').innerHTML = '<div class="k">Kin ' + k + '</div><div class="n">' + I.kinName + '</div>' +
+      '<p class="s">Печать — ' + I.seal + ' · тон ' + I.toneN + ', ' + I.tone + (isGap[k] ? ' · портал' : '') + '</p>' +
+      (nx ? '<p>Ближайший день этого кина — ' + (nx === today() ? 'сегодня' : nice(nx)) + '.</p>' : '') +
+      (w ? '<p class="s">Волна «' + w.title + '» · ' + short(w.from) + '–' + short(w.to) + ', день ' + w.day + ' из 13</p>' : '') +
+      '<div class="row"><button class="link" type="button" id="toMine">↩ К моему кину</button></div>';
+    $('pick').hidden = false; $('toMine').addEventListener('click', function () { st.pick = null; $('pick').hidden = true; hint(); });
+    hint();
+  }
+
   /* ---------- дата цифрами ---------- */
-  var din = document.getElementById('din');
-  document.getElementById('toTyped').addEventListener('click', function () {
-    var f = document.getElementById('typed'); f.hidden = !f.hidden;
+  var din = $('din');
+  $('toTyped').addEventListener('click', function () {
+    var f = $('typed'); f.hidden = !f.hidden;
     this.textContent = f.hidden ? 'Ввести дату цифрами' : '← Выбрать на колесе';
     if (!f.hidden) din.focus();
   });
   din.addEventListener('input', function () {
     var v = din.value.replace(/\D/g, '').slice(0, 8), o = v.slice(0, 2);
     if (v.length > 2) o += '.' + v.slice(2, 4); if (v.length > 4) o += '.' + v.slice(4);
-    din.value = o;
+    din.value = o; din.setCustomValidity('');
   });
-  document.getElementById('typed').addEventListener('submit', function (e) {
+  function setRings(y, m, d) {
+    var yi = Math.max(0, Math.min(NY - 1, y - Y0));
+    RING.y.target = rotFor('y', yi); RING.m.target = rotFor('m', m); RING.d.target = rotFor('d', d - 1);
+    RING.y.set = RING.m.set = RING.d.set = true;
+  }
+  $('typed').addEventListener('submit', function (e) {
     e.preventDefault();
     var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(din.value), y, mo, d;
     if (!m) { din.setCustomValidity('Нужна дата вида 12.05.1987'); din.reportValidity(); return; }
     d = +m[1]; mo = +m[2] - 1; y = +m[3];
     if (mo < 0 || mo > 11 || d < 1 || d > daysIn(y, mo)) { din.setCustomValidity('Такой даты нет — проверьте день и месяц'); din.reportValidity(); return; }
-    din.setCustomValidity('');
-    st.y = y; st.m = mo; st.d = d; st.openTo = 0;
-    if (mo === 1 && d === 29) { document.getElementById('hunab').hidden = false; return; }
-    reveal([K.kinOf(iso(y, mo, d))]);
+    setRings(y, mo, d); st.date = { y: y, m: mo, d: d };
+    if (mo === 1 && d === 29) { $('hunab').hidden = false; return; }
+    lockSound(); reveal([K.kinOf(isoOf(y, mo, d))]);
   });
 
   /* ---------- переключатели пробы ---------- */
-  document.getElementById('lays').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-lay]'); if (!b || b.getAttribute('data-lay') === st.lay) return;
-    st.from = st.lay; st.lay = b.getAttribute('data-lay'); st.morph = st.open > 0 ? 0 : 1;
-    [].forEach.call(this.querySelectorAll('[data-lay]'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+  function pills(id, attr, fn) {
+    $(id).addEventListener('click', function (e) {
+      var b = e.target.closest('[' + attr + ']'); if (!b) return;
+      [].forEach.call(this.querySelectorAll('[' + attr + ']'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      fn(b.getAttribute(attr));
+    });
+  }
+  pills('mats', 'data-mat', function (v) { st.mat = v; });
+  pills('clks', 'data-clk', function (v) { st.clk = v; click(false); setTimeout(function () { click(true); }, 260); });
+  pills('lays', 'data-lay', function (v) { if (v === st.lay) return; st.from = st.lay; st.lay = v; st.morph = st.open > 0 ? 0 : 1; });
+  $('portals').addEventListener('change', function () { st.portals = this.checked; });
+  $('demo').addEventListener('click', function () {
+    if (st.openTo) $('again').click();
+    audio(); setRings(1987, 4, 12); center();
+    $('cv').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
   });
-  document.getElementById('portals').addEventListener('change', function () { st.portals = this.checked; });
-  document.getElementById('demo').addEventListener('click', function () {
-    st.y = 1987; st.m = 4; st.d = 12; st.openTo = 0; st.mine = [];
-    document.getElementById('res').hidden = true; setTimeout(go, 500); hint();
-  });
-  var snd = document.getElementById('snd');
+  var snd = $('snd');
   function sndUI() { snd.textContent = sound ? '🔊' : '🔇'; snd.setAttribute('aria-pressed', sound ? 'false' : 'true'); snd.title = sound ? 'Выключить звук щелчков' : 'Включить звук щелчков'; }
   snd.addEventListener('click', function () { sound = !sound; try { localStorage.setItem('m13kinSnd', sound ? '1' : '0'); } catch (e) {} sndUI(); });
   sndUI();
 
+  // начальное положение: 1985, январь, 1 — под стрелкой, но ещё не выбрано
+  RING.y.rot = rotFor('y', 1985 - Y0); RING.m.rot = rotFor('m', 0); RING.d.rot = rotFor('d', 0);
+  ['y', 'm', 'd'].forEach(function (k) { RING[k].val = under(k); });
   resize(); window.addEventListener('resize', resize);
-  requestAnimationFrame(draw);
+  center(); requestAnimationFrame(frame);
 })();
 </script>
