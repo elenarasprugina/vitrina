@@ -3603,6 +3603,221 @@
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
   }
+  // 🎬 Ролик маршрута: окно-телефон 9:16 со страницей маршрута (проверка, придуманный участник — ?film=1).
+  // Chrome записывает эту вкладку, обрезанную до окна (getDisplayMedia + CropTarget), кадры рисуются в холст 1080×1920
+  // с подписями поверх → MediaRecorder (mp4, где браузер умеет, иначе webm). Звук не пишем, файл никуда не уходит.
+  var FILM_W = 1080, FILM_H = 1920;
+  function filmMime() {
+    var l = ['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'], i;
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+    for (i = 0; i < l.length; i++) if (MediaRecorder.isTypeSupported(l[i])) return l[i];
+    return '';
+  }
+  function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && filmMime()); }
+  // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
+  function filmForget() {
+    try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('m13film-') === 0) localStorage.removeItem(k); }); } catch (e) {}
+  }
+  function filmTime(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + pad(s % 60); }
+  function openFilm(r) {
+    var pv = document.getElementById('a-preview');
+    var st = ST.film = ST.film || { mode: 'observation', day: '', tap: true, title: true, mark: true, caption: '' };
+    var REC = null, res = el('div', { class: 'a-film-res' });
+    var h = Math.max(460, Math.min(800, window.innerHeight - 130)), w = Math.round(h * 9 / 16);
+    var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, style: 'width:' + w + 'px;height:' + h + 'px' });
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady && e.source === fr.contentWindow) send(); }
+    function reload() { fr.src = '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (st.day ? '&sim=' + st.day : ''); }
+    // Кружок касания и «без плашки проверки во время записи» — прямо в страницу окна (тот же сайт)
+    fr.addEventListener('load', function () {
+      var d; try { d = fr.contentDocument; } catch (e) { return; }
+      if (!d || !d.head) return;
+      var s = d.createElement('style');
+      s.textContent = '.m13f-tap{position:fixed;z-index:2147483647;left:0;top:0;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;' +
+        'border:2px solid rgba(255,255,255,.95);background:rgba(255,255,255,.3);box-shadow:0 0 0 1px rgba(0,0,0,.2),0 0 16px rgba(255,255,255,.55);' +
+        'pointer-events:none;animation:m13fTap .6s ease-out forwards}@keyframes m13fTap{from{transform:scale(.45);opacity:1}to{transform:scale(1.5);opacity:0}}' +
+        'html.m13f-rec .ys-debug{display:none!important}';
+      d.head.appendChild(s);
+      if (REC) d.documentElement.classList.add('m13f-rec');
+      d.addEventListener('pointerdown', function (e) {
+        if (!st.tap) return;
+        var t = d.createElement('div'); t.className = 'm13f-tap'; t.style.left = e.clientX + 'px'; t.style.top = e.clientY + 'px';
+        d.body.appendChild(t); setTimeout(function () { t.remove(); }, 700);
+      }, true);
+    });
+    var logo = null;
+    if (DATA.settings.logo) { logo = new Image(); logo.src = imgSrc(DATA.settings.logo); }
+    // Кадр ролика: окно-телефон во весь холст + название в начале, знак, подпись
+    function paint(x, v, t) {
+      var vw = v.videoWidth, vh = v.videoHeight;
+      x.fillStyle = '#000'; x.fillRect(0, 0, FILM_W, FILM_H);
+      if (vw && vh) {
+        var k = Math.max(FILM_W / vw, FILM_H / vh), dw = vw * k, dh = vh * k;
+        x.imageSmoothingQuality = 'high';
+        x.drawImage(v, (FILM_W - dw) / 2, (FILM_H - dh) / 2, dw, dh);
+      }
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      if (st.title && t < 3.4) {
+        var a = t < 2.6 ? 1 : 1 - (t - 2.6) / 0.8, gr = x.createLinearGradient(0, 0, 0, 640);
+        x.globalAlpha = a;
+        gr.addColorStop(0, 'rgba(0,0,0,.62)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        x.fillStyle = gr; x.fillRect(0, 0, FILM_W, 640);
+        x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.fillStyle = '#fff';
+        x.font = '600 76px Georgia, "Times New Roman", serif';
+        filmLines(x, r.title || '', 940).forEach(function (l, i) { x.fillText(l, FILM_W / 2, 230 + i * 92); });
+        var dt = [jDateText(r.start), r.days && r.days.length ? r.days.length + ' дней' : ''].filter(Boolean).join(' · ');
+        if (dt) { x.font = '400 40px -apple-system, "Segoe UI", Roboto, sans-serif'; x.fillText(dt, FILM_W / 2, 150); }
+        x.shadowBlur = 0; x.globalAlpha = 1;
+      }
+      if (st.caption) {
+        var cl = filmLines(x, st.caption, 940, '500 52px -apple-system, "Segoe UI", Roboto, sans-serif'), y0 = FILM_H - 250 - (cl.length - 1) * 66;
+        var g2 = x.createLinearGradient(0, y0 - 140, 0, FILM_H); g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,.55)');
+        x.fillStyle = g2; x.fillRect(0, y0 - 140, FILM_W, FILM_H - y0 + 140);
+        x.shadowColor = 'rgba(0,0,0,.7)'; x.shadowBlur = 14; x.fillStyle = '#fff';
+        cl.forEach(function (l, i) { x.fillText(l, FILM_W / 2, y0 + i * 66); });
+        x.shadowBlur = 0;
+      }
+      if (st.mark) {
+        x.globalAlpha = 0.8;
+        if (logo && logo.complete && logo.naturalWidth) {
+          var lw = 190, lh = lw * logo.naturalHeight / logo.naturalWidth;
+          if (lh > 120) { lh = 120; lw = lh * logo.naturalWidth / logo.naturalHeight; }
+          x.drawImage(logo, FILM_W - 50 - lw, FILM_H - 50 - lh, lw, lh);
+        } else {
+          x.textAlign = 'right'; x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 10;
+          x.font = '600 34px -apple-system, "Segoe UI", Roboto, sans-serif';
+          x.fillText('1 3   M I R R O R S', FILM_W - 54, FILM_H - 70); x.shadowBlur = 0;
+        }
+        x.globalAlpha = 1;
+      }
+    }
+    var bRec = el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '● Записать', onclick: function () { start(); } });
+    var bPause = el('button', { type: 'button', class: 'a-btn', text: '⏸ Пауза', disabled: true, onclick: function () { pause(); } });
+    var bStop = el('button', { type: 'button', class: 'a-btn', text: '■ Стоп', disabled: true, onclick: function () { stop(); } });
+    var clock = el('span', { class: 'a-film-clock', text: '0:00' });
+    function ui() {
+      bRec.disabled = !!REC; bPause.disabled = bStop.disabled = !REC;
+      bPause.textContent = REC && REC.paused ? '▶ Дальше' : '⏸ Пауза';
+      clock.classList.toggle('is-on', !!REC && !REC.paused);
+      pv.classList.toggle('is-rec', !!REC);
+      try { fr.contentDocument.documentElement.classList.toggle('m13f-rec', !!REC); } catch (e) {}
+    }
+    function start() {
+      if (!filmCan()) { toast('Запись ролика работает в Chrome (или Edge) на компьютере. В этом браузере её нет.', true); return; }
+      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false,
+        preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' }).then(function (stream) {
+        var tr = stream.getVideoTracks()[0], ss = tr.getSettings ? tr.getSettings() : {};
+        if (ss.displaySurface && ss.displaySurface !== 'browser') {
+          stream.getTracks().forEach(function (k) { k.stop(); });
+          toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
+        }
+        return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); }).then(function () { begin(stream); }, function (e) {
+          stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
+        });
+      }).catch(function (e) {
+        if (e && e.name === 'NotAllowedError') toast('Запись не началась: браузер не дал доступ к вкладке.');
+        else { console.error(e); toast('Не получилось начать запись: ' + (e && e.message || e), true); }
+      });
+    }
+    function begin(stream) {
+      var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
+      var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
+      var x = cv.getContext('2d'), mime = filmMime();
+      var rec = new MediaRecorder(cv.captureStream(30), { mimeType: mime, videoBitsPerSecond: 10000000 });
+      REC = { stream: stream, v: v, rec: rec, chunks: [], t: 0, last: performance.now(), paused: false, mime: mime, raf: 0 };
+      rec.ondataavailable = function (e) { if (e.data && e.data.size) REC.chunks.push(e.data); };
+      rec.onstop = function () { done(REC); };
+      // «Закрыть доступ» на плашке Chrome — тоже стоп
+      stream.getVideoTracks()[0].addEventListener('ended', function () { if (REC && REC.rec === rec) stop(); });
+      (function loop() {
+        var now = performance.now();
+        if (!REC || REC.rec !== rec) return;
+        if (!REC.paused) { REC.t += (now - REC.last) / 1000; paint(x, v, REC.t); clock.textContent = filmTime(REC.t); }
+        REC.last = now;
+        REC.raf = requestAnimationFrame(loop);
+      })();
+      rec.start(1000);
+      res.replaceChildren(); ui();
+    }
+    function pause() {
+      if (!REC) return;
+      if (REC.paused) { REC.rec.resume(); REC.paused = false; } else { REC.rec.pause(); REC.paused = true; }
+      ui();
+    }
+    function stop() {
+      if (!REC) return;
+      var R = REC;
+      cancelAnimationFrame(R.raf);
+      R.stream.getTracks().forEach(function (k) { k.stop(); });
+      if (R.rec.state !== 'inactive') R.rec.stop(); else done(R);
+    }
+    function done(R) {
+      if (!R || R.finished) return;
+      R.finished = true; if (REC === R) REC = null; ui();
+      if (!R.chunks.length) { toast('Ролик пустой — запись не успела начаться.', true); return; }
+      var type = R.mime.split(';')[0], ext = /mp4/.test(type) ? 'mp4' : 'webm';
+      var url = URL.createObjectURL(new Blob(R.chunks, { type: type }));
+      var name = '13mirrors-' + (r.id || 'route') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(R.t).replace(':', 'm') + 's.' + ext;
+      var vid = el('video', { class: 'a-film-vid', src: url, controls: true, playsinline: true });
+      function cover() {
+        if (!vid.videoWidth) { toast('Сначала запустите ролик и остановите на нужном кадре.', true); return; }
+        var c = el('canvas'); c.width = vid.videoWidth; c.height = vid.videoHeight;
+        c.getContext('2d').drawImage(vid, 0, 0);
+        c.toBlob(function (b) { var a = el('a', { href: URL.createObjectURL(b), download: name.replace(/\.\w+$/, '-oblozhka.png') }); document.body.appendChild(a); a.click(); a.remove(); }, 'image/png');
+      }
+      res.replaceChildren(
+        el('h3', { class: 'a-film-h a-film-h--s', text: 'Готово · ' + filmTime(R.t) }), vid,
+        el('div', { class: 'a-backup-btns' }, [
+          el('a', { class: 'a-btn a-btn--dark', href: url, download: name, text: '⬇ Сохранить ролик' }),
+          el('button', { type: 'button', class: 'a-btn', text: '🖼 Этот кадр — обложкой', onclick: cover })]),
+        el('p', { class: 'a-hint', text: (ext === 'webm' ? 'Этот браузер записал ролик в формате WebM: соцсети его не всегда берут — лучше записывать в свежем Chrome (он пишет MP4). ' : 'MP4, 1080 × 1920 — подходит для Reels, Stories, Shorts. ') +
+          'Обложка: остановите ролик на нужном кадре и нажмите «Этот кадр — обложкой». Ролик остаётся только у вас на компьютере, пока вы его не сохраните.' }));
+    }
+    function close() {
+      if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
+      if (REC) { var R = REC; R.finished = true; REC = null; cancelAnimationFrame(R.raf); R.stream.getTracks().forEach(function (k) { k.stop(); }); try { R.rec.stop(); } catch (e) {} }
+      window.removeEventListener('message', onMsg); closePreview(); pv.classList.remove('is-rec');
+    }
+    function selF(opts, key, after) {
+      var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      s.value = String(st[key]);
+      s.addEventListener('change', function () { st[key] = s.value; if (after) after(); reload(); });
+      return s;
+    }
+    function chk(key, label) {
+      var c = el('input', { type: 'checkbox', checked: st[key] });
+      c.addEventListener('change', function () { st[key] = c.checked; });
+      return el('label', { class: 'a-jwho-i' }, [c, el('span', { text: label })]);
+    }
+    var days = [['', 'По сегодняшней дате']].concat(r.days.map(function (d, i) { return [String(i + 1), 'День ' + (i + 1) + (window.M13R ? ' · ' + window.M13R.dateOf(r, i + 1) : '')]; }));
+    var cap = el('input', { class: 'a-input', type: 'text', value: st.caption, placeholder: 'например: Маршрут начинается 31 октября' });
+    cap.addEventListener('input', function () { st.caption = cap.value; });
+    var side = el('div', { class: 'a-film-side' }, [
+      el('h2', { class: 'a-film-h', text: '🎬 Ролик маршрута' }),
+      el('p', { class: 'a-hint', text: 'Пройдите маршрут сами, как участник: двери, камни, карты. Панель запишет то, что видно в окне-телефоне, — вертикальный ролик 1080 × 1920. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — нажмите «Поделиться».' }),
+      field('Формат', selF(J_MODES, 'mode', filmForget), 'Смена формата — новый придуманный участник.'),
+      field('День', selF(days, 'day'), 'Какой день маршрута «сегодня» в окне.'),
+      el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↺ Начать заново', onclick: function () { filmForget(); reload(); toast('Новый придуманный участник: двери снова закрыты, карты не открыты.'); } })]),
+      el('p', { class: 'a-hint', text: 'В окне — придуманный участник: его двери, карты и код хранятся отдельно, ваши настоящие отметки на этом компьютере не меняются. Плашка проверки внизу окна во время записи прячется.' }),
+      el('div', { class: 'a-film-opts' }, [chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название маршрута в начале (3 секунды)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
+      field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
+      el('div', { class: 'a-film-rec' }, [bRec, bPause, bStop, clock]),
+      res]);
+    window.addEventListener('message', onMsg);
+    var bar = el('div', { class: 'a-pbar' }, [el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: close })]);
+    pv.classList.add('is-phone');
+    pv.replaceChildren(el('div', { class: 'a-film' }, [el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]), side]), bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+    reload();
+  }
+  // Строки подписи по ширине холста (не больше трёх)
+  function filmLines(x, text, max, font) {
+    if (font) x.font = font;
+    var words = String(text).split(/\s+/), out = [], cur = '';
+    words.forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (cur && x.measureText(t).width > max) { out.push(cur); cur = w; } else cur = t; });
+    if (cur) out.push(cur);
+    return out.slice(0, 3);
+  }
   function jBgLive(r) {
     function frame(tall) {
       var f = el('div', { class: 'a-jbg' + (tall ? ' a-jbg--tall' : '') }, [el('i')]);
@@ -6569,7 +6784,8 @@
     var pick = list.length > 1 ? selectIn(ST, 'journey', 'Маршрут', list.map(function (x) { return [x.id, x.title + (x.start ? ' · ' + jDateText(x.start) : '') + (x.visible === false ? ' · готовится' : '')]; }), { onChange: function () { renderMain(); } }) : null;
     var look = el('div', { class: 'a-tabs' }, [
       el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openJourneyPage(r, false); } }),
-      el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
+      el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } }),
+      el('button', { type: 'button', text: '🎬 Ролик маршрута', onclick: function () { openFilm(r); } })]);
     var body;
     LINES = true;
     try {
