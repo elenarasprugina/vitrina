@@ -139,7 +139,9 @@
      waveTitle(отIso, название по первому дню) — название волны (маршрут из «Маршрутов», если есть),
      look — цвета месяца { ink, mut, gold, light } (пусто — ночной круг, как было),
      mini — маленькое «тихо живое» колесо для оборота карточки (её решение 19.10): пальцем не крутится, кольца сами плавно
-     набирают сегодняшнюю дату, по ободу пробегает блик, точки дышат; нажатие — на весь экран (это делает витрина);
+     набирают сегодняшнюю дату и стоят; нажатие — на весь экран (это делает витрина);
+     mv — движение маленького (docs/plashki.md): 'calm' тихое (блик ~6 с раз в ~18 с, точки мерцают медленно) | 'quiet' совсем тихое (без блика) | 'still' неподвижное;
+     noText — в середине пусто (надпись — рядом, в плашке); колесо уже ~170 px — без подписей на кольцах (дни и месяцы точками);
      idle() — true, пока колесо закрыто другим окном (не рисуем) }.
      Возвращает { setDate(iso), reveal(кины), reset(), pick(кин), wait(текст подсказки) }. */
   function mount(box, o) {
@@ -166,6 +168,9 @@
       portals: o.portals !== false, from: null, morph: 1, open: 0, openTo: 0, mine: [], pick: null, sealW: {}, nowW: -1, pos: [], dpr: 1, S: 300,
       live: '', liveT: 0, wait: '', run: false, seen: true };
     var bumpT = {};
+    // маленькое: движение — из o.mv; «уменьшить движение» на устройстве — неподвижно
+    var still = reduce || (o.mini && o.mv === 'still'), GL = o.mv === 'quiet' ? null : { per: 18000, dur: 6000, a: .26 }, TWK = o.mini ? (o.mv === 'quiet' ? 3400 : 2600) : 700;
+    function tiny() { return o.mini && st.S < 170; }
     // цвета месяца: надписи и золото на фоне круга; на светлом фоне белые печати темнее, свой кин — в круге цвета надписей
     var LK = o.look || {}, GD = LK.gold || GOLD, MUT = LK.mut || 'rgb(165,157,194)', MINE = LK.light ? (LK.ink || '#2b2620') : '#fff';
     function dotCol(c) { return LK.light && c === COL[1] ? '#bab1a1' : c; }
@@ -250,19 +255,21 @@
         var yr = Y0 + i, dec = yr % 10 === 0; a = (i + Y.off + .5) * Y.step + Y.rot;
         p = P(dec ? .775 : .79, a); q = P(dec ? .845 : .825, a);
         ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.lineWidth = (dec ? 1.8 : 1) * f; ctx.strokeStyle = M.ink; ctx.stroke();
-        if (dec && Math.abs(wrapPi(a)) > .2) { p = P(.868, a); txt(String(yr), p[0], p[1], 9.5 * fx, M.ink, '500', 0, M.inkSh); }
+        if (dec && !tiny() && Math.abs(wrapPi(a)) > .2) { p = P(.868, a); txt(String(yr), p[0], p[1], 9.5 * fx, M.ink, '500', 0, M.inkSh); }
       }
       // месяцы и дни — поворачиваются со своим кольцом; лишние дни короткого месяца гаснут
       var Mr = RING.m, D = RING.d, dmax = maxIdx('d');
       for (i = 0; i < 12; i++) {
         a = (i + .5) * Mr.step + Mr.rot; p = P(.667, a);
-        txt(MON[i], p[0], p[1], 12.5 * fx, M.ink, '500', 0, M.inkSh);
+        if (tiny()) { ctx.beginPath(); ctx.arc(p[0], p[1], 1.2 * f + .5, 0, TAU); ctx.fillStyle = M.ink; ctx.fill(); }
+        else txt(MON[i], p[0], p[1], 12.5 * fx, M.ink, '500', 0, M.inkSh);
         q = P(.6, a + Mr.step / 2); p = P(.625, a + Mr.step / 2);
         ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.strokeStyle = M.dim; ctx.lineWidth = f; ctx.stroke();
       }
       for (i = 0; i < 31; i++) {
         a = (i + .5) * D.step + D.rot; p = P(.508, a);
-        txt(String(i + 1), p[0], p[1], 10 * fx, i <= dmax ? M.ink : M.dim, '500', 0, i <= dmax ? M.inkSh : 0);
+        if (tiny()) { ctx.beginPath(); ctx.arc(p[0], p[1], .9 * f + .4, 0, TAU); ctx.fillStyle = i <= dmax ? M.ink : M.dim; ctx.fill(); }
+        else txt(String(i + 1), p[0], p[1], 10 * fx, i <= dmax ? M.ink : M.dim, '500', 0, i <= dmax ? M.inkSh : 0);
       }
       // окошко-стрелка наверху: неподвижно, кольца едут под ним
       var w = .07 * C, top = C - .93 * C, bot = C - .425 * C;
@@ -273,7 +280,7 @@
       ctx.beginPath(); ctx.moveTo(C - 7 * f, top - 9 * f); ctx.lineTo(C + 7 * f, top - 9 * f); ctx.lineTo(C, top - 1 * f); ctx.closePath();
       ctx.fillStyle = M.win; ctx.fill();
       // значения под окошком — крупно, светятся, когда кольцо выбрано
-      [['y', .83, 13], ['m', .667, 13.5], ['d', .508, 12]].forEach(function (x) {
+      if (!tiny()) [['y', .83, 13], ['m', .667, 13.5], ['d', .508, 12]].forEach(function (x) {
         var k = x[0], r = RING[k], s = 1 + .22 * bump(k), v = r.val < 0 ? under(k) : r.val;
         var t = k === 'y' ? String(Y0 + v) : k === 'm' ? MON[v] : String(v + 1);
         p = P(x[1], 0);
@@ -298,7 +305,7 @@
         var r = RING[key];
         if (r.drag) return;
         if (r.target != null) {
-          r.rot += (r.target - r.rot) * Math.min(1, dt / (o.mini ? 700 : 70));
+          r.rot += (r.target - r.rot) * Math.min(1, dt / (o.mini ? 1500 : 70));
           if (Math.abs(r.target - r.rot) < .0006) { r.rot = r.target; r.target = null; }
           check(key);
         } else if (r.vel) {
@@ -331,7 +338,7 @@
         var pa = P(l0[0], l0[1]), pb = P(l1[0], l1[1]), x = pa[0] + (pb[0] - pa[0]) * e, y = pa[1] + (pb[1] - pa[1]) * e;
         st.pos[k] = [x, y];
         var col = mix(dotCol(l0[2]), dotCol(l1[2]), e); if (isGap[k] && tpo > 0) col = mix(l0[2], PORT, tpo);
-        var inW = Math.floor((k - 1) / 13), al = op < .02 ? (reduce ? .7 : .5 + .4 * Math.sin(now / 700 + k * .45)) : (pw >= 0 && inW !== pw && !mine[k] ? .42 : .92);
+        var inW = Math.floor((k - 1) / 13), al = op < .02 ? (still ? .7 : .5 + .4 * Math.sin(now / TWK + k * .45)) : (pw >= 0 && inW !== pw && !mine[k] ? .42 : .92);
         var rad = (op < .02 ? 1.05 : 1.1 + 1.6 * e) * f * (isGap[k] && tpo > .5 ? 1.2 : 1) * (pw === inW && op > .5 ? 1.25 : 1);
         // волна, что идёт сейчас, — обводка цвета надписей; ближайшая волна с печатью человека — золотая
         if (op > .5 && (st.sealW[inW] || inW === st.nowW)) {
@@ -361,25 +368,22 @@
       if (st.live && now - st.liveT > 900 && !anyDrag()) { st.live = ''; center(); }
       requestAnimationFrame(frame);
     }
-    /* ---------- маленькое колесо: само набирает дату, блик по ободу ---------- */
+    /* ---------- маленькое колесо: один раз плавно набирает сегодняшнюю дату и стоит, блик по ободу ---------- */
     var dialT = 0, dialToday = false;
     function dialTo(iso) {
       var p = iso.split('-');
       RING.y.target = rotFor('y', Math.max(0, Math.min(NY - 1, +p[0] - Y0))); RING.m.target = rotFor('m', +p[1] - 1); RING.d.target = rotFor('d', +p[2] - 1);
     }
     function miniDial(now) {
-      if (reduce || now < dialT) return;
-      dialToday = !dialToday;
-      if (dialToday) dialTo(todayIso());
-      else { var y = 1955 + Math.floor(Math.random() * (NY - 10)), m = Math.floor(Math.random() * 12); dialTo(isoOf(y, m, 1 + Math.floor(Math.random() * daysIn(y, m)))); }
-      dialT = now + (dialToday ? 11000 : 2600);
+      if (still || dialToday || now < dialT) return;
+      dialToday = true; dialTo(todayIso());
     }
     // блик пробегает по кольцам раз в несколько секунд — как свет по металлу
     function glint(now) {
-      if (reduce || !ctx.createConicGradient) return;
-      var g = (now % 5600) / 1700; if (g >= 1) return;
+      if (still || !GL || !ctx.createConicGradient) return;
+      var g = (now % GL.per) / GL.dur; if (g >= 1) return;
       var C = st.S / 2, a = -Math.PI / 2 - .3 + g * TAU, k = Math.sin(g * Math.PI), c = ctx.createConicGradient(a, C, C);
-      c.addColorStop(0, 'rgba(255,244,214,0)'); c.addColorStop(.025, 'rgba(255,244,214,' + (.42 * k).toFixed(3) + ')'); c.addColorStop(.06, 'rgba(255,244,214,0)'); c.addColorStop(1, 'rgba(255,244,214,0)');
+      c.addColorStop(0, 'rgba(255,244,214,0)'); c.addColorStop(.025, 'rgba(255,244,214,' + (GL.a * k).toFixed(3) + ')'); c.addColorStop(.06, 'rgba(255,244,214,0)'); c.addColorStop(1, 'rgba(255,244,214,0)');
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       annulus(RING.d.rIn, RING.y.rOut); ctx.fillStyle = c; ctx.fill(); ctx.restore();
     }
@@ -392,7 +396,7 @@
     function allSet() { return RING.y.set && RING.m.set && RING.d.set; }
     function center() {
       var h = '';
-      if (o.mini) h = '<div class="m13-kw-mt">' + esc(T('wMini')) + '</div><span class="m13-kw-open">' + esc(T('wOpen')) + '</span>';
+      if (o.mini) h = o.noText ? '' : '<div class="m13-kw-mt">' + esc(T('wMini')) + '</div>';
       else if (st.openTo) h = '';
       else if (st.live) h = '<div class="m13-kw-big">' + esc(st.live) + '</div>';
       else {
@@ -539,11 +543,11 @@
     // начальное положение: 1985, январь, 1 — под стрелкой, но ещё не выбрано
     RING.y.rot = rotFor('y', 1985 - Y0); RING.m.rot = rotFor('m', 0); RING.d.rot = rotFor('d', 0);
     ['y', 'm', 'd'].forEach(function (k) { RING[k].val = under(k); });
-    // маленькое: начинает с любой даты и плавно набирает сегодняшнюю; «уменьшить движение» — сразу сегодняшняя, неподвижно
+    // маленькое: начинает с любой даты и плавно набирает сегодняшнюю; неподвижное и «уменьшить движение» — сразу сегодняшняя
     if (o.mini) {
       RING.y.set = RING.m.set = RING.d.set = true;
-      var tp = todayIso().split('-'), sy = reduce ? +tp[0] : 1960 + Math.floor(Math.random() * 40);
-      RING.y.rot = rotFor('y', Math.max(0, Math.min(NY - 1, sy - Y0))); RING.m.rot = rotFor('m', reduce ? +tp[1] - 1 : Math.floor(Math.random() * 12)); RING.d.rot = rotFor('d', reduce ? +tp[2] - 1 : Math.floor(Math.random() * 28));
+      var tp = todayIso().split('-'), sy = still ? +tp[0] : 1960 + Math.floor(Math.random() * 40);
+      RING.y.rot = rotFor('y', Math.max(0, Math.min(NY - 1, sy - Y0))); RING.m.rot = rotFor('m', still ? +tp[1] - 1 : Math.floor(Math.random() * 12)); RING.d.rot = rotFor('d', still ? +tp[2] - 1 : Math.floor(Math.random() * 28));
       ['y', 'm', 'd'].forEach(function (k) { RING[k].val = under(k); });
       dialT = performance.now() + 500;
     }

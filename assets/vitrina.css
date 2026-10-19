@@ -1786,15 +1786,82 @@ body.m13-locked{overflow:hidden}
   .m13-kin-page .m13-kw-hint,.m13-kin-page .m13-kin-arch p,.m13-kin-page .m13-kin-sec p,.m13-kin-page .m13-kin-hunab p{font-size:calc(15.5px * var(--m13-tk,1))}
   .m13-kin-page .m13-kw-pick p,.m13-kin-page .m13-kw-lg{font-size:calc(15px * var(--m13-tk,1))}
 }
-/* Маленькое «тихо живое» колесо на обороте (её решение 19.10): пальцем не крутится, само набирает сегодняшнюю дату; нажатие — страница кина на весь экран */
-.m13 .m13-kw.m13-kw--mini{align-self:center;width:min(300px,100%);padding:12px;border:0;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .2s ease,box-shadow .2s ease}
-.m13 .m13-kw.m13-kw--mini:hover{transform:translateY(-2px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 14px 34px rgba(16,14,34,.32)}
-.m13-kw--mini .m13-kw-cv{cursor:pointer;touch-action:auto;pointer-events:none}
-.m13-kw--mini .m13-kw-ctr{gap:7px;width:42%}
-.m13-kw-mt{font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;line-height:1.08;color:var(--kw-gold)}
-.m13 .m13-kw--mini .m13-kw-open{font-size:10.5px;padding:5px 11px}
-.m13 .m13-kw--mini:hover .m13-kw-open{background:rgba(240,214,140,.26)}
+/* Маленькое «тихо живое» колесо на обороте (её решения 19.10, docs/plashki.md): пальцем не крутится, само набирает сегодняшнюю дату; нажатие — страница кина на весь экран.
+   .m13-kwm — коробка колеса (kinBind монтирует туда колесо); вид — reflection.kin.mini: посередине / в плашке слева, справа / рядом с картинкой; фон .m13-kwb--deep | glass | none */
 .m13-kin--card{display:flex;flex-direction:column}
+.m13-kwm{display:block;width:100%;aspect-ratio:1/1;pointer-events:none}
+.m13-kwm .m13-kw-stage{max-width:none;container-type:inline-size}
+.m13-kwm .m13-kw-cv{cursor:pointer;touch-action:auto;pointer-events:none}
+/* надпись — мельче и всегда внутри круга; мягко дышит */
+.m13-kwm .m13-kw-ctr{width:31%}
+.m13-kw-mt{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:13px;font-size:7.4cqw;line-height:1.02;color:var(--kw-gold);text-wrap:balance;animation:m13-kwbr 5s ease-in-out infinite}
+@keyframes m13-kwbr{0%,100%{opacity:.72;text-shadow:0 0 0 transparent}50%{opacity:1;text-shadow:0 0 12px color-mix(in srgb,var(--kw-gold) 60%,transparent)}}
+@media (prefers-reduced-motion:reduce){.m13-kw-mt{animation:none;opacity:1}}
+/* кнопка колеса (посередине, рядом с картинкой) */
+.m13 .m13-kwm-btn{display:block;align-self:center;width:min(210px,62%);box-sizing:border-box;padding:10px;border-radius:18px;border:1px solid transparent;font:inherit;color:inherit;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:transform .25s ease,box-shadow .3s ease}
+.m13 .m13-kwm-btn:hover{transform:translateY(-2px);box-shadow:0 0 26px rgba(240,214,140,.2)}
+.m13 .m13-kwm-btn:hover .m13-kw-mt{text-shadow:0 0 14px color-mix(in srgb,var(--kw-gold) 75%,transparent)}
+.m13 .m13-kwm-btn:focus-visible,.m13 .m13-kinp:focus-visible,.m13 .m13-tile:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.m13 .m13-kwm-btn.m13-kwb--deep{background:radial-gradient(120% 90% at 50% 40%,var(--kw-bg,#1a1735) 0%,var(--kw-bg2,#100e22) 70%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.m13 .m13-kwm-btn.m13-kwb--glass{background:color-mix(in srgb,currentColor 6%,transparent);border-color:color-mix(in srgb,currentColor 22%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.m13 .m13-kwm-btn.m13-kwb--none{background:radial-gradient(closest-side,rgba(240,214,140,.14),rgba(240,214,140,0))}
+/* рядом с картинкой — одной высоты в ряд */
+.m13-kinpair{display:flex;gap:10px;align-items:stretch}
+.m13-kinpair img{flex:1 1 0;min-width:0;height:132px;object-fit:cover;border-radius:10px;display:block}
+.m13 .m13-kinpair .m13-kwm-btn{flex:0 0 132px;width:132px;height:132px;padding:7px;border-radius:14px}
+/* в плашке: колесо слева или справа, рядом текст */
+.m13 .m13-kinp{display:grid;grid-template-columns:104px 1fr;column-gap:14px;row-gap:3px;align-items:center;align-content:center;width:100%;padding:10px 12px;font:inherit}
+.m13-kinp-w{grid-row:1 / 4;grid-column:1}
+.m13-kinp > :not(.m13-kinp-w){grid-column:2}
+.m13 .m13-kinp--rev{grid-template-columns:1fr 104px}
+.m13-kinp--rev .m13-kinp-w{grid-column:2}
+.m13-kinp--rev > :not(.m13-kinp-w){grid-column:1}
+.m13-kinp-t{font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;font-weight:600;line-height:1.05}
+.m13-kinp-s{font-size:12.5px;opacity:.72}
+.m13-kinp .m13-item-action{margin:0;padding-top:2px;font-size:12px}
+/* фон плашки или плитки с колесом: цветной / без фона (стекло — как у остальных плашек) */
+.m13 .m13-kwb--deep:is(.m13-item){background:radial-gradient(120% 120% at 25% 45%,var(--kw-bg,#1a1735),var(--kw-bg2,#100e22) 75%);border-color:rgba(255,255,255,.08);color:var(--kw-ink,#ece6f7)}
+.m13 .m13-kwb--deep:is(.m13-item) .m13-kinp-t,.m13 .m13-kwb--deep:is(.m13-item) .m13-item-title{color:var(--kw-gold,#f0d68c)}
+.m13 .m13-kwb--none:is(.m13-item){background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.m13 .m13-kwb--none.m13-kinp{padding-inline:0}
+@media (max-width:680px){
+  .m13 .m13-kinp{grid-template-columns:84px 1fr;column-gap:11px}.m13 .m13-kinp--rev{grid-template-columns:1fr 84px}
+  .m13-kinp-t{font-size:18px}.m13-kinp-s{font-size:11.5px}
+  .m13-kinpair img{height:112px}.m13 .m13-kinpair .m13-kwm-btn{flex-basis:112px;width:112px;height:112px}
+}
+
+/* Картинка у плашки (19.10, docs/plashki.md): в списке — маленькая слева */
+.m13 .m13-item--pic{position:relative;--pic:58px;padding-left:calc(var(--pic) + 20px);min-height:calc(var(--pic) + 20px)}
+.m13-items--one .m13-item--pic{--pic:76px}
+.m13-item-pic{position:absolute;left:10px;top:10px;width:var(--pic);height:var(--pic);display:block}
+.m13-item-pic img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px}
+@media (max-width:680px){ .m13 .m13-item--pic{--pic:44px;padding-left:calc(var(--pic) + 16px);min-height:calc(var(--pic) + 16px)} .m13-item--pic .m13-item-pic{left:8px;top:8px} .m13-items--one .m13-item--pic{--pic:60px} }
+/* Плитки: по две в ряд и на телефоне; картинка сверху (квадрат или 4:5), под ней название и цена; вся плитка нажимается */
+.m13-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m13 .m13-tile{display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:8px 8px 10px;text-align:center;font:inherit;min-width:0}
+.m13-tile-pic{display:block;width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden}
+.m13-tiles--card .m13-tile-pic{aspect-ratio:4/5}
+.m13-tile-pic img{display:block;width:100%;height:100%;object-fit:cover}
+.m13-tile-pic.m13-pic-kw{display:flex;align-items:center;justify-content:center;overflow:visible}
+.m13-tile-t{display:flex;flex-direction:column;gap:2px;padding:0 2px}
+.m13-tile .m13-item-title{margin:0;font-size:14px;line-height:1.15;text-wrap:balance}
+.m13-tile .m13-item-date{font-size:11px}
+.m13-tile .m13-item-price{margin:0;font-size:13px;font-weight:650}
+.m13 .m13-tile--mid{grid-column:1 / -1;justify-self:center;width:calc(50% - 5px)}
+.m13 .m13-tile--wide{grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:center;text-align:left}
+@media (max-width:680px){ .m13-tiles{gap:7px} .m13 .m13-tile{padding:6px 6px 8px;gap:6px} .m13 .m13-tile--mid{width:calc(50% - 3.5px)} .m13-tile .m13-item-title{font-size:12.5px} .m13-tile .m13-item-price{font-size:12px} }
+/* Окошко плитки — как окно «Куда написать?», без полосы прокрутки */
+.m13-modal.m13-tilem{z-index:250}
+.m13-tilem .m13-modal-box{width:min(460px,92vw);max-height:88vh;max-height:88svh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;position:relative}
+.m13-tilem .m13-modal-box::-webkit-scrollbar{display:none}
+.m13-tilem-img{display:block;width:100%;aspect-ratio:1/1;max-height:46vh;max-height:46svh;object-fit:cover;border-radius:12px;margin-bottom:12px}
+.m13-tilem-img--card{aspect-ratio:4/5}
+.m13-tilem h3{margin:2px 0 6px}
+.m13-tilem-meta{font-size:12.5px;opacity:.7;margin-bottom:6px}
+.m13-tilem-text{font-size:14px;line-height:1.5}
+.m13-tilem-price{margin-top:10px;font-size:19px;font-weight:750}
+.m13-tilem .m13-actions{margin-top:14px}
 /* Страница кина: колесо — целиком на экране вместе с заголовком (не больше высоты окна) */
 .m13-kin-page .m13-kw-stage{max-width:max(300px,min(560px,calc(100vh - 320px)));max-width:max(300px,min(560px,calc(100svh - 320px)))}
 /* «Размер текста оборота» у месяца — и для ответа кина */

@@ -1,0 +1,224 @@
+<title>Маленькое колесо кина</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Проба 19.10.2026 (docs/kin.md, «Маленькое колесо — проба вида»). Ничего не отправляет и не хранит.
+     Сборка: python3 docs/kin-mini-proba.build.py → вместо строки KWJS ниже — assets/kinwheel.js с пробными настройками
+     (calm — набрать сегодняшнюю дату и стоять, still — неподвижно, glint {per, dur, a} — блик, ease — скорость колец, twk — мерцание точек,
+     noText / btn — середина). Картинки: bg.webp — фон октября, maps.webp — миниатюра Карты-Отражения. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Проба лежит в тёмном мире витрины октября: макет оборота карточки на фоне месяца, над ним — переключатели */
+:root{
+  --night:#0d0a07; --ink:#f4ead8; --mut:#b9ab95; --gold:#ecd3a3; --line:rgba(236,211,163,.32);
+  --plate:rgba(24,19,14,.62); --deep:#1a1735; --deep2:#100e22;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  color-scheme:dark
+}
+html,body{background:var(--night);color:var(--ink)}
+body{font-family:var(--sans);line-height:1.45;padding-block:18px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;color:var(--gold);text-wrap:balance}
+.lead{margin:0;max-width:62ch;color:var(--mut);font-size:14.5px}
+
+.ctl{display:grid;gap:12px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.row b{flex:0 0 100%;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:500;color:var(--mut)}
+.chip{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,248,235,.05);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#241b10}
+.chip:focus-visible,.again:focus-visible,.kinp:focus-visible,.kwbox:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.again{font:inherit;font-size:13.5px;color:var(--gold);background:none;border:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0}
+.note{margin:0;font-size:13.5px;color:var(--mut);min-height:1.4em}
+
+/* сцена: фон месяца, затемнённый, по центру — оборот карточки */
+.scene{position:relative;border-radius:18px;overflow:hidden;padding:28px 16px;display:flex;justify-content:center;
+  background:#140f0a url(bg.webp) center/cover no-repeat}
+.scene::before{content:"";position:absolute;inset:0;background:rgba(10,8,6,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.card{position:relative;width:100%;max-width:570px;box-sizing:border-box;border-radius:22px;border:1px solid var(--line);
+  background:rgba(16,12,9,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:16px 16px 18px;display:flex;flex-direction:column;gap:12px}
+.scene.phone .card{max-width:358px}
+.hd{position:relative;display:flex;gap:12px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid rgba(236,211,163,.16)}
+.hd-t{flex:1;min-width:0}
+.eb{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.ttl{font-size:28px;font-weight:700;line-height:1.1;margin:2px 0 4px}
+.scene.phone .ttl{font-size:24px}
+.sub{font-size:13px;color:var(--mut)}
+.ic{display:flex;gap:14px;color:var(--ink);font-size:17px;opacity:.85;padding-top:2px}
+.desc{margin:0;font-size:14px;line-height:1.5}
+.thumb{display:block;width:148px;height:84px;object-fit:cover;border-radius:10px;border:1px solid rgba(236,211,163,.18)}
+.pair{display:flex;gap:10px;align-items:stretch}
+.pair .thumb{width:auto;flex:1 1 0;min-width:0;height:132px}
+.pair .kwbox{flex:0 0 132px;width:132px;height:132px}
+
+/* плашки (как «Твой уникальный Архетип» на сайте) */
+.plate{border:1px solid var(--line);border-radius:13px;background:var(--plate);padding:11px 12px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.plate h4{margin:0;font-size:14px;font-weight:700}
+.plate p{margin:0;font-size:12.5px;line-height:1.4;color:var(--mut);grid-column:1}
+.plate .pr{grid-row:1/3;grid-column:2;font-size:18px;font-weight:700}
+.plate .go{grid-column:2;justify-self:end;font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.cta{border:0;border-radius:999px;padding:13px;font:inherit;font-weight:600;font-size:15px;color:#2a1f12;background:linear-gradient(90deg,#f1dcae,#c9a46a)}
+
+/* плашка кина (вариант А): колесо + текст, вся плашка нажимается */
+.kinp{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;box-sizing:border-box;display:grid;grid-template-columns:104px 1fr;gap:4px 14px;align-items:center;
+  border:1px solid var(--line);border-radius:13px;background:var(--plate);padding:10px 12px;transition:border-color .3s,box-shadow .3s}
+.kinp.rev{grid-template-columns:1fr 104px}
+.kinp .kwbox{width:104px;height:104px;grid-row:1/4;grid-column:1}
+.kinp > h4,.kinp > p,.kinp > span{grid-column:2}
+.kinp.rev .kwbox{grid-column:2}
+.kinp.rev > h4,.kinp.rev > p,.kinp.rev > span{grid-column:1}
+.kinp h4{margin:0;color:var(--gold);font-family:var(--serif);font-size:21px;font-weight:600;line-height:1.05}
+.kinp p{margin:0;font-size:12.5px;color:var(--mut)}
+.kinp span{font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.kinp:hover{border-color:rgba(236,211,163,.6);box-shadow:0 0 22px rgba(240,214,140,.12)}
+.bg-none .kinp{border-color:transparent;background:none;padding-inline:0}
+.bg-deep .kinp{background:radial-gradient(120% 120% at 20% 50%,var(--deep),var(--deep2) 75%);border-color:rgba(255,255,255,.07)}
+
+/* две плитки (вариант Г): картинка Архетипа и колесо — одного размера, подпись под каждой */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;border-radius:14px;padding:8px 8px 10px;
+  border:1px solid var(--line);background:var(--plate);transition:border-color .3s,box-shadow .3s}
+.tile:hover{border-color:rgba(236,211,163,.6);box-shadow:0 0 22px rgba(240,214,140,.12)}
+.tile img,.tile .kwbox{width:100%;aspect-ratio:1/1;height:auto;max-width:170px;margin-bottom:6px}
+.tile img{object-fit:cover;border-radius:10px}
+.tile b{font-family:var(--serif);font-size:19px;font-weight:600;line-height:1.1;color:var(--gold);text-wrap:balance}
+.tile small{font-size:12px;color:var(--mut)}
+.bg-none .tile{border-color:transparent;background:none}
+.bg-deep .tile-kin{background:radial-gradient(120% 90% at 50% 40%,var(--deep),var(--deep2) 75%);border-color:rgba(255,255,255,.07)}
+.scene.phone .tile b{font-size:17px}
+/* коробка колеса: фон — стекло / без фона / цветной */
+.kwbox{position:relative;box-sizing:border-box;border-radius:18px;cursor:pointer;display:grid;place-items:center;transition:box-shadow .3s,transform .3s}
+.kwbox .m13-kw-stage{width:100%}
+.bg-glass .card > .kwbox,.bg-glass .pair .kwbox,.bg-glass .med{background:rgba(255,248,235,.06);border:1px solid var(--line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.bg-none .card > .kwbox,.bg-none .pair .kwbox,.bg-none .med{background:radial-gradient(closest-side,rgba(240,214,140,.13),rgba(240,214,140,0))}
+.bg-deep .card > .kwbox,.bg-deep .pair .kwbox,.bg-deep .med{background:radial-gradient(120% 90% at 50% 40%,var(--deep) 0%,var(--deep2) 70%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.card > .kwbox{align-self:center;width:min(240px,72%);padding:12px}
+.pair .kwbox{padding:8px}
+.kwbox:hover{box-shadow:0 0 26px rgba(240,214,140,.18)}
+.med{flex:0 0 78px;width:78px;height:78px;border-radius:50%;padding:4px}
+.scene.phone .med{flex-basis:66px;width:66px;height:66px}
+
+/* колесо (из витрины, середина — без кнопки, надпись внутри круга) */
+.m13-kw-stage{position:relative;aspect-ratio:1/1;max-width:100%;container-type:inline-size}
+.m13-kw-cv{display:block;width:100%;height:100%;pointer-events:none}
+.m13-kw-ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:31%;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;text-align:center}
+.m13-kw-mt{font-family:var(--serif);font-weight:500;font-size:7.4cqw;line-height:1.02;color:#f0d68c;text-wrap:balance}
+.mv-breath .m13-kw-mt{animation:breath 5s ease-in-out infinite}
+.kwbox:hover .m13-kw-mt,.kinp:hover .m13-kw-mt{text-shadow:0 0 14px rgba(240,214,140,.75)}
+@keyframes breath{0%,100%{opacity:.72;text-shadow:0 0 0 rgba(240,214,140,0)}50%{opacity:1;text-shadow:0 0 12px rgba(240,214,140,.6)}}
+/* «как сейчас» — для сравнения: крупная надпись и кнопка */
+.mv-old .m13-kw-ctr{width:42%}
+.mv-old .m13-kw-mt{font-size:18px}
+.m13-kw-open{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:5px 11px;border-radius:999px;border:1px solid rgba(240,214,140,.55);color:#f0d68c;background:rgba(240,214,140,.12)}
+@media (prefers-reduced-motion:reduce){.mv-breath .m13-kw-mt{animation:none;opacity:1}}
+@media (max-width:520px){h1{font-size:25px}.scene{padding:18px 10px}.card{padding:14px 13px 16px}}
+</style>
+
+<div class="wrap">
+  <h1>Маленькое колесо на обороте</h1>
+  <p class="lead">Макет оборота Карты-Отражения на фоне октября. Переключайте компоновку, фон и движение, всё сразу видно на карточке. Нажатие на колесо на сайте откроет страницу кина на весь экран. Здесь просто покажется подсказка.</p>
+
+  <div class="ctl">
+    <div class="row" data-k="lay"><b>Компоновка</b>
+      <button type="button" class="chip" id="lay-a" data-v="a">А · колесо в плашке слева</button>
+      <button type="button" class="chip" id="lay-ar" data-v="ar">А · колесо справа</button>
+      <button type="button" class="chip" id="lay-b" data-v="b">Б · рядом с картинкой</button>
+      <button type="button" class="chip" id="lay-c" data-v="c">В · медальон у заголовка</button>
+      <button type="button" class="chip" id="lay-m" data-v="m">Посередине, но меньше</button>
+      <button type="button" class="chip" id="lay-g" data-v="g">Г · картинка и колесо — две плитки</button>
+      <button type="button" class="chip" id="lay-gr" data-v="gr">Г · колесо первым</button>
+    </div>
+    <div class="row" data-k="bg"><b>Фон колеса</b>
+      <button type="button" class="chip" id="bg-glass" data-v="glass">Стекло</button>
+      <button type="button" class="chip" id="bg-none" data-v="none">Без фона</button>
+      <button type="button" class="chip" id="bg-deep" data-v="deep">Цветной, как сейчас</button>
+    </div>
+    <div class="row" data-k="mv"><b>Движение</b>
+      <button type="button" class="chip" id="mv-calm" data-v="calm">Тихое</button>
+      <button type="button" class="chip" id="mv-quiet" data-v="quiet">Совсем тихое</button>
+      <button type="button" class="chip" id="mv-still" data-v="still">Неподвижное</button>
+      <button type="button" class="chip" id="mv-old" data-v="old">Как сейчас (сравнить)</button>
+    </div>
+    <div class="row" data-k="dev"><b>Экран</b>
+      <button type="button" class="chip" id="dev-pc" data-v="pc">Компьютер</button>
+      <button type="button" class="chip" id="dev-ph" data-v="ph">Телефон</button>
+      <button type="button" class="again" id="again">↻ Набрать дату заново</button>
+    </div>
+    <p class="note" id="note" aria-live="polite"></p>
+  </div>
+
+  <div class="scene" id="scene"><div class="card" id="card"></div></div>
+</div>
+
+<script>
+<!--KWJS-->
+</script>
+<script>
+(function () {
+  'use strict';
+  var S = { lay: 'a', bg: 'glass', mv: 'calm', dev: innerWidth < 700 ? 'ph' : 'pc' };
+  var MV = {
+    calm: { calm: true, ease: 1500, glint: { per: 18000, dur: 6000, a: .26 }, twk: 2600 },
+    quiet: { calm: true, ease: 1500, glint: { per: 0 }, twk: 3400 },
+    still: { still: true },
+    old: { btn: true }
+  };
+  var NOTE = {
+    a: 'А: колесо — такая же плашка, как «Архетип». Сначала «Узнать свой кин» бесплатно, потом заказ. Надпись — рядом, в круге её нет.',
+    ar: 'А, колесо справа: текст читается первым, колесо — как картинка у плашки.',
+    b: 'Б: колесо в одном ряду с картинкой, одной высоты. На телефоне оба маленькие.',
+    c: 'В: медальон у заголовка. Почти не занимает места, но его легко не заметить.',
+    m: 'Посередине, но меньше: без цифр на кольцах, без кнопки, надпись внутри круга и мягко светится.',
+    g: 'Г: две живые плитки одного размера. Картинка — «Твой уникальный Архетип», колесо — «Узнать свой кин». Нажимаются обе.',
+    gr: 'Г, колесо первым: плитки поменялись местами.'
+  };
+  var T = function (k) { return { wMini: 'Узнать свой кин', wOpen: 'Открыть' }[k] || ''; };
+  var card = document.getElementById('card'), scene = document.getElementById('scene'), note = document.getElementById('note');
+
+  function wheel(cls, text, inner) { return '<div class="kwbox ' + cls + '" data-kw="' + (text ? 1 : 0) + '"' + (inner ? '' : ' role="button" tabindex="0" aria-label="Узнать свой кин"') + '></div>'; }
+  var archetype = '<div class="plate"><h4>Твой уникальный Архетип</h4><span class="pr">3 000 ₽</span>' +
+    '<p>В течение одного дня я выдаю задания-практики, по результатам выполнения которых ты присылаешь обратную связь. На основе твоих ответов и Кина дня в системе Dreamspell я собираю твой Архетип.</p><span class="go">Заказать →</span></div>';
+  var kinPlate = function (rev) {
+    return '<div class="kinp' + (rev ? ' rev' : '') + '" role="button" tabindex="0">' + wheel('', false, true) +
+      '<h4>Узнать свой кин</h4><p>по дате рождения · бесплатно</p><span>Открыть →</span></div>';
+  };
+
+  function render() {
+    var L = S.lay, h = '<div class="hd"><div class="hd-t"><div class="eb">Продукт</div><div class="ttl">Карта-Отражение</div>' +
+      '<div class="sub">Какой твой архетип? &nbsp; от 3 000 ₽</div></div>' + (L === 'c' ? wheel('med', false) : '') + '<div class="ic" aria-hidden="true">↺ ○</div></div>';
+    if (L !== 'g' && L !== 'gr') h += L === 'b' ? '<div class="pair"><img class="thumb" src="maps.webp" alt="Карты-Отражения">' + wheel('', false) + '</div>' : '<img class="thumb" src="maps.webp" alt="Карты-Отражения">';
+    h += '<p class="desc">Твой кин — в персональном образе и тексте. Ещё одно зеркало, в котором можно узнать себя.</p>';
+    if (L === 'm') h += wheel('', true);
+    if (L === 'g' || L === 'gr') {
+      var tA = '<div class="tile tile-img" role="button" tabindex="0"><img src="maps.webp" alt=""><b>Твой уникальный Архетип</b><small>3 000 ₽ · подробнее</small></div>',
+        tK = '<div class="tile tile-kin" role="button" tabindex="0">' + wheel('', false, true) + '<b>Узнать свой кин</b><small>по дате рождения · бесплатно</small></div>';
+      h += '<div class="tiles">' + (L === 'g' ? tA + tK : tK + tA) + '</div>';
+    }
+    if (L === 'a' || L === 'ar') h += kinPlate(L === 'ar');
+    h += archetype + '<button type="button" class="cta">Заказать Карту-Отражение</button>';
+    card.innerHTML = h;
+    scene.className = 'scene bg-' + S.bg + ' mv-' + (S.mv === 'still' ? 'still' : S.mv === 'old' ? 'old' : 'breath') + (S.dev === 'ph' ? ' phone' : '');
+    card.querySelectorAll('.kwbox').forEach(function (b) {
+      var o = { mini: true, mat: 'bronze', T: T, tiny: S.mv !== 'old', noText: b.getAttribute('data-kw') !== '1' && S.mv !== 'old' }, m = MV[S.mv], k;
+      for (k in m) o[k] = m[k];
+      if (S.mv === 'old' && b.getAttribute('data-kw') !== '1') o.noText = true;
+      window.M13KINW.mount(b, o);
+    });
+    note.textContent = NOTE[L];
+    document.querySelectorAll('.row[data-k]').forEach(function (r) {
+      r.querySelectorAll('.chip').forEach(function (c) { c.setAttribute('aria-pressed', String(c.getAttribute('data-v') === S[r.getAttribute('data-k')])); });
+    });
+  }
+  document.querySelector('.ctl').addEventListener('click', function (e) {
+    var c = e.target.closest('.chip'); if (!c) return;
+    S[c.parentNode.getAttribute('data-k')] = c.getAttribute('data-v'); render();
+  });
+  document.getElementById('again').addEventListener('click', render);
+  card.addEventListener('click', function (e) {
+    if (e.target.closest('.tile-img')) { note.textContent = 'Картинка: здесь откроется подробно об Архетипе — что именно, решаете вы (см. вопросы в чате).'; return; }
+    if (e.target.closest('.kwbox,.kinp,.tile')) note.textContent = 'На сайте здесь откроется страница кина на весь экран (большое колесо и Цолькин).';
+  });
+  card.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && /kwbox|kinp|tile/.test(e.target.className)) { e.preventDefault(); e.target.click(); } });
+  render();
+})();
+</script>
