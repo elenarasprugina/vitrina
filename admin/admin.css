@@ -763,3 +763,16 @@ body.a-noscroll{overflow:hidden}
 .a-kinlook-ring{width:46px;height:46px;border-radius:50%;border:2px solid;opacity:.8}
 .a-kinlook-wh b{font-size:20px;font-family:'Cormorant Garamond',Georgia,serif;font-weight:500}
 .a-kinlook-pan{flex:1 1 200px;border:1px solid var(--a-line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px;justify-content:center;font-size:13px;background:#fff}
+/* 🎬 Ролик маршрута: окно-телефон 9:16 + настройки сбоку (на узком — под ним) */
+.a-film{display:flex;gap:28px;justify-content:center;align-items:flex-start;flex-wrap:wrap;padding:0 16px}
+.a-film-side{width:330px;max-width:100%;display:flex;flex-direction:column;gap:10px;background:#fff;border-radius:14px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.a-film-opts{display:flex;flex-direction:column;gap:4px}
+.a-film-rec{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.a-film-clock{font-variant-numeric:tabular-nums;color:#6b6b68;margin-left:4px}
+.a-film-clock.is-on{color:#a1332b;font-weight:650}
+.a-film-clock.is-on::before{content:'● '}
+.a-film-vid{width:100%;max-height:420px;background:#000;border-radius:10px}
+.a-preview.is-rec .a-film-screen{border-radius:0}
+.a-preview.is-rec .a-phone-body{box-shadow:0 0 0 3px #a1332b,0 18px 50px rgba(0,0,0,.28)}
+.a-film-h{font-size:18px;font-weight:700}
+.a-film-h--s{font-size:15px;margin-top:6px}

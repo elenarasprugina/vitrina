@@ -1334,7 +1334,9 @@
      (поменял пояс в поездке — дни маршрута не перескакивают). Никуда не отправляется. */
   function isDoors(r) { return ((r || S.route || {}).scene) === 'doors'; }
   function dayClock(r) { var c = (r || {}).dayClock; return c === 'msk' || c === 'local' ? c : isDoors(r) ? 'local' : 'msk'; }
-  function tzKey() { return 'm13ys-tz-' + S.route.id + '-' + (S.route.start || ''); }
+  // Ролик из панели (?film=1): придуманный участник — свои записи на устройстве, настоящие не трогаем
+  function pfx() { return S.film ? 'm13film-' : 'm13ys-'; }
+  function tzKey() { return pfx() + 'tz-' + S.route.id + '-' + (S.route.start || ''); }
   function tzHere() { var z = ''; try { z = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {} return { tz: z, off: new Date().getTimezoneOffset() }; }
   function routeTz() {
     if (S.tz) return S.tz;
@@ -1452,7 +1454,7 @@
   function doorOfDay(day, log) { var id = (log || choiceLog())[day], it = doorsCfg().items || [], i; if (!id) return 0; for (i = 0; i < it.length; i++) if (it[i] && it[i].id === id) return i + 1; return 0; }
   function ucState(n, today, log) { var d = dayOfDoor(n, log); return !d ? 'free' : d === today ? 'today' : 'past'; }
   // Какие дни на этом устройстве уже открывали (сегодняшний кирпич после нажатия светится ровно). Только для света, не для доступа.
-  function storeKey() { return 'm13ys-' + S.route.id + '-' + (S.route.start || ''); }
+  function storeKey() { return pfx() + S.route.id + '-' + (S.route.start || ''); }
   function openedList() { try { var l = JSON.parse(localStorage.getItem(storeKey()) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
   function markOpened(n) {
     var l = openedList(); if (l.indexOf(n) >= 0) return;
@@ -1460,7 +1462,7 @@
   }
   function resetOpened() { try { localStorage.removeItem(storeKey()); } catch (e) {} }
   // Личный код помнит это устройство; на другом человек вводит свой код (не ключ).
-  function codeKey() { return 'm13ys-code-' + S.route.id + '-' + (S.route.start || ''); }
+  function codeKey() { return pfx() + 'code-' + S.route.id + '-' + (S.route.start || ''); }
   function loadCode() { try { return readCode(S.route, localStorage.getItem(codeKey()) || ''); } catch (e) { return null; } }
   function saveCode(c) { S.code = c; try { if (c) localStorage.setItem(codeKey(), c.code); else localStorage.removeItem(codeKey()); } catch (e) {} }
   // В какие дни карта уже перевёрнута (выбор окончателен: до 00:00 по кирпичу открывается та же личная карта)
@@ -2978,7 +2980,7 @@
       app.replaceChildren(el('p', 'ys-err', 'Не удалось загрузить страницу. Обновите её через минуту.'));
     });
   }
-  function reviewKey() { return 'm13ys-review-' + S.route.id + '-' + (S.route.start || ''); }
+  function reviewKey() { return pfx() + 'review-' + S.route.id + '-' + (S.route.start || ''); }
   // ok — галочка согласия (true / false); undefined — галочки нет (route.review.consent.on === false)
   function reviewText(r, v, qs, ans, ok) {
     var head = fill(v.head == null || v.head === '' ? 'Отзыв о маршруте «{маршрут}»' : v.head, { 'маршрут': r.title || '' }), C = v.consent || {};
@@ -3501,6 +3503,8 @@
     // (и «Посмотреть финал» — спираль в 13-й день без карты: она сама касается центра)
     if (S.preview && (/^final/.test(q('card') || '') || S.sim === daysCount(route)) && S.mode !== 'observation' && !S.code) { S.code = newCode(route, S.mode); gate = false; }
     // «Посмотреть финал» из панели: центр снова зовёт, как в настоящий 13-й день
+    // Ролик: у придуманного участника Путешествия/Погружения сразу свой код (ключ в кадре не нужен)
+    if (S.film && S.mode !== 'observation' && !S.code) { saveCode(newCode(route, S.mode)); gate = false; }
     if (S.preview && !q('card') && S.sim === daysCount(route)) try { localStorage.setItem(storeKey(), JSON.stringify(openedList().filter(function (d) { return d !== S.sim; }))); } catch (e) {}
     render();
     var c = q('card'), n = +q('day') || 1, last = daysCount(route);
@@ -3531,7 +3535,7 @@
   function boot() {
     var app = document.getElementById('ys'); if (!app) return;
     S.base = app.getAttribute('data-base') || '../../';
-    S.debug = q('debug') === '1'; S.debugNow = q('debugNow'); S.preview = q('preview') === '1';
+    S.debug = q('debug') === '1'; S.debugNow = q('debugNow'); S.preview = q('preview') === '1'; S.film = S.preview && q('film') === '1';
     var sim = q('sim'); if (sim != null && sim !== '' && !isNaN(+sim)) S.sim = +sim;
     S.zonesOn = q('zones') === '1';
     var id = app.getAttribute('data-route');
