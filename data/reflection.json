@@ -92,5 +92,19 @@
       "mark2": {}
     },
     "win": {}
+  },
+  "kin": {
+    "sealImg": {},
+    "wheel": {
+      "lay": "grid",
+      "portals": true,
+      "laySwitch": false
+    },
+    "page": {
+      "bg": "glass"
+    },
+    "mini": {
+      "bg": "glass"
+    }
   }
 }

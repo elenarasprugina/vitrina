@@ -725,7 +725,8 @@
           "glowColor": "#6f9df2",
           "glowStrength": "medium",
           "glowDir": "bottom",
-          "patternColor": "#cfe0ff"
+          "patternColor": "#cfe0ff",
+          "lid": {}
         }
       },
       "back": {
@@ -774,12 +775,25 @@
                   "kind": "contact",
                   "label": "Заказать",
                   "message": "Привет! \nЯ хочу заказать Карту-Отражение."
-                }
+                },
+                "image": "media/1fc12754e319e95a9f22.webp"
+              },
+              {
+                "id": "i-noag8",
+                "visible": true,
+                "order": 2,
+                "title": "Рассчитай свой Кин",
+                "action": {
+                  "kind": "contact",
+                  "label": "Записаться"
+                },
+                "kinWheel": true
               }
             ],
             "max": 10,
             "copyItems": true,
-            "tpl": "offerItem"
+            "tpl": "offerItem",
+            "view": "tiles"
           },
           {
             "id": "b-0w9opk",
@@ -1046,5 +1060,6 @@
     "waveSpeed": "slow",
     "topHazeK": 90,
     "hideTitle": false
-  }
+  },
+  "kinLook": {}
 }

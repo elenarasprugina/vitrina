@@ -71,5 +71,8 @@
     "open": true,
     "onHome": true,
     "homeLink": "Гримуар · Калейдоскоп Твоих Миров"
+  },
+  "months": {
+    "soon": {}
   }
 }
