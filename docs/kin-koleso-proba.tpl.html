@@ -23,6 +23,7 @@ h1{font-family:var(--serif);font-weight:400;font-size:clamp(28px,7vw,38px);margi
 .stage{position:relative;width:100%;max-width:480px;aspect-ratio:1/1}
 canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
 canvas.drag{cursor:grabbing}
+canvas.opened{cursor:default}
 .snd{position:absolute;right:0;top:0;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--night2);
   color:var(--ink);font-size:17px;line-height:1;cursor:pointer;z-index:2}
 .ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
@@ -157,7 +158,7 @@ canvas.drag{cursor:grabbing}
     d: { n: 31, slots: 31, off: 0, rIn: .435, rOut: .58 }
   };
   ['y', 'm', 'd'].forEach(function (k) { var r = RING[k]; r.rot = 0; r.vel = 0; r.target = null; r.val = -1; r.set = false; r.drag = false; r.step = TAU / r.slots; });
-  var st = { mat: 'bronze', clk: 'safe', opn: 'lock', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
+  var st = { hover: 0, mat: 'bronze', clk: 'safe', opn: 'lock', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
     routeW: -1, pos: [], dpr: 1, S: 300, live: '', liveT: 0, date: null };
   var sound = true;
   try { sound = localStorage.getItem('m13kinSnd') !== '0'; } catch (e) {}
@@ -410,6 +411,9 @@ canvas.drag{cursor:grabbing}
         ctx.globalAlpha = .18 * o; ctx.beginPath(); ctx.arc(x, y, 14 * f * pulse, 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
         ctx.globalAlpha = o; ctx.beginPath(); ctx.arc(x, y, 7.5 * f, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * f; ctx.stroke();
       }
+      if (st.hover === k && st.pick !== k && o > .5) {
+        ctx.globalAlpha = .8; ctx.beginPath(); ctx.arc(x, y, 7 * f, 0, TAU); ctx.strokeStyle = '#ece6f7'; ctx.lineWidth = 1 * f; ctx.stroke();
+      }
       if (st.pick === k && o > .5) {
         ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(x, y, 9 * f, 0, TAU); ctx.strokeStyle = GOLD; ctx.lineWidth = 2 * f; ctx.stroke();
       }
@@ -421,7 +425,7 @@ canvas.drag{cursor:grabbing}
       txt(String(sk), C, C + 9 * f, 24 * f, GOLD, '500', '"Cormorant Garamond", Georgia, serif');
       ctx.globalAlpha = 1;
     }
-    $('ctr').style.opacity = String(wheelA); $('ctr').style.visibility = wheelA > 0 && !st.openTo ? '' : 'hidden';
+    cv.classList.toggle('opened', !!st.openTo); $('ctr').style.opacity = String(wheelA); $('ctr').style.visibility = wheelA > 0 && !st.openTo ? '' : 'hidden';
     if (st.live && now - st.liveT > 900 && !anyDrag()) { st.live = ''; center(); }
     requestAnimationFrame(frame);
   }
@@ -466,6 +470,7 @@ canvas.drag{cursor:grabbing}
     hideHunab();
   });
   cv.addEventListener('pointermove', function (e) {
+    if (!drag && st.openTo && e.pointerType === 'mouse') { var hw = where(e); st.hover = nearest(hw.x, hw.y); return; }
     if (!drag) return;
     var w = where(e), r = RING[drag.k], da = wrapPi(w.a - drag.a), now = performance.now(), dt = Math.max(1, now - drag.t);
     r.rot += da; r.vel = r.vel * .6 + (da / dt) * .4; drag.a = w.a; drag.t = now;
@@ -483,6 +488,7 @@ canvas.drag{cursor:grabbing}
     } else if (reduce || performance.now() - drag.t > 80) { r.vel = 0; r.target = rotFor(k, under(k)); }
     r.set = true; drag = null; center();
   }
+  cv.addEventListener('pointerleave', function () { st.hover = 0; });
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
   /* ---------- даты ---------- */
@@ -550,12 +556,14 @@ canvas.drag{cursor:grabbing}
   });
 
   /* ---------- нажать на любой кин ---------- */
-  function pickAt(x, y) {
-    if (st.open < .8) return;
+  // ближайший кин к точке (в пределах ~16 px), 0 — мимо
+  function nearest(x, y) {
+    if (st.open < .8) return 0;
     var best = 0, bd = 16 * 16, k, dx, dy, d;
     for (k = 1; k <= 260; k++) { if (!st.pos[k]) continue; dx = st.pos[k][0] - x; dy = st.pos[k][1] - y; d = dx * dx + dy * dy; if (d < bd) { bd = d; best = k; } }
-    if (best) { tink(); showPick(best); }
+    return best;
   }
+  function pickAt(x, y) { var k = nearest(x, y); if (k) { tink(); showPick(k); } }
   function showPick(k) {
     if (st.mine.indexOf(k) >= 0) { st.pick = null; $('pick').hidden = true; hint(); return; }
     st.pick = k;
