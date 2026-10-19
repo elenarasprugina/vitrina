@@ -89,7 +89,7 @@
     ]).then(function (r) {
       var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], index: null, showcase: null };
       var id = showcaseId || out.settings.currentShowcase;
-      if (S.view !== 'showcase') return out;
+      if (S.view !== 'showcase' && S.view !== 'soon') return out;
       return getJSON(d + 'showcases/' + id + '.json').then(function (sc) { out.showcase = sc; return out; });
     });
   };
@@ -97,19 +97,66 @@
   /* ---------- Запуск ---------- */
   M13.setStartEvent = function (id) { S.startEvent = id || null; };
   M13.boot = function () {
-    var el = document.getElementById('m13');
-    M13.mount(el, {
-      base: el.getAttribute('data-base') || './',
-      view: el.getAttribute('data-view') || 'showcase',
-      showcase: el.getAttribute('data-showcase') || null
-    });
+    var el = document.getElementById('m13'), base = el.getAttribute('data-base') || './', view = el.getAttribute('data-view') || 'showcase';
+    // Основной адрес — месяц по календарю: наступил новый и он опубликован — сразу на его страницу (#карточка не теряется)
+    var P = window.M13_DATA;
+    if (view === 'showcase' && !el.getAttribute('data-showcase') && P && P.settings) {
+      var id = M13.monthPick(P.settings, ((P.index || {}).showcases || []).map(function (x) { return x.id; }));
+      if (id && id !== P.settings.currentShowcase) { location.replace(base + id + '/' + location.search + location.hash); return; }
+    }
+    M13.mount(el, { base: base, view: view, showcase: el.getAttribute('data-showcase') || null, soon: el.getAttribute('data-soon') || null });
   };
+
+  /* ---------- Месяцы как календарь (её «делаем» 20.10) ----------
+     settings.months = {auto, startDay, arrows, soon: {word, font, color, note}}.
+     auto (по умолчанию — да): основной адрес сам ведёт на месяц, который сейчас идёт (по Москве; новый месяц — с startDay-го числа, обычно 1-го),
+     а если он ещё не опубликован — на последний опубликованный до него. Нет auto — как раньше, на выбранную в панели витрину (currentShowcase).
+     Стрелки над сеткой: «← прошлый месяц · следующий →»; следующего ещё нет — страница-заглушка «Ноябрь · скоро» (без содержимого черновика). */
+  function monthsOf(st) { return (st && st.months) || {}; }
+  function ymId(y, m) { return y + '-' + (m < 10 ? '0' : '') + m; }
+  function ymShift(id, k) { var p = id.split('-'), t = +p[0] * 12 + (+p[1] - 1) + k; return ymId(Math.floor(t / 12), t % 12 + 1); }
+  M13.monthNow = function (st) {
+    var t = mskToday(), day = Math.max(1, Math.min(28, Math.round(+monthsOf(st).startDay || 1))), id = ymId(t.getFullYear(), t.getMonth() + 1);
+    return t.getDate() < day ? ymShift(id, -1) : id;
+  };
+  // Какая витрина открывается по основному адресу: ids — опубликованные месяцы. null — решает панель (auto выключено или нечего выбрать)
+  M13.monthPick = function (st, ids) {
+    if (monthsOf(st).auto === false) return null;
+    var now = M13.monthNow(st), list = (ids || []).filter(function (id) { return /^\d{4}-\d{2}$/.test(id); }).sort(), out = null;
+    list.forEach(function (id) { if (id <= now) out = id; });
+    return out || list[0] || null;
+  };
+  // Страница-заглушка: месяц сразу после последнего опубликованного
+  M13.monthSoon = function (ids) {
+    var list = (ids || []).filter(function (id) { return /^\d{4}-\d{2}$/.test(id); }).sort();
+    return list.length ? ymShift(list[list.length - 1], 1) : null;
+  };
+  M13.monthName = function (id, withYear) { var p = String(id || '').split('-'); return (MONTHS_NOM[+p[1] - 1] || '') + (withYear ? ' ' + p[0] : ''); };
+  function pubIds() { return ((S.D.index || {}).showcases || []).filter(function (x) { return x && x.status !== 'draft'; }).map(function (x) { return x.id; }).sort(); }
+  // Стрелки к соседним месяцам. id — эта страница (у заглушки — её месяц)
+  function monthNavHTML(id) {
+    if (monthsOf(S.D.settings).arrows === false || !/^\d{4}-\d{2}$/.test(id || '')) return '';
+    var ids = pubIds(), prev = null, next = null, soon = M13.monthSoon(ids);
+    ids.forEach(function (x) { if (x < id) prev = x; if (x > id && !next) next = x; });
+    if (!next && soon && soon > id) next = soon;
+    if (!prev && !next) return '';
+    var y = id.split('-')[0];
+    function a(x, cls, label) { return '<a class="m13-mnav-' + cls + '" href="' + esc(S.base + x + '/') + '" data-m13-mnav>' + label + '</a>'; }
+    function nm(x) { return esc(M13.monthName(x, x.split('-')[0] !== y)); }
+    return '<nav class="m13-mnav" aria-label="Месяцы">' + (prev ? a(prev, 'prev', '← ' + nm(prev)) : '<span></span>') +
+      (next ? a(next, 'next', nm(next) + (next === soon && ids.indexOf(next) < 0 ? ' · ' + esc(soonOf(S.D.settings).word) : '') + ' →') : '') + '</nav>';
+  }
+  function soonOf(st) { var o = monthsOf(st).soon || {}; return { word: String(o.word || '').trim() || 'скоро', font: o.font || '', color: o.color || '', note: String(o.note || '').trim(), size: o.size || 'l' }; }
+  function mnavBind() {
+    // В предпросмотре панели стрелки никуда не уводят
+    if (S.onBack) S.root.querySelectorAll('[data-m13-mnav]').forEach(function (x) { x.addEventListener('click', function (e) { e.preventDefault(); }); });
+  }
 
   // opts: {base, view, showcase, data?}  data — готовые данные (для предпросмотра в панели).
   M13.mount = function (el, opts) {
     if (S.wakeT) wakeStop();
     S.root = el; S.base = opts.base || './'; S.view = opts.view || 'showcase';
-    S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; lock(false);
+    S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; S.soon = opts.soon || null; lock(false);
     el.classList.add('m13');
     el.innerHTML = '<div class="m13-loading">…</div>';
     var p = opts.data ? Promise.resolve(opts.data) : M13.load(S.base, opts.showcase);
@@ -119,6 +166,7 @@
       else if (S.view === 'reflection') renderStandalone('reflection');
       else if (S.view === 'events') renderStandalone('events');
       else if (S.view === 'kin') renderStandalone('kin');
+      else if (S.view === 'soon') renderSoon();
       else renderShowcase();
     }).catch(function (e) {
       console.error(e);
@@ -212,6 +260,45 @@
     return '<a class="m13-evlink m13-evlink--' + kind + (hd.evSize === 'm' ? '' : ' m13-evlink--l') + (hd.evColor ? ' m13-evlink--own' : '') + '"' +
       (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + ' href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + txt(T('eventsLink') || 'События и архив') + ' →</a>';
   }
+  // Фон: цвет + картинка (отдельная для телефона), затемнение и размытие — слоями под страницей.
+  function rootOpen(bg) {
+    var rs = [];
+    if (bg.color) rs.push('--m13-bgc:' + bg.color);
+    if (bg.image) {
+      rs.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')");
+      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg) + bgFx(bg));
+    }
+    return '<div class="m13-root' + (bg.image ? ' m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') + bgWait(bg) : '') + '" style="' + esc(rs.join(';')) + '">';
+  }
+  /* Заглушка ещё не открытого месяца (S.soon = 'ГГГГ-ММ'): фон, верхняя строка и низ — как у последнего опубликованного месяца (S.D.showcase),
+     посередине — название месяца и крупное слово («скоро») своим шрифтом; ниже — её строка (необязательно) и стрелка назад. Содержимого черновика здесь нет. */
+  function renderSoon() {
+    var sc = S.D.showcase || {}, st = S.D.settings, so = soonOf(st), id = S.soon || M13.monthSoon(pubIds()) || '';
+    var name = M13.monthName(id, true);
+    document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + name + ' · ' + so.word;
+    S.acts = [];
+    var hd = sc.head || {}, cs = sc.cardStyle || {}, hs = [];
+    if (hd.color) hs.push('--m13-head:' + hd.color);
+    var mf = cs.font || '', wf = so.font || mf || 'Cormorant Garamond';
+    if (mf) { ensureFont(mf); hs.push("--m13-hfont:'" + mf + "',Georgia,serif"); }
+    ensureFont(wf);
+    var css = hs.concat(["--m13-sfont:'" + wf + "',Georgia,serif", '--m13-shine:' + (hd.shineColor || cs.rimRunColor || '#fff3cf')]);
+    if (so.color || hd.color) css.push('--m13-sc:' + (so.color || hd.color));
+    var top = hd.top || (hd.logo ? 'logo' : 'text');
+    var topText = String(hd.topText || '').trim() || [st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ');
+    var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap m13-logo-wrap--' + (hd.topSize === 's' || hd.topSize === 'l' ? hd.topSize : 'm') + '">' + logoHTML(hd) + '</h2>'
+      : top === 'none' ? '' : '<div class="m13-kicker"><span class="m13-gt">' + txt(topText) + '</span></div>';
+    var foot = footHTML(hd, hs);
+    S.root.innerHTML = rootOpen(sc.background || {}) + '<main class="m13-page m13-soon-page">' +
+      '<header class="m13-header' + (hd.align === 'center' ? ' m13-header--center' : '') + (hd.color ? ' m13-header--tinted' : '') + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker + '</header>' +
+      '<section class="m13-soon m13-shine m13-soon--' + (so.size === 'm' || so.size === 'xl' ? so.size : 'l') + (so.color || hd.color ? ' m13-soon--tinted' : '') + '" style="' + esc(css.join(';')) + '">' +
+        '<h1><span class="m13-soon-month">' + txt(name) + '</span><span class="m13-soon-word"><span class="m13-gt">' + txt(so.word) + '</span></span></h1>' +
+        (so.note ? '<p class="m13-soon-note">' + txt(so.note) + '</p>' : '') + monthNavHTML(id) + '</section>' + foot + '</main></div>';
+    bgWatch(S.root);
+    var fl = S.root.querySelector('.m13-foot-logo');
+    if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
+    mnavBind();
+  }
   function renderShowcase() {
     var sc = S.D.showcase;
     if (!sc) throw new Error('Нет данных витрины');
@@ -219,13 +306,7 @@
     document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + sc.title;
     S.acts = [];
 
-    // Фон: цвет + картинка (отдельная для телефона), затемнение и размытие — слоями под страницей.
-    var bg = sc.background || {}, rs = [];
-    if (bg.color) rs.push('--m13-bgc:' + bg.color);
-    if (bg.image) {
-      rs.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')");
-      rs.push('--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg) + bgFx(bg));
-    }
+    var bg = sc.background || {};
     // Шапка: цвет надписей, положение, логотип вместо текста
     var hd = sc.head || {}, hcls = 'm13-header' + (hd.align === 'center' ? ' m13-header--center' : '') + (hd.color ? ' m13-header--tinted' : '');
     // Заголовок месяца — тем же шрифтом, что и карточки (если он задан для всего месяца)
@@ -243,7 +324,7 @@
     var tType = typeCss('', hd.topWeight, hd.topItalic);
     var kicker = top === 'logo' ? '<h2 class="m13-logo-wrap m13-logo-wrap--' + (hd.topSize === 's' || hd.topSize === 'l' ? hd.topSize : 'm') + '">' + logoHTML(hd) + '</h2>'
       : top === 'none' ? '' : '<div class="m13-kicker"' + (tType.length ? ' style="' + tType.join(';') + '"' : '') + '><span class="m13-gt">' + txt(topText) + '</span></div>';
-    var root = '<div class="m13-root' + (bg.image ? ' m13-root--img' + (+bg.blur > 0 ? ' m13-root--blur' : '') + bgWait(bg) : '') + '" style="' + esc(rs.join(';')) + '">';
+    var root = rootOpen(bg);
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
     var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
@@ -251,7 +332,7 @@
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
         : '<h1><span class="m13-gt">' + txt(sc.title) + '</span>' + draft + '</h1>') +
-      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + '</header>' +
+      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + monthNavHTML(sc.id) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
       '</section></div>' + foot + '</main>' +
@@ -274,6 +355,7 @@
     // В предпросмотре панели сайта ещё нет — открываем события поверх витрины
     var evl = S.root.querySelector('[data-m13-evlink]');
     if (evl && S.onBack) evl.addEventListener('click', function (e) { e.preventDefault(); openInternal('events'); });
+    mnavBind();
 
     // Прямая ссылка на карточку: /2026-10/#sun
     var h = decodeURIComponent((location.hash || '').slice(1));

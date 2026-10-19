@@ -1924,3 +1924,31 @@ body.m13-locked{overflow:hidden}
   .m13 .m13-kin-racts .m13-action{padding:8px 15px;font-size:13.5px}
   .m13-kin-page .m13-kin-sec p,.m13-kin-page .m13-kin-hunab p,.m13-kin-page .m13-kin-sig .m13-kin-arch p{font-size:calc(14.5px * var(--m13-tk,1))}
 }
+
+/* ---------- Месяцы как календарь (20.10): стрелки к соседним месяцам и заглушка «скоро» ---------- */
+.m13-mnav{display:flex;gap:10px 28px;flex-wrap:wrap;margin-top:10px;font-family:var(--m13-hfont,inherit);font-size:15px;letter-spacing:.02em}
+.m13-header--center .m13-mnav{justify-content:center}
+.m13-header--center .m13-mnav > span{display:none}
+.m13-mnav a{color:inherit;text-decoration:none;opacity:.88;text-shadow:0 1px 8px rgba(0,0,0,.55);padding:4px 0;border-bottom:1px solid transparent;transition:opacity .2s ease,border-color .2s ease}
+.m13-mnav a:hover{opacity:1;border-bottom-color:currentColor}
+.m13-mnav-next{text-align:right}
+.m13-header--tinted .m13-mnav{color:var(--m13-head)}
+@media (max-width:680px){.m13-mnav{font-size:12.5px;margin-top:8px}}
+.m13-soon-page{text-align:center}
+.m13-soon{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4vh 8px 8vh;color:#232323;
+  background:radial-gradient(closest-side,rgba(8,6,4,.42),transparent) center/min(760px,100%) 70% no-repeat;text-shadow:0 1px 10px rgba(0,0,0,.45)}
+.m13-soon--tinted{color:var(--m13-sc)}
+.m13-soon h1{margin:0;font-weight:inherit;display:flex;flex-direction:column;align-items:center}
+.m13-soon-month{font-family:var(--m13-hfont,inherit);font-size:clamp(18px,2.4vw,28px);letter-spacing:.14em;text-transform:uppercase;opacity:.92}
+.m13-soon-word{font-family:var(--m13-sfont);font-style:italic;font-weight:300;line-height:1.05;margin-top:.12em;
+  font-size:clamp(84px,17vw,210px);padding:0 .12em;text-shadow:0 0 40px color-mix(in srgb,currentColor 22%,transparent)}
+.m13-soon--m .m13-soon-word{font-size:clamp(64px,12vw,150px)}
+.m13-soon--xl .m13-soon-word{font-size:clamp(104px,23vw,290px)}
+.m13-soon[style*="Marck Script"] .m13-soon-word,.m13-soon[style*="Comfortaa"] .m13-soon-word{font-style:normal;font-weight:400}
+.m13-soon .m13-gt{animation:m13-shine 4.2s cubic-bezier(.45,0,.4,1) 1.2s both,m13-soon-in 2.4s ease-out both}
+@keyframes m13-soon-in{from{opacity:0;filter:blur(6px)} to{opacity:1;filter:none}}
+.m13-soon-note{margin:10px auto 0;max-width:520px;font-family:var(--m13-hfont,inherit);font-size:16px;line-height:1.45;opacity:.8}
+.m13-soon .m13-mnav{margin-top:28px;justify-content:center;font-size:16px}
+.m13-soon .m13-mnav span{display:none}
+.m13-soon .m13-mnav-next{display:none}
+@media (prefers-reduced-motion:reduce){.m13-soon .m13-gt{animation:none}}

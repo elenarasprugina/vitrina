@@ -537,7 +537,11 @@
   }
   // crop: [ширина, высота] — обрезать по центру ровно под этот размер и сохранить в JPEG
   // (так нужно для превью ссылок: Telegram и VK надёжно понимают только JPEG/PNG).
-  function compressImage(file, max, crop) {
+  // size — «Лучший размер» поля {w, h} (её «делаем» 20.10): больше него не храним — уменьшаем так, чтобы картинка ещё закрывала эту рамку
+  // (широкая в высокую рамку — по высоте), но не больше max по длинной стороне. Новая картинка — WEBP 0.85 (на глаз как 0.9, файл на ~⅕ легче).
+  // Присланный файл как есть не берём никогда: пересборка отрезает скрытые данные фото (место съёмки, телефон) — на сайт они не попадут.
+  var IMG_Q = 0.85;
+  function compressImage(file, max, crop, size) {
     max = max || 1600;
     return new Promise(function (res, rej) {
       var url = URL.createObjectURL(file), img = new Image();
@@ -553,17 +557,19 @@
           URL.revokeObjectURL(url); return res(c.toDataURL('image/jpeg', 0.9));
         }
         var w = iw, h = ih, k = Math.min(1, max / Math.max(w, h));
-        w = Math.round(w * k); h = Math.round(h * k);
+        if (size && size.w && size.h) k = Math.min(k, Math.max(size.w / iw, size.h / ih));
+        w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k));
         c.width = w; c.height = h;
         smooth(c.getContext('2d')).drawImage(halve(img, iw, ih, w), 0, 0, w, h);
-        var d = c.toDataURL('image/webp', 0.9);
-        if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(c) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.9);
+        var d = c.toDataURL('image/webp', IMG_Q);
+        if (d.indexOf('data:image/webp') !== 0) d = hasAlpha(c) ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', IMG_Q);
         URL.revokeObjectURL(url); res(d);
       };
       img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('bad')); };
       img.src = url;
     });
   }
+  function kbText(kb) { return kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' МБ' : kb + ' КБ'; }
   // Есть ли в картинке прозрачные места (проверяем редкой сеткой — этого достаточно)
   function hasAlpha(c) {
     try {
@@ -961,7 +967,11 @@
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
         if (o.svg && (/svg/i.test(f.type) || /\.svg$/i.test(f.name || '')) && window.M13D) { svgIn(f, o.svg, function (d) { obj[key] = d; forget(); changed(); draw(); if (o.onChange) o.onChange(); }); return; }
-        compressImage(f, o.max, o.crop).then(function (d) { obj[key] = d; forget(); changed(); draw(); if (o.onChange) o.onChange(); })
+        compressImage(f, o.max, o.crop, o.size).then(function (d) {
+          obj[key] = d; forget(); changed(); draw(); if (o.onChange) o.onChange();
+          var kb = Math.round(d.length * 0.75 / 1024), was = Math.round(f.size / 1024);
+          if (was > kb * 1.3) toast('Картинка уменьшена: было ' + kbText(was) + ', стало ' + kbText(kb) + '. На сайте выглядит так же.');
+        })
           .catch(function () { toast('Не получилось открыть эту картинку. Попробуйте файл JPG или PNG.', true); });
       });
       box.replaceChildren();
@@ -1480,6 +1490,7 @@
   /* ================= ВИТРИНЫ ================= */
   function viewShowcaseList() {
     var ids = Object.keys(DATA.showcases).sort().reverse();
+    monthAutoMain();
     var cur = DATA.settings.currentShowcase;
     // Предложить следующий месяц после самого позднего
     var last = ids[0] ? ids[0].split('-').map(Number) : [2026, 9];
@@ -1509,9 +1520,45 @@
           el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Создать черновик', onclick: function () { createShowcase(+form.year, +form.month, form.base); } })
         ]),
         el('p', { class: 'a-hint', style: 'margin-top:8px', text: 'Карточки скопируются из выбранного месяца. Списки, у которых выключено «Переносить в новый месяц» (например, встречи «Другого мира»), начнутся пустыми.' })
-      ])
+      ]),
+      monthsBlock()
     ];
   }
+  /* ---------- Месяцы как календарь (её «делаем» 20.10; витрина — M13.monthPick / monthNavHTML / renderSoon) ----------
+     settings.months = {auto, cal, startDay, arrows, soon: {word, font, size, color, note}}. Календарь пока один — обычный, с startDay-го числа;
+     позже сюда можно добавить 13 лун (тогда и адреса месяцев станут другими). */
+  function monthsOpts() { var st = DATA.settings; st.months = st.months || {}; st.months.soon = st.months.soon || {}; return st.months; }
+  // По календарю: основной адрес — опубликованный месяц, который сейчас идёт (или последний до него). Ставится и в данных (currentShowcase) — так видно в списке и уходит в публикацию.
+  function monthAutoMain() {
+    var id = window.M13.monthPick(DATA.settings, publishedIds(DATA));
+    if (id && DATA.showcases[id]) DATA.settings.currentShowcase = id;
+    return id;
+  }
+  function monthsBlock() {
+    var mo = monthsOpts(), so = mo.soon, ids = publishedIds(DATA), soon = window.M13.monthSoon(ids);
+    var look = ids.length ? DATA.showcases[ids[ids.length - 1]] : null;
+    return block('Месяцы как календарь', [
+      el('p', { class: 'a-hint', text: 'Сейчас по календарю идёт ' + window.M13.monthName(window.M13.monthNow(DATA.settings), true).toLowerCase() + '. ' +
+        (mo.auto === false ? 'Основной адрес ведёт на витрину, выбранную вручную.' : 'Основной адрес 13mirrors.ru/vitrina/ сам открывает этот месяц, если он опубликован; если ещё нет — последний опубликованный до него.') }),
+      switchIn(mo, 'auto', 'Основной адрес — по календарю', { defTrue: true, hint: 'Выключите — и основной адрес будет вести на месяц, у которого включено «Открывать по основному адресу», как раньше.', onChange: function () { monthAutoMain(); renderMain(); } }),
+      el('div', { class: 'a-row' }, [
+        selectIn(mo, 'cal', 'Календарь', [['greg', 'Обычный (григорианский)']], { def: 'greg', hint: 'Позже сюда можно добавить календарь 13 лун (Dreamspell).' }),
+        textIn(mo, 'startDay', 'Новый месяц начинается с числа', { type: 'number', ph: '1', hint: 'Обычно 1. Например, 5 — витрина ноября откроется 5 ноября (до этого — октябрь). От 1 до 28.', onInput: function () { renderMainSoon(); } })]),
+      switchIn(mo, 'arrows', 'Стрелки «← прошлый месяц · следующий →» над карточками', { defTrue: true, hint: 'Назад — к опубликованным месяцам. Вперёд — к следующему; если он ещё не опубликован, откроется заглушка.' }),
+      sub('Заглушка ещё не открытого месяца'),
+      el('p', { class: 'a-hint', text: (soon ? 'Сейчас это ' + window.M13.monthName(soon, true) + ' — страница 13mirrors.ru/vitrina/' + soon + '/. ' : '') +
+        'Фон, верхняя строка и низ — как у последнего опубликованного месяца' + (look ? ' («' + look.title + '»)' : '') + '. Содержимого черновика на ней нет. Опубликуете месяц — вместо заглушки будет витрина.' }),
+      el('div', { class: 'a-row' }, [
+        textIn(so, 'word', 'Слово крупными буквами', { ph: 'скоро' }),
+        selectIn(so, 'size', 'Размер слова', [['m', 'Поменьше'], ['l', 'Крупно'], ['xl', 'Очень крупно']], { def: 'l' })]),
+      fontIn(so, 'font', 'Шрифт слова', [['', 'Cormorant Garamond, курсив (обычный)']].concat((window.M13.FONTS || []).filter(function (f) { return f !== 'Cormorant Garamond'; }).map(function (f) { return [f, f]; })), null, 'скоро'),
+      el('div', { class: 'a-row' }, [
+        colorOptIn(so, 'color', 'Цвет надписи', { none: 'как надписи месяца', pick: '#ecd3a3' }),
+        textIn(so, 'note', 'Строка под словом (необязательно)', { ph: 'Например: Новая витрина откроется 1 ноября' })]),
+      el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть заглушку', onclick: function () { openPreview('soon', look ? look.id : DATA.settings.currentShowcase); } })
+    ], { open: false });
+  }
+  function renderMainSoon() { clearTimeout(renderMainSoon.t); renderMainSoon.t = setTimeout(function () { monthAutoMain(); }, 300); }
 
   // Яркость, контраст и насыщенность картинки фона (100 % — как есть). Витрина применяет их фильтром к картинке, файл не меняется
   /* ---------- Живой предпросмотр фона: как картинка ляжет на компьютере и на телефоне ----------
@@ -2062,6 +2109,8 @@
           textIn(sc.period = sc.period || {}, 'from', 'Период: с', { type: 'date' }),
           textIn(sc.period, 'to', 'по', { type: 'date' })
         ]),
+        monthsOpts().auto !== false ? el('p', { class: 'a-hint', text: monthMeta.main ? 'Этот месяц сейчас открывается по основному адресу 13mirrors.ru/vitrina/ — по календарю.' :
+          'Основной адрес выбирается сам, по календарю (настройка — «Витрины» → «Месяцы как календарь»).' }) :
         switchIn(monthMeta, 'main', 'Открывать эту витрину по основному адресу 13mirrors.ru/vitrina/', {
           hint: 'Можно включить только у одной витрины. Остальные открываются по своим адресам.',
           onChange: function (on) {
@@ -2258,8 +2307,9 @@
   function pageHTML(kind, id, D, cardId) {
     D = D || DATA;
     var st = D.settings, site = st.siteTitle || '13 MIRRORS';
-    var isMonth = kind === 'main' || kind === 'month' || kind === 'card';
-    var sc = isMonth ? D.showcases[kind === 'main' ? st.currentShowcase : id] : null;
+    var isMonth = kind === 'main' || kind === 'month' || kind === 'card' || kind === 'soon';
+    // Заглушка: вид — последнего опубликованного месяца
+    var sc = isMonth ? D.showcases[kind === 'main' ? st.currentShowcase : kind === 'soon' ? Object.keys(D.showcases).sort().pop() : id] : null;
     var sh = shareOf(sc, D);
     if (kind === 'card') {
       var c = (sc.cards || []).filter(function (x) { return x.id === cardId; })[0] || { front: {} }, f = c.front || {};
@@ -2291,16 +2341,19 @@
         '<a href="' + ptarget + '">' + escAttr(pv.title || 'Открыть') + '</a>\n</body>\n</html>\n';
     }
     var base = kind === 'main' ? './' : '../';
-    var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
-    var title = site + ' · ' + (sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || '');
+    var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind === 'soon' ? id + '/' : kind + '/');
+    var soonT = kind === 'soon' ? window.M13.monthName(id, true) + ' · ' + (String((((st.months || {}).soon) || {}).word || '').trim() || 'скоро') : '';
+    var title = site + ' · ' + (soonT || (sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || ''));
     if (!sc && !String((st.share || {}).title || '').trim()) sh.title = title;
+    if (soonT) sh = { title: soonT, description: sh.description, image: sh.image };
     var img = absImg(sh.image, D);
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
       '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind === 'kin' ? 'reflection' : kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
-      '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
+      '<div id="m13" data-base="' + base + '" data-view="' + (kind === 'soon' ? 'soon' : isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') +
+      (kind === 'soon' ? ' data-showcase="' + escAttr(sc.id) + '" data-soon="' + escAttr(id) + '"' : '') + '></div>\n' +
       pageData(sc, D, kind === 'kin') + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
   // Чтобы страница открывалась без мигания: цвет фона — сразу, картинка фона начинает грузиться вместе со страницей
@@ -9318,7 +9371,8 @@
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
       if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
-      M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId) })
+      M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
+        soon: v === 'soon' ? window.M13.monthSoon(publishedIds(DATA)) || window.M13.monthNow(DATA.settings) : null })
         .then(function () {
           if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; }
           // «Посмотреть окно»: сразу открыть «Куда написать?» и сообщение «Ссылка скопирована»
@@ -10656,6 +10710,9 @@
         files[id + '/' + c.id + '/index.html'] = { text: pageHTML('card', id, P, c.id) };
       });
     });
+    // Заглушка следующего, ещё не опубликованного месяца — «Ноябрь · скоро» (её «делаем» 20.10)
+    var soon = window.M13.monthSoon(Object.keys(P.showcases));
+    if (soon && !P.showcases[soon]) files[soon + '/index.html'] = { text: pageHTML('soon', soon, P) };
     Object.keys(media).forEach(function (p) { if (!existing[p]) files[p] = { b64: media[p] }; });
     // Снять с сайта месяцы, которые больше не опубликованы, и страницы удалённых карточек.
     var removed = [];
@@ -10675,7 +10732,7 @@
         .then(function (v) { if (v === 'login') openLogin(); });
       return;
     }
-    syncIndex();
+    syncIndex(); monthAutoMain();
     var ids = publishedIds(DATA), st = DATA.settings;
     if (!ids.length || ids.indexOf(st.currentShowcase) < 0) {
       var cur = DATA.showcases[st.currentShowcase];
