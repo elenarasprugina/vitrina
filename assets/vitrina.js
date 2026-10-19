@@ -14,6 +14,8 @@
   }
   function txt(s) { return esc(s).replace(/\n/g, '<br>'); }
   // Необязательное поле {value, show}: возвращает текст, только если он включён и не пустой.
+  // «Надпись сверху» карточки: выключатель «показывать на сайте» (19.10) — выключена, остаётся только пометкой в панели
+  function eyeOf(f) { return f.eyebrowShow === false ? '' : String(f.eyebrow || '').trim(); }
   function opt(f) {
     if (f == null) return '';
     if (typeof f === 'object') return f.show === false ? '' : String(f.value == null ? '' : f.value).trim();
@@ -1154,7 +1156,7 @@
     if (isCalCard(c) && c.monthCal.face !== 'image') {
       var cs = styleOf(c, false);
       return breathWrap(cs, '<button type="button" class="m13-thumb m13-thumb--cal' + (cs.cls ? ' ' + cs.cls : '') + '" style="' + esc(cs.css) + '" data-card="' + esc(c.id) + '" aria-label="' +
-        esc([f.eyebrow || 'Календарь', (c.monthCal.title || M13.calMonthName(calYM()))].join(' · ')) + '">' + calMiniHTML(c) + cs.lay + '</button>');
+        esc([eyeOf(f) || 'Календарь', (c.monthCal.title || M13.calMonthName(calYM()))].join(' · ')) + '">' + calMiniHTML(c) + cs.lay + '</button>');
     }
     var sty = styleOf(c, !!f.image);
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
@@ -1164,7 +1166,7 @@
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
     var text = '<div class="m13-thumb-text">' +
-      (f.eyebrow ? '<div class="m13-mini-type">' + txt(f.eyebrow) + '</div>' : '') +
+      (eyeOf(f) ? '<div class="m13-mini-type">' + txt(eyeOf(f)) + '</div>' : '') +
       (f.title ? '<div class="m13-mini-title">' + txt(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
@@ -1243,7 +1245,7 @@
     if (sty.st.glow === 'live' && TEMPO[sty.st.glowTempo]) stage.classList.add(TEMPO[sty.st.glowTempo]);
     var sub = opt(f.subtitle);
     front.innerHTML = '<div>' +
-      (f.eyebrow ? '<div class="m13-hero-type">' + txt(f.eyebrow) + '</div>' : '') +
+      (eyeOf(f) ? '<div class="m13-hero-type">' + txt(eyeOf(f)) + '</div>' : '') +
       (f.title ? '<div class="m13-hero-title">' + txt(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-hero-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-hero-status') +
@@ -1595,7 +1597,7 @@
     var st = statusOf(c), pill = f.statusStyle === 'pill';
     var meta = [opt(f.subtitle), pill ? '' : st].concat(extraMeta || []).filter(Boolean);
     var mh = meta.map(function (m) { return '<span>' + txt(m) + '</span>'; }).join('') + (pill && st ? '<span class="m13-status-pill"><span>' + txt(st) + '</span></span>' : '');
-    return '<div class="m13-head">' + (f.eyebrow ? '<div class="m13-eyebrow">' + txt(f.eyebrow) + '</div>' : '') +
+    return '<div class="m13-head">' + (eyeOf(f) ? '<div class="m13-eyebrow">' + txt(eyeOf(f)) + '</div>' : '') +
       '<h2>' + txt(f.title) + '</h2>' +
       (mh ? '<div class="m13-meta">' + mh + '</div>' : '') +
       '</div>';
@@ -1671,7 +1673,7 @@
       var date = opt(it.date), price = opt(it.price), a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
       var cls = 'm13-item m13-tile' + (odd && i === last && items.length > 1 ? (wide ? ' m13-tile--wide' : ' m13-tile--mid') : '') + kinBgCls(it);
-      var line = price || (it.kinWheel ? kinT('wpSub') : '');
+      var line = price || (it.kinWheel ? opt(it.text) || kinT('wpSub') : '');   // у колеса — своё «Короткое описание», пусто — запасная строка
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       var at = it.kinWheel ? act({ kind: 'internal', target: 'kin' }) : ' data-m13-tile="' + (S.tiles.push({ it: it, a: a, ctx: ctx, cal: cal, shape: x.tileShape }) - 1) + '"';
       return '<button type="button" class="' + cls + '"' + at + kinStyle(it) + '>' + itemPic(it, 'm13-tile-pic') +
@@ -3292,7 +3294,7 @@
     wHintOpen: 'Ваше место в круге 260 дней. Нажмите на любую точку — покажу, что это за кин.',
     wHintPick: 'Нажимайте на любые кины. Ваш — в круге, волна выбранного кина — ярче.',
     wHunab: 'Ниже — про 29 февраля: выберите, до или после полудня вы родились.',
-    wMini: 'Узнать свой кин', wpTitle: 'Узнать свой кин', wpSub: 'по дате рождения · бесплатно', wpGo: 'Открыть →', wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
+    wMini: 'Узнать свой кин', wpTitle: 'Узнать свой кин', wpSub: 'по дате рождения', wpGo: 'Открыть →', wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
     wMine: '↩ К моему кину', wNext: 'Ближайший день этого кина — {дата}.', wWave: 'Волна «{маршрут}» · {даты}, день {день} из 13',
     wShow: 'Показать на Цолькине', wLayWaves: 'Волны', wLaySpiral: 'Спираль', wLayGrid: 'Таблица',
     // подписи к подсвеченным волнам под Цолькином
