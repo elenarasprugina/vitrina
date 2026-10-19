@@ -3603,6 +3603,520 @@
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
   }
+  // 🎬 Ролик маршрута: окно-телефон 9:16 со страницей маршрута (проверка, придуманный участник — ?film=1).
+  // Chrome записывает эту вкладку, обрезанную до окна (getDisplayMedia + CropTarget); кадры рисуются в холст 1080×1920
+  // с подписями поверх и сжимаются в MP4 (VideoEncoder + mp4-muxer, как «● Записать» узора). У ролика своё время:
+  // ускорение, пауза, смена дня без загрузки страницы в кадре (последний кадр плавно перетекает в новый день).
+  // Автопилот (её «панель ведёт сама», 19.10): сам касается в окне по сценарию — дверь/камень → Карта дня → глубже → следующий день.
+  // Звук не пишем, файл никуда не уходит.
+  var FILM_W = 1080, FILM_H = 1920, FILM_MAX = 300;
+  function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
+  // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
+  function filmForget() {
+    try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('m13film-') === 0) localStorage.removeItem(k); }); } catch (e) {}
+  }
+  function filmTime(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + pad(s % 60); }
+  // Заготовки сценария: какие дни, глубже ли, финал, темп, ускорение
+  var FILM_HOW = [['hand', 'Сама — я прохожу, панель записывает'], ['path', 'Весь путь коротко — дни подряд, дверь и Карта дня'],
+    ['day', 'Один день изнутри — дверь, карта, глубже, спокойно'], ['teaser', 'Тизер — три дня и финал']];
+  var FILM_SPEED = [['1', 'Как есть'], ['1.5', 'Быстрее × 1,5'], ['2', 'Быстрее × 2'], ['3', 'Быстрее × 3']];
+  function filmPreset(st, r, k) {
+    var last = r.days.length, all = [], i;
+    for (i = 1; i < last; i++) all.push(i);
+    var P = k === 'path' ? { days: all, deep: false, fin: false, pace: 'quick', speed: '2' }
+      : k === 'teaser' ? { days: [1, Math.ceil(last / 2), last - 1].filter(function (d, j, a) { return d >= 1 && d < last && a.indexOf(d) === j; }), deep: true, fin: true, pace: 'quick', speed: '1.5' }
+      : k === 'day' ? { days: [Math.max(1, Math.min(last - 1, +st.day || 1))], deep: true, fin: false, pace: 'calm', speed: '1' } : null;
+    if (P) Object.keys(P).forEach(function (x) { st[x] = P[x]; });
+  }
+  function openFilm(r) {
+    var pv = document.getElementById('a-preview'), last = r.days.length;
+    var st = ST.film = ST.film || {}, D0 = { mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, title: true, mark: true, dayCap: true, caption: '' };
+    Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
+    var REC = null, AP = null, nonce = 0, res = el('div', { class: 'a-film-res' });
+    var h = Math.max(460, Math.min(800, window.innerHeight - 130)), w = Math.round(h * 9 / 16);
+    var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, style: 'width:' + w + 'px;height:' + h + 'px' });
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
+    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady && e.source === fr.contentWindow) send(); }
+    function load(day) { fr.src = '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (day ? '&sim=' + day : '') + '&f=' + (++nonce); }
+    function reload() { load(st.day); }
+    function dateOf(d) { return window.M13R ? window.M13R.dateOf(r, d) : ''; }
+    // Кружок касания и «без плашки проверки во время записи и прогона» — прямо в страницу окна (тот же сайт)
+    function hush() { try { fr.contentDocument.documentElement.classList.toggle('m13f-rec', !!(REC || AP)); } catch (e) {} }
+    fr.addEventListener('load', function () {
+      var d; try { d = fr.contentDocument; } catch (e) { return; }
+      if (!d || !d.head) return;
+      var s = d.createElement('style');
+      s.textContent = '.m13f-tap{position:fixed;z-index:2147483647;left:0;top:0;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;' +
+        'border:2px solid rgba(255,255,255,.95);background:rgba(255,255,255,.3);box-shadow:0 0 0 1px rgba(0,0,0,.2),0 0 16px rgba(255,255,255,.55);' +
+        'pointer-events:none;animation:m13fTap .6s ease-out forwards}@keyframes m13fTap{from{transform:scale(.45);opacity:1}to{transform:scale(1.5);opacity:0}}' +
+        'html.m13f-rec .ys-debug{display:none!important}';
+      d.head.appendChild(s);
+      hush();
+      d.addEventListener('pointerdown', function (e) {
+        if (!st.tap) return;
+        var t = d.createElement('div'); t.className = 'm13f-tap'; t.style.left = e.clientX + 'px'; t.style.top = e.clientY + 'px';
+        d.body.appendChild(t); setTimeout(function () { t.remove(); }, 700);
+      }, true);
+    });
+    var logo = null;
+    if (DATA.settings.logo) { logo = new Image(); logo.src = imgSrc(DATA.settings.logo); }
+    // Окно-телефон во весь холст
+    function base(x, v) {
+      var vw = v.videoWidth, vh = v.videoHeight;
+      x.fillStyle = '#000'; x.fillRect(0, 0, FILM_W, FILM_H);
+      if (vw && vh) {
+        var k = Math.max(FILM_W / vw, FILM_H / vh), dw = vw * k, dh = vh * k;
+        x.imageSmoothingQuality = 'high';
+        x.drawImage(v, (FILM_W - dw) / 2, (FILM_H - dh) / 2, dw, dh);
+      }
+    }
+    function shade(x, y0, y1, a0, a1) { var g = x.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, 'rgba(0,0,0,' + a0 + ')'); g.addColorStop(1, 'rgba(0,0,0,' + a1 + ')'); x.fillStyle = g; x.fillRect(0, y0, FILM_W, y1 - y0); }
+    // Кадр ролика: окно + переход со старого дня, название в начале, «День N», знак, подпись, затемнение в конце
+    function paint(x, R, t) {
+      base(x, R.v);
+      if (R.fade != null && R.still) {
+        var fk = (t - R.fade) / .8;
+        if (fk < 1) { x.globalAlpha = 1 - fk * fk * (3 - 2 * fk); x.drawImage(R.still, 0, 0); x.globalAlpha = 1; } else R.fade = null;
+      }
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      if (st.title && t < 3.4) {
+        x.globalAlpha = t < 2.6 ? 1 : 1 - (t - 2.6) / 0.8;
+        shade(x, 0, 640, .62, 0);
+        x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.fillStyle = '#fff';
+        x.font = '600 76px Georgia, "Times New Roman", serif';
+        filmLines(x, r.title || '', 940).forEach(function (l, i) { x.fillText(l, FILM_W / 2, 230 + i * 92); });
+        var dt = [jDateText(r.start), last ? last + ' дней' : ''].filter(Boolean).join(' · ');
+        if (dt) { x.font = '400 40px -apple-system, "Segoe UI", Roboto, sans-serif'; x.fillText(dt, FILM_W / 2, 150); }
+        x.shadowBlur = 0; x.globalAlpha = 1;
+      }
+      // «День N» — когда автопилот перешёл к новому дню (2,4 секунды, мягко)
+      if (R.cap && t >= R.cap.t && t - R.cap.t < 2.4) {
+        var ct = t - R.cap.t;
+        x.globalAlpha = Math.min(1, ct / .35, (2.4 - ct) / .5);
+        shade(x, 0, 520, .55, 0);
+        x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.fillStyle = '#fff';
+        x.font = '600 84px Georgia, "Times New Roman", serif'; x.fillText(R.cap.a, FILM_W / 2, 210);
+        if (R.cap.b) { x.font = '400 40px -apple-system, "Segoe UI", Roboto, sans-serif'; x.fillText(R.cap.b, FILM_W / 2, 300); }
+        x.shadowBlur = 0; x.globalAlpha = 1;
+      }
+      if (st.caption) {
+        var cl = filmLines(x, st.caption, 940, '500 52px -apple-system, "Segoe UI", Roboto, sans-serif'), y0 = FILM_H - 250 - (cl.length - 1) * 66;
+        shade(x, y0 - 140, FILM_H, 0, .55);
+        x.shadowColor = 'rgba(0,0,0,.7)'; x.shadowBlur = 14; x.fillStyle = '#fff';
+        cl.forEach(function (l, i) { x.fillText(l, FILM_W / 2, y0 + i * 66); });
+        x.shadowBlur = 0;
+      }
+      if (st.mark) {
+        x.globalAlpha = 0.8;
+        if (logo && logo.complete && logo.naturalWidth) {
+          var lw = 190, lh = lw * logo.naturalHeight / logo.naturalWidth;
+          if (lh > 120) { lh = 120; lw = lh * logo.naturalWidth / logo.naturalHeight; }
+          x.drawImage(logo, FILM_W - 50 - lw, FILM_H - 50 - lh, lw, lh);
+        } else {
+          x.textAlign = 'right'; x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 10;
+          x.font = '600 34px -apple-system, "Segoe UI", Roboto, sans-serif';
+          x.fillText('1 3   M I R R O R S', FILM_W - 54, FILM_H - 70); x.shadowBlur = 0;
+        }
+        x.globalAlpha = 1;
+      }
+      if (R.out != null) { x.globalAlpha = Math.min(1, (t - R.out) / .8); x.fillStyle = '#000'; x.fillRect(0, 0, FILM_W, FILM_H); x.globalAlpha = 1; }
+    }
+    var bRec = el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '● Записать', onclick: function () { start(); } });
+    var bTry = el('button', { type: 'button', class: 'a-btn', text: '▶ Прогнать без записи', onclick: function () { if (AP) apStop('Прогон остановлен.'); else apStart(); } });
+    var bPause = el('button', { type: 'button', class: 'a-btn', text: '⏸ Пауза', disabled: true, onclick: function () { pause(); } });
+    var bStop = el('button', { type: 'button', class: 'a-btn', text: '■ Стоп', disabled: true, onclick: function () { stop(); } });
+    var clock = el('span', { class: 'a-film-clock', text: '0:00' }), auto = st.how !== 'hand';
+    function ui() {
+      auto = st.how !== 'hand';
+      bRec.disabled = !!(REC || AP); bPause.disabled = bStop.disabled = !REC || !!REC.finishing;
+      bTry.hidden = !auto; bTry.disabled = !!REC; bTry.textContent = AP && !REC ? '■ Остановить прогон' : '▶ Прогнать без записи';
+      bPause.textContent = REC && REC.paused ? '▶ Дальше' : '⏸ Пауза';
+      clock.classList.toggle('is-on', !!REC && !REC.paused && !REC.cut);
+      pv.classList.toggle('is-rec', !!REC);
+      hush();
+    }
+    function start() {
+      if (!filmCan()) { toast('Запись ролика работает в Chrome (или Edge) на компьютере. В этом браузере её нет.', true); return; }
+      if (auto && !st.days.length && !st.fin) { toast('Отметьте хотя бы один день или финал.', true); return; }
+      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false,
+        preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' }).then(function (stream) {
+        var tr = stream.getVideoTracks()[0], ss = tr.getSettings ? tr.getSettings() : {};
+        if (ss.displaySurface && ss.displaySurface !== 'browser') {
+          stream.getTracks().forEach(function (k) { k.stop(); });
+          toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
+        }
+        return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); }).then(function () { begin(stream); }, function (e) {
+          stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
+        });
+      }).catch(function (e) {
+        if (e && e.name === 'NotAllowedError') toast('Запись не началась: браузер не дал доступ к вкладке.');
+        else { console.error(e); toast('Не получилось начать запись: ' + (e && e.message || e), true); }
+      });
+    }
+    function begin(stream) {
+      var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
+      var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
+      // Автопилот: время ролика стоит, пока грузится первый день (cut)
+      var R = REC = { stream: stream, v: v, cv: cv, x: cv.getContext('2d'), t: 0, slot: -1, last: performance.now(), paused: false, cut: auto, speed: +st.speed || 1, lastKey: -1, n: 0, raf: 0 };
+      clock.textContent = 'Готовлю…'; res.replaceChildren(); ui();
+      // «Закрыть доступ» на плашке Chrome — тоже стоп
+      stream.getVideoTracks()[0].addEventListener('ended', function () { if (REC === R) stop(); });
+      function fail(msg) { abort(R); toast(msg, true); }
+      vidMuxer(function (ok) {
+        if (REC !== R) return;
+        if (!ok) { fail('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.'); return; }
+        recCodec(FILM_W, FILM_H, 12e6, function (c) {
+          if (REC !== R) return;
+          if (!c) { fail('Этот браузер не умеет сжимать видео в MP4. Попробуйте свежий Chrome.'); return; }
+          var X = window.Mp4Muxer;
+          R.mux = new X.Muxer({ target: new X.ArrayBufferTarget(), video: { codec: c.avc ? 'avc' : 'vp9', width: FILM_W, height: FILM_H, frameRate: VID_FPS }, fastStart: 'in-memory' });
+          R.enc = new VideoEncoder({ output: function (ch, meta) { try { R.mux.addVideoChunk(ch, meta); } catch (e) { R.bad = e; } }, error: function (e) { R.bad = e; } });
+          R.enc.configure(c); R.vp9 = !c.avc;
+          R.last = performance.now(); clock.textContent = '0:00';
+          (function loop() {
+            if (REC !== R || R.finishing) return;
+            var now = performance.now(), dt = Math.min(.25, (now - R.last) / 1000);
+            R.last = now;
+            if (!R.paused && !R.cut) {
+              R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
+              var slot = Math.floor(R.t * VID_FPS);
+              if (slot > R.slot) { R.slot = slot; paint(R.x, R, R.t); push(R, Math.round(slot * 1e6 / VID_FPS)); }
+              clock.textContent = filmTime(R.t);
+              if (R.out != null && R.t - R.out > .9) { stop(); return; }
+              if (R.t >= FILM_MAX) { toast('Ролик дошёл до 5 минут — запись остановлена.'); stop(); return; }
+            }
+            R.raf = requestAnimationFrame(loop);
+          })();
+          ui();
+          if (auto) apStart(true);
+        });
+      });
+    }
+    function push(R, ts) {
+      if (R.bad || R.enc.encodeQueueSize > 10) return;
+      var key = R.lastKey < 0 || ts - R.lastKey >= 2e6;
+      if (key) R.lastKey = ts;
+      var vf = new VideoFrame(R.cv, { timestamp: ts, duration: Math.round(1e6 / VID_FPS) });
+      try { R.enc.encode(vf, { keyFrame: key }); R.n++; } catch (e) { R.bad = e; }
+      vf.close();
+    }
+    function pause() {
+      if (!REC) return;
+      REC.paused = !REC.paused; REC.last = performance.now();
+      ui();
+    }
+    // Запись прервана (выход, ошибка): ничего не сохраняем
+    function abort(R) {
+      if (!R) return;
+      R.finishing = true; cancelAnimationFrame(R.raf);
+      R.stream.getTracks().forEach(function (k) { k.stop(); });
+      try { if (R.enc && R.enc.state !== 'closed') R.enc.close(); } catch (e) {}
+      if (REC === R) REC = null;
+      apStop(); ui();
+    }
+    function stop() {
+      var R = REC; if (!R || R.finishing) return;
+      if (!R.enc || !R.n) { abort(R); toast('Ролик пустой — запись не успела начаться.', true); return; }
+      if (R.bad) { abort(R); toast('Не получилось записать ролик: ' + (R.bad.message || R.bad), true); return; }
+      R.finishing = true; cancelAnimationFrame(R.raf);
+      R.stream.getTracks().forEach(function (k) { k.stop(); });
+      apStop(); clock.textContent = 'Сохраняю…'; ui();
+      R.enc.flush().then(function () {
+        R.mux.finalize();
+        try { R.enc.close(); } catch (e) {}
+        if (REC === R) REC = null; ui();
+        done(R, new Blob([R.mux.target.buffer], { type: 'video/mp4' }));
+      }, function (e) { abort(R); toast('Не получилось записать ролик: ' + (e && e.message || e), true); });
+    }
+    function done(R, blob) {
+      var url = URL.createObjectURL(blob), dur = (R.slot + 1) / VID_FPS;
+      clock.textContent = filmTime(dur);
+      var name = '13mirrors-' + (r.id || 'route') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(dur).replace(':', 'm') + 's.mp4';
+      var vid = el('video', { class: 'a-film-vid', src: url, controls: true, playsinline: true });
+      function cover() {
+        if (!vid.videoWidth) { toast('Сначала запустите ролик и остановите на нужном кадре.', true); return; }
+        var c = el('canvas'); c.width = vid.videoWidth; c.height = vid.videoHeight;
+        c.getContext('2d').drawImage(vid, 0, 0);
+        c.toBlob(function (b) { var a = el('a', { href: URL.createObjectURL(b), download: name.replace(/\.\w+$/, '-oblozhka.png') }); document.body.appendChild(a); a.click(); a.remove(); }, 'image/png');
+      }
+      res.replaceChildren(
+        el('h3', { class: 'a-film-h a-film-h--s', text: 'Готово · ' + filmTime(dur) }), vid,
+        el('div', { class: 'a-backup-btns' }, [
+          el('a', { class: 'a-btn a-btn--dark', href: url, download: name, text: '⬇ Сохранить ролик' }),
+          el('button', { type: 'button', class: 'a-btn', text: '🖼 Этот кадр — обложкой', onclick: cover })]),
+        el('p', { class: 'a-hint', text: (R.vp9 ? 'Этот браузер не умеет H.264 — ролик в MP4 со сжатием VP9: откроется на компьютере, но соцсети могут его не взять. Лучше записывать в свежем Chrome. ' : 'MP4, 1080 × 1920 — подходит для Reels, Stories, Shorts. ') +
+          'Обложка: остановите ролик на нужном кадре и нажмите «Этот кадр — обложкой». Ролик остаётся только у вас на компьютере, пока вы его не сохраните.' }));
+    }
+
+    /* ---------- Автопилот: панель сама касается в окне ----------
+       Каждые 250 мс смотрит, что сейчас на странице (карта поверх, пространство за дверью, сцена), и делает следующий шаг сценария.
+       Смена дня — новая загрузка страницы (sim=N); при записи загрузка в ролик не попадает, старый день перетекает в новый. */
+    function doc() { try { return fr.contentDocument; } catch (e) { return null; } }
+    function shown(n) {
+      if (!n) return false;
+      var b = n.getBoundingClientRect(), s = fr.contentWindow.getComputedStyle(n);
+      return b.width > 2 && b.height > 2 && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity > .05 && !n.disabled;
+    }
+    function all(root, sel) { return [].filter.call(root.querySelectorAll(sel), shown); }
+    function one(root, sel) { return all(root, sel)[0] || null; }
+    // Касание как пальцем: те же события, что у настоящего касания (и кружок, если он включён)
+    function tapEl(n, x, y) {
+      var w = fr.contentWindow, b = n.getBoundingClientRect();
+      if (x == null) { x = b.left + b.width / 2; y = b.top + b.height / 2; }
+      var t = doc().elementFromPoint(x, y); if (!t || !(t === n || n.contains(t))) t = n;
+      var o = { bubbles: true, cancelable: true, composed: true, view: w, clientX: x, clientY: y, pointerId: 1, isPrimary: true, pointerType: 'touch', button: 0, buttons: 1 };
+      t.dispatchEvent(new w.PointerEvent('pointerdown', o)); t.dispatchEvent(new w.MouseEvent('mousedown', o));
+      o.buttons = 0;
+      t.dispatchEvent(new w.PointerEvent('pointerup', o)); t.dispatchEvent(new w.MouseEvent('mouseup', o)); t.dispatchEvent(new w.MouseEvent('click', o));
+    }
+    // Ждать ms (пауза записи время не тратит)
+    function wait(ms, f) {
+      var A = AP, left = ms, t0 = performance.now();
+      (function next() {
+        A.wt = setTimeout(function () {
+          if (AP !== A) return;
+          var now = performance.now();
+          if (!(REC && REC.paused)) left -= now - t0;
+          t0 = now;
+          if (left <= 0) f(); else next();
+        }, Math.max(16, Math.min(250, left)));
+      })();
+    }
+    function act(n, after, x, y) { AP.busy = true; tapEl(n, x, y); wait(after, function () { AP.busy = false; }); }
+    function idle(ms, f) { AP.busy = true; wait(ms, function () { AP.busy = false; if (f) f(); }); }
+    // Прокрутка карты к нужному месту — плавно, как пальцем (спокойный темп — успеть прочитать)
+    function scroller(n) {
+      for (var p = n && n.parentElement; p && p !== doc().body; p = p.parentElement) {
+        var s = fr.contentWindow.getComputedStyle(p).overflowY;
+        if ((s === 'auto' || s === 'scroll') && p.scrollHeight > p.clientHeight + 4) return p;
+      }
+      return null;
+    }
+    function glide(sc, to, f) {
+      var A = AP, from = sc.scrollTop; to = Math.max(0, Math.min(to, sc.scrollHeight - sc.clientHeight));
+      var d = Math.abs(to - from), ms = d < 8 ? 0 : Math.min(7000, 500 + d * (A.P.calm ? 9 : 2.2)), t0 = performance.now();
+      if (!ms) { f(); return; }
+      (function step() {
+        if (AP !== A) return;
+        if (REC && REC.paused) { t0 += 16; requestAnimationFrame(step); return; }
+        var k = Math.min(1, (performance.now() - t0) / ms), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        sc.scrollTop = from + (to - from) * e;
+        if (k < 1) requestAnimationFrame(step); else f();
+      })();
+    }
+    // Довести до кнопки и коснуться (fx, fy — куда именно, в долях от её размера; без них — в середину)
+    function reachTap(n, after, fx, fy) {
+      var sc = scroller(n); AP.busy = true;
+      function go() { var b = n.getBoundingClientRect(); act(n, after, fx == null ? null : b.left + b.width * fx, fy == null ? null : b.top + b.height * fy); }
+      if (!sc) { idle(AP.P.calm ? 1200 : 400, go); return; }
+      var b = n.getBoundingClientRect(), sb = sc.getBoundingClientRect();
+      glide(sc, sc.scrollTop + b.top - sb.top - (sb.height - b.height) * .62, function () { idle(AP.P.calm ? 900 : 300, go); });
+    }
+    // Почитать карту: спокойно — плавно вниз по тексту, быстро — короткая пауза
+    function read(ly, f) {
+      var n = ly.querySelector('button, h2, p'), sc = n && scroller(n);
+      AP.busy = true;
+      if (!AP.P.calm || !sc) { idle(AP.P.calm ? 3500 : 1300, f); return; }
+      idle(1200, function () { AP.busy = true; glide(sc, (sc.scrollHeight - sc.clientHeight) * .55, function () { idle(1500, f); }); });
+    }
+    function apStart(rec) {
+      if (AP) return;
+      if (!st.days.length && !st.fin) { toast('Отметьте хотя бы один день или финал.', true); return; }
+      var P = { days: st.days.slice().sort(function (a, b) { return a - b; }), deep: st.deep && st.mode !== 'observation', fin: st.fin, calm: st.pace === 'calm' };
+      AP = { P: P, i: -1, rec: !!rec, busy: false };
+      AP.tk = setInterval(apTick, 250);
+      filmForget(); ui(); apNext();
+    }
+    function apStop(msg) {
+      if (!AP) return;
+      clearInterval(AP.tk); clearTimeout(AP.wt); AP = null; ui();
+      if (msg) toast(msg);
+    }
+    // Следующий день сценария (или финал); дней больше нет — конец
+    function apNext() {
+      var A = AP, P = A.P;
+      A.i++;
+      var d = A.i < P.days.length ? P.days[A.i] : A.i === P.days.length && P.fin ? last : 0;
+      if (!d) { apEnd(); return; }
+      A.day = d; A.fin = d === last; A.stage = 'load'; A.busy = false; A.seen = null; A.entered = 0; A.went = false; A.inside = false; A.space = 0; A.states = 0; A.lost = 0; A.fdone = false; A.disk = 0;
+      // Запись: последний кадр дня держится, пока грузится следующий
+      if (REC && REC.slot >= 0) { REC.cut = true; var c = REC.still || (REC.still = el('canvas')); c.width = FILM_W; c.height = FILM_H; base(c.getContext('2d'), REC.v); }
+      A.t0 = performance.now(); load(d);
+    }
+    function apEnd() {
+      var A = AP;
+      idle(A.P.calm ? 1800 : 1200, function () {
+        if (REC && A.rec) { REC.out = REC.t; A.busy = true; return; }
+        apStop('Прогон закончен. Если всё нравится — «● Записать».');
+      });
+    }
+    function dayDone() { AP.busy = true; apNext(); }
+    function apTick() {
+      var A = AP, d = doc(), now = performance.now();
+      if (!A || A.busy || (REC && REC.paused) || !d || !d.body) return;
+      // День загружается: ждём сцену, даём ей устояться (в ролик не попадает) — и дальше
+      if (A.stage === 'load') {
+        if (!one(d, '.ys-dpoly.is-can, .ys-hit')) { if (now - A.t0 > 20000) apStop('Страница маршрута не загрузилась — попробуйте ещё раз.'); return; }
+        A.stage = 'go';
+        idle(1100, function () {
+          if (REC) {
+            if (REC.cut) { REC.cut = false; REC.last = performance.now(); if (REC.slot >= 0) REC.fade = REC.t; }
+            // Первый день идёт под названием маршрута; если название ещё видно — «День N» сразу после него
+            if (st.dayCap && !(st.title && REC.slot < 0)) REC.cap = { t: Math.max(REC.t, st.title ? 3.4 : 0), a: A.fin ? 'Финал' : 'День ' + A.day, b: dateOf(A.day) };
+            ui();
+          }
+          idle(A.P.calm ? 2200 : 600);
+        });
+        return;
+      }
+      // Финал отыграл (ожидание — у касания «Собрать маршрут») — конец сценария
+      if (A.fdone) { dayDone(); return; }
+      var L = d.querySelectorAll('.ys-layer.is-in:not(.is-out)'), ly = L[L.length - 1];
+      if (ly) { A.inside = true; apLayer(ly, now); return; }
+      if (one(d, '.ys-space-back')) { A.inside = true; apSpace(d); return; }
+      // Сцена: вошли и вернулись — день пройден
+      if (A.entered) {
+        if (A.inside || now - A.entered > 7000) dayDone();
+        return;
+      }
+      var t = one(d, '.ys-dpoly.is-today.is-can') || one(d, '.ys-hit');
+      if (t) { A.entered = now; act(t, A.P.calm ? 2600 : 1700); return; }
+      var free = all(d, '.ys-dpoly.is-free.is-can').filter(function (p) { var b = p.getBoundingClientRect(); return b.top > 60 && b.bottom < fr.contentWindow.innerHeight - 40; });
+      if (free.length) { act(free[(A.day * 7 + 3) % free.length], A.P.calm ? 1600 : 700); return; }
+      if (!A.lost) A.lost = now; else if (now - A.lost > 5000) dayDone();
+    }
+    // Слой поверх сцены: Карта дня, веер карт, личная карта, стёклышко дня
+    function apLayer(ly, now) {
+      var A = AP, c = ly.className;
+      if (A.seen !== ly) { A.seen = ly; A.lt = now; idle(A.P.calm ? 900 : 500); return; }
+      if (/--fan/.test(c)) {
+        var o = one(ly, '.ys-fan-open.is-on'); if (o) { act(o, 1800); return; }
+        var cs = all(ly, '.ys-fc'); if (cs.length) { act(cs[(A.day * 3 + 1) % cs.length], A.P.calm ? 1500 : 900); return; }
+      }
+      else if (/--glass/.test(c)) {
+        var g = one(ly, '.ys-key-go'); if (g && now - A.lt > (A.P.calm ? 5200 : 3800)) { act(g, 1200); return; }
+        return;
+      }
+      else if (/--personal/.test(c)) {
+        // Спокойно: место на диске — коснуться и «Здесь»
+        var dk = A.P.calm && !A.disk && one(ly, '.ys-disk:not(.is-chosen) .ys-d-box'), hr = A.disk === 1 && one(ly, '.ys-d-here');
+        if (dk) { A.disk = 1; reachTap(dk, 1800, .5 + (A.day % 3 - 1) * .16, .36); return; }
+        if (hr) { A.disk = 2; reachTap(hr, 2200); return; }
+        // Касание пришлось мимо зон диска — та же зона кнопкой для чтения с экрана (кружок уже был)
+        if (A.disk === 1) { var zb = ly.querySelectorAll('.ys-d-sr button'); A.disk = 3; if (zb.length) { zb[A.day % zb.length].click(); A.disk = 1.5; } idle(1400); return; }
+        if (A.disk === 1.5 && (hr = one(ly, '.ys-d-here'))) { A.disk = 2; reachTap(hr, 2200); return; }
+        var sp = one(ly, '.ys-spiral'); if (sp) { reachTap(sp, 1500); return; }
+      }
+      else if (/--day/.test(c)) {
+        // Последний день: три состояния → «Собрать маршрут» → финал играет
+        if (A.fin) {
+          var s = all(ly, '.ys-st:not(.is-on)');
+          if (A.states < 3 && s.length) { A.states++; reachTap(s[(A.states * 5) % s.length], 500); return; }
+          var gb = one(ly, '.ys-gbtn');
+          if (gb) { A.fdone = true; reachTap(gb, A.P.calm ? 16000 : 11000); return; }
+        }
+        // Глубже: лестница у дверей, «к картам» на спирали
+        if (A.P.deep && !A.went && !A.fin) {
+          var up = one(ly, '.ys-upbtn') || one(ly, '.ys-spiral');
+          if (up) { A.went = true; reachTap(up, 2400); return; }
+        }
+        read(ly, dayDone); return;
+      }
+      else {
+        var k = one(ly, '.ys-key-go'); if (k && now - A.lt > 2500) { act(k, 1200); return; }
+      }
+      if (now - A.lt > 9000) dayDone();
+    }
+    // Пространство за дверью: показать, стёклышко из чаши — в воду, капля, и дальше
+    function apSpace(d) {
+      var A = AP, cv = null, best = 0;
+      [].forEach.call(d.querySelectorAll('.ys-space-bg canvas'), function (x) { var b = x.getBoundingClientRect(); if (b.width * b.height > best) { best = b.width * b.height; cv = x; } });
+      if (!A.space) { A.space = 1; idle(A.P.calm ? 2600 : 1300); return; }
+      var it = one(d, '.ys-kal-it:not(.is-on)'), H = fr.contentWindow.innerHeight, W = fr.contentWindow.innerWidth;
+      if (A.space === 1 && it && cv) { A.space = 2; act(it, 900); return; }
+      if (A.space <= 2 && cv) { A.space = 3; act(cv, A.P.calm ? 2600 : 1600, W * (.42 + (A.day % 3) * .06), H * .36); return; }
+      if (A.space === 3 && cv && A.P.calm) { A.space = 4; act(cv, 2800, W * .6, H * .46); return; }
+      A.space = 9; idle(A.P.calm ? 2500 : 1200, dayDone);
+    }
+
+    function close() {
+      if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
+      if (REC) abort(REC);
+      apStop();
+      window.removeEventListener('message', onMsg); closePreview(); pv.classList.remove('is-rec');
+    }
+    function selF(opts, key, after) {
+      var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      s.value = String(st[key]);
+      s.addEventListener('change', function () { st[key] = s.value; if (after) after(); });
+      return s;
+    }
+    function chk(key, label) {
+      var c = el('input', { type: 'checkbox', checked: st[key] });
+      c.addEventListener('change', function () { st[key] = c.checked; });
+      return el('label', { class: 'a-jwho-i' }, [c, el('span', { text: label })]);
+    }
+    var days = [['', 'По сегодняшней дате']].concat(r.days.map(function (d, i) { return [String(i + 1), 'День ' + (i + 1) + (window.M13R ? ' · ' + dateOf(i + 1) : '')]; }));
+    var cap = el('input', { class: 'a-input', type: 'text', value: st.caption, placeholder: 'например: Маршрут начинается 31 октября' });
+    cap.addEventListener('input', function () { st.caption = cap.value; });
+    // Какие дни пройти (галочки) — заготовка ставит их сама, можно поправить
+    function dayChips() {
+      var box = el('div', { class: 'a-film-days' });
+      r.days.forEach(function (x, i) {
+        var n = i + 1; if (n === last) return;
+        var c = el('input', { type: 'checkbox', checked: st.days.indexOf(n) >= 0 });
+        c.addEventListener('change', function () { st.days = st.days.filter(function (y) { return y !== n; }); if (c.checked) st.days.push(n); });
+        box.appendChild(el('label', { class: 'a-film-d', title: dateOf(n) }, [c, el('span', { text: String(n) })]));
+      });
+      var all2 = el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Все', onclick: function () { st.days = []; for (var i = 1; i < last; i++) st.days.push(i); how(); } });
+      var none = el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ни одного', onclick: function () { st.days = []; how(); } });
+      return el('div', {}, [box, el('div', { class: 'a-backup-btns' }, [all2, none])]);
+    }
+    var howBox = el('div', { class: 'a-film-opts' });
+    function how() {
+      auto = st.how !== 'hand';
+      howBox.replaceChildren.apply(howBox, auto ? [
+        el('p', { class: 'a-hint', text: 'Панель сама касается в окне: дверь или камень → Карта дня' + (st.mode === 'observation' ? '' : ' → глубже (карта, стёклышко, капля)') + ' → следующий день. Сначала «▶ Прогнать без записи» — посмотреть; понравилось — «● Записать», ролик закончится сам. Каждый раз — новый придуманный участник.' }),
+        field('Дни', dayChips(), 'День ' + last + ' — это финал, он ниже отдельной галочкой.'),
+        el('div', { class: 'a-film-opts' }, [
+          st.mode === 'observation' ? null : chk('deep', 'Глубже: личная карта, стёклышко, капля'),
+          chk('fin', 'В конце — финал (три состояния → «Собрать маршрут»)')]),
+        field('Темп', selF([['calm', 'Спокойно — успеть прочитать'], ['quick', 'Быстро — только увидеть']], 'pace'))
+      ] : [
+        field('День', selF(days, 'day', reload), 'Какой день маршрута «сегодня» в окне.'),
+        el('p', { class: 'a-hint', text: 'Пройдите маршрут сами, как участник: двери, камни, карты. Панель запишет то, что видно в окне-телефоне.' })
+      ]);
+      ui();
+    }
+    var spSel = null, side = el('div', { class: 'a-film-side' }, [
+      el('h2', { class: 'a-film-h', text: '🎬 Ролик маршрута' }),
+      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — выберите «Эта вкладка» и «Поделиться».' }),
+      field('Формат', selF(J_MODES, 'mode', function () { filmForget(); reload(); how(); }), 'Смена формата — новый придуманный участник.'),
+      field('Как снимать', selF(FILM_HOW, 'how', function () { filmPreset(st, r, st.how); spSel.value = st.speed; how(); })),
+      howBox,
+      el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↺ Начать заново', onclick: function () { if (AP) return; filmForget(); reload(); toast('Новый придуманный участник: двери снова закрыты, карты не открыты.'); } })]),
+      el('p', { class: 'a-hint', text: 'В окне — придуманный участник: его двери, карты и код хранятся отдельно, ваши настоящие отметки на этом компьютере не меняются. Плашка проверки внизу окна во время записи прячется.' }),
+      field('Скорость ролика', spSel = selF(FILM_SPEED, 'speed'), 'Ролик идёт быстрее, чем вы проходите: × 2 — минута прохода станет 30 секундами.'),
+      el('div', { class: 'a-film-opts' }, [chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название маршрута в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня'), chk('mark', 'Знак 13 MIRRORS в углу')]),
+      field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
+      el('div', { class: 'a-film-rec' }, [bTry, bRec, bPause, bStop, clock]),
+      res]);
+    how();
+    window.addEventListener('message', onMsg);
+    var bar = el('div', { class: 'a-pbar' }, [el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: close })]);
+    pv.classList.add('is-phone');
+    pv.replaceChildren(el('div', { class: 'a-film' }, [el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]), side]), bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+    reload();
+  }
+  // Строки подписи по ширине холста (не больше трёх)
+  function filmLines(x, text, max, font) {
+    if (font) x.font = font;
+    var words = String(text).split(/\s+/), out = [], cur = '';
+    words.forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (cur && x.measureText(t).width > max) { out.push(cur); cur = w; } else cur = t; });
+    if (cur) out.push(cur);
+    return out.slice(0, 3);
+  }
   function jBgLive(r) {
     function frame(tall) {
       var f = el('div', { class: 'a-jbg' + (tall ? ' a-jbg--tall' : '') }, [el('i')]);
@@ -6569,7 +7083,8 @@
     var pick = list.length > 1 ? selectIn(ST, 'journey', 'Маршрут', list.map(function (x) { return [x.id, x.title + (x.start ? ' · ' + jDateText(x.start) : '') + (x.visible === false ? ' · готовится' : '')]; }), { onChange: function () { renderMain(); } }) : null;
     var look = el('div', { class: 'a-tabs' }, [
       el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openJourneyPage(r, false); } }),
-      el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } })]);
+      el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openJourneyPage(r, true); } }),
+      el('button', { type: 'button', text: '🎬 Ролик маршрута', onclick: function () { openFilm(r); } })]);
     var body;
     LINES = true;
     try {
