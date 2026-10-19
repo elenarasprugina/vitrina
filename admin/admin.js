@@ -6942,6 +6942,13 @@
       el('div', { class: 'a-row' }, [
         selectIn(sp, 'place', 'Где содержание', [['center', 'по центру'], ['left', 'слева'], ['right', 'справа'], ['bottom', 'внизу']], { def: 'center' }),
         selectIn(sp, 'plate', 'Подложка', [['glass', 'матовое стекло'], ['dark', 'тёмная'], ['none', 'без подложки — текст прямо на фоне']], { def: 'glass' })]),
+      // Её просьба 19.10: место содержания одним нажатием — всем дням (финал не трогаем)
+      n === 'final' ? null : el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Так же — всем дням', onclick: function () {
+        var D = r.doors || {}, L = (D.days && D.days.length ? D.days : D.items) || [], k = 0;
+        if (!confirm('Поставить всем дням «Где содержание» и «Подложку» как здесь? Блоки и тексты не меняются.')) return;
+        L.forEach(function (x) { if (!x || !x.space || x.space === sp) return; x.space.place = sp.place || 'center'; x.space.plate = sp.plate || 'glass'; k++; });
+        changed(); renderMain(); toast('Готово: ещё ' + k + ' дн. — как здесь. Посмотрите и нажмите «Сохранить».');
+      } })]),
       sub('Блоки'),
       el('p', { class: 'a-hint', text: 'Содержание за дверью собирается из блоков в любом порядке. У каждого — «кому видно»: так одна дверь даёт Наблюдению короткую встречу, а Путешествию — полный день. ' + jTokensHint(r, false) }),
       collection(sp.blocks, { visible: true, ordered: false, title: jdBlockTitle, empty: 'Блоков нет.',
