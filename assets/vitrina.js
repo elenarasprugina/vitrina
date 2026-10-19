@@ -76,7 +76,8 @@
       var id = showcaseId || P.settings.currentShowcase;
       return Promise.resolve({
         settings: P.settings, routes: P.routes, formats: P.formats, index: P.index,
-        sandbox: P.sandbox, reflection: P.reflection, events: P.events || null, journeys: P.journeys || null, showcase: (P.showcases || {})[id] || null
+        sandbox: P.sandbox, reflection: P.reflection, events: P.events || null, journeys: P.journeys || null, showcase: (P.showcases || {})[id] || null,
+        kinCards: P.kinCards || null
       });
     }
     var d = base + 'data/';
@@ -117,6 +118,7 @@
       if (S.view === 'sandbox') renderStandalone('sandbox');
       else if (S.view === 'reflection') renderStandalone('reflection');
       else if (S.view === 'events') renderStandalone('events');
+      else if (S.view === 'kin') renderStandalone('kin');
       else renderShowcase();
     }).catch(function (e) {
       console.error(e);
@@ -1197,6 +1199,7 @@
     var backc = S.root.querySelector('#m13-backc'), isCal = isCalCard(c);
     backc.innerHTML = isCal ? calHTML(c) : backHTML(c);
     bindActs(backc);
+    if (backc.querySelector('[data-m13-kin]')) kinBind(backc);
     if (isCal) calBind(backc, c);
     backc.querySelectorAll('[data-m13-lb]').forEach(function (b) {
       b.addEventListener('click', function (e) {
@@ -1711,6 +1714,7 @@
           '<span class="m13-more-close">' + txt(x.labelClose || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(mt) + '</div></details>';
       }
       else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
+      else if (x.kind === 'kin') html = (String(x.title || '').trim() ? '<div class="m13-block-title">' + txt(String(x.title).trim()) + '</div>' : '') + kinFormHTML('card');
       else if (x.kind === 'sandbox') {
         html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
           txt(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
@@ -2114,7 +2118,7 @@
 
   /* ================= ВНУТРЕННИЕ СТРАНИЦЫ ================= */
   function internalHTML() {
-    return '<div class="m13-internal" id="m13-int-sandbox"></div><div class="m13-internal" id="m13-int-reflection"></div><div class="m13-internal" id="m13-int-events"></div>';
+    return '<div class="m13-internal" id="m13-int-sandbox"></div><div class="m13-internal" id="m13-int-reflection"></div><div class="m13-internal" id="m13-int-events"></div><div class="m13-internal" id="m13-int-kin"></div>';
   }
   // Открыть Песочницу или Примеры поверх открытой карточки («← Назад к карте» вернёт к обороту).
   function openInternal(target, tab) {
@@ -2123,10 +2127,11 @@
     // Оформление страницы (фон, шрифт, цвета, размер текста) — как у отдельной страницы /sandbox/, /events/, /reflection/
     var lk = pageLook(target === 'sandbox' ? S.D.sandbox.look : target === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     box.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + target + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
-      (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : reflectionHTML(back)) + '</div>';
+      (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : target === 'kin' ? kinPage(back) : reflectionHTML(back)) + '</div>';
     bgWatch(box);
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
     else if (target === 'events') bindEvents(box, tab || null, false);
+    else if (target === 'kin') { kinBind(box, S.kinPre); S.kinPre = null; }
     else { bindActs(box); bindLightbox(box); }
     box.querySelector('[data-m13-iback]').addEventListener('click', closeTop);
     box.classList.add('is-open'); box.scrollTop = 0;
@@ -2142,7 +2147,7 @@
       ? '<button type="button" class="m13-iback" data-m13-home>' + txt(T('backToShowcase') || '← К витрине') + '</button>'
       : '<a class="m13-iback" href="' + esc(backHref) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
     S.acts = [];
-    var inner = which === 'sandbox' ? sandboxHTML(back) : which === 'events' ? eventsHTML(back) : reflectionHTML(back);
+    var inner = which === 'sandbox' ? sandboxHTML(back) : which === 'events' ? eventsHTML(back) : which === 'kin' ? kinPage(back) : reflectionHTML(back);
     var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : which === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + which + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' +
       modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
@@ -2157,6 +2162,9 @@
       document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + (S.D.sandbox.title || 'Песочница');
       var h = decodeURIComponent((location.hash || '').slice(1)).split('/');
       bindSandbox(S.root, S.onBack ? 'days' : (h[0] || 'days'), S.onBack ? null : (h[1] || null), !S.onBack);
+    } else if (which === 'kin') {
+      document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + kinT('title');
+      kinBind(S.root);
     } else {
       document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + (S.D.reflection.eyebrow || 'Карта-Отражение');
       bindActs(S.root); bindLightbox(S.root); evenGlassSoon(S.root);
@@ -3100,5 +3108,183 @@
       (oa && oa.show !== false && oa.label ? '<div class="m13-examples-cta"><button type="button" class="m13-action m13-action--primary"' +
         act(oa, { card: rf.eyebrow || 'Карта-Отражение', action: oa.label, tplKey: 'offer' }) + '>' + txt(oa.label) + '</button></div>' : '') +
       '</div>';
+  }
+
+  /* ================= СВОЙ КИН (19.10, её решения — docs/kin.md) =================
+     Дата рождения → кин (assets/kin.js, расчёт из «космолёта»). Кин — ключ, а не описание: имя, цвет, знак печати, тон;
+     базовый архетип печати 13 MIRRORS — только если она отметила его «Показать на сайте» (reflection.kin.arch[печать] = { name, essence }).
+     Где: блок оборота «kin» (коротко + «Подробнее») и страница vitrina/kin/ (+ тон, галактический день рождения, печать в маршрутах-волнах).
+     Дата считается здесь же, никуда не уходит и не запоминается (в адрес страницы тоже не попадает). Тексты — reflection.kin, пусто — KIN_T. */
+  var KIN_T = {
+    label: 'Дата рождения', ph: 'ДД.ММ.ГГГГ', go: 'Узнать', note: 'Дата считается прямо на вашем устройстве и никуда не отправляется.',
+    bad: 'Проверьте дату: день, месяц и год — например, 26.07.1987.',
+    hunab: 'В Dreamspell 29 февраля — день вне времени, 0.0 Хунаб Ку: своего кина у него нет. По правилу Dreamspell кин зависит от времени рождения:',
+    noonBefore: 'до полудня', noonAfter: 'после полудня', noonBoth: 'не знаю',
+    ifBefore: 'Если до полудня — кин 28 февраля', ifAfter: 'Если после полудня — кин 1 марта',
+    archOn: 'Ваша печать — одна из граней архетипа 13 MIRRORS «{архетип}».',
+    archOff: 'Ваша печать — одна из граней архетипа 13 MIRRORS, который ещё раскрывается.',
+    archNote: 'Кин — ваш день в календаре Цолькин. Архетип больше кина и больше печати: он вырастает из печати, а его личное звучание раскрывается в Карте-Отражении.',
+    more: 'Подробнее о вашем кине →',
+    eyebrow: 'Карта-Отражение', title: 'Узнать свой кин', intro: '',
+    toneH: 'Ваш тон', toneT: 'Тон {номер тона} — {тон}. В каждой 13-дневной волне ваш день — {номер тона}-й.',
+    birthH: 'Галактический день рождения', birthT: 'Ваш кин возвращается раз в 260 дней. Ближайший галактический день рождения — {дата}.',
+    birthToday: 'Сегодня ваш галактический день рождения!',
+    routeH: 'Ваша печать в маршрутах 13 MIRRORS', routeT: '«{маршрут}» · {даты} — ваша печать в день {день} ({дата}).',
+    routeSoon: 'Информация о маршруте скоро появится.', routeOpen: 'Открыть маршрут', routeAsk: 'Узнать подробнее',
+    routeMsg: 'Здравствуйте! Хочу узнать о маршруте «{маршрут}» ({даты}).'
+  };
+  M13.KIN_T = KIN_T;   // панель: подсказки в полях текстов
+  var KIN_COL = ['#c0453c', '#ece6d8', '#3f6fc4', '#e2b13a'];
+  function kinCfg() { return (S.D.reflection || {}).kin || {}; }
+  function kinT(k) { var v = kinCfg()[k]; return v != null && String(v).trim() !== '' ? String(v) : KIN_T[k]; }
+  function kinFill(t, ctx) { return String(t || '').replace(/\{([^{}]{1,30})\}/g, function (all, n) { n = n.trim().toLowerCase(); return ctx[n] != null ? ctx[n] : all; }); }
+  function needKin(done) {
+    if (window.M13KIN) { done(); return; }
+    if (S.kinQ) { S.kinQ.push(done); return; }
+    S.kinQ = [done];
+    var sc = document.createElement('script'); sc.src = S.base + 'assets/kin.js' + (VV ? '?v=' + VV : '');
+    sc.onload = sc.onerror = function () { var q = S.kinQ; S.kinQ = null; if (window.M13KIN) q.forEach(function (f) { f(); }); };
+    document.head.appendChild(sc);
+  }
+  function kinIso(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function kinDay(iso) { var d = parseDate(iso); return d.getDate() + ' ' + MON_GEN[d.getMonth()] + ' ' + d.getFullYear(); }
+  function kinRange(a, b) {
+    var x = parseDate(a), y = parseDate(b);
+    if (x.getFullYear() !== y.getFullYear()) return kinDay(a) + ' – ' + kinDay(b);
+    if (x.getMonth() !== y.getMonth()) return x.getDate() + ' ' + MON_GEN[x.getMonth()] + ' – ' + kinDay(b);
+    return x.getDate() + '–' + kinDay(b);
+  }
+  function kinAdd(iso, n) { var d = parseDate(iso); d.setDate(d.getDate() + n); return kinIso(d); }
+  // «ДД.ММ.ГГГГ» → 'ГГГГ-ММ-ДД' (или '' — неверная дата)
+  function kinParse(v) {
+    var m = /^\s*(\d{1,2})[.\/\-\s](\d{1,2})[.\/\-\s](\d{4})\s*$/.exec(v || '');
+    if (!m || +m[3] < 1000) return '';
+    var d = new Date(+m[3], +m[2] - 1, +m[1]);
+    return d.getMonth() === +m[2] - 1 && d.getDate() === +m[1] ? kinIso(d) : '';
+  }
+  // Знак тона — точки и черты майя (1 черта = 5)
+  function toneSVG(n) {
+    var bars = Math.floor(n / 5), dots = n % 5, h = 10 + bars * 9 + (dots ? 12 : 0), y = 6, out = '';
+    for (var i = 0; i < dots; i++) out += '<circle cx="' + (24 - (dots - 1) * 5 + i * 10) + '" cy="' + y + '" r="3.4"/>';
+    if (dots) y += 10;
+    for (var j = 0; j < bars; j++) out += '<rect x="7" y="' + (y + j * 9) + '" width="34" height="5.4" rx="2.7"/>';
+    return '<svg class="m13-kin-tone" viewBox="0 0 48 ' + Math.max(h, 20) + '" aria-hidden="true">' + out + '</svg>';
+  }
+  function sealHTML(I) {
+    var img = (kinCfg().sealImg || {})[I.sealN], c = KIN_COL[I.color];
+    return '<span class="m13-kin-seal' + (I.color === 1 ? ' m13-kin-seal--w' : '') + '" style="--kc:' + c + '">' + (img ? '<img src="' + esc(media(img)) + '" alt="">' : '<b>' + I.sealN + '</b>') + '</span>';
+  }
+  function kinSigHTML(I, cap) {
+    return '<div class="m13-kin-sig">' + sealHTML(I) + '<div class="m13-kin-sigt">' + (cap ? '<small>' + txt(cap) + '</small>' : '') +
+      '<em>Kin ' + I.kin + '</em><strong>' + txt(I.kinName) + '</strong>' +
+      '<span>Печать — ' + txt(I.seal) + ' · Тон ' + I.toneN + ' — ' + txt(I.tone) + '</span></div>' + toneSVG(I.toneN) + '</div>';
+  }
+  function kinArchHTML(I) {
+    var a = (kinCfg().arch || {})[I.sealN], name = a && String(a.name || '').trim();
+    return '<div class="m13-kin-arch">' + (name
+      ? '<p class="m13-kin-arch-h">' + txt(kinFill(kinT('archOn'), { 'архетип': name })) + '</p>' + (a.essence ? '<p class="m13-kin-arch-e">' + txt(a.essence) + '</p>' : '')
+      : '<p class="m13-kin-arch-h">' + txt(kinT('archOff')) + '</p>') +
+      (kinT('archNote') ? '<p class="m13-kin-arch-n">' + txt(kinT('archNote')) + '</p>' : '') + '</div>';
+  }
+  // Маршруты-волны, где встретится печать: ближайшие n раз с сегодняшнего дня. Волна — 13 кинов от тона 1 (29 февраля пропускается);
+  // название — по первому дню волны (так называются её маршруты), а если в «Маршрутах» есть маршрут с той же датой начала — его название
+  function kinWaves(seal, n) {
+    var K = window.M13KIN, t = kinIso(today()), out = [], i, d, k;
+    for (i = 0; i < 560 && out.length < n; i++) {
+      d = kinAdd(t, i); k = K.kinOf(d);
+      if (!k || K.sealOf(k) !== seal) continue;
+      var day = K.toneOf(k), a = d, b = d, s = day, e = day;
+      while (s > 1) { a = kinAdd(a, -1); if (K.kinOf(a)) s--; }
+      while (e < 13) { b = kinAdd(b, 1); if (K.kinOf(b)) e++; }
+      var r = (S.D.routes.routes || []).filter(function (x) { return x && (x.dates || {}).from === a; })[0] || null;
+      out.push({ date: d, day: day, from: a, to: b, title: r ? r.title : K.sealName(K.sealOf(k - day + 1)), route: r });
+    }
+    return out;
+  }
+  // Карточка маршрута на витрине: в самой витрине — текущий месяц, на отдельной странице — то, что положила публикация (kinCards)
+  function kinCardOf(r) {
+    if (!r) return '';
+    var cs = (S.D.showcase && S.D.showcase.cards) || null;
+    if (cs) { var c = cs.filter(function (x) { return x && x.visible !== false && x.back && x.back.routeId === r.id; })[0]; return c ? c.id : ''; }
+    return (S.D.kinCards || {})[r.id] || '';
+  }
+  function kinPageHTML(I, date) {
+    var K = window.M13KIN, t = kinIso(today()), next = '', i, d;
+    for (i = 0; i < 261; i++) { d = kinAdd(t, i); if (K.kinOf(d) === I.kin) { next = d; break; } }
+    var ctx = { 'тон': I.tone, 'номер тона': String(I.toneN) };
+    var h = '<section class="m13-kin-sec"><h3>' + txt(kinT('toneH')) + '</h3><p>' + txt(kinFill(kinT('toneT'), ctx)) + '</p></section>';
+    if (next) h += '<section class="m13-kin-sec"><h3>' + txt(kinT('birthH')) + '</h3><p>' + txt(next === t ? kinT('birthToday') : kinFill(kinT('birthT'), { 'дата': kinDay(next) })) + '</p></section>';
+    var ws = kinWaves(I.sealN, 2);
+    if (ws.length) h += '<section class="m13-kin-sec"><h3>' + txt(kinT('routeH')) + '</h3>' + ws.map(function (w) {
+      var c = { 'маршрут': w.title, 'даты': kinRange(w.from, w.to), 'день': String(w.day), 'дата': kinDay(w.date) }, cid = kinCardOf(w.route);
+      return '<div class="m13-kin-route"><p>' + txt(kinFill(kinT('routeT'), c)) + '</p>' + (cid
+        ? '<button type="button" class="m13-action" data-m13-kin-card="' + esc(cid) + '">' + txt(kinT('routeOpen')) + '</button>'
+        : '<p class="m13-kin-soon">' + txt(kinT('routeSoon')) + '</p><button type="button" class="m13-action"' +
+          act({ kind: 'contact', label: kinT('routeAsk'), message: kinFill(kinT('routeMsg'), c) }, { card: w.title, action: kinT('routeAsk') }) + '>' + txt(kinT('routeAsk')) + '</button>') + '</div>';
+    }).join('') + '</section>';
+    return h;
+  }
+  function kinFormHTML(mode) {
+    return '<div class="m13-kin m13-kin--' + mode + '" data-m13-kin="' + mode + '">' +
+      '<label class="m13-kin-l"><span>' + txt(kinT('label')) + '</span><span class="m13-kin-row">' +
+      '<input class="m13-kin-in" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="' + esc(kinT('ph')) + '">' +
+      '<button type="button" class="m13-action m13-action--primary m13-kin-go">' + txt(kinT('go')) + '</button></span></label>' +
+      (kinT('note') ? '<p class="m13-kin-note">' + txt(kinT('note')) + '</p>' : '') +
+      '<div class="m13-kin-out" aria-live="polite"></div></div>';
+  }
+  // Поле даты: точки ставятся сами; Enter или «Узнать» — результат. pre — { date, noon } (из блока оборота на страницу)
+  function kinBind(scope, pre) {
+    scope.querySelectorAll('[data-m13-kin]').forEach(function (box) {
+      var mode = box.getAttribute('data-m13-kin'), inp = box.querySelector('.m13-kin-in'), out = box.querySelector('.m13-kin-out'), st = { date: '', noon: '' };
+      box.addEventListener('click', function (e) { e.stopPropagation(); });
+      inp.addEventListener('input', function () {
+        var dg = inp.value.replace(/\D/g, '').slice(0, 8), v = dg.slice(0, 2) + (dg.length > 2 ? '.' + dg.slice(2, 4) : '') + (dg.length > 4 ? '.' + dg.slice(4) : '');
+        if (/^\d{1,2}[.\/\-\s]\d{1,2}[.\/\-\s]\d{4}$/.test(inp.value.trim())) return;
+        if (v !== inp.value) inp.value = v;
+      });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+      box.querySelector('.m13-kin-go').addEventListener('click', run);
+      function run() { st.date = kinParse(inp.value); st.noon = ''; draw(); }
+      function draw() {
+        needKin(function () {
+          var K = window.M13KIN;
+          if (!st.date) { out.innerHTML = '<p class="m13-kin-bad">' + txt(kinT('bad')) + '</p>'; return; }
+          var h = '', I = null, two = null;
+          if (/-02-29$/.test(st.date)) {
+            h += '<div class="m13-kin-hunab"><p>' + txt(kinT('hunab')) + '</p><div class="m13-kin-noon">' + [['b', 'noonBefore'], ['a', 'noonAfter'], ['?', 'noonBoth']].map(function (x) {
+              return '<button type="button" class="m13-action' + (st.noon === x[0] ? ' is-on' : '') + '" data-noon="' + x[0] + '">' + txt(kinT(x[1])) + '</button>'; }).join('') + '</div></div>';
+            var ib = K.info(K.kinOf(kinAdd(st.date, -1))), ia = K.info(K.kinOf(kinAdd(st.date, 1)));
+            if (st.noon === 'b') I = ib; else if (st.noon === 'a') I = ia; else if (st.noon === '?') two = [ib, ia];
+          } else I = K.info(K.kinOf(st.date));
+          if (two) h += kinSigHTML(two[0], kinT('ifBefore')) + kinArchHTML(two[0]) + kinSigHTML(two[1], kinT('ifAfter')) + kinArchHTML(two[1]);
+          else if (I) h += kinSigHTML(I) + kinArchHTML(I);
+          if (I && mode === 'page') h += kinPageHTML(I, st.date);
+          if ((I || two) && mode === 'card') h += '<button type="button" class="m13-action m13-kin-more">' + txt(kinT('more')) + '</button>';
+          var oa = (S.D.reflection || {}).orderAction;
+          if ((I || two) && mode === 'page' && oa && oa.show !== false && oa.label) h += '<div class="m13-examples-cta"><button type="button" class="m13-action m13-action--primary"' +
+            act(oa, { card: (S.D.reflection || {}).eyebrow || 'Карта-Отражение', action: oa.label, tplKey: 'offer' }) + '>' + txt(oa.label) + '</button></div>';
+          out.innerHTML = h;
+          out.querySelectorAll('[data-noon]').forEach(function (b) { b.addEventListener('click', function () { st.noon = b.getAttribute('data-noon'); draw(); }); });
+          var mb = out.querySelector('.m13-kin-more');
+          if (mb) mb.addEventListener('click', function () { S.kinPre = { date: st.date, noon: st.noon }; openInternal('kin'); });
+          out.querySelectorAll('[data-m13-kin-card]').forEach(function (b) { b.addEventListener('click', function () { kinGoCard(b.getAttribute('data-m13-kin-card')); }); });
+          bindActs(out);
+        });
+      }
+      if (pre && pre.date) {
+        var p = pre.date.split('-'); inp.value = p[2] + '.' + p[1] + '.' + p[0]; st.date = pre.date; st.noon = pre.noon || ''; draw();
+      }
+    });
+  }
+  // «Открыть маршрут»: в самой витрине — закрыть страницу кина и открыть карточку; на отдельной странице — витрина с этой карточкой
+  function kinGoCard(id) {
+    if (S.view === 'showcase' && S.D.showcase) { closeTop(); setTimeout(function () { openCard(id); }, 350); return; }
+    if (S.onBack) { S.onBack(); return; }
+    location.href = S.base + '#' + encodeURIComponent(id);
+  }
+  function kinPage(backBtn) {
+    return '<div class="m13-ipage m13-kin-page"><div class="m13-itop">' + backBtn + '</div>' +
+      '<div class="m13-ihead"><div class="m13-eyebrow">' + txt(kinT('eyebrow')) + '</div><h2>' + txt(kinT('title')) + '</h2>' +
+      (kinT('intro') ? '<p>' + txt(kinT('intro')) + '</p>' : '') + '</div>' + kinFormHTML('page') + '</div>';
   }
 })();

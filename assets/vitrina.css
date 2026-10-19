@@ -1658,3 +1658,64 @@ body.m13-locked{overflow:hidden}
 }
 /* Enter в надписях окон (заполняются через textContent) — перенос строки виден */
 #m13-modal-e,#m13-modal-t,#m13-modal-l,#m13-modal-m,#m13-modal-h,#m13-cal-e,#m13-cal-t,#m13-cal-h,#m13-lb-cap,#m13-cal-w,#m13-cal-g,#m13-cal-i,#m13-modal-x,#m13-cal-x,.m13-toast{white-space:pre-line}
+
+/* ================= Свой кин (19.10): блок оборота «Узнать свой кин» и страница vitrina/kin/ ================= */
+.m13-kin{display:flex;flex-direction:column;gap:8px}
+.m13-kin-l{display:flex;flex-direction:column;gap:5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#6e6e6e}
+.m13-kin-row{display:flex;gap:6px;text-transform:none;letter-spacing:0}
+.m13-kin-in{flex:1;min-width:0;border:1px solid #ccc;border-radius:999px;padding:11px 15px;font:inherit;font-size:16px;letter-spacing:.05em;background:#fff;color:#1d1d1d}
+.m13-kin-in:focus{outline:2px solid currentColor;outline-offset:1px}
+.m13 .m13-kin-go{width:auto;flex:none;padding:11px 18px}
+.m13-kin-note{margin:0;font-size:10.5px;line-height:1.35;color:#777}
+.m13-kin-out{display:flex;flex-direction:column;gap:8px}
+.m13-kin-out:empty{display:none}
+.m13-kin-bad{margin:0;font-size:12px;color:#a8322a}
+.m13-kin-sig{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid #d5d5d5;border-radius:14px;background:#fff}
+.m13-kin-seal{flex:none;width:50px;height:50px;border-radius:50%;background:var(--kc);display:grid;place-items:center;overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.14),0 0 14px color-mix(in srgb,var(--kc) 45%,transparent)}
+.m13-kin-seal b{font-size:17px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.45)}
+.m13-kin-seal--w b{color:#4a4134;text-shadow:none}
+.m13-kin-seal img{width:100%;height:100%;object-fit:contain}
+.m13-kin-sigt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.m13-kin-sigt small{font-size:10.5px;color:#777}
+.m13-kin-sigt em{font-style:normal;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#777}
+.m13-kin-sigt strong{font-size:16px;line-height:1.18}
+.m13-kin-sigt span{font-size:11.5px;line-height:1.3;color:#555}
+.m13-kin-tone{flex:none;width:30px;fill:currentColor;opacity:.72}
+.m13-kin-arch p{margin:0 0 5px;font-size:12.5px;line-height:1.42}
+.m13-kin-arch-h{font-weight:650}
+.m13-kin-arch-e{font-style:italic}
+.m13-kin-arch .m13-kin-arch-n{font-size:11px;color:#666}
+.m13-kin-hunab p{margin:0 0 7px;font-size:12px;line-height:1.4}
+.m13-kin-noon{display:flex;flex-wrap:wrap;gap:6px}
+.m13 .m13-kin-noon .m13-action{width:auto;flex:1 1 30%;padding:9px 8px;font-size:12px}
+.m13 .m13-kin-noon .is-on{border-color:currentColor;box-shadow:inset 0 0 0 1px currentColor}
+/* Страница */
+.m13-kin-page .m13-kin{max-width:640px;margin-top:20px}
+.m13-kin-page .m13-kin-l{font-size:calc(11.5px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-note{font-size:calc(12px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-sig{padding:14px 16px;gap:16px}
+.m13-kin-page .m13-kin-seal{width:64px;height:64px}
+.m13-kin-page .m13-kin-sigt strong{font-size:calc(22px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-sigt span{font-size:calc(13.5px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-arch p{font-size:calc(15px * var(--m13-tk,1))}
+.m13-kin-page .m13-kin-arch .m13-kin-arch-n{font-size:calc(13px * var(--m13-tk,1))}
+.m13-kin-sec{padding:14px 16px;border:1px solid #d5d5d5;border-radius:14px;background:#fff}
+.m13-kin-sec h3{margin:0 0 6px;font-size:calc(11.5px * var(--m13-tk,1));font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#6e6e6e}
+.m13-kin-sec p{margin:0;font-size:calc(15px * var(--m13-tk,1));line-height:1.5}
+.m13-kin-route + .m13-kin-route{margin-top:12px;padding-top:12px;border-top:1px solid rgba(128,128,128,.25)}
+.m13 .m13-kin-route .m13-action{margin-top:9px;max-width:300px}
+.m13-kin-sec .m13-kin-soon{margin-top:4px;font-size:calc(13px * var(--m13-tk,1));opacity:.75}
+.m13-look :is(.m13-kin-sig,.m13-kin-sec){background:var(--lk-pan);border-color:var(--lk-line);color:var(--lk-tx);-webkit-backdrop-filter:blur(var(--m13-gb,8px));backdrop-filter:blur(var(--m13-gb,8px))}
+.m13-look :is(.m13-kin-l,.m13-kin-note,.m13-kin-sigt em,.m13-kin-sigt small,.m13-kin-sec h3){color:var(--lk-mut)}
+.m13-look :is(.m13-kin-sigt span,.m13-kin-arch .m13-kin-arch-n){color:var(--lk-soft)}
+.m13-look .m13-kin-arch{color:var(--lk-tx);text-shadow:var(--lk-tsh)}
+.m13-look .m13-kin .m13-action:not(.m13-action--primary){background:color-mix(in srgb,var(--lk-tx) 7%,transparent);border-color:var(--lk-line);color:var(--lk-tx)}
+.m13-look .m13-kin-go{background:var(--lk-ac);border-color:var(--lk-ac);color:var(--lk-ac-ink) !important}
+/* Тёмный оборот */
+.m13-back-dark :is(.m13-kin-sig){background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16)}
+.m13-back-dark :is(.m13-kin-l,.m13-kin-note,.m13-kin-sigt em,.m13-kin-sigt small){color:rgba(239,228,210,.62)}
+.m13-back-dark :is(.m13-kin-sigt span,.m13-kin-arch .m13-kin-arch-n){color:rgba(239,228,210,.8)}
+.m13-back-dark .m13-kin-in{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:inherit}
+.m13-back-dark .m13-kin-bad{color:#ff9d8f}
+@media (max-width:680px){ .m13-kin-page .m13-kin-sigt strong{font-size:calc(18px * var(--m13-tk,1))} .m13-kin-page .m13-kin-seal{width:52px;height:52px} .m13-kin-page .m13-kin-sig{gap:12px;padding:12px} .m13-kin-tone{width:24px} }
