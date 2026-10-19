@@ -823,9 +823,15 @@
   // Карта дня: полосы прокрутки нет; если текст не поместился — низ мягко тает, пока не долистали
   function dcMore(box) {
     if (!box) return;
+    if (box.m13More) { box.m13More(); return; }   // оборот карточки — один и тот же, при каждом открытии только пересчитать
     function upd() { box.classList.toggle('m13-dc--more', box.scrollHeight - box.scrollTop - box.clientHeight > 4); }
     box.addEventListener('scroll', upd);
     [].forEach.call(box.querySelectorAll('img'), function (im) { im.addEventListener('load', upd); });
+    if (box.id === 'm13-backc') {
+      box.m13More = function () { upd(); setTimeout(upd, 60); setTimeout(upd, 400); };
+      box.addEventListener('load', upd, true);   // картинки оборота
+      if (window.MutationObserver) new MutationObserver(function () { setTimeout(upd, 30); }).observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'open'] });
+    }
     upd(); setTimeout(upd, 60);
   }
   // Идёт маршрут — карточка вырастает ровно на столько, сколько не помещается карте дня
@@ -1199,7 +1205,8 @@
     var backc = S.root.querySelector('#m13-backc'), isCal = isCalCard(c);
     backc.innerHTML = isCal ? calHTML(c) : backHTML(c);
     bindActs(backc);
-    if (backc.querySelector('[data-m13-kin]')) kinBind(backc);
+    if (backc.querySelector('[data-m13-kin],[data-m13-kin-mini]')) kinBind(backc);
+    dcMore(backc);
     if (isCal) calBind(backc, c);
     backc.querySelectorAll('[data-m13-lb]').forEach(function (b) {
       b.addEventListener('click', function (e) {
@@ -3139,7 +3146,7 @@
     wHintOpen: 'Ваше место в круге 260 дней. Нажмите на любую точку — покажу, что это за кин.',
     wHintPick: 'Нажимайте на любые кины. Ваш — в круге, волна выбранного кина — ярче.',
     wHunab: 'Ниже — про 29 февраля: выберите, до или после полудня вы родились.',
-    wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
+    wMini: 'Узнать свой кин', wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
     wMine: '↩ К моему кину', wNext: 'Ближайший день этого кина — {дата}.', wWave: 'Волна «{маршрут}» · {даты}, день {день} из 13',
     wShow: 'Показать на Цолькине', wLayWaves: 'Волны', wLaySpiral: 'Спираль', wLayGrid: 'Таблица',
     // подписи к подсвеченным волнам под Цолькином
@@ -3286,9 +3293,12 @@
     }).join('') + '</section>';
     return h;
   }
-  // Колесо даты (её решение 19.10 — «делаем»): кольца год / месяц / день → «Открыть» → Цолькин; ниже — «Ввести дату цифрами» (прежнее поле)
+  // Колесо даты (её решение 19.10 — «делаем»): кольца год / месяц / день → «Открыть» → Цолькин; ниже — «Ввести дату цифрами» (прежнее поле).
+  // На обороте карточки (её решение 19.10, вечер: без прокрутки в карточке) — маленькое «тихо живое» колесо, нажатие — страница кина на весь экран.
   function kinFormHTML(mode) {
     var lk = kinLook(), css = kinLookCss(lk);
+    if (mode === 'card') return '<div class="m13-kin m13-kin--card"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
+      '<button type="button" class="m13-kw m13-kw--mini" data-m13-kin-mini aria-label="' + esc(kinT('wMini')) + '"></button></div>';
     return '<div class="m13-kin m13-kin--' + mode + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
       '<div class="m13-kw"></div>' +
       '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
@@ -3302,6 +3312,14 @@
   // Колесо и поле даты: точки в поле ставятся сами; «Открыть» на колесе, Enter или «Узнать» — результат. pre — { date, noon } (из блока оборота на страницу)
   function kinBind(scope, pre) {
     ensureFont('Cormorant Garamond');
+    scope.querySelectorAll('[data-m13-kin-mini]').forEach(function (b) {
+      b.addEventListener('click', function (e) { e.stopPropagation(); openInternal('kin'); });
+      needKin(function () {
+        var w = kinCfg().wheel || {};
+        window.M13KINW.mount(b, { mini: true, mat: w.mat, T: kinT, look: kinLook(),
+          idle: function () { return !!S.root.querySelector('.m13-internal.is-open'); } });
+      });
+    });
     scope.querySelectorAll('[data-m13-kin]').forEach(function (box) {
       var mode = box.getAttribute('data-m13-kin'), inp = box.querySelector('.m13-kin-in'), out = box.querySelector('.m13-kin-out'),
         lab = box.querySelector('.m13-kin-l'), tBtn = box.querySelector('.m13-kin-typed'), again = box.querySelector('.m13-kin-again'),
