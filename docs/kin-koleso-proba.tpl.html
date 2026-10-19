@@ -107,6 +107,12 @@ canvas.drag{cursor:grabbing}
       <button class="pill" type="button" data-clk="wood" aria-pressed="false">Дерево</button>
       <button class="pill" type="button" data-clk="soft" aria-pressed="false">Мягкий</button>
     </div>
+    <span class="lbl">Звук «Открыть»</span>
+    <div class="row" id="opns">
+      <button class="pill" type="button" data-opn="lock" aria-pressed="true">Замок и звон</button>
+      <button class="pill" type="button" data-opn="bowl" aria-pressed="false">Поющая чаша</button>
+      <button class="pill" type="button" data-opn="flow" aria-pressed="false">Перелив 13 колокольчиков</button>
+    </div>
     <span class="lbl">Цолькин после «Открыть»</span>
     <div class="row" id="lays">
       <button class="pill" type="button" data-lay="waves" aria-pressed="true">Волны лучами</button>
@@ -151,7 +157,7 @@ canvas.drag{cursor:grabbing}
     d: { n: 31, slots: 31, off: 0, rIn: .435, rOut: .58 }
   };
   ['y', 'm', 'd'].forEach(function (k) { var r = RING[k]; r.rot = 0; r.vel = 0; r.target = null; r.val = -1; r.set = false; r.drag = false; r.step = TAU / r.slots; });
-  var st = { mat: 'bronze', clk: 'safe', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
+  var st = { mat: 'bronze', clk: 'safe', opn: 'lock', lay: 'waves', from: null, morph: 1, portals: true, open: 0, openTo: 0, mine: [], pick: null,
     routeW: -1, pos: [], dpr: 1, S: 300, live: '', liveT: 0, date: null };
   var sound = true;
   try { sound = localStorage.getItem('m13kinSnd') !== '0'; } catch (e) {}
@@ -232,9 +238,23 @@ canvas.drag{cursor:grabbing}
     var t = ac.currentTime;
     burst(t, 'bandpass', 2600, 5, .8, .02); tone(t, 140, .3, .05);
     burst(t + .09, 'bandpass', 2400, 5, .8, .02); tone(t + .09, 130, .3, .05);
-    burst(t + .21, 'lowpass', 900, 1, .7, .18); tone(t + .21, 70, .6, .3);
-    tone(t + .24, 660, .05, .9); tone(t + .24, 990, .03, .7);
+    if (st.opn === 'lock') { tone(t + .21, 70, .6, .3); bell(t + .24, 660, .06, 1.6); bell(t + .24, 990, .035, 1.2); return; }
+    if (st.opn === 'bowl') { tone(t + .2, 90, .35, .25); bell(t + .26, 392, .11, 4.5); return; }
+    // перелив: 13 тихих колокольчиков снизу вверх — как 13 тонов волны
+    var PEN = [0, 2, 4, 7, 9];
+    for (var i = 0; i < 13; i++) bell(t + .22 + i * .075, 392 * Math.pow(2, (PEN[i % 5] + 12 * Math.floor(i / 5)) / 12), .045, 1.4);
   }
+  // колокольчик: основной тон + неровные обертоны, долгое затухание, высота не плывёт
+  function bell(t, f, g, dur) {
+    [[1, 1], [2.76, .35], [5.4, .12]].forEach(function (h) {
+      var o = ac.createOscillator(), gn = ac.createGain(); o.frequency.value = f * h[0];
+      gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(g * h[1], t + .006);
+      gn.gain.exponentialRampToValueAtTime(.0001, t + dur / h[0] * 1.4);
+      o.connect(gn); gn.connect(ac.destination); o.start(t); o.stop(t + dur * 1.5);
+    });
+  }
+  // нажатие на кин в Цолькине — тихое стеклянное «тинь», не щелчок сейфа
+  function tink() { if (navigator.vibrate) { try { navigator.vibrate(5); } catch (e) {} } if (audio()) bell(ac.currentTime, 1568, .05, .5); }
 
   /* ---------- 260 точек: раскладки ---------- */
   function sealCol(k) { return COL[(K.sealOf(k) - 1) % 4]; }
@@ -532,9 +552,9 @@ canvas.drag{cursor:grabbing}
   /* ---------- нажать на любой кин ---------- */
   function pickAt(x, y) {
     if (st.open < .8) return;
-    var best = 0, bd = 22 * 22, k, dx, dy, d;
+    var best = 0, bd = 16 * 16, k, dx, dy, d;
     for (k = 1; k <= 260; k++) { if (!st.pos[k]) continue; dx = st.pos[k][0] - x; dy = st.pos[k][1] - y; d = dx * dx + dy * dy; if (d < bd) { bd = d; best = k; } }
-    if (best) { click(false); showPick(best); }
+    if (best) { tink(); showPick(best); }
   }
   function showPick(k) {
     if (st.mine.indexOf(k) >= 0) { st.pick = null; $('pick').hidden = true; hint(); return; }
@@ -586,6 +606,7 @@ canvas.drag{cursor:grabbing}
     });
   }
   pills('mats', 'data-mat', function (v) { st.mat = v; });
+  pills('opns', 'data-opn', function (v) { st.opn = v; lockSound(); });
   pills('clks', 'data-clk', function (v) { st.clk = v; click(false); setTimeout(function () { click(true); }, 260); });
   pills('lays', 'data-lay', function (v) { if (v === st.lay) return; st.from = st.lay; st.lay = v; st.morph = st.open > 0 ? 0 : 1; });
   $('portals').addEventListener('change', function () { st.portals = this.checked; });
