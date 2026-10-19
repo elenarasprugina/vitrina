@@ -776,3 +776,11 @@ body.a-noscroll{overflow:hidden}
 .a-preview.is-rec .a-phone-body{box-shadow:0 0 0 3px #a1332b,0 18px 50px rgba(0,0,0,.28)}
 .a-film-h{font-size:18px;font-weight:700}
 .a-film-h--s{font-size:15px;margin-top:6px}
+.a-film-days{display:flex;flex-wrap:wrap;gap:4px}
+.a-film-d{display:inline-flex;align-items:center;gap:3px;padding:3px 8px 3px 5px;border:1px solid var(--a-line);border-radius:999px;font-size:13px;cursor:pointer;font-variant-numeric:tabular-nums}
+.a-film-d input{margin:0}
+/* Широкий экран: окно-телефон стоит на месте (страница в окне не сдвигает его прокруткой), настройки листаются сами */
+@media (min-width:900px){
+  .a-preview:has(.a-film){overflow:hidden}
+  .a-film-side{max-height:calc(100vh - 120px);overflow:auto}
+}
