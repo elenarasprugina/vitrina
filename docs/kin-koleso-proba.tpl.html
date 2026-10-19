@@ -421,7 +421,7 @@ canvas.drag{cursor:grabbing}
       txt(String(sk), C, C + 9 * f, 24 * f, GOLD, '500', '"Cormorant Garamond", Georgia, serif');
       ctx.globalAlpha = 1;
     }
-    $('ctr').style.opacity = String(wheelA);
+    $('ctr').style.opacity = String(wheelA); $('ctr').style.visibility = wheelA > 0 && !st.openTo ? '' : 'hidden';
     if (st.live && now - st.liveT > 900 && !anyDrag()) { st.live = ''; center(); }
     requestAnimationFrame(frame);
   }
@@ -434,7 +434,7 @@ canvas.drag{cursor:grabbing}
     if (st.live) h = '<div class="big">' + st.live + '</div>';
     else {
       var d = RING.d.set ? String(RING.d.val + 1) : '<i>··</i>', m = RING.m.set ? MONF[RING.m.val] : '<i>···</i>', y = RING.y.set ? String(yearOf()) : '<i>····</i>';
-      h = '<div class="date">' + d + ' ' + m + '<br>' + y + '</div>' + (allSet() ? '<button class="open" type="button" id="openBtn">Открыть</button>' : '');
+      h = '<div class="date">' + d + ' ' + m + '<br>' + y + '</div>' + (allSet() && !st.openTo ? '<button class="open" type="button" id="openBtn">Открыть</button>' : '');
     }
     $('ctr').innerHTML = h;
     var b = $('openBtn'); if (b) b.addEventListener('click', openIt);
@@ -519,7 +519,7 @@ canvas.drag{cursor:grabbing}
     hideHunab(); lockSound(); reveal(n === 'b' ? [b] : n === 'a' ? [a] : [b, a], n === 'x');
   });
   function reveal(kins, both) {
-    st.mine = kins; st.openTo = 1; st.from = null; st.morph = 1; st.pick = null;
+    st.mine = kins; st.openTo = 1; st.from = null; st.morph = 1; st.pick = null; center();
     var h = '<div class="head">', I0 = K.info(kins[0]);
     kins.forEach(function (k, i) {
       var I = K.info(k);
