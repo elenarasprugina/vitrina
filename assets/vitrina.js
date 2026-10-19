@@ -77,7 +77,7 @@
       return Promise.resolve({
         settings: P.settings, routes: P.routes, formats: P.formats, index: P.index,
         sandbox: P.sandbox, reflection: P.reflection, events: P.events || null, journeys: P.journeys || null, showcase: (P.showcases || {})[id] || null,
-        kinCards: P.kinCards || null
+        kinCards: P.kinCards || null, kinMonth: P.kinMonth || null
       });
     }
     var d = base + 'data/';
@@ -3137,14 +3137,59 @@
     wHintM: 'Теперь среднее кольцо — месяц.', wHintD: 'И внутреннее — день.',
     wHintReady: 'Проверьте дату. Можно докрутить любое кольцо. Готово — «Открыть».',
     wHintOpen: 'Ваше место в круге 260 дней. Нажмите на любую точку — покажу, что это за кин.',
-    wHintPick: 'Нажимайте на любые кины. Золотом подсвечена волна, ваш — в белом круге.',
+    wHintPick: 'Нажимайте на любые кины. Ваш — в круге, волна выбранного кина — ярче.',
     wHunab: 'Ниже — про 29 февраля: выберите, до или после полудня вы родились.',
     wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
     wMine: '↩ К моему кину', wNext: 'Ближайший день этого кина — {дата}.', wWave: 'Волна «{маршрут}» · {даты}, день {день} из 13',
-    wShow: 'Показать на Цолькине', wLayWaves: 'Волны', wLaySpiral: 'Спираль', wLayGrid: 'Таблица'
+    wShow: 'Показать на Цолькине', wLayWaves: 'Волны', wLaySpiral: 'Спираль', wLayGrid: 'Таблица',
+    // подписи к подсвеченным волнам под Цолькином
+    wNow: 'Сейчас идёт волна «{маршрут}» · {даты}, сегодня {день}-й день из 13.', wNowPast: 'Ваша печать была в ней {дата} — {день}-й день.',
+    wSeal: 'Ваша печать придёт снова {дата}: Kin {кин}, {имя} — {день}-й день волны «{маршрут}» · {даты}.',
+    wSealHere: 'Ваша печать придёт в этой же волне {дата}: Kin {кин}, {имя} — {день}-й день.',
+    wSealToday: 'Сегодня — день вашей печати: Kin {кин}, {имя}.'
   };
   M13.KIN_T = KIN_T;   // панель: подсказки в полях текстов
   var KIN_COL = ['#c0453c', '#ece6d8', '#3f6fc4', '#e2b13a'];
+  /* Цвета колеса и плашек — у каждого месяца свои (её решение 19.10): showcase.kinLook = { preset, bg, ink, ac, pan, tx, panOff }.
+     preset — готовый набор (KIN_LOOKS) или 'month' (из оформления карточек месяца); bg/ink/ac — фон круга, надписи, золото;
+     pan/tx — фон и текст плашек результата; panOff — плашки как у страницы. Пусто — из набора; нет kinLook — ночной круг, как было. */
+  var KIN_LOOKS = {
+    night: { name: 'Ночь (как в октябре)', bg: '#1a1735', bg2: '#100e22', ink: '#ece6f7', mut: '#a59dc2', ac: '#f0d68c', line: '#3a3560', pan: '', tx: '' },
+    red: { name: 'Красный — огонь', bg: '#3b1512', ink: '#f8e7dc', ac: '#f3b86a', pan: '#2a100d', tx: '#f8e7dc' },
+    white: { name: 'Белый — светлый', bg: '#f3efe6', ink: '#2b2620', ac: '#9a6a14', pan: '#faf7f0', tx: '#2b2620' },
+    blue: { name: 'Синий — глубина', bg: '#10264a', ink: '#e3edfb', ac: '#9fd0f2', pan: '#0b1b36', tx: '#e3edfb' },
+    yellow: { name: 'Жёлтый — золото', bg: '#3a2c0b', ink: '#fcf1d3', ac: '#ffd45a', pan: '#2a1f07', tx: '#fcf1d3' },
+    green: { name: 'Зелёный — лес', bg: '#12291d', ink: '#e4f2e7', ac: '#d8c47c', pan: '#0c1d14', tx: '#e4f2e7' },
+    rose: { name: 'Роза — рассвет', bg: '#3a1731', ink: '#f8e6f1', ac: '#f3c08c', pan: '#2a1023', tx: '#f8e6f1' }
+  };
+  M13.KIN_LOOKS = KIN_LOOKS;
+  function kinHex(c) { return /^#[0-9a-f]{6}$/i.test(c || '') ? c : ''; }
+  function kinMix(a, b, t) { var x = hexRgb(a), y = hexRgb(b); return '#' + [0, 1, 2].map(function (i) { return ('0' + Math.round(x[i] + (y[i] - x[i]) * t).toString(16)).slice(-2); }).join(''); }
+  // Набор «как у витрины месяца»: фон оборота карточек, их текст и акцент
+  function kinMonthSet(sc) {
+    var cs = sc.cardStyle || {}, bg = kinHex(cs.backBg) || kinHex(cs.bg) || kinHex((sc.background || {}).color) || '#1a1735', dark = lum(hexRgb(bg)) < 140;
+    var ink = kinHex(cs.textColor); if (!ink || (lum(hexRgb(ink)) < 140) === dark) ink = dark ? '#efe4d2' : '#232323';
+    return { bg: bg, ink: ink, ac: kinHex(cs.accent) || kinHex((sc.head || {}).color) || ink, pan: kinHex(cs.backBg), tx: kinHex(cs.backBg) ? ink : '' };
+  }
+  // Итоговые цвета для этого месяца (на отдельной странице кина — месяц, который открывается по основному адресу) или null
+  function kinLook(scIn) {
+    var sc = scIn || S.D.showcase || S.D.kinMonth, lk = sc && sc.kinLook;
+    if (!lk || !(lk.preset || lk.bg || lk.ink || lk.ac || lk.pan || lk.tx || lk.panOff)) return null;
+    var p = lk.preset === 'month' ? kinMonthSet(sc) : KIN_LOOKS[lk.preset] || KIN_LOOKS.night;
+    var bg = kinHex(lk.bg) || p.bg, light = lum(hexRgb(bg)) >= 140, ink = kinHex(lk.ink) || p.ink || (light ? '#2b2620' : '#ece6f7');
+    var pan = lk.panOff ? '' : kinHex(lk.pan) || p.pan, tx = pan ? kinHex(lk.tx) || p.tx || (lum(hexRgb(pan)) >= 140 ? '#2b2620' : '#efe4d2') : '';
+    var o = { bg: bg, bg2: !lk.bg && p.bg2 || kinMix(bg, light ? '#c9c0ae' : '#000000', light ? .35 : .38), ink: ink, light: light,
+      mut: !lk.bg && !lk.ink && p.mut || kinMix(ink, bg, .32), line: !lk.bg && !lk.ink && p.line || kinMix(ink, bg, .74), gold: kinHex(lk.ac) || p.ac || ink, pan: pan, tx: tx };
+    o.on = inkFor(o.gold);
+    return o;
+  }
+  M13.kinLook = kinLook;   // панель: образец цветов
+  function kinLookCss(o) {
+    if (!o) return '';
+    var c = ['--kw-bg:' + o.bg, '--kw-bg2:' + o.bg2, '--kw-ink:' + o.ink, '--kw-mut:' + o.mut, '--kw-gold:' + o.gold, '--kw-line:' + o.line, '--kw-on:' + o.on];
+    if (o.pan) c.push('--kin-pan:' + o.pan, '--kin-tx:' + o.tx, '--kin-mut:' + kinMix(o.tx, o.pan, .4), '--kin-soft:' + kinMix(o.tx, o.pan, .2), '--kin-line:' + kinMix(o.tx, o.pan, .8));
+    return c.join(';');
+  }
   function kinCfg() { return (S.D.reflection || {}).kin || {}; }
   function kinT(k) { var v = kinCfg()[k]; return v != null && String(v).trim() !== '' ? String(v) : KIN_T[k]; }
   function kinFill(t, ctx) { return String(t || '').replace(/\{([^{}]{1,30})\}/g, function (all, n) { n = n.trim().toLowerCase(); return ctx[n] != null ? ctx[n] : all; }); }
@@ -3243,7 +3288,8 @@
   }
   // Колесо даты (её решение 19.10 — «делаем»): кольца год / месяц / день → «Открыть» → Цолькин; ниже — «Ввести дату цифрами» (прежнее поле)
   function kinFormHTML(mode) {
-    return '<div class="m13-kin m13-kin--' + mode + '" data-m13-kin="' + mode + '">' +
+    var lk = kinLook(), css = kinLookCss(lk);
+    return '<div class="m13-kin m13-kin--' + mode + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
       '<div class="m13-kw"></div>' +
       '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
       '<button type="button" class="m13-kin-link m13-kin-typed">' + txt(kinT('wTyped')) + '</button></div>' +
@@ -3326,7 +3372,7 @@
         var w = kinCfg().wheel || {};
         wheel = window.M13KINW.mount(box.querySelector('.m13-kw'), {
           mat: w.mat, clk: w.clk, opn: w.opn, lay: w.lay, portals: w.portals !== false, laySwitch: w.laySwitch !== false,
-          T: kinT,
+          T: kinT, look: kinLook(),
           onOpen: function (iso) { st.date = iso; st.noon = ''; st.shown = ''; draw(); },
           waveTitle: function (from, t) { var r = ((S.D.routes || {}).routes || []).filter(function (x) { return x && (x.dates || {}).from === from; })[0]; return r ? r.title : t; }
         });

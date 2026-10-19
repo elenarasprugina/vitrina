@@ -2103,9 +2103,53 @@
           openPreview('showcase', sc.id, c0 ? c0.id : null, true);
         })]),
         { open: !!ST.pageOpen, note: 'фон, надписи, оформление карточек, темы' }),
+      block('Узнать свой кин — цвета колеса в этом месяце', kinLookFields(sc), { open: !!ST.kinLookOpen, note: 'фон колеса и плашек' }),
       shareBlock(sc),
       wrap
     ];
+  }
+
+  /* Цвета колеса «Узнать свой кин» у месяца (её решение 19.10): sc.kinLook = { preset, bg, ink, ac, pan, tx, panOff } — см. vitrina.js, KIN_LOOKS.
+     Набор — одним нажатием, дальше любой цвет можно поменять; пусто — ночной круг, как в октябре. */
+  function kinLookFields(sc) {
+    var k = sc.kinLook = sc.kinLook || {}, M = window.M13 || {}, box = el('div', { class: 'a-kinlook' });
+    function res() { return (M.kinLook && (M.kinLook(sc) || M.kinLook({ kinLook: { preset: 'night' } }))) || {}; }
+    function draw() {
+      var r = res(), sets = Object.keys(M.KIN_LOOKS || {}).map(function (id) { return [id, M.KIN_LOOKS[id].name, M.kinLook({ kinLook: { preset: id } })]; });
+      sets.push(['month', 'Как у витрины месяца', M.kinLook ? M.kinLook({ kinLook: { preset: 'month' }, cardStyle: sc.cardStyle, background: sc.background, head: sc.head }) : null]);
+      function onCh() { draw(); }
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Колесо даты и плашки с ответом — на обороте карточек этого месяца и на странице кина (13mirrors.ru/vitrina/kin/ берёт цвета месяца, который открывается по основному адресу). Ничего не выбрано — ночной круг, как в октябре.' }),
+        el('span', { class: 'a-label', text: 'Готовый набор' }),
+        el('div', { class: 'a-kinlook-sets' }, sets.map(function (x) {
+          var c = x[2] || {};
+          return el('button', { type: 'button', class: 'a-kinlook-set' + ((k.preset || '') === x[0] ? ' is-sel' : ''), title: x[1],
+            onclick: function () { sc.kinLook = k = { preset: x[0] }; changed(); draw(); } }, [
+            el('span', { class: 'a-kinlook-dot', style: 'background:radial-gradient(circle at 50% 40%,' + c.bg + ',' + c.bg2 + ');box-shadow:inset 0 0 0 3px ' + c.gold }),
+            el('span', { text: x[1] })]);
+        })),
+        el('p', { class: 'a-hint', text: 'Нажмите на набор — цвета ниже возьмутся из него. Любой можно поменять своим; «Сбросить» — снова из набора.' }),
+        el('div', { class: 'a-row3' }, [
+          colorOptIn(k, 'bg', 'Фон колеса', { inh: function () { return r.bg; }, inhLabel: 'из набора', onChange: onCh }),
+          colorOptIn(k, 'ink', 'Надписи и подсказки', { inh: function () { return r.ink; }, inhLabel: 'из набора', onChange: onCh }),
+          colorOptIn(k, 'ac', 'Золото: обводки, свой кин', { inh: function () { return r.gold; }, inhLabel: 'из набора', onChange: onCh })]),
+        switchIn(k, 'panOff', 'Плашки с ответом — как у страницы', { hint: 'Без своего фона: как у оборота карточки и оформления страницы кина.', onChange: onCh }),
+        k.panOff ? null : el('div', { class: 'a-row' }, [
+          colorOptIn(k, 'pan', 'Фон под текстами', { inh: function () { return r.pan; }, inhLabel: 'из набора', none: 'как у страницы', onChange: onCh }),
+          colorOptIn(k, 'tx', 'Текст на плашках', { inh: function () { return r.tx; }, inhLabel: 'из набора', none: 'подбирается сам', onChange: onCh })]),
+        el('span', { class: 'a-label', text: 'Образец' }),
+        el('div', { class: 'a-kinlook-pv' }, [
+          el('div', { class: 'a-kinlook-wh', style: 'background:radial-gradient(120% 90% at 50% 40%,' + r.bg + ' 0%,' + r.bg2 + ' 70%);color:' + r.ink }, [
+            el('span', { class: 'a-kinlook-ring', style: 'border-color:' + r.gold }), el('span', { style: 'color:' + r.mut, text: 'Поверните кольцо — год рождения' }),
+            el('b', { style: 'color:' + r.gold, text: 'Kin 33' })]),
+          el('div', { class: 'a-kinlook-pan', style: r.pan ? 'background:' + r.pan + ';color:' + r.tx : '' }, [
+            el('b', { text: 'Красный Резонансный Небесный Странник' }), el('span', { text: r.pan ? 'Текст ответа на плашке' : 'Плашка — как у страницы' })])]),
+        el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Посмотреть страницу кина с этими цветами', onclick: function () { openPreview('kin', sc.id); } })
+      ]);
+    }
+    draw();
+    return [box];
   }
 
   /* ---------- Превью ссылки в Telegram и VK ---------- */
@@ -2306,6 +2350,9 @@
     if (kin) {
       P.kinCards = {};
       ((D.showcases[D.settings.currentShowcase] || {}).cards || []).forEach(function (c) { var r = c && c.visible !== false && c.back && c.back.routeId; if (r && !P.kinCards[r]) P.kinCards[r] = c.id; });
+      // цвета колеса — того же месяца (и то из его оформления, что нужно набору «как у витрины месяца»)
+      var ms = D.showcases[D.settings.currentShowcase];
+      if (ms && ms.kinLook) P.kinMonth = { kinLook: ms.kinLook, cardStyle: ms.cardStyle || {}, background: { color: (ms.background || {}).color || '' }, head: { color: (ms.head || {}).color || '' } };
     }
     return '<script>window.M13_DATA=' + JSON.stringify(P).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n';
   }
@@ -8386,6 +8433,9 @@
       ['wAgain', 'Вернуть колесо'], ['wTyped', 'Ввести дату цифрами'], ['wWheel', 'Вернуться к колесу'],
       ['wMine', 'Карточка кина: вернуться к своему'], ['wNext', 'Карточка кина: ближайший день ({дата})'], ['wWave', 'Карточка кина: волна ({маршрут}, {даты}, {день})'],
       ['wShow', 'Страница: показать волну на Цолькине'], ['wLayWaves', 'Вид «волны»'], ['wLaySpiral', 'Вид «спираль»'], ['wLayGrid', 'Вид «таблица»']]],
+    ['Цолькин — подписи к подсвеченным волнам', [['wNow', 'Волна, что идёт сейчас ({маршрут}, {даты}, {день})', 1], ['wNowPast', 'Добавка: печать уже была в ней ({дата}, {день})', 1],
+      ['wSeal', 'Когда придёт печать — в другой волне ({дата}, {кин}, {имя}, {день}, {маршрут}, {даты})', 1], ['wSealHere', 'Когда придёт печать — в этой же волне', 1],
+      ['wSealToday', 'Если день печати — сегодня ({кин}, {имя})', 1]]],
     ['Оборот карточки', [['more', 'Кнопка на страницу кина']]],
     ['Страница', [['eyebrow', 'Надпись сверху'], ['title', 'Заголовок'], ['intro', 'Вступление (пусто — без него)', 1],
       ['toneH', 'Тон — заголовок'], ['toneT', 'Тон — текст ({тон}, {номер тона})', 1],
@@ -8414,7 +8464,8 @@
         selectIn(wh, 'lay', 'Цолькин после «Открыть»', [['waves', 'Волны лучами'], ['spiral', 'Спираль'], ['grid', 'Таблица кругом']])
       ]),
       switchIn(wh, 'portals', 'Отмечать 52 портала', { defTrue: true, hint: 'Зелёным, без описаний.' }),
-      switchIn(wh, 'laySwitch', 'Человек может сам переключать вид Цолькина', { defTrue: true, hint: 'Под Цолькином кнопки «Волны · Спираль · Таблица». Выключено — только вид, выбранный выше.' })
+      switchIn(wh, 'laySwitch', 'Человек может сам переключать вид Цолькина', { defTrue: true, hint: 'Под Цолькином кнопки «Волны · Спираль · Таблица». Выключено — только вид, выбранный выше.' }),
+      el('p', { class: 'a-hint', text: 'Цвета колеса и плашек с ответом — у каждого месяца свои: «Витрины» → месяц → «Узнать свой кин — цвета колеса в этом месяце».' }),
     ];
     KIN_FIELDS.forEach(function (g) {
       out.push(el('div', { class: 'a-lib-grpt', text: g[0] }));
