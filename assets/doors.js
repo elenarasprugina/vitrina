@@ -3034,7 +3034,10 @@
           pats — сохранённые узоры { день: { a, g } } (тоже с этого устройства) } */
   function cover(r, o) {
     var C = cfg(r).cover || {}, key = o.key, n = o.day, N = days(r), log = o.choice || {}, vis = o.visits || {}, ids = {}, d, k;
-    var sc = scene(r, { key: key, base: o.base, pic: C[key] || '', still: true });
+    // Картинка обложки — одна из картинок сцены (на компьютере — телефонная): контуры дверей и слои — от неё, иначе подсветка съезжает (19.10)
+    var pic = C[key] || '', D = cfg(r);
+    if (pic && pic !== D[key]) key = pic === D.mobile ? 'mobile' : pic === D.desktop ? 'desktop' : key;
+    var sc = scene(r, { key: key, base: o.base, pic: pic, still: true });
     if (isChoice(r)) {
       for (k in log) ids[log[k]] = +k;
       for (d = 1; d <= count(r); d++) {
