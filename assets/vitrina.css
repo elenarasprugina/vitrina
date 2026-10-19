@@ -1719,3 +1719,41 @@ body.m13-locked{overflow:hidden}
 .m13-back-dark .m13-kin-in{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:inherit}
 .m13-back-dark .m13-kin-bad{color:#ff9d8f}
 @media (max-width:680px){ .m13-kin-page .m13-kin-sigt strong{font-size:calc(18px * var(--m13-tk,1))} .m13-kin-page .m13-kin-seal{width:52px;height:52px} .m13-kin-page .m13-kin-sig{gap:12px;padding:12px} .m13-kin-tone{width:24px} }
+
+/* Колесо даты (19.10, assets/kinwheel.js): ночной круг — колесо-сейф, после «Открыть» — Цолькин */
+.m13-kw{--kw-ink:#ece6f7;--kw-mut:#a59dc2;--kw-gold:#f0d68c;--kw-line:#3a3560;position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:14px 12px 16px;border-radius:20px;background:radial-gradient(120% 90% at 50% 40%,#1a1735 0%,#100e22 70%);color:var(--kw-ink);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 10px 30px rgba(16,14,34,.25)}
+.m13-kw:empty{min-height:120px}
+.m13-kw-hint{margin:0;min-height:2.9em;max-width:32em;font-size:13px;line-height:1.45;text-align:center;color:var(--kw-mut)}
+.m13-kw-stage{position:relative;width:100%;max-width:440px;aspect-ratio:1/1}
+.m13-kw-cv{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+.m13-kw-cv.is-drag{cursor:grabbing}
+.m13-kw-cv.is-open{touch-action:manipulation;cursor:pointer}
+.m13 .m13-kw-snd{position:absolute;right:-4px;top:-4px;z-index:2;width:36px;height:36px;padding:0;border-radius:50%;border:1px solid var(--kw-line);background:#1a1735;
+  color:var(--kw-ink);font-size:16px;line-height:1;cursor:pointer}
+.m13-kw-ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
+  pointer-events:none;text-align:center;transition:opacity .4s}
+.m13-kw-big{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;color:var(--kw-gold);font-size:clamp(24px,7.5vw,36px);line-height:1}
+.m13-kw-date{font-family:"Cormorant Garamond",Georgia,serif;font-size:clamp(15px,4.4vw,20px);line-height:1.15}
+.m13-kw-date i{font-style:normal;color:rgba(165,157,194,.6)}
+.m13 .m13-kw-open{pointer-events:auto;font:inherit;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;padding:7px 14px;border-radius:999px;
+  border:1px solid var(--kw-gold);background:rgba(240,214,140,.14);color:var(--kw-gold);cursor:pointer}
+.m13 .m13-kw-open:hover{background:rgba(240,214,140,.26)}
+.m13-kw :is(button):focus-visible{outline:2px solid var(--kw-gold);outline-offset:2px}
+.m13-kw-lays{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.m13 .m13-kw-pill{font:inherit;font-size:12.5px;border:1px solid var(--kw-line);background:transparent;color:var(--kw-ink);border-radius:999px;padding:6px 12px;cursor:pointer}
+.m13 .m13-kw-pill[aria-pressed="true"]{background:var(--kw-gold);color:#100e22;border-color:var(--kw-gold)}
+.m13-kw-pick{width:100%;max-width:400px;box-sizing:border-box;border:1px solid var(--kw-gold);border-radius:14px;padding:11px 13px;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(240,214,140,.06)}
+.m13-kw-pk{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;color:var(--kw-gold);line-height:1.1}
+.m13-kw-pn{font-family:"Cormorant Garamond",Georgia,serif;font-size:18px;font-style:italic;line-height:1.2}
+.m13-kw-pick p{margin:0;font-size:13px;line-height:1.4}
+.m13-kw-pick .m13-kw-ps{color:var(--kw-mut)}
+.m13 .m13-kw-link,.m13 .m13-kin-link{font:inherit;font-size:13px;background:none;border:0;color:inherit;opacity:.75;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px}
+.m13-kw .m13-kw-link{color:var(--kw-mut);opacity:1}
+.m13-kin-links{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 16px}
+.m13-kin-route .m13-kin-link{display:block;margin-top:4px;padding:2px 0;font-size:calc(13px * var(--m13-tk,1))}
+.m13-kin-page .m13-kw-hint{font-size:calc(14px * var(--m13-tk,1))}
+.m13-look .m13-kin-link{color:var(--lk-tx)}
+.m13-kin [hidden]{display:none !important}

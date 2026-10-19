@@ -3131,20 +3131,36 @@
     birthToday: 'Сегодня ваш галактический день рождения!',
     routeH: 'Ваша печать в маршрутах 13 MIRRORS', routeT: '«{маршрут}» · {даты} — ваша печать в день {день} ({дата}).',
     routeSoon: 'Информация о маршруте скоро появится.', routeOpen: 'Открыть маршрут', routeAsk: 'Узнать подробнее',
-    routeMsg: 'Здравствуйте! Хочу узнать о маршруте «{маршрут}» ({даты}).'
+    routeMsg: 'Здравствуйте! Хочу узнать о маршруте «{маршрут}» ({даты}).',
+    // колесо даты (assets/kinwheel.js)
+    wHintY: 'Поверните внешнее кольцо пальцем — как диск сейфа. Под стрелку наверху — год рождения.',
+    wHintM: 'Теперь среднее кольцо — месяц.', wHintD: 'И внутреннее — день.',
+    wHintReady: 'Проверьте дату. Можно докрутить любое кольцо. Готово — «Открыть».',
+    wHintOpen: 'Ваше место в круге 260 дней. Нажмите на любую точку — покажу, что это за кин.',
+    wHintPick: 'Нажимайте на любые кины. Золотом подсвечена волна, ваш — в белом круге.',
+    wHunab: 'Ниже — про 29 февраля: выберите, до или после полудня вы родились.',
+    wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
+    wMine: '↩ К моему кину', wNext: 'Ближайший день этого кина — {дата}.', wWave: 'Волна «{маршрут}» · {даты}, день {день} из 13',
+    wShow: 'Показать на Цолькине', wLayWaves: 'Волны', wLaySpiral: 'Спираль', wLayGrid: 'Таблица'
   };
   M13.KIN_T = KIN_T;   // панель: подсказки в полях текстов
   var KIN_COL = ['#c0453c', '#ece6d8', '#3f6fc4', '#e2b13a'];
   function kinCfg() { return (S.D.reflection || {}).kin || {}; }
   function kinT(k) { var v = kinCfg()[k]; return v != null && String(v).trim() !== '' ? String(v) : KIN_T[k]; }
   function kinFill(t, ctx) { return String(t || '').replace(/\{([^{}]{1,30})\}/g, function (all, n) { n = n.trim().toLowerCase(); return ctx[n] != null ? ctx[n] : all; }); }
+  // kin.js (расчёт) и kinwheel.js (колесо) — по требованию, только где есть блок кина
   function needKin(done) {
-    if (window.M13KIN) { done(); return; }
+    if (window.M13KIN && window.M13KINW) { done(); return; }
     if (S.kinQ) { S.kinQ.push(done); return; }
     S.kinQ = [done];
-    var sc = document.createElement('script'); sc.src = S.base + 'assets/kin.js' + (VV ? '?v=' + VV : '');
-    sc.onload = sc.onerror = function () { var q = S.kinQ; S.kinQ = null; if (window.M13KIN) q.forEach(function (f) { f(); }); };
-    document.head.appendChild(sc);
+    var left = 0;
+    [['M13KIN', 'kin'], ['M13KINW', 'kinwheel']].forEach(function (x) {
+      if (window[x[0]]) return;
+      left++;
+      var sc = document.createElement('script'); sc.src = S.base + 'assets/' + x[1] + '.js' + (VV ? '?v=' + VV : '');
+      sc.onload = sc.onerror = function () { if (--left) return; var q = S.kinQ; S.kinQ = null; if (window.M13KIN && window.M13KINW) q.forEach(function (f) { f(); }); };
+      document.head.appendChild(sc);
+    });
   }
   function kinIso(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function kinDay(iso) { var d = parseDate(iso); return d.getDate() + ' ' + MON_GEN[d.getMonth()] + ' ' + d.getFullYear(); }
@@ -3197,7 +3213,7 @@
       while (s > 1) { a = kinAdd(a, -1); if (K.kinOf(a)) s--; }
       while (e < 13) { b = kinAdd(b, 1); if (K.kinOf(b)) e++; }
       var r = (S.D.routes.routes || []).filter(function (x) { return x && (x.dates || {}).from === a; })[0] || null;
-      out.push({ date: d, day: day, from: a, to: b, title: r ? r.title : K.sealName(K.sealOf(k - day + 1)), route: r });
+      out.push({ date: d, kin: k, day: day, from: a, to: b, title: r ? r.title : K.sealName(K.sealOf(k - day + 1)), route: r });
     }
     return out;
   }
@@ -3217,25 +3233,33 @@
     var ws = kinWaves(I.sealN, 2);
     if (ws.length) h += '<section class="m13-kin-sec"><h3>' + txt(kinT('routeH')) + '</h3>' + ws.map(function (w) {
       var c = { 'маршрут': w.title, 'даты': kinRange(w.from, w.to), 'день': String(w.day), 'дата': kinDay(w.date) }, cid = kinCardOf(w.route);
-      return '<div class="m13-kin-route"><p>' + txt(kinFill(kinT('routeT'), c)) + '</p>' + (cid
+      return '<div class="m13-kin-route"><p>' + txt(kinFill(kinT('routeT'), c)) + '</p>' +
+        '<button type="button" class="m13-kin-link" data-m13-kin-show="' + w.kin + '">' + txt(kinT('wShow')) + '</button>' + (cid
         ? '<button type="button" class="m13-action" data-m13-kin-card="' + esc(cid) + '">' + txt(kinT('routeOpen')) + '</button>'
         : '<p class="m13-kin-soon">' + txt(kinT('routeSoon')) + '</p><button type="button" class="m13-action"' +
           act({ kind: 'contact', label: kinT('routeAsk'), message: kinFill(kinT('routeMsg'), c) }, { card: w.title, action: kinT('routeAsk') }) + '>' + txt(kinT('routeAsk')) + '</button>') + '</div>';
     }).join('') + '</section>';
     return h;
   }
+  // Колесо даты (её решение 19.10 — «делаем»): кольца год / месяц / день → «Открыть» → Цолькин; ниже — «Ввести дату цифрами» (прежнее поле)
   function kinFormHTML(mode) {
     return '<div class="m13-kin m13-kin--' + mode + '" data-m13-kin="' + mode + '">' +
-      '<label class="m13-kin-l"><span>' + txt(kinT('label')) + '</span><span class="m13-kin-row">' +
+      '<div class="m13-kw"></div>' +
+      '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
+      '<button type="button" class="m13-kin-link m13-kin-typed">' + txt(kinT('wTyped')) + '</button></div>' +
+      '<label class="m13-kin-l" hidden><span>' + txt(kinT('label')) + '</span><span class="m13-kin-row">' +
       '<input class="m13-kin-in" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="' + esc(kinT('ph')) + '">' +
       '<button type="button" class="m13-action m13-action--primary m13-kin-go">' + txt(kinT('go')) + '</button></span></label>' +
       (kinT('note') ? '<p class="m13-kin-note">' + txt(kinT('note')) + '</p>' : '') +
       '<div class="m13-kin-out" aria-live="polite"></div></div>';
   }
-  // Поле даты: точки ставятся сами; Enter или «Узнать» — результат. pre — { date, noon } (из блока оборота на страницу)
+  // Колесо и поле даты: точки в поле ставятся сами; «Открыть» на колесе, Enter или «Узнать» — результат. pre — { date, noon } (из блока оборота на страницу)
   function kinBind(scope, pre) {
+    ensureFont('Cormorant Garamond');
     scope.querySelectorAll('[data-m13-kin]').forEach(function (box) {
-      var mode = box.getAttribute('data-m13-kin'), inp = box.querySelector('.m13-kin-in'), out = box.querySelector('.m13-kin-out'), st = { date: '', noon: '' };
+      var mode = box.getAttribute('data-m13-kin'), inp = box.querySelector('.m13-kin-in'), out = box.querySelector('.m13-kin-out'),
+        lab = box.querySelector('.m13-kin-l'), tBtn = box.querySelector('.m13-kin-typed'), again = box.querySelector('.m13-kin-again'),
+        st = { date: '', noon: '', shown: '' }, wheel = null;
       box.addEventListener('click', function (e) { e.stopPropagation(); });
       inp.addEventListener('input', function () {
         var dg = inp.value.replace(/\D/g, '').slice(0, 8), v = dg.slice(0, 2) + (dg.length > 2 ? '.' + dg.slice(2, 4) : '') + (dg.length > 4 ? '.' + dg.slice(4) : '');
@@ -3244,7 +3268,20 @@
       });
       inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); run(); } });
       box.querySelector('.m13-kin-go').addEventListener('click', run);
-      function run() { st.date = kinParse(inp.value); st.noon = ''; draw(); }
+      tBtn.addEventListener('click', function () {
+        lab.hidden = !lab.hidden; tBtn.textContent = kinT(lab.hidden ? 'wTyped' : 'wWheel');
+        if (!lab.hidden) inp.focus();
+      });
+      again.addEventListener('click', function () {
+        st.date = ''; st.noon = ''; st.shown = ''; out.innerHTML = ''; again.hidden = true;
+        if (wheel) wheel.reset();
+        box.querySelector('.m13-kw').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+      function run() {
+        st.date = kinParse(inp.value); st.noon = ''; st.shown = '';
+        if (st.date && wheel) wheel.setDate(st.date);
+        draw();
+      }
       function draw() {
         needKin(function () {
           var K = window.M13KIN;
@@ -3264,16 +3301,40 @@
           if ((I || two) && mode === 'page' && oa && oa.show !== false && oa.label) h += '<div class="m13-examples-cta"><button type="button" class="m13-action m13-action--primary"' +
             act(oa, { card: (S.D.reflection || {}).eyebrow || 'Карта-Отражение', action: oa.label, tplKey: 'offer' }) + '>' + txt(oa.label) + '</button></div>';
           out.innerHTML = h;
+          // колесо: кин известен — точки перелетают в Цолькин (звон — один раз на дату); 29 февраля без ответа — ждём «до/после полудня»
+          var kins = two ? [two[0].kin, two[1].kin] : I ? [I.kin] : [];
+          if (wheel) {
+            if (kins.length && st.shown !== kins.join()) { wheel.reveal(kins, st.quiet); again.hidden = false; }
+            else if (!kins.length) wheel.wait(kinT('wHunab'));
+          }
+          st.shown = kins.join(); st.quiet = false;
           out.querySelectorAll('[data-noon]').forEach(function (b) { b.addEventListener('click', function () { st.noon = b.getAttribute('data-noon'); draw(); }); });
           var mb = out.querySelector('.m13-kin-more');
           if (mb) mb.addEventListener('click', function () { S.kinPre = { date: st.date, noon: st.noon }; openInternal('kin'); });
           out.querySelectorAll('[data-m13-kin-card]').forEach(function (b) { b.addEventListener('click', function () { kinGoCard(b.getAttribute('data-m13-kin-card')); }); });
+          out.querySelectorAll('[data-m13-kin-show]').forEach(function (b) {
+            b.addEventListener('click', function () {
+              if (!wheel) return;
+              wheel.pick(+b.getAttribute('data-m13-kin-show'));
+              box.querySelector('.m13-kw').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+          });
           bindActs(out);
         });
       }
-      if (pre && pre.date) {
-        var p = pre.date.split('-'); inp.value = p[2] + '.' + p[1] + '.' + p[0]; st.date = pre.date; st.noon = pre.noon || ''; draw();
-      }
+      needKin(function () {
+        var w = kinCfg().wheel || {};
+        wheel = window.M13KINW.mount(box.querySelector('.m13-kw'), {
+          mat: w.mat, clk: w.clk, opn: w.opn, lay: w.lay, portals: w.portals !== false, laySwitch: w.laySwitch !== false,
+          T: kinT,
+          onOpen: function (iso) { st.date = iso; st.noon = ''; st.shown = ''; draw(); },
+          waveTitle: function (from, t) { var r = ((S.D.routes || {}).routes || []).filter(function (x) { return x && (x.dates || {}).from === from; })[0]; return r ? r.title : t; }
+        });
+        if (pre && pre.date) {
+          var p = pre.date.split('-'); inp.value = p[2] + '.' + p[1] + '.' + p[0];
+          st.date = pre.date; st.noon = pre.noon || ''; st.quiet = true; wheel.setDate(pre.date); draw();
+        }
+      });
     });
   }
   // «Открыть маршрут»: в самой витрине — закрыть страницу кина и открыть карточку; на отдельной странице — витрина с этой карточкой
