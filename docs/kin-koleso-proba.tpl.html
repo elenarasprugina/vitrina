@@ -1,0 +1,384 @@
+<title>Колесо своего кина</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Проба 19.10.2026 (docs/kin.md, «Колесо даты»). Исходник: вместо строки KINJS ниже — содержимое assets/kin.js
+     (сборка: sed '/<!--KINJS-->/{r assets/kin.js
+d}' — см. docs/kin.md). Ничего не отправляет и не хранит, кроме «звук выкл» на устройстве. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap">
+<style>
+/* Ночной круг: колесо — главное на странице, текст тихий, под ним */
+:root{
+  --night:#100e22; --night2:#1a1735; --ink:#ece6f7; --muted:#a59dc2; --gold:#f0d68c; --line:#3a3560;
+  --red:#e0533d; --white:#f2efe6; --blue:#4a86de; --yellow:#f2c62e; --portal:#5fd39a;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif; --sans:Jost,"Segoe UI",Roboto,Arial,sans-serif;
+  color-scheme:dark
+}
+[hidden]{display:none!important}
+html,body{background:var(--night);color:var(--ink)}
+body{font-family:var(--sans);font-weight:300;line-height:1.45;padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px;align-items:center}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(28px,7vw,38px);margin:0;text-wrap:balance;text-align:center;color:var(--gold)}
+.hint{margin:0;font-size:14px;color:var(--muted);text-align:center;max-width:34em;min-height:2.9em}
+.stage{position:relative;width:100%;max-width:480px;aspect-ratio:1/1}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
+canvas.drag{cursor:grabbing}
+.snd{position:absolute;right:0;top:0;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--night2);
+  color:var(--ink);font-size:17px;line-height:1;cursor:pointer}
+.snd:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.res{text-align:center;display:flex;flex-direction:column;gap:4px;min-height:0}
+.res .k{font-family:var(--serif);font-size:34px;color:var(--gold);line-height:1.1}
+.res .n{font-family:var(--serif);font-size:22px;font-style:italic}
+.res .s{font-size:13px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.pill{font:inherit;font-size:14px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer}
+.pill[aria-pressed="true"]{background:var(--gold);color:var(--night);border-color:var(--gold)}
+.link{font:inherit;font-size:13px;background:none;border:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px}
+.typed{display:flex;gap:8px;width:100%;max-width:340px}
+.typed input{flex:1;min-width:0;font:inherit;font-size:16px;letter-spacing:.06em;padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:var(--night2);color:var(--ink)}
+.hunab{border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:center;font-size:14px;display:flex;flex-direction:column;gap:10px;max-width:380px}
+.note{font-size:12px;color:var(--muted);text-align:center;max-width:36em;margin:6px 0 0}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted);cursor:pointer}
+.chk input{accent-color:var(--portal);width:17px;height:17px}
+.proba{border-top:1px solid var(--line);padding-top:12px;width:100%;display:flex;flex-direction:column;gap:10px;align-items:center}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">13 MIRRORS · проба</div>
+  <h1>Узнать свой кин</h1>
+  <p class="hint" id="hint">Проведите пальцем по внешнему кольцу — это год рождения. Потом — месяц, внутри — день.</p>
+  <div class="stage">
+    <canvas id="cv" aria-label="Колесо даты рождения: внешнее кольцо — год, среднее — месяц, внутреннее — день"></canvas>
+    <button class="snd" id="snd" type="button" aria-label="Звук щелчков">🔊</button>
+  </div>
+  <div class="hunab" id="hunab" hidden>
+    <div>29 февраля в Dreamspell — 0.0 Хунаб Ку, день вне счёта: своего кина у него нет. Вы родились…</div>
+    <div class="row">
+      <button class="pill" type="button" data-noon="b">до полудня</button>
+      <button class="pill" type="button" data-noon="a">после полудня</button>
+      <button class="pill" type="button" data-noon="x">не знаю</button>
+    </div>
+  </div>
+  <div class="res" id="res" hidden></div>
+  <div class="row" id="after" hidden>
+    <button class="link" type="button" id="again">← Другая дата</button>
+  </div>
+  <button class="link" type="button" id="toTyped">Ввести дату цифрами</button>
+  <form class="typed" id="typed" hidden>
+    <input id="din" type="text" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="ДД.ММ.ГГГГ" aria-label="Дата рождения">
+    <button class="pill" type="submit">Узнать</button>
+  </form>
+  <p class="note">Дата считается прямо на вашем устройстве и никуда не отправляется.</p>
+
+  <div class="proba">
+    <div class="eyebrow">Только в пробе — на сайте это выбираете вы в панели</div>
+    <div class="row" id="lays">
+      <button class="pill" type="button" data-lay="waves" aria-pressed="true">Волны лучами</button>
+      <button class="pill" type="button" data-lay="spiral" aria-pressed="false">Спираль</button>
+      <button class="pill" type="button" data-lay="grid" aria-pressed="false">Таблица кругом</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="portals" checked> Отмечать 52 портала</label>
+    <button class="link" type="button" id="demo">Показать на примере: 12.05.1987</button>
+  </div>
+</div>
+
+<script>
+<!--KINJS-->
+</script>
+<script>
+(function () {
+  'use strict';
+  var K = window.M13KIN;
+  var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  var Y0 = 1950, Y1 = new Date().getFullYear(), NY = Y1 - Y0 + 1;
+  var MON = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  var MONF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  var MONN = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  var COL = ['#e0533d', '#f2efe6', '#4a86de', '#f2c62e'], GOLD = '#f0d68c', PORT = '#5fd39a';
+  var GAP = [1, 20, 22, 39, 43, 50, 51, 58, 64, 69, 72, 77, 85, 88, 93, 96, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
+    146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 165, 168, 173, 176, 184, 189, 192, 197, 203, 210, 211, 218, 222, 239, 241, 260];
+  var isGap = {}; GAP.forEach(function (k) { isGap[k] = 1; });
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Состояние: выбранные год / месяц (0–11) / день; кольцо под пальцем; раскрытие
+  var st = { y: null, m: null, d: null, ring: '', live: null, mine: [], lay: 'waves', portals: true,
+    open: 0, openTo: 0, morph: 1, from: null, to: null, bump: {}, dpr: 1, S: 300 };
+  var sound = true;
+  try { sound = localStorage.getItem('m13kinSnd') !== '0'; } catch (e) {}
+
+  /* ---------- геометрия ---------- */
+  function resize() {
+    var r = cv.getBoundingClientRect(); st.dpr = Math.min(window.devicePixelRatio || 1, 2.5); st.S = r.width;
+    cv.width = Math.round(r.width * st.dpr); cv.height = Math.round(r.width * st.dpr);
+  }
+  var R = { yIn: .76, yOut: .86, yLab: .935, mIn: .585, mOut: .735, mR: .66, dIn: .42, dOut: .585, dR: .505, k: .34 };
+  function ang(i, n, slots, off) { return (i + (off || 0) + .5) / (slots || n) * Math.PI * 2; }
+  // Годы: NY делений + 2 пустых у макушки, чтобы начало и конец не сливались
+  function yA(i) { return ang(i, NY, NY + 2, 1); }
+  function mA(i) { return ang(i, 12); }
+  function dA(i) { return ang(i, 31); }
+  function daysIn(y, m) { return new Date(Date.UTC(y == null ? 2000 : y, m + 1, 0)).getUTCDate(); }
+  function P(r, a) { var C = st.S / 2; return [C + r * C * Math.sin(a), C - r * C * Math.cos(a)]; }
+
+  /* ---------- 260 точек: раскладки ---------- */
+  function sealCol(k) { return COL[(K.sealOf(k) - 1) % 4]; }
+  function waveCol(k) { return COL[Math.floor((k - 1) / 13) % 4]; }
+  var SPIRAL = (function () {
+    var out = [], th = 0, r;
+    while (out.length < 260) { r = 14 + th * 10.5; out.push([r, th]); th += 6.6 / r; }
+    var mx = out[259][0];
+    return out.map(function (p) { return [p[0] / mx * .95, p[1]]; });
+  })();
+  function layout(name, k) {
+    var w, t, i;
+    if (name === 'ring') { w = Math.floor((k - 1) / 13); return [R.k, (k - 1 + w * 1.4) / (260 + 20 * 1.4) * Math.PI * 2, sealCol(k)]; }
+    if (name === 'waves') { w = Math.floor((k - 1) / 13); t = (k - 1) % 13; return [.25 + t * .058, w / 20 * Math.PI * 2, waveCol(k)]; }
+    if (name === 'grid') { i = (k - 1) % 20; t = Math.floor((k - 1) / 20); return [.25 + t * .058, i / 20 * Math.PI * 2, sealCol(k)]; }
+    return [SPIRAL[k - 1][0], SPIRAL[k - 1][1], sealCol(k)];
+  }
+  function xy(l) { return P(l[0], l[1]); }
+  function hex(c) { return [parseInt(c.substr(1, 2), 16), parseInt(c.substr(3, 2), 16), parseInt(c.substr(5, 2), 16)]; }
+  function mix(a, b, t) { var x = hex(a), y = hex(b); return 'rgb(' + [0, 1, 2].map(function (i) { return Math.round(x[i] + (y[i] - x[i]) * t); }).join(',') + ')'; }
+  function ease(t) { return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+  /* ---------- щелчок: звук + вибрация + прыжок метки ---------- */
+  var ac = null;
+  function click(ring) {
+    st.bump[ring] = performance.now();
+    if (navigator.vibrate) { try { navigator.vibrate(7); } catch (e) {} }
+    if (!sound) return;
+    try {
+      if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      var t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(2300, t); o.frequency.exponentialRampToValueAtTime(900, t + .03);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.09, t + .003); g.gain.exponentialRampToValueAtTime(.0001, t + .045);
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + .05);
+    } catch (e) {}
+  }
+  function bumpK(ring) { var b = st.bump[ring]; if (!b) return 0; var t = (performance.now() - b) / 160; return t >= 1 ? 0 : Math.sin(t * Math.PI); }
+
+  /* ---------- рисование ---------- */
+  function txt(s, x, y, size, color, font, align) {
+    ctx.font = (font || '400 ') + size + 'px ' + (font && font.indexOf('serif') >= 0 ? '' : 'Jost, "Segoe UI", Roboto, Arial, sans-serif');
+    if (font && font.indexOf('serif') >= 0) ctx.font = font.replace('serif', '') + size + 'px "Cormorant Garamond", Georgia, serif';
+    ctx.fillStyle = color; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
+  }
+  function bead(r, a, ring, color) {
+    var p = P(r, a), C = st.S / 2, rr = C * (.032 + .018 * bumpK(ring));
+    ctx.beginPath(); ctx.arc(p[0], p[1], rr * 2.1, 0, 7); ctx.fillStyle = 'rgba(240,214,140,.16)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, 7); ctx.fillStyle = color || GOLD; ctx.fill();
+  }
+  function draw(now) {
+    var S = st.S, C = S / 2, f = C / 190, i, a, p, q, k, l0, l1, x, al;
+    ctx.setTransform(st.dpr, 0, 0, st.dpr, 0, 0); ctx.clearRect(0, 0, S, S);
+    // раскрытие: o — 0 колесо, 1 Цолькин
+    var dt = 1 / 60, sp = reduce ? 1 : .9;
+    if (st.open < st.openTo) st.open = Math.min(st.openTo, st.open + dt * sp);
+    if (st.open > st.openTo) st.open = Math.max(st.openTo, st.open - dt * sp * 1.3);
+    if (st.morph < 1) st.morph = Math.min(1, st.morph + dt * (reduce ? 3 : .8));
+    var o = ease(st.open), wheelA = Math.max(0, 1 - o * 1.8);
+
+    if (wheelA > 0) {
+      ctx.globalAlpha = wheelA;
+      // кольца-дорожки
+      [[R.yIn, R.yOut], [R.mIn, R.mOut], [R.dIn, R.dOut]].forEach(function (b, j) {
+        var act = st.ring === ['y', 'm', 'd'][j];
+        ctx.beginPath(); ctx.arc(C, C, (b[0] + b[1]) / 2 * C, 0, 7);
+        ctx.lineWidth = (b[1] - b[0]) * C; ctx.strokeStyle = act ? 'rgba(240,214,140,.10)' : 'rgba(255,255,255,.035)'; ctx.stroke();
+      });
+      // годы: черточки, десятилетия длиннее и подписаны
+      for (i = 0; i < NY; i++) {
+        var yr = Y0 + i, dec = yr % 10 === 0, sel = st.y === yr; a = yA(i);
+        p = P(dec ? R.yIn - .01 : R.yIn + .02, a); q = P(dec ? R.yOut + .005 : R.yOut - .02, a);
+        ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]);
+        ctx.lineWidth = (dec ? 1.6 : 1) * f; ctx.strokeStyle = sel ? GOLD : dec ? 'rgba(236,230,247,.85)' : 'rgba(236,230,247,.38)'; ctx.stroke();
+        if (dec) { p = P(R.yLab, a); txt(String(yr), p[0], p[1], 10.5 * f, 'rgba(236,230,247,.75)'); }
+      }
+      p = P(R.yLab, yA(NY - 1) + .07); txt(String(Y1), p[0], p[1], 9 * f, 'rgba(165,157,194,.9)');
+      // месяцы
+      for (i = 0; i < 12; i++) {
+        a = mA(i); p = P(R.mR, a);
+        txt(MON[i], p[0], p[1], 12 * f, st.m === i ? GOLD : 'rgba(236,230,247,.8)', st.m === i ? '500 ' : '300 ');
+        q = P(R.mIn + .005, a + Math.PI / 12); x = P(R.mIn + .03, a + Math.PI / 12);
+        ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(x[0], x[1]); ctx.lineWidth = f; ctx.strokeStyle = 'rgba(236,230,247,.25)'; ctx.stroke();
+      }
+      // дни (лишние в коротком месяце гаснут)
+      var dim = st.m == null ? 31 : daysIn(st.y, st.m);
+      for (i = 0; i < 31; i++) {
+        p = P(R.dR, dA(i));
+        txt(String(i + 1), p[0], p[1], 9.6 * f, st.d === i + 1 ? GOLD : i < dim ? 'rgba(236,230,247,.78)' : 'rgba(236,230,247,.16)', st.d === i + 1 ? '500 ' : '300 ');
+      }
+      // метки выбранного
+      if (st.y != null && st.y >= Y0 && st.y <= Y1) bead((R.yIn + R.yOut) / 2, yA(st.y - Y0), 'y');
+      if (st.m != null) { a = mA(st.m); p = P(R.mR, a); ctx.beginPath(); ctx.arc(p[0], p[1], C * (.065 + .02 * bumpK('m')), 0, 7); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4 * f; ctx.stroke(); }
+      if (st.d != null) { p = P(R.dR, dA(st.d - 1)); ctx.beginPath(); ctx.arc(p[0], p[1], C * (.05 + .018 * bumpK('d')), 0, 7); ctx.strokeStyle = GOLD; ctx.lineWidth = 1.4 * f; ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+
+    // 260 точек
+    var mineSet = {}; st.mine.forEach(function (m) { mineSet[m] = 1; });
+    var tm = ease(st.morph), tpo = st.portals ? o : 0;
+    for (k = 1; k <= 260; k++) {
+      // когда раскрываем — точки летят с лёгким разбросом по очереди
+      var st0 = reduce ? 0 : ((k * 37) % 260) / 260 * .35, ok = Math.max(0, Math.min(1, (o - st0) / (1 - .35)));
+      l0 = layout('ring', k); l1 = layout(st.lay, k);
+      if (st.morph < 1 && st.from) { var lf = layout(st.from, k); l1 = [lf[0] + (l1[0] - lf[0]) * tm, lf[1] + (l1[1] - lf[1]) * tm, l1[2]]; }
+      var e = ease(ok), pa = xy(l0), pb = xy(l1);
+      x = [pa[0] + (pb[0] - pa[0]) * e, pa[1] + (pb[1] - pa[1]) * e];
+      var col = mix(l0[2], l1[2], e); if (isGap[k] && tpo > 0) col = mix(l0[2], PORT, tpo);
+      al = o < .02 ? .55 + .35 * Math.sin(now / 900 + k * .45) : .9;
+      var rad = (o < .02 ? 1.05 : 1.05 + 1.6 * e) * f * (isGap[k] && tpo > .5 ? 1.25 : 1);
+      ctx.globalAlpha = al; ctx.beginPath(); ctx.arc(x[0], x[1], rad, 0, 7); ctx.fillStyle = col; ctx.fill();
+      if (mineSet[k] && o > 0) {
+        var pulse = 1 + .25 * Math.sin(now / 420);
+        ctx.globalAlpha = .18 * o; ctx.beginPath(); ctx.arc(x[0], x[1], 14 * f * pulse, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.globalAlpha = o; ctx.beginPath(); ctx.arc(x[0], x[1], 7.5 * f, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * f; ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // центр
+    if (wheelA > 0) {
+      ctx.globalAlpha = wheelA;
+      if (st.live) {
+        txt(st.live, C, C, (st.ring === 'y' ? 34 : 30) * f, GOLD, '500 serif');
+      } else if (st.mine.length) {
+        txt('Kin ' + st.mine[0], C, C, 30 * f, GOLD, '500 serif');
+      } else {
+        var dd = st.d != null ? st.d : '··', mm = st.m != null ? MON[st.m] : '···', yy = st.y != null ? st.y : '····';
+        txt(dd + ' ' + mm, C, C - 9 * f, 17 * f, st.d != null || st.m != null ? '#ece6f7' : 'rgba(165,157,194,.7)', '400 serif');
+        txt(String(yy), C, C + 13 * f, 17 * f, st.y != null ? '#ece6f7' : 'rgba(165,157,194,.7)', '400 serif');
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (o > .6 && st.lay !== 'spiral' && st.mine.length) {
+      ctx.globalAlpha = (o - .6) / .4;
+      txt('Kin', C, C - 10 * f, 13 * f, 'rgba(165,157,194,.95)');
+      txt(String(st.mine[0]), C, C + 9 * f, 24 * f, GOLD, '500 serif');
+      ctx.globalAlpha = 1;
+    }
+    requestAnimationFrame(draw);
+  }
+
+  /* ---------- палец по кольцу ---------- */
+  function where(e) {
+    var r = cv.getBoundingClientRect(), C = r.width / 2, dx = e.clientX - r.left - C, dy = e.clientY - r.top - C;
+    var a = Math.atan2(dx, -dy); if (a < 0) a += Math.PI * 2;
+    return { rr: Math.sqrt(dx * dx + dy * dy) / C, a: a };
+  }
+  function ringAt(rr) { return rr > .74 && rr < 1.02 ? 'y' : rr > R.mIn - .01 ? (rr <= .74 ? 'm' : '') : rr > R.dIn - .03 ? 'd' : ''; }
+  function valAt(ring, a) {
+    var u = a / (Math.PI * 2);
+    if (ring === 'y') { var i = Math.floor(u * (NY + 2)) - 1; return Y0 + Math.max(0, Math.min(NY - 1, i)); }
+    if (ring === 'm') return Math.min(11, Math.floor(u * 12));
+    var d = Math.min(31, Math.floor(u * 31) + 1), mx = st.m == null ? 31 : daysIn(st.y, st.m);
+    return Math.min(d, mx);
+  }
+  function set(ring, v) {
+    var cur = ring === 'y' ? st.y : ring === 'm' ? st.m : st.d;
+    if (cur === v) return;
+    if (ring === 'y') st.y = v; else if (ring === 'm') st.m = v; else st.d = v;
+    if (st.d != null && st.m != null && st.d > daysIn(st.y, st.m)) st.d = daysIn(st.y, st.m);
+    st.live = ring === 'y' ? String(v) : ring === 'm' ? MONN[v] : String(v);
+    click(ring);
+  }
+  var timer = 0;
+  cv.addEventListener('pointerdown', function (e) {
+    if (st.openTo) return;
+    var w = where(e), ring = ringAt(w.rr);
+    if (!ring) return;
+    e.preventDefault(); cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
+    st.ring = ring; clearTimeout(timer); hideHunab(); set(ring, valAt(ring, w.a));
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!st.ring) return;
+    set(st.ring, valAt(st.ring, where(e).a));
+  });
+  function up() {
+    if (!st.ring) return;
+    st.ring = ''; st.live = null; cv.classList.remove('drag');
+    hint();
+    if (st.y != null && st.m != null && st.d != null) timer = setTimeout(go, 650);
+  }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  function hint() {
+    var h = document.getElementById('hint');
+    h.textContent = st.openTo ? 'Ваше место в круге 260 дней. Все 260 кинов — те же точки, что были в середине колеса.' :
+      st.y == null ? 'Проведите пальцем по внешнему кольцу — это год рождения. Потом — месяц, внутри — день.' :
+      st.m == null ? 'Теперь месяц — среднее кольцо.' : st.d == null ? 'И день — внутреннее кольцо.' : 'Можно поправить любое кольцо — или подождите секунду.';
+  }
+
+  /* ---------- результат ---------- */
+  function iso(y, m, d) { return y + '-' + ('0' + (m + 1)).slice(-2) + '-' + ('0' + d).slice(-2); }
+  function go() {
+    if (st.m === 1 && st.d === 29) { document.getElementById('hunab').hidden = false; return; }
+    reveal([K.kinOf(iso(st.y, st.m, st.d))]);
+  }
+  function hideHunab() { document.getElementById('hunab').hidden = true; }
+  document.getElementById('hunab').addEventListener('click', function (e) {
+    var n = e.target.getAttribute && e.target.getAttribute('data-noon'); if (!n) return;
+    var b = K.kinOf(iso(st.y, 1, 28)), a = K.kinOf(iso(st.y, 2, 1));
+    hideHunab(); reveal(n === 'b' ? [b] : n === 'a' ? [a] : [b, a], n === 'x');
+  });
+  function reveal(kins, both) {
+    st.mine = kins; st.openTo = 1; st.from = null; st.morph = 1;
+    var res = document.getElementById('res'), h = '';
+    kins.forEach(function (k, i) {
+      var I = K.info(k);
+      if (both) h += '<div class="s">' + (i ? 'если после полудня' : 'если до полудня') + '</div>';
+      h += '<div class="k">Kin ' + k + '</div><div class="n">' + I.kinName + '</div>' +
+        '<div class="s">Печать — ' + I.seal + ' · тон ' + I.toneN + ', ' + I.tone + (isGap[k] ? ' · портал' : '') + '</div>';
+    });
+    res.innerHTML = h; res.hidden = false; document.getElementById('after').hidden = false; hint();
+  }
+  document.getElementById('again').addEventListener('click', function () {
+    st.openTo = 0; st.mine = []; document.getElementById('res').hidden = true; document.getElementById('after').hidden = true; hint();
+  });
+
+  /* ---------- дата цифрами ---------- */
+  var din = document.getElementById('din');
+  document.getElementById('toTyped').addEventListener('click', function () {
+    var f = document.getElementById('typed'); f.hidden = !f.hidden;
+    this.textContent = f.hidden ? 'Ввести дату цифрами' : '← Выбрать на колесе';
+    if (!f.hidden) din.focus();
+  });
+  din.addEventListener('input', function () {
+    var v = din.value.replace(/\D/g, '').slice(0, 8), o = v.slice(0, 2);
+    if (v.length > 2) o += '.' + v.slice(2, 4); if (v.length > 4) o += '.' + v.slice(4);
+    din.value = o;
+  });
+  document.getElementById('typed').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(din.value), y, mo, d;
+    if (!m) { din.setCustomValidity('Нужна дата вида 12.05.1987'); din.reportValidity(); return; }
+    d = +m[1]; mo = +m[2] - 1; y = +m[3];
+    if (mo < 0 || mo > 11 || d < 1 || d > daysIn(y, mo)) { din.setCustomValidity('Такой даты нет — проверьте день и месяц'); din.reportValidity(); return; }
+    din.setCustomValidity('');
+    st.y = y; st.m = mo; st.d = d; st.openTo = 0;
+    if (mo === 1 && d === 29) { document.getElementById('hunab').hidden = false; return; }
+    reveal([K.kinOf(iso(y, mo, d))]);
+  });
+
+  /* ---------- переключатели пробы ---------- */
+  document.getElementById('lays').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-lay]'); if (!b || b.getAttribute('data-lay') === st.lay) return;
+    st.from = st.lay; st.lay = b.getAttribute('data-lay'); st.morph = st.open > 0 ? 0 : 1;
+    [].forEach.call(this.querySelectorAll('[data-lay]'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+  });
+  document.getElementById('portals').addEventListener('change', function () { st.portals = this.checked; });
+  document.getElementById('demo').addEventListener('click', function () {
+    st.y = 1987; st.m = 4; st.d = 12; st.openTo = 0; st.mine = [];
+    document.getElementById('res').hidden = true; setTimeout(go, 500); hint();
+  });
+  var snd = document.getElementById('snd');
+  function sndUI() { snd.textContent = sound ? '🔊' : '🔇'; snd.setAttribute('aria-pressed', sound ? 'false' : 'true'); snd.title = sound ? 'Выключить звук щелчков' : 'Включить звук щелчков'; }
+  snd.addEventListener('click', function () { sound = !sound; try { localStorage.setItem('m13kinSnd', sound ? '1' : '0'); } catch (e) {} sndUI(); });
+  sndUI();
+
+  resize(); window.addEventListener('resize', resize);
+  requestAnimationFrame(draw);
+})();
+</script>
