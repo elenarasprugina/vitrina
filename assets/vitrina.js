@@ -3197,10 +3197,10 @@
     archNote: 'Кин — ваш день в календаре Цолькин. Архетип больше кина и больше печати: он вырастает из печати, а его личное звучание раскрывается в Карте-Отражении.',
     more: 'Подробнее о вашем кине →',
     eyebrow: 'Карта-Отражение', title: 'Узнать свой кин', intro: '',
-    toneH: 'Ваш тон', toneT: 'Тон {номер тона} — {тон}. В каждой 13-дневной волне ваш день — {номер тона}-й.',
+    toneH: 'Ваш тон', toneT: 'Тон {номер тона} — {тон}. В каждой 13‑дневной волне ваш день — {номер тона}-й.',
     birthH: 'Галактический день рождения', birthT: 'Ваш кин возвращается раз в 260 дней. Ближайший галактический день рождения — {дата}.',
     birthToday: 'Сегодня ваш галактический день рождения!',
-    routeH: 'Ваша печать в маршрутах 13 MIRRORS', routeT: '«{маршрут}» · {даты} — ваша печать в день {день} ({дата}).',
+    routeH: 'Ваша печать в маршрутах 13 MIRRORS', routeT: '«{маршрут}» · {даты}', routeD: 'Ваша печать — день {день}, {дата}',
     routeSoon: 'Информация о маршруте скоро появится.', routeOpen: 'Открыть маршрут', routeAsk: 'Узнать подробнее',
     routeMsg: 'Здравствуйте! Хочу узнать о маршруте «{маршрут}» ({даты}).',
     // колесо даты (assets/kinwheel.js)
@@ -3306,10 +3306,11 @@
     var img = (kinCfg().sealImg || {})[I.sealN], c = KIN_COL[I.color];
     return '<span class="m13-kin-seal' + (I.color === 1 ? ' m13-kin-seal--w' : '') + '" style="--kc:' + c + '">' + (img ? '<img src="' + esc(media(img)) + '" alt="">' : '<b>' + I.sealN + '</b>') + '</span>';
   }
+  // Карточка кина; ниже в ней же — строки про архетип (её правка 19.10: не висят отдельно на картинке страницы)
   function kinSigHTML(I, cap) {
-    return '<div class="m13-kin-sig">' + sealHTML(I) + '<div class="m13-kin-sigt">' + (cap ? '<small>' + txt(cap) + '</small>' : '') +
+    return '<div class="m13-kin-sig"><div class="m13-kin-sigr">' + sealHTML(I) + '<div class="m13-kin-sigt">' + (cap ? '<small>' + txt(cap) + '</small>' : '') +
       '<em>Kin ' + I.kin + '</em><strong>' + txt(I.kinName) + '</strong>' +
-      '<span>Печать — ' + txt(I.seal) + ' · Тон ' + I.toneN + ' — ' + txt(I.tone) + '</span></div>' + toneSVG(I.toneN) + '</div>';
+      '<span>Печать — ' + txt(I.seal) + ' · Тон ' + I.toneN + ' — ' + txt(I.tone) + '</span></div>' + toneSVG(I.toneN) + '</div>' + kinArchHTML(I) + '</div>';
   }
   function kinArchHTML(I) {
     var a = (kinCfg().arch || {})[I.sealN], name = a && String(a.name || '').trim();
@@ -3349,11 +3350,14 @@
     var ws = kinWaves(I.sealN, 2);
     if (ws.length) h += '<section class="m13-kin-sec"><h3>' + txt(kinT('routeH')) + '</h3>' + ws.map(function (w) {
       var c = { 'маршрут': w.title, 'даты': kinRange(w.from, w.to), 'день': String(w.day), 'дата': kinDay(w.date) }, cid = kinCardOf(w.route);
-      return '<div class="m13-kin-route"><p>' + txt(kinFill(kinT('routeT'), c)) + '</p>' +
+      // название и даты — первой строкой, день печати — второй; «Показать на Цолькине» и кнопка — в одну строку (её правка 19.10)
+      return '<div class="m13-kin-route"><p class="m13-kin-rt">' + txt(kinFill(kinT('routeT'), c)) + '</p>' +
+        (kinT('routeD') ? '<p class="m13-kin-rd">' + txt(kinFill(kinT('routeD'), c)) + '</p>' : '') +
+        (cid ? '' : '<p class="m13-kin-soon">' + txt(kinT('routeSoon')) + '</p>') + '<div class="m13-kin-racts">' +
         '<button type="button" class="m13-kin-link" data-m13-kin-show="' + w.kin + '">' + txt(kinT('wShow')) + '</button>' + (cid
         ? '<button type="button" class="m13-action" data-m13-kin-card="' + esc(cid) + '">' + txt(kinT('routeOpen')) + '</button>'
-        : '<p class="m13-kin-soon">' + txt(kinT('routeSoon')) + '</p><button type="button" class="m13-action"' +
-          act({ kind: 'contact', label: kinT('routeAsk'), message: kinFill(kinT('routeMsg'), c) }, { card: w.title, action: kinT('routeAsk') }) + '>' + txt(kinT('routeAsk')) + '</button>') + '</div>';
+        : '<button type="button" class="m13-action"' +
+          act({ kind: 'contact', label: kinT('routeAsk'), message: kinFill(kinT('routeMsg'), c) }, { card: w.title, action: kinT('routeAsk') }) + '>' + txt(kinT('routeAsk')) + '</button>') + '</div></div>';
     }).join('') + '</section>';
     return h;
   }
@@ -3382,9 +3386,12 @@
     return h + wheel + '</div>';
   }
   function kinFormHTML(mode) {
-    var lk = kinLook(), css = kinLookCss(lk), pb = (kinCfg().page || {}).bg;
+    var lk = kinLook(), css = kinLookCss(lk), pg = kinCfg().page || {}, pb = pg.bg, pf = pg.font || 'lora';
     // фон большого колеса на странице кина — reflection.kin.page.bg: 'deep' (по умолч.) | 'glass' | 'none'
     pb = mode === 'page' && { glass: 1, none: 1 }[pb] ? ' m13-kin--pg-' + pb : '';
+    // шрифт текста ответа на странице кина — reflection.kin.page.font: 'lora' (по умолч.) | 'sans' | 'site' (как у страницы); название кина — шрифтом страницы
+    if (mode === 'page' && pf === 'lora') ensureFont('Lora');
+    if (mode === 'page' && { lora: 1, sans: 1 }[pf]) pb += ' m13-kin--f-' + pf;
     return '<div class="m13-kin m13-kin--' + mode + pb + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
       '<div class="m13-kw"></div>' +
       '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
@@ -3445,8 +3452,8 @@
             var ib = K.info(K.kinOf(kinAdd(st.date, -1))), ia = K.info(K.kinOf(kinAdd(st.date, 1)));
             if (st.noon === 'b') I = ib; else if (st.noon === 'a') I = ia; else if (st.noon === '?') two = [ib, ia];
           } else I = K.info(K.kinOf(st.date));
-          if (two) h += kinSigHTML(two[0], kinT('ifBefore')) + kinArchHTML(two[0]) + kinSigHTML(two[1], kinT('ifAfter')) + kinArchHTML(two[1]);
-          else if (I) h += kinSigHTML(I) + kinArchHTML(I);
+          if (two) h += kinSigHTML(two[0], kinT('ifBefore')) + kinSigHTML(two[1], kinT('ifAfter'));
+          else if (I) h += kinSigHTML(I);
           if (I && mode === 'page') h += kinPageHTML(I, st.date);
           if ((I || two) && mode === 'card') h += '<button type="button" class="m13-action m13-kin-more">' + txt(kinT('more')) + '</button>';
           var oa = (S.D.reflection || {}).orderAction;

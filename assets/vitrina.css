@@ -1885,3 +1885,42 @@ body.m13-locked{overflow:hidden}
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 10px 30px rgba(16,14,34,.18)}
 .m13-kin--pg-none .m13-kw{background:transparent;box-shadow:none}
 .m13-kin--pg-glass .m13-kw-hint,.m13-kin--pg-none .m13-kw-hint{color:var(--kw-ink);text-shadow:0 1px 8px rgba(0,0,0,.55)}
+/* Ответ кина спокойнее (её правки 19.10, вечер): строки про архетип — внутри карточки кина, а не на картинке страницы;
+   текст ответа на странице — Lora / без засечек (reflection.kin.page.font), название кина — шрифтом страницы; цифры ровные; подзаголовки тише */
+.m13-kin-sig{flex-direction:column;align-items:stretch;gap:10px}
+.m13-kin-sigr{display:flex;align-items:center;gap:12px;min-width:0}
+.m13-kin-sig .m13-kin-arch{padding-top:10px;border-top:1px solid rgba(128,128,128,.28)}
+.m13-look .m13-kin-sig .m13-kin-arch{color:inherit;text-shadow:none}
+.m13-kin.m13-kin--own .m13-kin-sig .m13-kin-arch{background:none;border:0;border-top:1px solid var(--kin-line);border-radius:0;padding:10px 0 0}
+.m13-kin .m13-kin-sig .m13-kin-arch p{font-size:13.5px}
+.m13-kin .m13-kin-sig .m13-kin-arch .m13-kin-arch-n{font-size:12px;line-height:1.45}
+.m13-kin-page .m13-kin-out{gap:10px;font-variant-numeric:lining-nums}
+.m13-kin--f-lora .m13-kin-out{font-family:'Lora',Georgia,serif}
+.m13-kin--f-sans .m13-kin-out{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.m13-kin--f-lora .m13-kin-sigt strong,.m13-kin--f-sans .m13-kin-sigt strong{font-family:var(--lk-font,"Cormorant Garamond",Georgia,serif);font-weight:600}
+.m13-kin-page .m13-kin-sig{gap:12px;padding:16px 18px}
+.m13-kin-page .m13-kin-sigr{gap:16px}
+.m13-kin-page .m13-kin-sig .m13-kin-arch{padding-top:12px}
+.m13-kin-page .m13-kin-sig .m13-kin-arch p{font-size:calc(15px * var(--m13-tk,1));line-height:1.55}
+.m13-kin-page .m13-kin-sig .m13-kin-arch .m13-kin-arch-h{font-weight:600}
+.m13-kin-page .m13-kin-sig .m13-kin-arch .m13-kin-arch-n{font-size:calc(13.5px * var(--m13-tk,1));line-height:1.55;margin:0}
+.m13-kin-page .m13-kin-sec{padding:16px 18px}
+.m13-kin-page .m13-kin-sec h3{margin:0 0 6px;font-size:calc(11px * var(--m13-tk,1));font-weight:600;letter-spacing:.08em}
+.m13-look .m13-kin-page .m13-kin-sec h3,.m13-look.m13-kin-page .m13-kin-sec h3{color:var(--lk-ac)}
+.m13-kin.m13-kin--own .m13-kin-sec h3{color:var(--kw-gold,var(--kin-mut))}
+.m13-kin-page .m13-kin-sec p,.m13-kin-page .m13-kin-hunab p{font-size:calc(15px * var(--m13-tk,1));line-height:1.6}
+.m13-kin-page .m13-kin-sigt span{font-size:calc(13.5px * var(--m13-tk,1))}
+.m13-kin-route .m13-kin-rt{font-weight:600}
+.m13-kin-route .m13-kin-rd{margin-top:2px;opacity:.85}
+.m13-kin-racts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-top:10px}
+.m13 .m13-kin-racts .m13-kin-link{display:inline;margin:0;padding:2px 0}
+.m13 .m13-kin-racts .m13-action{width:auto;max-width:none;margin:0;padding:9px 20px}
+.m13-kin-route + .m13-kin-route{margin-top:14px;padding-top:14px}
+@media (max-width:680px){
+  .m13-kin-page .m13-kin-sig,.m13-kin-page .m13-kin-sec{padding:14px}
+  .m13-kin-page .m13-kin-sigr{gap:12px}
+  .m13-kin-racts{gap:8px 14px}
+  .m13 .m13-kin-page .m13-kin-racts .m13-kin-link{font-size:calc(14px * var(--m13-tk,1))}
+  .m13 .m13-kin-racts .m13-action{padding:8px 15px;font-size:13.5px}
+  .m13-kin-page .m13-kin-sec p,.m13-kin-page .m13-kin-hunab p,.m13-kin-page .m13-kin-sig .m13-kin-arch p{font-size:calc(14.5px * var(--m13-tk,1))}
+}
