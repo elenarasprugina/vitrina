@@ -2408,6 +2408,11 @@
       el('div', { class: 'a-row' }, [optIn(it, 'date', 'Дата', { ph: '08 октября' }), optIn(it, 'price', 'Цена', { ph: '2 500 ₽ или «Свободный вход»' })]),
       itemCalHint(it),
       optIn(it, 'text', 'Короткое описание', { multi: true, rows: 2 }),
+      // Картинка плашки и колесо кина (19.10, docs/plashki.md)
+      imageIn(it, 'image', 'Картинка плашки', { max: 1000, size: { w: 800, h: 800, note: 'квадрат; для плиток «4:5» — 800×1000; главное — в центре' },
+        hint: 'Необязательно. В списке — маленькая слева, в плитках — сверху и крупно в окошке. Пусто — плашка без картинки, как раньше.' }),
+      switchIn(it, 'kinWheel', 'Вместо картинки — колесо «Узнать свой кин»', { hint: 'В плашке маленькое живое колесо; нажатие открывает страницу кина на весь экран (кнопка плашки ниже тогда не нужна). Пустое название — «Узнать свой кин». Фон и движение колеса — «Карты-Отражения» → «Узнать свой кин» → «Оборот карточки».' }),
+      textIn(it, 'full', 'Подробный текст для окошка (у плиток)', { multi: true, rows: 4, hint: 'Показывается в окошке, когда нажали на плитку. Пусто — короткое описание.' }),
       el('div', { class: 'a-row' }, [optIn(it, 'duration', 'Длительность', { ph: 'до 90 минут' }), optIn(it, 'status', 'Статус', { ph: 'осталось 2 места' })]),
       actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться', kinds: ['contact', 'link', 'event'] }),
       itemCalendar(it)
@@ -2647,6 +2652,12 @@
     if (x.kind === 'items') return [
       collection(x.items = x.items || [], { visible: true, max: x.max || 10, title: itemTitle, body: itemBody, make: newItem,
         addLabel: '+ Добавить плашку', empty: 'Пока нет ни одной плашки.' }),
+      el('div', { class: 'a-row' }, [
+        selectIn(x, 'view', 'Вид плашек', [['list', 'Список (как раньше)'], ['tiles', 'Плитки — по две в ряд']],
+          { hint: 'Плитки: сверху картинка, под ней название и цена; нажатие — окошко с полным текстом и кнопкой плашки.' }),
+        selectIn(x, 'tileShape', 'Форма картинки на плитке', [['square', 'Квадрат'], ['card', 'Вытянутая, как карта (4:5)']]),
+        selectIn(x, 'lastTile', 'Последняя плитка, если их нечётное число', [['center', 'По центру'], ['wide', 'Во всю ширину']],
+          { hint: 'Во всю ширину: картинка слева, текст справа.' })]),
       selectIn(x, 'tpl', 'Готовый текст обращения для плашек', [['container', 'Как для встреч и услуг'], ['offerItem', 'Как для вариантов продукта']],
         { hint: 'Сами тексты — в «Настройках». У любой плашки можно написать свой.' }),
       switchIn(x, 'copyItems', 'Переносить эти плашки в новый месяц', { defTrue: true, hint: 'Для встреч обычно выключено: каждый месяц встречи новые.' })];
@@ -2655,9 +2666,12 @@
       textIn(x, 'note', 'Пояснение под датами', { multi: true, rows: 2 })];
     if (x.kind === 'examples') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт на страницу примеров Карт-Отражений.' })];
     if (x.kind === 'sandbox') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт в Песочницу — «Как устроены маршруты».' })];
-    if (x.kind === 'kin') return [textIn(x, 'title', 'Заголовок над полем', { ph: 'Пусто — без заголовка' }),
+    if (x.kind === 'kin') return [textIn(x, 'title', 'Заголовок над колесом', { ph: 'Пусто — без заголовка', hint: 'В виде «в плашке» — название самой плашки (пусто — «Узнать свой кин»).' })]
+      .concat(kinMiniFields(cb)).concat([
+      imageIn(x, 'image', 'Картинка рядом с колесом (вид «рядом с картинкой»)', { max: 1200, size: { w: 900, h: 500, note: 'горизонтальная, главное — в центре' },
+        hint: 'Пусто — первая картинка из блока «Картинки» этого оборота.' }),
       el('p', { class: 'a-hint', text: 'Человек поворачивает колесо даты рождения (или вводит дату цифрами) — видит кин, знак печати, тон и базовый архетип печати (если он отмечен «Показать на сайте» в Библиотеке → «Архетипы»), ниже — «Подробнее о вашем кине →» на страницу кина. Тексты и знаки печатей — раздел «Карты-Отражения» → «Узнать свой кин».' }),
-      el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Тексты и знаки печатей →', onclick: function () { ST.section = 'reflection'; ST.kinOpen = true; renderShell(); window.scrollTo(0, 0); } })];
+      el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Тексты и знаки печатей →', onclick: function () { ST.section = 'reflection'; ST.kinOpen = true; renderShell(); window.scrollTo(0, 0); } })]);
     if (x.kind === 'actions') return [el('p', { class: 'a-hint', text: 'До 4 кнопок. Три-четыре встают сеткой 2×2; первая — главная, в акцентном цвете.' }),
       collection(x.actions = x.actions || [], { visible: true, max: 4, ordered: false, title: function (a) { return (a.label || defLabel(kindOf(a))) + ' · ' + (ACTION_KINDS.filter(function (k) { return k[0] === kindOf(a); })[0] || [, ''])[1].split(' — ')[0]; },
       body: function (a) { return [actionIn({ a: a }, 'a', '', { kinds: ACTION_KINDS.map(function (k) { return k[0]; }) })]; },
@@ -8436,7 +8450,8 @@
     ['Цолькин — подписи к подсвеченным волнам', [['wNow', 'Волна, что идёт сейчас ({маршрут}, {даты}, {день})', 1], ['wNowPast', 'Добавка: печать уже была в ней ({дата}, {день})', 1],
       ['wSeal', 'Когда придёт печать — в другой волне ({дата}, {кин}, {имя}, {день}, {маршрут}, {даты})', 1], ['wSealHere', 'Когда придёт печать — в этой же волне', 1],
       ['wSealToday', 'Если день печати — сегодня ({кин}, {имя})', 1]]],
-    ['Оборот карточки', [['wMini', 'Маленькое колесо: надпись в середине (под ней — кнопка «Открыть»; нажатие — колесо на весь экран)']]],
+    ['Оборот карточки', [['wMini', 'Маленькое колесо (вид «посередине»): надпись в круге'], ['wpTitle', 'Плашка колеса: название'],
+      ['wpSub', 'Плашка колеса: строка под названием (и под плиткой с колесом, если нет цены)'], ['wpGo', 'Плашка колеса: «Открыть →»']]],
     ['Страница', [['eyebrow', 'Надпись сверху'], ['title', 'Заголовок'], ['intro', 'Вступление (пусто — без него)', 1],
       ['toneH', 'Тон — заголовок'], ['toneT', 'Тон — текст ({тон}, {номер тона})', 1],
       ['birthH', 'Галактический день рождения — заголовок'], ['birthT', 'Галактический день рождения — текст ({дата})', 1], ['birthToday', 'Если он сегодня'],
@@ -8444,6 +8459,16 @@
       ['routeOpen', 'Кнопка, если маршрут на витрине'], ['routeSoon', 'Если маршрута на витрине ещё нет'], ['routeAsk', 'Кнопка «написать»'],
       ['routeMsg', 'Готовый текст сообщения ({маршрут}, {даты})', 1]]]
   ];
+  // Маленькое колесо на обороте (docs/plashki.md): вид, фон, движение — общие для всех блоков «Узнать свой кин» и колёс в плашках (reflection.kin.mini)
+  function kinMiniFields(cb) {
+    var rf = DATA.reflection = DATA.reflection || {}, k = rf.kin = rf.kin || {}, m = k.mini = k.mini || {};
+    function ch() { if (cb && cb.redrawGrid) cb.redrawGrid(); }
+    return [el('div', { class: 'a-row' }, [
+      selectIn(m, 'lay', 'Вид блока «Узнать свой кин»', [['middle', 'Посередине, но меньше (надпись в круге)'], ['left', 'В плашке, колесо слева'], ['right', 'В плашке, колесо справа'], ['pair', 'Рядом с картинкой']], { onChange: ch }),
+      selectIn(m, 'bg', 'Фон колеса', [['deep', 'Цветной (как было)'], ['glass', 'Стекло'], ['none', 'Без фона, мягкое свечение']], { onChange: ch }),
+      selectIn(m, 'mv', 'Движение колеса', [['calm', 'Тихое: набирает сегодняшнюю дату, редкий блик'], ['quiet', 'Совсем тихое: без блика'], ['still', 'Неподвижное']], { onChange: ch })]),
+      el('p', { class: 'a-hint', text: 'Фон и движение — общие для всех маленьких колёс: в этом блоке и в плашках «Вместо картинки — колесо». Надписи плашки колеса — «Карты-Отражения» → «Узнать свой кин» → «Оборот карточки».' })];
+  }
   function kinFields(rf) {
     var k = rf.kin = rf.kin || {}, D = (window.M13 && window.M13.KIN_T) || {}, arch = k.arch || {}, imgs = k.sealImg = k.sealImg || {}, K = window.M13KIN, wh = k.wheel = k.wheel || {};
     var shown = Object.keys(arch).filter(function (n) { return arch[n] && arch[n].name; }).sort(function (a, b) { return a - b; });
@@ -8469,6 +8494,7 @@
     ];
     KIN_FIELDS.forEach(function (g) {
       out.push(el('div', { class: 'a-lib-grpt', text: g[0] }));
+      if (g[0] === 'Оборот карточки') out = out.concat(kinMiniFields());
       g[1].forEach(function (f) { out.push(textIn(k, f[0], f[1], { ph: D[f[0]] || '', multi: !!f[2], rows: 2 })); });
     });
     out.push(el('div', { class: 'a-lib-grpt', text: 'Знаки печатей (по желанию)' }),

@@ -50,7 +50,7 @@
   }
 
   /* ---------- Состояние ---------- */
-  var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null, lb: [] };
+  var S = { base: './', view: 'showcase', D: null, root: null, acts: [], layers: [], useHistory: true, card: null, lb: [], tiles: [] };
 
   function T(key) { return (S.D.settings.texts || {})[key] || ''; }
   function routeById(id) { return (S.D.routes.routes || []).filter(function (r) { return r.id === id; })[0] || null; }
@@ -154,6 +154,9 @@
     }
   }
   function bindActs(scope) {
+    scope.querySelectorAll('[data-m13-tile]').forEach(function (b) {
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); S.from = b; openTile(+b.getAttribute('data-m13-tile')); });
+    });
     scope.querySelectorAll('[data-m13-act]').forEach(function (b) {
       b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); S.from = b; runAct(+b.getAttribute('data-m13-act')); });
       if (b.getAttribute('role') === 'button') b.addEventListener('keydown', function (e) {
@@ -1205,7 +1208,7 @@
     var backc = S.root.querySelector('#m13-backc'), isCal = isCalCard(c);
     backc.innerHTML = isCal ? calHTML(c) : backHTML(c);
     bindActs(backc);
-    if (backc.querySelector('[data-m13-kin],[data-m13-kin-mini]')) kinBind(backc);
+    if (backc.querySelector('[data-m13-kin],[data-m13-kin-go],[data-m13-kin-wheel]')) kinBind(backc);
     dcMore(backc);
     if (isCal) calBind(backc, c);
     backc.querySelectorAll('[data-m13-lb]').forEach(function (b) {
@@ -1530,9 +1533,13 @@
 
   /* ---------- Оборот: контейнер (встречи, индивидуальная работа) ---------- */
   // Плашки-элементы (встречи, виды работы, варианты продукта) — одна общая схема.
-  function itemsHTML(c, list, max, tplKey) {
+  // Блок x (docs/plashki.md, 19.10): view 'list' (как было) | 'tiles' — по две в ряд, нажатие — окошко; lastTile 'center' | 'wide'; tileShape 'square' | 'card' (4:5).
+  // У плашки: image — картинка (в списке маленькая слева, в плитке сверху); kinWheel — вместо картинки живое колесо «Узнать свой кин», нажатие — страница кина.
+  function itemsHTML(c, list, max, tplKey, x) {
     var items = visibleSorted(list, max || 10);
     if (!items.length) return '';
+    x = x || {};
+    if (x.view === 'tiles') return tilesHTML(c, items, tplKey, x);
     // Автовыравнивание: если какая-то часть (дата, описание, срок, цена) есть хотя бы у одной плашки,
     // у остальных на её месте пустая строка — тогда в ряду названия, цены и «Написать →» стоят на одном уровне.
     var one = items.length === 1, has = {};
@@ -1548,7 +1555,9 @@
       var a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
-      if (cal) return '<div class="m13-item m13-item--cal" role="button" tabindex="0"' + act(a, ctx) + '>' +
+      var pic = itemPic(it, 'm13-item-pic'), pc = pic ? ' m13-item--pic' + kinBgCls(it) : '';
+      if (it.kinWheel) { a = { kind: 'internal', target: 'kin' }; if (!a.label) a.label = kinT('wpGo').replace(/\s*→\s*$/, ''); }
+      if (cal && !it.kinWheel) return '<div class="m13-item m13-item--cal' + pc + '" role="button" tabindex="0"' + act(a, ctx) + kinStyle(it) + '>' + pic +
         part('m13-item-date', date, txt(date)) +
         '<div class="m13-item-title">' + txt(it.title) + '</div>' +
         part('m13-item-text', text, txt(text)) +
@@ -1556,14 +1565,69 @@
         part('m13-item-price', price, txt(price)) +
         '<div class="m13-item-acts"><span class="m13-item-action">' + txt(a.label || 'Написать') + ' →</span>' +
         '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + txt(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
-      return '<button type="button" class="m13-item"' + act(a, ctx) + '>' +
+      return '<button type="button" class="m13-item' + pc + '"' + act(a, ctx) + kinStyle(it) + '>' + pic +
         part('m13-item-date', date, txt(date)) +
-        '<div class="m13-item-title">' + txt(it.title) + '</div>' +
+        '<div class="m13-item-title">' + txt(it.title || (it.kinWheel ? kinT('wpTitle') : '')) + '</div>' +
         part('m13-item-text', text, txt(text)) +
         part('m13-item-meta', meta, txt(meta)) +
         part('m13-item-price', price, txt(price)) +
         '<div class="m13-item-action">' + txt(a.label || 'Написать') + ' →</div></button>';
     }).join('') + '</div>';
+  }
+
+  // Картинка плашки или живое колесо кина (колесо монтирует kinBind)
+  function itemPic(it, cls) {
+    if (it.kinWheel) return '<span class="' + cls + ' m13-pic-kw"><span class="m13-kwm" data-m13-kin-wheel></span></span>';
+    return it.image ? '<span class="' + cls + '"><img src="' + esc(media(it.image)) + '" alt="" loading="lazy"></span>' : '';
+  }
+  function kinBgCls(it) { return it.kinWheel ? ' m13-kwb--' + kinMini().bg : ''; }
+  function kinStyle(it) { var css = it.kinWheel ? kinLookCss(kinLook()) : ''; return css ? ' style="' + esc(css) + '"' : ''; }
+  // Плитки: по две в ряд (и на телефоне), сверху картинка, под ней название и коротко цена; нечётная последняя — по центру или во всю ширину
+  function tilesHTML(c, items, tplKey, x) {
+    var odd = items.length % 2 === 1, wide = x.lastTile === 'wide', last = items.length - 1;
+    return '<div class="m13-tiles m13-tiles--' + (x.tileShape === 'card' ? 'card' : 'square') + '">' + items.map(function (it, i) {
+      var date = opt(it.date), price = opt(it.price), a = it.action || { kind: 'contact' };
+      var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
+      var cls = 'm13-item m13-tile' + (odd && i === last && items.length > 1 ? (wide ? ' m13-tile--wide' : ' m13-tile--mid') : '') + kinBgCls(it);
+      var line = price || (it.kinWheel ? kinT('wpSub') : '');
+      var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
+      var at = it.kinWheel ? act({ kind: 'internal', target: 'kin' }) : ' data-m13-tile="' + (S.tiles.push({ it: it, a: a, ctx: ctx, cal: cal, shape: x.tileShape }) - 1) + '"';
+      return '<button type="button" class="' + cls + '"' + at + kinStyle(it) + '>' + itemPic(it, 'm13-tile-pic') +
+        '<span class="m13-tile-t">' + (date ? '<span class="m13-item-date">' + txt(date) + '</span>' : '') +
+        '<span class="m13-item-title">' + txt(it.title || (it.kinWheel ? kinT('wpTitle') : '')) + '</span>' +
+        (line ? '<span class="m13-item-price">' + txt(line) + '</span>' : '') + '</span></button>';
+    }).join('') + '</div>';
+  }
+  // Окошко плитки: картинка, полный текст, цена и кнопка плашки (как настроено у неё); оформление — как у окна «Куда написать?»
+  function openTile(i) {
+    var t = S.tiles[i]; if (!t) return;
+    var it = t.it, a = t.a, m = S.root.querySelector('#m13-tile');
+    if (!m) {
+      S.root.querySelector('#m13-modal').insertAdjacentHTML('beforebegin', '<div class="m13-modal m13-tilem" id="m13-tile" role="dialog" aria-modal="true" aria-labelledby="m13-tile-t">' +
+        '<div class="m13-modal-box"></div></div>');
+      m = S.root.querySelector('#m13-tile');
+      m.addEventListener('click', function (e) { if (e.target === m) closeTop(); });
+    }
+    applyWin();
+    var box = m.querySelector('.m13-modal-box'), date = opt(it.date), price = opt(it.price), full = opt(it.full) || opt(it.text);
+    var meta = [opt(it.duration), opt(it.status)].filter(Boolean).join(' · ');
+    box.querySelectorAll(':scope > :not(.m13-lay)').forEach(function (n) { n.remove(); });
+    box.insertAdjacentHTML('afterbegin', '<div class="m13-tilem-in">' +
+      (it.image ? '<img class="m13-tilem-img' + (t.shape === 'card' ? ' m13-tilem-img--card' : '') + '" src="' + esc(media(it.image)) + '" alt="">' : '') +
+      (date ? '<div class="m13-eyebrow">' + txt(date) + '</div>' : '') +
+      '<h3 id="m13-tile-t">' + txt(it.title) + '</h3>' +
+      (meta ? '<div class="m13-tilem-meta">' + txt(meta) + '</div>' : '') +
+      (full ? '<div class="m13-tilem-text">' + txt(full) + '</div>' : '') +
+      (price ? '<div class="m13-tilem-price">' + txt(price) + '</div>' : '') +
+      '<div class="m13-actions"><button type="button" class="m13-action m13-action--primary"' + act(a, t.ctx) + '>' + txt(a.label || 'Написать') + '</button>' +
+      (t.cal ? '<button type="button" class="m13-action"' + act({ kind: 'calendar', cal: t.cal }, t.ctx) + '>' + txt(t.cal.label || T('calendarButton') || 'В календарь') + '</button>' : '') + '</div>' +
+      '<button type="button" class="m13-modal-close">' + txt(T('close') || 'Закрыть') + '</button></div>');
+    bindActs(box);
+    box.querySelector('.m13-modal-close').addEventListener('click', closeTop);
+    box.scrollTop = 0;
+    var was = document.body.classList.contains('m13-locked');
+    m.classList.add('is-open'); lock(true);
+    pushLayer('tile', function () { m.classList.remove('is-open'); lock(was); });
   }
 
   /* ---------- Оборот из блоков ----------
@@ -1654,7 +1718,7 @@
     var price = '';
     list.forEach(function (x) { if (x.kind === 'price' && !price) price = String(x.value || '').trim(); });
 
-    S.lb = [];
+    S.lb = []; S.tiles = [];
     var stub = (c.back || {}).stub;
     if (stub && stub.on) return stubHTML(c, r, kin, stub);
     var h = headHTML(c, kin ? [kin] : []), btnRun = [], runPush = false;
@@ -1705,7 +1769,7 @@
         html = formatsHTML(c, x, r);
         if (how && html && !howAtDay && h.indexOf('m13-howto') < 0) html = '<div class="m13-dayrow m13-dayrow--how">' + how + '</div>' + html;
       }
-      else if (x.kind === 'items') html = itemsHTML(c, x.items, x.max, x.tpl || 'container');
+      else if (x.kind === 'items') html = itemsHTML(c, x.items, x.max, x.tpl || 'container', x);
       else if (x.kind === 'dates') {
         var ds = String(x.dates || '').trim();
         if (ds) html = '<div class="m13-dates">' + (x.label ? '<div class="m13-dates-label">' + txt(x.label) + '</div>' : '') +
@@ -1721,7 +1785,7 @@
           '<span class="m13-more-close">' + txt(x.labelClose || 'Свернуть') + ' ↑</span></summary><div class="m13-more-text">' + txt(mt) + '</div></details>';
       }
       else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
-      else if (x.kind === 'kin') html = (String(x.title || '').trim() ? '<div class="m13-block-title">' + txt(String(x.title).trim()) + '</div>' : '') + kinFormHTML('card');
+      else if (x.kind === 'kin') html = kinCardHTML(x, list);
       else if (x.kind === 'sandbox') {
         html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
           txt(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
@@ -1821,7 +1885,7 @@
   }
   function applyWin() {
     var L = winSource();
-    ['#m13-modal', '#m13-cal'].forEach(function (id) {
+    ['#m13-modal', '#m13-cal', '#m13-tile'].forEach(function (id) {
       var box = S.root.querySelector(id + ' .m13-modal-box'); if (!box) return;
       box.className = 'm13-modal-box' + (L ? ' ' + L.cls.join(' ') : '');
       box.setAttribute('style', L ? L.css.join(';') : '');
@@ -3146,7 +3210,7 @@
     wHintOpen: 'Ваше место в круге 260 дней. Нажмите на любую точку — покажу, что это за кин.',
     wHintPick: 'Нажимайте на любые кины. Ваш — в круге, волна выбранного кина — ярче.',
     wHunab: 'Ниже — про 29 февраля: выберите, до или после полудня вы родились.',
-    wMini: 'Узнать свой кин', wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
+    wMini: 'Узнать свой кин', wpTitle: 'Узнать свой кин', wpSub: 'по дате рождения · бесплатно', wpGo: 'Открыть →', wOpen: 'Открыть', wAgain: '← Изменить дату', wTyped: 'Ввести дату цифрами', wWheel: '← Выбрать на колесе',
     wMine: '↩ К моему кину', wNext: 'Ближайший день этого кина — {дата}.', wWave: 'Волна «{маршрут}» · {даты}, день {день} из 13',
     wShow: 'Показать на Цолькине', wLayWaves: 'Волны', wLaySpiral: 'Спираль', wLayGrid: 'Таблица',
     // подписи к подсвеченным волнам под Цолькином
@@ -3295,10 +3359,30 @@
   }
   // Колесо даты (её решение 19.10 — «делаем»): кольца год / месяц / день → «Открыть» → Цолькин; ниже — «Ввести дату цифрами» (прежнее поле).
   // На обороте карточки (её решение 19.10, вечер: без прокрутки в карточке) — маленькое «тихо живое» колесо, нажатие — страница кина на весь экран.
+  // Вид, фон и движение маленького колеса — reflection.kin.mini (docs/plashki.md): lay 'middle' посередине, но меньше (надпись в круге) | 'left' / 'right' — в плашке,
+  // колесо слева / справа | 'pair' — рядом с картинкой; bg 'deep' цветной (как было) | 'glass' стекло | 'none' без фона; mv 'calm' | 'quiet' | 'still'.
+  function kinMini() {
+    var m = kinCfg().mini || {};
+    return { lay: { left: 1, right: 1, pair: 1 }[m.lay] ? m.lay : 'middle', bg: { glass: 1, none: 1 }[m.bg] ? m.bg : 'deep', mv: { quiet: 1, still: 1 }[m.mv] ? m.mv : 'calm' };
+  }
+  function kinCardHTML(x, list) {
+    var mi = kinMini(), css = kinLookCss(kinLook()), title = String(x.title || '').trim(), lay = mi.lay, img = x.image || '';
+    if (lay === 'pair' && !img) list.forEach(function (b) {
+      if (!img && b.kind === 'images') (b.images || []).forEach(function (m) { if (!img && m && m.visible !== false && m.src) img = m.src; }); });
+    if (lay === 'pair' && !img) lay = 'middle';
+    var h = '<div class="m13-kin m13-kin--card m13-kin--' + lay + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>', go = ' data-m13-kin-go aria-label="' + esc(title || kinT('wpTitle')) + '"';
+    if (lay === 'left' || lay === 'right') return h + '<button type="button" class="m13-item m13-kinp' + (lay === 'right' ? ' m13-kinp--rev' : '') + ' m13-kwb--' + mi.bg + '"' + go + '>' +
+      '<span class="m13-kinp-w"><span class="m13-kwm" data-m13-kin-wheel></span></span>' +
+      '<span class="m13-kinp-t">' + txt(title || kinT('wpTitle')) + '</span>' + (kinT('wpSub') ? '<span class="m13-kinp-s">' + txt(kinT('wpSub')) + '</span>' : '') +
+      (kinT('wpGo') ? '<span class="m13-item-action">' + txt(kinT('wpGo')) + '</span>' : '') + '</button></div>';
+    h = (title ? '<div class="m13-block-title">' + txt(title) + '</div>' : '') + h;
+    var wheel = '<button type="button" class="m13-kwm-btn m13-kwb--' + mi.bg + '"' + go + '><span class="m13-kwm' + (lay === 'middle' ? ' m13-kwm--txt' : '') + '" data-m13-kin-wheel' +
+      (lay === 'middle' ? ' data-text="1"' : '') + '></span></button>';
+    if (lay === 'pair') return h + '<div class="m13-kinpair"><img src="' + esc(media(img)) + '" alt="" loading="lazy">' + wheel + '</div></div>';
+    return h + wheel + '</div>';
+  }
   function kinFormHTML(mode) {
     var lk = kinLook(), css = kinLookCss(lk);
-    if (mode === 'card') return '<div class="m13-kin m13-kin--card"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
-      '<button type="button" class="m13-kw m13-kw--mini" data-m13-kin-mini aria-label="' + esc(kinT('wMini')) + '"></button></div>';
     return '<div class="m13-kin m13-kin--' + mode + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
       '<div class="m13-kw"></div>' +
       '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
@@ -3312,12 +3396,14 @@
   // Колесо и поле даты: точки в поле ставятся сами; «Открыть» на колесе, Enter или «Узнать» — результат. pre — { date, noon } (из блока оборота на страницу)
   function kinBind(scope, pre) {
     ensureFont('Cormorant Garamond');
-    scope.querySelectorAll('[data-m13-kin-mini]').forEach(function (b) {
+    scope.querySelectorAll('[data-m13-kin-go]').forEach(function (b) {
       b.addEventListener('click', function (e) { e.stopPropagation(); openInternal('kin'); });
+    });
+    scope.querySelectorAll('[data-m13-kin-wheel]').forEach(function (b) {
       needKin(function () {
         var w = kinCfg().wheel || {};
-        window.M13KINW.mount(b, { mini: true, mat: w.mat, T: kinT, look: kinLook(),
-          idle: function () { return !!S.root.querySelector('.m13-internal.is-open'); } });
+        window.M13KINW.mount(b, { mini: true, mat: w.mat, T: kinT, look: kinLook(), mv: kinMini().mv, noText: !b.hasAttribute('data-text'),
+          idle: function () { return !!S.root.querySelector('.m13-internal.is-open,#m13-tile.is-open'); } });
       });
     });
     scope.querySelectorAll('[data-m13-kin]').forEach(function (box) {
