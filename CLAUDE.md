@@ -18,7 +18,7 @@
 
 ## Где что
 - `elenarasprugina/vitrina` — код витрины и панели (`assets/vitrina.js`, `assets/vitrina.css`, `admin/`), сайт 13mirrors.ru/vitrina/.
-- `elenarasprugina/13mirrors-content` — черновики (тексты, картинки внутри JSON). Править напрямую — только когда она нажала «Сохранить» в панели и не трогает её; иначе затрёшь её правки.
+- `elenarasprugina/13mirrors-content` — черновики (тексты; картинки — файлами `media/`, в JSON ссылки `m13media:…`, их не трогать). Править напрямую — только когда она нажала «Сохранить» в панели и не трогает её; иначе затрёшь её правки.
 - `elenarasprugina/elenarasprugina.github.io` — главная 13mirrors.ru.
 - Памятка для неё: https://claude.ai/artifact/RQHPT5oryGvSiGWJzMXBH3 (обновлять при новых возможностях).
 

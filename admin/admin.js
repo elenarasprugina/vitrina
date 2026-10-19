@@ -9694,19 +9694,20 @@
     });
   }
   // Файл из репозитория как есть (raw — без base64, на треть легче); оборвалась связь — ещё две попытки через 2 и 5 с
-  function readText(repo, sha, n) {
+  function readRaw(repo, sha, n) {
     n = n || 0;
     return fetch(GH.api + repoPath(repo) + '/git/blobs/' + sha, { cache: 'no-store',
       headers: { 'Authorization': 'Bearer ' + GHS.token, 'Accept': 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' } })
       .then(function (r) {
         if (!r.ok) { var e = ghErr(r.status, repo); e.final = true; throw e; }
-        return r.arrayBuffer().then(function (b) { return new TextDecoder().decode(b); }, function () { throw ghErr(0); });
+        return r.arrayBuffer().catch(function () { throw ghErr(0); });
       }, function () { throw ghErr(0); })
       .catch(function (e) {
         if (e.final || n >= 2) throw e;
-        return new Promise(function (ok) { setTimeout(ok, [2000, 5000][n]); }).then(function () { return readText(repo, sha, n + 1); });
+        return new Promise(function (ok) { setTimeout(ok, [2000, 5000][n]); }).then(function () { return readRaw(repo, sha, n + 1); });
       });
   }
+  function readText(repo, sha) { return readRaw(repo, sha).then(function (b) { return new TextDecoder().decode(b); }); }
   // Отпечаток файла так, как его считает git (sha1 от «blob <длина>\0» + содержимое) — чтобы не отправлять файлы, которые не менялись.
   // Нет crypto.subtle (старый браузер) — null: файл просто отправится.
   function blobSha(f) {
@@ -9760,14 +9761,147 @@
     });
   }
 
+  /* ---------- Картинки черновика — отдельными файлами (20.10, docs/status.md п. 43) ----------
+     В JSON черновика вместо data:… — ссылка «m13media:media/<отпечаток>.<расш>#data:image/webp;base64», сама картинка — файл media/… в 13mirrors-content.
+     Одинаковая картинка — один файл; «Сохранить» шлёт только тексты и новые картинки; «Из GitHub» качает только картинки, которых нет
+     в памяти этого браузера (IndexedDB 'm13-media' — только копия для скорости, оригиналы в GitHub). Старый черновик (картинки внутри JSON) читается как прежде. */
+  var MREF = 'm13media:', MEDIA_MIN = 4096;
+  var MEDIA_MEMO = new Map();   // data:… → ссылка (отпечаток не считать заново)
+  var MCACHE = (function () {
+    var dbp = null, ST = 'm';
+    function open() {
+      if (dbp) return dbp;
+      dbp = new Promise(function (res, rej) {
+        if (!window.indexedDB) return rej(new Error('no indexedDB'));
+        var r = indexedDB.open('m13-media', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore(ST); };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error); };
+      });
+      return dbp;
+    }
+    function tx(mode, fn) {
+      return open().then(function (db) {
+        return new Promise(function (res, rej) {
+          var t = db.transaction(ST, mode), q = fn(t.objectStore(ST));
+          t.oncomplete = function () { res(q && q.result); };
+          t.onerror = t.onabort = function () { rej(t.error || new Error('idb')); };
+        });
+      });
+    }
+    // Память браузера — не главное: не открылась или переполнена — просто качаем из GitHub
+    return {
+      get: function (k) { return tx('readonly', function (st) { return st.get(k); }).catch(function () { return null; }); },
+      put: function (k, v) { return tx('readwrite', function (st) { return st.put(v, k); }).catch(function () {}); },
+      // Оставить только картинки текущего черновика
+      keep: function (keys) {
+        return tx('readwrite', function (st) {
+          var q = st.getAllKeys();
+          q.onsuccess = function () { q.result.forEach(function (k) { if (!keys[k]) st.delete(k); }); };
+          return null;
+        }).catch(function () {});
+      }
+    };
+  })();
+  function mediaExt(sub) {
+    sub = sub.toLowerCase();
+    return { jpeg: 'jpg', 'svg+xml': 'svg', mpeg: 'mp3', 'x-m4a': 'm4a', mp4: 'mp4', quicktime: 'mov', 'x-wav': 'wav', wave: 'wav', aac: 'aac', ogg: 'ogg', webm: 'webm' }[sub] || sub.replace(/[^a-z0-9]/g, '');
+  }
+  function b64bytes(b64) { var bin = atob(b64), out = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+  function bytesB64(buf) {
+    var u = new Uint8Array(buf), bin = '';
+    for (var i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  // Все большие data:…;base64 черновика → ссылки. Возвращает { ref: Map data:→ссылка, list: [{ path, uri }] } (по одной на файл)
+  function mediaRefs(D) {
+    var seen = new Map(), uris = [];
+    (function walk(o) {
+      if (Array.isArray(o)) { o.forEach(walk); return; }
+      if (!o || typeof o !== 'object') return;
+      Object.keys(o).forEach(function (k) {
+        var v = o[k];
+        if (typeof v === 'string') { if (v.length >= MEDIA_MIN && v.charCodeAt(0) === 100 && !seen.has(v) && /^data:[a-z]+\/[a-z0-9.+-]+(;[^,;]*)*;base64,/i.test(v.slice(0, 200))) { seen.set(v, 1); uris.push(v); } }
+        else walk(v);
+      });
+    })(D);
+    var ref = new Map(), byPath = {}, list = [];
+    function one(i) {
+      if (i >= uris.length) return Promise.resolve();
+      var uri = uris[i], c = uri.indexOf(','), memo = MEDIA_MEMO.get(uri);
+      var done = function (r) {
+        ref.set(uri, r); MEDIA_MEMO.set(uri, r);
+        var path = r.slice(MREF.length, r.indexOf('#'));
+        if (!byPath[path]) { byPath[path] = 1; list.push({ path: path, uri: uri }); }
+        return one(i + 1);
+      };
+      if (memo) return done(memo);
+      return sha1(b64bytes(uri.slice(c + 1))).then(function (h) {
+        var pre = uri.slice(0, c), sub = pre.slice(5).split(';')[0].split('/')[1];
+        return done(MREF + 'media/' + hex(h).slice(0, 20) + '.' + mediaExt(sub) + '#' + pre);
+      });
+    }
+    // Помним только картинки текущего черновика (заменённые не держим в памяти)
+    return one(0).then(function () { MEDIA_MEMO = ref; return { ref: ref, list: list }; });
+  }
+  // Ссылки «m13media:…» в загруженном черновике → снова data:… (из памяти браузера или из GitHub). files — { путь: sha } репозитория.
+  function mediaResolve(repo, D, files) {
+    var refs = [], need = {}, paths = [];
+    (function walk(o) {
+      if (Array.isArray(o)) { o.forEach(walk); return; }
+      if (!o || typeof o !== 'object') return;
+      Object.keys(o).forEach(function (k) {
+        var v = o[k];
+        if (typeof v === 'string') {
+          if (v.lastIndexOf(MREF, 0) === 0) {
+            refs.push([o, k, v]);
+            var path = v.slice(MREF.length, v.indexOf('#'));
+            if (!need[path]) { need[path] = 1; paths.push(path); }
+          }
+        } else walk(v);
+      });
+    })(D);
+    if (!paths.length) return Promise.resolve();
+    var got = {}, missing = [], i = 0, done = 0;
+    function worker() {
+      if (i >= paths.length) return Promise.resolve();
+      var path = paths[i++];
+      return MCACHE.get(path).then(function (b64) {
+        if (b64) return b64;
+        if (!files[path]) return null;
+        return readRaw(repo, files[path]).then(function (buf) { var x = bytesB64(buf); MCACHE.put(path, x); return x; });
+      }).then(function (b64) {
+        if (b64) got[path] = b64; else missing.push(path);
+        busy('Загружаем картинки… ' + (++done) + ' из ' + paths.length);
+        return worker();
+      });
+    }
+    // По четыре файла сразу — быстрее, но не обрывается на неровном интернете
+    return Promise.all([worker(), worker(), worker(), worker()]).then(function () {
+      var made = {};
+      MEDIA_MEMO = new Map();
+      refs.forEach(function (x) {
+        var v = x[2], h = v.indexOf('#'), path = v.slice(MREF.length, h);
+        if (!got[path]) return;   // не нашлась — ссылка остаётся как есть (при «Сохранить» так и запишется, ничего не теряется)
+        var uri = made[v] || (made[v] = v.slice(h + 1) + ',' + got[path]);
+        x[0][x[1]] = uri; MEDIA_MEMO.set(uri, v);
+      });
+      MCACHE.keep(need);
+      if (missing.length) toast('Не нашлись картинки (' + missing.length + ') — на их месте будет пусто. Остальное загружено.', true);
+    });
+  }
+
   /* ---------- Данные ↔ файлы ---------- */
   var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events', 'journeys'];
-  function jsonText(o) { return JSON.stringify(o, null, 2) + '\n'; }
-  function draftFiles(D) {
+  function jsonText(o, ref) {
+    return JSON.stringify(o, ref ? function (k, v) { return typeof v === 'string' && ref.has(v) ? ref.get(v) : v; } : null, 2) + '\n';
+  }
+  // ref — Map data:→ссылка (mediaRefs): картинки в JSON заменяются ссылками
+  function draftFiles(D, ref) {
     var out = {};
-    DATA_FILES.forEach(function (n) { out['data/' + n + '.json'] = { text: jsonText(D[n]) }; });
-    out['data/showcases/index.json'] = { text: jsonText(D.index) };
-    Object.keys(D.showcases).forEach(function (id) { out['data/showcases/' + id + '.json'] = { text: jsonText(D.showcases[id]) }; });
+    DATA_FILES.forEach(function (n) { out['data/' + n + '.json'] = { text: jsonText(D[n], ref) }; });
+    out['data/showcases/index.json'] = { text: jsonText(D.index, ref) };
+    Object.keys(D.showcases).forEach(function (id) { out['data/showcases/' + id + '.json'] = { text: jsonText(D.showcases[id], ref) }; });
     return out;
   }
   function loadDraftFrom(repo, head) {
@@ -9789,7 +9923,7 @@
         busy('Загружаем черновик из GitHub… ' + (i + 1) + ' из ' + jobs.length);
         return readText(repo, jobs[i][0]).then(function (x) { jobs[i][1](x); return next(i + 1); });
       }
-      return next(0).then(function () {
+      return next(0).then(function () { return mediaResolve(repo, D, t.files); }).then(function () {
         DATA_FILES.forEach(function (n) { if (!D[n]) D[n] = clone(ORIGINAL[n] || (n === 'events' ? EVENTS_DEFAULT() : {})); });
         return { data: D, date: t.date };
       });
@@ -10361,12 +10495,21 @@
     }).then(function (head) {
       if (!head) return false;
       var libParts = [];
+      var fresh = [];
       return treeOf(GH.content, head).then(function (t) {
-        var files = draftFiles(DATA);
-        Object.keys(t.files).forEach(function (p) { if (/^data\/showcases\/\d{4}-\d{2}\.json$/.test(p) && !files[p]) files[p] = null; });
-        libParts = libFiles(files);
-        return commitFiles(GH.content, head, t.treeSha, files, 'Черновик: ' + new Date().toLocaleString('ru-RU'), null, t.files);
+        busy('Готовим картинки…');
+        return mediaRefs(DATA).then(function (M) {
+          var files = draftFiles(DATA, M.ref);
+          Object.keys(t.files).forEach(function (p) { if (/^data\/showcases\/\d{4}-\d{2}\.json$/.test(p) && !files[p]) files[p] = null; });
+          libParts = libFiles(files);
+          // Картинка с тем же отпечатком уже в GitHub — не отправляем
+          M.list.forEach(function (x) { if (!t.files[x.path]) { files[x.path] = { b64: x.uri.slice(x.uri.indexOf(',') + 1) }; fresh.push(x); } });
+          busy('Сохраняем черновик в GitHub…');
+          return commitFiles(GH.content, head, t.treeSha, files, 'Черновик: ' + new Date().toLocaleString('ru-RU'),
+            fresh.length ? function (d, n) { busy('Сохраняем черновик в GitHub… ' + Math.round(d / n * 100) + '%'); } : null, t.files);
+        });
       }).then(function (sha) {
+        fresh.forEach(function (x) { MCACHE.put(x.path, x.uri.slice(x.uri.indexOf(',') + 1)); });
         libSaved(libParts);
         GHS.contentHead = sha; GHS.contentTime = new Date().toISOString();
         busy(null); updateState();
@@ -10459,7 +10602,7 @@
       var m = /^data:(?:image|audio|video)\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.*)$/i.exec(uri);
       if (!m) return null;
       // Музыка и видео финала маршрута — тоже файлами
-      var ext = { jpeg: 'jpg', 'svg+xml': 'svg', mpeg: 'mp3', 'x-m4a': 'm4a', mp4: 'mp4', quicktime: 'mov', 'x-wav': 'wav', wave: 'wav', aac: 'aac', ogg: 'ogg', webm: 'webm' }[m[1].toLowerCase()] || m[1].toLowerCase().replace(/[^a-z0-9]/g, '');
+      var ext = mediaExt(m[1]);
       var bin = atob(m[2]), bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       return sha1(bytes).then(function (h) {
