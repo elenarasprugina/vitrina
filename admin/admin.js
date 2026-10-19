@@ -56,7 +56,8 @@
     ['images', 'Картинки'], ['price', 'Цена'],
     ['day', '«Сегодня день N из M»'], ['routeButton', 'Большая кнопка-ссылка («Пройти маршрут»)'], ['formats', 'Форматы участия'],
     ['items', 'Плашки (встречи, варианты, виды работы)'], ['dates', 'Даты с подписью'], ['info', 'Дополнительно (состав, пояснение)'],
-    ['examples', 'Кнопка «Примеры»'], ['actions', 'Кнопки (до 4): написать, ссылка, календарь, поделиться…'], ['sandbox', 'Кнопка «Как устроены маршруты»']
+    ['examples', 'Кнопка «Примеры»'], ['actions', 'Кнопки (до 4): написать, ссылка, календарь, поделиться…'], ['sandbox', 'Кнопка «Как устроены маршруты»'],
+    ['kin', 'Узнать свой кин (дата рождения → кин)']
   ];
   var BLOCK_NAMES = {}; BLOCKS.forEach(function (x) { BLOCK_NAMES[x[0]] = x[1]; });
   var PRESETS = [['route', 'Маршрут'], ['list', 'Встречи или услуги (плашки)'], ['product', 'Продукт'], ['simple', 'Текст и кнопка']];
@@ -2169,7 +2170,7 @@
   // картинки к этому моменту — файлы media/…, а не data:.
   // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'card' (…/2026-10/sun/ — превью одной карточки
   // и сразу переход на витрину с открытой карточкой), 'sandbox', 'reflection'.
-  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События' };
+  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События', kin: 'Узнать свой кин' };
   function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
   function absImg(src, D) { return src && !/^(data:|blob:)/.test(src) ? (/^https?:/.test(src) ? src : siteUrl(D) + src) : ''; }
   function metaTags(o, D) {
@@ -2247,16 +2248,16 @@
     }
     var base = kind === 'main' ? './' : '../';
     var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind + '/');
-    var title = site + ' · ' + (sc ? sc.title : PAGE_TITLES[kind] || '');
+    var title = site + ' · ' + (sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || '');
     if (!sc && !String((st.share || {}).title || '').trim()) sh.title = title;
     var img = absImg(sh.image, D);
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind] || {}).look || {}).background, base) +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind === 'kin' ? 'reflection' : kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
-      pageData(sc, D) + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+      pageData(sc, D, kind === 'kin') + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
   // Чтобы страница открывалась без мигания: цвет фона — сразу, картинка фона начинает грузиться вместе со страницей
   // (узкая — на телефоне, как в vitrina.css: max-aspect-ratio 4/5).
@@ -2298,9 +2299,14 @@
         doors: j.scene === 'doors' ? coverDoors(j.doors) : undefined };
     }) };
   }
-  function pageData(sc, D) {
+  function pageData(sc, D, kin) {
     var P = { settings: D.settings, routes: D.routes, formats: D.formats, index: D.index, sandbox: D.sandbox, reflection: D.reflection, events: D.events || null, showcases: {} };
     if (sc) { P.showcases[sc.id] = sc; P.journeys = dayCards(D.journeys); }
+    // Страница кина: «Открыть маршрут» — на какую карточку текущей витрины ведёт маршрут ({ routeId: cardId })
+    if (kin) {
+      P.kinCards = {};
+      ((D.showcases[D.settings.currentShowcase] || {}).cards || []).forEach(function (c) { var r = c && c.visible !== false && c.back && c.back.routeId; if (r && !P.kinCards[r]) P.kinCards[r] = c.id; });
+    }
     return '<script>window.M13_DATA=' + JSON.stringify(P).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n';
   }
 
@@ -2518,6 +2524,7 @@
     if (kind === 'examples') b.label = 'Примеры';
     if (kind === 'actions') b.actions = [{ kind: 'contact', label: 'Написать', visible: true }];
     if (kind === 'sandbox') b.label = 'Как устроены маршруты 13 MIRRORS';
+    if (kind === 'kin') b.title = 'Узнать свой кин';
     return b;
   }
   // Заготовка: набор блоков, с которого удобно начать. Дальше всё можно менять.
@@ -2535,6 +2542,7 @@
     if (x.kind === 'facts') t = (x.facts || []).filter(function (q) { return q.visible !== false && q.text; }).map(function (q) { return q.text; }).join(' · ');
     if (x.kind === 'more') t = String(x.text || '').split('\n')[0];
     if (x.kind === 'desc' || x.kind === 'info' || x.kind === 'heading') t = String(x.text || '').split('\n')[0];
+    if (x.kind === 'kin') t = x.title;
     if (x.kind === 'price') t = x.value;
     if (x.kind === 'items') t = (x.items || []).length + ' шт.';
     if (x.kind === 'images') t = (x.images || []).length + ' шт.';
@@ -2600,6 +2608,9 @@
       textIn(x, 'note', 'Пояснение под датами', { multi: true, rows: 2 })];
     if (x.kind === 'examples') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт на страницу примеров Карт-Отражений.' })];
     if (x.kind === 'sandbox') return [textIn(x, 'label', 'Текст на кнопке'), el('p', { class: 'a-hint', text: 'Ведёт в Песочницу — «Как устроены маршруты».' })];
+    if (x.kind === 'kin') return [textIn(x, 'title', 'Заголовок над полем', { ph: 'Пусто — без заголовка' }),
+      el('p', { class: 'a-hint', text: 'Человек вводит дату рождения — видит кин, знак печати, тон и базовый архетип печати (если он отмечен «Показать на сайте» в Библиотеке → «Архетипы»), ниже — «Подробнее о вашем кине →» на страницу кина. Тексты и знаки печатей — раздел «Карты-Отражения» → «Узнать свой кин».' }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Тексты и знаки печатей →', onclick: function () { ST.section = 'reflection'; ST.kinOpen = true; renderShell(); window.scrollTo(0, 0); } })];
     if (x.kind === 'actions') return [el('p', { class: 'a-hint', text: 'До 4 кнопок. Три-четыре встают сеткой 2×2; первая — главная, в акцентном цвете.' }),
       collection(x.actions = x.actions || [], { visible: true, max: 4, ordered: false, title: function (a) { return (a.label || defLabel(kindOf(a))) + ' · ' + (ACTION_KINDS.filter(function (k) { return k[0] === kindOf(a); })[0] || [, ''])[1].split(' — ')[0]; },
       body: function (a) { return [actionIn({ a: a }, 'a', '', { kinds: ACTION_KINDS.map(function (k) { return k[0]; }) })]; },
@@ -6529,7 +6540,7 @@
      Атлас волн, тоны и печати, карточки из «космолёта», её заметки («Моё»). Хранится в этом браузере (IndexedDB, 'm13-library')
      и в закрытом 13mirrors-content, папка library/ (atlas, signs, cards, mine .json) — пишется вместе с «Сохранить».
      В DATA не входит: публикация и предпросмотр её не видят, на сайт она не попадает никогда (её решение 04.10, docs/konstruktor.md, 0а). */
-  var LIB_KEY = 'm13-library', LIB_PARTS = ['atlas', 'signs', 'cards', 'mine'], LIB_APP = '13mirrors-library';
+  var LIB_KEY = 'm13-library', LIB_PARTS = ['atlas', 'signs', 'cards', 'mine', 'archetypes'], LIB_APP = '13mirrors-library';
   var LIB = null, LIB_P = null, LIB_OPEN = new WeakSet();
   function libPath(p) { return 'library/' + p + '.json'; }
   function libKeep() { if (LIB) LOCAL.setK(LIB_KEY, LIB).catch(function () {}); }
@@ -7030,6 +7041,10 @@
         el('div', { class: 'a-lib-chips' }, chips)]),
       block('Печать · ' + K().sealName(I.sealN), libSignBody('S' + I.sealN).concat([
         el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Править печать', onclick: function () { libGo({ libTab: 'signs', libSign: 'S' + I.sealN }); } })])),
+      block('Базовый архетип печати', [libArchOf(I.sealN) && libArchOf(I.sealN).classic.archetype
+        ? el('p', { class: 'a-lead', text: '«' + libArchOf(I.sealN).classic.archetype + '»' + (libArchOf(I.sealN).show ? ' · на сайте' : '') })
+        : el('p', { class: 'a-hint', text: 'Ещё не раскрыт.' }),
+        el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Открыть архетип', onclick: function () { libGo({ libTab: 'arch', libArch: I.sealN }); } })]),
       block('Тон · ' + I.tone, libSignBody('T' + I.toneN).concat([
         el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Править тон', onclick: function () { libGo({ libTab: 'signs', libSign: 'T' + I.toneN }); } })])),
       block(d ? 'Атлас · ' + w.title + ', день ' + d.day : 'Атлас', d ? libEdit(d, 'atlas', ['day', 'date', 'kin', 'name', 'tone']).concat([
@@ -7038,6 +7053,87 @@
       block('Мои маршруты', routesBox, { note: rs.length ? String(rs.length) : '' }),
       block('Моё', [libText(m.kin, k, '', 'mine', { rows: 4, ph: 'Ваши заметки, прожитое об этом кине — видите только вы' })])
     ];
+  }
+
+  /* ---------- Базовые архетипы 13 MIRRORS (19.10, docs/kin.md) ----------
+     Один архетип на печать (20 мест): LIB.parts.archetypes = { items: [{ seal, status '' | review | ok, statusNote, show,
+       classic: { archetype, images, element, season, daytime, direction, palette, nature, plants, animals, minerals, essence }, plus: { …то же },
+       layers: { dreamspell, maya, synth, check } }] }. Хранится как вся Библиотека (закрыто). На сайт — только название и суть (Classic)
+     отмеченных «Показать на сайте»: их копия лежит в DATA.reflection.kin.arch[печать] (libArchSite) и публикуется со страницей кина. */
+  var LIB_ARCH_APP = '13mirrors-archetypes';
+  var LIB_ARCH_F = [['archetype', 'Архетип', 1], ['images', 'Ключевые образы'], ['element', 'Стихия'], ['season', 'Время года'], ['daytime', 'Время суток'],
+    ['direction', 'Сторона света'], ['palette', 'Цветовая палитра'], ['nature', 'Символы природы'], ['plants', 'Мир растений'], ['animals', 'Мир животных'],
+    ['minerals', 'Мир минералов'], ['essence', 'Суть архетипа']];
+  var LIB_ARCH_L = [['dreamspell', 'Dreamspell · исходное ядро'], ['maya', 'Майянский / академический слой'], ['synth', '13 MIRRORS · авторский синтез'], ['check', 'Что проверить']];
+  var LIB_ARCH_ST = [['', 'черновик'], ['review', 'на пересмотре'], ['ok', 'утверждено']];
+  function libArchList() { return ((LIB.parts.archetypes || {}).items || []).filter(function (x) { return x && x.seal >= 1 && x.seal <= 20; }); }
+  function libArchOf(n) { return libArchList().filter(function (x) { return +x.seal === +n; })[0] || null; }
+  function libArchNew(n) {
+    var A = LIB.parts.archetypes = LIB.parts.archetypes || { items: [] };
+    var x = { seal: n, status: '', statusNote: '', show: false, classic: {}, plus: {}, layers: {} };
+    A.items.push(x); return x;
+  }
+  // Копия для сайта: название и суть (Classic) — только у отмеченных «Показать на сайте»
+  function libArchSite(x) {
+    var rf = DATA.reflection = DATA.reflection || {}, k = rf.kin = rf.kin || {}, A = k.arch = k.arch || {}, name = String((x.classic || {}).archetype || '').trim();
+    var was = JSON.stringify(A[x.seal] || null);
+    if (x.show && name) A[x.seal] = { name: name, essence: String(x.classic.essence || '').trim() }; else delete A[x.seal];
+    if (JSON.stringify(A[x.seal] || null) !== was) changed();
+  }
+  function libArchMerge(items) {
+    var r = { add: 0, upd: 0 };
+    (items || []).forEach(function (it) {
+      if (!it || !(it.seal >= 1 && it.seal <= 20)) return;
+      var x = libArchOf(it.seal);
+      if (!x) { x = libArchNew(+it.seal); r.add++; } else r.upd++;
+      ['status', 'statusNote'].forEach(function (k) { if (it[k] != null) x[k] = it[k]; });
+      ['classic', 'plus', 'layers'].forEach(function (k) { if (it[k]) x[k] = clone(it[k]); });
+      libArchSite(x);
+    });
+    LIB.pending.archetypes = 1;
+    return r;
+  }
+  function libArchTab() {
+    if (ST.libArch) return libArchPage(+ST.libArch);
+    var cells = [];
+    for (var n = 1; n <= 20; n++) (function (n) {
+      var x = libArchOf(n), name = x && String(x.classic.archetype || '').trim();
+      cells.push(el('button', { type: 'button', class: 'a-lib-sign a-lib-arch a-tz-c' + ((n - 1) % 4) + (name ? '' : ' is-empty'), onclick: function () { libGo({ libArch: n }); } }, [
+        el('b', { text: n + ' · ' + libSealShort(n) }), el('span', { text: name || 'ещё не раскрыт' }),
+        el('small', { text: name ? (LIB_ARCH_ST.filter(function (s) { return s[0] === (x.status || ''); })[0] || LIB_ARCH_ST[0])[1] + (x.show ? ' · на сайте' : '') : '' })]));
+    })(n);
+    return [
+      el('p', { class: 'a-hint', text: 'Базовые архетипы 13 MIRRORS — по одному на печать. Печать — одна из граней архетипа; кин — день в Цолькине. Нажмите на печать — откроется архетип (Classic и Classic+, рабочие слои). На сайт (страница «Узнать свой кин») выходят только название и суть — у архетипов с галочкой «Показать на сайте».' }),
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '20 печатей' }), el('div', { class: 'a-lib-signs a-lib-archs' }, cells)])];
+  }
+  function libArchPage(n) {
+    var x = libArchOf(n), v = ST.libArchV === 'plus' ? 'plus' : 'classic';
+    var nav = el('div', { class: 'a-tabs' }, [
+      el('button', { type: 'button', text: '← Все архетипы', onclick: function () { libGo({ libArch: null }); } }),
+      el('button', { type: 'button', text: '‹ ' + libSealShort(n === 1 ? 20 : n - 1), onclick: function () { libGo({ libArch: n === 1 ? 20 : n - 1 }); } }),
+      el('button', { type: 'button', text: libSealShort(n === 20 ? 1 : n + 1) + ' ›', onclick: function () { libGo({ libArch: n === 20 ? 1 : n + 1 }); } })]);
+    var head = el('div', {}, [el('div', { class: 'a-lib-kicker', text: 'Печать ' + n + ' · ' + K().sealName(n) }),
+      el('h2', { class: 'a-h1', text: x && x.classic.archetype ? x.classic.archetype : 'Архетип ещё не раскрыт' })]);
+    if (!x) return [nav, head, el('div', { class: 'a-card a-lib-stack' }, [
+      el('p', { class: 'a-hint', text: 'Можно заполнить здесь или загрузить файл архетипов во вкладке «Файлы».' }),
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', style: 'align-self:flex-start', text: '＋ Начать этот архетип', onclick: function () { libArchNew(n); LIB.pending.archetypes = 1; changed(); renderMain(); } })])];
+    x.classic = x.classic || {}; x.plus = x.plus || {}; x.layers = x.layers || {};
+    function site() { libArchSite(x); }
+    var showSw = switchIn(x, 'show', 'Показать на сайте', { hint: 'Название и суть (Classic) — на странице «Узнать свой кин» и в блоке на обороте Карты-Отражения.',
+      onChange: function () { libTouch('archetypes'); site(); renderMain(); } });
+    var ver = el('div', { class: 'a-tabs' }, [['classic', 'Classic (кратко)'], ['plus', 'Classic+ (полно)']].map(function (o) {
+      return el('button', { type: 'button', class: v === o[0] ? 'is-active' : '', text: o[1], onclick: function () { ST.libArchV = o[0]; renderMain(); } }); }));
+    var F = x[v];
+    return [nav, head,
+      el('div', { class: 'a-card a-lib-stack' }, [showSw,
+        x.show && !String(x.classic.archetype || '').trim() ? el('p', { class: 'a-hint a-hint--warn', text: 'Нет названия архетипа (Classic) — на сайте пока не появится.' }) : null,
+        el('div', { class: 'a-row' }, [libSelect(x, 'status', 'Статус', LIB_ARCH_ST, 'archetypes'), libText(x, 'statusNote', 'Статус словами (как в таблице)', 'archetypes', { line: true })])]),
+      ver,
+      el('div', { class: 'a-card a-lib-stack' }, LIB_ARCH_F.map(function (f) {
+        return libText(F, f[0], f[1], 'archetypes', { line: !!f[2], rows: 2, onInput: v === 'classic' && (f[0] === 'archetype' || f[0] === 'essence') ? site : null });
+      })),
+      block('Рабочие слои — только для вас, на сайт не выходят', LIB_ARCH_L.map(function (f) { return libText(x.layers, f[0], f[1], 'archetypes', { rows: 3 }); }), { open: false }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Кины этой печати в Цолькине', onclick: function () { libGo({ libTab: 'signs', libSign: 'S' + n }); } })];
   }
 
   /* ---------- Атлас ---------- */
@@ -7247,7 +7343,8 @@
       var plan = [], lines = [], warn = [];
       got.forEach(function (g) {
         var o = g.obj, first = Array.isArray(o) && o[0];
-        if (o && o.app === LIB_APP && o.parts) { plan.push(['all', o.parts]); lines.push('«' + g.name + '» — вся библиотека (копия): заменит всё, что сейчас здесь.'); }
+        if (o && o.app === LIB_ARCH_APP && Array.isArray(o.items)) { plan.push(['archetypes', o]); lines.push('«' + g.name + '» — базовые архетипы: ' + o.items.length + '. Тексты заменятся файлом; галочки «Показать на сайте» останутся как были.'); }
+        else if (o && o.app === LIB_APP && o.parts) { plan.push(['all', o.parts]); lines.push('«' + g.name + '» — вся библиотека (копия): заменит всё, что сейчас здесь.'); }
         else if (o && Array.isArray(o.waves)) { plan.push(['atlas', o]); lines.push('«' + g.name + '» — атлас: волн ' + o.waves.length + '. Заменит атлас целиком' + (libAtlas() ? ' (правки, сделанные здесь в атласе, заменятся файлом)' : '') + '.'); }
         else if (first && first.cardType) { plan.push(['cards', o]); lines.push('«' + g.name + '» — карточки «космолёта»: ' + o.length + '. Новые добавятся; уже загруженные заменятся, кроме тех, что вы правили или отметили «моя».'); }
         else if (first && /^T\d/.test(first.id || '')) { plan.push(['tones', o]); lines.push('«' + g.name + '» — тоны: ' + o.length + '. Поля из файла заменятся, остальное у тонов останется.'); }
@@ -7260,9 +7357,10 @@
         buttons: [['go', 'Загрузить', 'dark'], ['no', 'Отмена']] }).then(function (v) {
         if (v !== 'go') return;
         var done = [], ws = libWordStat();
-        plan.forEach(function (p) { if (p[0] !== 'all') libFixAll(p[1], ws); });
+        plan.forEach(function (p) { if (p[0] !== 'all' && p[0] !== 'archetypes') libFixAll(p[1], ws); });
         plan.forEach(function (p) {
-          if (p[0] === 'all') { LIB_PARTS.forEach(function (k) { if (p[1][k]) { LIB.parts[k] = p[1][k]; LIB.pending[k] = 1; } }); done.push('вся библиотека'); }
+          if (p[0] === 'all') { LIB_PARTS.forEach(function (k) { if (p[1][k]) { LIB.parts[k] = p[1][k]; LIB.pending[k] = 1; } }); libArchList().forEach(libArchSite); done.push('вся библиотека'); }
+          else if (p[0] === 'archetypes') { var ra = libArchMerge(p[1].items); done.push('архетипы: новых ' + ra.add + ', обновлено ' + ra.upd); }
           else if (p[0] === 'atlas') {
             var bad = libNormAtlas(p[1]); LIB.parts.atlas = p[1]; LIB.pending.atlas = 1;
             done.push('атлас' + (bad.length ? ' (кин не совпадает с датой: ' + bad.slice(0, 4).join('; ') + (bad.length > 4 ? '…' : '') + ')' : ''));
@@ -7288,6 +7386,8 @@
       ['Атлас волн', A ? (A.version || '') + ' · волн ' + (A.waves || []).length : 'не загружен', A ? st('atlas') : ''],
       ['Тоны и печати', S ? 'тонов ' + (S.tones || []).length + ', печатей ' + (S.seals || []).length : 'не загружены', S ? st('signs') : ''],
       ['Карточки', cs.length ? cs.length + ' (моих ' + cs.filter(function (c) { return c.mine; }).length + ')' : 'не загружены', cs.length ? st('cards') : ''],
+      ['Архетипы', libArchList().length ? 'раскрыто ' + libArchList().length + ' из 20, на сайте ' + libArchList().filter(function (x) { return x.show; }).length : 'не загружены',
+        LIB.parts.archetypes ? st('archetypes') : ''],
       ['Моё', m ? 'записей ' + (m.lived || []).length + ', заметок к кинам ' + Object.keys(m.kin || {}).filter(function (k) { return m.kin[k]; }).length : 'пусто', m ? st('mine') : '']];
     var stamp = libTodayIso();
     return [
@@ -7311,8 +7411,8 @@
     ];
   }
 
-  var LIB_TABS = [['tzolkin', 'Цолькин'], ['signs', 'Тоны и печати'], ['cards', 'Карточки'], ['atlas', 'Атлас волн'], ['mine', 'Моё'], ['files', 'Файлы']];
-  var LIB_SUB = { tzolkin: 'libKin', signs: 'libSign', atlas: 'libWave' };
+  var LIB_TABS = [['tzolkin', 'Цолькин'], ['signs', 'Тоны и печати'], ['arch', 'Архетипы'], ['cards', 'Карточки'], ['atlas', 'Атлас волн'], ['mine', 'Моё'], ['files', 'Файлы']];
+  var LIB_SUB = { tzolkin: 'libKin', signs: 'libSign', atlas: 'libWave', arch: 'libArch' };
   function viewLibrary() {
     var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Библиотека' }),
       el('p', { class: 'a-lead', text: 'Видите только вы. Хранится в этом браузере и в закрытом репозитории черновиков (записывается кнопкой «Сохранить»). На сайт не попадает никогда — даже при «Опубликовать».' })]);
@@ -7327,10 +7427,10 @@
         if (t === x[0] && LIB_SUB[t]) ST[LIB_SUB[t]] = null;   // повторное нажатие — к началу вкладки
         ST.libTab = x[0]; renderMain(); window.scrollTo(0, 0); } });
     }));
-    var empty = !libAtlas() && !LIB.parts.signs && !libCards().length && t !== 'files'
+    var empty = !libAtlas() && !LIB.parts.signs && !libCards().length && t !== 'files' && t !== 'arch'
       ? el('div', { class: 'a-note' }, ['Библиотека пока пустая: Цолькин и календарь работают, а тексты появятся, когда вы загрузите файлы — вкладка ',
         el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Файлы', onclick: function () { libGo({ libTab: 'files' }); } }), '.']) : null;
-    var body = t === 'signs' ? libSignsTab() : t === 'cards' ? libCardsTab() : t === 'atlas' ? libAtlasTab() : t === 'mine' ? libMineTab() : t === 'files' ? libFilesTab()
+    var body = t === 'signs' ? libSignsTab() : t === 'arch' ? libArchTab() : t === 'cards' ? libCardsTab() : t === 'atlas' ? libAtlasTab() : t === 'mine' ? libMineTab() : t === 'files' ? libFilesTab()
       : ST.libKin ? libKinPage(ST.libKin) : libTzolkin();
     return [head, tabs, empty].concat(body);
   }
@@ -8273,6 +8373,44 @@
   }
 
   /* ================= КАРТЫ-ОТРАЖЕНИЯ ================= */
+  /* «Узнать свой кин» (19.10, docs/kin.md): тексты блока оборота и страницы vitrina/kin/ — reflection.kin; пусто — как в подсказке (M13.KIN_T).
+     reflection.kin.arch — базовые архетипы печатей для сайта: пишет Библиотека («Архетипы» → «Показать на сайте»), здесь только видно, какие. */
+  var KIN_FIELDS = [
+    ['Поле даты', [['label', 'Подпись над полем'], ['ph', 'Подсказка в поле'], ['go', 'Кнопка'], ['note', 'Мелкая строка под полем (пусто — без неё)', 1], ['bad', 'Если дата неверная', 1]]],
+    ['Архетип', [['archOn', 'Архетип печати отмечен для сайта ({архетип} — его название)', 1], ['archOff', 'Архетип печати ещё не на сайте', 1], ['archNote', 'Пояснение: кин, печать и архетип — разное', 1]]],
+    ['29 февраля', [['hunab', 'Пояснение', 1], ['noonBefore', 'Кнопка «до полудня»'], ['noonAfter', 'Кнопка «после полудня»'], ['noonBoth', 'Кнопка «не знаю»'],
+      ['ifBefore', 'Подпись первого кина'], ['ifAfter', 'Подпись второго кина']]],
+    ['Оборот карточки', [['more', 'Кнопка на страницу кина']]],
+    ['Страница', [['eyebrow', 'Надпись сверху'], ['title', 'Заголовок'], ['intro', 'Вступление (пусто — без него)', 1],
+      ['toneH', 'Тон — заголовок'], ['toneT', 'Тон — текст ({тон}, {номер тона})', 1],
+      ['birthH', 'Галактический день рождения — заголовок'], ['birthT', 'Галактический день рождения — текст ({дата})', 1], ['birthToday', 'Если он сегодня'],
+      ['routeH', 'Печать в маршрутах — заголовок'], ['routeT', 'Печать в маршруте — строка ({маршрут}, {даты}, {день}, {дата})', 1],
+      ['routeOpen', 'Кнопка, если маршрут на витрине'], ['routeSoon', 'Если маршрута на витрине ещё нет'], ['routeAsk', 'Кнопка «написать»'],
+      ['routeMsg', 'Готовый текст сообщения ({маршрут}, {даты})', 1]]]
+  ];
+  function kinFields(rf) {
+    var k = rf.kin = rf.kin || {}, D = (window.M13 && window.M13.KIN_T) || {}, arch = k.arch || {}, imgs = k.sealImg = k.sealImg || {}, K = window.M13KIN;
+    var shown = Object.keys(arch).filter(function (n) { return arch[n] && arch[n].name; }).sort(function (a, b) { return a - b; });
+    var out = [
+      el('p', { class: 'a-hint', text: 'Блок «Узнать свой кин» ставится на оборот любой карточки (сейчас — Карта-Отражение): «Оборот» → «＋ Блок» → «Узнать свой кин». Кнопка «Подробнее» ведёт на страницу кина — у неё свой адрес 13mirrors.ru/vitrina/kin/ (появится после «Опубликовать»). Дата считается на устройстве человека и никуда не уходит.' }),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу кина', onclick: function () { openPreview('kin'); } })]),
+      el('div', { class: 'a-lib-grpt', text: 'Базовые архетипы на сайте' }),
+      el('p', { class: 'a-hint', text: shown.length ? 'Показываются: ' + shown.map(function (n) { return (K ? K.sealName(+n) : 'печать ' + n) + ' — «' + arch[n].name + '»'; }).join('; ') + '. Остальные печати — «ещё раскрывается».'
+        : 'Пока ни один — у всех печатей «ещё раскрывается». Отметить: Библиотека → «Архетипы» → архетип → «Показать на сайте».' }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small', style: 'align-self:flex-start', text: 'Открыть «Архетипы» в Библиотеке', onclick: function () { libGo({ libTab: 'arch', libArch: null }); } })
+    ];
+    KIN_FIELDS.forEach(function (g) {
+      out.push(el('div', { class: 'a-lib-grpt', text: g[0] }));
+      g[1].forEach(function (f) { out.push(textIn(k, f[0], f[1], { ph: D[f[0]] || '', multi: !!f[2], rows: 2 })); });
+    });
+    out.push(el('div', { class: 'a-lib-grpt', text: 'Знаки печатей (по желанию)' }),
+      el('p', { class: 'a-hint', text: 'Своя картинка знака для каждой печати — квадратная, лучше PNG на прозрачном фоне. Нет картинки — кружок цвета печати с её номером.' }));
+    var rows = [];
+    for (var n = 1; n <= 20; n++) rows.push(imageIn(imgs, String(n), n + ' · ' + (K ? K.sealName(n) : 'печать ' + n), { max: 600, size: { w: 400, h: 400, note: 'квадрат, прозрачный фон' } }));
+    out.push(el('div', { class: 'a-row' }, rows));
+    return out;
+  }
+
   function viewReflection() {
     var rf = DATA.reflection;
     rf.orderAction = rf.orderAction || { show: true, kind: 'contact', label: 'Заказать Карту-Отражение' };
@@ -8284,6 +8422,7 @@
         make: function () { return { id: uid('e'), visible: true, image: null, title: 'Новый пример', text: '' }; }, addLabel: '+ Добавить пример',
         body: function (x) { return [imageIn(x, 'image', 'Изображение', { max: 1400, size: { w: 1200, h: 1600, note: 'вертикальная, ровно 3:4' } }), textIn(x, 'meta', 'Kin и название карты', { ph: 'Kin 68 · Жёлтая Электрическая Звезда', hint: 'Мелко над названием. Можно оставить пустым. Если у карты есть стекло — строка Kin на нём по умолчанию выключена.' }), textIn(x, 'title', 'Название или архетип'), textIn(x, 'text', 'Короткий текст', { multi: true, rows: 2 }),
           glassOwnFields(x, 'kin', { img: function () { return !!x.image; } })]; } }),
+      block('Узнать свой кин — страница и тексты', kinFields(rf), { open: !!ST.kinOpen, note: 'vitrina/kin/' }),
       block('Оформление страницы', lookFields(rf, 'reflection'), { open: !!ST.reflectionLookOpen }),
       block('Шапка страницы и кнопка', [
         textIn(rf, 'eyebrow', 'Надпись сверху'), textIn(rf, 'title', 'Заголовок'), textIn(rf, 'intro', 'Вступление', { multi: true, rows: 2 }),
@@ -8590,6 +8729,7 @@
       el('button', { type: 'button', 'data-v': 'sandbox', text: 'Песочница', onclick: function () { go('sandbox'); } }),
       el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
       el('button', { type: 'button', 'data-v': 'events', text: 'События', onclick: function () { go('events'); } }),
+      el('button', { type: 'button', 'data-v': 'kin', text: 'Свой кин', onclick: function () { go('kin'); } }),
       el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', title: 'Открыть заново: блики и обложки', onclick: function () { go(cur); } }),
       canPhone() ? phoneBtn : null
     ]);
@@ -9723,6 +9863,7 @@
     files['sandbox/index.html'] = { text: pageHTML('sandbox', null, P) };
     files['reflection/index.html'] = { text: pageHTML('reflection', null, P) };
     files['events/index.html'] = { text: pageHTML('events', null, P) };
+    files['kin/index.html'] = { text: pageHTML('kin', null, P) };
     ((P.events || {}).items || []).forEach(function (e) {
       if (e && e.visible !== false && /^[\w-]+$/.test(e.id)) files['events/' + e.id + '/index.html'] = { text: pageHTML('event', null, P, e.id) };
     });
