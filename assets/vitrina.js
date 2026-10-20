@@ -767,6 +767,33 @@
   }
   M13.phaseOf = function (c, data) { var keep = S.D; if (data) S.D = data; try { return phaseOf(c); } finally { S.D = keep; } };
 
+  /* ---------- Ближайшее событие на лицевой стороне (её решение 20.10.2026) ----------
+     front.ev = {on, src: 'all' | тип события (meeting, meditation…) | 'pick', ids: [id событий для 'pick'], look: 'melt' (картинка тает) | 'frost' (матовое стекло с прорезью),
+       h: высота «тает», % карточки (25–85, обычно 60), at: где прорезь у стекла, % сверху (15–70, обычно 48), y: какая часть картинки видна, % сверху (0–100, обычно 50),
+       cap: '' (дата и название) | 'date' | 'none'}.
+     Событие — из раздела «События»: видимое, с главной картинкой, ещё не закончилось (как во вкладке «Скоро»), ближайшее по дате.
+     Прошло — само встаёт следующее; больше нет — карточка как была. Нажатие — как у карточки (увеличивается, потом оборот). */
+  function evNear(c) {
+    var o = c && c.front && c.front.ev;
+    if (!o || !o.on || !(S.D.events || {}).items) return null;
+    var src = o.src || 'all', ids = o.ids || [];
+    return evList('soon').filter(function (e) {
+      return e.cover && (src === 'all' || (src === 'pick' ? ids.indexOf(e.id) >= 0 : e.type === src));
+    })[0] || null;
+  }
+  M13.evNear = function (c, data) { var keep = S.D; if (data) S.D = data; try { return evNear(c); } finally { S.D = keep; } };
+  function evPeekHTML(c) {
+    var e = evNear(c); if (!e) return '';
+    var o = c.front.ev, frost = o.look === 'frost';
+    function n(v, d, a, b) { v = parseFloat(v); return Math.max(a, Math.min(b, isNaN(v) ? d : v)); }
+    var cap = o.cap === 'none' ? '' : o.cap === 'date' ? evDate(e) : [evDate(e), e.title].filter(Boolean).join(' · ');
+    var css = "--m13-evi:url('" + media(e.cover) + "');--m13-evy:" + n(o.y, 50, 0, 100) + '%;' +
+      (frost ? '--m13-eva:' + n(o.at, 48, 15, 70) + '%' : '--m13-evh:' + n(o.h, 60, 25, 85) + '%');
+    return '<i class="m13-lay m13-evp m13-evp--' + (frost ? 'frost' : 'melt') + '" style="' + esc(css) + '">' +
+      (frost ? '<i class="m13-evp-blur"></i><i class="m13-evp-slit"></i><i class="m13-evp-line"></i>' : '<i class="m13-evp-img"></i>') +
+      (cap ? '<b class="m13-evp-cap">' + txt(cap) + '</b>' : '') + '</i>';
+  }
+
   function statusOf(c) {
     var f = (c && c.front) || {}, ph = phaseOf(c);
     return (ph && ph.status) || opt(f.status);
@@ -1160,7 +1187,8 @@
     }
     var sty = styleOf(c, !!f.image);
     var css = (f.image ? "background-image:url('" + esc(media(f.image)) + "');" : '') + esc(sty.css);
-    var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '');
+    var evp = evPeekHTML(c), lay = evp + sty.lay;
+    var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '') + (evp ? ' m13-has-ev' + (sty.lay ? '' : ' m13-deco') : '');
     var isStatic = !isCalCard(c) && (c.interactive === false || !c.back || c.back.type === 'static');
     var sub = opt(f.subtitle), foot = opt(f.foot);
     var ph = phaseOf(c), phCls = '';
@@ -1170,10 +1198,10 @@
       (f.title ? '<div class="m13-mini-title">' + txt(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
-    if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + sty.lay + '</div>');
+    if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + lay + '</div>');
     return breathWrap(sty, '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
       '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + txt(foot) + '</span>' : '') +
-      '<span class="m13-mini-cta">' + txt(T('open') || 'открыть') + '</span></div>' + sty.lay + '</button>');
+      '<span class="m13-mini-cta">' + txt(T('open') || 'открыть') + '</span></div>' + lay + '</button>');
   }
 
   /* ---------- Увеличенная карточка ---------- */
@@ -1243,15 +1271,15 @@
     if (sty.st.glow === 'soft' || sty.st.glow === 'live') { stage.classList.add('m13-glow-' + sty.st.glow); stage.setAttribute('style', glowVars(sty.st)); }
     stage.setAttribute('style', [stage.getAttribute('style'), iconVars(sty.st, cr)].filter(Boolean).join(';'));
     if (sty.st.glow === 'live' && TEMPO[sty.st.glowTempo]) stage.classList.add(TEMPO[sty.st.glowTempo]);
-    var sub = opt(f.subtitle);
+    var sub = opt(f.subtitle), live = liveOf(c);
     front.innerHTML = '<div>' +
       (eyeOf(f) ? '<div class="m13-hero-type">' + txt(eyeOf(f)) + '</div>' : '') +
       (f.title ? '<div class="m13-hero-title">' + txt(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-hero-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-hero-status') +
-      '</div><div class="m13-flip-hint">' + txt(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + sty.lay;
-    // Маршрут идёт — карта сегодняшнего дня; закончился — финальный ролик
-    var live = liveOf(c);
+      '</div><div class="m13-flip-hint">' + txt(T('flipHint') || 'Нажать — открыть оборот') + '</div>' + (live ? '' : evPeekHTML(c)) + sty.lay;
+    if (front.querySelector('.m13-evp')) front.classList.add('m13-has-ev', 'm13-deco');
+    // Маршрут идёт — карта сегодняшнего дня; закончился — финальный ролик (тогда ближайшее событие на увеличенной карточке не показываем)
     if (live && live.kind === 'day') { front.classList.add('m13-front--day'); stage.classList.add('m13-st-day'); front.innerHTML = dayFrontHTML(live) + sty.lay;
       // Край картинки дня (её выбор 07.10, панель → карточка → «Увеличенная карточка маршрута»): f.dayEdge '' — мягкий, уходит в тёмный цвет карточки |
       // 'strong' — тает в прозрачность (сквозь край видна картинка карточки) | 'hard' — ровный; f.dayEdgeH — высота перехода, % картинки (обычно 22);
