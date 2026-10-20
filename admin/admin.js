@@ -9164,7 +9164,7 @@
      Результаты живут только здесь, в памяти вкладки: в черновик, в браузер и в GitHub не попадают. */
   var PP_URL = 'https://psypoint.13mirrors.ru/';
   var PP_KEY = 'm13-psypoint';
-  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, box: null };
+  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, saved: {}, box: null };
   try { PP.pass = sessionStorage.getItem(PP_KEY) || null; } catch (e) {}
 
   function ppCall(action, extra) {
@@ -9182,7 +9182,7 @@
       });
   }
   function ppLogout(quiet) {
-    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.err = '';
+    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.saved = {}; PP.err = '';
     try { sessionStorage.removeItem(PP_KEY); } catch (e) {}
     if (!quiet) { ppDraw(); toast('Вы вышли из ПсиПоинта. Результаты убраны с экрана.'); }
   }
@@ -9300,10 +9300,12 @@
       el('div', { class: 'a-pp-row' }, [search,
         el('button', { type: 'button', class: 'a-btn', text: 'Обновить', disabled: PP.resultsBusy, onclick: ppResults }),
         el('button', { type: 'button', class: 'a-btn', text: 'Выгрузить в таблицу', title: 'Файл CSV — открывается в Excel и Numbers. Выгружается то, что сейчас в списке (с учётом поиска).',
-          onclick: function () { ppExport(ppFiltered()); } })]),
+          onclick: function () { ppExport(ppFiltered()); } }),
+        el('button', { type: 'button', class: 'a-btn a-btn--danger', text: 'Удалить показанные…', title: 'Удалить с Beget все результаты, что сейчас в списке (с учётом поиска). Сначала выгрузите их в таблицу.',
+          onclick: function () { ppDeleteMany(ppFiltered()); } })]),
       count,
       listBox,
-      el('p', { class: 'a-hint', text: 'Новые — сверху. Нажмите на строку — откроются ответы. Результат на Beget удаляется сам, только когда ему больше 30 дней и его уже забрал Компас. Выгруженный файл — с ответами и никами: храните его бережно, не пересылайте.' })
+      el('p', { class: 'a-hint', text: 'Новые — сверху. Нажмите на строку — откроются ответы и кнопка «Удалить». Чтобы удалить сразу несколько: найдите их поиском (или очистите поиск — будут все), «Выгрузить в таблицу», потом «Удалить показанные». Удалённое не вернуть. Сам результат на Beget удаляется, только когда ему больше 30 дней и его уже забрал Компас. Выгруженный файл — с ответами и никами: храните его бережно, не пересылайте.' })
     ], { note: all.length ? String(all.length) : '' });
   }
   function ppRow(r) {
@@ -9317,7 +9319,8 @@
         el('b', { class: 'a-pp-code', text: r.code }),
         el('span', { class: 'a-pp-who', text: ppWho(r) }),
         el('span', { class: 'a-pp-sc', text: ppScores(r) }),
-        r.taken_at ? el('span', { class: 'a-tag a-tag--pub', text: 'в Компасе' }) : null]),
+        el('span', { class: 'a-pp-tags' }, [r.taken_at ? el('span', { class: 'a-tag a-tag--pub', text: 'в Компасе' }) : null,
+          PP.saved[r.code] ? el('span', { class: 'a-tag', text: 'выгружен' }) : null])]),
       open ? el('div', { class: 'a-pp-body' }, [
         el('p', { class: 'a-hint', text: (r.test_title || r.test) + ' · ' + (r.source === 'site' ? 'на сайте' : 'в Телеграме') + (r.taken_at ? ' · забран Компасом ' + ppDate(r.taken_at) : '') }),
         el('ul', { class: 'a-pp-scores' }, Object.keys(r.scores || {}).map(function (k) {
@@ -9329,14 +9332,16 @@
         el('div', { class: 'a-pp-row' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать код', onclick: function () {
             (navigator.clipboard ? navigator.clipboard.writeText(r.code) : Promise.reject()).then(function () { toast('Код ' + r.code + ' скопирован.'); }, function () { toast('Не получилось скопировать — выделите код вручную.', true); }); } }),
-          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Удалить (пробный)…', onclick: function () { ppDelete(r); } })])
+          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Удалить…', onclick: function () { ppDelete(r); } })])
       ]) : null
     ]);
     return row;
   }
+  // Сохранён ли результат где-то, кроме Beget: в выгруженной таблице (в этой вкладке) или в Компасе
+  function ppKept(r) { return !!(r.taken_at || PP.saved[r.code]); }
   function ppDelete(r) {
     dialog({ title: 'Удалить результат ' + r.code + '?',
-      body: 'Удаляйте только свои пробные прохождения. Результат удалится с Beget навсегда' + (r.taken_at ? '' : ' — Компас его ещё не забирал') + '.',
+      body: 'Результат удалится с Beget навсегда, вернуть его будет нельзя.' + (ppKept(r) ? '' : ' Он ещё не выгружен в таблицу и не забран Компасом — если он нужен, сначала нажмите «Выгрузить в таблицу».'),
       buttons: [['del', 'Удалить навсегда', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
       if (v !== 'del') return;
       busy('Удаляем…');
@@ -9344,6 +9349,23 @@
         busy(null);
         PP.results = PP.results.filter(function (x) { return x.code !== r.code; }); delete PP.open[r.code];
         ppDraw(); toast(d.deleted ? 'Результат ' + r.code + ' удалён.' : 'Его уже не было на Beget.');
+      }).catch(fail);
+    });
+  }
+  function ppDeleteMany(list) {
+    if (!list.length) { toast('Удалять нечего — список пуст.', true); return; }
+    var unsaved = list.filter(function (r) { return !ppKept(r); }).length, n = list.length;
+    dialog({ title: 'Удалить ' + n + ' ' + (n % 10 === 1 && n % 100 !== 11 ? 'результат' : n % 10 > 1 && n % 10 < 5 && (n % 100 < 10 || n % 100 > 20) ? 'результата' : 'результатов') + '?',
+      body: (PP.q.trim() ? 'Удалятся все, что сейчас в списке по поиску «' + PP.q.trim() + '». ' : 'Удалятся ВСЕ результаты из списка. ') + 'С Beget — навсегда, вернуть будет нельзя.'
+        + (unsaved ? ' Не выгружено в таблицу и не забрано Компасом: ' + unsaved + ' — если они нужны, сначала нажмите «Выгрузить в таблицу».' : ' Все они уже выгружены в таблицу или забраны Компасом.'),
+      buttons: [['del', 'Удалить навсегда', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
+      if (v !== 'del') return;
+      busy('Удаляем…');
+      var was = PP.results.length;
+      ppCall('delete', { codes: list.map(function (r) { return r.code; }) }).then(function () {
+        busy(null); PP.q = '';
+        // список заново с Beget — видно, что осталось на самом деле
+        return ppResults().then(function () { if (PP.results) toast('Удалено с Beget: ' + (was - PP.results.length) + '. Осталось: ' + PP.results.length + '.'); });
       }).catch(fail);
     });
   }
@@ -9371,6 +9393,8 @@
     var d = new Date(), a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
       download: 'psypoint-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.csv' });
     document.body.appendChild(a); a.click(); a.remove();
+    list.forEach(function (r) { PP.saved[r.code] = true; });
+    ppDraw();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     toast('Таблица сохранена в «Загрузки»: ' + list.length + ' ' + (list.length === 1 ? 'результат' : 'результатов') + '.');
   }

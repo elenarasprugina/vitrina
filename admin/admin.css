@@ -803,6 +803,7 @@ body.a-noscroll{overflow:hidden}
 .a-pp-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;letter-spacing:.02em}
 .a-pp-who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .a-pp-sc{color:#444;white-space:nowrap}
+.a-pp-tags{display:flex;gap:4px;justify-content:flex-end}
 .a-pp-body{border-top:1px solid #ececea;padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
 .a-pp-scores{margin:0;padding-left:18px;font-size:13.5px;line-height:1.45}
 .a-pp-answers{margin:0;padding-left:22px;font-size:13px;line-height:1.4;display:flex;flex-direction:column;gap:6px}
@@ -812,7 +813,7 @@ body.a-noscroll{overflow:hidden}
   .a-pp-head{grid-template-columns:1fr auto;gap:2px 10px}
   .a-pp-date{grid-row:1;grid-column:1/-1;font-size:12px}
   .a-pp-code{grid-row:2;grid-column:1}
-  .a-pp-head .a-tag{grid-row:2;grid-column:2}
+  .a-pp-head .a-pp-tags{grid-row:2;grid-column:2}
   .a-pp-who{grid-row:3;grid-column:1/-1}
   .a-pp-sc{grid-row:4;grid-column:1/-1}
   .a-pp-sc{white-space:normal}
