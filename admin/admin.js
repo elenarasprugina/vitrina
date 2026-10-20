@@ -1428,7 +1428,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1484,6 +1484,7 @@
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
+    else if (s === 'psypoint') add(m, viewPsypoint());
     else add(m, viewSettings());
   }
 
@@ -9155,6 +9156,223 @@
         actionIn(rf, 'orderAction', '', { defLabel: 'Заказать Карту-Отражение' })
       ], { open: false })
     ];
+  }
+
+  /* ================= ПСИПОИНТ: бот с тестами на Beget (её просьба 20.10: «я забуду про setup.php») =================
+     Состояние бота с кнопками «Включить / Выключить» и результаты тестов. Сервер — psypoint.13mirrors.ru/panel.php
+     (репозиторий 13mirrors-bot, psypoint/). Пароль ПсиПоинта — только в sessionStorage, как ключ GitHub.
+     Результаты живут только здесь, в памяти вкладки: в черновик, в браузер и в GitHub не попадают. */
+  var PP_URL = 'https://psypoint.13mirrors.ru/';
+  var PP_KEY = 'm13-psypoint';
+  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, box: null };
+  try { PP.pass = sessionStorage.getItem(PP_KEY) || null; } catch (e) {}
+
+  function ppCall(action, extra) {
+    var body = { p: PP.pass, action: action };
+    Object.keys(extra || {}).forEach(function (k) { body[k] = extra[k]; });
+    // text/plain — браузер отправляет сразу, без предварительного вопроса серверу
+    return fetch(PP_URL + 'panel.php', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(body), cache: 'no-store' })
+      .catch(function () { throw new Error('Нет связи с ПсиПоинтом (psypoint.13mirrors.ru). Проверьте интернет и попробуйте ещё раз.'); })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (r.status === 401) { ppLogout(true); throw new Error('Пароль ПсиПоинта не подошёл. Войдите снова.'); }
+          if (!r.ok) throw new Error(d.error || 'ПсиПоинт ответил ошибкой (код ' + r.status + ').');
+          return d;
+        });
+      });
+  }
+  function ppLogout(quiet) {
+    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.err = '';
+    try { sessionStorage.removeItem(PP_KEY); } catch (e) {}
+    if (!quiet) { ppDraw(); toast('Вы вышли из ПсиПоинта. Результаты убраны с экрана.'); }
+  }
+  function ppStatus(action) {
+    PP.statusBusy = action || 'status'; ppDraw();
+    return ppCall(action || 'status').then(function (d) {
+      PP.status = d; PP.statusBusy = false; ppDraw();
+      if (d.msg) toast(d.msg);
+    }).catch(function (e) { PP.statusBusy = false; PP.err = e.message; ppDraw(); });
+  }
+  function ppResults() {
+    PP.resultsBusy = true; ppDraw();
+    return ppCall('results').then(function (d) {
+      PP.results = d.results || []; PP.resultsBusy = false; ppDraw();
+    }).catch(function (e) { PP.resultsBusy = false; PP.err = e.message; ppDraw(); });
+  }
+  function ppLoad() { PP.err = ''; ppResults(); ppStatus(); }
+
+  function viewPsypoint() {
+    PP.box = el('div', { class: 'a-pp' });
+    ppDraw();
+    if (PP.pass && !PP.results && !PP.resultsBusy) ppLoad();
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'ПсиПоинт' }),
+        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами в Телеграме (работает на Beget). Здесь — включён ли он и результаты тестов.' })]),
+      PP.box
+    ];
+  }
+  function ppDraw() {
+    var box = PP.box;
+    if (!box) return;
+    box.replaceChildren();
+    if (!PP.pass) { add(box, ppLoginBox()); return; }
+    add(box, [
+      PP.err ? el('div', { class: 'a-note' }, [PP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: ppLoad })]) : null,
+      ppStatusBlock(),
+      ppResultsBlock(),
+      el('p', { class: 'a-hint a-pp-foot' }, ['Пароль ПсиПоинта хранится только в этой вкладке. ',
+        el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти из ПсиПоинта', onclick: function () { ppLogout(); } }),
+        el('br'), 'Запасной вход, если панель не открывается: psypoint.13mirrors.ru/setup.php'])
+    ]);
+  }
+  function ppLoginBox() {
+    var input = el('input', { class: 'a-input', type: 'password', autocomplete: 'current-password', placeholder: 'Пароль ПсиПоинта' });
+    function go() {
+      var v = input.value.trim();
+      if (v.length < 10) { toast('Пароль ПсиПоинта — не короче 10 знаков (тот, что в config.php на Beget).', true); return; }
+      PP.pass = v;
+      try { sessionStorage.setItem(PP_KEY, v); } catch (e) {}
+      ppLoad();
+    }
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    setTimeout(function () { input.focus(); }, 50);
+    return el('div', { class: 'a-card a-pp-login' }, [
+      el('label', { class: 'a-label', text: 'Пароль ПсиПоинта' }),
+      el('div', { class: 'a-pp-row' }, [input, el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Войти', onclick: go })]),
+      el('p', { class: 'a-hint', text: 'Тот же пароль, что для страницы-«включателя» setup.php (он записан в app/config.php на Beget). Хранится только в этой вкладке и забывается, когда вы её закрываете.' }),
+      el('p', { class: 'a-hint', text: 'Запасной вход: psypoint.13mirrors.ru/setup.php' })
+    ]);
+  }
+  function ppStatusBlock() {
+    var st = PP.status, b = PP.statusBusy;
+    var head = b ? null : !st ? 'Состояние ещё не проверено'
+      : st.on === true ? '🟢 Бот работает' + (st.bot ? ' — @' + st.bot : '')
+      : st.on === false ? '⚪ Бот выключен' : '🔴 Нет связи с Телеграмом';
+    return block('Состояние бота', [
+      b ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }),
+        el('span', { text: (b === 'on' ? 'Включаем' : b === 'off' ? 'Выключаем' : 'Проверяем') + '… Связь Beget с Телеграмом медленная — до 20 секунд.' })]) : null,
+      head ? el('p', { class: 'a-pp-state', text: head }) : null,
+      st && !b ? el('ul', { class: 'a-pp-checks' }, st.checks.map(function (c) {
+        return el('li', { class: c[0] ? '' : 'is-bad', text: (c[0] ? '✅ ' : '❌ ') + c[1] });
+      })) : null,
+      el('div', { class: 'a-pp-row' }, [
+        el('button', { type: 'button', class: 'a-btn', text: 'Проверить', disabled: !!b, onclick: function () { ppStatus('status'); } }),
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Включить бота', disabled: !!b || (st && st.on === true), onclick: function () { ppStatus('on'); } }),
+        el('button', { type: 'button', class: 'a-btn a-btn--danger', text: 'Выключить', disabled: !!b || (st && st.on === false), onclick: function () {
+          dialog({ title: 'Выключить бота?', body: 'Бот перестанет отвечать в Телеграме, пока вы снова не нажмёте «Включить». Результаты не пропадут.',
+            buttons: [['off', 'Выключить', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) { if (v === 'off') ppStatus('off'); });
+        } })]),
+      el('p', { class: 'a-hint', text: '«Включить» — бот работает на Beget круглосуточно. «Выключить» — нужно, только если снова запускать бота на компьютере.' })
+    ], { note: st && !b ? (st.on === true ? 'работает' : st.on === false ? 'выключен' : 'нет связи') : '' });
+  }
+
+  function ppWho(r) {
+    return [r.tg_username ? '@' + r.tg_username : '', r.tg_first_name || ''].filter(Boolean).join(' · ') || (r.source === 'site' ? 'с сайта, без имени' : 'без имени');
+  }
+  function ppDate(s) { var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(s || ''); return m ? m[3] + '.' + m[2] + '.' + m[1] + ' ' + m[4] + ':' + m[5] : (s || ''); }
+  function ppScores(r) {
+    return Object.keys(r.scores || {}).map(function (k) { var s = r.scores[k]; return s.name + ' ' + s.score + '/' + s.max; }).join(' · ');
+  }
+  function ppFiltered() {
+    var q = PP.q.trim().toLowerCase().replace(/^@/, '');
+    if (!q) return PP.results;
+    return PP.results.filter(function (r) {
+      return [r.code, r.tg_username, r.tg_first_name, r.test].some(function (v) { return v && String(v).toLowerCase().indexOf(q) >= 0; });
+    });
+  }
+  function ppResultsBlock() {
+    var all = PP.results;
+    if (!all) return block('Результаты тестов', [PP.resultsBusy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем результаты…' })])
+      : el('button', { type: 'button', class: 'a-btn', text: 'Загрузить результаты', onclick: ppResults })]);
+    var list = ppFiltered();
+    var search = el('input', { class: 'a-input', type: 'search', value: PP.q, placeholder: 'Поиск: код (HADS-…), ник или имя' });
+    var listBox = el('div', { class: 'a-pp-list' });
+    function drawList() {
+      list = ppFiltered();
+      listBox.replaceChildren();
+      add(listBox, list.length ? list.map(ppRow) : el('p', { class: 'a-empty', text: all.length ? 'Ничего не нашлось.' : 'Пока ни одного результата.' }));
+      count.textContent = PP.q.trim() ? 'Найдено: ' + list.length + ' из ' + all.length : 'Всего: ' + all.length;
+    }
+    var count = el('span', { class: 'a-hint' });
+    search.addEventListener('input', function () { PP.q = search.value; drawList(); });
+    drawList();
+    return block('Результаты тестов', [
+      el('div', { class: 'a-pp-row' }, [search,
+        el('button', { type: 'button', class: 'a-btn', text: 'Обновить', disabled: PP.resultsBusy, onclick: ppResults }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Выгрузить в таблицу', title: 'Файл CSV — открывается в Excel и Numbers. Выгружается то, что сейчас в списке (с учётом поиска).',
+          onclick: function () { ppExport(ppFiltered()); } })]),
+      count,
+      listBox,
+      el('p', { class: 'a-hint', text: 'Новые — сверху. Нажмите на строку — откроются ответы. Результат на Beget удаляется сам, только когда ему больше 30 дней и его уже забрал Компас. Выгруженный файл — с ответами и никами: храните его бережно, не пересылайте.' })
+    ], { note: all.length ? String(all.length) : '' });
+  }
+  function ppRow(r) {
+    var open = !!PP.open[r.code];
+    var row = el('div', { class: 'a-pp-item' + (open ? ' is-open' : '') });
+    add(row, [
+      el('button', { type: 'button', class: 'a-pp-head', 'aria-expanded': open ? 'true' : 'false', onclick: function () {
+        if (PP.open[r.code]) delete PP.open[r.code]; else PP.open[r.code] = true;
+        row.replaceWith(ppRow(r)); } }, [
+        el('span', { class: 'a-pp-date', text: ppDate(r.created_at) }),
+        el('b', { class: 'a-pp-code', text: r.code }),
+        el('span', { class: 'a-pp-who', text: ppWho(r) }),
+        el('span', { class: 'a-pp-sc', text: ppScores(r) }),
+        r.taken_at ? el('span', { class: 'a-tag a-tag--pub', text: 'в Компасе' }) : null]),
+      open ? el('div', { class: 'a-pp-body' }, [
+        el('p', { class: 'a-hint', text: (r.test_title || r.test) + ' · ' + (r.source === 'site' ? 'на сайте' : 'в Телеграме') + (r.taken_at ? ' · забран Компасом ' + ppDate(r.taken_at) : '') }),
+        el('ul', { class: 'a-pp-scores' }, Object.keys(r.scores || {}).map(function (k) {
+          var s = r.scores[k]; return el('li', {}, [el('b', { text: s.name + ': ' + s.score + ' из ' + s.max }), s.text ? ' — ' + s.text : '']);
+        })),
+        el('ol', { class: 'a-pp-answers' }, (r.answers || []).map(function (a) {
+          return el('li', {}, [el('span', { text: a.question }), el('small', { text: a.answer + ' · ' + a.score + (r.scores && r.scores[a.scale] ? ' (' + r.scores[a.scale].name.toLowerCase() + ')' : '') })]);
+        })),
+        el('div', { class: 'a-pp-row' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать код', onclick: function () {
+            (navigator.clipboard ? navigator.clipboard.writeText(r.code) : Promise.reject()).then(function () { toast('Код ' + r.code + ' скопирован.'); }, function () { toast('Не получилось скопировать — выделите код вручную.', true); }); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: 'Удалить (пробный)…', onclick: function () { ppDelete(r); } })])
+      ]) : null
+    ]);
+    return row;
+  }
+  function ppDelete(r) {
+    dialog({ title: 'Удалить результат ' + r.code + '?',
+      body: 'Удаляйте только свои пробные прохождения. Результат удалится с Beget навсегда' + (r.taken_at ? '' : ' — Компас его ещё не забирал') + '.',
+      buttons: [['del', 'Удалить навсегда', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
+      if (v !== 'del') return;
+      busy('Удаляем…');
+      ppCall('delete', { codes: [r.code] }).then(function (d) {
+        busy(null);
+        PP.results = PP.results.filter(function (x) { return x.code !== r.code; }); delete PP.open[r.code];
+        ppDraw(); toast(d.deleted ? 'Результат ' + r.code + ' удалён.' : 'Его уже не было на Beget.');
+      }).catch(fail);
+    });
+  }
+  // Таблица CSV: одна строка — один результат; шкалы и баллы за каждый вопрос — столбцами. Собирается здесь, в браузере.
+  function ppExport(list) {
+    if (!list.length) { toast('Выгружать нечего — список пуст.', true); return; }
+    var scales = [], maxQ = 0;
+    list.forEach(function (r) {
+      Object.keys(r.scores || {}).forEach(function (k) { if (scales.indexOf(k) < 0) scales.push(k); });
+      maxQ = Math.max(maxQ, (r.answers || []).length);
+    });
+    var names = {}; list.forEach(function (r) { Object.keys(r.scores || {}).forEach(function (k) { names[k] = r.scores[k].name; }); });
+    var head = ['Код', 'Тест', 'Дата', 'Где', 'Ник', 'Имя', 'Забран Компасом'];
+    scales.forEach(function (k) { head.push(names[k] + ' — балл', names[k] + ' — вывод'); });
+    for (var i = 1; i <= maxQ; i++) head.push('В' + i);
+    var rows = [head].concat(list.map(function (r) {
+      var row = [r.code, r.test, ppDate(r.created_at), r.source === 'site' ? 'сайт' : 'Телеграм', r.tg_username ? '@' + r.tg_username : '', r.tg_first_name || '', r.taken_at ? ppDate(r.taken_at) : ''];
+      scales.forEach(function (k) { var s = (r.scores || {})[k]; row.push(s ? s.score : '', s ? s.text : ''); });
+      for (var j = 0; j < maxQ; j++) { var a = (r.answers || [])[j]; row.push(a ? a.score : ''); }
+      return row;
+    }));
+    var csv = '﻿' + rows.map(function (row) {
+      return row.map(function (v) { v = String(v == null ? '' : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';');
+    }).join('\r\n');
+    var d = new Date(), a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
+      download: 'psypoint-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.csv' });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    toast('Таблица сохранена в «Загрузки»: ' + list.length + ' ' + (list.length === 1 ? 'результат' : 'результатов') + '.');
   }
 
   /* ================= НАСТРОЙКИ ================= */
