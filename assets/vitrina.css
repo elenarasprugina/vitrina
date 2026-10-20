@@ -753,6 +753,30 @@ body.m13-locked{overflow:hidden}
 .m13-pos-bottom > .m13-shade{transform:scaleY(-1)}
 .m13-pos-center > .m13-shade{background:rgba(var(--m13-shc),.36)}
 
+/* ================= Ближайшее событие на лицевой стороне (20.10.2026) =================
+   Слой под надписями: «картинка тает» — снизу картинка события растворяется к надписям; «матовое стекло» — вся карточка
+   размытой картинкой, чёткая только прорезь. Подпись (дата · название) — над кнопкой «открыть». */
+.m13-evp{overflow:hidden;--m13-evy:50%}
+.m13-evp-img,.m13-evp-blur,.m13-evp-slit{position:absolute;background:var(--m13-evi) center var(--m13-evy)/cover no-repeat}
+.m13-evp-img{left:0;right:0;bottom:0;height:var(--m13-evh,60%);-webkit-mask-image:linear-gradient(transparent,#000 48%);mask-image:linear-gradient(transparent,#000 48%)}
+.m13-evp--melt::after{content:"";position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(transparent,rgba(0,0,0,.5))}
+.m13-evp--frost{background:#14100b}
+.m13-evp-blur{inset:-16px;filter:blur(9px) brightness(.66) saturate(1.1)}
+.m13-evp-slit{inset:0;clip-path:inset(var(--m13-eva,48%) 0 calc(100% - var(--m13-eva,48%) - 20%) 0)}
+.m13-evp-line{position:absolute;left:0;right:0;top:var(--m13-eva,48%);height:20%;box-sizing:border-box;
+  border-top:1px solid color-mix(in srgb,var(--m13-ac,#ecd3a3) 80%,transparent);border-bottom:1px solid color-mix(in srgb,var(--m13-ac,#ecd3a3) 80%,transparent);
+  box-shadow:0 0 12px rgba(0,0,0,.4)}
+.m13-evp-cap{position:absolute;z-index:1;left:13px;right:13px;bottom:46px;font-weight:600;font-size:10px;line-height:1.25;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--m13-tc,#f6eedf);text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 10px rgba(0,0,0,.5);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.m13-evp--frost .m13-evp-cap{bottom:auto;top:calc(var(--m13-eva,48%) + 20% + 6px);text-align:center}
+.m13-front .m13-evp-cap{left:24px;right:24px;bottom:74px;font-size:13px}
+.m13-front .m13-evp--frost .m13-evp-cap{bottom:auto;top:calc(var(--m13-eva,48%) + 20% + 10px)}
+@media (max-width:680px){
+  .m13-evp-cap{left:8px;right:8px;bottom:30px;font-size:7.5px;letter-spacing:.04em}
+  .m13-evp--frost .m13-evp-cap{top:calc(var(--m13-eva,48%) + 20% + 3px)}
+  .m13-front .m13-evp-cap{left:18px;right:18px;bottom:64px;font-size:12px}
+}
+
 /* ================= Размер текста на карточке ================= */
 /* zoom увеличивает надпись вместе с её отступами и рамкой; на телефоне — мягче, там мало места */
 .m13-tt-sm :is(.m13-mini-title,.m13-hero-title){zoom:.88}

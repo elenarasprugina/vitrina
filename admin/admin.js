@@ -2059,6 +2059,7 @@
           else if (isStatic) tags.push(['без оборота', 0]);
           else tags.push([b.routeId && routeById(b.routeId) ? 'маршрут' : 'оборот', 0]);
           if (c.visible !== false && lidOnOf(sc, c)) tags.push(['обложка', 0]);
+          if (c.visible !== false && f.ev && f.ev.on) tags.push([window.M13.evNear(c, { events: DATA.events, settings: DATA.settings, routes: DATA.routes }) ? 'событие' : 'событие: нет', 0]);
           var d = sc.cardStyle || {}, fs = f.style || {};
           var font = fs.font || d.font, tc = fs.textColor || d.textColor, bg = fs.bg || d.bg;
           function pk(k, def) { return fs[k] && fs[k] !== 'inherit' ? fs[k] : (d[k] || def); }
@@ -2854,6 +2855,51 @@
     return box;
   }
 
+  /* ---------- Ближайшее событие на лицевой стороне (её решение 20.10) ----------
+     front.ev = {on, src: 'all' | тип | 'pick', ids, look: 'melt' | 'frost', h, at, y, cap} — как читает витрина, см. evNear в vitrina.js */
+  function evFields(c, cb) {
+    var box = el('div', { class: 'a-phase' });
+    function draw() {
+      var o = c.front.ev = c.front.ev || { on: false, src: 'all', look: 'melt' };
+      var soon = ((DATA.events || {}).items || []).filter(function (e) {
+        return e && e.visible !== false && e.type !== 'case' && (e.dateEnd || e.date || '9') >= libTodayIso();
+      }).sort(function (a, b) { return String(a.date || '9').localeCompare(String(b.date || '9')); });
+      box.replaceChildren();
+      add(box, [
+        switchIn(o, 'on', 'Показывать ближайшее событие', { onChange: function () { draw(); cb.redrawGrid(); },
+          hint: 'Из раздела «События»: картинка ближайшего события прямо на карточке. Прошло — само встаёт следующее; больше нет — карточка как обычно. Нажатие — как всегда: карточка увеличивается, потом оборот.' }),
+        o.on ? [
+          selectIn(o, 'src', 'Какие события', [['all', 'Все']].concat(EV_TYPES.filter(function (t) { return t[0] !== 'case'; }).map(function (t) {
+            return [t[0], 'Только: ' + t[1]]; })).concat([['pick', 'Выбрать самой']]), { onChange: function () { draw(); cb.redrawGrid(); } }),
+          o.src === 'pick' ? el('div', { class: 'a-jwho' }, [el('span', { class: 'a-label', text: 'Из этих событий — ближайшее' })].concat(soon.length ? soon.map(function (e) {
+            o.ids = o.ids || [];
+            var x = el('input', { type: 'checkbox', checked: o.ids.indexOf(e.id) >= 0 });
+            x.addEventListener('change', function () { o.ids = o.ids.filter(function (id) { return id !== e.id; }); if (x.checked) o.ids.push(e.id); changed(); updNow(); });
+            return el('label', { class: 'a-jwho-i' }, [x, el('span', { text: [e.title || 'Без названия', e.date].filter(Boolean).join(' · ') })]);
+          }) : [el('span', { class: 'a-hint', text: 'Впереди событий пока нет.' })])) : null,
+          selectIn(o, 'look', 'Как выглядит', [['melt', 'Картинка тает — снизу, растворяется к надписям'], ['frost', 'Матовое стекло — вся карточка размыта, чёткая прорезь']],
+            { onChange: function () { draw(); cb.redrawGrid(); } }),
+          o.look === 'frost'
+            ? rangeIn(o, 'at', 'Где прорезь', { min: 15, max: 70, def: 48, unit: ' % сверху', hint: 'Сдвиньте, если прорезь закрывает надписи карточки.' })
+            : rangeIn(o, 'h', 'Высота картинки', { min: 25, max: 85, def: 60, unit: ' %', hint: 'Какую часть карточки снизу занимает картинка события.' }),
+          rangeIn(o, 'y', 'Какая часть картинки видна', { min: 0, max: 100, def: 50, unit: ' %', hint: '0 — верх картинки, 50 — середина, 100 — низ.' }),
+          selectIn(o, 'cap', 'Подпись на картинке', [['', 'Дата и название'], ['date', 'Только дата'], ['none', 'Без подписи']]),
+          nowP
+        ] : null
+      ]);
+      updNow();
+    }
+    var nowP = el('p', { class: 'a-phase-now' });
+    function updNow() {
+      if (!c.front.ev || !c.front.ev.on) return;
+      var e = window.M13.evNear(c, { events: DATA.events, settings: DATA.settings, routes: DATA.routes });
+      nowP.textContent = e ? 'Сейчас на карточке: «' + (e.title || 'Без названия') + '»' + (e.date ? ', ' + libDmy(e.date) : '') + '.'
+        : 'Сейчас подходящего события нет (нужны дата впереди и главная картинка) — карточка как обычно.';
+    }
+    draw();
+    return box;
+  }
+
   /* ---------- Копирование карточки из любого месяца ---------- */
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
@@ -2992,6 +3038,7 @@
           selectIn(f, 'statusStyle', 'Как показывать статус', [['line', 'Строкой текста'], ['pill', 'Плашкой (в рамке)']], { onChange: cb.redrawGrid })]),
         optIn(f, 'foot', 'Подпись внизу маленькой карточки', { ph: '3 формата, 4 встречи…' }),
         phaseFields(c, cb),
+        evFields(c, cb),
         c.back && c.back.routeId ? el('div', { class: 'a-glass' }, [sub('Увеличенная карточка маршрута'),
           switchIn(f, 'dayShow', 'Пока маршрут идёт — показывать карту сегодняшнего дня', { defTrue: true,
             hint: 'Если у маршрута есть страница по дням (раздел «Страницы маршрутов»): при открытии карточки — картинка, кин и фокус сегодняшнего дня, как их видит Наблюдение, и кнопка «Открыть маршрут». Оборот — как обычно.' }),
@@ -8669,7 +8716,7 @@
             e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'date', 'Дата', { type: 'date' }), textIn(e, 'dateEnd', 'Последний день (если несколько)', { type: 'date' }), textIn(e, 'time', 'Начало', { ph: '19:00' })]),
             e.type === 'case' ? null : el('div', { class: 'a-row3' }, [textIn(e, 'duration', 'Длительность, минут', { type: 'number', ph: '120' }), textIn(e, 'place', 'Где', { ph: 'Онлайн / Москва, …' }), textIn(e, 'price', 'Стоимость', { ph: '1 500 ₽ / свободный вход' })]),
             e.type === 'case' ? null : textIn(e, 'dateText', 'Дата своими словами (необязательно)', { ph: 'Каждый четверг октября', hint: 'Если заполнено — показывается вместо даты.' }),
-            imageIn(e, 'cover', 'Главная картинка', { max: 1800, size: { w: 1600, h: 1200, note: 'горизонтальная, 4:3; текст на картинке — не у краёв' }, hint: 'Показывается крупно наверху страницы и маленькой — в списке.' }),
+            imageIn(e, 'cover', 'Главная картинка', { max: 1800, size: { w: 1600, h: 1200, note: 'горизонтальная, 4:3; текст на картинке — не у краёв' }, hint: 'Показывается крупно наверху страницы и маленькой — в списке. Ещё — на карточках витрины, где включено «Показывать ближайшее событие» (пока событие впереди).' }),
             fitIn(e, 'coverFit', 'Главная картинка в списке', 'Наверху страницы события она всегда целиком. В списке окошко 4:3 — для вертикальной картинки выберите «целиком».'),
             textIn(e, 'coverCaption', 'Подпись под главной картинкой', { ph: 'необязательно' }),
             e.type === 'case' ? null : glassEventFields(e),
@@ -10585,7 +10632,7 @@
       var v = o[k];
       if (k.charAt(0) === '_') return;
       if (v && typeof v === 'object' && !Array.isArray(v) && v.show === false) return;
-      if ((k === 'phase' || k === 'calendar' || k === 'monthCal') && v && typeof v === 'object' && !v.on) return;
+      if ((k === 'phase' || k === 'calendar' || k === 'monthCal' || k === 'ev') && v && typeof v === 'object' && !v.on) return;
       out[k] = cleanDeep(v);
     });
     return out;
