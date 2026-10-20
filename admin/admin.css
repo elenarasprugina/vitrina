@@ -784,3 +784,36 @@ body.a-noscroll{overflow:hidden}
   .a-preview:has(.a-film){overflow:hidden}
   .a-film-side{max-height:calc(100vh - 120px);overflow:auto}
 }
+
+/* ПсиПоинт: состояние бота и результаты тестов */
+.a-pp{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+.a-pp-login{display:flex;flex-direction:column;gap:8px;max-width:560px}
+.a-pp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.a-pp-row .a-input{flex:1 1 220px;width:auto}
+.a-pp-wait{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--a-muted)}
+.a-pp-state{font-size:16px;font-weight:700}
+.a-pp-checks{list-style:none;margin:0;padding:0;font-size:13.5px;line-height:1.5}
+.a-pp-checks li.is-bad{color:var(--a-danger)}
+.a-pp-list{display:flex;flex-direction:column;gap:6px}
+.a-pp-item{border:1px solid var(--a-line);border-radius:11px;background:#fff}
+.a-pp-item.is-open{border-color:#b9b9b4}
+.a-pp-head{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:128px 120px 1fr auto auto;gap:10px;align-items:center;padding:9px 12px;font-size:13px}
+.a-pp-head:focus-visible{outline:2px solid var(--a-dark);outline-offset:2px;border-radius:11px}
+.a-pp-date{color:var(--a-muted);font-variant-numeric:tabular-nums}
+.a-pp-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;letter-spacing:.02em}
+.a-pp-who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a-pp-sc{color:#444;white-space:nowrap}
+.a-pp-body{border-top:1px solid #ececea;padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+.a-pp-scores{margin:0;padding-left:18px;font-size:13.5px;line-height:1.45}
+.a-pp-answers{margin:0;padding-left:22px;font-size:13px;line-height:1.4;display:flex;flex-direction:column;gap:6px}
+.a-pp-answers small{display:block;color:var(--a-muted);font-size:12px}
+.a-pp-foot{margin-top:4px;line-height:1.8}
+@media (max-width:760px){
+  .a-pp-head{grid-template-columns:1fr auto;gap:2px 10px}
+  .a-pp-date{grid-row:1;grid-column:1/-1;font-size:12px}
+  .a-pp-code{grid-row:2;grid-column:1}
+  .a-pp-head .a-tag{grid-row:2;grid-column:2}
+  .a-pp-who{grid-row:3;grid-column:1/-1}
+  .a-pp-sc{grid-row:4;grid-column:1/-1}
+  .a-pp-sc{white-space:normal}
+}
