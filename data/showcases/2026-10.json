@@ -706,7 +706,7 @@
       "interactive": true,
       "front": {
         "image": null,
-        "eyebrow": "Продукт",
+        "eyebrow": "",
         "title": "Карта-Отражение",
         "subtitle": {
           "value": "Какой твой архетип?",
