@@ -142,13 +142,12 @@
           chips('form', [['knot', 'mKnot'], ['coil', 'mCoil'], ['tower', 'mTower']]) +
           '<div class="m13-km-scene"><canvas class="m13-km-tv" aria-label="260 кинов в объёме"></canvas></div><p class="m13-km-cap"></p>' +
           chips('flat', [['3d', 'm3d'], ['classic', 'mClassic'], ['cut', 'mCut']].filter(function (x) { return FLATS.indexOf(x[0]) >= 0; })) +
-          '<p class="m13-km-about"></p>' +
+          '<p class="m13-km-about"></p><div class="m13-km-legend"></div>' +
         '</div>' +
       '</div>' +
       '<div class="m13-km-card" aria-live="polite"></div>' +
       '<div class="m13-km-panel m13-km-opts">' +
         chips('lay', [['seal', 'mSeal'], ['castle', 'mCastle'], ['season', 'mSeason']]) +
-        '<div class="m13-km-legend"></div>' +
         chips('hl', [['', 'mHlNone'], ['wave', 'mHlWave'], ['seal', 'mHlSeal'], ['tone', 'mHlTone'], ['port', 'mHlPort']]) +
       '</div>';
     function q(s) { return box.querySelector(s); }
@@ -609,7 +608,7 @@
       var lg = q('.m13-km-legend');
       lg.innerHTML = (opt.lay !== 'seal' ? '<span>' + L[opt.lay] + '</span>' : '') + (T('mLegend') ? '<span>' + esc(T('mLegend')) + '</span>' : '');
       lg.hidden = !lg.innerHTML;
-      optsEl.hidden = lg.hidden && !show.lay && !show.hl;
+      optsEl.hidden = !show.lay && !show.hl;
     }
     box.querySelectorAll('.m13-km-row[data-g]').forEach(function (row) {
       var g = row.getAttribute('data-g');
