@@ -663,6 +663,11 @@
           "glowStrength": "medium",
           "glowDir": "bottom",
           "lid": {}
+        },
+        "ev": {
+          "on": true,
+          "src": "all",
+          "look": "melt"
         }
       },
       "back": {

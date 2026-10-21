@@ -70,7 +70,9 @@
     "note": "Здесь появится твой мир.",
     "open": true,
     "onHome": true,
-    "homeLink": "Гримуар · Калейдоскоп Твоих Миров"
+    "homeLink": "Гримуар · Калейдоскоп Твоих Миров",
+    "homeBtn": true,
+    "homeBtnText": "Открыть Гримуар"
   },
   "months": {
     "soon": {}
