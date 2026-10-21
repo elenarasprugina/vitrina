@@ -3347,7 +3347,21 @@
     wNow: 'Сейчас идёт волна «{маршрут}» · {даты}, сегодня {день}-й день из 13.', wNowPast: 'Ваша печать была в ней {дата} — {день}-й день.',
     wSeal: 'Ваша печать придёт снова {дата}: Kin {кин}, {имя} — {день}-й день волны «{маршрут}» · {даты}.',
     wSealHere: 'Ваша печать придёт в этой же волне {дата}: Kin {кин}, {имя} — {день}-й день.',
-    wSealToday: 'Сегодня — день вашей печати: Kin {кин}, {имя}.'
+    wSealToday: 'Сегодня — день вашей печати: Kin {кин}, {имя}.',
+    // механизм после «Открыть» на странице (assets/kinmech.js, 21.10): шестерёнки и Цолькин в объёме
+    mHint: 'Крутите любую шестерёнку пальцем: каждый зубец — один день. По бублику идёт огонёк — это день на шестерёнках.',
+    mToday: 'Сегодня', mMine: 'Мой кин',
+    mFormH: 'Форма', mKnot: 'Бублик', mCoil: 'Волна — виток', mTower: 'Башня',
+    mFlatH: 'Разложить', m3d: 'В объёме', mCut: 'Разрезанный бублик', mClassic: 'Привычная таблица',
+    mCutCap: 'Разрезанный бублик: строки — 20 печатей, столбцы — 13 тонов. День за днём — шаг вниз и вправо, наискосок.',
+    mClassicCap: 'Привычная таблица: 13 столбцов по 20 дней, дни идут сверху вниз.',
+    mToTable: '▦ Показать в таблице',
+    mLayH: 'Цвет показывает', mSeal: 'Печати', mCastle: 'Замки', mSeason: 'Сезоны',
+    mHlH: 'Подсветить', mHlNone: 'ничего', mHlWave: 'волну', mHlSeal: 'эту печать', mHlTone: 'этот тон', mHlPort: 'порталы',
+    mLegend: '★ сегодня · ◌ мой кин · огонёк — день на шестерёнках · золотая нить — его волна',
+    mAboutKnot: 'Бублик: по большому кругу — 20 печатей, вокруг трубки — 13 тонов. Тонкие кольца — направляющие. Каждый день — шаг сразу по обоим кругам, как у шестерёнок, поэтому путь идёт наискосок и замыкается через 260 дней.',
+    mAboutCoil: 'Волна — виток: дни идут подряд по кругу бублика, каждая волна из 13 дней — один виток вокруг трубки, 20 витков — 20 волн.',
+    mAboutTower: 'Башня: 20 витков по 13 точек снизу вверх. Каждый виток — волна, Kin 1 внизу, Kin 260 наверху.'
   };
   M13.KIN_T = KIN_T;   // панель: подсказки в полях текстов
   var KIN_COL = ['#c0453c', '#ece6d8', '#3f6fc4', '#e2b13a'];
@@ -3408,6 +3422,16 @@
       document.head.appendChild(sc);
     });
   }
+  // механизм страницы кина (assets/kinmech.js) — только когда он включён и страница открыта
+  function needMech(done) {
+    if (window.M13KINM) { done(); return; }
+    if (S.mechQ) { S.mechQ.push(done); return; }
+    S.mechQ = [done];
+    var sc = document.createElement('script'); sc.src = S.base + 'assets/kinmech.js' + (VV ? '?v=' + VV : '');
+    sc.onload = sc.onerror = function () { var q = S.mechQ; S.mechQ = null; if (window.M13KINM) q.forEach(function (f) { f(); }); };
+    document.head.appendChild(sc);
+  }
+  function kinMechOn() { return (kinCfg().mech || {}).on !== false; }
   function kinIso(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function kinDay(iso) { var d = parseDate(iso); return d.getDate() + ' ' + MON_GEN[d.getMonth()] + ' ' + d.getFullYear(); }
   function kinRange(a, b) {
@@ -3484,7 +3508,7 @@
       return '<div class="m13-kin-route"><p class="m13-kin-rt">' + txt(kinFill(kinT('routeT'), c)) + '</p>' +
         (kinT('routeD') ? '<p class="m13-kin-rd">' + txt(kinFill(kinT('routeD'), c)) + '</p>' : '') +
         (cid ? '' : '<p class="m13-kin-soon">' + txt(kinT('routeSoon')) + '</p>') + '<div class="m13-kin-racts">' +
-        '<button type="button" class="m13-kin-link" data-m13-kin-show="' + w.kin + '">' + txt(kinT('wShow')) + '</button>' + (cid
+        '<button type="button" class="m13-kin-link" data-m13-kin-show="' + w.kin + '" data-m13-kin-date="' + w.date + '">' + txt(kinT('wShow')) + '</button>' + (cid
         ? '<button type="button" class="m13-action" data-m13-kin-card="' + esc(cid) + '">' + txt(kinT('routeOpen')) + '</button>'
         : '<button type="button" class="m13-action"' +
           act({ kind: 'contact', label: kinT('routeAsk'), message: kinFill(kinT('routeMsg'), c) }, { card: w.title, action: kinT('routeAsk') }) + '>' + txt(kinT('routeAsk')) + '</button>') + '</div></div>';
@@ -3523,7 +3547,7 @@
     if (mode === 'page' && pf === 'lora') ensureFont('Lora');
     if (mode === 'page' && { lora: 1, sans: 1 }[pf]) pb += ' m13-kin--f-' + pf;
     return '<div class="m13-kin m13-kin--' + mode + pb + (lk && lk.pan ? ' m13-kin--own' : '') + '" data-m13-kin="' + mode + '"' + (css ? ' style="' + esc(css) + '"' : '') + '>' +
-      '<div class="m13-kw"></div>' +
+      '<div class="m13-kw"></div>' + (mode === 'page' && kinMechOn() ? '<div class="m13-km" hidden></div>' : '') +
       '<div class="m13-kin-links"><button type="button" class="m13-kin-link m13-kin-again" hidden>' + txt(kinT('wAgain')) + '</button>' +
       '<button type="button" class="m13-kin-link m13-kin-typed">' + txt(kinT('wTyped')) + '</button></div>' +
       '<label class="m13-kin-l" hidden><span>' + txt(kinT('label')) + '</span><span class="m13-kin-row">' +
@@ -3548,7 +3572,27 @@
     scope.querySelectorAll('[data-m13-kin]').forEach(function (box) {
       var mode = box.getAttribute('data-m13-kin'), inp = box.querySelector('.m13-kin-in'), out = box.querySelector('.m13-kin-out'),
         lab = box.querySelector('.m13-kin-l'), tBtn = box.querySelector('.m13-kin-typed'), again = box.querySelector('.m13-kin-again'),
-        st = { date: '', noon: '', shown: '' }, wheel = null;
+        st = { date: '', noon: '', shown: '' }, wheel = null, mech = null, kwEl = box.querySelector('.m13-kw'), kmEl = box.querySelector('.m13-km'), mechT = 0;
+      // Механизм (21.10, docs/tzolkin-gears.md): после «Открыть» сейф уходит, на его месте шестерёнки и Цолькин в объёме
+      function mechShow(kins, quiet) {
+        clearTimeout(mechT);
+        needMech(function () {
+          if (!mech) mech = window.M13KINM.mount(kmEl, { T: kinT, today: kinIso(today()), cfg: kinCfg().mech || {},
+            waveTitle: function (from, t) { var r = ((S.D.routes || {}).routes || []).filter(function (x) { return x && (x.dates || {}).from === from; })[0]; return r ? r.title : t; } });
+          kwEl.classList.add('is-going');
+          mechT = setTimeout(function () {
+            kwEl.hidden = true; kwEl.classList.remove('is-going'); box.classList.add('is-mech');
+            mech.show(kins, quiet);
+            if (!quiet) kmEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, quiet ? 0 : 1300);
+        });
+      }
+      function mechHide() {
+        clearTimeout(mechT);
+        if (mech) mech.hide();
+        if (kwEl) { kwEl.hidden = false; kwEl.classList.remove('is-going'); }
+        box.classList.remove('is-mech');
+      }
       box.addEventListener('click', function (e) { e.stopPropagation(); });
       inp.addEventListener('input', function () {
         var dg = inp.value.replace(/\D/g, '').slice(0, 8), v = dg.slice(0, 2) + (dg.length > 2 ? '.' + dg.slice(2, 4) : '') + (dg.length > 4 ? '.' + dg.slice(4) : '');
@@ -3563,6 +3607,7 @@
       });
       again.addEventListener('click', function () {
         st.date = ''; st.noon = ''; st.shown = ''; out.innerHTML = ''; again.hidden = true;
+        mechHide();
         if (wheel) wheel.reset();
         box.querySelector('.m13-kw').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
@@ -3593,8 +3638,8 @@
           // колесо: кин известен — точки перелетают в Цолькин (звон — один раз на дату); 29 февраля без ответа — ждём «до/после полудня»
           var kins = two ? [two[0].kin, two[1].kin] : I ? [I.kin] : [];
           if (wheel) {
-            if (kins.length && st.shown !== kins.join()) { wheel.reveal(kins, st.quiet); again.hidden = false; }
-            else if (!kins.length) wheel.wait(kinT('wHunab'));
+            if (kins.length && st.shown !== kins.join()) { wheel.reveal(kins, st.quiet); again.hidden = false; if (kmEl) mechShow(kins, st.quiet); }
+            else if (!kins.length) { if (kmEl) mechHide(); wheel.wait(kinT('wHunab')); }
           }
           st.shown = kins.join(); st.quiet = false;
           out.querySelectorAll('[data-noon]').forEach(function (b) { b.addEventListener('click', function () { st.noon = b.getAttribute('data-noon'); draw(); }); });
@@ -3603,9 +3648,11 @@
           out.querySelectorAll('[data-m13-kin-card]').forEach(function (b) { b.addEventListener('click', function () { kinGoCard(b.getAttribute('data-m13-kin-card')); }); });
           out.querySelectorAll('[data-m13-kin-show]').forEach(function (b) {
             b.addEventListener('click', function () {
+              var k = +b.getAttribute('data-m13-kin-show');
+              if (mech && kwEl.hidden) { mech.go(k, b.getAttribute('data-m13-kin-date')); kmEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
               if (!wheel) return;
-              wheel.pick(+b.getAttribute('data-m13-kin-show'));
-              box.querySelector('.m13-kw').scrollIntoView({ behavior: 'smooth', block: 'center' });
+              wheel.pick(k);
+              kwEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
           });
           bindActs(out);
