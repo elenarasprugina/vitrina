@@ -3352,16 +3352,14 @@
     mHint: 'Крутите любую шестерёнку пальцем: каждый зубец — один день. По бублику идёт огонёк — это день на шестерёнках.',
     mToday: 'Сегодня', mMine: 'Мой кин',
     mFormH: 'Форма', mKnot: 'Бублик', mCoil: 'Волна — виток', mTower: 'Башня',
-    mFlatH: 'Разложить', m3d: 'В объёме', mCut: 'Разрезанный бублик', mClassic: 'Привычная таблица',
-    mCutCap: 'Разрезанный бублик: строки — 20 печатей, столбцы — 13 тонов. День за днём — шаг вниз и вправо, наискосок.',
-    mClassicCap: 'Привычная таблица: 13 столбцов по 20 дней, дни идут сверху вниз.',
+    mFlatH: '', m3d: 'Объём', mClassic: 'Таблица', mCut: 'Полотно',
+    mCutCap: 'Строки — 20 печатей, столбцы — 13 тонов. День за днём — шаг вниз и вправо, наискосок.',
+    mClassicCap: '13 столбцов по 20 дней, дни идут сверху вниз.',
     mToTable: '▦ Показать в таблице',
     mLayH: 'Цвет показывает', mSeal: 'Печати', mCastle: 'Замки', mSeason: 'Сезоны',
     mHlH: 'Подсветить', mHlNone: 'ничего', mHlWave: 'волну', mHlSeal: 'эту печать', mHlTone: 'этот тон', mHlPort: 'порталы',
-    mLegend: '★ сегодня · ◌ мой кин · огонёк — день на шестерёнках · золотая нить — его волна',
-    mAboutKnot: 'Бублик: по большому кругу — 20 печатей, вокруг трубки — 13 тонов. Тонкие кольца — направляющие. Каждый день — шаг сразу по обоим кругам, как у шестерёнок, поэтому путь идёт наискосок и замыкается через 260 дней.',
-    mAboutCoil: 'Волна — виток: дни идут подряд по кругу бублика, каждая волна из 13 дней — один виток вокруг трубки, 20 витков — 20 волн.',
-    mAboutTower: 'Башня: 20 витков по 13 точек снизу вверх. Каждый виток — волна, Kin 1 внизу, Kin 260 наверху.'
+    // лишние пояснения убраны (её решение 21.10) — пусто: строки нет; свои слова она может вписать в панели
+    mLegend: '', mAboutKnot: '', mAboutCoil: '', mAboutTower: ''
   };
   M13.KIN_T = KIN_T;   // панель: подсказки в полях текстов
   var KIN_COL = ['#c0453c', '#ece6d8', '#3f6fc4', '#e2b13a'];
@@ -3577,7 +3575,11 @@
       function mechShow(kins, quiet) {
         clearTimeout(mechT);
         needMech(function () {
-          if (!mech) mech = window.M13KINM.mount(kmEl, { T: kinT, today: kinIso(today()), cfg: kinCfg().mech || {},
+          // материал и подложка — как у колеса-сейфа, если она не выбрала для механизма своё (reflection.kin.mech.mat / .bg)
+          var mc = kinCfg().mech || {}, wm = (kinCfg().wheel || {}).mat || 'bronze', pg = (kinCfg().page || {}).bg || 'deep',
+            mm = { bronze: 1, gold: 1, silver: 1, glass: 1 }[mc.mat] ? mc.mat : wm, mb = { night: 1, deep: 1, glass: 1, none: 1 }[mc.bg] ? mc.bg : pg;
+          if (!mech) kmEl.className = 'm13-km m13-km--mat-' + mm + ' m13-km--bg-' + mb;
+          if (!mech) mech = window.M13KINM.mount(kmEl, { T: kinT, today: kinIso(today()), cfg: mc, mat: mm,
             waveTitle: function (from, t) { var r = ((S.D.routes || {}).routes || []).filter(function (x) { return x && (x.dates || {}).from === from; })[0]; return r ? r.title : t; } });
           kwEl.classList.add('is-going');
           mechT = setTimeout(function () {

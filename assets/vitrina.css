@@ -1986,12 +1986,13 @@ body.m13-locked{overflow:hidden}
 .m13-kin-page .m13-kin.is-mech{max-width:960px}
 .m13-kin-page .m13-kin.is-mech>.m13-kin-links,.m13-kin-page .m13-kin.is-mech>.m13-kin-l,.m13-kin-page .m13-kin.is-mech>.m13-kin-note,.m13-kin-page .m13-kin.is-mech>.m13-kin-out{width:100%;max-width:640px;margin-inline:auto;box-sizing:border-box}
 .m13-km{--km-ink:#f4ead8;--km-mut:#b4aac2;--km-gold:#ecd3a3;--km-line:rgba(236,211,163,.3);display:flex;flex-direction:column;gap:12px;color:var(--km-ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.45;animation:m13kmUp .7s ease both;scroll-margin-top:64px}
+  font-family:inherit;line-height:1.45;animation:m13kmUp .7s ease both;scroll-margin-top:64px}
 .m13-km[hidden]{display:none}
 @keyframes m13kmUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.m13-km{animation:none}.m13-kin .m13-kw{transition:none}}
 .m13-km-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-@media (min-width:860px){.m13-km-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);align-items:start}}
+@media (min-width:860px){.m13-km-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);align-items:stretch}}
+.m13-km-gears{justify-content:center}
 .m13-km-panel{position:relative;border-radius:22px;background:radial-gradient(120% 90% at 30% 0%,#1a1735,#0c0a1c);border:1px solid rgba(236,211,163,.16);
   padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
 .m13-km-date{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--km-mut);text-align:center;padding:0 34px}
@@ -2000,11 +2001,11 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-km-snd{position:absolute;right:6px;top:4px;z-index:2;width:40px;height:40px;padding:0;border:0;background:none;color:var(--km-ink);
   line-height:0;cursor:pointer;opacity:.75;display:flex;align-items:center;justify-content:center}
 .m13 .m13-km-snd:hover,.m13 .m13-km-snd[aria-pressed="true"]{opacity:1}
-.m13-km-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
-.m13 .m13-km-nav button{font:inherit;font-size:14px;color:var(--km-ink);background:rgba(255,248,235,.06);border:1px solid var(--km-line);border-radius:999px;padding:8px 12px;cursor:pointer;min-width:44px}
+.m13-km-nav{display:flex;flex-wrap:nowrap;justify-content:center;gap:5px}
+.m13 .m13-km-nav button{font:inherit;font-size:13.5px;line-height:1.2;color:var(--km-ink);background:rgba(255,248,235,.06);border:1px solid var(--km-line);border-radius:999px;padding:7px 11px;cursor:pointer;white-space:nowrap;flex:0 1 auto;min-width:0}
 .m13 .m13-km-nav button.is-hi{background:var(--km-gold);color:#241b10;border-color:var(--km-gold);font-weight:600}
-.m13 .m13-km-nav button[data-step]{min-width:52px}
-@media (max-width:560px){.m13-km-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.m13 .m13-km-nav button{min-width:0;padding:8px 6px}.m13 .m13-km-nav button[data-go]{grid-column:span 2;order:-1}}
+.m13 .m13-km-nav button[data-step]{width:38px;padding:7px 0;font-size:16px;flex:none}
+@media (max-width:400px){.m13-km-nav{gap:4px}.m13 .m13-km-nav button{padding:7px 9px;font-size:13px}.m13 .m13-km-nav button[data-step]{width:34px}}
 .m13-km-hint{font-size:13px;color:var(--km-mut);text-align:center;margin:0;text-wrap:balance}
 .m13-km-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .m13-km-row[hidden]{display:none}
@@ -2013,7 +2014,8 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-km-chip[aria-pressed="true"]{background:var(--km-gold);border-color:var(--km-gold);color:#241b10}
 .m13 .m13-km-chip:focus-visible,.m13 .m13-km-nav button:focus-visible,.m13 .m13-km-snd:focus-visible,.m13 .m13-km-ok:focus-visible{outline:2px solid var(--km-gold);outline-offset:2px}
 .m13-km-scene{position:relative;border-radius:16px;overflow:hidden;background:radial-gradient(90% 80% at 50% 45%,#141230,#05040c)}
-.m13-km-tv{display:block;width:100%;height:clamp(340px,52vh,560px);touch-action:pan-y;cursor:grab;-webkit-tap-highlight-color:transparent}
+.m13-km-tv{display:block;width:100%;height:clamp(300px,46vh,500px);touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
+.m13-km-tv.is-drag{cursor:grabbing}
 .m13-km-cap{margin:0;font-size:12.5px;color:var(--km-mut);text-align:center;text-wrap:balance}
 .m13-km-cap:empty{display:none}
 .m13-km-card{border-radius:16px;border:1px solid rgba(236,211,163,.2);background:radial-gradient(120% 90% at 30% 0%,#1a1735,#0c0a1c);padding:12px 14px;font-size:14px;color:var(--km-mut);display:flex;flex-direction:column;gap:6px}
@@ -2024,7 +2026,19 @@ body.m13-locked{overflow:hidden}
 .m13-km-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
 .m13 .m13-km-ok{font:inherit;font-size:14px;font-weight:600;color:#241b10;background:var(--km-gold);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;align-self:flex-start}
 .m13-km-legend{font-size:12.5px;color:var(--km-mut);display:flex;flex-wrap:wrap;gap:4px 12px}
-.m13-km-about{font-size:13px;color:var(--kw-mut,#777);margin:0;max-width:72ch}
-.m13-kin--own .m13-km-about,.m13-kin-page .m13-km-about{color:inherit;opacity:.8}
+.m13-km-legend[hidden],.m13-km-opts[hidden],.m13-km-about[hidden]{display:none}
+.m13-km-about{font-size:13px;color:var(--km-mut);margin:0;text-align:center;text-wrap:balance}
+/* шрифт механизма — как у текста ответа на странице кина (reflection.kin.page.font) */
+.m13-kin--f-lora .m13-km{font-family:'Lora',Georgia,serif}
+.m13-kin--f-sans .m13-km{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+/* подложка окон механизма (reflection.kin.mech.bg; по умолчанию — как фон колеса-сейфа) и рамка из материала сейфа */
+.m13-km--bg-deep :is(.m13-km-panel,.m13-km-card){background:radial-gradient(120% 90% at 30% 0%,var(--kw-bg,#1a1735),var(--kw-bg2,#100e22) 75%)}
+.m13-km--bg-glass :is(.m13-km-panel,.m13-km-card){background:color-mix(in srgb,var(--kw-bg,#1a1735) 30%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(16,14,34,.18)}
+.m13-km--bg-none :is(.m13-km-panel,.m13-km-card){background:transparent;border-color:transparent;box-shadow:none}
+.m13-km--bg-none :is(.m13-km-date,.m13-km-hint,.m13-km-cap,.m13-km-about,.m13-km-card,.m13-km-legend){text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.m13-km--mat-bronze :is(.m13-km-panel,.m13-km-card){border-color:rgba(226,173,114,.38)}
+.m13-km--mat-gold :is(.m13-km-panel,.m13-km-card){border-color:rgba(246,227,154,.34)}
+.m13-km--mat-silver :is(.m13-km-panel,.m13-km-card){border-color:rgba(240,243,248,.34)}
+.m13-km--mat-glass :is(.m13-km-panel,.m13-km-card){border-color:rgba(200,205,255,.28)}
 .m13-kin-page .m13-km-hint,.m13-kin-page .m13-km-card{font-size:calc(14.5px * var(--m13-tk,1))}
 .m13-kin-page .m13-km-about{font-size:calc(14px * var(--m13-tk,1))}

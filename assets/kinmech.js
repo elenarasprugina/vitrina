@@ -1,8 +1,11 @@
 /* 13 MIRRORS · «Свой кин» — механизм (21.10.2026, её решения — docs/tzolkin-gears.md, «Разговор 3» и «Сделано»).
    На странице кина после «Открыть»: сейф уходит, на его месте шестерёнки (13 тонов и 20 печатей) и Цолькин в объёме — бублик из 260 точек.
-   Шестерёнки крутят день, по бублику плавно идёт огонёк; бублик раскладывается в разрезанный бублик или привычную таблицу.
+   Шестерёнки крутят день, по бублику идёт огонёк; бублик раскладывается в «Таблицу» (привычный Цолькин) или «Полотно» (разрезанный бублик).
+   Её правки 21.10 (вечер): огонёк бежит только на близкое (до 26 дней), дальше — гаснет и загорается на новом месте; линия волны — точками;
+   бублик крутится во все стороны; шестерёнки и окна — из материала сейфа.
    window.M13KINM.mount(элемент, o) → { show(кины, тихо), go(кин, 'ГГГГ-ММ-ДД'), hide() }.
-   o: { T(ключ) — тексты (vitrina.js, KIN_T: m…), today — 'ГГГГ-ММ-ДД', cfg — reflection.kin.mech, waveTitle(первый день волны, имя) }.
+   o: { T(ключ) — тексты (vitrina.js, KIN_T: m…), today — 'ГГГГ-ММ-ДД', cfg — reflection.kin.mech, mat — материал шестерёнок (как у сейфа),
+        waveTitle(первый день волны, имя) }.
    Ничего не отправляет и не хранит, кроме «звук вкл/выкл» на самом устройстве (localStorage m13kinSnd, общий с колесом; по умолчанию звук выключен). */
 (function () {
   'use strict';
@@ -70,6 +73,14 @@
   var SND_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
 
+  // материалы шестерёнок — те же, что у колеса-сейфа (kinwheel.js)
+  var GMATS = {
+    bronze: { lo: '#3a2213', mid: '#8c5a2c', hi: '#e2ad72', sheen: 'rgba(255,226,180,.42)', ink: '#fdebd2', inkSh: 'rgba(30,14,4,.85)', well: '#120b08' },
+    gold: { lo: '#5e4914', mid: '#b08f33', hi: '#f6e39a', sheen: 'rgba(255,250,215,.5)', ink: '#2a2005', inkSh: 'rgba(255,246,210,.55)', well: '#14100a' },
+    silver: { lo: '#4c5262', mid: '#9ba4b6', hi: '#f0f3f8', sheen: 'rgba(255,255,255,.55)', ink: '#1c2130', inkSh: 'rgba(255,255,255,.5)', well: '#0e0f18' },
+    glass: { lo: 'rgba(70,80,170,.30)', mid: 'rgba(140,150,235,.20)', hi: 'rgba(235,235,255,.38)', sheen: 'rgba(255,255,255,.45)', ink: '#eef0ff', inkSh: 'rgba(10,10,40,.7)', well: 'rgba(8,8,24,.6)' }
+  };
+
   /* ---------- раскладки бублика ---------- */
   var Rt = 1, rt = .42;
   function torus(ph, th, u1, u2) {
@@ -111,7 +122,8 @@
     var show = { form: !!cfg.formShow, flat: cfg.flatShow !== false && FLATS.length > 1, lay: !!cfg.colorShow, hl: !!cfg.hlShow };
     function colorOf(k) { return opt.lay === 'castle' ? castle(k) : opt.lay === 'season' ? season(k) : (k - 1) % 20 % 4; }
     function chips(g, list) {
-      return '<div class="m13-km-row" data-g="' + g + '"' + (show[g] ? '' : ' hidden') + '><b>' + esc(T('m' + g.charAt(0).toUpperCase() + g.slice(1) + 'H')) + '</b>' +
+      var h = T('m' + g.charAt(0).toUpperCase() + g.slice(1) + 'H');
+      return '<div class="m13-km-row" data-g="' + g + '"' + (show[g] ? '' : ' hidden') + '>' + (h ? '<b>' + esc(h) + '</b>' : '') +
         list.map(function (x) { return '<button type="button" class="m13-km-chip" data-v="' + x[0] + '" aria-pressed="' + (opt[g] === x[0]) + '">' + esc(T(x[1])) + '</button>'; }).join('') + '</div>';
     }
     box.innerHTML =
@@ -121,15 +133,16 @@
           '<div class="m13-km-date"></div>' +
           '<canvas class="m13-km-gv" aria-label="Шестерёнки: 13 тонов и 20 печатей, в месте сцепления — кин дня"></canvas>' +
           '<div class="m13-km-nav">' +
-            '<button type="button" data-step="-13" title="Назад на волну">« 13</button><button type="button" data-step="-1" title="Назад на день">‹</button>' +
+            '<button type="button" data-step="-13" title="Назад на волну (13 дней)" aria-label="Назад на волну">«</button><button type="button" data-step="-1" title="Назад на день" aria-label="Назад на день">‹</button>' +
             '<button type="button" data-go="today">' + esc(T('mToday')) + '</button><button type="button" class="is-hi" data-go="mine">' + esc(T('mMine')) + '</button>' +
-            '<button type="button" data-step="1" title="Вперёд на день">›</button><button type="button" data-step="13" title="Вперёд на волну">13 »</button></div>' +
+            '<button type="button" data-step="1" title="Вперёд на день" aria-label="Вперёд на день">›</button><button type="button" data-step="13" title="Вперёд на волну (13 дней)" aria-label="Вперёд на волну">»</button></div>' +
           (T('mHint') ? '<p class="m13-km-hint">' + esc(T('mHint')) + '</p>' : '') +
         '</div>' +
         '<div class="m13-km-panel">' +
           chips('form', [['knot', 'mKnot'], ['coil', 'mCoil'], ['tower', 'mTower']]) +
           '<div class="m13-km-scene"><canvas class="m13-km-tv" aria-label="260 кинов в объёме"></canvas></div><p class="m13-km-cap"></p>' +
-          chips('flat', [['3d', 'm3d'], ['cut', 'mCut'], ['classic', 'mClassic']].filter(function (x) { return FLATS.indexOf(x[0]) >= 0; })) +
+          chips('flat', [['3d', 'm3d'], ['classic', 'mClassic'], ['cut', 'mCut']].filter(function (x) { return FLATS.indexOf(x[0]) >= 0; })) +
+          '<p class="m13-km-about"></p>' +
         '</div>' +
       '</div>' +
       '<div class="m13-km-card" aria-live="polite"></div>' +
@@ -137,29 +150,41 @@
         chips('lay', [['seal', 'mSeal'], ['castle', 'mCastle'], ['season', 'mSeason']]) +
         '<div class="m13-km-legend"></div>' +
         chips('hl', [['', 'mHlNone'], ['wave', 'mHlWave'], ['seal', 'mHlSeal'], ['tone', 'mHlTone'], ['port', 'mHlPort']]) +
-      '</div>' +
-      '<p class="m13-km-about"></p>';
+      '</div>';
     function q(s) { return box.querySelector(s); }
+    var gridEl = q('.m13-km-grid'), gPan = q('.m13-km-gears'), tPan = gPan.nextElementSibling, optsEl = q('.m13-km-opts');
     var gv = q('.m13-km-gv'), gx = gv.getContext('2d'), tv = q('.m13-km-tv'), tx = tv.getContext('2d'), sndB = q('.m13-km-snd');
 
     var T0 = isoT(o.today), KT = K.kinOf(T0) || K.kinOf(T0 - DAY);
     var mine = [];   // кин человека (два — 29 февраля «не знаю») — только в памяти страницы
     // st.k — счёт кинов без конца (кин = k mod 260 + 1); shown — куда сейчас повёрнуты колёса, v — их скорость (дней в секунду)
     var st = { t: T0, k: KT - 1, hunab: false, shown: KT - 1, v: 0, drag: null };
+    // огонёк на бублике (её решение 21.10): близко (до 26 дней) — бежит вместе с шестерёнками;
+    // дальше или пока шестерёнки крутят пальцем — стоит, а когда они остановились, гаснет и загорается на новом месте
+    var NEAR = 26, fire = { s: KT - 1, hold: false, f: 0, old: KT - 1 };
     function kinNow() { return mod(st.k, 260) + 1; }
+    function fireAim() { if (st.drag || Math.abs(st.k - fire.s) > NEAR) fire.hold = true; }
     function step(n) {
       var d = n > 0 ? 1 : -1;
       st.hunab = false;
       for (var i = 0; i < Math.abs(n); i++) { st.t += d * DAY; if (feb29(st.t)) st.t += d * DAY; st.k += d; }
       if (reduce) st.shown = st.k;
-      changed();
+      fireAim(); changed();
+    }
+    // сколько дней Цолькина от сегодня до t (29 февраля не считается) — колёса идут ровно назад или вперёд, а не короткой дорогой по кругу
+    function dayN(t) {
+      var a = Math.min(t, T0), b = Math.max(t, T0), c = 0, y;
+      for (y = new Date(a).getUTCFullYear(); y <= new Date(b).getUTCFullYear(); y++) {
+        var f = Date.UTC(y, 1, 29);
+        if (new Date(f).getUTCMonth() === 1 && f > a && f <= b) c++;
+      }
+      return Math.round((t - T0) / DAY) - (t > T0 ? c : -c);
     }
     function setDate(t) {
       st.t = t;
-      var k = K.kinOf(t); st.hunab = !k; if (!k) k = K.kinOf(t - DAY);
-      var diff = mod(k - kinNow(), 260); if (diff > 130) diff -= 260;
-      st.k += diff; if (reduce) st.shown = st.k;
-      changed();
+      st.hunab = !K.kinOf(t);
+      st.k = KT - 1 + dayN(t); if (reduce) st.shown = st.k;
+      fireAim(); changed();
     }
     function goKin(k) {
       var diff = mod(k - kinNow(), 260); if (diff > 130) diff -= 260;
@@ -173,8 +198,8 @@
       if (n) step(n); else changed();
     }
 
-    /* ================= шестерёнки: золото, тоны точками и чертами ================= */
-    var M = { lo: '#5e4914', mid: '#b08f33', hi: '#f6e39a', sheen: 'rgba(255,250,215,.5)', ink: '#2a2005', inkSh: 'rgba(255,246,210,.55)', well: '#14100a' };
+    /* ================= шестерёнки: материал сейфа (kinwheel.js, MATS), тоны точками и чертами ================= */
+    var M = GMATS[o.mat] || GMATS.gold;
     var SC = ['#cf4632', '#efe9dc', '#3a6dc2', '#efc137'], SI = ['#fff4ee', '#2a2620', '#f2f6ff', '#2c2205'], GOLD = '#f0d68c';
     var R2 = 1, R1 = 13 / 20, AD = .1, DD = .125, S1 = TAU / 13, S2 = TAU / 20;
     var G = { u: 1, c1: [0, 0], c2: [0, 0], dpr: 1, W: 0, H: 0 };
@@ -322,7 +347,7 @@
     q('[data-go="mine"]').addEventListener('click', function () { audio(); goMine(); });
 
     /* ================= Цолькин в объёме ================= */
-    var W = 0, H = 0, dpr = 1, cam = { yaw: .5, pitch: .55, yawT: null }, PITCH = { knot: .55, coil: .62, tower: .22 };
+    var W = 0, H = 0, dpr = 1, cam = { yaw: .5, pitch: .55, yawT: null, pitchT: null }, PITCH = { knot: .55, coil: .62, tower: .22 };
     function pu() { return Math.min(W, H) * .62 * .44; }   // пикселей на единицу у плоскости z = 0
     // клетка таблицы на экране → координаты сцены (строка — печать, столбец — тон или столбец таблицы)
     var TB = { cw: 20, ch: 16, x0: 0, y0: 0 };
@@ -446,26 +471,20 @@
         for (i = 0; i < 13; i++) { var c = cellXY(i, -1); label(String(i + 1), c[0], c[1] + 2, 'rgba(244,234,216,.6)', 12, 'center'); }
         tx.globalAlpha = 1;
       }
-      // путь волны выбранного дня: 13 точек золотой нитью
-      var w0 = sel - K.toneOf(sel) + 1, lim = Math.max(TB.cw, TB.ch) * 2.6;
-      tx.lineCap = 'round';
-      for (i = 0; i < 12; i++) {
-        var a = proj[mod(w0 - 1 + i, 260)], b = proj[mod(w0 + i, 260)];
-        if (fl > .5 && Math.hypot(a[0] - b[0], a[1] - b[1]) > lim) continue;
-        tx.beginPath(); tx.moveTo(a[0], a[1]); tx.lineTo(b[0], b[1]);
-        tx.strokeStyle = 'rgba(240,214,140,' + (.25 + .45 * dn((a[2] + b[2]) / 2)) + ')'; tx.lineWidth = 1.3; tx.stroke();
-      }
+      // волна дня под огоньком: её 13 точек крупнее и светлее (линию убрали — её решение 21.10)
+      var fk = mod(Math.round(fire.s), 260) + 1, w0 = fk - K.toneOf(fk) + 1, lim = Math.max(TB.cw, TB.ch) * 2.6;
       // точки — от дальних к ближним; дальние мельче и тусклее (туман)
       var ord = []; for (i = 0; i < 260; i++) ord.push(i);
       ord.sort(function (x, y) { return proj[x][2] - proj[y][2]; });
       var base3 = Math.min(W, H) / 64, baseF = Math.min(TB.cw, TB.ch) * .3, hlOn = !!opt.hl;
       ord.forEach(function (i) {
-        var p = proj[i], k = i + 1, lit = k <= KT, hl = hlOn && isHl(k, sel), d = dn(p[2]);
+        var p = proj[i], k = i + 1, lit = k <= KT, hl = hlOn && isHl(k, sel), d = dn(p[2]), wv = !hlOn && mod(k - w0, 260) < 13;
         var fog = fl + (1 - fl) * (.22 + .78 * Math.pow(d, 1.4));
-        var r = (base3 * p[3] * (.75 + .3 * d) * (1 - fl) + baseF * fl) * (lit ? 1 : .72) * (hl ? 1.3 : 1);
+        var r = (base3 * p[3] * (.75 + .3 * d) * (1 - fl) + baseF * fl) * (lit ? 1 : .72) * (hl ? 1.3 : 1) * (wv ? 1.5 : 1);
         if (hlOn && !hl) r *= .75;
         var al = (lit ? 1 : .5) * fog * (hlOn && !hl ? .3 : 1);
-        if (hl) al = Math.max(al, .85 * fog);
+        if (hl || wv) al = Math.max(al, .95 * fog);
+        if (wv) { tx.globalAlpha = .3 * fog; tx.drawImage(sprites[5], p[0] - r * 2.6, p[1] - r * 2.6, r * 5.2, r * 5.2); }
         tx.globalAlpha = Math.min(1, al);
         tx.drawImage(sprites[colorOf(k)], p[0] - r * 2, p[1] - r * 2, r * 4, r * 4);
         if (opt.lay === 'season' && POLAR[k]) {
@@ -489,34 +508,45 @@
       for (i = 0; i < 4; i++) { tx.rotate(Math.PI / 4); tx.beginPath(); tx.moveTo(-R * 1.15, 0); tx.lineTo(R * 1.15, 0); tx.globalAlpha = i % 2 ? .25 : .55; tx.stroke(); }
       tx.restore(); tx.globalAlpha = 1;
       label('сегодня', t[0] + R * 1.3 + 2, t[1] - R * .9, '#fff3d6', 13);
-      // огонёк шестерёнок: плавно, с тающим шлейфом позади, пока идёт (её просьба 21.10: «не как испуганная мышь»)
+      // огонёк: на близкое бежит с тающим шлейфом; на дальнее — гаснет на старом месте и загорается на новом
       var rr = Math.max(6, (base3 * (1 - fl) + baseF * fl) * 1.9), av = Math.abs(st.v), dir = st.v > 0 ? 1 : -1, j, pp;
-      if (av > .4 && !reduce) {
+      if (!fire.hold && av > .4 && !reduce) {
         var gap = Math.min(.45, Math.max(.12, av * .018));
         for (j = 7; j >= 1; j--) {
-          pp = posAt(st.shown - dir * j * gap, lim * 1.5);
+          pp = posAt(fire.s - dir * j * gap, lim * 1.5);
           var tr = rr * (1 - j * .09);
           tx.globalAlpha = .32 * (1 - j / 8) * Math.min(1, av / 4);
           tx.drawImage(sprites[5], pp[0] - tr * 1.6, pp[1] - tr * 1.6, tr * 3.2, tr * 3.2);
         }
       }
-      pp = posAt(st.shown, lim * 1.5);
       var br = reduce ? 1 : 1 + .06 * Math.sin(now / 700);
-      tx.globalAlpha = .95; tx.drawImage(sprites[5], pp[0] - rr * 2 * br, pp[1] - rr * 2 * br, rr * 4 * br, rr * 4 * br);
-      tx.globalAlpha = .6; tx.beginPath(); tx.arc(pp[0], pp[1], rr * .9 + 3, 0, TAU); tx.strokeStyle = '#fff8e6'; tx.lineWidth = 1; tx.stroke();
+      function glow(s, a) {
+        if (a <= .01) return;
+        var g = posAt(s, lim * 1.5);
+        tx.globalAlpha = .95 * a; tx.drawImage(sprites[5], g[0] - rr * 2 * br, g[1] - rr * 2 * br, rr * 4 * br, rr * 4 * br);
+        tx.globalAlpha = .6 * a; tx.beginPath(); tx.arc(g[0], g[1], rr * .9 + 3, 0, TAU); tx.strokeStyle = '#fff8e6'; tx.lineWidth = 1; tx.stroke();
+      }
+      if (fire.f) { glow(fire.old, ease(fire.f)); glow(fire.s, ease(1 - fire.f)); } else glow(fire.s, 1);
       tx.globalAlpha = 1;
     }
 
-    /* ---------- управление бубликом: палец вбок — вращение, вверх-вниз — листается страница ---------- */
-    var drag = null;
-    tv.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId }; });
+    /* ---------- управление бубликом: палец крутит во все стороны (как в пробе, её просьба 21.10); страницу листают мимо бублика ---------- */
+    var drag = null, spin = { x: 0, y: 0 };
+    tv.addEventListener('pointerdown', function (e) {
+      drag = { x: e.clientX, y: e.clientY, moved: 0, id: e.pointerId }; spin.x = spin.y = 0;
+      try { tv.setPointerCapture(e.pointerId); } catch (er) {}
+      tv.classList.add('is-drag');
+    });
     tv.addEventListener('pointermove', function (e) {
       if (!drag || e.pointerId !== drag.id) return;
-      var dx = e.clientX - drag.x; drag.x = e.clientX; drag.moved += Math.abs(dx) + Math.abs(e.clientY - drag.y); drag.y = e.clientY;
-      if (Ut === 0 && U < .01) cam.yaw -= dx * .009;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+      if (Ut === 0 && U < .01) {
+        cam.yaw -= dx * .009; cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + dy * .009)); cam.pitchT = null;
+        spin.x = -dx * .009; spin.y = dy * .009;
+      }
     });
-    tv.addEventListener('pointerup', function (e) { var D = drag; drag = null; if (D && D.moved < 8) pick(e); });
-    tv.addEventListener('pointercancel', function () { drag = null; });
+    function tUp(e) { var D = drag; drag = null; tv.classList.remove('is-drag'); if (D && D.moved < 8) { spin.x = spin.y = 0; if (e.type === 'pointerup') pick(e); } }
+    tv.addEventListener('pointerup', tUp); tv.addEventListener('pointercancel', tUp);
     function pick(e) {
       var b = tv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top, best = -1, bd = 24 * 24, bz = -9;
       proj.forEach(function (p, i) {
@@ -530,14 +560,15 @@
     function setFlat(v) {
       opt.flat = v; press('flat');
       var cap = q('.m13-km-cap');
-      if (v === '3d') { Ut = 0; cap.textContent = ''; }
-      else { Ut = 3; Ct = v === 'classic' ? 1 : 0; cam.yawT = Math.round(cam.yaw / TAU) * TAU; cap.textContent = T(v === 'classic' ? 'mClassicCap' : 'mCutCap'); }
+      if (v === '3d') { Ut = 0; cap.textContent = ''; cam.pitchT = PITCH[opt.form]; }
+      else { Ut = 3; Ct = v === 'classic' ? 1 : 0; cam.yawT = Math.round(cam.yaw / TAU) * TAU; cam.pitchT = 0; cap.textContent = T(v === 'classic' ? 'mClassicCap' : 'mCutCap'); }
+      spin.x = spin.y = 0;
       if (reduce) { U = Ut; C = Ct; }
     }
     function setForm(f) {
       if (P.length) { from = P.map(function (p) { return p.slice(); }); fm = reduce ? 1 : 0; }
       opt.form = f; press('form'); U = 0; Ut = 0; setFlat('3d'); U = 0;
-      q('.m13-km-about').textContent = T(f === 'coil' ? 'mAboutCoil' : f === 'tower' ? 'mAboutTower' : 'mAboutKnot');
+      var ab = q('.m13-km-about'); ab.textContent = T(f === 'coil' ? 'mAboutCoil' : f === 'tower' ? 'mAboutTower' : 'mAboutKnot'); ab.hidden = !ab.textContent;
     }
 
     /* ---------- карточка дня на шестерёнках ---------- */
@@ -559,9 +590,9 @@
           (mine.indexOf(k) >= 0 ? ' · день вашего кина' : '') + '</div>' +
         '<div class="m13-km-ck">Kin ' + k + ' · ' + esc(I.kinName) + '</div>' +
         '<div>Волна <b>«' + esc(w) + '»</b> · день ' + I.toneN + ' из 13' + (isGap[k] ? ' · <b>портал</b>' : '') + '</div>' +
-        '<div class="m13-km-lay"><span>' + dot(I.color) + 'печать <b>' + SEAL_F[I.color] + '</b></span>' +
-          '<span>' + dot(cs) + 'замок <b>' + CN[cs] + '</b> (' + CASTLE_SIDE[cs] + '), день ' + ((k - 1) % 52 + 1) + ' из 52</span>' +
-          '<span>' + dot(se) + 'сезон <b>' + CN[se] + '</b> (' + SEASON_EL[se] + ')' + (POLAR[k] ? ' — первый день сезона' : '') + '</span></div>' +
+        // замок и сезон — только когда цвет точек показывает их (лишние сведения убрали — её решение 21.10)
+        (opt.lay === 'castle' ? '<div class="m13-km-lay"><span>' + dot(cs) + 'замок <b>' + CN[cs] + '</b> (' + CASTLE_SIDE[cs] + '), день ' + ((k - 1) % 52 + 1) + ' из 52</span></div>' : '') +
+        (opt.lay === 'season' ? '<div class="m13-km-lay"><span>' + dot(se) + 'сезон <b>' + CN[se] + '</b> (' + SEASON_EL[se] + ')' + (POLAR[k] ? ' — первый день сезона' : '') + '</span></div>' : '') +
         (show.flat && FLATS.indexOf('classic') >= 0 && opt.flat !== 'classic' && T('mToTable') ? '<button type="button" class="m13-km-ok" data-km-table>' + esc(T('mToTable')) + '</button>' : '');
     }
     q('.m13-km-card').addEventListener('click', function (e) {
@@ -574,7 +605,11 @@
         castle: 'Цвет — замок, по 52 дня (4 волны): ' + [[0, '1–52'], [1, '53–104'], [2, '105–156'], [3, '157–208'], [4, '209–260']].map(function (x) { return dot(x[0]) + CN[x[0]] + ' ' + x[1]; }).join(' · '),
         season: 'Цвет — сезон, по 65 дней: ' + [[1, '250–54'], [2, '55–119'], [3, '120–184'], [0, '185–249']].map(function (x) { return dot(x[0]) + CN[x[0]] + ' ' + x[1]; }).join(' · ') + ' · ◇ — первый день сезона (тон 3)'
       };
-      q('.m13-km-legend').innerHTML = '<span>' + L[opt.lay] + '</span>' + (T('mLegend') ? '<span>' + esc(T('mLegend')) + '</span>' : '');
+      // цвет печатей понятен и без подписи — строка только для замков и сезонов или своя (её решение 21.10)
+      var lg = q('.m13-km-legend');
+      lg.innerHTML = (opt.lay !== 'seal' ? '<span>' + L[opt.lay] + '</span>' : '') + (T('mLegend') ? '<span>' + esc(T('mLegend')) + '</span>' : '');
+      lg.hidden = !lg.innerHTML;
+      optsEl.hidden = lg.hidden && !show.lay && !show.hl;
     }
     box.querySelectorAll('.m13-km-row[data-g]').forEach(function (row) {
       var g = row.getAttribute('data-g');
@@ -583,7 +618,7 @@
         var v = b.getAttribute('data-v');
         if (g === 'flat') { setFlat(v); changed(); return; }
         if (g === 'form') setForm(v); else { opt[g] = v; press(g); }
-        legend();
+        legend(); changed(); fitH();
       });
     });
 
@@ -603,7 +638,7 @@
     sndUI();
 
     /* ---------- общий цикл: плавный разгон и торможение шестерёнок ---------- */
-    var A = 16, VMAX = 30;   // дней/с² и дней/с: дальний путь (130 дней) — около 6 секунд
+    var A = 10, VMAX = 20;   // дней/с² и дней/с: шаг на волну — около 2 с, дальний путь (130 дней) — около 8 с
     var last = 0, lastInt = Math.round(st.shown), running = false, seen = true, open = false;
     function frame(now) {
       if (!running || !box.isConnected) { running = false; return; }
@@ -619,6 +654,9 @@
           if ((d > 0 && mv >= d) || (d < 0 && mv <= d)) { st.shown = st.k; st.v = 0; } else st.shown += mv;
         }
       }
+      if (!fire.hold) fire.s = st.shown;
+      else if (!fire.f && !st.drag && st.shown === st.k) { fire.old = fire.s; fire.s = st.k; fire.f = reduce ? 1e-6 : 1; }
+      if (fire.f) { fire.f = Math.max(0, fire.f - dt / 900); if (!fire.f) fire.hold = st.shown !== st.k; }
       var r = Math.round(st.shown);
       // на ходу щёлкает только начало каждой волны, шагом — каждый день
       if (r !== lastInt) { if (Math.abs(st.v) < 7 || st.drag || mod(r, 13) === 0) click(mod(r, 13) === 0); lastInt = r; }
@@ -626,26 +664,42 @@
       var sp = 1 / 1000;
       if (U !== Ut) U = U < Ut ? Math.min(Ut, U + dt * sp) : Math.max(Ut, U - dt * sp * 1.5);
       if (C !== Ct) C = C < Ct ? Math.min(Ct, C + dt / 900) : Math.max(Ct, C - dt / 900);
-      var pT = (Ut > 0 || U > 0) ? 0 : PITCH[opt.form], kk = Math.min(1, dt / 260);
-      cam.pitch += (pT - cam.pitch) * kk;
+      // наклон: в объёме — как повернул человек (после смены формы или возврата из таблицы — к своему); в таблице и полотне — ровно
+      var kk = Math.min(1, dt / 260);
+      if (cam.pitchT != null) { cam.pitch += (cam.pitchT - cam.pitch) * kk; if (Ut === 0 && Math.abs(cam.pitchT - cam.pitch) < .002) cam.pitchT = null; }
       if (Ut > 0 && cam.yawT != null) cam.yaw += (cam.yawT - cam.yaw) * kk;
-      else if (!drag && !reduce && U === 0) cam.yaw += .00008 * dt;
+      else if (!drag && U === 0) {
+        // отпустил — бублик ещё немного докручивается по инерции и затихает
+        if (Math.abs(spin.x) + Math.abs(spin.y) > .0004 && !reduce) {
+          cam.yaw += spin.x * dt / 16; cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + spin.y * dt / 16));
+          var fr = Math.pow(.94, dt / 16); spin.x *= fr; spin.y *= fr;
+        } else if (!reduce) cam.yaw += .00008 * dt;
+      }
       gDraw(); tDraw(now);
       requestAnimationFrame(frame);
+    }
+    // окна шестерёнок и бублика — одной высоты (её просьба 21.10): высоту бублика подгоняем под окно шестерёнок
+    function fitH() {
+      if (!open) return;
+      tv.style.height = '';
+      var one = getComputedStyle(gridEl).gridTemplateColumns.split(' ').length < 2;
+      var h = tv.offsetHeight + gPan.offsetHeight - tPan.offsetHeight;
+      tv.style.height = Math.round(Math.max(one ? 260 : 320, Math.min(h, window.innerHeight * (one ? .62 : .8)))) + 'px';
+      tSize();
     }
     function start() { if (running || !open) return; running = true; last = 0; requestAnimationFrame(frame); }
     // не рисуем, когда механизма не видно на экране
     if (window.IntersectionObserver) new IntersectionObserver(function (es) { seen = es[0].isIntersecting; if (seen) start(); }).observe(box);
-    window.addEventListener('resize', function () { if (open && box.isConnected) { gLayout(); tSize(); } });
+    window.addEventListener('resize', function () { if (open && box.isConnected) { gLayout(); fitH(); } });
 
     setForm(opt.form); legend();
     return {
-      // кины человека → механизм на сегодня, через миг шестерёнки докручиваются к ближайшему дню своего кина
+      // кины человека → механизм стоит на сегодня; к своему кину человек едет сам кнопкой «Мой кин» (её решение 21.10)
       show: function (kins, quiet) {
         mine = (kins || []).slice(); open = true; box.hidden = false;
         gLayout(); tSize(); setDate(T0); st.shown = st.k; st.v = 0; lastInt = Math.round(st.shown);
-        changed(); start();
-        setTimeout(goMine, reduce || quiet ? 0 : 900);
+        fire.s = st.k; fire.hold = false; fire.f = 0;
+        changed(); start(); fitH();
       },
       // кин — шестерёнки докручиваются к нему (±130 дней); с датой — ровно к этому дню
       go: function (k, iso) { if (!open) return; if (iso) setDate(isoT(iso)); else goKin(k); },
