@@ -4,7 +4,7 @@
    Колесо-сейф: три кольца (год 1950 — нынешний / месяц / день) поворачиваются пальцем под неподвижной стрелкой, на каждом делении щелчок;
    в середине дата и «Открыть» → 260 точек перелетают в Цолькин, кин человека светится, любую точку можно нажать.
    Сам расчёт кина и тексты результата — на витрине (vitrina.js, «СВОЙ КИН»); здесь только колесо и Цолькин.
-   Ничего не отправляет и не хранит, кроме «звук выкл» на самом устройстве (localStorage m13kinSnd). */
+   Ничего не отправляет и не хранит, кроме «звук вкл/выкл» на самом устройстве (localStorage m13kinSnd; по умолчанию звук выключен). */
 (function () {
   'use strict';
   var TAU = Math.PI * 2, Y0 = 1950, DAY = 864e5;
@@ -29,8 +29,10 @@
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- звук: общий на все колёса страницы ---------- */
-  var sound = true, ac = null, noise = null;
-  try { sound = localStorage.getItem('m13kinSnd') !== '0'; } catch (e) {}
+  // по умолчанию выключен (её решение 21.10): включает сам человек значком динамика, устройство помнит
+  var sound = false, ac = null, noise = null;
+  function sndRead() { try { sound = localStorage.getItem('m13kinSnd') === '1'; } catch (e) {} }
+  sndRead();
   function audio() {
     if (!sound) return null;
     try {
@@ -98,10 +100,17 @@
   var sndBtns = [];
   function sndUI() {
     sndBtns.forEach(function (b) {
-      b.textContent = sound ? '🔊' : '🔇'; b.setAttribute('aria-pressed', sound ? 'false' : 'true');
-      b.title = sound ? 'Выключить звук щелчков' : 'Включить звук щелчков';
+      b.innerHTML = sound ? SND_ON : SND_OFF; b.setAttribute('aria-pressed', sound ? 'true' : 'false');
+      b.title = sound ? 'Выключить звук щелчков' : 'Включить звук щелчков'; b.setAttribute('aria-label', b.title);
     });
   }
+  // значок динамика — линией, без подложки: ложится на любой фон (её просьба 21.10)
+  var SND_ON = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.2 6.8a7.4 7.4 0 0 1 0 10.4"/></svg>';
+  var SND_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
+  // механизм страницы кина (kinmech.js) переключает тот же звук
+  window.addEventListener('m13kinsnd', function () { sndRead(); sndBtns = sndBtns.filter(function (b) { return b.isConnected; }); sndUI(); });
 
   /* ---------- 260 точек: раскладки ---------- */
   var SPIRAL = (function () {
@@ -537,7 +546,7 @@
     if (snd) snd.addEventListener('click', function (e) {
       e.stopPropagation(); sound = !sound;
       try { localStorage.setItem('m13kinSnd', sound ? '1' : '0'); } catch (x) {}
-      sndBtns = sndBtns.filter(function (b) { return b.isConnected; }); sndUI();
+      try { window.dispatchEvent(new Event('m13kinsnd')); } catch (x) {}
     });
 
     // начальное положение: 1985, январь, 1 — под стрелкой, но ещё не выбрано
