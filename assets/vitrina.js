@@ -1812,7 +1812,7 @@
       '<div class="m13-info m13-stub">' + txt(text) + '</div>' +
       '<div class="m13-actions m13-push">' +
       '<button type="button" class="m13-action m13-action--primary"' +
-      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', host: stub.host || '', message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + txt(label) + '</button>' +
+      act({ kind: 'contact', label: label, telegram: stub.telegram || '', vk: stub.vk || '', host: String(stub.host || '').trim() || hostAuto(r && r.title, 'question'), message: 'Здравствуйте! Хочу узнать подробнее про «' + title + '».' }, { card: title, action: label }) + '>' + txt(label) + '</button>' +
       (r && stubSandbox(c, stub) ? '<button type="button" class="m13-action"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
         txt(stub.sandboxLabel || 'Как устроены маршруты 13 MIRRORS') + '</button>' : '') +
       '</div>';
@@ -1927,7 +1927,9 @@
         '<div class="m13-format-note">' + txt(note) + '</div>';
       if (closed) return '<div class="m13-format is-closed" aria-disabled="true">' + inner + '</div>';
       var ctx = { card: (c.front || {}).title, route: rt.title, format: name, price: price, routeUrl: rt.routeUrl, tplKey: 'route' };
-      return '<button type="button" class="m13-format"' + act(f.action || { kind: 'contact' }, ctx) + '>' + inner + '</button>';
+      var a = f.action || { kind: 'contact' }, auto = (a.kind || 'contact') === 'contact' && !String(a.host || '').trim() && r && hostAuto(r.title, f.formatId);
+      if (auto) a = Object.assign({}, a, { host: auto });
+      return '<button type="button" class="m13-format"' + act(a, ctx) + '>' + inner + '</button>';
     }).join('') + '</div>';
   }
   // Под форматами — «Как идти по маршруту» (страница routes/<id>/kak/), если у маршрута по дням она заполнена (journeys[].howto, панель → «Как идти и отзыв»)
@@ -2045,6 +2047,22 @@
   }
   // Бот Host: имя — в «Настройках» (contacts.host), метка — у кнопки (action.host), вводится вручную.
   // Ссылка https://t.me/<бот>?start=<метка>: бот получит метку, когда человек нажмёт «Запустить».
+  // Метки Host по печатям (её таблица 21.10): печать маршрута — по его названию, дальше _observation / _journey / _immersion / _question.
+  // Своя «Метка Host» у кнопки главнее; пустая — ставится сама, если название маршрута — одна из 20 печатей.
+  var HOST_SEALS = {
+    'красный дракон': 'red_dragon', 'белый ветер': 'white_wind', 'синяя ночь': 'blue_night', 'жёлтое семя': 'yellow_seed',
+    'красный змей': 'red_serpent', 'белый соединитель миров': 'white_worldbridger', 'синяя рука': 'blue_hand', 'жёлтая звезда': 'yellow_star',
+    'красная луна': 'red_moon', 'белая собака': 'white_dog', 'синяя обезьяна': 'blue_monkey', 'жёлтый человек': 'yellow_human',
+    'красный небесный странник': 'red_skywalker', 'белый волшебник': 'white_wizard', 'синий орёл': 'blue_eagle', 'жёлтый воин': 'yellow_warrior',
+    'красная земля': 'red_earth', 'белое зеркало': 'white_mirror', 'синяя буря': 'blue_storm', 'жёлтое солнце': 'yellow_sun'
+  };
+  var HOST_FORMATS = { observe: 'observation', journey: 'journey', immersion: 'immersion', question: 'question' };
+  function hostAuto(routeTitle, what) {
+    var t = String(routeTitle || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim(), seal = '';
+    for (var k in HOST_SEALS) if (k.replace(/ё/g, 'е') === t) seal = HOST_SEALS[k];
+    return seal && HOST_FORMATS[what] ? seal + '_' + HOST_FORMATS[what] : '';
+  }
+  M13.hostAuto = hostAuto;
   function hostUrl(label, bot) {
     label = String(label || '').trim(); bot = tgName(bot);
     return bot && /^[A-Za-z0-9_-]{1,64}$/.test(label) ? 'https://t.me/' + encodeURIComponent(bot) + '?start=' + label : '';
