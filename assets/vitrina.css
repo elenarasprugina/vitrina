@@ -1759,8 +1759,10 @@ body.m13-locked{overflow:hidden}
 .m13-kw-cv{display:block;width:100%;height:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
 .m13-kw-cv.is-drag{cursor:grabbing}
 .m13-kw-cv.is-open{touch-action:manipulation;cursor:pointer}
-.m13 .m13-kw-snd{position:absolute;right:-4px;top:-4px;z-index:2;width:36px;height:36px;padding:0;border-radius:50%;border:1px solid var(--kw-line);background:var(--kw-bg,#1a1735);
-  color:var(--kw-ink);font-size:16px;line-height:1;cursor:pointer}
+.m13 .m13-kw-snd{position:absolute;right:-6px;top:-6px;z-index:2;width:40px;height:40px;padding:0;border:0;background:none;
+  color:var(--kw-ink);line-height:0;cursor:pointer;opacity:.75;display:flex;align-items:center;justify-content:center}
+.m13 .m13-kw-snd:hover,.m13 .m13-kw-snd[aria-pressed="true"]{opacity:1}
+.m13 .m13-kw-snd:focus-visible{outline:2px solid var(--kw-gold);outline-offset:-2px;border-radius:8px}
 .m13-kw-ctr{--kw-ink:#ece6f7;--kw-mut:#a59dc2;--kw-gold:#f0d68c;color:#ece6f7;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54%;display:flex;flex-direction:column;align-items:center;gap:6px;
   pointer-events:none;text-align:center;transition:opacity .4s}
 .m13-kw-big{font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;color:var(--kw-gold);font-size:clamp(24px,7.5vw,36px);line-height:1}
@@ -1976,3 +1978,53 @@ body.m13-locked{overflow:hidden}
 .m13-soon .m13-mnav span{display:none}
 .m13-soon .m13-mnav-next{display:none}
 @media (prefers-reduced-motion:reduce){.m13-soon .m13-gt{animation:none}}
+
+/* Механизм страницы кина (21.10, assets/kinmech.js, docs/tzolkin-gears.md): после «Открыть» сейф уходит — шестерёнки и Цолькин в объёме.
+   Шкатулка всегда ночная (как утопленная середина колеса), на любом фоне месяца. */
+.m13-kin .m13-kw{transition:opacity .6s,transform .6s}
+.m13-kin .m13-kw.is-going{opacity:0;transform:scale(.92)}
+.m13-kin-page .m13-kin.is-mech{max-width:960px}
+.m13-kin-page .m13-kin.is-mech>.m13-kin-links,.m13-kin-page .m13-kin.is-mech>.m13-kin-l,.m13-kin-page .m13-kin.is-mech>.m13-kin-note,.m13-kin-page .m13-kin.is-mech>.m13-kin-out{width:100%;max-width:640px;margin-inline:auto;box-sizing:border-box}
+.m13-km{--km-ink:#f4ead8;--km-mut:#b4aac2;--km-gold:#ecd3a3;--km-line:rgba(236,211,163,.3);display:flex;flex-direction:column;gap:12px;color:var(--km-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.45;animation:m13kmUp .7s ease both;scroll-margin-top:64px}
+.m13-km[hidden]{display:none}
+@keyframes m13kmUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.m13-km{animation:none}.m13-kin .m13-kw{transition:none}}
+.m13-km-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:860px){.m13-km-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);align-items:start}}
+.m13-km-panel{position:relative;border-radius:22px;background:radial-gradient(120% 90% at 30% 0%,#1a1735,#0c0a1c);border:1px solid rgba(236,211,163,.16);
+  padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.m13-km-date{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--km-mut);text-align:center;padding:0 34px}
+.m13-km-gv{display:block;width:100%;touch-action:none;cursor:grab;-webkit-tap-highlight-color:transparent}
+.m13-km-gv.is-drag{cursor:grabbing}
+.m13 .m13-km-snd{position:absolute;right:6px;top:4px;z-index:2;width:40px;height:40px;padding:0;border:0;background:none;color:var(--km-ink);
+  line-height:0;cursor:pointer;opacity:.75;display:flex;align-items:center;justify-content:center}
+.m13 .m13-km-snd:hover,.m13 .m13-km-snd[aria-pressed="true"]{opacity:1}
+.m13-km-nav{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.m13 .m13-km-nav button{font:inherit;font-size:14px;color:var(--km-ink);background:rgba(255,248,235,.06);border:1px solid var(--km-line);border-radius:999px;padding:8px 12px;cursor:pointer;min-width:44px}
+.m13 .m13-km-nav button.is-hi{background:var(--km-gold);color:#241b10;border-color:var(--km-gold);font-weight:600}
+.m13 .m13-km-nav button[data-step]{min-width:52px}
+@media (max-width:560px){.m13-km-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.m13 .m13-km-nav button{min-width:0;padding:8px 6px}.m13 .m13-km-nav button[data-go]{grid-column:span 2;order:-1}}
+.m13-km-hint{font-size:13px;color:var(--km-mut);text-align:center;margin:0;text-wrap:balance}
+.m13-km-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.m13-km-row[hidden]{display:none}
+.m13-km-row b{flex:0 0 100%;font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:500;color:var(--km-mut)}
+.m13 .m13-km-chip{font:inherit;font-size:13.5px;color:var(--km-ink);background:rgba(255,248,235,.05);border:1px solid var(--km-line);border-radius:999px;padding:7px 12px;cursor:pointer}
+.m13 .m13-km-chip[aria-pressed="true"]{background:var(--km-gold);border-color:var(--km-gold);color:#241b10}
+.m13 .m13-km-chip:focus-visible,.m13 .m13-km-nav button:focus-visible,.m13 .m13-km-snd:focus-visible,.m13 .m13-km-ok:focus-visible{outline:2px solid var(--km-gold);outline-offset:2px}
+.m13-km-scene{position:relative;border-radius:16px;overflow:hidden;background:radial-gradient(90% 80% at 50% 45%,#141230,#05040c)}
+.m13-km-tv{display:block;width:100%;height:clamp(340px,52vh,560px);touch-action:pan-y;cursor:grab;-webkit-tap-highlight-color:transparent}
+.m13-km-cap{margin:0;font-size:12.5px;color:var(--km-mut);text-align:center;text-wrap:balance}
+.m13-km-cap:empty{display:none}
+.m13-km-card{border-radius:16px;border:1px solid rgba(236,211,163,.2);background:radial-gradient(120% 90% at 30% 0%,#1a1735,#0c0a1c);padding:12px 14px;font-size:14px;color:var(--km-mut);display:flex;flex-direction:column;gap:6px}
+.m13-km-cd{font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.m13-km-ck{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;color:var(--km-gold);line-height:1.15}
+.m13-km-card b{color:var(--km-ink);font-weight:500}
+.m13-km-lay{display:flex;flex-wrap:wrap;gap:4px 14px}
+.m13-km-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.m13 .m13-km-ok{font:inherit;font-size:14px;font-weight:600;color:#241b10;background:var(--km-gold);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;align-self:flex-start}
+.m13-km-legend{font-size:12.5px;color:var(--km-mut);display:flex;flex-wrap:wrap;gap:4px 12px}
+.m13-km-about{font-size:13px;color:var(--kw-mut,#777);margin:0;max-width:72ch}
+.m13-kin--own .m13-km-about,.m13-kin-page .m13-km-about{color:inherit;opacity:.8}
+.m13-kin-page .m13-km-hint,.m13-kin-page .m13-km-card{font-size:calc(14.5px * var(--m13-tk,1))}
+.m13-kin-page .m13-km-about{font-size:calc(14px * var(--m13-tk,1))}
