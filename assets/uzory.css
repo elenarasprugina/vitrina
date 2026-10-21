@@ -1,0 +1,187 @@
+/* «Узоры» — образные опросники 13 MIRRORS (uzory/, uzory/<узор>/). Вечерний сад: всё действие — в одной сцене во весь экран,
+   интерфейс тонким стеклом поверх. Один тёмный вид (сад всегда вечерний). Код — assets/uzory.js, данные — data/uzory.json. */
+:root {
+  --uz-night: #0d1128; --uz-ember: #e9b872; --uz-ember-soft: rgba(233, 184, 114, .35);
+  --uz-mist: #e8e6f4; --uz-mist-dim: rgba(232, 230, 244, .7); --uz-line: rgba(232, 230, 244, .22);
+  --uz-panel: rgba(16, 18, 40, .66);
+  --uz-head: "Cormorant Garamond", Georgia, serif;
+  --uz-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+html, body { margin: 0; height: 100%; }
+body.uz-body { background: var(--uz-night); color: var(--uz-mist); font-family: var(--uz-ui); -webkit-tap-highlight-color: transparent; }
+body.uz-garden { overflow: hidden; }
+.uz-body button { font-family: inherit; }
+.uz-body :focus-visible { outline: 2px solid var(--uz-ember); outline-offset: 2px; }
+
+/* ---------- Сцена ---------- */
+.uz-scene { position: fixed; inset: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+.uz-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.uz-fx { pointer-events: none; z-index: 120; }
+.uz-ring { position: absolute; inset: 0; --lb: 0; }
+
+/* элемент хоровода: живой цветок (PNG) · цветок линией · стеклянная карта */
+.uz-el { position: absolute; left: 0; top: 0; will-change: transform, opacity; outline: none; }
+.uz-el .uz-art, .uz-el .uz-bud { position: absolute; inset: 0; transition: opacity 1.3s, transform 1.4s cubic-bezier(.2, .8, .2, 1), filter 1s; transform-origin: 50% 100%; }
+.uz-el .uz-art img, .uz-heart img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
+.uz-el svg, .uz-heart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.uz-el .uz-bud { opacity: 0; transform: scale(.85); }
+.uz-el .uz-nm { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 6px); white-space: nowrap; font-family: var(--uz-head); font-size: 15px; line-height: 1;
+  color: #fff4e2; text-shadow: 0 0 10px rgba(13, 17, 40, .95), 0 0 3px rgba(13, 17, 40, .95); opacity: 0; transition: opacity .6s; pointer-events: none; }
+.uz-v-live .uz-art, .uz-v-line .uz-art { filter: brightness(calc(.92 + var(--lb) * .16)) drop-shadow(0 0 6px rgba(255, 220, 160, calc(.12 + var(--lb) * .2))); }
+.uz-v-line .uz-art svg { filter: drop-shadow(0 0 2px rgba(255, 236, 200, .55)); }
+.uz-el.is-lit .uz-art { filter: brightness(1.35) drop-shadow(0 0 14px rgba(255, 220, 160, .85)); transition: filter .25s; }
+.uz-ring.is-pick .uz-el { cursor: pointer; }
+.uz-ring.is-pick .uz-el.is-front .uz-nm, .uz-ring.is-names .uz-el .uz-nm { opacity: 1; }
+.uz-el.is-front .uz-art { filter: brightness(1.12) drop-shadow(0 0 10px rgba(255, 220, 160, .45)); }
+/* бутоны («Наугад»): цветок спрятан, видно бутон; выбранный — раскрывается */
+.uz-ring.is-buds .uz-v-live .uz-art, .uz-ring.is-buds .uz-v-line .uz-art { opacity: 0; transform: scale(.35); }
+.uz-ring.is-buds .uz-v-live .uz-bud, .uz-ring.is-buds .uz-v-line .uz-bud { opacity: 1; transform: none; }
+.uz-ring.is-buds .uz-el.is-open .uz-art { opacity: 1; transform: none; }
+.uz-ring.is-buds .uz-el.is-open .uz-bud { opacity: 0; transform: scale(.6); }
+.uz-ring.is-buds .uz-el.is-open .uz-nm { opacity: 1; }
+/* линия «вырастает» */
+.uz-v-line .uz-art svg * { stroke-dasharray: 1; stroke-dashoffset: 0; }
+.uz-v-line.is-grow .uz-art svg * { animation: uz-draw 2.6s ease-out both; }
+@keyframes uz-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+/* стеклянная карта */
+.uz-v-card .uz-glass { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; clip-path: inset(0 round 16px);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .20), rgba(255, 255, 255, .04) 46%, rgba(170, 190, 255, .10));
+  border: 1px solid rgba(255, 255, 255, .34); box-shadow: inset 0 0 22px rgba(255, 255, 255, .07), 0 10px 26px rgba(0, 0, 0, .28); transition: background 1.2s; }
+.uz-v-card .uz-glass::after { content: ""; position: absolute; inset: -40% -60%;
+  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, .30) 49%, rgba(255, 255, 255, .05) 53%, transparent 58%);
+  transform: translateX(var(--gl, 0%)); pointer-events: none; }
+.uz-v-card .uz-art { left: 8%; top: 5%; width: 84%; height: 76%; inset: auto; transform-origin: 50% 50%; }
+.uz-v-card .uz-nm { top: auto; bottom: 6%; transform: translateX(-50%); opacity: 1; font-size: inherit; text-shadow: none; color: var(--uz-mist); }
+.uz-ring.is-buds .uz-v-card .uz-glass { background: linear-gradient(160deg, rgba(236, 240, 255, .36), rgba(220, 226, 255, .20) 50%, rgba(200, 210, 255, .26)); }
+.uz-ring.is-buds .uz-v-card .uz-art { filter: blur(6px); opacity: .5; }
+.uz-ring.is-buds .uz-v-card .uz-nm { opacity: 0; }
+.uz-ring.is-buds .uz-v-card.is-open .uz-art { filter: none; opacity: 1; }
+.uz-ring.is-buds .uz-v-card.is-open .uz-nm { opacity: 1; }
+.uz-v-card.is-lit .uz-glass { border-color: rgba(255, 230, 190, .8); box-shadow: inset 0 0 26px rgba(255, 226, 170, .30), 0 0 22px rgba(255, 214, 150, .45); }
+.uz-v-card.is-big .uz-glass { background: linear-gradient(160deg, rgba(60, 58, 100, .92), rgba(24, 26, 56, .94)); border-color: rgba(255, 230, 190, .7);
+  box-shadow: 0 0 0 1px rgba(255, 230, 190, .25), 0 0 40px rgba(255, 214, 150, .35), 0 18px 40px rgba(0, 0, 0, .45); }
+.uz-el.is-big .uz-art { filter: drop-shadow(0 0 18px rgba(255, 220, 160, .6)); opacity: 1; }
+.uz-el.is-big .uz-nm { opacity: 1; }
+.uz-el.uz-own .uz-nm { opacity: 1; }
+
+/* свет — человек; после выбора свет становится цветком (uz-heart) */
+.uz-me { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 50; }
+.uz-halo { position: absolute; left: -90px; top: -90px; width: 180px; height: 180px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 226, 170, .42), rgba(233, 184, 114, .14) 38%, rgba(233, 184, 114, 0) 70%); transform: scale(var(--br, 1)); }
+.uz-core { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle at 45% 40%, #fff, #ffe9c2 45%, var(--uz-ember));
+  box-shadow: 0 0 18px 6px rgba(255, 220, 160, .55), 0 0 60px 18px rgba(233, 184, 114, .25); transform: scale(var(--bc, 1)); transition: opacity 1s; }
+.uz-me.is-inhale .uz-core { transform: scale(.45); transition: transform .7s ease-in; }
+.uz-me.is-flower .uz-core { opacity: 0; }
+.uz-heart { position: absolute; pointer-events: none; opacity: 0; transform: scale(.15); transform-origin: 50% 32%; }
+.uz-me.is-flower .uz-heart { opacity: 1; transform: scale(var(--hb, 1)); transition: opacity 1.4s, transform 1.8s cubic-bezier(.2, .9, .25, 1.05); }
+.uz-me.is-flower.is-calm .uz-heart { transition: opacity 1.4s; }
+.uz-heart-glow { position: absolute; left: 50%; top: 32%; width: 150%; height: 108%; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 236, 200, .55), rgba(255, 214, 150, .18) 40%, rgba(255, 214, 150, 0) 68%); }
+.uz-heart-art { position: absolute; inset: 0; filter: drop-shadow(0 0 8px rgba(255, 226, 170, .85)) drop-shadow(0 0 22px rgba(255, 214, 150, .45)) brightness(1.08); }
+.uz-heart-core { position: absolute; left: 50%; top: 32%; width: 22%; height: 16%; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 233, 194, .6) 45%, rgba(255, 233, 194, 0) 72%); mix-blend-mode: screen; opacity: var(--hc, .8); }
+.uz-tap { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; padding: 0; }
+.uz-cap, .uz-name { position: absolute; left: 0; top: 0; z-index: 150; white-space: nowrap; pointer-events: none; font-family: var(--uz-head); color: #fff3dd;
+  text-shadow: 0 0 12px rgba(13, 17, 40, .9), 0 0 3px rgba(13, 17, 40, .9); transition: opacity .8s; }
+.uz-cap { font-size: 18px; font-style: italic; letter-spacing: .02em; }
+.uz-name { font-size: 16px; }
+.uz-word { font-size: 17px; font-style: italic; }
+
+/* ---------- Интерфейс поверх ---------- */
+.uz-ui { position: fixed; z-index: 200; left: 0; right: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.uz-top { top: 0; padding-top: calc(12px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none; }
+.uz-top > * { pointer-events: auto; }
+.uz-eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--uz-mist-dim); text-decoration: none; }
+a.uz-eyebrow:hover { color: var(--uz-mist); }
+.uz-h1 { margin: 2px 0 0; font-family: var(--uz-head); font-weight: 500; font-style: italic; font-size: 30px; line-height: 1.05; color: #fff4e2; }
+.uz-honest { margin: 4px 0 0; font-size: 12px; color: var(--uz-mist-dim); max-width: 30ch; }
+.uz-tbtn { font: 12px var(--uz-ui); color: var(--uz-mist); background: rgba(16, 18, 40, .45); border: 1px solid var(--uz-line); border-radius: 999px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+.uz-bottom { bottom: 0; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; pointer-events: none; }
+.uz-sheet { pointer-events: auto; width: 100%; max-width: 540px; box-sizing: border-box; background: var(--uz-panel); border: 1px solid var(--uz-line); border-radius: 20px; padding: 16px 18px;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 12px; animation: uz-in .5s ease-out; }
+.uz-sheet[hidden] { display: none; }
+@keyframes uz-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.uz-sheet--long { max-height: min(62vh, 640px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.uz-q { margin: 0; font-family: var(--uz-head); font-size: 23px; line-height: 1.2; font-weight: 500; text-wrap: balance; }
+.uz-p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--uz-mist); }
+.uz-p.is-dim { color: var(--uz-mist-dim); font-size: 13px; }
+.uz-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.uz-row--between { justify-content: space-between; align-items: center; }
+.uz-btn { flex: 1 1 180px; font: 15px var(--uz-ui); color: #fff6e8; background: rgba(233, 184, 114, .12); border: 1px solid rgba(233, 184, 114, .55); border-radius: 12px; padding: 11px 12px; cursor: pointer; text-align: center; }
+.uz-btn:disabled { opacity: .4; cursor: default; }
+.uz-btn--ghost { background: transparent; border-color: var(--uz-line); color: var(--uz-mist); }
+.uz-btn--small { flex: 0 0 auto; padding: 8px 14px; font-size: 14px; }
+.uz-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.uz-opt { flex: 1 1 140px; font: 14px/1.3 var(--uz-ui); color: var(--uz-mist); background: rgba(255, 255, 255, .05); border: 1px solid var(--uz-line); border-radius: 12px; padding: 10px 12px; cursor: pointer; text-align: left; transition: background .3s, border-color .3s; }
+.uz-opt.is-on { background: rgba(233, 184, 114, .22); border-color: rgba(233, 184, 114, .8); color: #fff6e8; }
+.uz-link { align-self: flex-start; background: none; border: 0; padding: 2px 0; color: var(--uz-ember); font: 14px var(--uz-ui); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.uz-link--dim { color: var(--uz-mist-dim); }
+.uz-field { display: flex; gap: 8px; }
+.uz-field input, .uz-area { flex: 1; min-width: 0; font: 16px var(--uz-ui); color: var(--uz-mist); background: rgba(255, 255, 255, .06); border: 1px solid var(--uz-line); border-radius: 10px; padding: 10px 12px; box-sizing: border-box; }
+.uz-area { width: 100%; min-height: 96px; resize: vertical; line-height: 1.45; }
+.uz-field input:focus, .uz-area:focus { outline: 2px solid var(--uz-ember-soft); border-color: var(--uz-ember); }
+.uz-field .uz-btn { flex: 0 0 auto; }
+.uz-title { margin: 0; font-family: var(--uz-head); font-size: 28px; font-weight: 500; font-style: italic; color: #fff4e2; line-height: 1.1; }
+.uz-note { font-size: 12px; color: var(--uz-mist-dim); margin: 0; }
+.uz-count { font-size: 12px; color: var(--uz-mist-dim); text-align: right; margin: -6px 0 0; }
+
+/* шаги */
+.uz-steps { display: flex; gap: 6px; align-items: center; }
+.uz-steps i { width: 6px; height: 6px; border-radius: 50%; background: rgba(232, 230, 244, .25); transition: background .4s, box-shadow .4s; }
+.uz-steps i.is-done { background: rgba(255, 226, 170, .65); }
+.uz-steps i.is-now { background: #ffe3b0; box-shadow: 0 0 8px rgba(255, 220, 160, .8); }
+.uz-steps b { display: inline-block; width: 1px; height: 10px; background: var(--uz-line); margin: 0 3px; }
+
+/* «лампочки» — ползунок с тремя точками */
+.uz-lamp { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 2px; }
+.uz-lamp-ic { width: 64px; height: 64px; color: #ffe3b0; transition: transform .6s cubic-bezier(.2, .9, .3, 1.2), opacity .6s, filter .6s; transform: scale(var(--k, .9)); opacity: var(--o, .55);
+  filter: drop-shadow(0 0 calc(var(--o, .55) * 12px) rgba(255, 220, 160, .7)); }
+.uz-lamp-ic svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.uz-lamp-ic .uz-more { opacity: var(--m, 0); transition: opacity .6s; }
+.uz-slider { width: 100%; max-width: 360px; position: relative; padding: 10px 0 0; }
+.uz-slider input { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; background: transparent; margin: 0; cursor: pointer; position: relative; z-index: 2; }
+.uz-slider input::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(90deg, rgba(232, 230, 244, .25), rgba(255, 226, 170, .55), rgba(232, 230, 244, .25)); border-radius: 2px; }
+.uz-slider input::-moz-range-track { height: 2px; background: linear-gradient(90deg, rgba(232, 230, 244, .25), rgba(255, 226, 170, .55), rgba(232, 230, 244, .25)); border-radius: 2px; }
+.uz-slider input::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -11px; border-radius: 50%; border: 0;
+  background: radial-gradient(circle at 45% 40%, #fff, #ffe9c2 50%, var(--uz-ember)); box-shadow: 0 0 14px 3px rgba(255, 220, 160, .55); }
+.uz-slider input::-moz-range-thumb { width: 24px; height: 24px; border-radius: 50%; border: 0; background: radial-gradient(circle at 45% 40%, #fff, #ffe9c2 50%, var(--uz-ember)); box-shadow: 0 0 14px 3px rgba(255, 220, 160, .55); }
+.uz-slider.is-fresh input::-webkit-slider-thumb { opacity: .45; box-shadow: none; }
+.uz-slider.is-fresh input::-moz-range-thumb { opacity: .45; box-shadow: none; }
+.uz-ticks { position: absolute; left: 12px; right: 12px; top: 22px; height: 6px; display: flex; justify-content: space-between; z-index: 1; pointer-events: none; }
+.uz-ticks i { width: 6px; height: 6px; border-radius: 50%; background: rgba(232, 230, 244, .4); }
+.uz-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--uz-mist-dim); margin-top: 2px; }
+.uz-word-now { min-height: 1.3em; font-family: var(--uz-head); font-size: 21px; font-style: italic; color: #fff4e2; text-align: center; }
+
+/* итог */
+.uz-res-lines { display: flex; flex-direction: column; gap: 8px; }
+.uz-res-q { border-left: 2px solid rgba(233, 184, 114, .55); padding: 2px 0 2px 12px; }
+.uz-res-q .uz-note { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; }
+.uz-res-q .uz-p { font-family: var(--uz-head); font-size: 19px; font-style: italic; line-height: 1.3; }
+.uz-status { min-height: 1.2em; }
+.uz-help { border-top: 1px solid var(--uz-line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.uz-help h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.uz-help ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.uz-help a { color: #fff4e2; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.uz-help li { font-size: 13px; line-height: 1.4; color: var(--uz-mist); }
+.uz-help li span { color: var(--uz-mist-dim); }
+
+/* список узоров (uzory/) */
+body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50% 0%, #2b2350 0%, #141633 55%, var(--uz-night) 100%) fixed; }
+.uz-list { max-width: 760px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px)); box-sizing: border-box; }
+.uz-list .uz-h1 { font-size: 44px; margin-top: 18px; }
+.uz-list-lead { margin: 8px 0 0; font-family: var(--uz-head); font-size: 22px; font-style: italic; color: #fff4e2; }
+.uz-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 28px; }
+.uz-list-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 20px; text-decoration: none; color: var(--uz-mist);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .03) 50%, rgba(170, 190, 255, .07)); border: 1px solid rgba(255, 255, 255, .22); transition: border-color .3s, transform .3s; }
+.uz-list-card:hover { border-color: rgba(255, 230, 190, .6); transform: translateY(-2px); }
+.uz-list-card .uz-list-art { height: 140px; display: flex; justify-content: center; }
+.uz-list-card .uz-list-art svg { height: 100%; width: auto; filter: drop-shadow(0 0 10px rgba(255, 220, 160, .45)); }
+.uz-list-card b { font-family: var(--uz-head); font-size: 26px; font-weight: 500; font-style: italic; color: #fff4e2; }
+.uz-list-card span { font-size: 14px; line-height: 1.45; color: var(--uz-mist-dim); }
+.uz-empty { margin-top: 28px; color: var(--uz-mist-dim); }
+
+@media (min-width: 900px) { .uz-sheet { max-width: 580px; } .uz-sheet--long { max-height: min(56vh, 600px); } .uz-h1 { font-size: 36px; } }
+@media (max-height: 640px) { .uz-q { font-size: 20px; } .uz-sheet { padding: 12px 14px; gap: 9px; } }

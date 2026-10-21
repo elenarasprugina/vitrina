@@ -166,9 +166,10 @@
     if (window.M13_DATA) return Promise.resolve(clone(window.M13_DATA));
     var d = '../data/';
     return Promise.all(['settings', 'routes', 'formats', 'sandbox', 'reflection'].map(function (n) { return getJSON(d + n + '.json'); })
-      .concat([getJSON(d + 'events.json').catch(function () { return EVENTS_DEFAULT(); }), getJSON(d + 'journeys.json').catch(function () { return { items: [] }; })]))
+      .concat([getJSON(d + 'events.json').catch(function () { return EVENTS_DEFAULT(); }), getJSON(d + 'journeys.json').catch(function () { return { items: [] }; }),
+        getJSON(d + 'uzory.json').catch(function () { return { title: 'Узоры', items: [] }; })]))
       .then(function (r) {
-        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], showcases: {} };
+        var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], uzory: r[7], showcases: {} };
         return getJSON(d + 'showcases/index.json').then(function (idx) {
           out.index = idx;
           return Promise.all(idx.showcases.map(function (s) {
@@ -1430,7 +1431,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1486,6 +1487,7 @@
     else if (s === 'sandbox') add(m, viewSandbox());
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
+    else if (s === 'uzory') add(m, viewUzory());
     else if (s === 'psypoint') add(m, viewPsypoint());
     else add(m, viewSettings());
   }
@@ -9060,6 +9062,319 @@
     ];
   }
 
+  /* ================= УЗОРЫ (образные опросники, docs/uzory.md) =================
+     DATA.uzory = { title, invite, lead, back, items: [узор] }; страницы сайта — uzory/ и uzory/<id>/ (assets/uzory.js), данные — data/uzory.json.
+     Узор — как её файл (moj_cvetok.json): flowers, steps, answers, reveal, closing_question, support_lines, reflection_ack, footer, help
+     (+ наше: у цветка род g, цвет col, картинки image/bud, вид view; пространство space; надписи ui; метка Host host).
+     «Загрузить из файла» — её .json раскладывается по полям; род, картинки, вид и пространство остаются. */
+  var UZ_VIEWS = [['live', 'Живой цветок — картинка PNG'], ['line', 'Нарисован светящейся линией'], ['card', 'Стеклянная карта']];
+  var UZ_G = [['', '— укажите род —'], ['m', 'мужской: твой подсолнух, он'], ['f', 'женский: твоя роза, она'], ['n', 'средний: твоё, оно']];
+  var UZ_TABS = [['elements', 'Цветы'], ['questions', 'Вопросы'], ['result', 'Итог'], ['help', 'Телефоны помощи'], ['space', 'Пространство'], ['texts', 'Надписи и кнопки'], ['import', 'Загрузить из файла']];
+  var UZ_UI = [
+    ['Шапка и свет', [['eyebrow', 'Надпись сверху (ведёт к списку узоров)'], ['honest', 'Строка под названием', 1], ['caption', 'Надпись у света'], ['still', 'Кнопка «Остановить движение»'], ['move', 'Кнопка «Включить движение»']]],
+    ['Выбор цветка', [['randomHint', '«Наугад» — подсказка', 1], ['spinMore', '«Наугад» — если раскрутили слабо', 1], ['chooseHint', '«По картинке» — подсказка', 1],
+      ['waitSpin', 'Пока хоровод замедляется'], ['waitOpen', 'Пока бутон раскрывается'], ['otherWay', 'Ссылка «Выбрать иначе»'], ['skipFlower', 'Ссылка «Сегодня не выбирать»'],
+      ['ownAsk', 'Свой цветок — вопрос'], ['ownPh', 'Свой цветок — подсказка в поле'], ['nameBtn', 'Имя у света — ссылка'], ['nameEdit', 'Имя у света — ссылка, если уже вписано'],
+      ['nameAsk', 'Имя у света — вопрос'], ['namePh', 'Имя у света — подсказка в поле'], ['toQuestions', 'Кнопка к вопросам'], ['toChoose', 'Кнопка «Посмотреть по картинке» (после «Наугад»)'], ['again', 'Ссылка «Начать сначала»']]],
+    ['Вопросы', [['next', 'Кнопка «Дальше»'], ['skip', 'Ссылка «Пропустить»'], ['dontKnow', '«Лампочки»: «Не знаю»'], ['back', 'Ссылка «Назад»'], ['done', 'Кнопка «Готово»'],
+      ['ownPhSays', '«Своё» — подсказка в поле'], ['reflectPh', 'Свободный текст — подсказка в поле']]],
+    ['Итог и кнопки', [['closingLabel', 'Подпись над вопросом с собой'], ['save', 'Подпись «Сохранить себе»'], ['saveImg', 'Кнопка «Картинкой»'], ['copy', 'Кнопка «Скопировать текст»'], ['copied', 'Когда скопировано'],
+      ['writeInvite', 'Приглашение над «Написать проводнику» (пусто — без него)', 1], ['write', 'Кнопка «Написать проводнику»'], ['writeDone', 'Когда итог скопирован и открыт Telegram', 1], ['wordsLabel', 'Подпись к словам человека (в копии и на картинке)']]]
+  ];
+  function uzRoot() {
+    var U = DATA.uzory = DATA.uzory || { title: 'Узоры', invite: 'Найди свой узор', items: [] };
+    U.items = U.items || [];
+    return U;
+  }
+  function uzCur() { var U = uzRoot(); return U.items.filter(function (x) { return x.id === ST.uzItem; })[0] || U.items[0] || null; }
+  function uzPreview(it, phone) {
+    var pv = document.getElementById('a-preview');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: it.title, src: '../uzory/' + encodeURIComponent(it.id) + '/?draft=1' });
+    if (phone) fr.style.width = '390px';
+    var bar = el('div', { class: 'a-pbar' }, [
+      el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: closePreview }),
+      el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', onclick: function () { uzPreview(it, phone); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { uzPreview(it, !phone); } })]);
+    pv.classList.toggle('is-phone', phone);
+    pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  }
+  // Предпросмотр: страница узора в окне панели берёт черновик отсюда (assets/uzory.js → window.parent.M13_UZ_DRAFT)
+  window.M13_UZ_DRAFT = function () { return { uzory: DATA.uzory, settings: DATA.settings }; };
+  function viewUzory() {
+    var U = uzRoot(), it = uzCur(), t = ST.uzTab || 'elements';
+    var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Узоры' }),
+      el('p', { class: 'a-lead', text: 'Образные опросники 13 MIRRORS — не тест, а способ посмотреть на себя через образ. Страницы: 13mirrors.ru/vitrina/uzory/ (список) и …/uzory/' + (it ? it.id : 'cvetok') + '/. На сайт попадают с «Опубликовать». Ссылку с витрины ставите сами — карточкой с кнопкой на эту страницу.' })]);
+    var list = block('Страница «Узоры» — список', [
+      el('div', { class: 'a-row' }, [textIn(U, 'title', 'Заголовок', { ph: 'Узоры' }), textIn(U, 'invite', 'Приглашение', { ph: 'Найди свой узор' })]),
+      textIn(U, 'lead', 'Строка под приглашением (пусто — без неё)', { multi: true, rows: 2 }),
+      textIn(U, 'back', 'Ссылка назад, к витрине', { ph: '← К витрине' })], { open: false });
+    if (!it) return [head, list, el('p', { class: 'a-empty', text: 'Узоров пока нет.' })];
+    var pick = U.items.length > 1 ? el('div', { class: 'a-tabs' }, U.items.map(function (x) {
+      return el('button', { type: 'button', class: x === it ? 'is-active' : '', text: x.title || x.id, onclick: function () { ST.uzItem = x.id; renderMain(); } }); })) : null;
+    var tabs = el('div', { class: 'a-tabs' }, UZ_TABS.map(function (x) {
+      return el('button', { type: 'button', class: t === x[0] ? 'is-active' : '', text: x[1], onclick: function () { ST.uzTab = x[0]; renderMain(); } });
+    }).concat([el('button', { type: 'button', text: 'Посмотреть', onclick: function () { uzPreview(it, false); } }),
+      el('button', { type: 'button', text: '📱 На телефоне', onclick: function () { uzPreview(it, true); } })]));
+    var body = t === 'questions' ? uzQuestions(it) : t === 'result' ? uzResult(it) : t === 'help' ? uzHelp(it) : t === 'space' ? uzSpace(it)
+      : t === 'texts' ? uzTexts(it) : t === 'import' ? uzImportBox(it) : uzElements(it);
+    return [head, list, pick, el('div', { class: 'a-row' }, [textIn(it, 'title', 'Название узора'), switchIn(it, 'visible', 'Виден на сайте', { defTrue: true, hint: 'Выключено — на странице «Узоры» его нет, по ссылке — «пока скрыт».' })]),
+      textIn(it, 'card', 'Строка в списке узоров (под названием)', { multi: true, rows: 2 }), tabs, body];
+  }
+  function uzWarnG(it) { return (it.flowers || []).filter(function (f) { return f && f.visible !== false && !f.g; }); }
+  function uzElements(it) {
+    var S = it.space = it.space || {}, n = (it.flowers || []).filter(function (f) { return f && f.visible !== false; }).length, noG = uzWarnG(it);
+    return [
+      el('div', { class: 'a-row' }, [selectIn(S, 'view', 'Вид цветов в хороводе (для всех)', UZ_VIEWS, { def: 'live', hint: 'Живой — если у цветка загружена картинка; пока её нет, цветок нарисован линией. У каждого цветка можно поставить свой вид.' }),
+        rangeIn(S, 'size', 'Размер цветов', { min: 50, max: 200, step: 5, def: 100, unit: ' %' })]),
+      n !== 12 ? el('p', { class: 'a-note', text: 'В хороводе всегда 12 цветов, сейчас видно ' + n + '. ' + (n > 12 ? 'На сайте будут первые 12.' : 'Добавьте ещё или включите скрытые.') }) : null,
+      noG.length ? el('p', { class: 'a-note', text: 'Укажите род: ' + noG.map(function (f) { return f.nom_cap || f.nom || f.id; }).join(', ') + '. Без него «Твой … не просто …» напишется в мужском роде.' }) : null,
+      el('p', { class: 'a-hint', text: 'Тексты про цветок пишутся с родом: [мужской|женский], например «[Твой|Твоя] {nom}» — для розы станет «Твоя роза». Порядок здесь — порядок в хороводе.' }),
+      collection(it.flowers = it.flowers || [], { visible: true, max: 24,
+        title: function (f) { return (f.nom_cap || f.nom || 'Новый цветок') + (f.g ? '' : ' · ⚠ род'); },
+        make: function () { return { id: uid('fl'), visible: true, nom: '', nom_cap: '', g: '', text: '', col: '#f2c9a0', image: '', bud: '', view: '' }; },
+        addLabel: '+ Добавить цветок',
+        body: function (f) {
+          return [
+            el('div', { class: 'a-row3' }, [textIn(f, 'nom_cap', 'Название', { ph: 'Подсолнух' }), textIn(f, 'nom', 'В тексте (с маленькой)', { ph: 'подсолнух', hint: 'Подставляется вместо {nom}.' }),
+              selectIn(f, 'g', 'Род — обязательно', UZ_G, { def: '' })]),
+            textIn(f, 'text', 'Описание цветка', { multi: true, rows: 2 }),
+            el('div', { class: 'a-row' }, [selectIn(f, 'view', 'Вид этого цветка', [['', 'как у всех']].concat(UZ_VIEWS), { def: '' }), colorIn(f, 'col', 'Цвет (рисунок, бутон, лепестки в воздухе)')]),
+            el('div', { class: 'a-row' }, [
+              imageIn(f, 'image', 'Живой цветок — PNG на прозрачном фоне', { max: 900, size: { w: 600, h: 800, note: 'вертикальная 3:4, фон прозрачный, цветок стоит на нижнем крае' }, hint: 'Качается от основания — низ стебля должен быть у нижнего края картинки.' }),
+              imageIn(f, 'bud', 'Бутон для «Наугад» (пусто — нарисован)', { max: 900, size: { w: 600, h: 800, note: 'тот же размер и место, что у цветка' } })]),
+            f.image_brief ? el('p', { class: 'a-hint', text: 'Описание для картинки (из вашего файла): ' + f.image_brief }) : null,
+            textIn(f, 'id', 'Код цветка (латиницей)', { hint: 'По нему «Загрузить из файла» узнаёт цветок. Менять не нужно.' })
+          ];
+        } })
+    ];
+  }
+  function uzStep(it, id) { return (it.steps || []).filter(function (s) { return s && s.id === id; })[0]; }
+  function uzOptRows(s, key) {
+    return el('div', { class: 'a-row' }, (s[key] || []).map(function (o) { return textIn(o, 'label', key === 'rows' ? 'Строка «' + o.id + '»' : 'Ответ', { ph: o.id }); }));
+  }
+  function uzQuestions(it) {
+    var out = [el('p', { class: 'a-hint', text: 'Вопросы идут по одному, поверх сада; любой можно пропустить. «Лампочки» — по одной на экран, ползунок «мало · хватает · слишком много». Добавить новый вопрос пока нельзя — у каждого ответа свой текст в итоге (вкладка «Итог»).' })];
+    (it.steps || []).forEach(function (s) {
+      if (!s || s.id === 'result' || s.id === 'viewpoint') return;
+      var kids = [];
+      if (s.id === 'enter') kids.push(textIn(s, 'text', 'Текст над выбором', { multi: true, rows: 3 }));
+      else if (s.id === 'flower') {
+        s.own = s.own || {};
+        kids.push(el('div', { class: 'a-row' }, [textIn(s.own, 'label', 'Ссылка «свой цветок»', { ph: 'Моего цветка здесь нет' }), textIn(s.own, 'max_chars', 'Сколько знаков', { type: 'number' })]),
+          switchIn(s, 'skippable', 'Можно не выбирать цветок («Сегодня не выбирать»)', { defTrue: true }));
+      } else if (s.type === 'matrix') {
+        kids.push(textIn(s, 'text', 'Общий вопрос (если у строки нет своего)'));
+        (s.rows || []).forEach(function (r) { kids.push(el('div', { class: 'a-row' }, [textIn(r, 'label', 'Лампочка', { ph: r.id }), textIn(r, 'ask', 'Вопрос на экране', { ph: s.text })])); });
+        kids.push(sub('Подписи ползунка'), el('div', { class: 'a-row' }, (s.options || []).map(function (o) {
+          return textIn(o, 'label', { few: 'Левый край — «мало»', enough: 'Середина — «хватает»', many: 'Правый край — «слишком много»', unknown: 'Кнопка «не знаю» (запасная)' }[o.id] || o.id); })));
+      } else {
+        kids.push(textIn(s, 'text', 'Вопрос', { multi: s.type === 'text', rows: 2 }));
+        if (s.options) kids.push(uzOptRows(s, 'options'));
+        if (s.type === 'text') kids.push(textIn(s, 'max_chars', 'Сколько знаков', { type: 'number' }));
+        if (s.id !== 'pick_mode') kids.push(switchIn(s, 'skippable', 'Можно пропустить', { defTrue: true }));
+      }
+      out.push(block({ enter: 'Вход в сад', pick_mode: 'Как выбрать цветок', flower: 'Свой цветок' }[s.id] || s.text || s.id, kids, { open: false }));
+    });
+    return out;
+  }
+  function uzMap(obj, step, title, hint) {
+    if (!obj || !step) return null;
+    return block(title, [hint ? el('p', { class: 'a-hint', text: hint }) : null].concat((step.options || []).filter(function (o) { return obj[o.id] != null || o.id !== 'unknown'; }).map(function (o) {
+      return textIn(obj, o.id, '«' + o.label + '» →', { multi: true, rows: 2 }); })), { open: false });
+  }
+  function uzStrList(arr, label) {
+    var box = el('div');
+    function draw() {
+      box.replaceChildren();
+      arr.forEach(function (x, i) {
+        var o = { v: x };
+        box.appendChild(el('div', { class: 'a-row', style: 'align-items:end' }, [textIn(o, 'v', label + ' ' + (i + 1), { multi: true, rows: 2, onInput: function (v) { arr[i] = v; } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать', onclick: function () { arr.splice(i, 1); changed(); draw(); } })]));
+      });
+      box.appendChild(el('button', { type: 'button', class: 'a-btn a-add', text: '+ Добавить', onclick: function () { arr.push(''); changed(); draw(); } }));
+    }
+    draw();
+    return box;
+  }
+  function uzResult(it) {
+    var a = it.answers = it.answers || {}, lm = a.lamps = a.lamps || {}, rv = it.reveal = it.reveal || {}, lf = a.listed_flower = a.listed_flower || {}, of = a.own_flower = a.own_flower || {};
+    var cq = it.closing_question = it.closing_question || {}, lampsS = uzStep(it, 'lamps') || { rows: [] };
+    lm.enough_labels = lm.enough_labels || {}; lm.few = lm.few || {}; lm.many = lm.many || {};
+    it.support_lines = it.support_lines || [];
+    var G = 'Подстановки: {nom} — цветок в тексте, {nom_cap} — с большой, {text} — что вписал человек; [мужской|женский] — форма по роду цветка.';
+    return [
+      el('p', { class: 'a-hint', text: 'Итог собирается из строк ниже — по ответам человека. Пропущенный вопрос — строки нет. ' + G }),
+      block('Цветок', [
+        el('div', { class: 'a-row' }, [textIn(lf, 'title', 'Заголовок — цветок из двенадцати', { ph: 'Твой цветок: {nom_cap}' }), textIn(of, 'title', 'Заголовок — свой цветок', { ph: 'Твой цветок: {text}' })]),
+        textIn(lf, 'unique', 'Последняя строка — цветок из двенадцати', { multi: true, rows: 2 }),
+        textIn(of, 'text', 'Свой цветок — первая строка', { multi: true, rows: 2 }), textIn(of, 'unique', 'Свой цветок — последняя строка', { multi: true, rows: 2 })], { open: false }),
+      uzMap(a.place, uzStep(it, 'place'), 'Где растёт'),
+      uzMap(a.care, uzStep(it, 'care'), 'Как о нём заботятся'),
+      block('Лампочки', [
+        sub('Если хватает — одной строкой'), el('div', { class: 'a-row3' }, (lampsS.rows || []).map(function (r) { return textIn(lm.enough_labels, r.id, r.label + ' — слово'); })),
+        textIn(lm, 'enough_template', 'Строка «хватает» ({list} — слова через запятую)'), textIn(lm, 'all_enough', 'Если хватает всего', { multi: true, rows: 2 }),
+        sub('Бывает мало'), el('div', {}, (lampsS.rows || []).map(function (r) { return textIn(lm.few, r.id, r.label, { multi: true, rows: 2 }); })),
+        sub('Бывает слишком много'), el('div', {}, (lampsS.rows || []).map(function (r) { return textIn(lm.many, r.id, r.label, { multi: true, rows: 2 }); })),
+        textIn(lm, 'weather_note', 'Строка после «мало» и «слишком много»', { multi: true, rows: 2 })], { open: false }),
+      uzMap(a.says, uzStep(it, 'says'), 'Что сказал бы цветок', '«Своё» — {text} заменится словами человека.'),
+      block('Тринадцатый цветок', [
+        textIn(rv, 'text', 'Цветок из двенадцати', { multi: true, rows: 2 }), textIn(rv, 'text_own', 'Свой цветок', { multi: true, rows: 2 }),
+        el('div', { class: 'a-row' }, [textIn(rv, 'title_if_skipped', 'Заголовок, если цветок не выбран'), textIn(rv, 'text_if_skipped', 'Строка, если цветок не выбран', { multi: true, rows: 2 })])], { open: false }),
+      block('В конце итога', [
+        sub('Строка поддержки — одна из этих, по ответам'), uzStrList(it.support_lines, 'Строка'),
+        textIn(cq, 'inside', 'Вопрос с собой', { multi: true, rows: 2 }),
+        textIn(it, 'reflection_ack', 'Если человек что-то написал в свободном поле', { multi: true, rows: 2 }),
+        textIn(it, 'footer', 'Строка в самом низу', { multi: true, rows: 2 })], { open: false })
+    ];
+  }
+  function uzHelp(it) {
+    var h = it.help = it.help || { contacts: [] };
+    return [
+      switchIn(h, 'show', 'Показывать в итоге блок «Если сейчас тяжело»', { defTrue: true }),
+      el('div', { class: 'a-row' }, [textIn(h, 'title', 'Заголовок'), textIn(h, 'text', 'Текст', { multi: true, rows: 2 })]),
+      collection(h.contacts = h.contacts || [], {
+        title: function (c) { return [c.phone, c.label].filter(Boolean).join(' — '); },
+        make: function () { return { id: uid('tel'), phone: '', label: '', note: '' }; }, addLabel: '+ Добавить телефон',
+        body: function (c) { return [el('div', { class: 'a-row3' }, [textIn(c, 'phone', 'Номер', { ph: '8 (800) …' }), textIn(c, 'label', 'Что это'), textIn(c, 'note', 'Пометка', { ph: 'бесплатно, круглосуточно' })])]; } }),
+      textIn(h, 'abroad_line', 'Строка для тех, кто не в России', { multi: true, rows: 2 }),
+      el('p', { class: 'a-hint', text: 'Номер на телефоне нажимается — сразу звонок.' })
+    ];
+  }
+  function uzSpace(it) {
+    var S = it.space = it.space || {};
+    return [
+      el('div', { class: 'a-row' }, [textIn(it.ui = it.ui || {}, 'caption', 'Надпись у света', { ph: 'Ты Здесь' }),
+        selectIn(S, 'breath', 'Дыхание света', [['calm', 'Спокойное: вдох 4 с, выдох 6 с'], ['soft', 'Тихое мерцание']], { def: 'calm' })]),
+      el('div', { class: 'a-row3' }, [
+        selectIn(S, 'wind', 'Ветер', [['calm', 'Штиль'], ['breeze', 'Ветерок'], ['strong', 'Сильный ветер']], { def: 'breeze' }),
+        selectIn(S, 'speed', 'Хоровод сам кружится', [['slow', 'Медленнее'], ['norm', 'Обычно'], ['fast', 'Быстрее']], { def: 'norm', hint: 'Когда человек тронул хоровод рукой, он сам больше не кружится.' }),
+        selectIn(S, 'air', 'Пыльца и лепестки: сколько', [['few', 'Мало'], ['mid', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: 'mid' })]),
+      el('div', { class: 'a-row' }, [rangeIn(S, 'psize', 'Размер пыльцы и лепестков', { min: 50, max: 300, step: 10, def: 100, unit: ' %' }), switchIn(S, 'pollen', 'Пыльца и лепестки в воздухе', { defTrue: true })]),
+      sub('Связь света с цветами'),
+      el('p', { class: 'a-hint', text: 'Нитей нет. Касание света — круг по траве, искорки долетают до всех цветов, цветы вспыхивают.' }),
+      el('div', { class: 'a-row3' }, [switchIn(S, 'sparks', 'Искорки из света к цветам', { defTrue: true }), switchIn(S, 'ground', 'Круг по траве от касания', { defTrue: true }),
+        switchIn(S, 'breathWave', 'Дыхание: волна на выдохе, цветы отзываются', { defTrue: true })]),
+      el('div', { class: 'a-row' }, [selectIn(S, 'linkAmount', 'Искорок в покое', [['few', 'Редко'], ['mid', 'Средне'], ['many', 'Часто']], { def: 'mid' }),
+        rangeIn(S, 'linkBright', 'Яркость искорок и волн', { min: 0, max: 200, step: 10, def: 100, unit: ' %' })]),
+      sub('Ещё'),
+      switchIn(S, 'vibrate', 'Еле заметная вибрация, когда хоровод встаёт на цветок', { defTrue: true, hint: 'Только телефоны Android; на iPhone сайтам вибрация недоступна.' }),
+      switchIn(S, 'wave', 'Стеклянные карты идут волной («бублик»)', { defTrue: true, hint: 'Только для вида «Стеклянная карта».' })
+    ];
+  }
+  function uzTexts(it) {
+    var u = it.ui = it.ui || {};
+    var warn = el('span', { class: 'a-hint', style: 'color:#b3261e' });
+    function check(v) { v = String(v || '').trim(); warn.textContent = !v || /^[A-Za-z0-9_-]{1,64}$/.test(v) ? '' : 'Только латинские буквы, цифры, _ и - — иначе откроется обычный Telegram.'; }
+    check(it.host);
+    return [
+      el('div', {}, [textIn(it, 'host', 'Метка Host для «Написать проводнику»', { type: 'text', ph: 'uzory_cvetok', onInput: check,
+        hint: 'Telegram откроет бота Host (задан в «Настройках») с этой меткой; итог уже скопирован — человек вставляет его в чат. Пусто — ваш обычный Telegram.' }), warn])
+    ].concat(UZ_UI.map(function (g) {
+      return block(g[0], g[1].map(function (f) { return textIn(u, f[0], f[1], f[2] ? { multi: true, rows: 2 } : null); }), { open: false });
+    }));
+  }
+
+  /* ---------- «Загрузить из файла»: её .json (опросник или телефоны помощи) → поля; сначала показываем, что поменяется ---------- */
+  var UZ_SKIP_STEPS = { viewpoint: 1 };   // её решение 21.10: вопрос «Как смотреть» убран
+  var UZ_KEYS = { place: 'где растёт', care: 'забота', lamps: 'лампочки', says: 'слова цветка', own_flower: 'свой цветок', listed_flower: 'цветок из двенадцати',
+    enough_labels: 'хватает — слово', enough_template: 'строка «хватает»', all_enough: 'хватает всего', few: 'мало', many: 'слишком много', weather_note: 'строка о погоде',
+    text: 'текст', unique: 'последняя строка', title: 'заголовок', text_if_skipped: 'если не выбран', title_if_skipped: 'заголовок, если не выбран', inside: 'в саду', outside: 'со стороны' };
+  function uzMerge(it, src) {
+    var W = clone(it), ch = [], fresh = [];
+    function fl(id) { return (W.flowers || []).filter(function (f) { return f.id === id; })[0]; }
+    function set(o, k, v, what) { if (v == null || typeof v === 'object') return; if (o[k] !== v) { ch.push(what); o[k] = v; } }
+    function deep(dst, s, what) {
+      Object.keys(s || {}).forEach(function (k) {
+        var v = s[k];
+        var nm = what + ' → ' + (UZ_KEYS[k] || k);
+        if (v && typeof v === 'object' && !Array.isArray(v)) { dst[k] = dst[k] && typeof dst[k] === 'object' ? dst[k] : {}; deep(dst[k], v, nm); }
+        else if (Array.isArray(v)) { if (JSON.stringify(dst[k]) !== JSON.stringify(v)) { ch.push(nm); dst[k] = clone(v); } }
+        else set(dst, k, v, nm);
+      });
+    }
+    function byId(dstArr, srcArr, keys, what) {
+      (srcArr || []).forEach(function (o) {
+        var d = (dstArr || []).filter(function (x) { return x.id === o.id; })[0];
+        if (!d) return;
+        keys.forEach(function (k) { set(d, k, o[k], what + ' «' + (o.label || o.id) + '»'); });
+      });
+    }
+    if (src.flowers) {
+      set(W, 'title', src.title, 'Название');
+      set(W, 'intro', src.intro, 'Вступление');
+      set(W, 'version', src.version, 'Версия');
+      (src.flowers || []).forEach(function (f) {
+        var d = fl(f.id), name = f.nom_cap || f.nom || f.id;
+        if (!d) { W.flowers.push({ id: f.id, visible: true, nom: f.nom || '', nom_cap: f.nom_cap || '', g: f.g || '', text: f.text || '', col: '#f2c9a0', image: '', bud: '', view: '', image_brief: f.image_brief || '' }); fresh.push(name); return; }
+        ['nom', 'nom_cap', 'text', 'image_brief'].forEach(function (k) { set(d, k, f[k], 'Цветок «' + name + '»'); });
+        if (f.g) set(d, 'g', f.g, 'Цветок «' + name + '» — род');
+      });
+      (src.steps || []).forEach(function (s) {
+        if (UZ_SKIP_STEPS[s.id]) return;
+        var d = uzStep(W, s.id), what = 'Вопрос «' + (s.text || s.id) + '»';
+        if (!d) { if (s.type !== 'result') { W.steps.splice(Math.max(0, W.steps.length - 1), 0, clone(s)); ch.push('Новый вопрос «' + (s.text || s.id) + '» (тексты итога для него — вкладка «Итог»)'); } return; }
+        set(d, 'text', s.text, what);
+        if (s.skippable != null) set(d, 'skippable', s.skippable, what + ' — можно пропустить');
+        if (s.max_chars != null) set(d, 'max_chars', s.max_chars, what + ' — знаков');
+        byId(d.options, s.options, ['label'], what + ' → ответ');
+        byId(d.rows, s.rows, ['label'], what + ' → строка');
+        if (s.own && d.own) { set(d.own, 'label', s.own.label, what + ' → свой'); set(d.own, 'max_chars', s.own.max_chars, what + ' → свой, знаков'); }
+      });
+      if (src.answers) { W.answers = W.answers || {}; deep(W.answers, src.answers, 'Итог'); }
+      if (src.reveal) { W.reveal = W.reveal || {}; deep(W.reveal, src.reveal, 'Тринадцатый цветок'); }
+      if (src.closing_question) { W.closing_question = W.closing_question || {}; deep(W.closing_question, src.closing_question, 'Вопрос с собой'); }
+      if (src.support_lines && JSON.stringify(W.support_lines) !== JSON.stringify(src.support_lines)) { W.support_lines = clone(src.support_lines); ch.push('Строки поддержки'); }
+      set(W, 'reflection_ack', src.reflection_ack, 'Если человек что-то написал');
+      set(W, 'footer', src.footer, 'Строка в самом низу');
+      W._src = { voice_rules: src.voice_rules || (W._src || {}).voice_rules, doNotConclude: src.doNotConclude || (W._src || {}).doNotConclude, scene_brief: (src.image || {}).scene_brief || (W._src || {}).scene_brief };
+    } else if (src.contacts) {
+      var h = W.help = W.help || { contacts: [] };
+      set(h, 'title', src.title, 'Помощь — заголовок'); set(h, 'text', src.text, 'Помощь — текст'); set(h, 'abroad_line', src.abroad_line, 'Помощь — не в России');
+      var was = JSON.stringify((h.contacts || []).map(function (c) { return [c.phone, c.label, c.note]; }));
+      var now = (src.contacts || []).map(function (c) { return { id: c.id || uid('tel'), phone: c.phone || '', label: c.label || '', note: c.note || '' }; });
+      if (was !== JSON.stringify(now.map(function (c) { return [c.phone, c.label, c.note]; }))) { h.contacts = now; ch.push('Телефоны помощи (' + now.length + ')'); }
+    } else return null;
+    var txt = JSON.stringify(src), vy = /(^|[^а-яё])(вы|вас|вам|ваш|ваша|ваше|ваши|вами)([^а-яё]|$)/i.test(txt);
+    return { work: W, changes: ch, fresh: fresh, vy: vy };
+  }
+  function uzImportBox(it) {
+    var box = el('div'), pending = null;
+    var file = el('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0]; file.value = ''; if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        var src = null; try { src = JSON.parse(String(r.result)); } catch (e) {}
+        var m = src && typeof src === 'object' ? uzMerge(it, src) : null;
+        if (!m) { toast('Это не файл узора. Нужен .json опросника (как moj_cvetok.json) или телефонов помощи (kontakty_pomoshchi.json).', true); return; }
+        pending = { m: m, name: f.name }; draw();
+      };
+      r.onerror = function () { toast('Не получилось прочитать файл. Попробуйте ещё раз.', true); };
+      r.readAsText(f);
+    });
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        el('p', { class: 'a-hint', text: 'Загрузите .json опросника (как moj_cvetok.json) или телефонов помощи (kontakty_pomoshchi.json) — тексты разложатся по полям. Род цветов, картинки, вид и настройки пространства останутся как есть. Цветок узнаётся по коду (id), вопрос — по своему коду.' }),
+        el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '↑ Загрузить из файла…', onclick: function () { file.click(); } }), file]),
+        pending ? el('div', { class: 'a-note' }, [
+          el('p', { text: 'Файл «' + pending.name + '»: ' + (pending.m.changes.length || pending.m.fresh.length ? 'изменится ' + pending.m.changes.length + (pending.m.fresh.length ? ', новых цветов — ' + pending.m.fresh.length : '') + '.' : 'всё совпадает, менять нечего.') }),
+          pending.m.vy ? el('p', { style: 'margin-top:6px', text: '⚠ В файле тексты на «вы». Если загрузить, тексты на «ты» заменятся этими — потом их придётся поправить здесь.' }) : null,
+          pending.m.fresh.length ? el('p', { style: 'margin-top:6px', text: 'Новые цветы: ' + pending.m.fresh.join(', ') + ' — укажите им род во вкладке «Цветы».' }) : null,
+          pending.m.changes.length ? el('ul', { style: 'margin:8px 0 0 18px;max-height:220px;overflow:auto' }, pending.m.changes.slice(0, 60).map(function (c) { return el('li', { text: c }); })
+            .concat(pending.m.changes.length > 60 ? [el('li', { text: '… и ещё ' + (pending.m.changes.length - 60) })] : [])) : null,
+          el('div', { class: 'a-backup-btns', style: 'margin-top:10px' }, [
+            pending.m.changes.length || pending.m.fresh.length ? el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Загрузить', onclick: function () {
+              var w = pending.m.work; Object.keys(w).forEach(function (k) { it[k] = w[k]; });
+              pending = null; changed(); toast('Готово: тексты из файла разложены по полям. Посмотрите и сохраните.'); renderMain(); } }) : null,
+            el('button', { type: 'button', class: 'a-btn', text: 'Отмена', onclick: function () { pending = null; draw(); } })])]) : null
+      ]);
+    }
+    draw();
+    return box;
+  }
+
   /* ================= КАРТЫ-ОТРАЖЕНИЯ ================= */
   /* «Узнать свой кин» (19.10, docs/kin.md): тексты блока оборота и страницы vitrina/kin/ — reflection.kin; пусто — как в подсказке (M13.KIN_T).
      reflection.kin.arch — базовые архетипы печатей для сайта: пишет Библиотека («Архетипы» → «Показать на сайте»), здесь только видно, какие. */
@@ -9850,6 +10165,8 @@
     if (stc && stc.host === undefined) stc.host = ((((ORIGINAL || {}).settings || {}).contacts || {}).host) || '';
     D.showcases = D.showcases || {};
     D.events = D.events || EVENTS_DEFAULT(); D.events.items = D.events.items || [];
+    // Узоры (с 21.10.2026, шаг 2): в старом черновике их нет — берём с сайта («Мой цветок» на «ты»)
+    if (!D.uzory || !D.uzory.items) D.uzory = clone((ORIGINAL && ORIGINAL.uzory) || { title: 'Узоры', items: [] });
     // Страницы маршрутов (с 02.10.2026): в старом черновике их нет — берём заготовку с сайта
     if (!D.journeys || !D.journeys.items) D.journeys = clone((ORIGINAL && ORIGINAL.journeys) || { items: [] });
     // Разметка кирпичей (с шага 2): в черновике её нет — берём с сайта
@@ -10267,7 +10584,7 @@
   }
 
   /* ---------- Данные ↔ файлы ---------- */
-  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events', 'journeys'];
+  var DATA_FILES = ['settings', 'routes', 'formats', 'sandbox', 'reflection', 'events', 'journeys', 'uzory'];
   function jsonText(o, ref) {
     return JSON.stringify(o, ref ? function (k, v) { return typeof v === 'string' && ref.has(v) ? ref.get(v) : v; } : null, 2) + '\n';
   }
