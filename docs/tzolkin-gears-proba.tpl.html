@@ -1,0 +1,484 @@
+<title>Шестерёнки Цолькина</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Проба 21.10.2026 (docs/tzolkin-gears.md). Две шестерёнки: 13 тонов и 20 печатей, сцеплены зубцом — в месте сцепления кин дня.
+     Сборка: python3 docs/tzolkin-gears-proba.build.py <папка> → вместо строки KINJS ниже — assets/kin.js (расчёт кина, её словарь).
+     Ничего не отправляет и не хранит; свои знаки печатей (картинки) читаются только в этом окне браузера. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --night:#0d0a07; --ink:#f4ead8; --mut:#b9ab95; --gold:#ecd3a3; --line:rgba(236,211,163,.32);
+  --deep:#1a1735; --deep2:#100e22; --port:#5fd39a;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  color-scheme:dark
+}
+html,body{background:var(--night);color:var(--ink)}
+body{margin:0;font-family:var(--sans);line-height:1.45;padding-block:18px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;color:var(--gold)}
+.lead{margin:0;max-width:64ch;color:var(--mut);font-size:14.5px}
+.ctl{display:grid;gap:12px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.row b{flex:0 0 100%;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:500;color:var(--mut)}
+.chip{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,248,235,.05);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#241b10}
+.chip:focus-visible,.cell:focus-visible,.nav button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.file{font-size:13px;color:var(--mut)}
+.file input{font-size:13px;color:var(--mut);max-width:100%}
+
+.stage{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:820px){.stage{grid-template-columns:1fr}}
+.card{border-radius:22px;background:radial-gradient(120% 90% at 30% 0%,var(--deep),var(--deep2));border:1px solid rgba(236,211,163,.18);
+  padding:16px 14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:center}
+.kin{font-family:var(--serif);font-size:26px;line-height:1.12;color:var(--gold);text-align:center;font-weight:500;min-height:2.24em;display:flex;align-items:center;justify-content:center;text-wrap:balance}
+.kin small{display:block;font-size:15px;color:var(--ink);opacity:.8;letter-spacing:.06em}
+.wave{font-size:13.5px;color:var(--mut);text-align:center}
+.wave b{color:var(--ink);font-weight:500}
+canvas{display:block;width:100%;touch-action:none;cursor:grab}
+canvas.drag{cursor:grabbing}
+.nav{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.nav button{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,248,235,.06);border:1px solid var(--line);border-radius:999px;padding:8px 12px;cursor:pointer;min-width:44px}
+.nav button.today{background:var(--gold);color:#241b10;border-color:var(--gold);font-weight:600}
+.nav input{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,248,235,.06);border:1px solid var(--line);border-radius:999px;padding:7px 12px}
+.hint{font-size:12.5px;color:var(--mut);text-align:center;margin:0}
+
+.tz{border-radius:18px;background:rgba(255,248,235,.03);border:1px solid rgba(236,211,163,.14);padding:10px}
+.tz h2{margin:0 0 8px;font-family:var(--serif);font-weight:500;font-size:20px;color:var(--gold)}
+.grid{display:grid;grid-template-columns:20px repeat(13,minmax(0,1fr));gap:2px}
+.sh{width:18px;height:14px;border-radius:3px;align-self:center;font-size:8.5px;line-height:14px;text-align:center;font-weight:600;background-size:cover;background-position:center}
+.cell{all:unset;box-sizing:border-box;height:15px;border-radius:3px;font-size:8.5px;line-height:15px;text-align:center;color:rgba(244,234,216,.55);background:rgba(255,248,235,.045);cursor:pointer;position:relative}
+.cell.port{background:rgba(95,211,154,.16);color:rgba(220,255,235,.75)}
+.cell.wv{box-shadow:inset 0 0 0 1px rgba(236,211,163,.55);color:var(--ink)}
+.cell.on{background:var(--gold);color:#241b10;font-weight:700;box-shadow:0 0 10px rgba(240,214,140,.8)}
+.cell.td::after{content:"";position:absolute;inset:-1px;border-radius:4px;border:1px solid #fff}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+.pick{margin-top:10px;font-size:13px;color:var(--mut);min-height:2.6em}
+.pick b{color:var(--ink);font-weight:500}
+.note{font-size:13px;color:var(--mut);max-width:70ch;margin:0}
+</style>
+
+<div class="wrap">
+  <h1>Шестерёнки Цолькина</h1>
+  <p class="lead">Проба для панели (Библиотека → рядом с Цолькином). Левое колесо — 13 тонов, правое — 20 печатей. Каждый день оба поворачиваются на один зубец; там, где зубец тона входит в печать, — кин дня. Крутите любое колесо пальцем или мышкой, жмите стрелки, выберите дату или кин в таблице.</p>
+
+  <div class="ctl">
+    <div class="row" data-g="mat"><b>Металл</b>
+      <button class="chip" data-v="bronze">Бронза</button><button class="chip" data-v="gold" aria-pressed="true">Золото</button><button class="chip" data-v="silver">Серебро</button><button class="chip" data-v="glass">Стекло</button><button class="chip" data-v="pair">Тоны — серебро, печати — золото</button>
+    </div>
+    <div class="row" data-g="clk"><b>Щелчок</b>
+      <button class="chip" data-v="safe" aria-pressed="true">Сейф</button><button class="chip" data-v="wood">Дерево</button><button class="chip" data-v="soft">Мягкий</button><button class="chip" data-v="off">Без звука</button>
+    </div>
+    <div class="row" data-g="num"><b>На зубцах тонов</b>
+      <button class="chip" data-v="maya" aria-pressed="true">Точки и черты</button><button class="chip" data-v="both">Точки и черты + цифра</button><button class="chip" data-v="arab">Цифры</button>
+    </div>
+    <div class="row"><b>Знаки печатей</b>
+      <label class="file">Пока — цвет и номер. Свои картинки: выберите сразу 20 файлов (имена по порядку: 01 Дракон … 20 Солнце). Они видны только в этом окне, никуда не уходят.<br><input type="file" id="glyphs" accept="image/*" multiple></label>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="card">
+      <div class="date" id="date"></div>
+      <div class="kin" id="kin"></div>
+      <canvas id="cv" aria-label="Шестерёнки: 13 тонов и 20 печатей"></canvas>
+      <div class="wave" id="wave"></div>
+      <div class="nav">
+        <button type="button" data-step="-13" title="Назад на волну (13 дней)">« 13</button>
+        <button type="button" data-step="-1" title="Назад на день">‹ день</button>
+        <button type="button" class="today" id="today">Сегодня</button>
+        <button type="button" data-step="1" title="Вперёд на день">день ›</button>
+        <button type="button" data-step="13" title="Вперёд на волну (13 дней)">13 »</button>
+      </div>
+      <div class="nav"><input type="date" id="dt" aria-label="Дата"></div>
+      <p class="hint">29 февраля — 0.0 Хунаб Ку: кина нет, колёса стоят. Стрелки и вращение его перешагивают.</p>
+    </div>
+
+    <div class="tz">
+      <h2>Цолькин</h2>
+      <div class="grid" id="grid"></div>
+      <div class="legend"><span><i style="background:var(--gold)"></i>кин на колёсах</span><span><i style="box-shadow:inset 0 0 0 1px rgba(236,211,163,.7)"></i>его волна</span><span><i style="background:rgba(95,211,154,.3)"></i>портал</span><span><i style="border:1px solid #fff"></i>сегодня</span></div>
+      <div class="pick" id="pick">Нажмите кин — колёса докрутятся до ближайшего дня с ним. В панели здесь же будет кнопка «Страница кина».</div>
+    </div>
+  </div>
+  <p class="note">Что ещё можно: по долгому нажатию на зубец — коротко о тоне или печати; в панели — переход к странице кина, волне в атласе, вашим маршрутам с этим днём. На сайте для участников — то же колесо, но рядом только опубликованное (без атласа).</p>
+</div>
+
+<script>
+/*KINJS*/
+</script>
+<script>
+(function () {
+  'use strict';
+  var K = window.M13KIN, TAU = Math.PI * 2, DAY = 864e5;
+  var MATS = {
+    bronze: { lo: '#3a2213', mid: '#8c5a2c', hi: '#e2ad72', sheen: 'rgba(255,226,180,.42)', ink: '#fdebd2', inkSh: 'rgba(30,14,4,.85)', dim: 'rgba(253,235,210,.22)', well: '#120b08' },
+    gold: { lo: '#5e4914', mid: '#b08f33', hi: '#f6e39a', sheen: 'rgba(255,250,215,.5)', ink: '#2a2005', inkSh: 'rgba(255,246,210,.55)', dim: 'rgba(42,32,5,.25)', well: '#14100a' },
+    silver: { lo: '#4c5262', mid: '#9ba4b6', hi: '#f0f3f8', sheen: 'rgba(255,255,255,.55)', ink: '#1c2130', inkSh: 'rgba(255,255,255,.5)', dim: 'rgba(28,33,48,.25)', well: '#0e0f18' },
+    glass: { lo: 'rgba(70,80,170,.30)', mid: 'rgba(140,150,235,.20)', hi: 'rgba(235,235,255,.38)', sheen: 'rgba(255,255,255,.45)', ink: '#eef0ff', inkSh: 'rgba(10,10,40,.7)', dim: 'rgba(238,240,255,.2)', well: 'rgba(8,8,24,.6)' }
+  };
+  // цвета печатей: красный, белый, синий, жёлтый — и надпись на них
+  var SC = ['#cf4632', '#efe9dc', '#3a6dc2', '#efc137'], SI = ['#fff4ee', '#2a2620', '#f2f6ff', '#2c2205'];
+  var GOLD = '#f0d68c';
+  var GAP = [1, 20, 22, 39, 43, 50, 51, 58, 64, 69, 72, 77, 85, 88, 93, 96, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
+    146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 165, 168, 173, 176, 184, 189, 192, 197, 203, 210, 211, 218, 222, 239, 241, 260];
+  var isGap = {}; GAP.forEach(function (k) { isGap[k] = 1; });
+  var MONF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  var WD = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var opt = { mat: 'gold', clk: 'safe', num: 'maya' }, glyphs = [];
+
+  /* ---------- звук (как у колеса «Узнать свой кин») ---------- */
+  var ac = null, noise = null, lastClk = 0;
+  function audio() {
+    if (opt.clk === 'off') return null;
+    try {
+      if (!ac) {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        noise = ac.createBuffer(1, ac.sampleRate * .3, ac.sampleRate);
+        var d = noise.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    } catch (e) { return null; }
+  }
+  function burst(t, type, f, q, g, dur) {
+    var s = ac.createBufferSource(), fl = ac.createBiquadFilter(), gn = ac.createGain();
+    s.buffer = noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    gn.gain.setValueAtTime(g, t); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    s.connect(fl); fl.connect(gn); gn.connect(ac.destination); s.start(t, Math.random() * .2); s.stop(t + dur + .01);
+  }
+  function tone(t, f, g, dur, type) {
+    var o = ac.createOscillator(), gn = ac.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * .7, t + dur);
+    gn.gain.setValueAtTime(.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + .002); gn.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(gn); gn.connect(ac.destination); o.start(t); o.stop(t + dur + .02);
+  }
+  // hv — тяжелее: начало волны (тон 1)
+  function click(hv) {
+    var now = performance.now(); if (now - lastClk < 28) return; lastClk = now;
+    if (navigator.vibrate) { try { navigator.vibrate(hv ? 14 : 5); } catch (e) {} }
+    if (!audio()) return;
+    var t = ac.currentTime, kind = opt.clk;
+    if (kind === 'wood') { burst(t, 'bandpass', hv ? 1000 : 1500, 3, hv ? .8 : .5, hv ? .03 : .02); tone(t, hv ? 300 : 440, hv ? .25 : .14, .03, 'triangle'); }
+    else if (kind === 'soft') burst(t, 'lowpass', hv ? 600 : 800, 1, hv ? .5 : .3, hv ? .04 : .025);
+    else { burst(t, 'bandpass', hv ? 2600 : 3600, 5, hv ? .9 : .55, hv ? .02 : .012); tone(t, hv ? 120 : 190, hv ? .35 : .16, hv ? .06 : .03); }
+  }
+
+  /* ---------- дата и кин ---------- */
+  function iso(t) { return new Date(t).toISOString().slice(0, 10); }
+  function feb29(t) { var d = new Date(t); return d.getUTCMonth() === 1 && d.getUTCDate() === 29; }
+  function todayT() { var d = new Date(Date.now() + 3 * 36e5); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }   // по Москве
+  function mod(n, m) { return ((n % m) + m) % m; }
+  // st.k — счёт кинов без конца (кин = k mod 260 + 1); shown — куда сейчас повёрнуты колёса (плавно догоняет k)
+  var st = { t: todayT(), k: 0, hunab: false, shown: 0, drag: null };
+  (function () { var k = K.kinOf(st.t); st.k = st.shown = k - 1; })();
+  function kinNow() { return mod(st.k, 260) + 1; }
+  // шаг на n кинов: дата идёт вместе, 29 февраля перешагиваем
+  function step(n) {
+    var d = n > 0 ? 1 : -1;
+    st.hunab = false;
+    for (var i = 0; i < Math.abs(n); i++) { st.t += d * DAY; if (feb29(st.t)) st.t += d * DAY; st.k += d; }
+    info();
+  }
+  function setDate(t) {
+    if (isNaN(t)) return;
+    st.t = t;
+    var k = K.kinOf(t);
+    st.hunab = !k;
+    if (!k) k = K.kinOf(t - DAY);
+    var diff = mod(k - kinNow(), 260); if (diff > 130) diff -= 260;
+    st.k += diff;
+    if (reduce) st.shown = st.k;
+    info();
+  }
+  function goKin(k) {
+    var diff = mod(k - kinNow(), 260); if (diff > 130) diff -= 260;
+    if (diff) step(diff);
+    if (reduce) st.shown = st.k;
+  }
+
+  /* ---------- надписи и таблица ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var cells = [];
+  (function buildGrid() {
+    var g = $('grid'), h = '', s, c, k;
+    for (s = 1; s <= 20; s++) {
+      h += '<span class="sh" data-seal="' + s + '" style="background-color:' + SC[(s - 1) % 4] + ';color:' + SI[(s - 1) % 4] + '">' + s + '</span>';
+      for (c = 0; c < 13; c++) {
+        k = c * 20 + s;
+        h += '<button type="button" class="cell' + (isGap[k] ? ' port' : '') + '" data-k="' + k + '" title="Kin ' + k + ' · ' + K.kinName(k) + '">' + k + '</button>';
+      }
+    }
+    g.innerHTML = h;
+    g.querySelectorAll('.cell').forEach(function (b) { cells[+b.getAttribute('data-k')] = b; });
+    g.addEventListener('click', function (e) {
+      var b = e.target.closest('.cell'); if (!b) return;
+      var k = +b.getAttribute('data-k');
+      goKin(k);
+      $('pick').innerHTML = '<b>Kin ' + k + ' · ' + K.kinName(k) + '</b><br>В панели: «Страница кина» · «Волна в атласе»';
+    });
+  })();
+  var prevOn = 0, prevWave = [], prevToday = 0;
+  function info() {
+    var d = new Date(st.t), k = kinNow(), I = K.info(k);
+    $('date').textContent = d.getUTCDate() + ' ' + MONF[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ' · ' + WD[d.getUTCDay()];
+    if (st.hunab) {
+      $('kin').innerHTML = '<span>0.0 Хунаб Ку<small>29 февраля — день без кина</small></span>';
+      $('wave').textContent = 'Колёса стоят на вчерашнем кине: Kin ' + k;
+    } else {
+      $('kin').innerHTML = '<span><small>Kin ' + k + (isGap[k] ? ' · портал' : '') + '</small>' + I.kinName + '</span>';
+      var w0 = k - I.toneN + 1;
+      $('wave').innerHTML = 'Волна: <b>' + K.sealName(K.sealOf(w0)) + '</b> · день ' + I.toneN + ' из 13';
+    }
+    $('dt').value = iso(st.t);
+    if (prevOn) cells[prevOn].classList.remove('on');
+    prevWave.forEach(function (x) { cells[x].classList.remove('wv'); });
+    prevWave = [];
+    var w = k - I.toneN + 1;
+    for (var i = 0; i < 13; i++) { var x = mod(w - 1 + i, 260) + 1; cells[x].classList.add('wv'); prevWave.push(x); }
+    cells[k].classList.add('on'); prevOn = k;
+    var tk = K.kinOf(todayT());
+    if (prevToday) cells[prevToday].classList.remove('td');
+    if (tk) { cells[tk].classList.add('td'); prevToday = tk; }
+  }
+
+  /* ---------- шестерёнки ---------- */
+  // всё в долях радиуса колеса печатей (R2 = 1): шаг зубца одинаковый у обоих — поэтому 13 и 20 сцепляются
+  var R2 = 1, R1 = 13 / 20, AD = .1, DD = .125;
+  var cv = $('cv'), ctx = cv.getContext('2d'), G = { u: 1, c1: [0, 0], c2: [0, 0], dpr: 1, W: 0, H: 0 };
+  function layout() {
+    var w = cv.clientWidth, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var spanX = (R1 + AD) + (R1 + R2) + (R2 + AD) + .06, spanY = 2 * (R2 + AD) + .06;
+    var u = w / spanX, h = Math.round(spanY * u);
+    cv.style.height = h + 'px';
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    G = { u: u, dpr: dpr, W: w, H: h, c1: [(R1 + AD + .03) * u, h / 2], c2: [(R1 + AD + .03 + R1 + R2) * u, h / 2] };
+  }
+  var S1 = TAU / 13, S2 = TAU / 20;
+  // угол поворота: тон на зубце под сцеплением (справа у левого колеса, слева у правого)
+  function th1(p) { return -p * S1; }
+  function th2(p) { return Math.PI + p * S2; }
+  // контур колеса с зубцами; half — зубцы между знаками (у колеса печатей: в щель между ними входит зубец тона)
+  function gearPath(c, R, n, th, half) {
+    var u = G.u, step = TAU / n, i, rt = (R + AD) * u, rr = (R - DD) * u;
+    ctx.beginPath();
+    for (i = 0; i < n; i++) {
+      var a = th + (i + (half ? .5 : 0)) * step;
+      [[a - .34 * step, rr], [a - .17 * step, rt], [a + .17 * step, rt], [a + .34 * step, rr]].forEach(function (q, j) {
+        var x = c[0] + Math.cos(q[0]) * q[1], y = c[1] + Math.sin(q[0]) * q[1];
+        if (i === 0 && j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+    }
+    ctx.closePath();
+  }
+  function metal(c, R, M) {
+    var u = G.u, ro = (R + AD) * u;
+    var g = ctx.createLinearGradient(c[0] - ro * .75, c[1] - ro * .75, c[0] + ro * .75, c[1] + ro * .75);
+    g.addColorStop(0, M.hi); g.addColorStop(.5, M.mid); g.addColorStop(1, M.lo);
+    return g;
+  }
+  function drawGear(c, R, n, th, half, M) {
+    var u = G.u;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
+    gearPath(c, R, n, th, half); ctx.fillStyle = M.mid; ctx.fill(); ctx.restore();
+    gearPath(c, R, n, th, half); ctx.fillStyle = metal(c, R, M); ctx.fill();
+    if (ctx.createConicGradient) {
+      var cg = ctx.createConicGradient(-Math.PI / 2 - .7, c[0], c[1]);
+      cg.addColorStop(0, 'rgba(255,255,255,0)'); cg.addColorStop(.07, M.sheen); cg.addColorStop(.16, 'rgba(255,255,255,0)');
+      cg.addColorStop(.45, 'rgba(0,0,0,.16)'); cg.addColorStop(.57, M.sheen); cg.addColorStop(.64, 'rgba(255,255,255,0)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
+      gearPath(c, R, n, th, half); ctx.fillStyle = cg; ctx.fill();
+    }
+    gearPath(c, R, n, th, half);
+    var eg = ctx.createLinearGradient(0, c[1] - R * u, 0, c[1] + R * u);
+    eg.addColorStop(0, 'rgba(255,255,255,.55)'); eg.addColorStop(1, 'rgba(0,0,0,.5)');
+    ctx.strokeStyle = eg; ctx.lineWidth = 1.2; ctx.stroke();
+    // утопленная середина
+    var rw = (half ? .5 : .52) * R * u;
+    var wg = ctx.createRadialGradient(c[0], c[1] - rw * .1, rw * .1, c[0], c[1], rw);
+    wg.addColorStop(0, M.well); wg.addColorStop(.85, M.well); wg.addColorStop(1, 'rgba(0,0,0,.9)');
+    ctx.beginPath(); ctx.arc(c[0], c[1], rw, 0, TAU); ctx.fillStyle = wg; ctx.fill();
+    var lg = ctx.createLinearGradient(0, c[1] - rw, 0, c[1] + rw);
+    lg.addColorStop(0, 'rgba(0,0,0,.6)'); lg.addColorStop(1, 'rgba(255,255,255,.3)');
+    ctx.strokeStyle = lg; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  // число майя: точки над чертами; «верх» знака смотрит по углу up (наружу колеса)
+  function maya(n, x, y, size, up, color, sh) {
+    var bars = Math.floor(n / 5), dots = n % 5, bh = size * .16, gap = size * .11, dr = size * .085;
+    var hgt = bars * bh + Math.max(0, bars - 1) * gap + (dots ? dr * 2 + (bars ? gap : 0) : 0);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(up + Math.PI / 2);
+    function paint(col, dy) {
+      ctx.fillStyle = col;
+      var yy = -hgt / 2 + dy, i;
+      if (dots) {
+        for (i = 0; i < dots; i++) { ctx.beginPath(); ctx.arc((i - (dots - 1) / 2) * size * .25, yy + dr, dr, 0, TAU); ctx.fill(); }
+        yy += dr * 2 + gap;
+      }
+      for (i = 0; i < bars; i++) { roundRect(-size / 2, yy, size, bh, bh / 2); ctx.fill(); yy += bh + gap; }
+    }
+    if (sh) paint(sh, size * .04);
+    paint(color, 0);
+    ctx.restore();
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function txt(s, x, y, size, color, up, weight, sh) {
+    ctx.save(); ctx.translate(x, y); if (up != null) ctx.rotate(up + Math.PI / 2);
+    ctx.font = (weight || '600') + ' ' + size + 'px "Cormorant Garamond", Georgia, serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (sh) { ctx.fillStyle = sh; ctx.fillText(s, 0, size * .08 + .4); }
+    ctx.fillStyle = color; ctx.fillText(s, 0, 0); ctx.restore();
+  }
+  // знак печати: своя картинка или цветная плитка с номером
+  function seal(s, x, y, size, up, glow) {
+    var i = (s - 1) % 4;
+    ctx.save(); ctx.translate(x, y); if (up != null) ctx.rotate(up + Math.PI / 2);
+    if (glow) { ctx.shadowColor = 'rgba(240,214,140,.95)'; ctx.shadowBlur = size * .5; }
+    else { ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = size * .15; ctx.shadowOffsetY = size * .05; }
+    roundRect(-size / 2, -size / 2, size, size, size * .16); ctx.fillStyle = SC[i]; ctx.fill();
+    ctx.shadowColor = 'transparent';
+    var im = glyphs[s - 1];
+    if (im && im.complete && im.naturalWidth) {
+      ctx.save(); roundRect(-size / 2, -size / 2, size, size, size * .16); ctx.clip();
+      ctx.drawImage(im, -size / 2, -size / 2, size, size); ctx.restore();
+    } else {
+      ctx.font = '700 ' + (size * .5) + 'px "Cormorant Garamond", Georgia, serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = SI[i]; ctx.fillText(String(s), 0, size * .03);
+    }
+    roundRect(-size / 2, -size / 2, size, size, size * .16); ctx.strokeStyle = glow ? GOLD : 'rgba(0,0,0,.35)'; ctx.lineWidth = glow ? 2 : 1; ctx.stroke();
+    ctx.restore();
+  }
+  function draw(now) {
+    var u = G.u, p = st.shown, a, i, M1, M2;
+    ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+    ctx.clearRect(0, 0, G.W, G.H);
+    M1 = MATS[opt.mat === 'pair' ? 'silver' : opt.mat]; M2 = MATS[opt.mat === 'pair' ? 'gold' : opt.mat];
+    var t1 = th1(p), t2 = th2(p), c1 = G.c1, c2 = G.c2;
+    var near = Math.abs(p - Math.round(p)) < .5 ? Math.round(p) : null, tN = mod(Math.round(p), 13), sN = mod(Math.round(p), 20);
+    // свечение в месте сцепления
+    var mx = c1[0] + R1 * u, my = c1[1];
+    var hg = ctx.createRadialGradient(mx, my, 0, mx, my, .55 * u);
+    hg.addColorStop(0, 'rgba(240,214,140,.35)'); hg.addColorStop(1, 'rgba(240,214,140,0)');
+    ctx.fillStyle = hg; ctx.fillRect(mx - .6 * u, my - .6 * u, 1.2 * u, 1.2 * u);
+
+    drawGear(c2, R2, 20, t2, true, M2);
+    drawGear(c1, R1, 13, t1, false, M1);
+
+    // тоны на зубцах
+    var big = u * .2;
+    for (i = 0; i < 13; i++) {
+      a = t1 + i * S1;
+      var on = i === tN, px = c1[0] + Math.cos(a) * (R1 - .02) * u, py = c1[1] + Math.sin(a) * (R1 - .02) * u;
+      var col = on ? (opt.mat === 'glass' ? GOLD : M1.ink) : M1.ink;
+      if (opt.num !== 'arab') maya(i + 1, px, py, big * .82, a, col, M1.inkSh);
+      if (opt.num !== 'maya') {
+        var rr = opt.num === 'arab' ? R1 - .02 : R1 - .19;
+        txt(String(i + 1), c1[0] + Math.cos(a) * rr * u, c1[1] + Math.sin(a) * rr * u, (opt.num === 'arab' ? .17 : .1) * u, M1.ink, a, '700', M1.inkSh);
+      }
+    }
+    // печати по кругу (против хода тонов: колёса крутятся навстречу)
+    for (i = 0; i < 20; i++) {
+      a = t2 - i * S2;
+      seal(i + 1, c2[0] + Math.cos(a) * (R2 - .2) * u, c2[1] + Math.sin(a) * (R2 - .2) * u, .17 * u, a, i === sN);
+    }
+    // окошко над сцеплением: две золотые стрелки сверху и снизу
+    var wy = (R2 + AD + .015) * u * .62;
+    [-1, 1].forEach(function (s) {
+      ctx.beginPath(); ctx.moveTo(mx, my + s * wy * .78); ctx.lineTo(mx - .045 * u, my + s * wy); ctx.lineTo(mx + .045 * u, my + s * wy); ctx.closePath();
+      ctx.fillStyle = GOLD; ctx.shadowColor = 'rgba(240,214,140,.8)'; ctx.shadowBlur = 8; ctx.fill(); ctx.shadowBlur = 0;
+    });
+    // середины: тон и печать дня, неподвижно
+    var k = kinNow(), I = K.info(k);
+    maya(I.toneN, c1[0], c1[1] - .07 * u, .2 * u, -Math.PI / 2, GOLD);
+    txt(K.TONES[I.toneN - 1], c1[0], c1[1] + .14 * u, .082 * u, 'rgba(244,234,216,.85)', null, '500');
+    seal(I.sealN, c2[0], c2[1] - .07 * u, .3 * u, null, true);
+    var nm = K.SEALS[I.sealN - 1][0];
+    txt(nm, c2[0], c2[1] + .21 * u, (nm.length > 12 ? .075 : .09) * u, 'rgba(244,234,216,.85)', null, '500');
+  }
+
+  /* ---------- движение ---------- */
+  var lastT = 0, lastInt = Math.round(st.shown);
+  function frame(now) {
+    var dt = Math.min(64, now - (lastT || now)); lastT = now;
+    if (!st.drag) {
+      var d = st.k - st.shown;
+      if (Math.abs(d) < .002) st.shown = st.k;
+      else {
+        // далеко — крутим быстрее, но всё равно видно каждый зубец
+        var v = Math.max(Math.abs(d) * (1 - Math.exp(-dt / 110)), dt * .004);
+        st.shown += Math.sign(d) * Math.min(Math.abs(d), v, dt * .09);
+      }
+    }
+    var r = Math.round(st.shown);
+    if (r !== lastInt) { click(mod(r, 13) === 0); lastInt = r; }
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+  function hit(e) {
+    var b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top;
+    var d1 = Math.hypot(x - G.c1[0], y - G.c1[1]), d2 = Math.hypot(x - G.c2[0], y - G.c2[1]);
+    if (d1 < (R1 + AD) * G.u) return { g: 1, a: Math.atan2(y - G.c1[1], x - G.c1[0]) };
+    if (d2 < (R2 + AD) * G.u) return { g: 2, a: Math.atan2(y - G.c2[1], x - G.c2[0]) };
+    return null;
+  }
+  function wrapPi(a) { return mod(a + Math.PI, TAU) - Math.PI; }
+  cv.addEventListener('pointerdown', function (e) {
+    var h = hit(e); if (!h) return;
+    audio();
+    st.drag = { g: h.g, a: h.a, p: st.shown, id: e.pointerId };
+    cv.setPointerCapture(e.pointerId); cv.classList.add('drag');
+  });
+  cv.addEventListener('pointermove', function (e) {
+    var D = st.drag; if (!D || e.pointerId !== D.id) return;
+    var b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top, c = D.g === 1 ? G.c1 : G.c2;
+    var a = Math.atan2(y - c[1], x - c[0]), da = wrapPi(a - D.a); D.a = a;
+    D.p += D.g === 1 ? -da / S1 : da / S2;
+    st.shown = D.p;
+    var r = Math.round(D.p);
+    if (r !== st.k) step(r - st.k);
+  });
+  function up(e) {
+    var D = st.drag; if (!D || e.pointerId !== D.id) return;
+    st.drag = null; cv.classList.remove('drag');
+  }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', function (e) { e.preventDefault(); audio(); step(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+
+  document.querySelectorAll('[data-step]').forEach(function (b) {
+    b.addEventListener('click', function () { audio(); step(+b.getAttribute('data-step')); if (reduce) st.shown = st.k; });
+  });
+  $('today').addEventListener('click', function () { audio(); setDate(todayT()); });
+  $('dt').addEventListener('change', function () {
+    var v = $('dt').value, m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (m) { audio(); setDate(Date.UTC(+m[1], +m[2] - 1, +m[3])); }
+  });
+  document.querySelectorAll('.row[data-g]').forEach(function (row) {
+    var g = row.getAttribute('data-g');
+    row.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip'); if (!b) return;
+      row.querySelectorAll('.chip').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      opt[g] = b.getAttribute('data-v');
+      if (g === 'clk' && opt.clk !== 'off') click(false);
+    });
+  });
+  $('glyphs').addEventListener('change', function (e) {
+    var fs = Array.prototype.slice.call(e.target.files || []).sort(function (a, b) { return a.name.localeCompare(b.name, 'ru', { numeric: true }); });
+    glyphs = fs.slice(0, 20).map(function (f) { var im = new Image(); im.src = URL.createObjectURL(f); return im; });
+    glyphs.forEach(function (im, i) {
+      im.onload = function () {
+        var h = document.querySelector('.sh[data-seal="' + (i + 1) + '"]');
+        if (h) { h.style.backgroundImage = 'url(' + im.src + ')'; h.textContent = ''; }
+      };
+    });
+  });
+
+  layout(); info();
+  window.addEventListener('resize', layout);
+  requestAnimationFrame(frame);
+})();
+</script>
