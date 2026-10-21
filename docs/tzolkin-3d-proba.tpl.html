@@ -1,0 +1,318 @@
+<title>Цолькин в объёме</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Проба 21.10.2026 (docs/tzolkin-gears.md, «3D»). 260 кинов светящимися точками в объёме: бублик-узел (точно: печать — место по кругу,
+     тон — по трубке), бублик-спираль (волна — один виток), башня (20 витков по 13). Рисуется на canvas без библиотек.
+     Сборка: python3 docs/tzolkin-3d-proba.build.py <папка> → вместо строки KINJS ниже — assets/kin.js. Ничего не отправляет и не хранит. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Тёмный космос витрины: сверху переключатели, ниже — сцена с точками, под ней — карточка выбранного кина */
+:root{
+  --night:#07060f; --ink:#f4ead8; --mut:#b4aac2; --gold:#ecd3a3; --line:rgba(236,211,163,.3);
+  --deep:#141230; --deep2:#05040c;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  color-scheme:dark
+}
+html,body{background:var(--night);color:var(--ink)}
+body{margin:0;font-family:var(--sans);line-height:1.45;padding-block:18px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-family:var(--serif);font-weight:500;font-size:30px;line-height:1.1;color:var(--gold);text-wrap:balance}
+.lead{margin:0;max-width:66ch;color:var(--mut);font-size:14.5px}
+.ctl{display:grid;gap:12px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.row b{flex:0 0 100%;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:500;color:var(--mut)}
+.chip{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,248,235,.05);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:#241b10}
+.chip:focus-visible,.play:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.row input[type=date]{font:inherit;font-size:14px;color:var(--ink);background:rgba(255,248,235,.06);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+
+.scene{position:relative;border-radius:22px;overflow:hidden;border:1px solid rgba(236,211,163,.16);
+  background:radial-gradient(90% 80% at 50% 45%,var(--deep),var(--deep2));box-shadow:0 20px 60px rgba(0,0,0,.5)}
+canvas{display:block;width:100%;height:min(78vh,640px);touch-action:none;cursor:grab}
+canvas.drag{cursor:grabbing}
+.top{position:absolute;left:0;right:0;top:12px;text-align:center;pointer-events:none;padding:0 12px}
+.top .d{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+.top .k{font-family:var(--serif);font-size:22px;color:var(--gold);line-height:1.15}
+.play{position:absolute;right:12px;bottom:12px;font:inherit;font-size:14px;font-weight:600;color:#241b10;background:var(--gold);border:0;border-radius:999px;padding:9px 16px;cursor:pointer}
+.tip{position:absolute;left:12px;bottom:14px;font-size:12px;color:var(--mut);pointer-events:none;max-width:55%}
+.card{border-radius:16px;border:1px solid rgba(236,211,163,.16);background:rgba(255,248,235,.035);padding:12px 14px;min-height:3.2em;font-size:14px;color:var(--mut)}
+.card b{color:var(--ink);font-weight:500}
+.card .n{font-family:var(--serif);font-size:20px;color:var(--gold)}
+.note{font-size:13px;color:var(--mut);max-width:70ch;margin:0}
+</style>
+
+<div class="wrap">
+  <h1>Цолькин в объёме</h1>
+  <p class="lead">260 кинов — светящиеся точки, по одной на день. Пройденные дни этого круга «выросли» и светятся, впереди — тусклые зёрнышки, сегодня — звезда. Вращайте пальцем или мышкой, приближайте колёсиком или двумя пальцами, нажмите на точку — узнаете, что это за кин и когда он.</p>
+
+  <div class="ctl">
+    <div class="row" data-g="form"><b>Форма</b>
+      <button class="chip" data-v="knot" aria-pressed="true">Бублик точный</button><button class="chip" data-v="coil">Бублик: волна — виток</button><button class="chip" data-v="tower">Башня</button>
+    </div>
+    <div class="row" data-g="from"><b>Светятся от</b>
+      <button class="chip" data-v="round" aria-pressed="true">начала круга (Кин 1)</button><button class="chip" data-v="wave">начала волны</button><button class="chip" data-v="mine">своей даты</button>
+      <input type="date" id="mine" aria-label="Своя дата: начало маршрута или день рождения" hidden>
+    </div>
+    <div class="row" data-g="hl"><b>Подсветить</b>
+      <button class="chip" data-v="" aria-pressed="true">ничего</button><button class="chip" data-v="wave">волну сегодня</button><button class="chip" data-v="seal">все дни этой печати</button><button class="chip" data-v="tone">все дни этого тона</button><button class="chip" data-v="port">порталы</button>
+    </div>
+  </div>
+
+  <div class="scene">
+    <canvas id="cv" aria-label="260 кинов в объёме"></canvas>
+    <div class="top"><div class="d" id="date"></div><div class="k" id="kin"></div></div>
+    <div class="tip" id="tip">Тяните — вращается · колёсико — ближе</div>
+    <button type="button" class="play" id="play">▶ Проиграть</button>
+  </div>
+  <div class="card" id="card">Нажмите на любую точку.</div>
+  <p class="note" id="about"></p>
+</div>
+
+<script>
+/*KINJS*/
+</script>
+<script>
+(function () {
+  'use strict';
+  var K = window.M13KIN, TAU = Math.PI * 2, DAY = 864e5;
+  var SC = ['#ff5a40', '#f4efe4', '#4f8cff', '#ffcc33'];
+  var GAP = [1, 20, 22, 39, 43, 50, 51, 58, 64, 69, 72, 77, 85, 88, 93, 96, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
+    146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 165, 168, 173, 176, 184, 189, 192, 197, 203, 210, 211, 218, 222, 239, 241, 260];
+  var isGap = {}; GAP.forEach(function (k) { isGap[k] = 1; });
+  var MONF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ABOUT = {
+    knot: 'Бублик точный: по кругу бублика — 20 печатей (все дни одной печати стоят в одном «срезе»), вокруг трубки — 13 тонов. Каждый день — шаг по обоим кругам сразу, как у двух шестерёнок; путь обвивает бублик и через 260 дней замыкается, пройдя каждую точку один раз.',
+    coil: 'Бублик «волна — виток»: путь идёт ровно по кругу бублика, каждая волна из 13 дней — один виток вокруг трубки, 20 витков — 20 волн. Тон — место на витке.',
+    tower: 'Башня: 20 витков по 13 точек снизу вверх. Каждый виток — волна, Кин 1 внизу, Кин 260 наверху; тоны стоят столбиками.'
+  };
+
+  /* ---------- дни ---------- */
+  function mod(n, m) { return ((n % m) + m) % m; }
+  function feb29(t) { var d = new Date(t); return d.getUTCMonth() === 1 && d.getUTCDate() === 29; }
+  function todayT() { var d = new Date(Date.now() + 3 * 36e5); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+  // n кин-дней от даты (29 февраля не считается)
+  function addK(t, n) { var d = n > 0 ? 1 : -1; for (var i = 0; i < Math.abs(n); i++) { t += d * DAY; if (feb29(t)) t += d * DAY; } return t; }
+  function fmt(t) { var d = new Date(t); return d.getUTCDate() + ' ' + MONF[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+  var T0 = todayT(), KT = K.kinOf(T0) || K.kinOf(T0 - DAY), I0 = K.info(KT);
+  var roundStart = addK(T0, -(KT - 1));   // дата Кина 1 этого круга
+  function dateOfKin(k) { return addK(roundStart, k - 1); }
+
+  /* ---------- формы ---------- */
+  function posKnot(i) {
+    var ph = (i % 20) / 20 * TAU, th = (i % 13) / 13 * TAU, R = 1, r = .42;
+    return [(R + r * Math.cos(th)) * Math.cos(ph), r * Math.sin(th), (R + r * Math.cos(th)) * Math.sin(ph)];
+  }
+  function posCoil(i) {
+    var ph = i / 260 * TAU, th = (i % 13) / 13 * TAU - Math.PI / 2, R = 1, r = .36;
+    return [(R + r * Math.cos(th)) * Math.cos(ph), r * Math.sin(th), (R + r * Math.cos(th)) * Math.sin(ph)];
+  }
+  function posTower(i) {
+    var th = (i % 13) / 13 * TAU + Math.floor(i / 13) * .08, y = -1.15 + i / 259 * 2.3, rr = .78 - i / 259 * .18;
+    return [rr * Math.cos(th), y, rr * Math.sin(th)];
+  }
+  var FORMS = { knot: posKnot, coil: posCoil, tower: posTower };
+  var opt = { form: 'knot', from: 'round', hl: '', mine: NaN };
+  var P = [], from = [], to = [], morph = 1;
+  function target(f) { var a = []; for (var i = 0; i < 260; i++) a.push(FORMS[f](i)); return a; }
+  P = target(opt.form); to = P.map(function (p) { return p.slice(); });
+  function setForm(f) {
+    from = P.map(function (p) { return p.slice(); }); to = target(f); morph = reduce ? 1 : 0; opt.form = f;
+    if (reduce) P = to.map(function (p) { return p.slice(); });
+    cam.pitch = f === 'tower' ? .22 : .62;
+    document.getElementById('about').textContent = ABOUT[f];
+  }
+
+  /* ---------- что светится ---------- */
+  // lit — сколько дней от стартового кина до сегодня (включительно); start — стартовый кин
+  var lit = { start: 1, n: KT }, grow = new Float32Array(260), playing = false, playN = 0;
+  function calcLit() {
+    if (opt.from === 'wave') { lit.start = KT - I0.toneN + 1; lit.n = I0.toneN; }
+    else if (opt.from === 'mine' && !isNaN(opt.mine) && opt.mine <= T0) {
+      var k = K.kinOf(opt.mine) || K.kinOf(opt.mine - DAY), n = 0, t = opt.mine;
+      while (t < T0 && n < 260) { t = addK(t, 1); n++; }
+      lit.start = k; lit.n = Math.min(260, n + 1);
+    } else { lit.start = 1; lit.n = KT; }
+  }
+  function isLit(k) { var d = mod(k - lit.start, 260); return d < (playing ? playN : lit.n); }
+  function isHl(k) {
+    var I = K.info(k);
+    if (opt.hl === 'wave') return mod(k - (KT - I0.toneN + 1), 260) < 13;
+    if (opt.hl === 'seal') return I.sealN === I0.sealN;
+    if (opt.hl === 'tone') return I.toneN === I0.toneN;
+    if (opt.hl === 'port') return !!isGap[k];
+    return false;
+  }
+
+  /* ---------- камера и рисование ---------- */
+  var cv = document.getElementById('cv'), ctx = cv.getContext('2d'), W = 0, H = 0, dpr = 1;
+  var cam = { yaw: .6, pitch: .62, zoom: 1, spin: reduce ? 0 : .00012 };
+  var sprites = SC.map(function (c) {
+    var s = document.createElement('canvas'); s.width = s.height = 64; var g = s.getContext('2d');
+    var rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    rg.addColorStop(0, '#ffffff'); rg.addColorStop(.18, c); rg.addColorStop(.42, hexA(c, .35)); rg.addColorStop(1, hexA(c, 0));
+    g.fillStyle = rg; g.fillRect(0, 0, 64, 64); return s;
+  });
+  function hexA(h, a) { var n = parseInt(h.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; }
+  var stars = []; for (var si = 0; si < 140; si++) stars.push([Math.random(), Math.random(), Math.random() * .9 + .2, Math.random() * TAU]);
+  function size() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2); W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  }
+  var proj = [];
+  function project(p) {
+    var cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    var x = p[0] * cy - p[2] * sy, z = p[0] * sy + p[2] * cy, y = p[1];
+    var y2 = y * cp - z * sp, z2 = y * sp + z * cp;
+    var d = 3.4, f = Math.min(W, H) * .62 * cam.zoom, s = d / (d - z2);
+    return [W / 2 + x * f * s * .44, H / 2 + 6 - y2 * f * s * .44, z2, s];
+  }
+  var sel = 0, last = 0;
+  function frame(now) {
+    var dt = Math.min(50, now - (last || now)); last = now;
+    if (!drag && !reduce) cam.yaw += cam.spin * dt;
+    if (morph < 1) {
+      morph = Math.min(1, morph + dt / 900);
+      var e = morph < .5 ? 4 * morph * morph * morph : 1 - Math.pow(-2 * morph + 2, 3) / 2;
+      for (var m = 0; m < 260; m++) P[m] = [0, 1, 2].map(function (j) { return from[m][j] + (to[m][j] - from[m][j]) * e; });
+    }
+    if (playing) {
+      playN += dt / 38;
+      if (playN >= lit.n) { playing = false; document.getElementById('play').textContent = '▶ Проиграть'; }
+    }
+    var i, k;
+    for (i = 0; i < 260; i++) {
+      k = i + 1;
+      var want = isLit(k) ? 1 : 0;
+      grow[i] += (want - grow[i]) * Math.min(1, dt / (want ? 160 : 260));
+    }
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+  function draw(now) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    var i, s;
+    // звёзды фона
+    for (i = 0; i < stars.length; i++) {
+      s = stars[i]; ctx.globalAlpha = .25 + .25 * Math.sin(now / 1400 + s[3]);
+      ctx.fillStyle = '#cfd6ff'; ctx.fillRect(s[0] * W, s[1] * H, s[2], s[2]);
+    }
+    ctx.globalAlpha = 1;
+    proj = P.map(project);
+    var hlOn = !!opt.hl;
+    // путь: светится пройденная часть, впереди — тонкая нить
+    ctx.lineCap = 'round';
+    for (i = 0; i < (opt.form === 'tower' ? 259 : 260); i++) {
+      var a = proj[i], b = proj[(i + 1) % 260], k = i + 1, k2 = (i + 1) % 260 + 1;
+      var on = isLit(k) && isLit(k2) && k !== KT;
+      var depth = (a[2] + b[2]) / 2, al = .25 + .3 * (depth + 1.5) / 3;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+      ctx.strokeStyle = on ? 'rgba(240,214,140,' + (al * .9) + ')' : 'rgba(200,200,255,' + (al * .18) + ')';
+      ctx.lineWidth = on ? 1.4 : .8; ctx.stroke();
+    }
+    // точки — от дальних к ближним
+    var ord = []; for (i = 0; i < 260; i++) ord.push(i);
+    ord.sort(function (x, y) { return proj[x][2] - proj[y][2]; });
+    var base = Math.min(W, H) / 62 * cam.zoom;
+    ord.forEach(function (i) {
+      var p = proj[i], k = i + 1, col = (k - 1) % 20 % 4, g = grow[i], hl = isHl(k);
+      var depthK = .55 + .45 * (p[2] + 1.5) / 3;
+      var r = base * p[3] * (.32 + .78 * g) * (hl ? 1.35 : 1);
+      if (hlOn && !hl) r *= .75;
+      var al = (.18 + .82 * g) * depthK * (hlOn && !hl ? .35 : 1);
+      if (hl) al = Math.max(al, .85);
+      if (k === KT) return;
+      ctx.globalAlpha = Math.min(1, al);
+      ctx.drawImage(sprites[col], p[0] - r * 2, p[1] - r * 2, r * 4, r * 4);
+      if (hl) { ctx.globalAlpha = .7; ctx.beginPath(); ctx.arc(p[0], p[1], r * 1.2 + 3, 0, TAU); ctx.strokeStyle = SC[col]; ctx.lineWidth = 1; ctx.stroke(); }
+      if (k === sel) { ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(p[0], p[1], r * 1.6 + 4, 0, TAU); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke(); }
+      if (opt.from === 'mine' && k === lit.start && !isNaN(opt.mine)) { ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(p[0], p[1], r * 1.6 + 7, 0, TAU); ctx.setLineDash([3, 3]); ctx.strokeStyle = '#ecd3a3'; ctx.stroke(); ctx.setLineDash([]); }
+    });
+    ctx.globalAlpha = 1;
+    // сегодня — звезда с лучами
+    var t = proj[KT - 1], pulse = reduce ? 1 : 1 + .15 * Math.sin(now / 420), R = base * t[3] * 2.4 * pulse;
+    ctx.drawImage(sprites[(KT - 1) % 20 % 4], t[0] - R * 2, t[1] - R * 2, R * 4, R * 4);
+    ctx.save(); ctx.translate(t[0], t[1]); ctx.rotate(reduce ? 0 : now / 4000);
+    ctx.strokeStyle = 'rgba(255,240,200,.85)'; ctx.lineWidth = 1.2;
+    for (i = 0; i < 4; i++) { ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.moveTo(-R * 1.9, 0); ctx.lineTo(R * 1.9, 0); ctx.globalAlpha = i % 2 ? .45 : .9; ctx.stroke(); }
+    ctx.restore(); ctx.globalAlpha = 1;
+    ctx.font = '500 15px "Cormorant Garamond", Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText('сегодня', t[0] + R * 1.4 + 1, t[1] + 1);
+    ctx.fillStyle = '#fff3d6'; ctx.fillText('сегодня', t[0] + R * 1.4, t[1]);
+  }
+
+  /* ---------- управление ---------- */
+  var drag = null, pts = {};
+  cv.addEventListener('pointerdown', function (e) {
+    pts[e.pointerId] = [e.clientX, e.clientY];
+    cv.setPointerCapture(e.pointerId);
+    var ids = Object.keys(pts);
+    if (ids.length === 2) { var a = pts[ids[0]], b = pts[ids[1]]; drag = { pinch: Math.hypot(a[0] - b[0], a[1] - b[1]), z: cam.zoom }; }
+    else drag = { x: e.clientX, y: e.clientY, moved: 0 };
+    cv.classList.add('drag');
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!pts[e.pointerId] || !drag) return;
+    pts[e.pointerId] = [e.clientX, e.clientY];
+    var ids = Object.keys(pts);
+    if (drag.pinch && ids.length === 2) {
+      var a = pts[ids[0]], b = pts[ids[1]];
+      cam.zoom = Math.max(.6, Math.min(3, drag.z * Math.hypot(a[0] - b[0], a[1] - b[1]) / drag.pinch)); return;
+    }
+    if (drag.pinch) return;
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+    cam.yaw -= dx * .008; cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + dy * .008));
+  });
+  function up(e) {
+    var D = drag; delete pts[e.pointerId];
+    if (Object.keys(pts).length) return;
+    drag = null; cv.classList.remove('drag');
+    if (D && !D.pinch && D.moved < 6) pick(e);
+  }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', function (e) { e.preventDefault(); cam.zoom = Math.max(.6, Math.min(3, cam.zoom * Math.exp(-e.deltaY * .0012))); }, { passive: false });
+  function pick(e) {
+    var b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top, best = -1, bd = 22 * 22, bz = -9;
+    proj.forEach(function (p, i) { var d = (p[0] - x) * (p[0] - x) + (p[1] - y) * (p[1] - y); if (d < bd || (d < 14 * 14 && p[2] > bz)) { if (d < bd) bd = d; best = i; bz = p[2]; } });
+    if (best < 0) return;
+    sel = best + 1; showCard(sel);
+  }
+  function showCard(k) {
+    var I = K.info(k), t = dateOfKin(k), past = k < KT ? 'был' : k === KT ? 'сегодня' : 'будет';
+    var w0 = k - I.toneN + 1;
+    document.getElementById('card').innerHTML = '<span class="n">Kin ' + k + ' · ' + I.kinName + '</span><br>' +
+      'В этом круге ' + past + (k === KT ? '' : ' ' + fmt(t)) + (k < KT ? ', снова — ' + fmt(addK(t, 260)) : '') +
+      ' · волна <b>' + K.sealName(K.sealOf(w0)) + '</b>, день ' + I.toneN + ' из 13' + (isGap[k] ? ' · портал' : '');
+  }
+  document.getElementById('play').addEventListener('click', function () {
+    calcLit(); playing = true; playN = 0;
+    for (var i = 0; i < 260; i++) grow[i] = 0;
+    this.textContent = '… растут';
+  });
+  document.querySelectorAll('.row[data-g]').forEach(function (row) {
+    var g = row.getAttribute('data-g');
+    row.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip'); if (!b) return;
+      row.querySelectorAll('.chip').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      var v = b.getAttribute('data-v');
+      if (g === 'form') setForm(v);
+      else if (g === 'from') { opt.from = v; document.getElementById('mine').hidden = v !== 'mine'; calcLit(); }
+      else opt.hl = v;
+    });
+  });
+  document.getElementById('mine').addEventListener('change', function () {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(this.value);
+    opt.mine = m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN; calcLit();
+  });
+
+  document.getElementById('date').textContent = fmt(T0) + ' · день ' + KT + ' из 260';
+  document.getElementById('kin').textContent = 'Kin ' + KT + ' · ' + I0.kinName;
+  document.getElementById('about').textContent = ABOUT.knot;
+  calcLit(); for (var gi = 0; gi < 260; gi++) grow[gi] = isLit(gi + 1) ? 1 : 0;
+  sel = KT; showCard(KT);
+  size(); window.addEventListener('resize', size);
+  requestAnimationFrame(frame);
+})();
+</script>
