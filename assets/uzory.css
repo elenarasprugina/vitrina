@@ -185,3 +185,9 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 
 @media (min-width: 900px) { .uz-sheet { max-width: 580px; } .uz-sheet--long { max-height: min(56vh, 600px); } .uz-h1 { font-size: 36px; } }
 @media (max-height: 640px) { .uz-q { font-size: 20px; } .uz-sheet { padding: 12px 14px; gap: 9px; } }
+
+/* сад слоями днём (space.layers, time: day): светлое небо — заголовок тёмный */
+.uz-day .uz-h1 { color: #3a3450; text-shadow: 0 0 14px rgba(255, 252, 245, .8); }
+.uz-day .uz-eyebrow, .uz-day .uz-honest { color: #5a5470; text-shadow: 0 0 10px rgba(255, 252, 245, .8); }
+.uz-day .uz-tbtn { color: #3a3450; background: rgba(255, 255, 255, .45); border-color: rgba(60, 52, 80, .25); }
+.uz-day .uz-cap, .uz-day .uz-name { text-shadow: 0 0 10px rgba(40, 46, 30, .85), 0 0 3px rgba(40, 46, 30, .9); }
