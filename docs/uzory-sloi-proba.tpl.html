@@ -24,21 +24,22 @@
 </style>
 <script>
 (function () {
-  var IMG = { moh: '/*IMG_MOH*/', mohFoto: '/*IMG_MOH_FOTO*/', rosa: '/*IMG_ROSA*/' };
+  var IMG = { a1: '/*IMG_A1*/', a2: '/*IMG_A2*/', moh: '/*IMG_MOH*/', mohFoto: '/*IMG_MOH_FOTO*/', rosa: '/*IMG_ROSA*/' };
   var D = /*DATA*/;
   var q = {}; location.hash.replace(/^#/, '').split('&').forEach(function (p) { var a = p.split('='); if (a[0]) q[a[0]] = decodeURIComponent(a[1] || ''); });
-  var scene = q.scene || 'moh', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
+  var scene = q.scene || 'a1', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
   if (q.view) sp.view = q.view;
   // 22.10 (3): её первые цветы-картинки (разрезаны из «Изысканного букета» + отдельная ромашка), остальные пока рисунком
   // 22.10 (4): её слово — показываем отдельную ромашку (из букета — в запасе, docs/uzory-sloi/cvety/romashka-buket.webp)
-  var CV = { romashka: '/*IMG_ROMASHKA*/', mak: '/*IMG_MAK*/', lavanda: '/*IMG_LAVANDA*/', pion: '/*IMG_PION*/' };
+  var CV = { romashka: '/*IMG_ROMASHKA*/', mak: '/*IMG_MAK*/', lavanda: '/*IMG_LAVANDA*/', pion: '/*IMG_PION*/', roza: '/*IMG_ROZA*/', liliya: '/*IMG_LILIYA*/', vasilyok: '/*IMG_VASILYOK*/' };
   if (q.cvety !== '0') it.flowers.forEach(function (f) { if (CV[f.id]) { f.image = CV[f.id]; f.view = 'live'; } });
   sp.size = +q.size || 130;
   // 22.10 (4): хоровод сам не кружится (её «хоровод мешает»); бабочек можно трогать
   sp.speed = q.spin === '1' ? 'norm' : 'off';
   // 22.10: остров убран (её слово — «летящий, парящий — не нравится»); фон — её поляна со мхом, росы чуть меньше
-  var img = scene === 'rosa' ? IMG.rosa : scene === 'mohFoto' ? IMG.mohFoto : IMG.moh;
-  sp.layers = { on: true, time: q.time || 'day', tilt: 50, back: { image: img, fx: 50, fy: scene === 'rosa' ? 52 : 50, zoom: 10, depth: .4, glints: q.glints !== '0' } };
+  // 22.10 (5): её фоны по промпту «А» (обычный рост, небо и горизонт) — хоровод ниже, на ближнем мху
+  var img = IMG[scene] || IMG.moh, A = scene === 'a1' || scene === 'a2';
+  sp.layers = { on: true, time: q.time || 'day', tilt: A ? 55 : 50, back: { image: img, fx: 50, fy: A ? 84 : scene === 'rosa' ? 52 : 50, zoom: A ? 35 : 10, depth: .4, glints: q.glints !== '0' } };
   window.M13_UZ_DATA = D; window.PR = { q: q, scene: scene, L: sp.layers, sp: sp };
 })();
 </script>
@@ -60,7 +61,7 @@
   function rng(label, id, min, max, val) { return '<label>' + label + ' <b id="' + id + 'V">' + val + '</b><input type="range" id="' + id + '" min="' + min + '" max="' + max + '" value="' + val + '"></label>'; }
   var g = L.ground, b = L.back;
   box.innerHTML =
-    seg('Фон', 'scene', P.scene, [['moh', 'Мох, росы меньше'], ['mohFoto', 'Мох, как на фото'], ['rosa', 'Прежняя роса']]) +
+    seg('Фон', 'scene', P.scene, [['a1', 'А: мох-дорожка'], ['a2', 'А: кочки и высокая трава'], ['moh', 'Мох, росы меньше'], ['mohFoto', 'Мох, как на фото'], ['rosa', 'Прежняя роса']]) +
     seg('Блики росы (мерцают сами)', 'glints', P.q.glints === '0' ? '0' : '1', [['1', 'Да'], ['0', 'Нет']]) +
     seg('Время суток (4 вечера на выбор)', 'time', L.time, [['day', 'День'], ['gold', 'Золотой час'], ['blue', 'Синие сумерки'], ['rain', 'После дождя'], ['lights', 'Сумерки с огоньками'], ['night', 'Ночь'], ['evening', 'Прежний вечер']], true) +
     seg('Хоровод сам кружится', 'spin', P.q.spin === '1' ? '1' : '0', [['0', 'Нет — цветы стоят'], ['1', 'Да']]) +
