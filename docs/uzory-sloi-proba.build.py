@@ -16,6 +16,11 @@ for k, v in [('/*FONTS*/', fonts), ('/*CSS*/', open('assets/uzory.css', encoding
              ('/*DATA*/', json.dumps(data, ensure_ascii=False).replace('</', '<\\/')),
              ('/*IMG_MOH*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/moh-rosa.webp')),
              ('/*IMG_MOH_FOTO*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/moh-rosa-foto.webp')),
+             ('/*IMG_ROMASHKA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/romashka.webp')),
+             ('/*IMG_ROMASHKA_BUKET*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/romashka-buket.webp')),
+             ('/*IMG_MAK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/mak.webp')),
+             ('/*IMG_LAVANDA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/lavanda.webp')),
+             ('/*IMG_PION*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/pion.webp')),
              ('/*IMG_ROSA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/rosa-fon.webp'))]:
     assert t.count(k) == 1, k
     t = t.replace(k, v)

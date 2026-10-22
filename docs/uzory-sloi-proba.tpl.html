@@ -29,6 +29,10 @@
   var q = {}; location.hash.replace(/^#/, '').split('&').forEach(function (p) { var a = p.split('='); if (a[0]) q[a[0]] = decodeURIComponent(a[1] || ''); });
   var scene = q.scene || 'moh', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
   if (q.view) sp.view = q.view;
+  // 22.10 (3): её первые цветы-картинки (разрезаны из «Изысканного букета» + отдельная ромашка), остальные пока рисунком
+  var CV = { romashka: q.rom === 'buket' ? '/*IMG_ROMASHKA_BUKET*/' : '/*IMG_ROMASHKA*/', mak: '/*IMG_MAK*/', lavanda: '/*IMG_LAVANDA*/', pion: '/*IMG_PION*/' };
+  if (q.cvety !== '0') it.flowers.forEach(function (f) { if (CV[f.id]) { f.image = CV[f.id]; f.view = 'live'; } });
+  sp.size = +q.size || 130;
   // 22.10: остров убран (её слово — «летящий, парящий — не нравится»); фон — её поляна со мхом, росы чуть меньше
   var img = scene === 'rosa' ? IMG.rosa : scene === 'mohFoto' ? IMG.mohFoto : IMG.moh;
   sp.layers = { on: true, time: q.time || 'day', tilt: 50, back: { image: img, fx: 50, fy: scene === 'rosa' ? 52 : 50, zoom: 10, depth: .4, glints: q.glints !== '0' } };
@@ -56,7 +60,10 @@
     seg('Фон', 'scene', P.scene, [['moh', 'Мох, росы меньше'], ['mohFoto', 'Мох, как на фото'], ['rosa', 'Прежняя роса']]) +
     seg('Блики росы (мерцают сами)', 'glints', P.q.glints === '0' ? '0' : '1', [['1', 'Да'], ['0', 'Нет']]) +
     seg('Время суток', 'time', L.time, [['day', 'День'], ['evening', 'Вечер'], ['night', 'Ночь']], true) +
-    seg('Цветы (пока свои PNG не пришли)', 'view', P.sp.view || 'live', [['live', 'Рисунок'], ['line', 'Линией'], ['card', 'Стекло']]) +
+    seg('Её цветы-картинки (ромашка, мак, лаванда, пион)', 'cvety', P.q.cvety === '0' ? '0' : '1', [['1', 'Показать'], ['0', 'Все рисунком']]) +
+    seg('Ромашка', 'rom', P.q.rom === 'buket' ? 'buket' : 'odna', [['odna', 'Отдельная'], ['buket', 'Из букета']]) +
+    seg('Размер цветов', 'size', String(P.sp.size), [['100', 'Как было'], ['130', 'Крупнее'], ['160', 'Ещё крупнее']]) +
+    seg('Остальные цветы (пока нет картинок)', 'view', P.sp.view || 'live', [['live', 'Рисунок'], ['line', 'Линией'], ['card', 'Стекло']]) +
     '<h4>Хоровод на земле</h4>' + rng('Наклон земли', 'tilt', 25, 75, L.tilt) +
     (g ? rng('Размер земли', 'gw', 180, 460, g.w) + rng('Земля выше / ниже', 'gy', 20, 70, g.y) : '') +
     (b ? rng('Картинка: где центр холма (по высоте)', 'fy', 30, 75, b.fy) + rng('Картинка: где центр (по ширине)', 'fx', 25, 75, b.fx) + rng('Запас для сдвига', 'bz', 0, 40, b.zoom) : '') +
