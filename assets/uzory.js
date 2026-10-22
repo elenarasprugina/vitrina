@@ -64,7 +64,7 @@
     lavanda: function () { var s = '', k, i, xs = [38, 50, 62], tops = [34, 22, 38]; for (k = 0; k < 3; k++) { s += stem(50, 140, xs[k], tops[k] + 20, '#88a594'); for (i = 0; i < 7; i++) s += '<ellipse cx="' + (xs[k] + (i % 2 ? 2 : -2)) + '" cy="' + (tops[k] + i * 5) + '" rx="3.4" ry="4.4" fill="' + (i % 2 ? '#a68ad8' : '#8f6fca') + '"/>'; } return s + leaf(44, 114, -60, 12, 2.5) + leaf(57, 116, 60, 12, 2.5); },
     oduvanchik: function () { var s = stem(36, 140, 34, 70) + stem(62, 140, 66, 50) + ring(34, 62, 16, 10, 3, '#f5d64a', 0) + dot(34, 62, 5, '#e9b02a'), i, a; for (i = 0; i < 20; i++) { a = i * Math.PI * 2 / 20; s += '<line x1="66" y1="40" x2="' + (66 + Math.cos(a) * 15).toFixed(1) + '" y2="' + (40 + Math.sin(a) * 15).toFixed(1) + '" stroke="#f3f0ff" stroke-width=".8" opacity=".85"/>' + dot((66 + Math.cos(a) * 15.5).toFixed(1), (40 + Math.sin(a) * 15.5).toFixed(1), 1.5, '#fff'); } return s + dot(84, 22, 1.4, '#fff', .8) + dot(88, 16, 1.2, '#fff', .6) + dot(80, 14, 1.2, '#fff', .7) + leaf(40, 112, -30, 12, 4); },
     pion: function () { return stem(50, 140, 50, 66) + leaf(38, 92, -30, 14, 6) + leaf(62, 98, 35, 14, 6) + ring(50, 48, 9, 20, 12, '#f5b8cf', 0, .95) + ring(50, 48, 8, 15, 10, '#f19fbe', 20, .95) + ring(50, 48, 7, 10, 7, '#e47ea4', 10) + dot(50, 48, 5, '#d8648f'); },
-    podsnezhnik: function () { var s = '<path d="M8 132 Q50 120 92 132 L92 140 L8 140Z" fill="#e8eef6" opacity=".85"/>', d = [[34, 60], [52, 46], [68, 64]], i, x, y; for (i = 0; i < 3; i++) { x = d[i][0]; y = d[i][1]; s += '<path d="M' + x + ' 134 Q' + (x + 2) + ' ' + (y + 20) + ' ' + (x + 8) + ' ' + y + '" stroke="' + STEM + '" stroke-width="2" fill="none"/>' + '<path d="M' + (x + 8) + ' ' + (y + 2) + ' q-7 6 -4 18 q4 5 8 0 q3 -12 -4 -18z" fill="#f7fbff"/>' + '<path d="M' + (x + 8) + ' ' + y + ' q4 0 5 3" stroke="#7fb08a" stroke-width="2" fill="none"/>'; } return s + leaf(42, 110, -75, 14, 3) + leaf(60, 112, 70, 14, 3); },
+    podsnezhnik: function () { var s = '', d = [[34, 60], [52, 46], [68, 64]], i, x, y; for (i = 0; i < 3; i++) { x = d[i][0]; y = d[i][1]; s += '<path d="M' + x + ' 134 Q' + (x + 2) + ' ' + (y + 20) + ' ' + (x + 8) + ' ' + y + '" stroke="' + STEM + '" stroke-width="2" fill="none"/>' + '<path d="M' + (x + 8) + ' ' + (y + 2) + ' q-7 6 -4 18 q4 5 8 0 q3 -12 -4 -18z" fill="#f7fbff"/>' + '<path d="M' + (x + 8) + ' ' + y + ' q4 0 5 3" stroke="#7fb08a" stroke-width="2" fill="none"/>'; } return s + leaf(42, 110, -75, 14, 3) + leaf(60, 112, 70, 14, 3); },
     vasilyok: function () { var s = stem(52, 140, 52, 58) + '<path d="M28 140 Q26 80 22 54" stroke="#cfb36a" stroke-width="1.6" fill="none"/>' + '<path d="M76 140 Q78 86 82 60" stroke="#cfb36a" stroke-width="1.6" fill="none"/>', i; for (i = 0; i < 5; i++) s += '<ellipse cx="' + (22 + (i % 2 ? 2 : -2)) + '" cy="' + (54 + i * 5) + '" rx="2.2" ry="3.4" fill="#d9be72"/><ellipse cx="' + (82 + (i % 2 ? -2 : 2)) + '" cy="' + (60 + i * 5) + '" rx="2.2" ry="3.4" fill="#d9be72"/>'; for (i = 0; i < 9; i++) s += '<path d="M52 46 l-5 -15 l3 2 l2 -4 l2 4 l3 -2z" fill="#4f73e6" transform="rotate(' + (i * 40) + ' 52 46)"/>'; return s + dot(52, 46, 5, '#2d3f9a'); },
     liliya: function () { var s = stem(50, 140, 50, 66) + leaf(42, 100, -25, 16, 4) + leaf(58, 92, 25, 16, 4), i, a; for (i = 0; i < 6; i++) s += '<path d="M50 50 q-7 -14 0 -28 q7 14 0 28z" fill="#faf6ee" opacity=".95" transform="rotate(' + (i * 60) + ' 50 50)"/>'; for (i = 0; i < 5; i++) { a = (i * 72 - 90) * Math.PI / 180; s += '<line x1="50" y1="50" x2="' + (50 + Math.cos(a) * 12).toFixed(1) + '" y2="' + (50 + Math.sin(a) * 12).toFixed(1) + '" stroke="#c9a24a" stroke-width="1"/>' + dot((50 + Math.cos(a) * 12).toFixed(1), (50 + Math.sin(a) * 12).toFixed(1), 1.8, '#b8762e'); } return s; },
     roza: function () { return stem(50, 140, 50, 62, '#5e8a68') + '<path d="M48 90 l-4 -3 l5 -1z M52 104 l5 -3 l-5 -1z M49 118 l-5 -2 l5 -2z" fill="#4f7a5a"/>' + leaf(38, 96, -35, 12, 5) + leaf(62, 108, 35, 12, 5) + '<path d="M50 62 C34 60 32 40 42 32 C46 30 54 30 58 32 C68 40 66 60 50 62Z" fill="#b8304e"/>' + '<path d="M50 60 C40 56 40 42 46 38 C50 44 56 46 58 40 C62 50 58 58 50 60Z" fill="#d23c5c"/>' + '<path d="M44 36 C48 30 56 30 58 36 C54 34 48 34 44 36Z" fill="#e8607e"/>' + '<path d="M48 42 q4 -4 7 0" stroke="#8e2240" stroke-width="1.2" fill="none"/>'; },
@@ -215,6 +215,7 @@
     var drag = null, coast = null, snap = null, lastTick = 0, randomSpin = false;
     var lift = 0, liftTo = 0, heartW = 0, heartH = 0, born = 0;
     var grass = [], pollen = [], petals = [], stars = [], ripples = [], sparks = [], sparkAcc = 0, lastBreath = 0;
+    var tufts = [], treesFar = [], treesNear = [], flies = [], moths = [], mists = [], hY = 0;
     var now = 0, last = performance.now(), frameSum = 0, frameN = 0;
     var A = { flower: null, place: null, care: null, lamps: {}, says: null, reflect: '' }, myName = '';
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -255,7 +256,7 @@
       grass = []; var n = Math.round(W / 6), i;
       for (i = 0; i < n; i++) grass.push({ x: i * W / n + Math.random() * 4, h: (26 + Math.random() * 60) * (phone ? .8 : 1), w: 2 + Math.random() * 2.5, ph: Math.random() * 6.28, c: Math.random() });
       stars = []; for (i = 0; i < Math.round(W * H / 9000); i++) stars.push({ x: Math.random() * W, y: Math.random() * H * .42, r: Math.random() * 1.1 + .2, ph: Math.random() * 6.28 });
-      seedAir(); geo();
+      seedAir(); seedLife(); geo();
     }
     // Сцена поднимается и чуть уменьшается на вопросах и в итоге — чтобы цветок в центре был виден над стеклом
     function geo() {
@@ -275,6 +276,31 @@
     function newPetal(any) {
       var f = FL[Math.floor(Math.random() * FL.length)] || {};
       return { x: any ? Math.random() * W : -20, y: any ? Math.random() * H : Math.random() * H * .8, s: 3 + Math.random() * 3.5, a: Math.random() * 6.28, va: (Math.random() - .5) * 2, v: .4 + Math.random() * .6, c: f.col || '#f2c9a0', front: Math.random() < .35 };
+    }
+    // Живой сад: поляна до горизонта (кустики травы в перспективе), лес вдали, туман, светлячки, мотыльки
+    function trees(n, lo, hi) {
+      var a = [], i, ph1 = Math.random() * 6, ph2 = Math.random() * 6, top = 0;
+      for (i = 0; i <= n; i++) {
+        var u = i / n, hill = .5 + .3 * Math.sin(u * 7 + ph1) + .2 * Math.sin(u * 17 + ph2);
+        if (i % 3 === 0) top = Math.random();
+        a.push(lo + (hi - lo) * (hill * .65 + top * .35) * (.85 + .15 * Math.sin(i * 1.9)));
+      }
+      return a;
+    }
+    function seedLife() {
+      var k = lite ? .45 : 1, i, n = Math.round((phone ? 620 : 1200) * k);
+      tufts = [];
+      for (i = 0; i < n; i++) {
+        var X = (Math.random() * 2 - 1) * (phone ? 2.6 : 3.4), Z = -4.2 + Math.random() * 5.8;
+        if (X * X + Z * Z < .12) continue;                       // под светом — чистая трава, без кустиков
+        tufts.push({ X: X, Z: Z, h: 6 + Math.random() * 14, n: 3 + Math.floor(Math.random() * 3), ph: Math.random() * 6.28, c: Math.random() });
+      }
+      tufts.sort(function (a, b) { return a.Z - b.Z; });
+      var tn = Math.round(W / 7);
+      treesFar = trees(tn, 6, phone ? 22 : 30); treesNear = trees(tn, 2, phone ? 16 : 22);
+      mists = []; for (i = 0; i < 5; i++) mists.push({ x: Math.random() * W, w: W * (.25 + Math.random() * .3), v: (Math.random() < .5 ? -1 : 1) * (4 + Math.random() * 6), a: .5 + Math.random() * .5 });
+      flies = []; for (i = 0; i < Math.round((phone ? 12 : 20) * k); i++) flies.push({ X: (Math.random() * 2 - 1) * 2, Z: -2.4 + Math.random() * 3.4, y: .15 + Math.random() * .9, dir: Math.random() * 6.28, v: .05 + Math.random() * .08, ph: Math.random() * 6.28, bl: .5 + Math.random() * .9 });
+      if (!moths.length) for (i = 0; i < (phone ? 2 : 3); i++) moths.push({ x: Math.random() * W, y: H * (.2 + Math.random() * .4), tx: 0, ty: 0, vx: 0, vy: 0, on: null, until: 0, ph: Math.random() * 6.28, s: .8 + Math.random() * .4, next: 0 });
     }
     function wind(t) { var lv = WINDS[SP.wind] != null ? WINDS[SP.wind] : 1, gust = Math.max(0, Math.sin(t * .23) * Math.sin(t * .61 + 1.3)); return lv * (.55 + .3 * Math.sin(t * .37) + .6 * gust); }
     function breathVal(t) {
@@ -313,7 +339,7 @@
       placeEls(t, w, ts, zoom);
       drawBack(t, w, ts, zoom, dt);
       placeMe(t, ts, zoom);
-      drawFront(t, w);
+      drawFront(t, w, dt, ts, zoom);
       requestAnimationFrame(frame);
     }
     function groundEllipse(ctx, r) {
@@ -321,12 +347,64 @@
       for (var k = 0; k <= 48; k++) { var a = k / 48 * 6.283, p = proj(r * Math.sin(a), 0, r * Math.cos(a)); if (k) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }
     }
     function drawBack(t, w, ts, zoom, dt) {
-      var sky = g.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, '#0b0f26'); sky.addColorStop(.40, '#231f4a'); sky.addColorStop(Math.max(.41, cy / H - .02), '#4a3558'); sky.addColorStop(Math.min(.98, cy / H + .12), '#2a2340'); sky.addColorStop(1, '#121428');
-      g.fillStyle = sky; g.fillRect(0, 0, W, H);
+      // горизонт — выше дальних цветов: все цветы стоят на поляне, а не в небе
+      var back = proj(0, 0, -R), hInf = cy - CAM * sinT;
+      hY = Math.max(H * .07, hInf, back.y - Math.max(28, R * .26));
+      var sky = g.createLinearGradient(0, 0, 0, hY);
+      sky.addColorStop(0, '#0a0e24'); sky.addColorStop(.6, '#1d1c44'); sky.addColorStop(1, '#4a3a5e');
+      g.fillStyle = sky; g.fillRect(0, 0, W, hY + 1);
       var i, s, c;
-      for (i = 0; i < stars.length; i++) { s = stars[i]; g.globalAlpha = .25 + .35 * (.5 + .5 * Math.sin(t * .8 + s.ph)); g.fillStyle = '#fff'; g.beginPath(); g.arc(s.x, s.y, s.r, 0, 6.283); g.fill(); }
+      g.fillStyle = '#fff';
+      for (i = 0; i < stars.length; i++) { s = stars[i]; if (s.y > hY - 8) continue; g.globalAlpha = (.25 + .35 * (.5 + .5 * Math.sin(t * .8 + s.ph))) * Math.min(1, (hY - s.y) / 40); g.beginPath(); g.arc(s.x, s.y, s.r, 0, 6.283); g.fill(); }
       g.globalAlpha = 1;
+      // луна — тихая, в углу неба
+      var my = Math.min(hY * .45, 90), mx = W * (phone ? .82 : .86), mr = phone ? 9 : 13;
+      if (hY > 70) {
+        var mg = g.createRadialGradient(mx, my, 0, mx, my, mr * 6); mg.addColorStop(0, 'rgba(255,244,220,.22)'); mg.addColorStop(1, 'rgba(255,244,220,0)');
+        g.fillStyle = mg; g.fillRect(mx - mr * 6, my - mr * 6, mr * 12, mr * 12);
+        g.fillStyle = '#fbf3df'; g.beginPath(); g.arc(mx, my, mr, 0, 6.283); g.fill();
+        g.fillStyle = 'rgba(29,28,68,.92)'; g.beginPath(); g.arc(mx + mr * .45, my - mr * .2, mr * .92, 0, 6.283); g.fill();
+      }
+      // лес вдали — два слоя
+      function forest(a, col, lift) {
+        g.fillStyle = col; g.beginPath(); g.moveTo(0, hY + 2);
+        for (var k = 0; k < a.length; k++) g.lineTo(k * W / (a.length - 1), hY + lift - a[k]);
+        g.lineTo(W, hY + 2); g.closePath(); g.fill();
+      }
+      forest(treesFar, '#2b2a4c', 0); forest(treesNear, '#1c1f38', 3);
+      // поляна
+      var mead = g.createLinearGradient(0, hY, 0, H);
+      mead.addColorStop(0, '#272c46'); mead.addColorStop(.12, '#1c2a3a'); mead.addColorStop(.55, '#172636'); mead.addColorStop(1, '#0d1520');
+      g.fillStyle = mead; g.fillRect(0, hY, W, H - hY);
+      var edge = g.createLinearGradient(0, hY - 14, 0, hY + 26); edge.addColorStop(0, 'rgba(90,84,130,0)'); edge.addColorStop(.4, 'rgba(90,84,130,.22)'); edge.addColorStop(1, 'rgba(90,84,130,0)');
+      g.fillStyle = edge; g.fillRect(0, hY - 14, W, 40);
+      // туман у горизонта медленно плывёт
+      if (SP.mist !== false) {
+        for (i = 0; i < mists.length; i++) {
+          var ms = mists[i]; if (!still) { ms.x += ms.v * dt; if (ms.x > W + ms.w) ms.x = -ms.w; if (ms.x < -ms.w) ms.x = W + ms.w; }
+          g.save(); g.translate(ms.x, hY + 4); g.scale(1, .16);
+          var mg2 = g.createRadialGradient(0, 0, 0, 0, 0, ms.w); mg2.addColorStop(0, 'rgba(150,150,200,' + (.16 * ms.a) + ')'); mg2.addColorStop(1, 'rgba(150,150,200,0)');
+          g.fillStyle = mg2; g.beginPath(); g.arc(0, 0, ms.w, 0, 6.283); g.fill(); g.restore();
+        }
+      }
+      // трава по всей поляне: кустики в перспективе, дальние мельче и тусклее, у света — тёплые
+      g.lineCap = 'round';
+      for (i = 0; i < tufts.length; i++) {
+        var tf = tufts[i], tp = proj(tf.X * R, 0, tf.Z * R);
+        if (tp.y < hY + 3 || tp.y > H + 20 || tp.x < -20 || tp.x > W + 20) continue;
+        var ts2 = tp.f * zoom * (phone ? .8 : 1), dist = Math.sqrt(tf.X * tf.X + tf.Z * tf.Z), warm = Math.max(0, 1 - dist / 1.5);
+        var dep = Math.min(1, Math.max(0, (tp.y - hY) / (H - hY) * 2.2));
+        var rr = Math.round(46 + 120 * warm + tf.c * 14), gg = Math.round(74 + 80 * warm + tf.c * 18), bb = Math.round(78 + 30 * warm);
+        g.strokeStyle = 'rgba(' + rr + ',' + gg + ',' + bb + ',' + (.25 + .5 * dep).toFixed(2) + ')'; g.lineWidth = Math.max(.6, 1.3 * ts2);
+        var lean0 = still ? 0 : (w * .12 + .02) * Math.sin(t * (1.3 + w * .4) + tf.X * 2 + tf.ph);
+        g.beginPath();
+        for (var b2 = 0; b2 < tf.n; b2++) {
+          var off = (b2 - (tf.n - 1) / 2) * 2.2 * ts2, hh = tf.h * ts2 * (.7 + .3 * ((b2 * 7 + tf.c * 10) % 3) / 2), ang = lean0 + (b2 - (tf.n - 1) / 2) * .22;
+          g.moveTo(tp.x + off, tp.y); g.quadraticCurveTo(tp.x + off + Math.sin(ang) * hh * .3, tp.y - hh * .6, tp.x + off + Math.sin(ang) * hh, tp.y - Math.cos(ang) * hh);
+        }
+        g.stroke();
+      }
+      drawFlies(g, t, dt, zoom, false);
       g.save(); g.translate(cx, cy); g.scale(1, sinT);
       var lawn = g.createRadialGradient(0, 0, 0, 0, 0, R * 1.7);
       lawn.addColorStop(0, 'rgba(130,150,160,.22)'); lawn.addColorStop(.6, 'rgba(70,90,110,.10)'); lawn.addColorStop(1, 'rgba(40,50,80,0)');
@@ -407,6 +485,71 @@
         g.fillStyle = rg; g.beginPath(); g.arc(x, y, S.r * 5, 0, 6.283); g.fill();
       }
     }
+    // светлячки: летают низко над поляной, мигают; дальние — за цветами, ближние — перед ними
+    function drawFlies(ctx, t, dt, zoom, front) {
+      if (SP.fireflies === false) return;
+      for (var i = 0; i < flies.length; i++) {
+        var f = flies[i];
+        if ((f.Z >= 0) !== front) continue;
+        if (!still) { f.dir += (Math.random() - .5) * dt * 2; f.X += Math.cos(f.dir) * f.v * dt; f.Z += Math.sin(f.dir) * f.v * dt;
+          if (f.X * f.X + f.Z * f.Z > 6 || f.Z > 1.1 || f.Z < -2.6) f.dir += Math.PI * dt * 2; }
+        var p = proj(f.X * R, (f.y + .08 * Math.sin(t * 1.3 + f.ph)) * hc * zoom * 1.6, f.Z * R);
+        if (p.y < hY) continue;
+        var bl = Math.pow(Math.max(0, Math.sin(t * f.bl + f.ph)), 3), r = 7 * p.f * zoom;
+        if (bl < .03) continue;
+        var rg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        rg.addColorStop(0, 'rgba(240,255,170,' + (.95 * bl) + ')'); rg.addColorStop(.25, 'rgba(210,240,120,' + (.45 * bl) + ')'); rg.addColorStop(1, 'rgba(210,240,120,0)');
+        ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.283); ctx.fill();
+      }
+    }
+    // мотыльки: порхают, садятся на цветы и медленно складывают крылья
+    function drawMoths(ctx, t, dt, ts) {
+      if (SP.moths === false) return;
+      for (var i = 0; i < moths.length; i++) {
+        var m = moths[i], c = m.on;
+        if (c && (c.gone || c.flying || fly || mode === 'q' || ts > m.until)) { m.on = null; c = null; m.next = 0; m.vy = -60; }
+        if (c) { m.x = c.hx; m.y = c.hy - 2; }
+        else if (!still) {
+          if (ts > m.next) {
+            var free = els.filter(function (x) { return !x.gone && !x.flying && x.d > .25 && x.v !== 'card'; });
+            m.tgt = !fly && mode !== 'q' && free.length && Math.random() < .55 ? free[Math.floor(Math.random() * free.length)] : null;
+            m.tx = W * (.08 + Math.random() * .84); m.ty = Math.max(hY - 30, 40) + Math.random() * (H * .5);
+            m.next = ts + 3000 + Math.random() * 4000;
+          }
+          var tx = m.tgt ? m.tgt.hx : m.tx, ty = m.tgt ? m.tgt.hy - 2 : m.ty, dx = tx - m.x, dy = ty - m.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+          if (m.tgt && d < 6) { m.on = m.tgt; m.tgt = null; m.until = ts + 3000 + Math.random() * 5000; continue; }
+          m.vx += (dx / d * 70 - m.vx) * dt * 1.6 + Math.sin(t * 3.1 + m.ph) * 30 * dt; m.vy += (dy / d * 70 - m.vy) * dt * 1.6 + Math.cos(t * 2.3 + m.ph) * 40 * dt;
+          m.x += m.vx * dt; m.y += m.vy * dt;
+        }
+        var flap = c ? .35 + .65 * Math.pow(.5 + .5 * Math.sin(t * 1.2 + m.ph), 2) : Math.abs(Math.cos(t * 16 + m.ph)), sz = (phone ? 5 : 6.5) * m.s;
+        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(c ? 0 : Math.max(-.5, Math.min(.5, m.vx / 160)));
+        var hg = ctx.createRadialGradient(0, 0, 0, 0, 0, sz * 2.4); hg.addColorStop(0, 'rgba(255,240,215,.18)'); hg.addColorStop(1, 'rgba(255,240,215,0)');
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(0, 0, sz * 2.4, 0, 6.283); ctx.fill();
+        ctx.fillStyle = 'rgba(242,232,214,.88)';
+        [-1, 1].forEach(function (sd) {
+          ctx.beginPath(); ctx.ellipse(sd * sz * .55 * flap, -sz * .15, sz * .62 * flap + .3, sz * .5, sd * .5, 0, 6.283); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(sd * sz * .4 * flap, sz * .35, sz * .4 * flap + .2, sz * .32, -sd * .4, 0, 6.283); ctx.fill();
+        });
+        ctx.fillStyle = 'rgba(120,100,80,.9)'; ctx.beginPath(); ctx.ellipse(0, 0, sz * .14, sz * .5, 0, 0, 6.283); ctx.fill();
+        ctx.restore();
+      }
+    }
+    // кустик травы у корня каждого цветка — цветок растёт из травы
+    function drawRoots(t, w, zoom) {
+      gf.lineCap = 'round';
+      for (var i = 0; i < els.length; i++) {
+        var c = els[i]; if (c.gone || c.flying || c.v === 'card') continue;
+        var s = c.f * zoom * size, n = 7, hh = ch * .26 * s, lean = still ? 0 : (w * .1 + .02) * Math.sin(t * 1.4 + c.ph);
+        gf.strokeStyle = 'rgba(' + Math.round(60 + 40 * c.d) + ',' + Math.round(96 + 40 * c.d) + ',' + Math.round(92 + 20 * c.d) + ',' + (.55 + .35 * c.d) * c.op + ')';
+        gf.lineWidth = Math.max(.8, 1.6 * s);
+        gf.beginPath();
+        for (var k = 0; k < n; k++) {
+          var u = k / (n - 1) - .5, x0 = c.gx + u * cw * .62 * s, h2 = hh * (.55 + .45 * Math.cos(u * 2.6)) * (.8 + .2 * Math.sin(k * 2.7 + c.ph)), a = lean + u * .9;
+          gf.moveTo(x0, c.gy + 1); gf.quadraticCurveTo(x0 + Math.sin(a) * h2 * .3, c.gy - h2 * .6, x0 + Math.sin(a) * h2, c.gy - Math.cos(a) * h2);
+        }
+        gf.stroke();
+      }
+    }
     function drawPetals(ctx, t, w, front) {
       var psz = (+SP.psize || 100) / 100;
       for (var i = 0; i < petals.length; i++) {
@@ -421,8 +564,11 @@
       }
       ctx.globalAlpha = 1;
     }
-    function drawFront(t, w) {
+    function drawFront(t, w, dt, ts, zoom) {
       gf.clearRect(0, 0, W, H);
+      drawRoots(t, w, zoom);
+      drawFlies(gf, t, dt, zoom, true);
+      drawMoths(gf, t, dt, ts);
       for (var i = 0; i < grass.length; i++) {
         var b = grass[i], lean = (w * .12 + .02) * (1 + .6 * Math.sin(t * (1.4 + w * .4) + b.x * .03 + b.ph)) + .04 * Math.sin(b.ph);
         var tx = b.x + Math.sin(lean) * b.h, ty = H - Math.cos(lean) * b.h;
