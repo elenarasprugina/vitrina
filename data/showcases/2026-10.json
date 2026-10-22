@@ -717,10 +717,6 @@
           "value": "Какой твой архетип?",
           "show": true
         },
-        "status": {
-          "value": "от 3 000 ₽",
-          "show": true
-        },
         "foot": {
           "value": "варианты",
           "show": true
