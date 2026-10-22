@@ -24,14 +24,14 @@
 </style>
 <script>
 (function () {
-  var IMG = { ostrov: '/*IMG_OSTROV*/', rosa: '/*IMG_ROSA*/' };
+  var IMG = { moh: '/*IMG_MOH*/', mohFoto: '/*IMG_MOH_FOTO*/', rosa: '/*IMG_ROSA*/' };
   var D = /*DATA*/;
   var q = {}; location.hash.replace(/^#/, '').split('&').forEach(function (p) { var a = p.split('='); if (a[0]) q[a[0]] = decodeURIComponent(a[1] || ''); });
-  var scene = q.scene || 'ostrov', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
+  var scene = q.scene || 'moh', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
   if (q.view) sp.view = q.view;
-  sp.layers = scene === 'rosa'
-    ? { on: true, time: q.time || 'day', tilt: 50, back: { image: IMG.rosa, fx: 50, fy: 52, zoom: 10, depth: .4, glints: true } }
-    : { on: true, time: q.time || 'day', tilt: 46, ground: { image: IMG.ostrov, w: 300, x: 50, y: 44 } };
+  // 22.10: остров убран (её слово — «летящий, парящий — не нравится»); фон — её поляна со мхом, росы чуть меньше
+  var img = scene === 'rosa' ? IMG.rosa : scene === 'mohFoto' ? IMG.mohFoto : IMG.moh;
+  sp.layers = { on: true, time: q.time || 'day', tilt: 50, back: { image: img, fx: 50, fy: scene === 'rosa' ? 52 : 50, zoom: 10, depth: .4, glints: q.glints !== '0' } };
   window.M13_UZ_DATA = D; window.PR = { q: q, scene: scene, L: sp.layers, sp: sp };
 })();
 </script>
@@ -53,7 +53,8 @@
   function rng(label, id, min, max, val) { return '<label>' + label + ' <b id="' + id + 'V">' + val + '</b><input type="range" id="' + id + '" min="' + min + '" max="' + max + '" value="' + val + '"></label>'; }
   var g = L.ground, b = L.back;
   box.innerHTML =
-    seg('Сцена', 'scene', P.scene, [['ostrov', 'Остров в тумане'], ['rosa', 'Роса — фон целиком']]) +
+    seg('Фон', 'scene', P.scene, [['moh', 'Мох, росы меньше'], ['mohFoto', 'Мох, как на фото'], ['rosa', 'Прежняя роса']]) +
+    seg('Блики росы (мерцают сами)', 'glints', P.q.glints === '0' ? '0' : '1', [['1', 'Да'], ['0', 'Нет']]) +
     seg('Время суток', 'time', L.time, [['day', 'День'], ['evening', 'Вечер'], ['night', 'Ночь']], true) +
     seg('Цветы (пока свои PNG не пришли)', 'view', P.sp.view || 'live', [['live', 'Рисунок'], ['line', 'Линией'], ['card', 'Стекло']]) +
     '<h4>Хоровод на земле</h4>' + rng('Наклон земли', 'tilt', 25, 75, L.tilt) +

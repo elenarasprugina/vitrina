@@ -14,7 +14,8 @@ t = open('docs/uzory-sloi-proba.tpl.html', encoding='utf8').read()
 for k, v in [('/*FONTS*/', fonts), ('/*CSS*/', open('assets/uzory.css', encoding='utf8').read()),
              ('/*JS*/', open('assets/uzory.js', encoding='utf8').read().replace('</script', '<\\/script')),
              ('/*DATA*/', json.dumps(data, ensure_ascii=False).replace('</', '<\\/')),
-             ('/*IMG_OSTROV*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/zemlya-ostrov.webp')),
+             ('/*IMG_MOH*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/moh-rosa.webp')),
+             ('/*IMG_MOH_FOTO*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/moh-rosa-foto.webp')),
              ('/*IMG_ROSA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/rosa-fon.webp'))]:
     assert t.count(k) == 1, k
     t = t.replace(k, v)
