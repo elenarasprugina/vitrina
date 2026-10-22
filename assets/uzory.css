@@ -191,3 +191,15 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-day .uz-eyebrow, .uz-day .uz-honest { color: #5a5470; text-shadow: 0 0 10px rgba(255, 252, 245, .8); }
 .uz-day .uz-tbtn { color: #3a3450; background: rgba(255, 255, 255, .45); border-color: rgba(60, 52, 80, .25); }
 .uz-day .uz-cap, .uz-day .uz-name { text-shadow: 0 0 10px rgba(40, 46, 30, .85), 0 0 3px rgba(40, 46, 30, .9); }
+/* подсказка «погуляй по саду» (бабочек можно трогать) */
+.uz-ghint { position: absolute; left: 50%; top: 27%; transform: translate(-50%, 6px); z-index: 150; width: max-content; max-width: calc(100% - 48px); text-align: center; pointer-events: none;
+  font-family: var(--uz-head); font-style: italic; font-size: 19px; line-height: 1.25; color: #fff6e6; text-shadow: 0 0 12px rgba(20, 24, 40, .85), 0 0 3px rgba(20, 24, 40, .8);
+  opacity: 0; transition: opacity 1.6s ease, transform 1.6s ease; }
+.uz-ghint.is-on { opacity: 1; transform: translate(-50%, 0); }
+/* время суток в саду слоями: её цветы-картинки меняются вместе с садом (в золотой час — светится край со стороны солнца) */
+.uz-t-gold .uz-v-live .uz-art > * { filter: sepia(.16) saturate(1.18) brightness(1.02) drop-shadow(2.5px -1px 1.5px rgba(255, 196, 120, .9)); }
+.uz-t-blue .uz-v-live .uz-art > * { filter: brightness(.8) saturate(.82) drop-shadow(0 0 5px rgba(255, 222, 182, .5)); }
+.uz-t-rain .uz-v-live .uz-art > * { filter: saturate(.84) contrast(.93) brightness(1.04); }
+.uz-t-lights .uz-v-live .uz-art > * { filter: brightness(.62) saturate(.8) drop-shadow(0 0 6px rgba(255, 214, 150, .55)); }
+.uz-t-evening .uz-v-live .uz-art > * { filter: sepia(.22) saturate(1.08) brightness(.95); }
+.uz-t-night .uz-v-live .uz-art > * { filter: brightness(.55) saturate(.7); }
