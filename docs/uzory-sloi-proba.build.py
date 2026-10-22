@@ -20,6 +20,7 @@ for k, v in [('/*FONTS*/', fonts), ('/*CSS*/', open('assets/uzory.css', encoding
              ('/*IMG_MAK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/mak.webp')),
              ('/*IMG_LAVANDA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/lavanda.webp')),
              ('/*IMG_PION*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/pion.webp')),
+             ('/*IMG_LES*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/polyana-les.webp')),
              ('/*IMG_PG*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/polyana-gorizont.webp')),
              ('/*IMG_PODSOLNUH*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/podsolnuh.webp')),
              ('/*IMG_PODSNEZHNIK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/podsnezhnik.webp')),
