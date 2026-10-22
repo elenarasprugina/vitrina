@@ -203,3 +203,7 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-t-lights .uz-v-live .uz-art > * { filter: brightness(.62) saturate(.8) drop-shadow(0 0 6px rgba(255, 214, 150, .55)); }
 .uz-t-evening .uz-v-live .uz-art > * { filter: sepia(.22) saturate(1.08) brightness(.95); }
 .uz-t-night .uz-v-live .uz-art > * { filter: brightness(.55) saturate(.7); }
+/* сад слоями (22.10, её «в ямку»): низ стебля мягко уходит в мох — без чёткого среза */
+.uz-layers .uz-v-live .uz-art img { -webkit-mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); }
+/* бабочку несут над цветком — цветок чуть светится: «сюда сядет» */
+.uz-el.is-perch .uz-art { filter: brightness(1.16) drop-shadow(0 0 12px rgba(255, 236, 190, .85)); transition: filter .2s; }

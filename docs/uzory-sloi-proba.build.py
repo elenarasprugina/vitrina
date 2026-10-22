@@ -20,6 +20,18 @@ for k, v in [('/*FONTS*/', fonts), ('/*CSS*/', open('assets/uzory.css', encoding
              ('/*IMG_MAK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/mak.webp')),
              ('/*IMG_LAVANDA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/lavanda.webp')),
              ('/*IMG_PION*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/pion.webp')),
+             ('/*IMG_LES*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/polyana-les.webp')),
+             ('/*IMG_PG*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/polyana-gorizont.webp')),
+             ('/*IMG_PODSOLNUH*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/podsolnuh.webp')),
+             ('/*IMG_PODSNEZHNIK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/podsnezhnik.webp')),
+             ('/*IMG_NEZABUDKA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/nezabudka.webp')),
+             ('/*IMG_LANDYSH*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/landysh.webp')),
+             ('/*IMG_ODUVANCHIK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/oduvanchik.webp')),
+             ('/*IMG_A1*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/a-dorozhka.webp')),
+             ('/*IMG_A2*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/a-kochki.webp')),
+             ('/*IMG_ROZA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/roza.webp')),
+             ('/*IMG_LILIYA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/liliya.webp')),
+             ('/*IMG_VASILYOK*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/cvety/vasilyok.webp')),
              ('/*IMG_ROSA*/', 'data:image/webp;base64,' + b64('docs/uzory-sloi/rosa-fon.webp'))]:
     assert t.count(k) == 1, k
     t = t.replace(k, v)

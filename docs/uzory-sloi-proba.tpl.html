@@ -24,21 +24,25 @@
 </style>
 <script>
 (function () {
-  var IMG = { moh: '/*IMG_MOH*/', mohFoto: '/*IMG_MOH_FOTO*/', rosa: '/*IMG_ROSA*/' };
+  var IMG = { les: '/*IMG_LES*/', pg: '/*IMG_PG*/', a1: '/*IMG_A1*/', a2: '/*IMG_A2*/', moh: '/*IMG_MOH*/', mohFoto: '/*IMG_MOH_FOTO*/', rosa: '/*IMG_ROSA*/' };
   var D = /*DATA*/;
   var q = {}; location.hash.replace(/^#/, '').split('&').forEach(function (p) { var a = p.split('='); if (a[0]) q[a[0]] = decodeURIComponent(a[1] || ''); });
-  var scene = q.scene || 'moh', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
+  var scene = q.scene || 'les', it = D.uzory.items.filter(function (x) { return x.id === 'cvetok'; })[0], sp = it.space;
   if (q.view) sp.view = q.view;
   // 22.10 (3): её первые цветы-картинки (разрезаны из «Изысканного букета» + отдельная ромашка), остальные пока рисунком
   // 22.10 (4): её слово — показываем отдельную ромашку (из букета — в запасе, docs/uzory-sloi/cvety/romashka-buket.webp)
-  var CV = { romashka: '/*IMG_ROMASHKA*/', mak: '/*IMG_MAK*/', lavanda: '/*IMG_LAVANDA*/', pion: '/*IMG_PION*/' };
+  var CV = { romashka: '/*IMG_ROMASHKA*/', mak: '/*IMG_MAK*/', lavanda: '/*IMG_LAVANDA*/', pion: '/*IMG_PION*/', roza: '/*IMG_ROZA*/', liliya: '/*IMG_LILIYA*/', vasilyok: '/*IMG_VASILYOK*/', podsolnuh: '/*IMG_PODSOLNUH*/', podsnezhnik: '/*IMG_PODSNEZHNIK*/', nezabudka: '/*IMG_NEZABUDKA*/', landysh: '/*IMG_LANDYSH*/', oduvanchik: '/*IMG_ODUVANCHIK*/' };
   if (q.cvety !== '0') it.flowers.forEach(function (f) { if (CV[f.id]) { f.image = CV[f.id]; f.view = 'live'; } });
   sp.size = +q.size || 130;
   // 22.10 (4): хоровод сам не кружится (её «хоровод мешает»); бабочек можно трогать
   sp.speed = q.spin === '1' ? 'norm' : 'off';
   // 22.10: остров убран (её слово — «летящий, парящий — не нравится»); фон — её поляна со мхом, росы чуть меньше
-  var img = scene === 'rosa' ? IMG.rosa : scene === 'mohFoto' ? IMG.mohFoto : IMG.moh;
-  sp.layers = { on: true, time: q.time || 'day', tilt: 50, back: { image: img, fx: 50, fy: scene === 'rosa' ? 52 : 50, zoom: 10, depth: .4, glints: q.glints !== '0' } };
+  // 22.10 (5): её фоны по промпту «А» (обычный рост, небо и горизонт) — хоровод ниже, на ближнем мху
+  // 22.10 (6): её слово — на фонах «А» цветы «как на дороге», поляна была лучше → склейка «поляна + горизонт» (docs/uzory-sloi-skleika.py)
+  // 22.10 (7): её новая поляна с лесом (цельный кадр, без склейки); хоровод шире, лучи мягкие
+  var img = IMG[scene] || IMG.moh, A = scene === 'a1' || scene === 'a2', PG = scene === 'pg', LES = scene === 'les';
+  sp.ringW = +q.ring || 125; sp.rays = q.rays === 'off' ? 'off' : 'soft';
+  sp.layers = { on: true, time: q.time || 'day', tilt: LES ? 29 : A || PG ? 55 : 50, back: { image: img, fx: 50, fy: LES ? 65 : PG ? 74 : A ? 84 : scene === 'rosa' ? 52 : 50, zoom: LES ? 14 : A || PG ? 35 : 10, depth: .4, glints: q.glints !== '0' } };
   window.M13_UZ_DATA = D; window.PR = { q: q, scene: scene, L: sp.layers, sp: sp };
 })();
 </script>
@@ -60,17 +64,18 @@
   function rng(label, id, min, max, val) { return '<label>' + label + ' <b id="' + id + 'V">' + val + '</b><input type="range" id="' + id + '" min="' + min + '" max="' + max + '" value="' + val + '"></label>'; }
   var g = L.ground, b = L.back;
   box.innerHTML =
-    seg('Фон', 'scene', P.scene, [['moh', 'Мох, росы меньше'], ['mohFoto', 'Мох, как на фото'], ['rosa', 'Прежняя роса']]) +
+    seg('Фон', 'scene', P.scene, [['les', 'Поляна с лесом (новая)'], ['pg', 'Поляна + горизонт'], ['a1', 'А: мох-дорожка'], ['a2', 'А: кочки и высокая трава'], ['moh', 'Мох, росы меньше'], ['mohFoto', 'Мох, как на фото'], ['rosa', 'Прежняя роса']]) +
     seg('Блики росы (мерцают сами)', 'glints', P.q.glints === '0' ? '0' : '1', [['1', 'Да'], ['0', 'Нет']]) +
     seg('Время суток (4 вечера на выбор)', 'time', L.time, [['day', 'День'], ['gold', 'Золотой час'], ['blue', 'Синие сумерки'], ['rain', 'После дождя'], ['lights', 'Сумерки с огоньками'], ['night', 'Ночь'], ['evening', 'Прежний вечер']], true) +
+    seg('Лучи света', 'rays', P.sp.rays, [['soft', 'Мягкие'], ['off', 'Без лучей']]) +
     seg('Хоровод сам кружится', 'spin', P.q.spin === '1' ? '1' : '0', [['0', 'Нет — цветы стоят'], ['1', 'Да']]) +
     seg('Её цветы-картинки (ромашка, мак, лаванда, пион)', 'cvety', P.q.cvety === '0' ? '0' : '1', [['1', 'Показать'], ['0', 'Все рисунком']]) +
     seg('Размер цветов', 'size', String(P.sp.size), [['100', 'Как было'], ['130', 'Крупнее'], ['160', 'Ещё крупнее']]) +
     seg('Остальные цветы (пока нет картинок)', 'view', P.sp.view || 'live', [['live', 'Рисунок'], ['line', 'Линией'], ['card', 'Стекло']]) +
-    '<h4>Хоровод на земле</h4>' + rng('Наклон земли', 'tilt', 25, 75, L.tilt) +
+    '<h4>Хоровод на земле</h4>' + rng('Ширина хоровода, %', 'ring', 80, 180, P.sp.ringW) + rng('Наклон земли', 'tilt', 25, 75, L.tilt) +
     (g ? rng('Размер земли', 'gw', 180, 460, g.w) + rng('Земля выше / ниже', 'gy', 20, 70, g.y) : '') +
     (b ? rng('Картинка: где центр холма (по высоте)', 'fy', 30, 75, b.fy) + rng('Картинка: где центр (по ширине)', 'fx', 25, 75, b.fx) + rng('Запас для сдвига', 'bz', 0, 40, b.zoom) : '') +
-    '<p class="pr-note">Бабочки: тронь сидящую — вспорхнёт; тронь летящую — поймаешь, и она сядет на ближайший цветок. Узор у каждой медленно меняется, после полёта — становится новым. Покрутите хоровод пальцем — дальний план и передний сдвигаются по-разному. Настройки пробы — для того, чтобы найти, как лучше; потом они станут полями в панели.</p>';
+    '<p class="pr-note">Бабочки: тронь — вспорхнёт. Нажми и держи — бабочка у тебя (сияет и трепещет): веди и отпусти над цветком — сядет на него, над травой — на траву. Хоровод встаёт так, что перед светом — просвет между цветами. Покрутите хоровод пальцем — дальний план и передний сдвигаются по-разному. Настройки пробы — для того, чтобы найти, как лучше; потом они станут полями в панели.</p>';
   [].forEach.call(box.querySelectorAll('.pr-seg'), function (s) {
     s.onclick = function (e) {
       var v = e.target.getAttribute('data-v'); if (!v) return;
@@ -80,6 +85,7 @@
     };
   });
   function bind(id, fn) { var i = document.getElementById(id); if (!i) return; i.oninput = function () { document.getElementById(id + 'V').textContent = i.value; fn(+i.value); }; }
+  bind('ring', function (v) { P.sp.ringW = v; P.q.ring = v; window.dispatchEvent(new Event('resize')); });
   bind('tilt', function (v) { L.tilt = v; window.dispatchEvent(new Event('resize')); });
   bind('gw', function (v) { g.w = v; }); bind('gy', function (v) { g.y = v; });
   bind('fy', function (v) { b.fy = v; }); bind('fx', function (v) { b.fx = v; }); bind('bz', function (v) { b.zoom = v || .01; });

@@ -246,7 +246,7 @@
       var nm = c.el.querySelector('.uz-nm'); if (nm) nm.style.fontSize = Math.max(10, cw * (c.v === 'card' ? .19 : .24)) + 'px';
     }
     FL.forEach(function (f, i) { var c = makeEl(f); c.i = i; els.push(c); });
-    if (LY) lyLoad();
+    if (LY) { lyLoad(); document.body.classList.add('uz-layers'); }
 
     function layout() {
       W = scene.clientWidth; H = scene.clientHeight; DPR = Math.min(window.devicePixelRatio || 1, lite ? 1 : 2);
@@ -256,6 +256,8 @@
       sinT = LY && LY.tilt ? Math.max(.2, Math.min(.8, LY.tilt / 100)) : phone ? .52 : .4; cosT = Math.sqrt(1 - sinT * sinT);
       R0 = Math.min(W * (phone ? .40 : .31), 430);
       cw = Math.max(44, Math.min(R0 * (phone ? .27 : .24), 82)); ch = cw * 1.38; hc = ch * .62;
+      // ширина хоровода (её поле 22.10, % от прежней): цветы те же, между ними просторнее; на телефоне — не шире экрана
+      R0 = Math.min(R0 * Math.max(80, Math.min(180, +SP.ringW || 125)) / 100, phone ? W * .47 : W * .44);
       heartW = Math.min(cw * 2.3, 160); heartH = heartW * 1.4;
       heart.style.width = heartW + 'px'; heart.style.height = heartH + 'px'; heart.style.left = (-heartW / 2) + 'px'; heart.style.top = (-heartH * .32) + 'px';
       els.forEach(sizeEl);
@@ -269,7 +271,7 @@
       var k = lift * lift * (3 - 2 * lift), zoom = 1 - (phone ? .28 : .15) * k;
       R = R0 * zoom; CAM = R0 * 3.4;
       cx = W / 2; cy = H * ((phone ? .45 : .46) - ((phone ? .18 : .17) * k));
-      var p = proj(0, hc * zoom, 0); px = p.x; py = p.y;
+      var p = proj(0, hc * zoom * (LY ? 1.35 : 1), 0); px = p.x; py = p.y;   // в саду слоями свет чуть выше — выглядывает над цветами
       return zoom;
     }
     function seedAir() {
@@ -330,7 +332,7 @@
         speed = 0;
       } else if (coast) {
         base += coast.v * dt; coast.v *= Math.exp(-dt * coast.fr);
-        if (Math.abs(coast.v) < .5) { var cv = coast; coast = null; snapTo(Math.round(base / STEP + (cv.v > 0 ? .3 : -.3)) * STEP, cv.spun); }
+        if (Math.abs(coast.v) < .5) { var cv = coast; coast = null; snapTo(cv.spun ? Math.round(base / STEP + (cv.v > 0 ? .3 : -.3)) * STEP : rest(base, cv.v > 0 ? .3 : -.3), cv.spun); }
       } else if (snap) {
         var su = Math.min(1, (ts - snap.t0) / snap.T), se = 1 - Math.pow(1 - su, 3);
         base = snap.from + (snap.to - snap.from) * se;
@@ -339,6 +341,8 @@
         var tgt = (still || hoverStop || fly || focus || touched) ? 0 : speedTarget;
         speed += (tgt - speed) * Math.min(1, dt * 2.2);
         base += speed * dt;
+        // остановился сам — мягко доворачивается, чтобы перед светом был просвет
+        if (!tgt && Math.abs(speed) < .03 && !fly && !focus && mode !== 'random' && Math.abs(rest(base) - base) > .002) { speed = 0; snapTo(rest(base)); }
       }
       // глубина: когда хоровод крутят, слои чуть отстают — дальний меньше, передний больше
       if (dt > 0) { var av = Math.max(-3, Math.min(3, (base - prevBase) / dt)); par += (av - par) * Math.min(1, dt * 2.5); }
@@ -458,6 +462,7 @@
           g.fillStyle = sg2; g.beginPath(); g.ellipse(-sl / 2, 0, sl / 2, c.w * c.f * zoom * .9, 0, 0, 6.283); g.fill(); g.restore();
           continue;
         }
+        if (LY) continue;   // её слово 22.10: тёмное пятно под цветком на фото читается как подставка — цветок «в ямке» без него
         g.save(); g.translate(c.gx, c.gy); g.scale(1, sinT * .6); g.fillStyle = LY ? 'rgba(30,40,24,' + (.28 * c.op) + ')' : 'rgba(8,10,24,' + (.35 * c.op) + ')';
         g.beginPath(); g.arc(0, 0, (c.v === 'card' ? cw * .45 : c.w * .32) * c.f * zoom, 0, 6.283); g.fill(); g.restore();
       }
@@ -538,14 +543,13 @@
         g.save(); g.globalCompositeOperation = 'lighter';
         gr = g.createRadialGradient(sx, sy, 0, sx, sy, sr); gr.addColorStop(0, 'rgba(255,226,170,.75)'); gr.addColorStop(.18, 'rgba(255,190,110,.32)'); gr.addColorStop(.55, 'rgba(255,150,80,.08)'); gr.addColorStop(1, 'rgba(255,150,80,0)');
         g.fillStyle = gr; g.fillRect(0, 0, W, H);
-        // косые лучи от низкого солнца — медленно дышат
-        for (i = 0; i < 5; i++) {
-          var a = Math.PI * (.80 + i * .045) + Math.sin(t * .07 + i * 1.3) * .015, L = Math.max(W, H) * 1.5, al = .045 + .03 * Math.sin(t * .23 + i * 2.1), wd = .018 + (i % 2) * .012;
-          var rg = g.createLinearGradient(sx, sy, sx + Math.cos(a) * L, sy + Math.sin(a) * L);
-          rg.addColorStop(0, 'rgba(255,214,150,' + al + ')'); rg.addColorStop(.7, 'rgba(255,200,130,' + al * .5 + ')'); rg.addColorStop(1, 'rgba(255,200,130,0)');
-          g.fillStyle = rg; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + Math.cos(a - wd) * L, sy + Math.sin(a - wd) * L); g.lineTo(sx + Math.cos(a + wd) * L, sy + Math.sin(a + wd) * L); g.closePath(); g.fill();
-        }
         g.restore();
+        // косые лучи от низкого солнца — рассеянные, медленно дышат (её слово 22.10: без резких полос)
+        if (SP.rays !== 'off') {
+          var rs = [];
+          for (i = 0; i < 4; i++) rs.push({ a: Math.PI * (.79 + i * .06) + Math.sin(t * .07 + i * 1.3) * .02, w: .06 + (i % 2) * .04, al: .07 + .04 * Math.sin(t * .23 + i * 2.1) });
+          softRays(sx, sy, rs, Math.max(W, H) * 1.5, '255,210,145');
+        }
       } else if (lyTime === 'blue') {
         gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(60,70,140,.28)'); gr.addColorStop(.5, 'rgba(60,70,140,.05)'); gr.addColorStop(1, 'rgba(20,24,60,.35)');
         g.fillStyle = gr; g.fillRect(0, 0, W, H);
@@ -622,18 +626,28 @@
         g.restore();
       }
     }
-    // днём свет человека — тёплое сияние с медленными лучами
-    function drawRays(t, br) {
-      var n = 9, L = R * 1.5, i;
-      g.save(); g.translate(px, py); g.globalCompositeOperation = 'lighter';
-      for (i = 0; i < n; i++) {
-        var a = i / n * 6.283 + t * .05 + Math.sin(t * .3 + i) * .08, al = (.035 + .03 * Math.sin(t * .7 + i * 1.7)) * (.8 + .4 * br);
-        var rg = g.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L);
-        rg.addColorStop(0, 'rgba(255,236,190,' + al + ')'); rg.addColorStop(1, 'rgba(255,236,190,0)');
-        g.fillStyle = rg; g.beginPath(); g.moveTo(0, 0);
-        g.lineTo(Math.cos(a - .07) * L, Math.sin(a - .07) * L); g.lineTo(Math.cos(a + .07) * L, Math.sin(a + .07) * L); g.closePath(); g.fill();
+    // лучи рассеянные (её слово 22.10: «прорезанные» полосы не выглядят настоящими): рисуются на маленьком холсте
+    // и растягиваются на экран — края сами размываются. Выключатель — space.rays: 'off'
+    var rayCv = null;
+    function softRays(ox, oy, rays, L, rgb) {
+      var k = lite ? 12 : 9, w = Math.ceil(W / k), h = Math.ceil(H / k), x, i;
+      if (!rayCv) rayCv = document.createElement('canvas');
+      if (rayCv.width !== w || rayCv.height !== h) { rayCv.width = w; rayCv.height = h; }
+      x = rayCv.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, w, h); x.setTransform(1 / k, 0, 0, 1 / k, 0, 0);
+      for (i = 0; i < rays.length; i++) {
+        var r = rays[i], rg = x.createLinearGradient(ox, oy, ox + Math.cos(r.a) * L, oy + Math.sin(r.a) * L);
+        rg.addColorStop(0, 'rgba(' + rgb + ',' + r.al + ')'); rg.addColorStop(.55, 'rgba(' + rgb + ',' + (r.al * .4) + ')'); rg.addColorStop(1, 'rgba(' + rgb + ',0)');
+        x.fillStyle = rg; x.beginPath(); x.moveTo(ox, oy);
+        x.lineTo(ox + Math.cos(r.a - r.w) * L, oy + Math.sin(r.a - r.w) * L); x.lineTo(ox + Math.cos(r.a + r.w) * L, oy + Math.sin(r.a + r.w) * L); x.closePath(); x.fill();
       }
-      g.restore();
+      g.save(); g.globalCompositeOperation = 'lighter'; g.imageSmoothingEnabled = true; g.drawImage(rayCv, 0, 0, w * k, h * k); g.restore();
+    }
+    // днём свет человека — тёплое сияние с медленными мягкими лучами
+    function drawRays(t, br) {
+      if (SP.rays === 'off') return;
+      var n = 6, rs = [];
+      for (var i = 0; i < n; i++) rs.push({ a: i / n * 6.283 + t * .04 + Math.sin(t * .3 + i) * .08, w: .16 + .05 * Math.sin(i * 2.3), al: (.04 + .025 * Math.sin(t * .6 + i * 1.7)) * (.8 + .4 * br) });
+      softRays(px, py, rs, R * 1.7, '255,236,190');
     }
     // передняя трава — её картинка по низу экрана, качается и сдвигается сильнее всех
     function drawLayerFront(t, w) {
@@ -691,6 +705,7 @@
     }
     /* ---------- Бабочки (её решение 22.10): сидят на поляне и на цветах, у каждой свой узор, он медленно меняется.
        Тронул сидящую — вспорхнула; тронул летящую — «поймал», и она садится на ближайший цветок. Всё — только на экране. ---------- */
+    var bfGrabbed = false, bfPerch = null;
     var BF_KINDS = ['kapustnica', 'limonnica', 'golubyanka', 'krapivnica', 'pavlin'];
     var BF_TINT = { gold: 'rgba(255,160,80,.16)', blue: 'rgba(40,52,120,.32)', rain: 'rgba(220,220,235,.12)', lights: 'rgba(18,22,58,.45)',
       night: 'rgba(14,18,48,.5)', evening: 'rgba(240,150,110,.15)' };
@@ -717,7 +732,7 @@
       kinds = kinds.slice().sort(function () { return Math.random() - .5; });
       for (i = 0; i < n; i++) {
         var b = { k: kinds[i], st: 'sit', on: null, g: null, x: W / 2, y: H / 2, vx: 0, vy: 0, ph: Math.random() * 6.28, s: .85 + Math.random() * .3,
-          hd: (Math.random() - .5) * 1.1, until: performance.now() + 15000 + Math.random() * 40000, open: .8, seed: Math.random(), seedTo: 0, tx: 0, ty: 0, next: 0 };
+          side: Math.random() < .5 ? -1 : 1, hd: (Math.random() - .5) * 1.1, until: performance.now() + 15000 + Math.random() * 40000, open: .8, seed: Math.random(), seedTo: 0, tx: 0, ty: 0, next: 0 };
         b.seedTo = b.seed;
         if (i < 2 && fl.length) b.on = fl.splice(Math.floor(Math.random() * fl.length), 1)[0]; else b.g = bfSpot();
         bflies.push(b);
@@ -750,6 +765,28 @@
       fl.forEach(function (e) { var dx = e.hx - x, dy = e.hy - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; c = e; } });
       bfLand(b, c);
     }
+    // «зацепить и пересадить» (её слово 22.10): нажал и держишь — бабочка у тебя (сияние, трепещет, лёгкая вибрация),
+    // ведёшь — летит за пальцем; отпустил над цветком — садится на него, над травой — на траву под пальцем
+    function bfGrab(b, x, y) {
+      b.st = 'held'; b.on = null; b.g = null; b.tgt = null; b.hx = x; b.hy = y - (phone ? 34 : 18); b.seedTo = Math.random();
+      hideGardenHint(); bfGrabbed = true;
+      if (SP.vibrate !== false && navigator.vibrate) { try { navigator.vibrate(12); } catch (e) {} }
+    }
+    function bfPerchAt(x, y) {
+      var c = null, bd = 1e9;
+      bfFree().forEach(function (e) { var dx = e.hx - x, dy = e.hy - y, d = Math.sqrt(dx * dx + dy * dy), r = Math.max(34, cw * .9 * e.f); if (d < r && d < bd) { bd = d; c = e; } });
+      return c;
+    }
+    function groundAt(x, y) {
+      var dy = y - cy; if (y < hY + 10 || sinT * CAM + dy <= 0) return null;
+      var Z = dy * CAM / (sinT * CAM + dy), f = CAM / (CAM - Z), X = (x - cx) / f;
+      if (Z > R * 2.2 || Z < -R * 3) return null;
+      return { X: X / R, Z: Z / R };
+    }
+    function bfDrop(b) {
+      var c = bfPerchAt(b.hx, b.hy);
+      if (c) bfLand(b, c); else bfLand(b, null, groundAt(b.x, b.y + 6));
+    }
     function drawBflies(ctx, t, dt, ts, zoom) {
       if (SP.moths === false) return;
       if (!bflies.length) seedBflies();
@@ -757,7 +794,11 @@
       for (var i = 0; i < bflies.length; i++) {
         var b = bflies[i];
         if (b.on && (b.on.gone || b.on.flying || fly && b.on === fly)) bfTakeOff(b, ts, false);
-        if (b.st === 'sit') {
+        if (b.st === 'held') {
+          // в руке: летит за пальцем (чуть выше него — чтобы палец не закрывал)
+          var kk = Math.min(1, dt * 14); b.x += (b.hx - b.x) * kk; b.y += (b.hy - b.y) * kk;
+          b.f = Math.max(.75, Math.min(1.3, .7 + (b.y - hY) / (H - hY) * .7));
+        } else if (b.st === 'sit') {
           var p = bfPos(b, zoom); b.x = p.x; b.y = p.y; b.f = p.f;
           if (!still && ts > b.until && mode !== 'flying') { bfTakeOff(b, ts, false); }
         } else if (!still) {
@@ -775,7 +816,7 @@
           }
           var dx = tx - b.x, dy = ty - b.y, d = Math.sqrt(dx * dx + dy * dy) || 1, sp = b.st === 'land' ? Math.min(110, 40 + d * 1.2) : 75;
           if (b.st === 'land' && d < 5) {
-            b.st = 'sit'; b.on = b.tgt; b.g = b.tgt ? null : b.gt; b.tgt = null; b.hd = (Math.random() - .5) * 1.1;
+            b.st = 'sit'; b.on = b.tgt; b.g = b.tgt ? null : b.gt; b.tgt = null; b.hd = (Math.random() - .5) * 1.1; b.side = b.vx > 0 ? -1 : 1;
             b.until = ts + (b.on ? 12000 : 20000) + Math.random() * 35000; continue;
           }
           var wob = b.st === 'land' && d < 40 ? .3 : 1;
@@ -785,12 +826,24 @@
           b.f = Math.max(.75, Math.min(1.3, .7 + (b.y - hY) / (H - hY) * .7));
         }
         if (!still) b.seed += (b.seedTo - b.seed) * Math.min(1, dt * .5);
-        // крылья: сидит — медленно раскрывает и складывает, летит — машет
-        var sit = b.st === 'sit', target = sit ? .35 + .65 * Math.pow(.5 + .5 * Math.sin(t * .9 + b.ph), 1.6) : .2 + .8 * Math.abs(Math.cos(t * 13 + b.ph));
+        // крылья: сидит — полусложены, медленно чуть раскрываются; летит — машет; в руке — часто трепещет
+        var sit = b.st === 'sit', held = b.st === 'held';
+        var target = sit ? Math.pow(.5 + .5 * Math.sin(t * .9 + b.ph), 1.6) : .2 + .8 * Math.abs(Math.cos(t * (held ? 24 : 13) + b.ph));
         if (!still) b.open = sit ? b.open + (target - b.open) * Math.min(1, dt * 4) : target;
-        var s = bfSize(b.f || 1) * b.s, hd = sit ? b.hd : Math.max(-.6, Math.min(.6, b.vx / 150));
-        if (sit && !b.on) { ctx.save(); ctx.translate(b.x + s * .3, b.y + s * .5); ctx.scale(1, .32); ctx.fillStyle = 'rgba(20,30,16,.22)'; ctx.beginPath(); ctx.arc(0, 0, s * 1.3 * (.5 + .5 * b.open), 0, 6.283); ctx.fill(); ctx.restore(); }
-        bfDraw(ctx, b, s, hd, b.open, t, tint);
+        var s = bfSize(b.f || 1) * b.s, hd = sit ? b.hd * .4 : Math.max(-.6, Math.min(.6, b.vx / 150));
+        if (held) {
+          var hg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, s * 4); hg.addColorStop(0, 'rgba(255,244,210,.8)'); hg.addColorStop(.35, 'rgba(255,236,190,.35)'); hg.addColorStop(1, 'rgba(255,240,200,0)');
+          ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(b.x, b.y, s * 4, 0, 6.283); ctx.fill();
+        }
+        // вдали — меньше и в дымке
+        ctx.globalAlpha = held ? 1 : Math.max(.6, Math.min(1, .45 + .5 * (b.f || 1)));
+        if (sit) {
+          // тень на траве или на цветке — еле заметная, сбоку снизу
+          ctx.save(); ctx.translate(b.x + s * .25, b.y + s * (b.on ? .12 : .08)); ctx.scale(1, .28);
+          ctx.fillStyle = 'rgba(20,30,16,' + (b.on ? .14 : .24) + ')'; ctx.beginPath(); ctx.arc(0, 0, s * .95, 0, 6.283); ctx.fill(); ctx.restore();
+          bfSide(ctx, b, s, hd, b.open, t, tint);
+        } else bfDraw(ctx, b, s, hd, b.open, t, tint);
+        ctx.globalAlpha = 1;
       }
     }
     // форма крыла (правое; левое — зеркально). Единица — длина переднего крыла.
@@ -876,6 +929,31 @@
       for (sd = -1; sd <= 1; sd += 2) { ctx.beginPath(); ctx.moveTo(sd * .02, -.32); ctx.quadraticCurveTo(sd * .08, -.6, sd * .2, -.7); ctx.stroke(); disc(ctx, sd * .2, -.7, .035, ctx.strokeStyle); }
       ctx.restore();
     }
+    // сидящая бабочка — сбоку: тельце лежит, крылья подняты и полусложены «домиком» (её слово 22.10: не «на экране», а на траве)
+    function bfSide(ctx, b, s, hd, open, t, tint) {
+      var m = .5 + .5 * Math.sin(t * .35 + b.ph), k = b.k, sd = b.side || 1, v = .1 + .32 * open;
+      ctx.save(); ctx.translate(b.x, b.y); ctx.scale(sd, 1); ctx.rotate(hd); ctx.scale(s * 1.1, s * 1.1); ctx.rotate(-Math.PI / 2);
+      // дальние крылья — чуть темнее и отклонены назад, ближние — вперёд
+      [[-v, .62, 'rgba(20,24,20,.28)'], [v * .4, 1, null]].forEach(function (w) {
+        ctx.save(); ctx.translate(0, .08); ctx.rotate(w[0]); ctx.scale(w[1] * (.9 + .1 * open), 1);
+        [false, true].forEach(function (fore) {
+          ctx.save(); if (fore) wingFore(ctx, k); else wingHind(ctx, k); ctx.clip();
+          wingPattern(ctx, k, fore, m, b.seed, .5);
+          if (w[2]) { ctx.fillStyle = w[2]; ctx.fillRect(-.2, -1.2, 1.5, 2.2); }
+          if (tint) { ctx.fillStyle = tint; ctx.fillRect(-.2, -1.2, 1.5, 2.2); }
+          ctx.restore();
+          ctx.lineWidth = .06; ctx.strokeStyle = k === 'golubyanka' ? 'rgba(255,255,255,.7)' : 'rgba(30,20,20,.45)';
+          if (fore) wingFore(ctx, k); else wingHind(ctx, k); ctx.stroke();
+        });
+        ctx.restore();
+      });
+      // тельце вдоль земли, голова и усики вперёд-вверх
+      ctx.fillStyle = k === 'kapustnica' || k === 'limonnica' ? 'rgba(70,64,56,.95)' : 'rgba(34,26,24,.95)';
+      ctx.beginPath(); ctx.ellipse(0, .12, .07, .38, 0, 0, 6.283); ctx.fill(); disc(ctx, 0, -.28, .08, ctx.fillStyle);
+      ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = .035;
+      [.16, .3].forEach(function (u) { ctx.beginPath(); ctx.moveTo(.03, -.33); ctx.quadraticCurveTo(u * .5, -.6, u, -.72); ctx.stroke(); disc(ctx, u, -.72, .04, ctx.strokeStyle); });
+      ctx.restore();
+    }
     // кустик травы у корня каждого цветка — цветок растёт из травы
     function drawRoots(t, w, zoom) {
       gf.lineCap = 'round';
@@ -929,7 +1007,12 @@
         var X = R * sn + sway * R * .15, Z = R * cs;
         var lift2 = card && SP.wave !== false ? ch * .12 * Math.sin(3 * a - now * .7) : 0;
         var p = proj(X, card ? (hc + lift2) * zoom : 0, Z), gp = proj(X, 0, Z);
-        var d = (cs + 1) / 2, s = p.f * zoom, op = .5 + .5 * d;
+        var d = (cs + 1) / 2, s = p.f * zoom, op = .5 + .5 * d, sink = 0;
+        // сад слоями: цветок посажен «в ямку» — основание чуть ниже земли (низ стебля растворяется в мох, CSS),
+        // задние чуть меньше и в лёгкой дымке, но не прозрачные (иначе «висят в воздухе»)
+        if (LY && !card && !c.flying) { s *= .86 + .14 * d; op = .88 + .12 * d; sink = c.h * s * .06; p.y += sink;
+          var hz = Math.round((1 - d) * 20) / 20;
+          if (c.hz !== hz) { c.hz = hz; c.el.style.filter = hz ? 'saturate(' + (1 - .3 * hz) + ') contrast(' + (1 - .18 * hz) + ') brightness(' + (1 + .08 * hz) + ') blur(' + (.7 * hz).toFixed(2) + 'px)' : ''; } }
         var turn = card ? Math.asin(sn) * 180 / Math.PI * .85 : 0;
         // живой цветок медленно покачивается от основания стебля: своё качание (~10 и ~23 с) + волна ветра идёт по саду
         var rot = still ? 0 : card ? w * (2 + 1.6 * Math.sin(wp * 1.2 + c.ph)) + Math.sin(now * .9 + c.ph) * 1.2
@@ -937,7 +1020,7 @@
         var front = showFront && i === fi && d > .9 && !fly;
         if (focus && c !== focus) op *= .22;
         var z = Math.round(50 + Z / R * 45);
-        if (c.flying) { var r = flyPos(c, ts); p = { x: r.x, y: r.y }; s = r.s; op = r.op; rot = 0; turn = turn * (1 - r.e); z = 170; }
+        if (c.flying) { if (c.hz) { c.hz = 0; c.el.style.filter = ''; } var r = flyPos(c, ts); p = { x: r.x, y: r.y }; s = r.s; op = r.op; rot = 0; turn = turn * (1 - r.e); z = 170; }
         else if (c === focus) z = 99;
         if (front) s *= 1.1;
         c.x = p.x; c.y = p.y; c.gx = gp.x; c.gy = gp.y; c.f = p.f || 1; c.d = d; c.op = op;
@@ -1010,6 +1093,8 @@
 
     /* ---------- хоровод пальцем: туда-сюда, по инерции докатывается и встаёт цветком впереди ---------- */
     function canDrag() { return !fly && !spin && mode !== 'flying' && mode !== 'own' && mode !== 'name'; }
+    // где хоровод встаёт: перед светом — просвет между двумя цветами (её просьба 22.10: шарик видно), «Наугад» — цветком вперёд
+    function rest(b, d) { var o = mode === 'random' ? 0 : STEP / 2; return (Math.round((b - o) / STEP + (d || 0)) * STEP) + o; }
     function snapTo(b, spun) {
       snap = { from: base, to: b, t0: performance.now(), T: 520, done: function () {
         if (mode === 'random' && spun) { var c = els[frontIdx()]; if (c && !c.gone) { randomSpin = false; openBud(c); } }
@@ -1021,7 +1106,12 @@
     scene.addEventListener('pointerdown', function (e) {
       if (e.button > 0 || e.target.closest('#uz-tap')) return;
       var pt = scenePt(e), hb = SP.moths === false ? null : bfHit(pt.x, pt.y);
-      if (hb) { bTap = { id: e.pointerId, b: hb, x: pt.x, y: pt.y }; return; }
+      if (hb) {
+        bTap = { id: e.pointerId, b: hb, x: pt.x, y: pt.y, grab: false };
+        bTap.tm = setTimeout(function () { if (bTap && bTap.b === hb && !bTap.grab) { bTap.grab = true; bfGrab(hb, bTap.lx || pt.x, bTap.ly || pt.y); } }, 280);
+        try { scene.setPointerCapture(e.pointerId); } catch (x) {}
+        return;
+      }
       if (!canDrag()) return;
       var t = e.target.closest && e.target.closest('.uz-el');
       drag = { id: e.pointerId, x0: e.clientX, b0: base, lx: e.clientX, lt: performance.now(), v: 0, moved: false, el: t };
@@ -1029,6 +1119,16 @@
       try { scene.setPointerCapture(e.pointerId); } catch (x) {}
     });
     scene.addEventListener('pointermove', function (e) {
+      if (bTap && e.pointerId === bTap.id) {
+        var q = scenePt(e); bTap.lx = q.x; bTap.ly = q.y;
+        if (!bTap.grab && Math.abs(q.x - bTap.x) + Math.abs(q.y - bTap.y) > 10) { bTap.grab = true; bfGrab(bTap.b, q.x, q.y); }
+        if (bTap.grab) {
+          var hb = bTap.b; hb.hx = q.x; hb.hy = q.y - (phone ? 34 : 18);
+          var pc = bfPerchAt(hb.hx, hb.hy);
+          if (pc !== bfPerch) { if (bfPerch) bfPerch.el.classList.remove('is-perch'); bfPerch = pc; if (pc) pc.el.classList.add('is-perch'); }
+        }
+        return;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       var dx = e.clientX - drag.x0;
       if (!drag.moved && Math.abs(dx) > 6) { drag.moved = true; touched = true; hint(''); }
@@ -1040,25 +1140,27 @@
     });
     function dragEnd(e) {
       if (bTap && e.pointerId === bTap.id) {
-        var bt = bTap, pt = scenePt(e); bTap = null;
-        if (e.type === 'pointerup' && Math.abs(pt.x - bt.x) + Math.abs(pt.y - bt.y) < 24) bfTap(bt.b, pt.x, pt.y);
+        var bt = bTap, pt = scenePt(e); bTap = null; clearTimeout(bt.tm);
+        if (bfPerch) { bfPerch.el.classList.remove('is-perch'); bfPerch = null; }
+        if (bt.grab) { bfDrop(bt.b); return; }
+        if (e.type === 'pointerup') { bfTap(bt.b, pt.x, pt.y); bfHintOnce(); }
         return;
       }
       if (!drag || e.pointerId !== drag.id) return;
       var d = drag; drag = null;
       if (!d.moved) {
         if (d.el && mode === 'choose') { var c = els.filter(function (x) { return x.el === d.el; })[0]; if (c) pickEl(c); }
-        else if (!d.el || mode !== 'choose') { if (!coast && !snap) snapTo(Math.round(base / STEP) * STEP); }
+        else if (!d.el || mode !== 'choose') { if (!coast && !snap) snapTo(rest(base)); }
         return;
       }
       var v = performance.now() - d.lt > 90 ? 0 : d.v;
       v = Math.max(-14, Math.min(14, v));
       if (mode === 'random') {
-        if (Math.abs(v) < 2.2) { snapTo(Math.round(base / STEP) * STEP); hint(T('spinMore', 'Раскрути посильнее — или коснись света.')); return; }
+        if (Math.abs(v) < 2.2) { snapTo(rest(base)); hint(T('spinMore', 'Раскрути посильнее — или коснись света.')); return; }
         coast = { v: v, fr: 1.2 + Math.random() * .7, spun: true }; randomSpin = true; sheet('sh-wait'); $('#waitText').textContent = T('waitSpin', 'Хоровод замедляется…');
         return;
       }
-      if (Math.abs(v) < .5) snapTo(Math.round(base / STEP) * STEP); else coast = { v: v, fr: 2.6 };
+      if (Math.abs(v) < .5) snapTo(rest(base)); else coast = { v: v, fr: 2.6 };
     }
     scene.addEventListener('pointerup', dragEnd);
     scene.addEventListener('pointercancel', dragEnd);
@@ -1069,7 +1171,7 @@
       if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && canDrag() && (mode === 'idle' || mode === 'choose' || mode === 'random' || mode === 'done' || mode === 'q')) {
         e.preventDefault(); touched = true; coast = null;
-        snapTo((Math.round((snap ? snap.to : base) / STEP) + (e.key === 'ArrowRight' ? 1 : -1)) * STEP);
+        snapTo(rest(snap ? snap.to : base, e.key === 'ArrowRight' ? 1 : -1));
       } else if (e.key === 'Enter' && mode === 'choose' && document.activeElement === document.body) { var c = els[frontIdx()]; if (c) pickEl(c); }
     });
     els.forEach(function (c) { c.el.addEventListener('keydown', function (e) { if (mode === 'choose' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickEl(c); } }); });
@@ -1162,6 +1264,13 @@
       ghint.textContent = txt;
       setTimeout(function () { if (mode !== 'idle') return; ghint.classList.add('is-on'); ghintT = setTimeout(hideGardenHint, 8000); }, 2600);
     })();
+    // после первого касания бабочки — один раз подсказка, что её можно взять и пересадить
+    var bfHinted = false;
+    function bfHintOnce() {
+      var txt = T('bflyHint', 'Бабочку можно взять и пересадить на цветок — нажми и держи.');
+      if (bfHinted || bfGrabbed || txt === '-') return; bfHinted = true;
+      setTimeout(function () { if (bfGrabbed) return; ghint.textContent = txt; ghint.classList.add('is-on'); clearTimeout(ghintT); ghintT = setTimeout(hideGardenHint, 6000); }, 900);
+    }
     function setStill(v) { still = v; $('#uz-still').textContent = v ? T('move', 'Включить движение') : T('still', 'Остановить движение'); }
     $('#uz-still').addEventListener('click', function () { setStill(!still); });
 
@@ -1418,7 +1527,8 @@
 
     // для проверки (Playwright) и панели
     window.M13U = { state: function () { return { mode: mode, front: (els[frontIdx()] || {}).fl, merged: merged && (merged.own || merged.fl.id), q: Q.i, A: A }; },
-      result: function () { return RES || buildResult(A); }, text: selfText, guide: guideText };
+      result: function () { return RES || buildResult(A); }, text: selfText, guide: guideText,
+      bflies: function () { return bflies.map(function (b) { return { k: b.k, st: b.st, x: b.x, y: b.y, on: b.on ? (b.on.fl || {}).id : null }; }); } };
 
     lite = (navigator.hardwareConcurrency || 8) <= 4;
     layout(); window.addEventListener('resize', layout);
