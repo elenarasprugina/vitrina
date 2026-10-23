@@ -240,7 +240,8 @@
       return { el: n, fl: own ? null : f, own: own || '', v: v, x: 0, y: 0, gx: 0, gy: 0, hx: 0, hy: 0, f: 1, d: 0, op: 1, gone: false, ph: Math.random() * 6.28, w: 0, h: 0 };
     }
     function sizeEl(c) {
-      if (c.v === 'card') { c.w = cw; c.h = ch; } else { c.w = cw * 1.3 * size; c.h = ch * 1.25 * size; }
+      c.k = c.v === 'card' || !c.fl ? 1 : Math.max(.6, Math.min(1.8, (+c.fl.tall || 100) / 100));
+      if (c.v === 'card') { c.w = cw; c.h = ch; } else { c.w = cw * 1.3 * size; c.h = ch * 1.25 * size * c.k; }
       var s = c.el.style; s.width = c.w + 'px'; s.height = c.h + 'px'; s.left = (-c.w / 2) + 'px';
       s.top = (c.v === 'card' || c.flying ? -c.h / 2 : -c.h) + 'px'; s.transformOrigin = c.v === 'card' || c.flying ? '50% 50%' : '50% 100%';
       var nm = c.el.querySelector('.uz-nm'); if (nm) nm.style.fontSize = Math.max(10, cw * (c.v === 'card' ? .19 : .24)) + 'px';
@@ -264,7 +265,24 @@
       grass = []; var n = Math.round(W / 6), i;
       for (i = 0; i < n; i++) grass.push({ x: i * W / n + Math.random() * 4, h: (26 + Math.random() * 60) * (phone ? .8 : 1), w: 2 + Math.random() * 2.5, ph: Math.random() * 6.28, c: Math.random() });
       stars = []; for (i = 0; i < Math.round(W * H / 9000); i++) stars.push({ x: Math.random() * W, y: Math.random() * H * .42, r: Math.random() * 1.1 + .2, ph: Math.random() * 6.28 });
-      seedAir(); seedLife(); geo();
+      seedAir(); seedLife(); geo(); ringWarp();
+    }
+    // хоровод в саду слоями (её слово 23.10: «в кучке», роза и лилия слиплись, линия ломается): чуть овалом в ширину,
+    // и цветы стоят так, что НА ЭКРАНЕ промежутки между ними примерно равны (по бокам круг сжат перспективой)
+    var warpT = null;
+    function ovalX() { return LY ? Math.max(1, Math.min(1.2, (phone ? W * .46 : W * .44) / (R || 1))) : 1; }
+    function ringWarp() {
+      if (!LY) { warpT = null; return; }
+      // промежуток в ширину важнее: цветы высокие, вверх-вниз они друг друга не разводят
+      var n = 360, i, len = [0], ov = ovalX(), prev = proj(0, 0, R), q;
+      for (i = 1; i <= n; i++) { var a = i / n * 6.2832; q = proj(R * ov * Math.sin(a), 0, R * Math.cos(a)); len.push(len[i - 1] + Math.sqrt((q.x - prev.x) * (q.x - prev.x) + .2 * (q.y - prev.y) * (q.y - prev.y))); prev = q; }
+      warpT = []; var tot = len[n], j = 0;
+      for (i = 0; i <= n; i++) { var want = i / n * tot; while (j < n && len[j + 1] < want) j++; var u = (want - len[j]) / ((len[j + 1] - len[j]) || 1); warpT.push((j + u) / n * 6.2832); }
+    }
+    function ringA(a) {
+      if (!warpT) return a;
+      var t2 = 6.2832, k = Math.floor(a / t2), r = a - k * t2, x = r / t2 * 360, i = Math.min(359, Math.floor(x)), w2 = warpT[i] + (warpT[i + 1] - warpT[i]) * (x - i);
+      return k * t2 + r + (w2 - r) * .8;
     }
     // Сцена поднимается и чуть уменьшается на вопросах и в итоге — чтобы цветок в центре был виден над стеклом
     function geo() {
@@ -283,7 +301,7 @@
     }
     function newPetal(any) {
       var f = FL[Math.floor(Math.random() * FL.length)] || {};
-      return { x: any ? Math.random() * W : -20, y: any ? Math.random() * H : Math.random() * H * .8, s: 3 + Math.random() * 3.5, a: Math.random() * 6.28, va: (Math.random() - .5) * 2, v: .4 + Math.random() * .6, c: f.col || '#f2c9a0', front: Math.random() < .35 };
+      return { x: any ? Math.random() * W : wdir() > 0 ? -20 : W + 20, y: any ? Math.random() * H : Math.random() * H * .8, s: 3 + Math.random() * 3.5, a: Math.random() * 6.28, va: (Math.random() - .5) * 2, v: .4 + Math.random() * .6, c: f.col || '#f2c9a0', front: Math.random() < .35 };
     }
     // Живой сад: поляна до горизонта (кустики травы в перспективе), лес вдали, туман, светлячки, мотыльки
     function trees(n, lo, hi) {
@@ -306,9 +324,11 @@
       tufts.sort(function (a, b) { return a.Z - b.Z; });
       var tn = Math.round(W / 7);
       treesFar = trees(tn, 6, phone ? 22 : 30); treesNear = trees(tn, 2, phone ? 16 : 22);
-      mists = []; for (i = 0; i < 5; i++) mists.push({ x: Math.random() * W, w: W * (.25 + Math.random() * .3), v: (Math.random() < .5 ? -1 : 1) * (4 + Math.random() * 6), a: .5 + Math.random() * .5 });
+      mists = []; for (i = 0; i < 5; i++) mists.push({ x: Math.random() * W, w: W * (.25 + Math.random() * .3), v: wdir() * (Math.random() < .25 ? .4 : 1) * (4 + Math.random() * 6), a: .5 + Math.random() * .5 });
       flies = []; for (i = 0; i < Math.round((phone ? 12 : 20) * k); i++) flies.push({ X: (Math.random() * 2 - 1) * 2, Z: -2.4 + Math.random() * 3.4, y: .15 + Math.random() * .9, dir: Math.random() * 6.28, v: .05 + Math.random() * .08, ph: Math.random() * 6.28, bl: .5 + Math.random() * .9 });
     }
+    // откуда дует ветер (её слово 23.10): с востока — справа налево (север вверху, восток справа); 'west' — слева направо
+    function wdir() { return SP.windFrom === 'west' ? 1 : -1; }
     function wind(t) { var lv = WINDS[SP.wind] != null ? WINDS[SP.wind] : 1, gust = Math.max(0, Math.sin(t * .23) * Math.sin(t * .61 + 1.3)); return lv * (.55 + .3 * Math.sin(t * .37) + .6 * gust); }
     function breathVal(t) {
       if (SP.breath !== 'soft') { var p = t % 10; return p < 4 ? .5 - .5 * Math.cos(Math.PI * p / 4) : .5 + .5 * Math.cos(Math.PI * (p - 4) / 6); }   // вдох 4 с, выдох 6 с
@@ -411,7 +431,7 @@
         var dep = Math.min(1, Math.max(0, (tp.y - hY) / (H - hY) * 2.2));
         var rr = Math.round(46 + 120 * warm + tf.c * 14), gg = Math.round(74 + 80 * warm + tf.c * 18), bb = Math.round(78 + 30 * warm);
         g.strokeStyle = 'rgba(' + rr + ',' + gg + ',' + bb + ',' + (.25 + .5 * dep).toFixed(2) + ')'; g.lineWidth = Math.max(.6, 1.3 * ts2);
-        var lean0 = still ? 0 : (w * .12 + .02) * Math.sin(wp * 1.3 + tf.X * 2 + tf.ph);
+        var lean0 = still ? 0 : wdir() * (w * .12 + .02) * (.35 + .65 * Math.sin(wp * 1.3 - wdir() * tf.X * 2 + tf.ph));
         g.beginPath();
         for (var b2 = 0; b2 < tf.n; b2++) {
           var off = (b2 - (tf.n - 1) / 2) * 2.2 * ts2, hh = tf.h * ts2 * (.7 + .3 * ((b2 * 7 + tf.c * 10) % 3) / 2), ang = lean0 + (b2 - (tf.n - 1) / 2) * .22;
@@ -457,9 +477,9 @@
         c = els[i]; if (c.gone || c.flying) continue;
         if (LY && lyTime === 'gold') {
           var sl = c.h * c.f * zoom * 1.3;
-          g.save(); g.translate(c.gx, c.gy + 1); g.rotate(.05); g.scale(1, .14);
-          var sg2 = g.createLinearGradient(0, 0, -sl, 0); sg2.addColorStop(0, 'rgba(40,24,40,' + (.42 * c.op) + ')'); sg2.addColorStop(1, 'rgba(40,24,40,0)');
-          g.fillStyle = sg2; g.beginPath(); g.ellipse(-sl / 2, 0, sl / 2, c.w * c.f * zoom * .9, 0, 0, 6.283); g.fill(); g.restore();
+          g.save(); g.translate(c.gx, c.gy + 1); g.rotate(-.05); g.scale(1, .14);
+          var sg2 = g.createLinearGradient(0, 0, sl, 0); sg2.addColorStop(0, 'rgba(40,24,40,' + (.3 * c.op) + ')'); sg2.addColorStop(1, 'rgba(40,24,40,0)');
+          g.fillStyle = sg2; g.beginPath(); g.ellipse(sl / 2, 0, sl / 2, c.w * c.f * zoom * .9, 0, 0, 6.283); g.fill(); g.restore();
           continue;
         }
         if (LY) continue;   // её слово 22.10: тёмное пятно под цветком на фото читается как подставка — цветок «в ямке» без него
@@ -472,7 +492,7 @@
         g.fillStyle = 'rgba(255,230,180,.75)';
         for (i = 0; i < pollen.length; i++) {
           var p = pollen[i];
-          if (!still) { p.y -= p.v * .35; p.x += w * 1.1 + Math.sin(t + p.ph) * .25; if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; } if (p.x > W + 5) p.x = -5; }
+          if (!still) { p.y -= p.v * .35; p.x += wdir() * w * 1.1 + Math.sin(t + p.ph) * .25; if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; } if (p.x > W + 5) p.x = -5; if (p.x < -5) p.x = W + 5; }
           g.globalAlpha = .3 + .4 * (.5 + .5 * Math.sin(t * 2 + p.ph)); g.beginPath(); g.arc(p.x, p.y, p.r * psz, 0, 6.283); g.fill();
         }
         g.globalAlpha = 1;
@@ -516,11 +536,12 @@
         cv.width = w; cv.height = h; x = cv.getContext('2d'); x.drawImage(im, 0, 0, w, h); d = x.getImageData(0, 0, w, h).data;
         function lum(i, j) { k = (j * w + i) * 4; return d[k] * .3 + d[k + 1] * .59 + d[k + 2] * .11; }
         for (j = 1; j < h - 1; j++) for (i = 1; i < w - 1; i++) {
-          l = lum(i, j); if (l < 215) continue;
+          l = lum(i, j); if (l < 215 || j < h * .42) continue;   // её слово 23.10: блики висели в небе — только на земле, ниже кромки леса
           if (l < lum(i - 1, j) || l < lum(i + 1, j) || l < lum(i, j - 1) || l < lum(i, j + 1)) continue;
+          if (i < 3 || j > h - 4 || i > w - 4 || l - Math.max(lum(i - 3, j), lum(i + 3, j), lum(i, j - 3), lum(i, j + 3)) < 30) continue;   // точка, а не светлое пятно
           a.push({ u: i / w, v: j / h, ph: Math.random() * 6.28, sp: .6 + Math.random() * 1.4, r: .6 + Math.random() * .8 });
         }
-        a.sort(function () { return Math.random() - .5; }); glints = a.slice(0, lite ? 40 : 90);
+        a.sort(function () { return Math.random() - .5; }); glints = a.slice(0, lite ? 14 : 26);
       } catch (e) { glints = []; }
     }
     function backRect(zoom) {
@@ -536,9 +557,9 @@
     function lyMood(t, dt) {
       var gr, i;
       if (lyTime === 'gold') {
-        var sx = W * 1.02, sy = H * .16, sr = Math.max(W, H) * .75;
+        var sx = -W * .02, sy = H * .3, sr = Math.max(W, H) * .75;   // солнце садится на западе — слева (её слово 23.10)
         // теневая сторона — дальше от солнца
-        gr = g.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, 'rgba(52,30,60,.34)'); gr.addColorStop(.6, 'rgba(52,30,60,0)');
+        gr = g.createLinearGradient(W, 0, 0, 0); gr.addColorStop(0, 'rgba(52,30,60,.34)'); gr.addColorStop(.6, 'rgba(52,30,60,0)');
         g.fillStyle = gr; g.fillRect(0, 0, W, H);
         g.save(); g.globalCompositeOperation = 'lighter';
         gr = g.createRadialGradient(sx, sy, 0, sx, sy, sr); gr.addColorStop(0, 'rgba(255,226,170,.75)'); gr.addColorStop(.18, 'rgba(255,190,110,.32)'); gr.addColorStop(.55, 'rgba(255,150,80,.08)'); gr.addColorStop(1, 'rgba(255,150,80,0)');
@@ -547,7 +568,7 @@
         // косые лучи от низкого солнца — рассеянные, медленно дышат (её слово 22.10: без резких полос)
         if (SP.rays !== 'off') {
           var rs = [];
-          for (i = 0; i < 4; i++) rs.push({ a: Math.PI * (.79 + i * .06) + Math.sin(t * .07 + i * 1.3) * .02, w: .06 + (i % 2) * .04, al: .07 + .04 * Math.sin(t * .23 + i * 2.1) });
+          for (i = 0; i < 4; i++) rs.push({ a: Math.PI * (.21 - i * .06) + Math.sin(t * .07 + i * 1.3) * .02, w: .06 + (i % 2) * .04, al: .07 + .04 * Math.sin(t * .23 + i * 2.1) });
           softRays(sx, sy, rs, Math.max(W, H) * 1.5, '255,210,145');
         }
       } else if (lyTime === 'blue') {
@@ -580,7 +601,7 @@
         g.fillStyle = sky; g.fillRect(0, 0, W, H);
         if (lyTime === 'night') { g.fillStyle = '#fff'; for (i = 0; i < stars.length; i++) { var s = stars[i]; g.globalAlpha = .25 + .35 * (.5 + .5 * Math.sin(t * .8 + s.ph)); g.beginPath(); g.arc(s.x, s.y, s.r, 0, 6.283); g.fill(); } g.globalAlpha = 1; }
         // солнце (днём — за дымкой, вечером — низко), луна ночью
-        var sx = W * .78, sy = lyTime === 'evening' ? H * .3 : H * .12, sr = Math.max(W, H) * (lyTime === 'night' ? .12 : .32);
+        var sx = lyTime === 'evening' ? W * .22 : W * .78, sy = lyTime === 'evening' ? H * .3 : H * .12, sr = Math.max(W, H) * (lyTime === 'night' ? .12 : .32);
         var sg = g.createRadialGradient(sx, sy, 0, sx, sy, sr);
         sg.addColorStop(0, lyTime === 'night' ? 'rgba(255,244,220,.25)' : lyTime === 'evening' ? 'rgba(255,214,170,.7)' : 'rgba(255,252,240,.85)');
         sg.addColorStop(.12, lyTime === 'night' ? 'rgba(255,244,220,.06)' : 'rgba(255,240,215,.35)'); sg.addColorStop(1, 'rgba(255,240,215,0)');
@@ -613,18 +634,33 @@
         }
       }
       if (SP.mist !== false && !br) haze(Math.min(H * .95, cy + R * sinT * 2.2), .8);
+      if (br && SP.motes !== false) drawMotes(t, dt);
       if (br && glints.length && !still) {
         g.save(); g.globalCompositeOperation = 'lighter';
         for (i = 0; i < glints.length; i++) {
-          var q = glints[i], a = Math.pow(Math.max(0, Math.sin(t * q.sp + q.ph)), 8); if (a < .05) continue;
-          var x = br.x + q.u * br.w, y = br.y + q.v * br.h, r = (phone ? 5 : 7) * q.r * (.6 + .4 * a);
-          g.strokeStyle = 'rgba(255,250,235,' + (.8 * a) + ')'; g.lineWidth = 1;
-          g.beginPath(); g.moveTo(x - r, y); g.lineTo(x + r, y); g.moveTo(x, y - r); g.lineTo(x, y + r); g.stroke();
-          var rg = g.createRadialGradient(x, y, 0, x, y, r * .7); rg.addColorStop(0, 'rgba(255,252,240,' + a + ')'); rg.addColorStop(1, 'rgba(255,252,240,0)');
-          g.fillStyle = rg; g.beginPath(); g.arc(x, y, r * .7, 0, 6.283); g.fill();
+          // редкая тихая вспышка точкой (её слово 23.10: без растущего крестика-«мишени»)
+          var q = glints[i], a = Math.pow(Math.max(0, Math.sin(t * q.sp * .5 + q.ph)), 24); if (a < .05) continue;
+          var x = br.x + q.u * br.w, y = br.y + q.v * br.h; if (y < hY + H * .06) continue;
+          g.fillStyle = 'rgba(255,252,240,' + (.9 * a).toFixed(3) + ')'; g.beginPath(); g.arc(x, y, (phone ? .9 : 1.1) * q.r, 0, 6.283); g.fill();
+          g.fillStyle = 'rgba(255,246,220,' + (.25 * a).toFixed(3) + ')'; g.beginPath(); g.arc(x, y, (phone ? 2.4 : 3) * q.r, 0, 6.283); g.fill();
         }
         g.restore();
       }
+    }
+    // частички света (её слово 23.10): мельчайшие золотые пылинки в полосе тумана у кромки леса, немного; плывут по ветру, чуть мерцают
+    var motes = [];
+    function drawMotes(t, dt) {
+      var n = phone || lite ? 16 : 28, i, y0 = H * .2, y1 = Math.max(H * .3, hY + H * .14);
+      while (motes.length < n) motes.push({ x: Math.random() * W, y: y0 + Math.random() * (y1 - y0), v: 3 + Math.random() * 6, ph: Math.random() * 6.28, r: .5 + Math.random() * .7 });
+      var dark = lyTime === 'night' || lyTime === 'lights' || lyTime === 'blue';
+      g.save(); g.globalCompositeOperation = 'lighter';
+      for (i = 0; i < motes.length; i++) {
+        var m = motes[i];
+        if (!still) { m.x += wdir() * m.v * dt; m.y += Math.sin(t * .5 + m.ph) * 2 * dt; if (m.x < -4) m.x = W + 4; if (m.x > W + 4) m.x = -4; }
+        var a = (.35 + .45 * (.5 + .5 * Math.sin(t * (.8 + m.r) + m.ph))) * (dark ? .7 : 1);
+        g.fillStyle = 'rgba(255,214,140,' + a.toFixed(3) + ')'; g.beginPath(); g.arc(m.x, m.y, m.r * (phone ? .8 : 1), 0, 6.283); g.fill();
+      }
+      g.restore();
     }
     // лучи рассеянные (её слово 22.10: «прорезанные» полосы не выглядят настоящими): рисуются на маленьком холсте
     // и растягиваются на экран — края сами размываются. Выключатель — space.rays: 'off'
@@ -717,21 +753,23 @@
     function bfSpot() {
       var sh = document.querySelector('.uz-sheet:not([hidden])'), top = H, sr = scene.getBoundingClientRect(), k, X, Z, p;
       if (sh) { var r = sh.getBoundingClientRect(); if (r.height) top = r.top - sr.top - 14; }
+      var near = LY && Math.random() < .6;   // сад слоями: чаще — на мху и кочках впереди (её слово 23.10)
       for (k = 0; k < 40; k++) {
-        X = (Math.random() * 2 - 1) * 1.5; Z = -1.3 + Math.random() * 2.6;
+        X = (Math.random() * 2 - 1) * (near ? 1.9 : 1.5); Z = near ? 1.1 + Math.random() * 1.3 : -1.3 + Math.random() * 2.6;
         if (X * X + Z * Z < .2) continue;
         p = proj(X * R, 0, Z * R);
         if (p.x > 24 && p.x < W - 24 && p.y > hY + 16 && p.y < top) return { X: X, Z: Z };
       }
       return { X: .9, Z: .2 };
     }
-    function bfFree() { return els.filter(function (x) { return !x.gone && !x.flying && x.v !== 'card' && x.op > .45; }); }
+    // садятся только на цветы переднего полукруга: бабочки рисуются поверх цветов, на заднем цветке она «висела» бы перед ближними (её слово 23.10 про перспективу)
+    function bfFree() { return focus || fly ? [] : els.filter(function (x) { return !x.gone && !x.flying && x.v !== 'card' && x.op > .45 && (!LY || x.d > .42); }); }   // выбрали цветок — на цветы не садятся
     function seedBflies() {
       if (bflies.length || SP.moths === false) return;
       var kinds = bfKinds(), n = Math.min(kinds.length, phone ? 4 : 5), i, fl = bfFree();
       kinds = kinds.slice().sort(function () { return Math.random() - .5; });
       for (i = 0; i < n; i++) {
-        var b = { k: kinds[i], st: 'sit', on: null, g: null, x: W / 2, y: H / 2, vx: 0, vy: 0, ph: Math.random() * 6.28, s: .85 + Math.random() * .3,
+        var b = { k: kinds[i], st: 'sit', on: null, g: null, x: W / 2, y: H / 2, f: 1, vx: 0, vy: 0, ph: Math.random() * 6.28, s: .85 + Math.random() * .3,
           side: Math.random() < .5 ? -1 : 1, hd: (Math.random() - .5) * 1.1, until: performance.now() + 15000 + Math.random() * 40000, open: .8, seed: Math.random(), seedTo: 0, tx: 0, ty: 0, next: 0 };
         b.seedTo = b.seed;
         if (i < 2 && fl.length) b.on = fl.splice(Math.floor(Math.random() * fl.length), 1)[0]; else b.g = bfSpot();
@@ -742,7 +780,9 @@
       if (b.on) return { x: b.on.hx, y: b.on.hy - 2, f: b.on.f * zoom };
       var p = proj(b.g.X * R, 0, b.g.Z * R); return { x: p.x, y: p.y, f: p.f * zoom };
     }
-    function bfSize(f) { return (phone ? 12 : 15) * Math.max(.75, Math.min(1.35, f)); }
+    // летящая: чем выше на экране (ближе к горизонту), тем дальше и меньше
+    function bfDepth(y) { var u = (y - hY) / (H - hY); return LY ? Math.max(.5, Math.min(1.3, .5 + u * .9)) : Math.max(.75, Math.min(1.3, .7 + u * .7)); }
+    function bfSize(f) { return LY ? (phone ? 9 : 11) * Math.max(.4, Math.min(1.3, f)) : (phone ? 12 : 15) * Math.max(.75, Math.min(1.35, f)); }   // сад слоями: мельче, вдали заметно меньше (её слово 23.10)
     function bfTakeOff(b, ts, free) {
       b.st = 'fly'; b.on = null; b.g = null; b.vy = -90; b.vx = (Math.random() - .5) * 80; b.next = 0;
       b.until = ts + (free ? 9000 + Math.random() * 8000 : 1500 + Math.random() * 1500);
@@ -793,37 +833,37 @@
       var tint = LY ? BF_TINT[lyTime] : 'rgba(20,24,60,.42)';
       for (var i = 0; i < bflies.length; i++) {
         var b = bflies[i];
-        if (b.on && (b.on.gone || b.on.flying || fly && b.on === fly)) bfTakeOff(b, ts, false);
+        if (b.on && (b.on.gone || b.on.flying || fly || focus)) bfTakeOff(b, ts, false);   // выбрали цветок — бабочки с цветов вспархивают
         if (b.st === 'held') {
           // в руке: летит за пальцем (чуть выше него — чтобы палец не закрывал)
           var kk = Math.min(1, dt * 14); b.x += (b.hx - b.x) * kk; b.y += (b.hy - b.y) * kk;
-          b.f = Math.max(.75, Math.min(1.3, .7 + (b.y - hY) / (H - hY) * .7));
+          b.f = LY ? b.f + (bfDepth(b.y) - b.f) * Math.min(1, dt * 3) : bfDepth(b.y);
         } else if (b.st === 'sit') {
-          var p = bfPos(b, zoom); b.x = p.x; b.y = p.y; b.f = p.f;
+          var p = bfPos(b, zoom); b.x = p.x; b.y = p.y; b.f = LY ? b.f + (bfDepth(p.y) - b.f) * Math.min(1, dt * 3) : p.f;
           if (!still && ts > b.until && mode !== 'flying') { bfTakeOff(b, ts, false); }
         } else if (!still) {
           var tx, ty;
           if (b.st === 'fly') {
-            if (ts > b.until) { var fl = bfFree(); bfLand(b, fl.length && Math.random() < .5 && mode !== 'q' ? fl[Math.floor(Math.random() * fl.length)] : null); }
+            if (ts > b.until) { var fl = bfFree(); bfLand(b, fl.length && Math.random() < (LY ? .35 : .5) && mode !== 'q' ? fl[Math.floor(Math.random() * fl.length)] : null); }
             else {
               if (ts > b.next) { b.tx = W * (.1 + Math.random() * .8); b.ty = Math.max(hY - 20, 50) + Math.random() * H * .45; b.next = ts + 1800 + Math.random() * 2500; }
               tx = b.tx; ty = b.ty;
             }
           }
           if (b.st === 'land') {
-            if (b.tgt && (b.tgt.gone || b.tgt.flying)) { b.tgt = null; b.gt = bfSpot(); }
+            if (b.tgt && (b.tgt.gone || b.tgt.flying || focus || fly)) { b.tgt = null; b.gt = bfSpot(); }
             var q = b.tgt ? { x: b.tgt.hx, y: b.tgt.hy - 2 } : proj(b.gt.X * R, 0, b.gt.Z * R); tx = q.x; ty = q.y;
           }
           var dx = tx - b.x, dy = ty - b.y, d = Math.sqrt(dx * dx + dy * dy) || 1, sp = b.st === 'land' ? Math.min(110, 40 + d * 1.2) : 75;
           if (b.st === 'land' && d < 5) {
             b.st = 'sit'; b.on = b.tgt; b.g = b.tgt ? null : b.gt; b.tgt = null; b.hd = (Math.random() - .5) * 1.1; b.side = b.vx > 0 ? -1 : 1;
-            b.until = ts + (b.on ? 12000 : 20000) + Math.random() * 35000; continue;
+            b.until = ts + (b.on ? 12000 : LY ? 30000 : 20000) + Math.random() * (LY && !b.on ? 50000 : 35000); continue;
           }
           var wob = b.st === 'land' && d < 40 ? .3 : 1;
           b.vx += (dx / d * sp - b.vx) * dt * 2.2 + Math.sin(t * 3.3 + b.ph) * 46 * dt * wob;
           b.vy += (dy / d * sp - b.vy) * dt * 2.2 + Math.cos(t * 2.5 + b.ph) * 60 * dt * wob;
           b.x += b.vx * dt; b.y += b.vy * dt;
-          b.f = Math.max(.75, Math.min(1.3, .7 + (b.y - hY) / (H - hY) * .7));
+          b.f = LY ? b.f + (bfDepth(b.y) - b.f) * Math.min(1, dt * 3) : bfDepth(b.y);
         }
         if (!still) b.seed += (b.seedTo - b.seed) * Math.min(1, dt * .5);
         // крылья: сидит — полусложены, медленно чуть раскрываются; летит — машет; в руке — часто трепещет
@@ -835,8 +875,8 @@
           var hg = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, s * 4); hg.addColorStop(0, 'rgba(255,244,210,.8)'); hg.addColorStop(.35, 'rgba(255,236,190,.35)'); hg.addColorStop(1, 'rgba(255,240,200,0)');
           ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(b.x, b.y, s * 4, 0, 6.283); ctx.fill();
         }
-        // вдали — меньше и в дымке
-        ctx.globalAlpha = held ? 1 : Math.max(.6, Math.min(1, .45 + .5 * (b.f || 1)));
+        // вдали — меньше и в дымке (сад слоями — без дымки, как и цветы)
+        ctx.globalAlpha = held || LY ? 1 : Math.max(.6, Math.min(1, .45 + .5 * (b.f || 1)));
         if (sit) {
           // тень на траве или на цветке — еле заметная, сбоку снизу
           ctx.save(); ctx.translate(b.x + s * .25, b.y + s * (b.on ? .12 : .08)); ctx.scale(1, .28);
@@ -959,7 +999,7 @@
       gf.lineCap = 'round';
       for (var i = 0; i < els.length; i++) {
         var c = els[i]; if (c.gone || c.flying || c.v === 'card') continue;
-        var s = c.f * zoom * size, n = 7, hh = ch * .26 * s, lean = still ? 0 : (w * .1 + .02) * Math.sin(t * 1.4 + c.ph);
+        var s = c.f * zoom * size, n = 7, hh = ch * .26 * s, lean = still ? 0 : wdir() * (w * .1 + .02) * (.4 + .6 * Math.sin(t * 1.4 + c.ph));
         gf.strokeStyle = 'rgba(' + Math.round(60 + 40 * c.d) + ',' + Math.round(96 + 40 * c.d) + ',' + Math.round(92 + 20 * c.d) + ',' + (.55 + .35 * c.d) * c.op + ')';
         gf.lineWidth = Math.max(.8, 1.6 * s);
         gf.beginPath();
@@ -975,8 +1015,8 @@
       for (var i = 0; i < petals.length; i++) {
         var p = petals[i]; if (p.front !== front) continue;
         if (!still) {
-          p.x += (w * 1.8 + .25) * p.v; p.y += (.25 + Math.sin(t * 1.3 + i) * .35) * p.v; p.a += p.va * .02 * (1 + w);
-          if (p.x > W + 20 || p.y > H + 20) { petals[i] = newPetal(false); petals[i].front = front; continue; }
+          p.x += wdir() * (w * 1.8 + .25) * p.v; p.y += (.25 + Math.sin(t * 1.3 + i) * .35) * p.v; p.a += p.va * .02 * (1 + w);
+          if (p.x > W + 20 || p.x < -20 || p.y > H + 20) { petals[i] = newPetal(false); petals[i].front = front; continue; }
         }
         var sz = p.s * psz;
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.scale(1, .45 + .55 * Math.abs(Math.sin(p.a * 1.7)));
@@ -991,7 +1031,7 @@
       drawFlies(gf, t, dt, zoom, true);
       drawBflies(gf, t, dt, ts, zoom);
       for (var i = 0; i < grass.length; i++) {
-        var b = grass[i], lean = (w * .12 + .02) * (1 + .6 * Math.sin(wp * 1.4 + b.x * .03 + b.ph)) + .04 * Math.sin(b.ph);
+        var b = grass[i], lean = wdir() * (w * .12 + .02) * (1 + .6 * Math.sin(wp * 1.4 - wdir() * b.x * .03 + b.ph)) + .04 * Math.sin(b.ph);
         var tx = b.x + Math.sin(lean) * b.h, ty = H - Math.cos(lean) * b.h;
         gf.fillStyle = b.c < .5 ? 'rgba(14,22,36,.95)' : 'rgba(24,36,52,.92)';
         gf.beginPath(); gf.moveTo(b.x - b.w, H + 2); gf.quadraticCurveTo(b.x + (tx - b.x) * .4, H - b.h * .55, tx, ty); gf.quadraticCurveTo(b.x + (tx - b.x) * .45, H - b.h * .5, b.x + b.w, H + 2); gf.fill();
@@ -1002,29 +1042,28 @@
       var fi = frontIdx(), showFront = mode === 'choose';
       for (var i = 0; i < els.length; i++) {
         var c = els[i]; if (c.gone) continue;
-        var a = base + i * STEP, sn = Math.sin(a), cs = Math.cos(a);
-        var card = c.v === 'card', sway = still || !card ? 0 : w * (.04 + .03 * Math.sin(wp * 1.1 + c.ph));
-        var X = R * sn + sway * R * .15, Z = R * cs;
+        var a = ringA(base + i * STEP), sn = Math.sin(a), cs = Math.cos(a);
+        var card = c.v === 'card', sway = still || !card ? 0 : wdir() * w * (.04 + .03 * Math.sin(wp * 1.1 + c.ph));
+        var X = R * sn * (card ? 1 : ovalX()) + sway * R * .15, Z = R * cs;
         var lift2 = card && SP.wave !== false ? ch * .12 * Math.sin(3 * a - now * .7) : 0;
         var p = proj(X, card ? (hc + lift2) * zoom : 0, Z), gp = proj(X, 0, Z);
         var d = (cs + 1) / 2, s = p.f * zoom, op = .5 + .5 * d, sink = 0;
         // сад слоями: цветок посажен «в ямку» — основание чуть ниже земли (низ стебля растворяется в мох, CSS),
-        // задние чуть меньше и в лёгкой дымке, но не прозрачные (иначе «висят в воздухе»)
-        if (LY && !card && !c.flying) { s *= .86 + .14 * d; op = .88 + .12 * d; sink = c.h * s * .06; p.y += sink;
-          var hz = Math.round((1 - d) * 20) / 20;
-          if (c.hz !== hz) { c.hz = hz; c.el.style.filter = hz ? 'saturate(' + (1 - .3 * hz) + ') contrast(' + (1 - .18 * hz) + ') brightness(' + (1 + .08 * hz) + ') blur(' + (.7 * hz).toFixed(2) + 'px)' : ''; } }
+        // задние чуть меньше, без дымки (её слово 23.10: дымка — «как в пыли», цветы ясные и вдали)
+        if (LY && !card && !c.flying) { s *= .86 + .14 * d; op = 1; sink = c.h * s * .06 / (c.k || 1); p.y += sink; }
         var turn = card ? Math.asin(sn) * 180 / Math.PI * .85 : 0;
         // живой цветок медленно покачивается от основания стебля: своё качание (~10 и ~23 с) + волна ветра идёт по саду
-        var rot = still ? 0 : card ? w * (2 + 1.6 * Math.sin(wp * 1.2 + c.ph)) + Math.sin(now * .9 + c.ph) * 1.2
-          : Math.sin(now * .62 + c.ph) * 1.5 + Math.sin(now * .27 + c.ph * 1.7) * .9 + w * 1.7 * (Math.sin(wp * .45 - c.gx / (W || 1) * 3) - .2);
+        var rot = still ? 0 : card ? wdir() * w * (2 + 1.6 * Math.sin(wp * 1.2 + c.ph)) + Math.sin(now * .9 + c.ph) * 1.2
+          : Math.sin(now * .62 + c.ph) * 1.5 + Math.sin(now * .27 + c.ph * 1.7) * .9 + wdir() * w * 1.7 * (Math.sin(wp * .45 - wdir() * c.gx / (W || 1) * 3) + .35);
         var front = showFront && i === fi && d > .9 && !fly;
         if (focus && c !== focus) op *= .22;
         var z = Math.round(50 + Z / R * 45);
-        if (c.flying) { if (c.hz) { c.hz = 0; c.el.style.filter = ''; } var r = flyPos(c, ts); p = { x: r.x, y: r.y }; s = r.s; op = r.op; rot = 0; turn = turn * (1 - r.e); z = 170; }
+        if (c.flying) { var r = flyPos(c, ts); p = { x: r.x, y: r.y }; s = r.s; op = r.op; rot = 0; turn = turn * (1 - r.e); z = 170; }
         else if (c === focus) z = 99;
         if (front) s *= 1.1;
         c.x = p.x; c.y = p.y; c.gx = gp.x; c.gy = gp.y; c.f = p.f || 1; c.d = d; c.op = op;
-        c.hx = p.x; c.hy = card || c.flying ? p.y : p.y - c.h * s * .74;
+        var hl = card || c.flying ? 0 : c.h * s * (1 - .26 / (c.k || 1)), rr = rot * Math.PI / 180;
+        c.hx = p.x + Math.sin(rr) * hl; c.hy = p.y - Math.cos(rr) * hl;
         if (c.isFront !== front) { c.isFront = front; c.el.classList.toggle('is-front', front); }
         c.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) scale(' + s.toFixed(3) + ')' +
           (card ? ' perspective(' + (cw * 6) + 'px) rotateY(' + turn.toFixed(1) + 'deg)' : '') + ' rotate(' + rot.toFixed(2) + 'deg)';
@@ -1057,9 +1096,19 @@
     function liven() { if (!spin && !fly && !touched && spd()) speed = Math.max(speed, .9); }
     var SHEETS = ['sh-mode', 'sh-random', 'sh-choose', 'sh-own', 'sh-wait', 'sh-reveal', 'sh-name', 'sh-q', 'sh-res'];
     function sheet(id) { SHEETS.forEach(function (s) { $('#' + s).hidden = s !== id; }); }
+    var bloomT = [];
+    function bloomStop() { bloomT.forEach(clearTimeout); bloomT = []; if (ringEl.classList.contains('is-bloom')) { ringEl.classList.remove('is-bloom', 'is-buds'); els.forEach(function (c) { c.el.classList.remove('is-open'); }); } }
+    function bloomIntro() {
+      if (SP.bloom === false || still || !els.some(function (c) { return c.v !== 'card'; })) return;
+      ringEl.classList.add('is-buds', 'is-bloom');
+      var order = els.slice().sort(function () { return Math.random() - .5; }), k;
+      for (k = 0; k < order.length; k++) (function (c, d) { bloomT.push(setTimeout(function () { c.el.classList.add('is-open'); }, d)); })(order[k], 1800 + k * 520);
+      bloomT.push(setTimeout(function () { ringEl.classList.remove('is-buds', 'is-bloom'); els.forEach(function (c) { c.el.classList.remove('is-open'); }); bloomT = []; }, 1800 + order.length * 520 + 1600));
+    }
     function setMode(m) {
+      if (m !== 'idle') bloomStop();
       mode = m; if (m !== 'idle' && ghint) hideGardenHint();
-      ringEl.classList.toggle('is-buds', m === 'random' || m === 'spin');
+      if (!ringEl.classList.contains('is-bloom')) ringEl.classList.toggle('is-buds', m === 'random' || m === 'spin');
       ringEl.classList.toggle('is-pick', m === 'choose');
       els.forEach(function (c) { c.el.tabIndex = m === 'choose' ? 0 : -1; });
       speedTarget = spd() * (m === 'choose' ? .5 : 1);
@@ -1535,6 +1584,7 @@
     setMode('idle');
     if (reduce) setStill(true); else setStill(false);
     speed = speedTarget;
+    bloomIntro();
     els.forEach(function (c) { if (c.v === 'line') c.el.classList.add('is-grow'); });
     requestAnimationFrame(function (ts) { last = ts; frame(ts); });
   }

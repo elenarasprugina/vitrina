@@ -23,7 +23,7 @@ body.uz-garden { overflow: hidden; }
 /* элемент хоровода: живой цветок (PNG) · цветок линией · стеклянная карта */
 .uz-el { position: absolute; left: 0; top: 0; will-change: transform, opacity; outline: none; }
 .uz-el .uz-art, .uz-el .uz-bud { position: absolute; inset: 0; transition: opacity 1.3s, transform 1.4s cubic-bezier(.2, .8, .2, 1), filter 1s; transform-origin: 50% 100%; }
-.uz-el .uz-art img, .uz-heart img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
+.uz-el .uz-art img, .uz-el .uz-bud img, .uz-heart img { width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
 .uz-el svg, .uz-heart svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .uz-el .uz-bud { opacity: 0; transform: scale(.85); }
 .uz-el .uz-nm { position: absolute; left: 50%; top: 100%; transform: translate(-50%, 6px); white-space: nowrap; font-family: var(--uz-head); font-size: 15px; line-height: 1;
@@ -40,6 +40,9 @@ body.uz-garden { overflow: hidden; }
 .uz-ring.is-buds .uz-el.is-open .uz-art { opacity: 1; transform: none; }
 .uz-ring.is-buds .uz-el.is-open .uz-bud { opacity: 0; transform: scale(.6); }
 .uz-ring.is-buds .uz-el.is-open .uz-nm { opacity: 1; }
+/* сад встречает бутонами (её выбор 23.10): раскрываются по одному, без имён */
+.uz-ring.is-bloom .uz-el .uz-nm { opacity: 0; }
+.uz-ring.is-bloom .uz-el .uz-art, .uz-ring.is-bloom .uz-el .uz-bud { transition-duration: 2.2s, 2.4s, 1s; }
 /* линия «вырастает» */
 .uz-v-line .uz-art svg * { stroke-dasharray: 1; stroke-dashoffset: 0; }
 .uz-v-line.is-grow .uz-art svg * { animation: uz-draw 2.6s ease-out both; }
@@ -191,19 +194,21 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-day .uz-eyebrow, .uz-day .uz-honest { color: #5a5470; text-shadow: 0 0 10px rgba(255, 252, 245, .8); }
 .uz-day .uz-tbtn { color: #3a3450; background: rgba(255, 255, 255, .45); border-color: rgba(60, 52, 80, .25); }
 .uz-day .uz-cap, .uz-day .uz-name { text-shadow: 0 0 10px rgba(40, 46, 30, .85), 0 0 3px rgba(40, 46, 30, .9); }
+/* золотой час: солнце слева, у заголовка — тёплая тень, чтобы читался */
+.uz-t-gold .uz-h1, .uz-t-gold .uz-eyebrow, .uz-t-gold .uz-honest { text-shadow: 0 0 14px rgba(70, 34, 26, .85), 0 0 3px rgba(70, 34, 26, .7); }
 /* подсказка «погуляй по саду» (бабочек можно трогать) */
 .uz-ghint { position: absolute; left: 50%; top: 27%; transform: translate(-50%, 6px); z-index: 150; width: max-content; max-width: calc(100% - 48px); text-align: center; pointer-events: none;
   font-family: var(--uz-head); font-style: italic; font-size: 19px; line-height: 1.25; color: #fff6e6; text-shadow: 0 0 12px rgba(20, 24, 40, .85), 0 0 3px rgba(20, 24, 40, .8);
   opacity: 0; transition: opacity 1.6s ease, transform 1.6s ease; }
 .uz-ghint.is-on { opacity: 1; transform: translate(-50%, 0); }
 /* время суток в саду слоями: её цветы-картинки меняются вместе с садом (в золотой час — светится край со стороны солнца) */
-.uz-t-gold .uz-v-live .uz-art > * { filter: sepia(.16) saturate(1.18) brightness(1.02) drop-shadow(2.5px -1px 1.5px rgba(255, 196, 120, .9)); }
-.uz-t-blue .uz-v-live .uz-art > * { filter: brightness(.8) saturate(.82) drop-shadow(0 0 5px rgba(255, 222, 182, .5)); }
-.uz-t-rain .uz-v-live .uz-art > * { filter: saturate(.84) contrast(.93) brightness(1.04); }
-.uz-t-lights .uz-v-live .uz-art > * { filter: brightness(.62) saturate(.8) drop-shadow(0 0 6px rgba(255, 214, 150, .55)); }
-.uz-t-evening .uz-v-live .uz-art > * { filter: sepia(.22) saturate(1.08) brightness(.95); }
-.uz-t-night .uz-v-live .uz-art > * { filter: brightness(.55) saturate(.7); }
+.uz-t-gold .uz-v-live .uz-art > *, .uz-t-gold .uz-v-live .uz-bud > * { filter: sepia(.16) saturate(1.18) brightness(1.02) drop-shadow(-2.5px -1px 1.5px rgba(255, 196, 120, .9)); }
+.uz-t-blue .uz-v-live .uz-art > *, .uz-t-blue .uz-v-live .uz-bud > * { filter: brightness(.8) saturate(.82) drop-shadow(0 0 5px rgba(255, 222, 182, .5)); }
+.uz-t-rain .uz-v-live .uz-art > *, .uz-t-rain .uz-v-live .uz-bud > * { filter: saturate(.84) contrast(.93) brightness(1.04); }
+.uz-t-lights .uz-v-live .uz-art > *, .uz-t-lights .uz-v-live .uz-bud > * { filter: brightness(.62) saturate(.8) drop-shadow(0 0 6px rgba(255, 214, 150, .55)); }
+.uz-t-evening .uz-v-live .uz-art > *, .uz-t-evening .uz-v-live .uz-bud > * { filter: sepia(.22) saturate(1.08) brightness(.95); }
+.uz-t-night .uz-v-live .uz-art > *, .uz-t-night .uz-v-live .uz-bud > * { filter: brightness(.55) saturate(.7); }
 /* сад слоями (22.10, её «в ямку»): низ стебля мягко уходит в мох — без чёткого среза */
-.uz-layers .uz-v-live .uz-art img { -webkit-mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); }
+.uz-layers .uz-v-live .uz-art img, .uz-layers .uz-v-live .uz-bud img { -webkit-mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); }
 /* бабочку несут над цветком — цветок чуть светится: «сюда сядет» */
 .uz-el.is-perch .uz-art { filter: brightness(1.16) drop-shadow(0 0 12px rgba(255, 236, 190, .85)); transition: filter .2s; }
