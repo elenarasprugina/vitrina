@@ -3037,6 +3037,8 @@
         switchIn(f, 'eyebrowShow', 'Надпись сверху — показывать на сайте', { defTrue: true, onChange: cb.redrawGrid,
           hint: 'Выключено — на сайте её нет, а в панели (в списке карточек) остаётся вашей пометкой.' }),
         textIn(f, 'title', 'Название'),
+        textIn(f, 'word', 'Крупное слово вместо надписей', { ph: 'скоро', onChange: cb.redrawGrid,
+          hint: 'Например, «скоро» — крупно, курсивом, с бликом, как на странице «Ноябрь · скоро». Пусто — обычные надписи. Шрифт — как у страницы «скоро» («Витрины» → «Месяцы как календарь»), иначе как у карточек.' }),
         optIn(f, 'subtitle', 'Подзаголовок', { ph: 'даты или короткая фраза' }),
         el('div', { class: 'a-row' }, [
           optIn(f, 'status', 'Статус', { ph: 'Вход открыт, Предзаказ, Осталось 3 места…' }),
@@ -3525,6 +3527,37 @@
       '<div id="ys" data-base="../../" data-route="' + escAttr(r.id) + '"></div>\n' +
       '<script>document.write(\'<script src="../../assets/kaleido.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/sun.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/route.js?v=\' + M13RV + \'"><\\/script>\');</script>\n' +
       '<script>M13R.boot();</script>\n</body>\n</html>\n';
+  }
+  // Заглушка маршрута routes/<id>/ (её «делаем» 26.10): у маршрута из библиотеки есть карточка на опубликованной витрине,
+  // а страницы по дням ещё нет (не создана или «готовится») — в цвете маршрута: название, даты, «Маршрут начнётся …».
+  // Рисует vitrina.js (data-view="routesoon"); в данных — только нужное: маршрут, настройки, шрифт месяца и заглушка карточки.
+  function routeSoonPageHTML(r, P) {
+    var st = P.settings, site = st.siteTitle || '13 MIRRORS', ms = P.showcases[st.currentShowcase] || P.showcases[Object.keys(P.showcases).sort().pop()] || {};
+    var card = null;
+    Object.keys(P.showcases).sort().forEach(function (id) { (P.showcases[id].cards || []).forEach(function (c) { if (c && c.visible !== false && c.back && c.back.routeId === r.id && (!card || id === ms.id)) card = c; }); });
+    var slim = { id: ms.id || '', title: ms.title || '', cardStyle: { font: (ms.cardStyle || {}).font || '' }, head: { color: (ms.head || {}).color || '' },
+      cards: card && card.back ? [{ id: card.id, back: { routeId: r.id, stub: card.back.stub || null } }] : [] };
+    var D = { settings: st, routes: { routes: [r] }, formats: P.formats, index: P.index, showcases: {} };
+    D.showcases[st.currentShowcase] = slim;
+    var dd = r.dates || {}, dt = [dd.from, dd.to].filter(Boolean).map(function (x) { var p = x.split('-'); return p[2] + '.' + p[1]; }).join('–');
+    var desc = String(r.description || '').trim() || 'Маршрут 13 MIRRORS', img = absImg(r.image || shareOf(ms, P).image, P), base = '../../';
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+      '<title>' + escAttr(site + ' · ' + r.title) + '</title>\n' + metaTags({ url: siteUrl(P) + 'routes/' + r.id + '/', title: r.title + (dt ? ' · ' + dt : ''), description: desc, image: img, sized: !r.image }, P) + '\n' +
+      '<!-- Заглушка маршрута: создана панелью при публикации, пока у маршрута нет страницы по дням. Появится страница — займёт этот адрес. -->\n' +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n<style>html,body{margin:0;background:#1d1a16}</style>\n</head>\n<body class="m13-body">\n' +
+      '<div id="m13" data-base="' + base + '" data-view="routesoon" data-route="' + escAttr(r.id) + '"></div>\n' +
+      '<script>window.M13_DATA=' + JSON.stringify(D).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n' +
+      '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+  }
+  // Каким маршрутам нужна заглушка: карточка на опубликованной витрине, маршрут ещё не закончился, своей страницы по дням нет
+  function routeSoonIds(P) {
+    var want = {}, today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+    Object.keys(P.showcases).forEach(function (id) { (P.showcases[id].cards || []).forEach(function (c) { if (c && c.visible !== false && c.back && c.back.routeId) want[c.back.routeId] = true; }); });
+    ((P.journeys || {}).items || []).forEach(function (j) { if (j) { delete want[j.id]; delete want[j.routeId]; } });
+    return ((P.routes || {}).routes || []).filter(function (r) {
+      return r && want[r.id] && /^[a-z0-9][a-z0-9-]*$/.test(r.id) && r.id !== 'preview' && r.id !== 'yellow-sun' && !String(r.routeUrl || '').trim() &&
+        !(r.dates && r.dates.to && r.dates.to < today);
+    });
   }
   // Страница «Как идти по маршруту» routes/<id>/kak/ — создаёт публикация; тексты — journeys.json (r.howto)
   function howtoPageHTML(r, D) {
@@ -11365,6 +11398,8 @@
         if (it && it.visible !== false && /^[\w-]+$/.test(it.id)) files['sandbox/' + it.id + '/index.html'] = { text: pageHTML('sbitem', null, P, it.id) };
       });
     });
+    // Заглушки маршрутов без страницы по дням (её «делаем» 26.10)
+    routeSoonIds(P).forEach(function (r) { var p = 'routes/' + r.id + '/index.html'; if (!files[p]) files[p] = { text: routeSoonPageHTML(r, P) }; });
     Object.keys(P.showcases).forEach(function (id) {
       var sc = P.showcases[id];
       files['data/showcases/' + id + '.json'] = { text: jsonText(sc) };
@@ -11388,7 +11423,7 @@
     return { files: files, removed: removed };
   }
   // Для проверки страниц-превью из консоли браузера
-  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas, routePageHTML: routePageHTML, buildSite: buildSite, siteFiles: siteFiles };
+  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas, routePageHTML: routePageHTML, routeSoonPageHTML: routeSoonPageHTML, buildSite: buildSite, siteFiles: siteFiles };
   function publish() {
     if (GHS.busy) return;
     if (!GHS.token) {

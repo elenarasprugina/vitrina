@@ -106,7 +106,7 @@
       var id = M13.monthPick(P.settings, ((P.index || {}).showcases || []).map(function (x) { return x.id; }));
       if (id && id !== P.settings.currentShowcase) { location.replace(base + id + '/' + location.search + location.hash); return; }
     }
-    M13.mount(el, { base: base, view: view, showcase: el.getAttribute('data-showcase') || null, soon: el.getAttribute('data-soon') || null });
+    M13.mount(el, { base: base, view: view, showcase: el.getAttribute('data-showcase') || null, soon: el.getAttribute('data-soon') || null, route: el.getAttribute('data-route') || null });
   };
 
   /* ---------- Месяцы как календарь (её «делаем» 20.10) ----------
@@ -158,7 +158,7 @@
   M13.mount = function (el, opts) {
     if (S.wakeT) wakeStop();
     S.root = el; S.base = opts.base || './'; S.view = opts.view || 'showcase';
-    S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; S.soon = opts.soon || null; lock(false);
+    S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; S.soon = opts.soon || null; S.route = opts.route || null; lock(false);
     el.classList.add('m13');
     el.innerHTML = '<div class="m13-loading">…</div>';
     var p = opts.data ? Promise.resolve(opts.data) : M13.load(S.base, opts.showcase);
@@ -169,6 +169,7 @@
       else if (S.view === 'events') renderStandalone('events');
       else if (S.view === 'kin') renderStandalone('kin');
       else if (S.view === 'soon') renderSoon();
+      else if (S.view === 'routesoon') renderRouteSoon();
       else renderShowcase();
     }).catch(function (e) {
       console.error(e);
@@ -300,6 +301,54 @@
     var fl = S.root.querySelector('.m13-foot-logo');
     if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
     mnavBind();
+  }
+  /* Заглушка маршрута routes/<id>/ (её «делаем» 26.10): страницы по дням ещё нет (маршрут «готовится» или не создан) —
+     в цвете маршрута: «Маршрут», название, даты, «Маршрут начнётся 13 ноября» (идёт / завершён — по датам), строка описания
+     из библиотеки маршрутов, «Задать вопрос» (Host: <печать>_question) и «← Витрина». Создаёт публикация (routeSoonPageHTML в admin.js),
+     пока у маршрута нет своей страницы; появится страница — она займёт этот адрес. */
+  function routeSoonRange(d) {
+    var a = parseDate(d.from), b = parseDate(d.to); if (!a) return '';
+    if (!b) return a.getDate() + ' ' + MONTHS_GEN[a.getMonth()];
+    return a.getMonth() === b.getMonth() ? a.getDate() + '–' + b.getDate() + ' ' + MONTHS_GEN[b.getMonth()]
+      : a.getDate() + ' ' + MONTHS_GEN[a.getMonth()] + ' – ' + b.getDate() + ' ' + MONTHS_GEN[b.getMonth()];
+  }
+  function mixHex(a, b, k) { var x = hexRgb(a), y = hexRgb(b); return '#' + [0, 1, 2].map(function (i) { return ('0' + Math.round(x[i] + (y[i] - x[i]) * k).toString(16)).slice(-2); }).join(''); }
+  function renderRouteSoon() {
+    var st = S.D.settings, sc = S.D.showcase || {}, cs = sc.cardStyle || {}, hd = sc.head || {};
+    var r = (((S.D.routes || {}).routes) || []).filter(function (x) { return x && x.id === S.route; })[0] || { title: 'Маршрут', dates: {} };
+    var d = r.dates || {}, from = parseDate(d.from), to = parseDate(d.to), now = mskToday(), line;
+    if (from && now < from) line = 'Маршрут начнётся ' + from.getDate() + ' ' + MONTHS_GEN[from.getMonth()];
+    else if (from && to && now <= to) line = 'Маршрут идёт · день ' + (Math.round((now - from) / 864e5) + 1) + ' из ' + (Math.round((to - from) / 864e5) + 1);
+    else if (to) line = 'Маршрут завершён';
+    else line = 'Маршрут скоро начнётся';
+    document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + r.title + ' · ' + line;
+    S.acts = [];
+    // Цвета — от цвета маршрута: светлая середина, глубокие края; надписи — тем же цветом, только темнее
+    var tone = /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : routeTone(r), rgb = hexRgb(tone);
+    var pale = Math.max(rgb[0], rgb[1], rgb[2]) - Math.min(rgb[0], rgb[1], rgb[2]) < 40;   // белый маршрут — почти без цвета
+    var ink = pale ? (hd.color || '#6f5320') : mixHex(tone, '#000000', 0.62);
+    var css = ['--rs-c:' + tone, '--rs-l:' + mixHex(tone, '#ffffff', pale ? 0.55 : 0.78), '--rs-m:' + mixHex(tone, '#ffffff', pale ? 0.05 : 0.35),
+      '--rs-d:' + mixHex(tone, pale ? '#6b5a3c' : '#000000', pale ? 0.42 : 0.45), '--rs-ink:' + ink, '--rs-btn:' + (pale ? ink : mixHex(tone, '#000000', 0.35)),
+      '--m13-shine:' + (pale ? '#fff3cf' : mixHex(tone, '#ffffff', 0.85))];
+    var font = cs.font || 'Cormorant Garamond'; ensureFont(font); css.push("--rs-font:'" + font + "',Georgia,serif");
+    // Кнопка «Задать вопрос»: метка Host и контакты — с заглушки карточки маршрута, если она есть
+    var card = (sc.cards || []).filter(function (c) { return c && c.back && c.back.routeId === r.id; })[0], stub = (card && card.back.stub) || {};
+    var ask = String(stub.ask || '').trim() || 'Задать вопрос';
+    var askBtn = '<button type="button" class="m13-rs-btn m13-rs-btn--main"' + act({ kind: 'contact', label: ask, telegram: stub.telegram || '', vk: stub.vk || '',
+      host: String(stub.host || '').trim() || hostAuto(r.title, 'question'), message: 'Здравствуйте! Хочу узнать подробнее про маршрут «' + r.title + '».' }, { card: r.title, action: ask }) + '>' + txt(ask) + '</button>';
+    var home = '<a class="m13-rs-btn" href="' + esc(S.base + (card ? '#' + encodeURIComponent(card.id) : '')) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
+    var desc = String(r.description || '').trim();
+    S.root.innerHTML = '<div class="m13-rs" style="' + esc(css.join(';')) + '"><i class="m13-rs-glow" aria-hidden="true"></i>' +
+      '<main class="m13-rs-in m13-shine">' +
+      '<a class="m13-rs-top" href="' + esc(S.base) + '">' + txt([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</a>' +
+      '<p class="m13-rs-kind">Маршрут</p>' +
+      '<h1 class="m13-rs-title"><span class="m13-gt">' + txt(r.title) + '</span></h1>' +
+      (from ? '<p class="m13-rs-dates">' + txt(routeSoonRange(d)) + '</p>' : '') +
+      '<p class="m13-rs-line">' + txt(line) + '</p>' +
+      (desc ? '<p class="m13-rs-desc">' + txt(desc) + '</p>' : '') +
+      '<div class="m13-rs-btns">' + askBtn + home + '</div>' +
+      '</main></div>' + modalHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
+    bindModal(); bindActs(S.root);
   }
   function renderShowcase() {
     var sc = S.D.showcase;
@@ -1193,6 +1242,17 @@
     var sub = opt(f.subtitle), foot = opt(f.foot);
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
+    // Крупное слово вместо надписей (её «скоро» на 4-й карточке ноября, 26.10) — как на странице «Ноябрь · скоро»
+    var word = String(f.word || '').trim();
+    if (word) {
+      var so = soonOf(S.D.settings), wf = so.font || '';
+      if (wf) ensureFont(wf);
+      cls += ' m13-thumb--word';
+      css += esc((wf ? "--m13-sfont:'" + wf + "',Georgia,serif;" : '') + (so.color ? '--m13-sc:' + so.color + ';' : ''));
+      var wtext = '<div class="m13-thumb-word"><span class="m13-gt">' + txt(word) + '</span></div>';
+      if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '" aria-label="' + esc(f.title || word) + '">' + wtext + lay + '</div>');
+      return breathWrap(sty, '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '" aria-label="' + esc(f.title || word) + '">' + wtext + lay + '</button>');
+    }
     var text = '<div class="m13-thumb-text">' +
       (eyeOf(f) ? '<div class="m13-mini-type">' + txt(eyeOf(f)) + '</div>' : '') +
       (f.title ? '<div class="m13-mini-title">' + txt(f.title) + '</div>' : '') +
