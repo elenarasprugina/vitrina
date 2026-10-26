@@ -1042,6 +1042,8 @@
     return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * k); }).join(',') + ')';
   }
   function iconVars(st, r) {
+    var own = ((S.D && S.D.showcase && S.D.showcase.cardStyle) || {}).iconColor;
+    if (/^#[0-9a-f]{6}$/i.test(own || '')) return '--m13-icb:' + mixHex(own, '#ffffff', .8) + ';--m13-ixl:' + own + ';--m13-ixc:' + own + ';--m13-ixg:' + mixHex(own, '#ffffff', .5);
     var hue = [st.glowColor, st.accent, r && r.color, st.rimColor].filter(function (x) { return /^#[0-9a-f]{6}$/i.test(x || ''); })[0];
     // Светлый фон за открытой карточкой: светлые значки на светлом стекле не видны — берём тёмный оттенок того же цвета
     if (st.veil === 'light') { hue = hue || '#5a4636';
@@ -1059,12 +1061,21 @@
     star: '<path d="M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5Z"/>',
     cross: '<path d="M4 4 12 12M12 4 4 12"/>'
   };
+  var UNFLIP_SVG = '<svg class="m13-xm m13-xm--back" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3.6 6.4A5 5 0 1 1 3.3 9.8"/><path d="M3.2 2.9 3.6 6.4 7 5.8"/></svg>';
   function xLook() {
     var cs = (S.D && S.D.showcase && S.D.showcase.cardStyle) || {}, sh = cs.iconShape, cm = cs.closeMark;
     if (cm === 'check') cm = 'cross';
     if (!cm || (cm === 'none' && sh === 'bare') || (cm !== 'none' && !X_MARK[cm])) cm = 'dot';
-    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin');
+    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-ic-flat');
     if (sh === 'square' || sh === 'bare' || sh === 'thin') S.root.classList.add('m13-ic-' + sh);
+    // Её просьба 27.10: значки без свечения и тени (cardStyle.iconGlow 'none') и своим цветом (cardStyle.iconColor) —
+    // одинаково во всех окнах витрины; ↺ — тоже тонкой линией, как знак «закрыть»
+    if (cs.iconGlow === 'none') S.root.classList.add('m13-ic-flat');
+    var ic = /^#[0-9a-f]{6}$/i.test(cs.iconColor || '') ? cs.iconColor : '';
+    S.root.style.setProperty('--m13-ixc', ic || ''); S.root.style.setProperty('--m13-ixl', ic || '');
+    if (!ic) { S.root.style.removeProperty('--m13-ixc'); S.root.style.removeProperty('--m13-ixl'); }
+    [].forEach.call(S.root.querySelectorAll('.m13-unflip'), function (b) { b.innerHTML = UNFLIP_SVG; });
     var svg = X_MARK[cm] ? '<svg class="m13-xm m13-xm--' + cm + '" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + X_MARK[cm] + '</svg>' : '';
     [].forEach.call(S.root.querySelectorAll('.m13-x:not(.m13-unflip)'), function (b) { b.innerHTML = svg; });
   }
