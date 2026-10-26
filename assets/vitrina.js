@@ -1043,6 +1043,9 @@
   }
   function iconVars(st, r) {
     var hue = [st.glowColor, st.accent, r && r.color, st.rimColor].filter(function (x) { return /^#[0-9a-f]{6}$/i.test(x || ''); })[0];
+    // Светлый фон за открытой карточкой: светлые значки на светлом стекле не видны — берём тёмный оттенок того же цвета
+    if (st.veil === 'light') { hue = hue || '#5a4636';
+      return '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#000000', .1) + ';--m13-ixc:' + mixHex(hue, '#000000', .3) + ';--m13-ixg:rgba(255,255,255,.7)'; }
     return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#ffffff', .5) + ';--m13-ixc:' + mixHex(hue, '#ffffff', .85) + ';--m13-ixg:' + mixHex(hue, '#ffffff', .25) : '';
   }
 
@@ -1106,6 +1109,14 @@
       rim: none(pick('rim', '')), pattern: none(pick('pattern', '')),
       patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
       patternColor: f.patternColor || d.patternColor || '', patternOpacity: num('patternOpacity', 80, 5, 100),
+      // Картинка узора (её просьба 26.10, ягоды): размер — % ширины карточки (0 — как было), наклон в градусах,
+      // 'same' — в других углах не отражать, тень под картинкой
+      patternSize: num('patternSize', 0, 0, 90), patternTilt: num('patternTilt', 0, -45, 45),
+      patternMirror: pick('patternMirror', 'mirror'), patternShadow: none(pick('patternShadow', '')),
+      // Блик леденца на стекле, 0 — нет; толщина контура в px (0 — как было, 1,3) и где он толще
+      sheen: num('sheen', 0, 0, 100), rimWidth: num('rimWidth', 0, 0, 8), rimShape: none(pick('rimShape', '')),
+      // Фон за открытой карточкой: dark (как было) | light — светлая молочная дымка | clear — почти без дымки
+      veil: pick('veil', 'dark'),
       textHelp: none(pick('textHelp', '')), hazeStrength: num('hazeStrength', 60, 0, 100),
       // Контур (кромка): где (весь край / уголки), свой цвет, живость (дышит / бегущий блик) и цвет блика; темп живого свечения
       rimPlace: pick('rimPlace', 'edge'), rimColor: f.rimColor || d.rimColor || '', rimLive: none(pick('rimLive', '')),
@@ -1194,22 +1205,37 @@
 
   // Слои поверх карточки: затемнение под текстом, узор, кромка. Добавляются последними,
   // текст карточки стоит над ними (.m13-deco > * — z-index 2).
+  var PAT_ONE = { tl: 1, tr: 1, bl: 1, br: 1 }, RIM_SHAPES = { corners: 1, bottom: 1, top: 1, diag: 1 };
   function decoHTML(st, front) {
     var h = '';
     if (front && st.textHelp === 'shade') h += '<i class="m13-lay m13-shade" aria-hidden="true"></i>';
     var p = st.pattern, img = '';
     if (p === 'custom') img = st.patternImage ? media(st.patternImage) : '';
-    else if (p === 'frost' || p === 'sparks' || p === 'kaleido') img = S.base + 'assets/patterns/' + p + '-' + (st.patternPlace === 'full' ? 'full' : 'corner') + '.webp';
+    else if (p === 'frost' || p === 'sparks' || p === 'kaleido') img = media('assets/patterns/' + p + '-' + (st.patternPlace === 'full' ? 'full' : 'corner') + '.webp');   // полный адрес: url() в переменной считается от vitrina.css
     if (img) {
       var col = st.patternColor || (p === 'frost' ? '#eef6ff' : st.accent || '#ecd3a3');
-      var place = st.patternPlace === 'full' || st.patternPlace === 'edge' ? st.patternPlace : 'corners';
-      h += '<i class="m13-lay m13-pat m13-pat--' + place + (p === 'custom' ? ' m13-pat--img' : '') + '" aria-hidden="true" style="' +
-        esc("--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100)) + '"><i></i><i></i><i></i><i></i></i>';
+      // Где: corners | edge | full | один угол tl tr bl br | diag — два угла по диагонали
+      var place = { full: 1, edge: 1, diag: 1 }[st.patternPlace] ? st.patternPlace : PAT_ONE[st.patternPlace] ? 'one m13-pat--at-' + st.patternPlace : 'corners';
+      var pv = "--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100) +
+        (st.patternTilt ? ';--m13-ptl:' + st.patternTilt + 'deg' : '') + (st.patternSize ? ';--m13-psz:' + st.patternSize + '%' : '');
+      h += '<i class="m13-lay m13-pat m13-pat--' + place + (p === 'custom' ? ' m13-pat--img' : '') + (st.patternSize && place !== 'full' ? ' m13-pat--sz' : '') +
+        (st.patternMirror === 'same' ? ' m13-pat--same' : '') + (st.patternShadow ? ' m13-pat--shadow' : '') + '" aria-hidden="true" style="' +
+        esc(pv) + '"><i></i><i></i><i></i><i></i></i>';
+    }
+    // Блик леденца: косой светлый блик сверху и цвет, просвечивающий снизу (цвет контура, иначе акцент)
+    if (st.sheen) {
+      var shc = st.rimColor || (st.rim === 'candy' ? '#b8183c' : st.accent || '#ffffff');
+      h += '<i class="m13-lay m13-candy" aria-hidden="true" style="' + esc('--m13-cy:' + (st.sheen / 100) + ';--m13-shc:' + shc) + '"></i>';
     }
     if (st.rim) {
-      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4') + ';--m13-rs:' + (RIM_S[st.rimSpeed] || RIM_S.slow) + 's';
+      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4') + ';--m13-rs:' + (RIM_S[st.rimSpeed] || RIM_S.slow) + 's' +
+        (st.rimWidth ? ';--m13-rw:' + st.rimWidth + 'px' : '');
+      // Контур толще в части края (уголки, низ, верх, диагональ) — второй, более толстый слой, видный только там
+      // Свой цвет — на самой линии: у вида контура (светлый, золотой, леденец) свой цвет по умолчанию, он перебил бы цвет, заданный выше
+      var rc = st.rimColor ? ' style="' + esc('--m13-rc:' + st.rimColor) + '"' : '';
+      var thick = RIM_SHAPES[st.rimShape] ? '<i class="m13-rim-zone m13-rim-zone--' + st.rimShape + '"><i class="m13-rim m13-rim--thick m13-rim--' + esc(st.rim) + '"' + rc + '></i></i>' : '';
       h += '<i class="m13-lay m13-rimbox' + (st.rimPlace === 'corners' ? ' m13-rim--corners' : '') + (st.rimLive ? ' m13-rim--' + esc(st.rimLive) : '') +
-        '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"></i>' +
+        '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"' + rc + '></i>' + thick +
         (st.rimLive === 'run' ? '<i class="m13-rim-run m13-rim-glow"></i><i class="m13-rim-run"></i>' : '') + '</i>';
     }
     return h;
@@ -1395,7 +1421,10 @@
       calUnlight();
       big.classList.add('m13-noanim', 'is-flipped'); void big.offsetWidth; big.classList.remove('m13-noanim');
     } else big.classList.remove('is-flipped');
-    S.root.querySelector('#m13-overlay').classList.add('is-open');
+    var ov = S.root.querySelector('#m13-overlay');
+    ov.classList.remove('m13-veil--light', 'm13-veil--clear');
+    if (sty.st.veil === 'light' || sty.st.veil === 'clear') ov.classList.add('m13-veil--' + sty.st.veil);
+    ov.classList.add('is-open');
     evenRows(backc);
     // Поворот телефона, смена ширины окна, догрузка шрифта — выровнять заново
     if (!S.evenBound) {
