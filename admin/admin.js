@@ -413,13 +413,25 @@
           tx === 'haze' ? rangeOptIn(stl, 'hazeStrength', 'Сила дымки', { max: 100, step: 5, unit: '%', def: 60, onChange: onChange }, forCard) : el('span')]),
         sub('Контур карточки'),
         el('div', { class: 'a-row' }, [
-          selectIn(stl, 'rim', 'Контур', inh.concat([['none', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный (зимний)'], ['gold', 'Золотой — акцентным цветом']]),
-            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Тонкая линия с бликом по краю карточки. Цвет можно задать свой — ниже.' }),
+          selectIn(stl, 'rim', 'Контур', inh.concat([['none', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный (зимний)'], ['gold', 'Золотой — акцентным цветом'],
+            ['candy', 'Леденец — брусничный лёд']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Тонкая линия с бликом по краю карточки. Цвет можно задать свой — ниже. «Леденец» — тёмный цвет с белыми бликами на углах, как ягода в ледяной корке; обычно брусничный, со своим цветом — леденец этого цвета.' }),
           rim ? selectIn(stl, 'rimPlace', 'Где', inh.concat([['edge', 'По всему краю'], ['corners', 'Только уголки']]), { def: forCard ? 'inherit' : 'edge', onChange: onChange }) : el('span')]),
         rim ? el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'rimColor', 'Цвет контура', { none: 'как выбрано выше', pick: '#ecd3a3', inh: inhOf(d, forCard, 'rimColor'), onChange: onChange }),
           selectIn(stl, 'rimLive', 'Живость контура', inh.concat([['none', 'Спокойный'], ['breathe', 'Дышит'], ['run', 'Бегущий блик']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Бегущий блик — светлая искра медленно обегает край. Лучше для одной-двух карточек.' })]) : null,
+        rim ? el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'rimWidth', 'Толщина контура', { min: 0.5, max: 8, step: 0.5, unit: ' px', def: 1.5, onChange: onChange,
+            hint: '1–1,5 — тонкая линия (как было). 3–5 — заметная кромка. Где толще — рядом.' }, forCard),
+          selectIn(stl, 'rimShape', 'Где толще', inh.concat([['none', 'Везде одинаково'], ['corners', 'Толще в уголках'], ['diag', 'Толще в двух углах — слева сверху и справа снизу'],
+            ['bottom', 'Толще внизу — как подтаявший лёд'], ['top', 'Толще сверху']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Там контур в 2,5 раза толще и мягко сходит к обычной толщине.' })]) : null,
+        el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'sheen', 'Блик леденца на стекле', { max: 100, step: 5, unit: '%', def: 0, onChange: onChange,
+            hint: 'Косой светлый блик сверху слева и цвет, просвечивающий снизу (цвет контура или акцентный) — стекло как леденец. 0 — без блика, 40–70 — заметно.' }, forCard),
+          forCard ? el('span') : selectIn(stl, 'veil', 'Фон, когда карточка открыта', [['dark', 'Тёмная дымка (как было)'], ['light', 'Светлая молочная дымка'], ['clear', 'Почти без дымки']],
+            { def: 'dark', onChange: onChange, hint: 'Чем накрыта витрина за увеличенной карточкой. Для светлой витрины — «Светлая»: прозрачная карточка не станет серой, значки «закрыть» станут тёмными.' })]),
         rim && live === 'run' ? el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'rimRunColor', 'Цвет бегущего блика', { none: 'акцентный или светло-золотой', pick: '#fff1c4', inh: inhOf(d, forCard, 'rimRunColor'),
             base: function () { return stl.accent || d.accent || '#fff1c4'; }, onChange: onChange }),
@@ -428,10 +440,22 @@
         el('div', { class: 'a-row' }, [
           selectIn(stl, 'pattern', 'Узор на стекле', inh.concat([['none', 'Без узора'], ['frost', 'Иней'], ['sparks', 'Искры'], ['kaleido', 'Калейдоскоп'], ['custom', 'Свой узор (загрузить картинку)']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw }),
-          selectIn(stl, 'patternPlace', 'Где узор', inh.concat([['corners', 'В уголках'], ['edge', 'По краю — во всех углах'], ['full', 'По всей карточке']]),
+          selectIn(stl, 'patternPlace', 'Где узор', inh.concat([['corners', 'В уголках'], ['edge', 'По краю — во всех углах'], ['full', 'По всей карточке'],
+            ['tr', 'Один уголок — справа сверху'], ['tl', 'Один уголок — слева сверху'], ['br', 'Один уголок — справа снизу'], ['bl', 'Один уголок — слева снизу'],
+            ['diag', 'Два уголка — слева сверху и справа снизу']]),
             { def: forCard ? 'inherit' : 'corners', onChange: onChange })]),
         pat === 'custom' ? imageIn(stl, 'patternImage', 'Картинка узора', { max: 1200, onChange: onChange, size: { w: 1200, h: 1200, note: 'PNG с прозрачным фоном' },
-          hint: 'Лучше PNG с прозрачным фоном. Для «В уголках» и «По краю» — уголок для левого верхнего угла (для остальных углов он отразится сам). Для «По всей карточке» — узор или рамка на всю карточку.' }) : null,
+          hint: 'Лучше PNG с прозрачным фоном. Картинка не растягивается — остаётся в своих пропорциях. Для уголков — уголок, нарисованный для левого верхнего угла (в других углах отразится, если не выключить ниже), или предмет — веточка, ягоды. Для «По всей карточке» — узор или рамка на всю карточку.' }) : null,
+        pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'patternSize', 'Размер узора', { max: 90, step: 2, unit: '%', def: 0, onChange: onChange,
+            hint: 'Какую часть ширины карточки занимает узор в уголке. 0 — обычный размер. Для «По всей карточке» не действует.' }, forCard),
+          rangeOptIn(stl, 'patternTilt', 'Наклон', { min: -45, max: 45, step: 1, unit: '°', def: 0, onChange: onChange,
+            hint: 'Повернуть узор или картинку: минус — против часовой стрелки, плюс — по часовой.' }, forCard)]) : null,
+        pat === 'custom' ? el('div', { class: 'a-row' }, [
+          selectIn(stl, 'patternMirror', 'В других углах', inh.concat([['mirror', 'Отражать (зеркально)'], ['same', 'Не отражать — как есть']]),
+            { def: forCard ? 'inherit' : 'mirror', onChange: onChange, hint: 'Для «В уголках», «По краю» и двух уголков. Ягоды, цветы, предметы — «Не отражать», иначе встанут вверх ногами.' }),
+          selectIn(stl, 'patternShadow', 'Тень под картинкой', inh.concat([['none', 'Без тени'], ['soft', 'Мягкая тень — будто лежит на стекле']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange })]) : null,
         pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
           rangeOptIn(stl, 'patternOpacity', 'Заметность узора', { min: 5, max: 100, step: 5, unit: '%', def: 80, onChange: onChange }, forCard),
           pat === 'custom' ? el('p', { class: 'a-hint', style: 'align-self:end', text: 'Свой узор показывается в своих цветах.' })
@@ -2434,7 +2458,8 @@
         sc.background.color = '#f2f2f2'; delete sc.background.dim; delete sc.background.blur;
         sc.head = { align: sc.head.align };
         ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg',
-          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'rimSpeed', 'win'].forEach(function (k) { delete sc.cardStyle[k]; });
+          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'rimSpeed', 'win',
+          'rimWidth', 'rimShape', 'sheen', 'veil', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow'].forEach(function (k) { delete sc.cardStyle[k]; });
       }
       ST.pageOpen = true; changed(); renderMain();
       toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
@@ -2909,7 +2934,8 @@
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
     'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize',
-    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed'];
+    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed',
+    'rimWidth', 'rimShape', 'sheen', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow'];
   var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur', 'btnSpeed'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
