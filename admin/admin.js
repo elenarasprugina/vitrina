@@ -366,7 +366,8 @@
       forCard ? null : el('div', { class: 'a-row' }, [
         selectIn(stl, 'iconGlow', 'Свечение и тень у значков', [['', 'Как задумано — светятся'], ['none', 'Без свечения и тени']],
           { def: '', onChange: onChange, hint: 'Для светлой витрины — «Без свечения и тени»: значок — просто тонкая линия своего цвета. Во всех окнах витрины одинаково.' }),
-        el('span')]),
+        selectIn(stl, 'iconSize', 'Размер значков ✕ и ↺', [['', 'Небольшие'], ['sm', 'Совсем маленькие'], ['lg', 'Крупные (как было до 27.10)']],
+          { def: '', onChange: onChange, hint: 'Только сам знак — кнопку по-прежнему легко нажать пальцем. Во всех окнах витрины одинаково.' })]),
       glassFields(stl, forCard, onChange, d),
       buttonFields(stl, forCard, onChange, d),
       el('p', { class: 'a-hint', text: forCard

@@ -1067,7 +1067,9 @@
     var cs = (S.D && S.D.showcase && S.D.showcase.cardStyle) || {}, sh = cs.iconShape, cm = cs.closeMark;
     if (cm === 'check') cm = 'cross';
     if (!cm || (cm === 'none' && sh === 'bare') || (cm !== 'none' && !X_MARK[cm])) cm = 'dot';
-    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-ic-flat');
+    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-ic-flat', 'm13-ic-md', 'm13-ic-sm');
+    // Размер знаков ✕ и ↺ (cardStyle.iconSize): '' — меньше (её просьба 27.10, теперь обычно) | 'sm' — совсем маленькие | 'lg' — крупные, как было
+    if (cs.iconSize !== 'lg') S.root.classList.add(cs.iconSize === 'sm' ? 'm13-ic-sm' : 'm13-ic-md');
     if (sh === 'square' || sh === 'bare' || sh === 'thin') S.root.classList.add('m13-ic-' + sh);
     // Её просьба 27.10: значки без свечения и тени (cardStyle.iconGlow 'none') и своим цветом (cardStyle.iconColor) —
     // одинаково во всех окнах витрины; ↺ — тоже тонкой линией, как знак «закрыть»
@@ -1999,7 +2001,8 @@
       else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
       else if (x.kind === 'kin') html = kinCardHTML(x, list);
       else if (x.kind === 'sandbox') {
-        html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
+        // m13-action — чтобы кнопка слушалась «Кнопок на обороте» (остальные кнопки: рамка или как главная; её просьба 27.10)
+        html = '<button type="button" class="m13-soft m13-action' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
           txt(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
       }
       h += html;
