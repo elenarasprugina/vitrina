@@ -515,10 +515,11 @@
   }
   // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке.
   // head.wave — откуда идёт волна: corner (из левого верхнего угла, по умолчанию) | top | bottom | left | right | center;
-  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | ray | dust (звёздная россыпь) | motes (частицы света, 27.10) | flash.
+  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | silk (шёлк) | bunny (солнечный зайчик) | edge (свет по контуру) | ray | flash
+  // (27.10 (4); прежние dust и motes убраны по её слову — у таких месяцев идёт мягкая полоса).
   // onlyLids — только по карточкам с обложкой (когда приветственный блик выключен).
   var WAVE_SPREAD = { fast: 400, normal: 650, slow: 1000, vslow: 1500 }, WAVE_PASS = { fast: 1200, normal: 1600, slow: 2100, vslow: 2800 };
-  var SHEEN_KINDS = { soft: 1, ray: 1, dust: 1, motes: 1, flash: 1 };
+  var SHEEN_KINDS = { soft: 1, silk: 1, bunny: 1, edge: 1, ray: 1, flash: 1 };
   function sheenCards(onlyLids) {
     var g = S.root.querySelector('.m13-grid'); if (!g) return;
     var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
