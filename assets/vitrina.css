@@ -147,6 +147,9 @@ body.m13-locked{overflow:hidden}
 /* .m13-ic-flat — без свечения и тени (панель, «Свечение и тень у значков», 27.10) */
 .m13-ic-flat .m13-x{box-shadow:none;text-shadow:none}
 .m13-ic-flat .m13-xm,.m13-ic-flat .m13-xm--dot{filter:none}
+/* Размер знаков ✕ и ↺ (панель, «Размер значков ✕ и ↺», 27.10): обычно меньше, чем было; 'lg' — как было */
+.m13-ic-md .m13-xm{transform:scale(.78)}
+.m13-ic-sm .m13-xm{transform:scale(.62)}
 .m13-back .m13-head{padding-right:96px}
 /* Чтобы верхние надписи не уходили под значок ✕ */
 .m13-front:not(.m13-front--day):not(.m13-front--film) > div:first-child{padding-right:36px}
@@ -855,7 +858,7 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-big-card.m13-btn-fill.m13-btn-same .m13-action,.m13-win.m13-btn-fill .m13-channel:not(.m13-ch2),.m13-win.m13-btn-fill.m13-btn-same .m13-channel{background:var(--m13-b1);border-color:var(--m13-b1);color:var(--m13-bink) !important}
 .m13 .m13-big-card.m13-btn-gradient :is(.m13-go,.m13-action--primary),
 .m13 .m13-big-card.m13-btn-gradient.m13-btn-same .m13-action,.m13-win.m13-btn-gradient .m13-channel:not(.m13-ch2),.m13-win.m13-btn-gradient.m13-btn-same .m13-channel{background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2));border-color:transparent;color:var(--m13-bink) !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 40%,transparent)}
+  background-origin:border-box;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 40%,transparent)}
 .m13 .m13-big-card.m13-btn-glass :is(.m13-go,.m13-action--primary),
 .m13 .m13-big-card.m13-btn-glass.m13-btn-same .m13-action,.m13-win.m13-btn-glass .m13-channel:not(.m13-ch2),.m13-win.m13-btn-glass.m13-btn-same .m13-channel{background:color-mix(in srgb,var(--m13-b1) 16%,transparent);border:1px solid var(--m13-b1);color:var(--m13-bink) !important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 14px color-mix(in srgb,var(--m13-b1) 32%,transparent)}
@@ -872,7 +875,7 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-big-card.m13-btn-gradient:is(.m13-btn-live-flow,.m13-btn-live-both) :is(.m13-go,.m13-action--primary),
 .m13 .m13-big-card.m13-btn-gradient.m13-btn-same:is(.m13-btn-live-flow,.m13-btn-live-both) .m13-action,
 .m13-win.m13-btn-gradient:is(.m13-btn-live-flow,.m13-btn-live-both) .m13-channel:not(.m13-ch2){
-  background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2),var(--m13-b1));background-size:260% 260%;animation:m13-flow calc(6s * var(--m13-gls,1.55)) ease-in-out infinite alternate}
+  background:linear-gradient(var(--m13-bdir),var(--m13-b1),var(--m13-b2),var(--m13-b1));background-size:260% 260%;background-origin:border-box;animation:m13-flow calc(6s * var(--m13-gls,1.55)) ease-in-out infinite alternate}
 @keyframes m13-glint{0%{transform:translateX(-130%) skewX(-20deg)}55%,100%{transform:translateX(330%) skewX(-20deg)}}
 @keyframes m13-flow{from{background-position:0% 50%}to{background-position:100% 50%}}
 @media (prefers-reduced-motion:reduce){
