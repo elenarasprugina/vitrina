@@ -1,6 +1,28 @@
 {
   "routes": [
     {
+      "id": "blue-storm",
+      "title": "Синяя Буря",
+      "dates": {
+        "from": "2026-11-13",
+        "to": "2026-11-25"
+      },
+      "description": "13 дней перемен: заметить, что меняется само, и найти в этом свою силу.",
+      "image": null,
+      "routeUrl": ""
+    },
+    {
+      "id": "yellow-human",
+      "title": "Жёлтый Человек",
+      "dates": {
+        "from": "2026-11-26",
+        "to": "2026-12-08"
+      },
+      "description": "13 дней свободы выбора: услышать свой голос и опереться на собственную мудрость.",
+      "image": null,
+      "routeUrl": ""
+    },
+    {
       "id": "white-worldbridger",
       "title": "Белый Соединитель Миров",
       "dates": {
@@ -107,7 +129,7 @@
         "value": "Увидимся за поворотом…",
         "show": true
       },
-      "shareImage": "media/1c9a240455d1b9efcf69.jpg"
+      "shareImage": "media/764876c2cfd9226b572b.jpg"
     },
     {
       "id": "white-wizard",

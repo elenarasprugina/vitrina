@@ -48,7 +48,7 @@
         }
       ],
       "cover": "media/33775564c97b1749cc77.webp",
-      "shareImage": "media/20d76d3c9e4f1d8ba73a.jpg"
+      "shareImage": "media/56f13f73b2856383d287.jpg"
     },
     {
       "id": "d-white-wizard-7",
@@ -95,7 +95,7 @@
         }
       ],
       "cover": "media/fc02ad728ab05b4c6490.webp",
-      "shareImage": "media/862ffcfa3f1c9bbf6b1e.jpg"
+      "shareImage": "media/92a1c54b28292cf180c3.jpg"
     },
     {
       "id": "d-red-dragon-1",
@@ -138,7 +138,7 @@
         }
       ],
       "cover": "media/a8a178b0984740eec714.webp",
-      "shareImage": "media/851b5011d56bc867c36d.jpg"
+      "shareImage": "media/51bdc9916c1ceb8afabc.jpg"
     },
     {
       "id": "d-03gd9",
@@ -181,7 +181,7 @@
         }
       ],
       "cover": "media/89d3a6a5da24c36da7ee.webp",
-      "shareImage": "media/3b1f94aeb46c62136e94.jpg"
+      "shareImage": "media/cb31dac077534d283410.jpg"
     },
     {
       "id": "d-3bp34",
@@ -209,7 +209,7 @@
       ],
       "order": 5,
       "cover": "media/8392362a0783ab1c601e.webp",
-      "shareImage": "media/cf9379581028e0b59422.jpg"
+      "shareImage": "media/c9cf89ae3ecb2e58be6d.jpg"
     },
     {
       "id": "d-zpdr9",
@@ -236,7 +236,7 @@
       ],
       "order": 6,
       "cover": "media/f961aa3d7fa1990e9bd9.webp",
-      "shareImage": "media/212de74c96ccb8959d23.jpg"
+      "shareImage": "media/b869d3bba3b9ec736318.jpg"
     }
   ],
   "chronicles": [
@@ -256,7 +256,7 @@
           "collapse": true
         }
       ],
-      "shareImage": "media/01c172f0e27a6a287d09.jpg"
+      "shareImage": "media/35fef6fd96a9b9363647.jpg"
     },
     {
       "id": "c-white-wizard-2",
@@ -274,7 +274,7 @@
           "collapse": true
         }
       ],
-      "shareImage": "media/f482d9c32067bb463848.jpg"
+      "shareImage": "media/7c5d7b42ae337d0b4daa.jpg"
     },
     {
       "id": "c-qv86w",
@@ -292,7 +292,7 @@
         }
       ],
       "order": 3,
-      "shareImage": "media/1fa3f0507374be05f430.jpg"
+      "shareImage": "media/c69e4981c44b22dbaba4.jpg"
     }
   ],
   "reviews": [
@@ -352,37 +352,28 @@
   "look": {
     "background": {
       "color": "#0d0a07",
-      "image": "media/e92f338f61f2279f939a.webp",
-      "dim": 55,
-      "blur": 8,
-      "imageTall": "media/4ab75352b39b4748cc9a.webp"
+      "image": "media/ca0291e4004398d55e93.webp",
+      "dim": 50,
+      "blur": 0,
+      "imageTall": "media/4ab75352b39b4748cc9a.webp",
+      "contrast": 110,
+      "sat": 95,
+      "bright": 110
     },
     "font": "Cormorant Garamond",
-    "textColor": "#ecd4a3",
+    "textColor": "",
     "headColor": "#ecd3a3",
-    "accent": "#0d0a07",
+    "accent": "#ecd3a3",
     "panelBg": "#0d0a07",
-    "glass": 30,
+    "glass": 25,
     "glassBlur": 8,
     "textSize": "lg",
-    "win": {
-      "mode": ""
-    },
-    "lineH": "",
     "imgGlass": {
-      "on": true,
       "mark1": {},
-      "mark2": {},
-      "fit": "even",
-      "dates": false,
-      "day": false,
-      "kin": true
+      "mark2": {}
     },
-    "tabs": {
-      "active": "glass",
-      "glass": 70,
-      "rim": "glow"
-    }
+    "tabs": {},
+    "win": {}
   },
   "intros": {
     "days": "Примеры дней на маршрутах",
