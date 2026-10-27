@@ -1439,16 +1439,27 @@ body.m13-locked{overflow:hidden}
   color-mix(in srgb,var(--m13-sh-c) 35%,transparent) 335deg,transparent 360deg);animation-name:m13-sheen-edge-back}
 @keyframes m13-sheen-edge{to{transform:rotate(180deg)}}
 @keyframes m13-sheen-edge-back{to{transform:rotate(-180deg)}}
-/* Конфетти (27.10 (5)): крошки — <b> внутри блика (их ставит sheenCards), свои цвет, размер, путь (--dx, --dy, --fy) и поворот (--r).
-   Сама полоса блика у конфетти не видна; крошки обрезаются краем карточки */
+/* Конфетти (27.10 (5)): крошки — <b> внутри блика (их ставит sheenCards), свои цвет, размер, путь (--dx, --dy, --fy) и поворот (--r, --fx).
+   Сама полоса блика у конфетти не видна; крошки обрезаются краем карточки.
+   Падение (свойство translate, ровно, без остановок) и покачивание с кувырком (transform) — отдельные анимации (27.10 (8)) */
 .m13 i.m13-sheen.m13-sheen--confetti,.m13 i.m13-sheen.m13-sheen--popper{background:none;animation:none;opacity:1;overflow:hidden}
 .m13 i.m13-sheen > b{position:absolute;top:-8px;display:block;border-radius:1px;opacity:0;
-  box-shadow:0 0 2px rgba(255,255,255,.35);animation:m13-confetti-fall 2600ms cubic-bezier(.35,.1,.6,1) both}
-@keyframes m13-confetti-fall{0%{opacity:0;transform:translate(0,0) rotate(0) rotateX(0)} 8%{opacity:1}
-  50%{transform:translate(calc(var(--dx) * -.6),calc(var(--fy) * .5)) rotate(calc(var(--r) * .5)) rotateX(360deg)}
-  85%{opacity:1} 100%{opacity:0;transform:translate(var(--dx),var(--fy)) rotate(var(--r)) rotateX(720deg)}}
-.m13 i.m13-sheen.m13-sheen--popper > b{top:55%;left:50%;animation:m13-confetti-pop 1900ms cubic-bezier(.15,.75,.35,1) both}
-@keyframes m13-confetti-pop{0%{opacity:0;transform:translate(0,0) scale(.3) rotate(0)} 6%{opacity:1}
+  animation:m13-cf-fall 2600ms linear both,m13-cf-flut 900ms ease-in-out infinite alternate both}
+@keyframes m13-cf-fall{0%{opacity:0;translate:0 0} 6%{opacity:1} 88%{opacity:1} 100%{opacity:0;translate:0 var(--fy)}}
+@keyframes m13-cf-flut{0%{transform:translateX(calc(var(--dx) * -1)) rotate(calc(var(--r) * -.5)) rotateX(0)}
+  100%{transform:translateX(var(--dx)) rotate(calc(var(--r) * .5)) rotateX(var(--fx))}}
+/* Яркие — с лёгким свечением своего цвета (ставит confetti()), чтобы не терялись на тёмном; золото, серебро и перламутр поблёскивают */
+.m13 i.m13-cf--gold > b,.m13 i.m13-cf--silver > b,.m13 i.m13-cf--pearl > b{
+  animation:m13-cf-fall 2600ms linear both,m13-cf-flut 900ms ease-in-out infinite alternate both,m13-cf-glint 600ms ease-in-out infinite alternate both}
+.m13 i.m13-cf--gold > b{box-shadow:0 0 2px rgba(255,214,120,.55)}
+.m13 i.m13-cf--silver > b,.m13 i.m13-cf--pearl > b{box-shadow:0 0 2px rgba(255,255,255,.6)}
+.m13 i.m13-cf--gold > b{--m13-glh:1.5} .m13 i.m13-cf--silver > b{--m13-glh:1.35} .m13 i.m13-cf--pearl > b{--m13-glh:1.15}
+@keyframes m13-cf-glint{0%{filter:brightness(.75)} 100%{filter:brightness(var(--m13-glh,1.4))}}
+.m13 i.m13-sheen.m13-sheen--popper > b{top:55%;left:50%;animation-name:m13-cf-pop}
+.m13 i.m13-sheen.m13-sheen--popper.m13-cf--gold > b,.m13 i.m13-sheen.m13-sheen--popper.m13-cf--silver > b,.m13 i.m13-sheen.m13-sheen--popper.m13-cf--pearl > b{
+  animation:m13-cf-pop 1900ms cubic-bezier(.15,.75,.35,1) both,m13-cf-glint 600ms ease-in-out infinite alternate both}
+.m13 i.m13-sheen.m13-sheen--popper:not(.m13-cf--gold):not(.m13-cf--silver):not(.m13-cf--pearl) > b{animation:m13-cf-pop 1900ms cubic-bezier(.15,.75,.35,1) both}
+@keyframes m13-cf-pop{0%{opacity:0;transform:translate(0,0) scale(.3) rotate(0)} 6%{opacity:1}
   40%{transform:translate(var(--dx),var(--dy)) scale(1) rotate(calc(var(--r) * .5))} 75%{opacity:1}
   100%{opacity:0;transform:translate(calc(var(--dx) * 1.12),calc(var(--dy) + var(--fy))) scale(.9) rotate(var(--r))}}
 /* Вспышка из центра */
@@ -2206,6 +2217,13 @@ body.m13-locked{overflow:hidden}
 .m13-rs-btn:hover{filter:brightness(1.06)}
 @media (max-width:680px){.m13-rs-top{margin-bottom:7vh;font-size:11px}.m13-rs-btns{flex-direction:column;align-items:stretch;max-width:320px;margin-left:auto;margin-right:auto}}
 @media (prefers-reduced-motion:reduce){.m13-rs-glow,.m13-rs-title .m13-gt{animation:none}}
+/* Своя картинка фона заглушки (27.10): во весь экран, на телефоне — своя вертикальная, если есть; сверху — дымка цвета маршрута
+   (светлая середина, чтобы надписи читались; сила — r.soonBg.veil) и тот же дышащий свет, только тише */
+.m13-rs-bg,.m13-rs-veil{position:absolute;inset:0;pointer-events:none}
+.m13-rs-bg{background-image:var(--rs-img);background-size:cover;background-repeat:no-repeat}
+.m13-rs-veil{background:radial-gradient(ellipse 80% 70% at 50% 46%,var(--rs-l) 0%,color-mix(in srgb,var(--rs-l) 55%,transparent) 60%,color-mix(in srgb,var(--rs-l) 20%,transparent) 100%)}
+.m13-rs--img .m13-rs-glow{opacity:.5}
+@media (max-width:680px){.m13-rs-bg{background-image:var(--rs-img-ph,var(--rs-img))}}
 
 /* ================= Кнопки «открыть» и «Нажать — открыть оборот» (панель, «Кнопка „открыть“», 27.10) ================= */
 /* Пусто — как было. .m13-cta-c — свой цвет рамки и надписи (--m13-cta); pale — тонкая бледная рамка; glass — стёклышко без рамки;

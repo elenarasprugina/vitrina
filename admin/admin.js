@@ -502,6 +502,28 @@
 
   // Скорость бликов: контур карточки, кнопка на обороте, подпись под сеткой
   var RIM_SPEEDS = [['fast', 'Быстрый — круг за 5 с'], ['normal', 'Обычный — круг за 7 с'], ['slow', 'Медленный — круг за 12 с'], ['vslow', 'Очень медленный — круг за 18 с']];
+  // Конфетти (блик по карточкам, 27.10 (8)): расцветка — кнопками с образцом, форма, сколько; рядом пробник на тёмном и светлом
+  var CF_COLORS = [['', '🌸 Нежные', '#f4c95d', '#8fb8f2'], ['bright', '🎉 Яркие', '#ff2d55', '#1f7bff'], ['gold', '✨ Золото', '#fff6cf', '#b8862c'],
+    ['silver', '🪞 Серебро-зеркало', '#ffffff', '#8a97a8'], ['pearl', '🐚 Перламутр', '#ffe6f2', '#cff3ff']];
+  function confettiFields(hd, draw) {
+    var tiles = [el('div', { class: 'a-cf-demo a-cf-demo--dark' }), el('div', { class: 'a-cf-demo a-cf-demo--light' })];
+    function play() { if (window.M13 && M13.confettiDemo) tiles.forEach(function (t) { M13.confettiDemo(t, hd); }); }
+    function set(k, v) { if (v) hd[k] = v; else delete hd[k]; changed(); draw(); }
+    setTimeout(play, 50);
+    return el('div', {}, [
+      el('p', { class: 'a-hint', text: 'Расцветка конфетти — нажмите, и ниже сразу видно, как она выглядит на тёмном и на светлом фоне.' }),
+      el('div', { class: 'a-presets' }, CF_COLORS.map(function (c) {
+        var on = (hd.confettiColor || '') === c[0];
+        return el('button', { type: 'button', class: 'a-btn a-btn--small a-preset' + (on ? ' a-preset--on' : ''), style: '--p1:' + c[2] + ';--p2:' + c[3], text: (on ? '✓ ' : '') + c[1],
+          onclick: function () { set('confettiColor', c[0]); } });
+      })),
+      el('div', { class: 'a-cf-demos m13' }, tiles.concat([el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '▶ Ещё раз', onclick: play })])),
+      el('div', { class: 'a-row' }, [
+        selectIn(hd, 'confettiShape', 'Форма конфетти', [['', 'Смесь — кружочки и полоски'], ['round', 'Только кружочки'], ['strip', 'Только полоски']], { def: '', onChange: play }),
+        selectIn(hd, 'confettiCount', 'Сколько конфетти', [['few', 'Немного'], ['mid', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: 'mid', onChange: play,
+          hint: 'На каждой карточке. Размер крошек не меняется.' })])
+    ]);
+  }
   var BTN_SPEEDS = [['fast', 'Быстрая'], ['normal', 'Обычная'], ['slow', 'Медленная'], ['vslow', 'Очень медленная']];
   var SHINE_SPEEDS = [['fast', 'Быстрый'], ['normal', 'Обычный'], ['slow', 'Медленный'], ['vslow', 'Очень медленный']];
   // «Кнопки на обороте»: вид главной кнопки, цвета, остальные кнопки, «живость», готовые наборы
@@ -2057,10 +2079,7 @@
           selectIn(hd, 'wave', 'Откуда идёт волна', [['corner', 'Из левого верхнего угла'], ['center', 'От центра'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
             { def: 'corner', hint: 'В каком порядке карточки получают блик (и раскрываются обложки).' }),
           selectIn(hd, 'waveSpeed', 'Как быстро перебегает', SHINE_SPEEDS, { def: 'normal' })]) : null,
-        (hd.welcome !== false || lidAny) && (hd.sheenKind === 'confetti' || hd.sheenKind === 'popper') ? el('div', { class: 'a-row' }, [
-          selectIn(hd, 'confettiShape', 'Форма конфетти', [['', 'Смесь — кружочки и полоски'], ['round', 'Только кружочки'], ['strip', 'Только полоски']], { def: '' }),
-          selectIn(hd, 'confettiCount', 'Сколько конфетти', [['few', 'Немного'], ['', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: '',
-            hint: 'На каждой карточке. Размер крошек не меняется.' })]) : null,
+        (hd.welcome !== false || lidAny) && (hd.sheenKind === 'confetti' || hd.sheenKind === 'popper') ? confettiFields(hd, draw) : null,
         glow ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineSpeed', 'Скорость блика', SHINE_SPEEDS, { def: 'slow', hint: 'Сколько свет идёт по надписи.' }),
           colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
@@ -3173,6 +3192,7 @@
               noImg: 'Нет картинки маршрута — стекло будет только у примеров со своей обложкой.', share: !!r.archive }),
             colorOptIn(r, 'color', 'Цвет маршрута', { none: 'без цвета', pick: '#c9a14a',
               hint: 'Лёгкий оттенок и свечение у обложек его примеров, Летописей, отзывов и в архиве. У отдельного примера можно поставить свой.' }),
+            soonBgFields(r),
             finalFields(r),
             archiveFields(r)
           ];
@@ -3593,6 +3613,28 @@
   // Заглушка маршрута routes/<id>/ (её «делаем» 26.10): у маршрута из библиотеки есть карточка на опубликованной витрине,
   // а страницы по дням ещё нет (не создана или «готовится») — в цвете маршрута: название, даты, «Маршрут начнётся …».
   // Рисует vitrina.js (data-view="routesoon"); в данных — только нужное: маршрут, настройки, шрифт месяца и заглушка карточки.
+  // Фон заглушки маршрута (её «делаем» 27.10): своя картинка вместо цветного фона — r.soonBg { image, imagePhone, pos, veil }
+  function soonBgFields(r) {
+    var bg = r.soonBg = r.soonBg || {}, box = el('div');
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        sub('Фон заглушки маршрута'),
+        el('p', { class: 'a-hint', text: 'Заглушка — страница маршрута, пока у него нет страницы по дням (туда ведёт «Подробнее»). Пусто — фон цвета маршрута, как было.' }),
+        el('div', { class: 'a-row' }, [
+          imageIn(bg, 'image', 'Картинка для компьютера', { max: 2400, size: { w: 2400, h: 1350, note: 'горизонтальная, 16:9; почти квадратная тоже подойдёт — края обрежутся' }, onChange: draw }),
+          imageIn(bg, 'imagePhone', 'Картинка для телефона', { max: 1920, size: { w: 1080, h: 1920, note: 'вертикальная, 9:16' }, hint: 'Необязательно: пусто — на телефоне та же, что для компьютера.' })]),
+        bg.image ? el('div', { class: 'a-row' }, [
+          selectIn(bg, 'pos', 'Где главное на картинке', [['', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
+            { def: '', hint: 'Эта часть картинки останется видна, когда края обрежутся.' }),
+          rangeIn(bg, 'veil', 'Дымка под надписями', { max: 90, step: 5, unit: '%', def: 30, hint: 'Светлая дымка цвета маршрута посередине — чтобы название и кнопки читались. 0 — картинка как есть.' })]) : null,
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть заглушку',
+          onclick: function () { openPreview('routesoon', null, null, false, r.id); } })])
+      ]);
+    }
+    draw();
+    return box;
+  }
   function routeSoonPageHTML(r, P) {
     var st = P.settings, site = st.siteTitle || '13 MIRRORS', ms = P.showcases[st.currentShowcase] || P.showcases[Object.keys(P.showcases).sort().pop()] || {};
     var card = null;
@@ -10119,7 +10161,7 @@
       else toast('Не получилось показать витрину в режиме телефона. Обновите страницу.', true);
     })();
   }
-  function openPreview(view, showcaseId, cardId, demo) {
+  function openPreview(view, showcaseId, cardId, demo, route) {
     if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : ST.section === 'events' ? 'events' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
@@ -10128,7 +10170,7 @@
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
       if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
-      M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
+      M.mount(mount, { base: '../', view: v, noHistory: true, route: v === 'routesoon' ? route : null, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
         soon: v === 'soon' ? window.M13.monthSoon(publishedIds(DATA)) || window.M13.monthNow(DATA.settings) : null })
         .then(function () {
           if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; }

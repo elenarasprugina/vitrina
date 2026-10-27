@@ -338,7 +338,15 @@
       host: String(stub.host || '').trim() || hostAuto(r.title, 'question'), message: 'Здравствуйте! Хочу узнать подробнее про маршрут «' + r.title + '».' }, { card: r.title, action: ask }) + '>' + txt(ask) + '</button>';
     var home = '<a class="m13-rs-btn" href="' + esc(S.base + (card ? '#' + encodeURIComponent(card.id) : '')) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
     var desc = String(r.description || '').trim();
-    S.root.innerHTML = '<div class="m13-rs" style="' + esc(css.join(';')) + '"><i class="m13-rs-glow" aria-hidden="true"></i>' +
+    // Своя картинка фона (её «делаем» 27.10): r.soonBg = { image, imagePhone, pos: '' (по центру) | top | bottom | left | right, veil: 0–90 % (дымка цвета маршрута) }
+    var bg = r.soonBg || {}, bgHTML = '';
+    if (bg.image) {
+      var bgCss = "--rs-img:url('" + media(bg.image) + "')" + (bg.imagePhone ? ";--rs-img-ph:url('" + media(bg.imagePhone) + "')" : '') +
+        ';background-position:' + ({ top: '50% 0', bottom: '50% 100%', left: '0 50%', right: '100% 50%' }[bg.pos] || '50% 50%');
+      bgHTML = '<i class="m13-rs-bg" aria-hidden="true" style="' + esc(bgCss) + '"></i>' +
+        '<i class="m13-rs-veil" aria-hidden="true" style="opacity:' + (bg.veil == null ? 0.3 : Math.max(0, Math.min(90, +bg.veil || 0)) / 100) + '"></i>';
+    }
+    S.root.innerHTML = '<div class="m13-rs' + (bg.image ? ' m13-rs--img' : '') + '" style="' + esc(css.join(';')) + '">' + bgHTML + '<i class="m13-rs-glow" aria-hidden="true"></i>' +
       '<main class="m13-rs-in m13-shine">' +
       '<a class="m13-rs-top" href="' + esc(S.base) + '">' + txt([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</a>' +
       '<p class="m13-rs-kind">Маршрут</p>' +
@@ -522,30 +530,55 @@
   var WAVE_SPREAD = { fast: 400, normal: 650, slow: 1000, vslow: 1500 }, WAVE_PASS = { fast: 1200, normal: 1600, slow: 2100, vslow: 2800 };
   var SHEEN_KINDS = { soft: 1, silk: 1, bunny: 1, edge: 1, ray: 1, flash: 1, confetti: 1, popper: 1 };
   // Конфетти (27.10 (5), её «разноцветные, мелкие, не пятна»): крошки на карточку — полоски и кружочки, свой цвет, путь и поворот у каждой.
-  // head.confettiShape: '' смесь | round только кружочки | strip только полоски; head.confettiCount: few | '' (средне) | many | lots — сколько крошек
-  var CONFETTI_C = ['#f4c95d', '#ef8fa8', '#7fd1c1', '#8fb8f2', '#c4a3f0', '#f59a6b', '#fff6dc'], CONFETTI_MS = 2600, CONFETTI_N = { few: 18, many: 50, lots: 75 };
+  // head.confettiShape: '' смесь | round только кружочки | strip только полоски; head.confettiCount: few | mid или пусто (средне) | many | lots — сколько крошек;
+  // head.confettiColor (27.10 (8)): '' нежные | bright яркие | gold золото | silver серебро-зеркало | pearl перламутр (металл и перламутр поблёскивают).
+  // Падение и покачивание — две отдельные анимации (translate и transform): раньше падение шло двумя отрезками и замирало на середине
+  var CONFETTI_MS = 2600, CONFETTI_N = { few: 18, many: 50, lots: 75 }, CONFETTI_C = {
+    soft: ['#f4c95d', '#ef8fa8', '#7fd1c1', '#8fb8f2', '#c4a3f0', '#f59a6b', '#fff6dc'],
+    bright: ['#ff2d55', '#ffb300', '#00d1a0', '#1f7bff', '#b042ff', '#ff6a00', '#ffe600', '#ff4fd8'],
+    gold: ['linear-gradient(135deg,#fff6cf,#e8b84a 45%,#9b6a16)', 'linear-gradient(135deg,#ffe9a8,#c99232 55%,#7a4e0e)', 'linear-gradient(135deg,#fffbe8,#f0cf7a 50%,#b8862c)'],
+    silver: ['linear-gradient(135deg,#ffffff,#c3ccd8 40%,#6f7c8d)', 'linear-gradient(135deg,#eef3fa,#9eabbd 50%,#535f6f)', 'linear-gradient(135deg,#ffffff,#d9e0ea 45%,#8793a3)'],
+    pearl: ['linear-gradient(135deg,#ffb8dc,#a9e4ff 50%,#cdb6ff)', 'linear-gradient(135deg,#9ff0d4,#ffc2e0 50%,#b9c8ff)', 'linear-gradient(135deg,#ffe2a0,#d0b8ff 50%,#9fe6ff)', 'linear-gradient(135deg,#c8b4ff,#ffd0e8 50%,#a6f0e0)']
+  };
   function confetti(n, kind, delay, h, hd) {
-    var cnt = CONFETTI_N[hd.confettiCount] || 32, shape = hd.confettiShape;
+    var cnt = CONFETTI_N[hd.confettiCount] || 32, shape = hd.confettiShape, col = CONFETTI_C[hd.confettiColor] ? hd.confettiColor : 'soft', pal = CONFETTI_C[col];
+    var shine = col === 'gold' || col === 'silver' || col === 'pearl';
+    n.className += ' m13-cf--' + col;
     for (var i = 0; i < cnt; i++) {
-      var b = document.createElement('b'), dot = shape === 'round' || shape !== 'strip' && i % 2 === 0, w = dot ? 3 + Math.random() * 1.5 : 2.5 + Math.random() * 2.5;
+      var b = document.createElement('b'), dot = shape === 'round' || shape !== 'strip' && i % 2 === 0, w = dot ? 3.5 + Math.random() * 1.5 : 2.5 + Math.random() * 2.5;
       b.style.width = w.toFixed(1) + 'px'; b.style.height = (dot ? w : w * (1.6 + Math.random() * 0.8)).toFixed(1) + 'px';
       if (dot) b.style.borderRadius = '50%';
-      b.style.background = CONFETTI_C[i % CONFETTI_C.length];
-      b.style.setProperty('--r', Math.round((Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 480)) + 'deg');
+      b.style.background = pal[i % pal.length];
+      if (col === 'bright') b.style.boxShadow = '0 0 3px ' + pal[i % pal.length];
+      b.style.setProperty('--r', Math.round((Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 200)) + 'deg');
+      // Кружочек не кувыркается через ребро — иначе он то и дело становится чёрточкой и пропадает
+      b.style.setProperty('--fx', dot ? '0deg' : Math.round(150 + Math.random() * 210) + 'deg');
+      var flut = Math.round(700 + Math.random() * 600), gl = shine ? ', ' + Math.round(350 + Math.random() * 450) + 'ms' : '', del;
       if (kind === 'popper') {
         var a = (i / cnt) * 6.283 + Math.random() * 0.35, d = h * (0.22 + Math.random() * 0.24);
         b.style.setProperty('--dx', Math.round(Math.cos(a) * d) + 'px'); b.style.setProperty('--dy', Math.round(Math.sin(a) * d - h * 0.06) + 'px');
         b.style.setProperty('--fy', Math.round(h * (0.1 + Math.random() * 0.12)) + 'px');
-        b.style.animationDelay = (delay + Math.round(Math.random() * 90)) + 'ms';
+        del = delay + Math.round(Math.random() * 90);
+        b.style.animationDuration = '1900ms' + gl;
       } else {
         b.style.left = (3 + Math.random() * 94).toFixed(1) + '%';
-        b.style.setProperty('--dx', Math.round((Math.random() - 0.5) * 36) + 'px'); b.style.setProperty('--fy', Math.round(h + 16) + 'px');
-        b.style.animationDelay = (delay + Math.round(Math.random() * (500 + cnt * 12))) + 'ms';
-        b.style.animationDuration = Math.round(CONFETTI_MS * (0.7 + Math.random() * 0.3)) + 'ms';
+        b.style.setProperty('--dx', Math.round(8 + Math.random() * 14) + 'px'); b.style.setProperty('--fy', Math.round(h + 16) + 'px');
+        del = delay + Math.round(Math.random() * (500 + cnt * 12));
+        b.style.animationDuration = Math.round(CONFETTI_MS * (0.75 + Math.random() * 0.25)) + 'ms, ' + flut + 'ms' + gl;
       }
+      b.style.animationDelay = del + 'ms, ' + (del - Math.round(Math.random() * flut)) + 'ms' + (shine ? ', ' + del + 'ms' : '');
       n.appendChild(b);
     }
   }
+  // Пробник для панели: конфетти по образцу (box — любой блок с position:relative), с настройками hd
+  M13.confettiDemo = function (box, hd) {
+    var kind = hd.sheenKind === 'popper' ? 'popper' : 'confetti', n = document.createElement('i');
+    box.querySelectorAll('i.m13-sheen').forEach(function (x) { x.remove(); });
+    n.className = 'm13-sheen m13-sheen--' + kind; n.setAttribute('aria-hidden', 'true');
+    n.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+    box.appendChild(n); confetti(n, kind, 0, box.getBoundingClientRect().height || 160, hd);
+    setTimeout(function () { n.remove(); }, CONFETTI_MS + 1800);
+  };
   function sheenCards(onlyLids) {
     var g = S.root.querySelector('.m13-grid'); if (!g) return;
     var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
