@@ -515,10 +515,37 @@
   }
   // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке.
   // head.wave — откуда идёт волна: corner (из левого верхнего угла, по умолчанию) | top | bottom | left | right | center;
-  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | ray | dust (звёздная россыпь) | motes (частицы света, 27.10) | flash.
+  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | silk (шёлк) | bunny (солнечный зайчик) | edge (свет по контуру) | ray | flash |
+  // confetti (мелкое разноцветное конфетти сыплется сверху) | popper (хлопушка из середины карточки)
+  // (27.10 (4); прежние dust и motes убраны по её слову — у таких месяцев идёт мягкая полоса).
   // onlyLids — только по карточкам с обложкой (когда приветственный блик выключен).
   var WAVE_SPREAD = { fast: 400, normal: 650, slow: 1000, vslow: 1500 }, WAVE_PASS = { fast: 1200, normal: 1600, slow: 2100, vslow: 2800 };
-  var SHEEN_KINDS = { soft: 1, ray: 1, dust: 1, motes: 1, flash: 1 };
+  var SHEEN_KINDS = { soft: 1, silk: 1, bunny: 1, edge: 1, ray: 1, flash: 1, confetti: 1, popper: 1 };
+  // Конфетти (27.10 (5), её «разноцветные, мелкие, не пятна»): крошки на карточку — полоски и кружочки, свой цвет, путь и поворот у каждой.
+  // head.confettiShape: '' смесь | round только кружочки | strip только полоски; head.confettiCount: few | '' (средне) | many | lots — сколько крошек
+  var CONFETTI_C = ['#f4c95d', '#ef8fa8', '#7fd1c1', '#8fb8f2', '#c4a3f0', '#f59a6b', '#fff6dc'], CONFETTI_MS = 2600, CONFETTI_N = { few: 18, many: 50, lots: 75 };
+  function confetti(n, kind, delay, h, hd) {
+    var cnt = CONFETTI_N[hd.confettiCount] || 32, shape = hd.confettiShape;
+    for (var i = 0; i < cnt; i++) {
+      var b = document.createElement('b'), dot = shape === 'round' || shape !== 'strip' && i % 2 === 0, w = dot ? 3 + Math.random() * 1.5 : 2.5 + Math.random() * 2.5;
+      b.style.width = w.toFixed(1) + 'px'; b.style.height = (dot ? w : w * (1.6 + Math.random() * 0.8)).toFixed(1) + 'px';
+      if (dot) b.style.borderRadius = '50%';
+      b.style.background = CONFETTI_C[i % CONFETTI_C.length];
+      b.style.setProperty('--r', Math.round((Math.random() < 0.5 ? -1 : 1) * (240 + Math.random() * 480)) + 'deg');
+      if (kind === 'popper') {
+        var a = (i / cnt) * 6.283 + Math.random() * 0.35, d = h * (0.22 + Math.random() * 0.24);
+        b.style.setProperty('--dx', Math.round(Math.cos(a) * d) + 'px'); b.style.setProperty('--dy', Math.round(Math.sin(a) * d - h * 0.06) + 'px');
+        b.style.setProperty('--fy', Math.round(h * (0.1 + Math.random() * 0.12)) + 'px');
+        b.style.animationDelay = (delay + Math.round(Math.random() * 90)) + 'ms';
+      } else {
+        b.style.left = (3 + Math.random() * 94).toFixed(1) + '%';
+        b.style.setProperty('--dx', Math.round((Math.random() - 0.5) * 36) + 'px'); b.style.setProperty('--fy', Math.round(h + 16) + 'px');
+        b.style.animationDelay = (delay + Math.round(Math.random() * (500 + cnt * 12))) + 'ms';
+        b.style.animationDuration = Math.round(CONFETTI_MS * (0.7 + Math.random() * 0.3)) + 'ms';
+      }
+      n.appendChild(b);
+    }
+  }
   function sheenCards(onlyLids) {
     var g = S.root.querySelector('.m13-grid'); if (!g) return;
     var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
@@ -537,8 +564,11 @@
       var n = document.createElement('i'); n.className = 'm13-sheen' + (kind !== 'soft' ? ' m13-sheen--' + kind : ''); n.setAttribute('aria-hidden', 'true');
       n.style.animationDelay = delay + 'ms'; n.style.animationDuration = run + 'ms';
       n.style.setProperty('--m13-shine-c', col);
-      (o.lid ? o.lid.querySelector('.m13-lid-leaf') : o.t).appendChild(n);
-      S.wakeT.push(setTimeout(function () { n.remove(); }, delay + run + 200));
+      var host = o.lid ? o.lid.querySelector('.m13-lid-leaf') : o.t;
+      host.appendChild(n);
+      var conf = kind === 'confetti' || kind === 'popper';
+      if (conf) confetti(n, kind, delay, host.getBoundingClientRect().height || 200, hd);
+      S.wakeT.push(setTimeout(function () { n.remove(); }, delay + (conf ? CONFETTI_MS + 1600 : run) + 200));
       // Обложка раскрывается, когда блик почти прошёл, и после паузы
       if (o.lid) S.wakeT.push(setTimeout(function () { lidOpen(o.lid); }, delay + Math.round(run * 0.7) + (+o.lid.getAttribute('data-pause') || 0)));
     });
