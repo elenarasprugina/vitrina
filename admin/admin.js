@@ -9780,7 +9780,10 @@
     return [r.tg_username ? '@' + r.tg_username : '', r.tg_first_name || ''].filter(Boolean).join(' · ') || (r.source === 'site' ? 'с сайта, без имени' : 'без имени');
   }
   function ppDate(s) { var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(s || ''); return m ? m[3] + '.' + m[2] + '.' + m[1] + ' ' + m[4] + ':' + m[5] : (s || ''); }
+  // Анкета перед встречей (ПсиПоинт, 27.10): без баллов, ответы — выбор кнопками и свои слова
+  function ppIsAnketa(r) { return (r.answers || []).some(function (a) { return a.texts !== undefined; }); }
   function ppScores(r) {
+    if (ppIsAnketa(r)) return 'анкета';
     return Object.keys(r.scores || {}).map(function (k) { var s = r.scores[k]; return s.name + ' ' + s.score + '/' + s.max; }).join(' · ');
   }
   function ppFiltered() {
@@ -9837,6 +9840,10 @@
           var s = r.scores[k]; return el('li', {}, [el('b', { text: s.name + ': ' + s.score + ' из ' + s.max }), s.text ? ' — ' + s.text : '']);
         })),
         el('ol', { class: 'a-pp-answers' }, (r.answers || []).map(function (a) {
+          if (a.texts !== undefined) return el('li', {}, [el('span', { text: a.question }),
+            a.choice && a.choice.length ? el('small', { text: 'Выбрано: ' + a.choice.join(', ') }) : null,
+            a.texts.length ? el('div', { class: 'a-pp-text', text: a.texts.join('\n\n') }) : null,
+            !(a.choice && a.choice.length) && !a.texts.length ? el('small', { text: '— пропущено' }) : null]);
           return el('li', {}, [el('span', { text: a.question }), el('small', { text: a.answer + ' · ' + a.score + (r.scores && r.scores[a.scale] ? ' (' + r.scores[a.scale].name.toLowerCase() + ')' : '') })]);
         })),
         el('div', { class: 'a-pp-row' }, [
@@ -9894,7 +9901,7 @@
     var rows = [head].concat(list.map(function (r) {
       var row = [r.code, r.test, ppDate(r.created_at), r.source === 'site' ? 'сайт' : 'Телеграм', r.tg_username ? '@' + r.tg_username : '', r.tg_first_name || '', r.taken_at ? ppDate(r.taken_at) : ''];
       scales.forEach(function (k) { var s = (r.scores || {})[k]; row.push(s ? s.score : '', s ? s.text : ''); });
-      for (var j = 0; j < maxQ; j++) { var a = (r.answers || [])[j]; row.push(a ? a.score : ''); }
+      for (var j = 0; j < maxQ; j++) { var a = (r.answers || [])[j]; row.push(a ? (a.texts !== undefined ? a.answer : a.score) : ''); }
       return row;
     }));
     var csv = '﻿' + rows.map(function (row) {
