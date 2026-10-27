@@ -10053,7 +10053,11 @@
       resetBox
     ];
   }
-  function monthGenNow() { var m = /^\d{4}-(\d{2})$/.exec(DATA.settings.currentShowcase || ''); return m ? MONTHS_GEN[+m[1] - 1] : 'месяца'; }
+  // Месяц в подписи «Расписание …» — тот же, что открывает /vitrina/ по календарю (27.10), иначе выбранный в панели
+  function monthGenNow() {
+    var id = (window.M13 && window.M13.monthPick && window.M13.monthPick(DATA.settings, publishedIds(DATA))) || DATA.settings.currentShowcase || '';
+    var m = /^\d{4}-(\d{2})$/.exec(id); return m ? MONTHS_GEN[+m[1] - 1] : 'месяца';
+  }
   function openHomePreview(phone) {
     var pv = document.getElementById('a-preview');
     var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Главная страница', src: '/?preview=1' });

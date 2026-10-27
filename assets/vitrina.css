@@ -2223,6 +2223,12 @@ body.m13-locked{overflow:hidden}
 .m13-rs-bg{background-image:var(--rs-img);background-size:cover;background-repeat:no-repeat}
 .m13-rs-veil{background:radial-gradient(ellipse 80% 70% at 50% 46%,var(--rs-l) 0%,color-mix(in srgb,var(--rs-l) 55%,transparent) 60%,color-mix(in srgb,var(--rs-l) 20%,transparent) 100%)}
 .m13-rs--img .m13-rs-glow{opacity:.5}
+/* На картинке надписи чётче (27.10): светлый ореол вокруг букв, описание и мелкие строки без прозрачности */
+.m13-rs--img .m13-rs-in{text-shadow:0 0 14px color-mix(in srgb,var(--rs-l) 90%,transparent),0 0 3px color-mix(in srgb,#fff 70%,transparent)}
+.m13-rs--img :is(.m13-rs-top,.m13-rs-kind,.m13-rs-desc){opacity:1}
+.m13-rs--img .m13-rs-desc{font-weight:500}
+.m13-rs--img .m13-rs-btn--main{text-shadow:none}
+.m13-rs--img .m13-rs-btn:not(.m13-rs-btn--main){background:color-mix(in srgb,#fff 55%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 @media (max-width:680px){.m13-rs-bg{background-image:var(--rs-img-ph,var(--rs-img))}}
 
 /* ================= Кнопки «открыть» и «Нажать — открыть оборот» (панель, «Кнопка „открыть“», 27.10) ================= */
