@@ -502,7 +502,7 @@
 
   // Скорость бликов: контур карточки, кнопка на обороте, подпись под сеткой
   var RIM_SPEEDS = [['fast', 'Быстрый — круг за 5 с'], ['normal', 'Обычный — круг за 7 с'], ['slow', 'Медленный — круг за 12 с'], ['vslow', 'Очень медленный — круг за 18 с']];
-  // Конфетти (блик по карточкам, 27.10 (7)): расцветка — кнопками с образцом, форма, сколько; рядом пробник на тёмном и светлом
+  // Конфетти (блик по карточкам, 27.10 (8)): расцветка — кнопками с образцом, форма, сколько; рядом пробник на тёмном и светлом
   var CF_COLORS = [['', '🌸 Нежные', '#f4c95d', '#8fb8f2'], ['bright', '🎉 Яркие', '#ff2d55', '#1f7bff'], ['gold', '✨ Золото', '#fff6cf', '#b8862c'],
     ['silver', '🪞 Серебро-зеркало', '#ffffff', '#8a97a8'], ['pearl', '🐚 Перламутр', '#ffe6f2', '#cff3ff']];
   function confettiFields(hd, draw) {
@@ -1691,9 +1691,9 @@
 
 
   /* ---------- Обложка карточки при открытии витрины ----------
-     Месяц: sc.cardStyle.lid = {open: '' | 'book', …}; карточка: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}.
+     Месяц: sc.cardStyle.lid = {open: '' | 'book' | 'flip' | 'envelope', …} (у конверта ещё flap, go, seal, wax, inner); карточка: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}.
      Поля — в vitrina.js (lidHTML). Волна и вид блика — в «Бликах» (head.wave, head.waveSpeed, head.sheenKind). */
-  var LID_OPENS = [['book', 'Книга — раскрывается на корешке'], ['flip', 'Переворот карты — обложка как рубашка']];
+  var LID_OPENS = [['book', 'Книга — раскрывается на корешке'], ['flip', 'Переворот карты — обложка как рубашка'], ['envelope', 'Конверт — клапан откидывается, конверт уходит']];
   var LID_DEF = { open: 'book', feel: 'soft', from: 'left', speed: 'normal', pause: 0.5, shadow: 'soft', mat: 'glass', glass: 35, blur: 8 };
   var DAND_KINDS = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave' };
   function lidOnOf(sc, c) {
@@ -1706,8 +1706,11 @@
     if (c) { var fs = c.front.style = c.front.style || {}; L = fs.lid = fs.lid || {}; } else L = cs.lid = cs.lid || {};
     var d = cs.lid || {};
     function fill() { Object.keys(LID_DEF).forEach(function (k) { if (L[k] == null || L[k] === '') L[k] = LID_DEF[k]; }); }
+    // у конверта клапан обычно сверху (у книги корешок — слева)
+    function envFrom(v) { if (v === 'envelope' && (!L.from || L.from === 'left')) L.from = 'top'; }
     function draw() {
-      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '', flip = L.open === 'flip';
+      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '', flip = L.open === 'flip', env = L.open === 'envelope';
+      var atSeal = env && L.seal !== 'none';
       box.replaceChildren();
       add(box, [
         el('p', { class: 'a-hint', text: 'Когда витрина открывается, волна блика доходит до карточки, свет скользит по обложке — и она раскрывается. Под ней — лицевая сторона. ' +
@@ -1717,19 +1720,32 @@
             if (v === 'own') { Object.keys(d).forEach(function (k) { if (L[k] == null) L[k] = clone(d[k]); }); if (!L.open) L.open = 'book'; fill(); }
             changed(); draw(); } })
           : selectIn(L, 'open', 'Обложка у карточек', [['', 'Без обложки (как обычно)']].concat(LID_OPENS), {
-            def: '', onChange: function (v) { if (v) fill(); changed(); draw(); },
+            def: '', onChange: function (v) { if (v) fill(); envFrom(v); changed(); draw(); },
             hint: 'Для всех карточек месяца. Обычно обложку ставят одной-двум карточкам — в их формах, раздел «Обложка при открытии витрины».' }),
         own ? sub('Как открывается') : null,
         own ? el('div', { class: 'a-row' }, [
-          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book', onChange: function () { changed(); draw(); } })
-            : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, конверт, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
+          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book', onChange: function (v) { envFrom(v); changed(); draw(); } })
+            : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
           flip ? selectIn(L, 'from', 'Куда переворачивается', [['left', 'Слева направо'], ['right', 'Справа налево'], ['top', 'Сверху вниз'], ['bottom', 'Снизу вверх']], { def: 'left' })
+            : env ? selectIn(L, 'from', 'Где клапан', [['top', 'Сверху — как у письма'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']], { def: 'top' })
             : selectIn(L, 'from', 'Где корешок', [['left', 'Слева — как книга'], ['right', 'Справа'], ['top', 'Сверху — поднимается вверх'], ['bottom', 'Снизу — откидывается вниз']], { def: 'left' })]) : null,
-        own ? selectIn(L, 'feel', 'Какая обложка', flip
+        own && env ? el('div', { class: 'a-row' }, [
+          selectIn(L, 'go', 'Куда уходит конверт', [['down', 'А — уезжает и тает (карточка остаётся)'], ['out', 'Б — карточка выдвигается из конверта, конверт уходит'],
+            ['unfold', 'В — раскладывается на четыре клапана']], { def: 'down' }),
+          selectIn(L, 'flap', 'Форма клапана', [['sharp', 'Острый'], ['gentle', 'Пологий'], ['round', 'Скруглённый']], { def: 'sharp' })]) : null,
+        own && env ? el('div', { class: 'a-row3' }, [
+          selectIn(L, 'seal', 'Печать', [['wax', 'Сургуч — капля со знаком'], ['sign', 'Просто знак на клапане'], ['none', 'Без печати']], { def: 'wax', onChange: function () { changed(); draw(); },
+            hint: 'Знак для печати — ниже, в «Надпись или значок». Печать стоит на кончике клапана.' }),
+          L.seal !== 'sign' && L.seal !== 'none' ? colorOptIn(L, 'wax', 'Цвет сургуча', { none: 'тёмно-красный', base: '#960c0d' }) : el('span'),
+          colorOptIn(L, 'inner', 'Цвет изнанки клапана', { none: 'цвет обложки чуть темнее', pick: '#d9cbb5' })]) : null,
+        own ? selectIn(L, 'feel', 'Какая обложка', env
+          ? [['soft', 'Мягкая бумага — клапан в конце чуть пружинит'], ['leather', 'Плотная, как кожа — плавно, без пружины'], ['hard', 'Твёрдая — откидывается ровно']]
+          : flip
           ? [['soft', 'Мягкая — в конце чуть пружинит, как картон'], ['leather', 'Кожаная — тяжёлая, переворачивается плавно, ложится без пружины'], ['hard', 'Твёрдая — ложится ровно']]
           : [['soft', 'Мягкая, как тетрадный лист — изгибается дугой'], ['leather', 'Мягкая, как толстая кожа — тяжёлый плавный изгиб'],
             ['hard', 'Твёрдая, как переплёт — поворачивается ровной доской']], { def: 'soft',
-          hint: flip ? 'Обложка — это рубашка карты: карточка приподнимается, переворачивается вокруг середины и ложится лицом.'
+          hint: env ? 'Печать тает, клапан откидывается — видна его изнанка, — и конверт уходит, открывая карточку.'
+            : flip ? 'Обложка — это рубашка карты: карточка приподнимается, переворачивается вокруг середины и ложится лицом.'
             : 'Мягкая изгибается, по изгибу бегут свет и тень, в конце лист чуть «доплывает». Кожаная — плотнее и тяжелее: край чуть скруглён, лист выгибается ровной дугой, свет на изгибе тёплый и матовый.' }) : null,
         own ? el('div', { class: 'a-row3' }, [
           selectIn(L, 'speed', 'Скорость раскрытия', [['fast', 'Быстро — 0,7 с'], ['normal', 'Обычно — 1 с'], ['slow', 'Медленно — 1,4 с'], ['vslow', 'Очень медленно — 2 с']], { def: 'normal' }),
@@ -1762,7 +1778,8 @@
         own && sign ? el('div', { class: 'a-row3' }, [
           colorOptIn(L, 'signColor', 'Цвет', { none: 'подберётся сам', pick: '#ecd3a3' }),
           selectIn(L, 'signSize', 'Размер', [['s', 'Маленький'], ['m', 'Средний'], ['l', 'Крупный']], { def: 'm' }),
-          selectIn(L, 'signPos', 'Где', [['center', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу']], { def: 'center' })]) : null,
+          atSeal ? el('span', { class: 'a-hint', style: 'align-self:end', text: 'Стоит печатью на кончике клапана.' })
+            : selectIn(L, 'signPos', 'Где', [['center', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу']], { def: 'center' })]) : null,
         own ? el('p', { class: 'a-hint', text: 'Откуда идёт волна по сетке, какой блик и как быстро он перебегает — в «Странице месяца», раздел «Блики».' }) : null,
         el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть раскрытие', onclick: function () { openPreview('showcase', sc.id); } })])
       ]);
@@ -3124,7 +3141,7 @@
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false }),
-      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'книга или переворот карты' })
+      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'книга, переворот карты или конверт' })
     ];
     if (isCal) out.push(block('Календарь месяца', monthCalFields(sc, c, cb)));
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));

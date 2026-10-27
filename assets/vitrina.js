@@ -523,7 +523,7 @@
   var SHEEN_KINDS = { soft: 1, silk: 1, bunny: 1, edge: 1, ray: 1, flash: 1, confetti: 1, popper: 1 };
   // Конфетти (27.10 (5), её «разноцветные, мелкие, не пятна»): крошки на карточку — полоски и кружочки, свой цвет, путь и поворот у каждой.
   // head.confettiShape: '' смесь | round только кружочки | strip только полоски; head.confettiCount: few | mid или пусто (средне) | many | lots — сколько крошек;
-  // head.confettiColor (27.10 (7)): '' нежные | bright яркие | gold золото | silver серебро-зеркало | pearl перламутр (металл и перламутр поблёскивают).
+  // head.confettiColor (27.10 (8)): '' нежные | bright яркие | gold золото | silver серебро-зеркало | pearl перламутр (металл и перламутр поблёскивают).
   // Падение и покачивание — две отдельные анимации (translate и transform): раньше падение шло двумя отрезками и замирало на середине
   var CONFETTI_MS = 2600, CONFETTI_N = { few: 18, many: 50, lots: 75 }, CONFETTI_C = {
     soft: ['#f4c95d', '#ef8fa8', '#7fd1c1', '#8fb8f2', '#c4a3f0', '#f59a6b', '#fff6dc'],
@@ -612,8 +612,14 @@
      (from left | right — слева направо / справа налево, top | bottom — сверху вниз / снизу вверх).
      feel: soft (по умолчанию) — мягкая: книга изгибается, как тетрадный лист, карта чуть пружинит, как картон |
      leather — как толстая мягкая кожа: тяжёлый плавный изгиб ровной дугой, скруглённый край, матовый тёплый свет; карта переворачивается плавно, без пружины |
-     hard — твёрдая, как переплёт. */
-  var LID_OPEN = { book: 1, flip: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
+     hard — твёрдая, как переплёт.
+     envelope — конверт (её «делаем» 27.10): на закрытой обложке линии клапанов, печать на кончике клапана; печать тает → клапан откидывается
+     (видна изнанка) → конверт уходит. from — где клапан (top по умолчанию | bottom | left | right);
+     flap sharp (острый, по умолчанию) | gentle (пологий) | round (скруглённый); go down (А — конверт уезжает и тает, по умолчанию) |
+     out (Б — карточка выдвигается из конверта, конверт уходит) | unfold (В — раскладывается на четыре клапана);
+     seal wax (сургуч: капля, в ней знак из sign; по умолчанию) | sign (просто знак на кончике клапана) | none (без печати — знак стоит, где signPos);
+     wax — цвет сургуча (#960c0d); inner — цвет изнанки (обычно — цвет обложки чуть темнее). */
+  var LID_OPEN = { book: 1, flip: 1, envelope: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
   function lidQuiet() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function lidOf(c) {
     if (!c || c.visible === false || lidQuiet()) return null;
@@ -671,23 +677,81 @@
   // Значки-одуванчики на обложке: sign → вид одуванчика
   var DAND_SIGN = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave' };
   // Надпись или значок на обложке
-  function lidSign(L, dark) {
-    var k = L.sign, inner = '', ty = [];
+  function lidSignInner(L, ty) {
+    var k = L.sign;
     if (k === 'text') {
       var tx = String(L.text || '').trim(); if (!tx) return '';
       if (L.font) { ensureFont(L.font); ty.push("font-family:'" + L.font + "',Georgia,serif"); }
-      inner = '<span class="m13-lid-tx">' + txt(tx) + '</span>';
-    } else if (STAR_PATH[k]) inner = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH[k] + '"/></svg>';
-    else if (DAND_SIGN[k]) inner = dandSVG(DAND_SIGN[k], !!L.signMirror);
-    else if (k === 'logo') inner = logoHTML(S.D.showcase.head || {});
-    else if (k === 'image' && L.signImg) inner = '<img alt="" src="' + esc(media(L.signImg)) + '">';
+      return '<span class="m13-lid-tx">' + txt(tx) + '</span>';
+    }
+    if (STAR_PATH[k]) return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH[k] + '"/></svg>';
+    if (DAND_SIGN[k]) return dandSVG(DAND_SIGN[k], !!L.signMirror);
+    if (k === 'logo') return logoHTML(S.D.showcase.head || {});
+    if (k === 'image' && L.signImg) return '<img alt="" src="' + esc(media(L.signImg)) + '">';
+    return '';
+  }
+  function lidSign(L, dark) {
+    var ty = [], inner = lidSignInner(L, ty), k = L.sign;
     if (!inner) return '';
     ty.push('color:' + (L.signColor || (dark ? '#f3e6cc' : '#3b2f24')));
     var at = L.signPos === 'top' || L.signPos === 'bottom' ? L.signPos : 'center', sz = L.signSize === 's' || L.signSize === 'l' ? L.signSize : 'm';
     return '<div class="m13-lid-sign m13-lid-sign--' + (DAND_SIGN[k] ? 'dand' : k) + ' m13-lid-at-' + at + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' + inner + '</div>';
   }
+
+  /* Конверт: геометрия в долях (0–100) «как будто клапан сверху»: x — поперёк, d — вглубь от края с клапаном; envAt переводит в место на карточке.
+     Отверстие конверта — треугольник от углов края с клапаном к середине; клапан — своей формы поверх. */
+  var ENV_TIP = { sharp: 60, gentle: 38, round: 56 };
+  function envAt(from, x, d) { return from === 'bottom' ? [x, 100 - d] : from === 'left' ? [d, x] : from === 'right' ? [100 - d, x] : [x, d]; }
+  function envFlap(shape) {
+    if (shape !== 'round') return [[0, 0], [100, 0], [50, ENV_TIP[shape] || 60]];
+    var pts = [[0, 0], [100, 0]], i, t, u;
+    // скруглённый: две кривые от углов к низу клапана
+    for (i = 1; i <= 10; i++) { t = i / 10; u = 1 - t; pts.push([u * u * u * 100 + 3 * u * u * t * 100 + 3 * u * t * t * 80 + t * t * t * 50, 3 * u * u * t * 26 + 3 * u * t * t * 56 + t * t * t * 56]); }
+    for (i = 1; i < 10; i++) { t = i / 10; u = 1 - t; pts.push([u * u * u * 50 + 3 * u * u * t * 20 + 3 * u * t * t * 0, u * u * u * 56 + 3 * u * u * t * 56 + 3 * u * t * t * 26]); }
+    return pts;
+  }
+  function envPoly(from, pts, back) {
+    return 'polygon(' + pts.map(function (p) { var q = envAt(from, p[0], back ? 100 - p[1] : p[1]); return q[0].toFixed(2) + '% ' + q[1].toFixed(2) + '%'; }).join(',') + ')';
+  }
+  function envInside(pts, x, y) {
+    for (var i = 0, j = pts.length - 1, c = false; i < pts.length; j = i++) {
+      if ((pts[i][1] > y) !== (pts[j][1] > y) && x < (pts[j][0] - pts[i][0]) * (y - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) c = !c;
+    }
+    return c;
+  }
+  // Линии на закрытом конверте: косые от углов к середине (под клапаном не видны) и край клапана
+  function envLines(from, shape) {
+    var F = envFlap(shape), out = [], k;
+    function pt(p) { var q = envAt(from, p[0], p[1]); return q[0].toFixed(2) + ',' + q[1].toFixed(2); }
+    [[0, 0], [100, 0], [0, 100], [100, 100]].forEach(function (a) {
+      var run = [];
+      for (k = 0; k <= 40; k++) {
+        var p = [a[0] + (50 - a[0]) * k / 40, a[1] + (50 - a[1]) * k / 40];
+        if (!envInside(F, p[0], p[1]) || (k === 0 && a[1] === 0)) run.push(p);
+        else { if (run.length > 1) out.push(run); run = []; }
+      }
+      if (run.length > 1) out.push(run);
+    });
+    var edge = F.slice(1).concat([F[0]]);
+    var lines = out.map(function (r) { return '<polyline points="' + r.map(pt).join(' ') + '"/>'; }).join('');
+    return '<svg class="m13-env-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + lines +
+      '<polyline class="m13-env-edge" points="' + edge.map(pt).join(' ') + '"/></svg>' +
+      '<i class="m13-env-face" style="clip-path:' + envPoly(from, F) + '"></i>';
+  }
+  // Печать на кончике клапана: сургуч со знаком или просто знак
+  function envSeal(L, from, shape) {
+    var seal = L.seal === 'sign' || L.seal === 'none' ? L.seal : 'wax';
+    if (seal === 'none') return '';
+    var ty = [], inner = lidSignInner(L, ty), sz = L.signSize === 's' || L.signSize === 'l' ? L.signSize : 'm';
+    if (seal === 'sign' && !inner) return '';
+    var at = envAt(from, 50, (ENV_TIP[shape] || 60) - (seal === 'wax' ? 4 : 2));
+    ty.push('left:' + at[0] + '%', 'top:' + at[1] + '%', 'color:' + (L.signColor || (seal === 'wax' ? '#f2d9a8' : '#3b2f24')));
+    if (seal === 'wax') ty.push('--m13-wax:' + (L.wax || '#960c0d'));
+    return '<div class="m13-env-seal m13-env-seal--' + seal + ' m13-env-k-' + (DAND_SIGN[L.sign] ? 'dand' : L.sign || 'none') + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' +
+      (seal === 'wax' ? '<i class="m13-env-drop"></i>' : '') + (inner ? '<span class="m13-env-mark">' + inner + '</span>' : '') + '</div>';
+  }
   function lidHTML(c, L) {
-    var st = cardStyle(c), from = LID_FROM[L.from] ? L.from : 'left', mat = L.mat === 'color' || L.mat === 'frost' || (L.mat === 'image' && L.image) ? L.mat : 'glass';
+    var st = cardStyle(c), from = LID_FROM[L.from] ? L.from : L.open === 'envelope' ? 'top' : 'left', mat = L.mat === 'color' || L.mat === 'frost' || (L.mat === 'image' && L.image) ? L.mat : 'glass';
     var col = L.color || (mat === 'frost' ? '#e4ebf1' : st.bg || '#f4efe6'), rgb = hexRgb(col), dark = mat === 'image' || (mat !== 'frost' && lum(rgb) < 128);
     var css = ['--m13-lid-ms:' + (LID_MS[L.speed] || LID_MS.normal) + 'ms', '--m13-ac:' + (st.accent || '#ecd3a3')], leaf = [];
     // Плотный цвет листа для мягкого изгиба (у стекла и инея — как они выглядят поверх карточки): размытие на изгибающихся полосках не работает
@@ -701,15 +765,24 @@
       leaf.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - gl / 100).toFixed(2) + ')', '--m13-lb:' + bl + 'px');
     }
     var rim = L.rim === 'light' || L.rim === 'cold' || L.rim === 'gold' ? '<i class="m13-lay m13-rim m13-rim--' + L.rim + '"' + (L.rimColor ? ' style="' + esc('--m13-rc:' + L.rimColor) + '"' : '') + '></i>' : '';
-    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft' + (L.feel === 'leather' ? ' m13-lid--leather' : '')) + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
+    var env = L.open === 'envelope', shape = ENV_TIP[L.flap] ? L.flap : 'sharp', sign = env && L.seal !== 'none' ? envSeal(L, from, shape) : lidSign(L, dark), data = '';
+    if (env) {
+      // изнанка клапанов — цвет обложки чуть темнее (или свой)
+      css.push('--m13-env-in:' + (L.inner || 'rgb(' + rgb.map(function (v, j) { return Math.round((v * k + under[j] * (1 - k)) * 0.9); }).join(',') + ')'));
+      data = ' data-flap="' + shape + '" data-go="' + (L.go === 'out' || L.go === 'unfold' ? L.go : 'down') + '"';
+      sign = envLines(from, shape) + sign;
+    }
+    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft' + (L.feel === 'leather' ? ' m13-lid--leather' : '')) + (L.shadow === 'deep' ? ' m13-lid--deep' : '') +
+      (env && dark ? ' m13-env-dark' : '') + '" aria-hidden="true"' + data + ' data-pause="' +
       Math.round(lidNum(L.pause, 0.5, 0, 3) * 1000) + '" style="' + esc(css.join(';')) + '"><i class="m13-lid-cast"></i>' +
       '<div class="m13-lid-leaf m13-lid-' + mat + '"' + (leaf.length ? ' style="' + esc(leaf.join(';')) + '"' : '') + '>' +
-      (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + lidSign(L, dark) + rim + '<i class="m13-lid-shade"></i></div></div>';
+      (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + sign + rim + '<i class="m13-lid-shade"></i></div></div>';
   }
   function lidOpen(lid) {
     if (!lid || !lid.isConnected || lid.classList.contains('is-open')) return;
     var cell = lid.parentNode, ms = parseFloat(lid.style.getPropertyValue('--m13-lid-ms')) || 1000, cl = lid.classList, total = ms;
     if (cl.contains('m13-lid--flip')) total = Math.round(ms * (cl.contains('m13-lid--leather') ? 1.5 : 1.3));
+    else if (cl.contains('m13-lid--envelope')) total = lidEnvelope(lid, ms);
     else if (cl.contains('m13-lid--soft')) total = lidBend(lid, ms);
     // скорость — и для самой карточки (у переворота она поворачивается вместе с рубашкой; переменная стоит на обложке и до неё не доходит)
     cell.style.setProperty('--m13-lid-ms', ms + 'ms');
@@ -792,6 +865,91 @@
     }
     requestAnimationFrame(frame);
     return Math.round(ms * END);
+  }
+  /* Конверт раскрывается (всё — по кадрам, время в долях скорости ms):
+     печать тает (CSS) → клапан откидывается, с изнанкой и тенью (мягкий в конце чуть «доплывает») → дальше по data-go:
+     down — конверт уезжает от клапана и тает; out — карточка выдвигается из конверта в сторону клапана (клапан уходит назад, за неё),
+     конверт уезжает, карточка садится на место; unfold — три других клапана раскладываются наружу, потом всё тает.
+     Стекло и иней: у повёрнутых кусков размытие не работает — они плотные, тем цветом, каким обложка видится поверх карточки. */
+  function lidEnvelope(lid, ms) {
+    var leaf = lid.querySelector('.m13-lid-leaf'), cell = lid.parentNode, card = cell.querySelector(':scope > .m13-thumb') || cell.firstElementChild;
+    if (!leaf || !lid.offsetWidth || !window.requestAnimationFrame) return ms;
+    var cl = lid.classList, from = cl.contains('m13-lid--right') ? 'right' : cl.contains('m13-lid--left') ? 'left' : cl.contains('m13-lid--bottom') ? 'bottom' : 'top';
+    var shape = lid.getAttribute('data-flap') || 'sharp', go = lid.getAttribute('data-go') || 'down';
+    var feel = cl.contains('m13-lid--hard') ? 'hard' : cl.contains('m13-lid--leather') ? 'leather' : 'soft', K = feel === 'leather' ? 1.25 : 1;
+    var deep = cl.contains('m13-lid--deep') ? 0.5 : 0.32;
+    var cs = getComputedStyle(leaf), clear = (cs.backdropFilter || cs.webkitBackdropFilter || 'none') !== 'none', solid = lid.style.getPropertyValue('--m13-lid-solid');
+    var inner = lid.style.getPropertyValue('--m13-env-in') || solid, box = document.createElement('div');
+    box.className = 'm13-env-box'; lid.insertBefore(box, leaf); box.appendChild(leaf);
+    var ROT = { top: ['X', 1, '50% 0'], bottom: ['X', -1, '50% 100%'], left: ['Y', -1, '0 50%'], right: ['Y', 1, '100% 50%'] };
+    // Клапан (или кусок конверта): лицо — тот же материал, изнанка — цвет изнанки; поворачивается на своём крае
+    function piece(side, pts) {
+      var w = document.createElement('div'), f = document.createElement('div'), b = document.createElement('div'), fs = document.createElement('i'), bs = document.createElement('i');
+      w.className = 'm13-env-pc'; w.style.transformOrigin = ROT[side][2];
+      f.className = leaf.className.replace('m13-lid-leaf', 'm13-env-mat'); f.style.cssText = leaf.style.cssText;
+      if (clear) { f.style.backdropFilter = f.style.webkitBackdropFilter = 'none'; if (solid) f.style.backgroundColor = solid; f.style.backgroundImage = 'none'; }
+      f.style.clipPath = f.style.webkitClipPath = envPoly(side, pts);
+      b.className = 'm13-env-back'; b.style.background = inner; b.style.clipPath = b.style.webkitClipPath = envPoly(side, pts, true);
+      b.style.transform = 'rotate' + ROT[side][0] + '(180deg)';
+      fs.className = bs.className = 'm13-env-sh'; f.appendChild(fs); b.appendChild(bs); w.appendChild(f); w.appendChild(b);
+      return { w: w, f: fs, b: bs, side: side };
+    }
+    function turn(o, a, sq) {
+      var r = ROT[o.side], s = Math.abs(Math.sin(a * Math.PI / 180));
+      o.w.style.transform = 'rotate' + r[0] + '(' + (r[1] * a).toFixed(2) + 'deg)' + (sq ? ' scale' + (r[0] === 'X' ? 'Y' : 'X') + '(' + sq.toFixed(3) + ')' : '');
+      o.f.style.opacity = (s * deep).toFixed(3); o.b.style.opacity = (s * deep * 0.9).toFixed(3);
+    }
+    var flap = piece(from, envFlap(shape)), pcs = [];
+    box.appendChild(flap.w); flap.w.style.opacity = '0';
+    // остальные три клапана (для «раскладывается»): сначала соседние, потом напротив
+    var SIDES = ['top', 'right', 'bottom', 'left'], fi = SIDES.indexOf(from);
+    if (go === 'unfold') [1, 3, 2].forEach(function (k, j) { var o = piece(SIDES[(fi + k) % 4], [[0, 0], [100, 0], [50, 50]]); o.at = j < 2 ? 0.6 : 0.8; o.w.style.opacity = '0'; box.appendChild(o.w); pcs.push(o); });
+    var away = { top: [0, 1], bottom: [0, -1], left: [1, 0], right: [-1, 0] }[from], W = lid.offsetWidth, H = lid.offsetHeight;
+    var pocket = envPoly(from, [[0, 0], [50, 50], [100, 0], [100, 100], [0, 100]]), back = null;
+    function cut(x) { return Math.max(0, Math.min(1, x)); }
+    function io(p) { return feel === 'leather' ? (p < 0.5 ? 8 * p * p * p * p : 1 - Math.pow(-2 * p + 2, 4) / 2) : p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+    function slide(el, p, k) { el.style.transform = 'translate(' + (away[0] * W * k * p).toFixed(1) + 'px,' + (away[1] * H * k * p).toFixed(1) + 'px)'; }
+    var END = go === 'out' ? 2.1 : go === 'unfold' ? 1.75 : 1.6, t0 = 0, cardT = card.style.transform;
+    function done() { if (back) back.remove(); if (go === 'out') card.style.transform = cardT; }
+    function frame(now) {
+      if (!box.isConnected) { done(); return; }
+      if (!t0) t0 = now;
+      var t = (now - t0) / ms / K;
+      // клапан: 0,18–0,88; мягкий в конце чуть перелетает и возвращается
+      var p = cut((t - 0.18) / 0.7), a = 180 * io(p) + (feel === 'soft' ? 9 * Math.sin(Math.PI * cut((p - 0.7) / 0.3)) : 0);
+      if (t > 0.18) {
+        flap.w.style.opacity = clear ? cut((t - 0.18) / 0.05).toFixed(3) : '1';
+        if (t > 0.21 && !leaf.style.clipPath) leaf.style.clipPath = leaf.style.webkitClipPath = pocket;
+      }
+      turn(flap, a, feel === 'soft' ? 1 - 0.07 * Math.sin(Math.PI * p) : 0);
+      if (go === 'down') {
+        var q = io(cut((t - 0.85) / 0.7));
+        slide(box, q, 0.7); box.style.opacity = (1 - Math.pow(q, 1.4)).toFixed(3);
+      } else if (go === 'out') {
+        // клапан лёг — уходит назад, за карточку (иначе карточка выедет из-под него)
+        if (p >= 1 && !back) {
+          back = document.createElement('div'); back.className = 'm13-env-behind';
+          back.style.perspective = getComputedStyle(lid).perspective;
+          back.appendChild(flap.w); cell.insertBefore(back, cell.firstChild);
+        }
+        var up = io(cut((t - 0.9) / 0.5)) * (1 - io(cut((t - 1.45) / 0.6))), q2 = io(cut((t - 1.35) / 0.6));
+        card.style.transform = 'translate(' + (-away[0] * W * 0.36 * up).toFixed(1) + 'px,' + (-away[1] * H * 0.36 * up).toFixed(1) + 'px) scale(' + (1 + 0.02 * up).toFixed(4) + ')';
+        slide(box, q2, 0.7); box.style.opacity = (1 - Math.pow(q2, 1.4)).toFixed(3);
+        if (back) { slide(back, q2, 0.7); back.style.opacity = (1 - q2).toFixed(3); }
+      } else {
+        pcs.forEach(function (o) {
+          var r = cut((t - o.at) / 0.6);
+          if (t > 0.55) o.w.style.opacity = clear ? cut((t - 0.55) / 0.05).toFixed(3) : '1';
+          turn(o, 180 * io(r) + (feel === 'soft' ? 7 * Math.sin(Math.PI * cut((r - 0.7) / 0.3)) : 0), 0);
+        });
+        if (t > (clear ? 0.6 : 0.56)) leaf.style.visibility = 'hidden';
+        box.style.opacity = (1 - io(cut((t - 1.25) / 0.45))).toFixed(3);
+      }
+      if (t < END) requestAnimationFrame(frame);
+      else done();
+    }
+    requestAnimationFrame(frame);
+    return Math.round(ms * K * END);
   }
   // Карточка с обложкой: обложка стоит над карточкой в общей обёртке (m13-cell), чтобы при раскрытии выходить за её край
   function withLid(c, html) {

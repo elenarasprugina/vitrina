@@ -1,0 +1,1043 @@
+{
+  "id": "2026-11",
+  "title": "Ноябрь 2026",
+  "period": {
+    "from": "2026-11-01",
+    "to": "2026-11-30"
+  },
+  "status": "published",
+  "basedOn": "2026-10",
+  "background": {
+    "color": "#f9f5f5",
+    "contrast": 115,
+    "sat": 100,
+    "bright": 90,
+    "image": "media/06c49b30b3282d8a9899.webp",
+    "imageTall": "media/228a3201407a5619044d.webp"
+  },
+  "share": {
+    "title": "Ноябрь • 2026",
+    "description": "Маршруты «Белый Соединитель Миров», «Синяя Буря» и «Жёлтый Человек», встречи и продукты ноября. Нажмите на карточку, чтобы узнать подробности.",
+    "image": "media/d76e29e9ab9a7ed689a4.jpg"
+  },
+  "cards": [
+    {
+      "id": "bridge",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Белый Соединитель Миров",
+        "subtitle": {
+          "value": "31.10–12.11",
+          "show": true
+        },
+        "status": {
+          "value": "Вход открыт",
+          "show": true
+        },
+        "foot": {
+          "value": "3 формата",
+          "show": true
+        },
+        "phase": {
+          "on": true,
+          "from": "2026-10-31",
+          "to": "2026-11-12",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": true,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
+        },
+        "style": {
+          "patternColor": "#cfe0ff",
+          "glow": "inherit",
+          "glowColor": "",
+          "glowStrength": "strong",
+          "glowDir": "around",
+          "lid": {
+            "mode": "",
+            "open": "book",
+            "from": "left",
+            "speed": "slow",
+            "pause": 0.5,
+            "shadow": "deep",
+            "mat": "color",
+            "glass": 35,
+            "blur": 8,
+            "rim": "gold",
+            "feel": "soft"
+          },
+          "overlay": "inherit",
+          "rim": "inherit",
+          "glowTempo": "inherit"
+        },
+        "dayShow": false,
+        "dayBg": ""
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "white-worldbridger",
+        "blocks": [
+          {
+            "id": "b-0saxa",
+            "kind": "desc",
+            "visible": true,
+            "text": "13 дней о переходах — о том, что подходит к концу, и о том, что может начаться, когда мы перестаём держаться за прежнее.\n\nКаждый день открывает новый Kin, новый вопрос и новую точку наблюдения за собой. \n\nЗа дорогой постепенно собирается ваш собственный Калейдоскоп отражений — из состояний, встреч и прожитых дней. На 13-й день весь маршрут складывается в один узор.\n\nЗдесь не нужно ничего обрывать силой. \nЗадача — увидеть, где проходит граница, и бережно её перейти."
+          },
+          {
+            "id": "b-86gt0",
+            "kind": "day",
+            "visible": true
+          },
+          {
+            "id": "b-pg419",
+            "kind": "formats",
+            "visible": true,
+            "formats": [
+              {
+                "formatId": "observe",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "link",
+                  "label": "Подробнее",
+                  "url": "https://13mirrors.ru/vitrina/routes/white-worldbridger/"
+                }
+              },
+              {
+                "formatId": "journey",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "7 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "message": "Привет! Хочу на маршрут \"Белый Соединитель Миров\", формат \"Путешествие\"."
+                }
+              },
+              {
+                "formatId": "immersion",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "18 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "message": "Привет! Хочу на маршрут \"Белый Соединитель Миров\", формат \"Погружение\"."
+                }
+              }
+            ],
+            "closed": "dim"
+          },
+          {
+            "id": "b-b5rp8",
+            "kind": "sandbox",
+            "visible": true,
+            "label": "Как устроены маршруты 13 MIRRORS"
+          }
+        ]
+      }
+    },
+    {
+      "id": "storm",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Синяя Буря",
+        "subtitle": {
+          "value": "13–25.11",
+          "show": true
+        },
+        "status": {
+          "value": "Вход открыт",
+          "show": true
+        },
+        "foot": {
+          "value": "3 формата",
+          "show": true
+        },
+        "phase": {
+          "on": true,
+          "from": "2026-11-13",
+          "to": "2026-11-25",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": true,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
+        },
+        "style": {
+          "patternColor": "#cfe0ff",
+          "glow": "soft",
+          "glowColor": "#3f7ff0",
+          "glowStrength": "weak",
+          "glowDir": "around",
+          "lid": {
+            "mode": "",
+            "open": "book",
+            "from": "left",
+            "speed": "slow",
+            "pause": 0.5,
+            "shadow": "deep",
+            "mat": "color",
+            "glass": 35,
+            "blur": 8,
+            "rim": "gold",
+            "feel": "soft"
+          },
+          "overlay": "inherit",
+          "rim": "inherit",
+          "glowTempo": "inherit"
+        },
+        "dayShow": false,
+        "dayBg": ""
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "blue-storm",
+        "blocks": [
+          {
+            "id": "b-uubgu",
+            "kind": "desc",
+            "visible": true,
+            "text": "13 дней о переменах — о тех, что приходят сами, и о силе, которая просыпается, когда старое уже не держит.\n\nКаждый день открывает новый Kin, новый вопрос и новую точку наблюдения за собой. \n\nЗа дорогой постепенно собирается ваш собственный Калейдоскоп отражений — из состояний, встреч и прожитых дней. На 13-й день весь маршрут складывается в один узор.\n\nЗдесь не нужно усмирять бурю. Задача — заметить, что именно она меняет, и позволить себе меняться вместе с ней."
+          },
+          {
+            "id": "b-eg3de",
+            "kind": "day",
+            "visible": true
+          },
+          {
+            "id": "b-6omcz",
+            "kind": "formats",
+            "visible": true,
+            "formats": [
+              {
+                "formatId": "observe",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "link",
+                  "label": "Подробнее",
+                  "url": "https://13mirrors.ru/vitrina/routes/blue-storm/"
+                }
+              },
+              {
+                "formatId": "journey",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "7 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "message": "Привет! Хочу на маршрут \"Синяя Буря\", формат \"Путешествие\"."
+                }
+              },
+              {
+                "formatId": "immersion",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "18 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "message": "Привет! Хочу на маршрут \"Синяя Буря\", формат \"Погружение\"."
+                }
+              }
+            ],
+            "closed": "dim"
+          },
+          {
+            "id": "b-tig4l",
+            "kind": "sandbox",
+            "visible": true,
+            "label": "Как устроены маршруты 13 MIRRORS"
+          }
+        ]
+      }
+    },
+    {
+      "id": "human",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Маршрут",
+        "title": "Жёлтый Человек",
+        "subtitle": {
+          "value": "26.11–08.12",
+          "show": true
+        },
+        "status": {
+          "value": "Вход открыт",
+          "show": true
+        },
+        "foot": {
+          "value": "3 формата",
+          "show": true
+        },
+        "phase": {
+          "on": true,
+          "from": "2026-11-26",
+          "to": "2026-12-08",
+          "before": {
+            "value": "скоро",
+            "show": true
+          },
+          "during": {
+            "value": "идёт сейчас",
+            "show": true
+          },
+          "after": {
+            "value": "завершён",
+            "show": true
+          },
+          "glow": true,
+          "statusAuto": true,
+          "statusBefore": {
+            "value": "Вход открыт",
+            "show": true
+          },
+          "statusDuring": {
+            "value": "Маршрут идёт · можно наблюдать",
+            "show": true
+          },
+          "statusAfter": {
+            "value": "Маршрут завершён",
+            "show": true
+          }
+        },
+        "style": {
+          "patternColor": "#cfe0ff",
+          "glow": "soft",
+          "glowColor": "#fde49b",
+          "glowStrength": "weak",
+          "glowDir": "around",
+          "lid": {
+            "mode": "",
+            "open": "book",
+            "from": "left",
+            "speed": "slow",
+            "pause": 0.5,
+            "shadow": "deep",
+            "mat": "color",
+            "glass": 35,
+            "blur": 8,
+            "rim": "gold",
+            "feel": "soft"
+          },
+          "overlay": "inherit",
+          "rim": "inherit",
+          "glowTempo": "inherit"
+        },
+        "dayShow": false,
+        "dayBg": ""
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "yellow-human",
+        "blocks": [
+          {
+            "id": "b-8yyof",
+            "kind": "desc",
+            "visible": true,
+            "text": "13 дней о свободе выбора — о том, где решения действительно ваши, а где за вас говорят привычка, страх или чужие ожидания.\n\nКаждый день открывает новый Kin, новый вопрос и новую точку наблюдения за собой. \n\nЗа дорогой постепенно собирается ваш собственный Калейдоскоп отражений — из состояний, встреч и прожитых дней. На 13-й день весь маршрут складывается в один узор.\n\nЗдесь не нужно становиться мудрее, чем вы есть. \nЗадача — услышать собственный голос и опереться на него."
+          },
+          {
+            "id": "b-tfoqf",
+            "kind": "day",
+            "visible": true
+          },
+          {
+            "id": "b-4zasr",
+            "kind": "formats",
+            "visible": true,
+            "formats": [
+              {
+                "formatId": "observe",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "",
+                  "show": true
+                },
+                "action": {
+                  "kind": "link",
+                  "label": "Подробнее",
+                  "url": "https://13mirrors.ru/vitrina/routes/yellow-human/"
+                }
+              },
+              {
+                "formatId": "journey",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "7 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "message": "Привет! Хочу на маршрут \"Жёлтый Человек\", формат \"Путешествие\"."
+                }
+              },
+              {
+                "formatId": "immersion",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "18 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Написать",
+                  "message": "Привет! Хочу на маршрут \"Жёлтый Человек\", формат \"Погружение\"."
+                }
+              }
+            ],
+            "closed": "dim"
+          },
+          {
+            "id": "b-2o0kk",
+            "kind": "sandbox",
+            "visible": true,
+            "label": "Как устроены маршруты 13 MIRRORS"
+          }
+        ]
+      }
+    },
+    {
+      "id": "soon",
+      "visible": true,
+      "interactive": false,
+      "front": {
+        "image": null,
+        "eyebrow": "",
+        "title": "Скоро",
+        "word": "скоро",
+        "style": {
+          "glow": "off",
+          "glowColor": "#6f9df2",
+          "glowStrength": "medium",
+          "glowDir": "bottom",
+          "patternColor": "#cfe0ff",
+          "lid": {},
+          "pattern": "custom",
+          "patternImage": "media/b8096fcd5b265be7425d.webp",
+          "patternPlace": "br",
+          "patternMirror": "same",
+          "patternOpacity": 70,
+          "patternSize": 0,
+          "sheen": 45,
+          "patternTilt": 0
+        }
+      },
+      "back": {
+        "type": "static"
+      }
+    },
+    {
+      "id": "center",
+      "visible": true,
+      "interactive": false,
+      "front": {
+        "image": null,
+        "eyebrow": "Календарь",
+        "title": "Ноябрь 2026",
+        "style": {
+          "glow": "live",
+          "glowStrength": "medium",
+          "glowDir": "around",
+          "glowColor": "#ecd4a3",
+          "patternColor": "#cfe0ff",
+          "overlay": "none",
+          "textHelp": "none",
+          "textAlign": "center",
+          "lid": {},
+          "glassBlur": 6,
+          "glass": 15
+        }
+      },
+      "back": {
+        "type": "static"
+      },
+      "monthCal": {
+        "days": [
+          {
+            "id": "cd-mhh0m",
+            "date": "2026-11-03",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 1
+          },
+          {
+            "id": "cd-hw0go",
+            "date": "2026-11-06",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 2
+          },
+          {
+            "id": "cd-gwtgh",
+            "date": "2026-11-11",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 3
+          },
+          {
+            "id": "cd-yd4br",
+            "date": "2026-11-19",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 4
+          },
+          {
+            "id": "cd-m9axi",
+            "date": "2026-11-22",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 5
+          },
+          {
+            "id": "cd-jxdgb",
+            "date": "2026-11-27",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 6
+          },
+          {
+            "id": "cd-0y7t9",
+            "date": "2026-11-30",
+            "label": "Портальный день",
+            "cardId": "candles",
+            "order": 7
+          }
+        ],
+        "freeHide": [],
+        "on": true,
+        "flyer": "star",
+        "line": "wave",
+        "glow": "none",
+        "meetColor": "#960c0d",
+        "starColor": "#960c0d",
+        "specialColor": "#f5b2b2",
+        "specialLabel": "Портальные дни",
+        "lineMode": "days",
+        "routeColors": {
+          "blue-hand": "#3f6fc4",
+          "yellow-sun": "#e2a92e",
+          "red-skywalker": "#b8413a",
+          "white-worldbridger": "#efece6",
+          "blue-storm": "#063689",
+          "yellow-human": "#d69405"
+        },
+        "freeLabel": "✦",
+        "face": "mini",
+        "numColor": ""
+      }
+    },
+    {
+      "id": "other",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "В Мастерской PRO",
+        "title": "Другой Мир",
+        "subtitle": {
+          "value": "",
+          "show": true
+        },
+        "status": {
+          "value": "Встречи месяца",
+          "show": true
+        },
+        "style": {
+          "patternColor": "#cfe0ff",
+          "glow": "off",
+          "glowColor": "#6f9df2",
+          "glowStrength": "medium",
+          "glowDir": "bottom",
+          "lid": {}
+        },
+        "ev": {
+          "on": true,
+          "src": "all",
+          "look": "melt"
+        }
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "",
+        "blocks": [
+          {
+            "id": "b-xob9j",
+            "kind": "desc",
+            "visible": true,
+            "text": "Живые встречи, практики и эксперименты — каждый раз о новом."
+          },
+          {
+            "id": "b-b2ctu",
+            "kind": "items",
+            "visible": true,
+            "items": [],
+            "max": 10,
+            "copyItems": false,
+            "tpl": "container"
+          },
+          {
+            "id": "b-6dtyn",
+            "kind": "actions",
+            "visible": true,
+            "actions": [
+              {
+                "kind": "contact",
+                "label": "Получить ссылку",
+                "visible": true,
+                "telegram": "another_world_gorod_mak"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "reflection",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "",
+        "title": "Карта-Отражение",
+        "subtitle": {
+          "value": "Какой твой архетип?",
+          "show": true
+        },
+        "foot": {
+          "value": "варианты",
+          "show": true
+        },
+        "style": {
+          "glow": "off",
+          "glowColor": "#6f9df2",
+          "glowStrength": "medium",
+          "glowDir": "bottom",
+          "patternColor": "#cfe0ff",
+          "lid": {}
+        }
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "",
+        "blocks": [
+          {
+            "id": "b-r6iv3",
+            "kind": "images",
+            "visible": true,
+            "images": [
+              {
+                "id": "img-rraf7",
+                "src": "media/a890d0b2cae3689c59ab.webp",
+                "caption": "",
+                "visible": true,
+                "order": 1
+              }
+            ]
+          },
+          {
+            "id": "b-0iu6j",
+            "kind": "desc",
+            "visible": true,
+            "text": "Твой кин — в персональном образе и тексте. Ещё одно зеркало, в котором можно узнать себя."
+          },
+          {
+            "id": "b-g7ysf",
+            "kind": "items",
+            "visible": true,
+            "items": [
+              {
+                "id": "i-io0qt",
+                "visible": true,
+                "order": 1,
+                "title": "Твой уникальный Архетип",
+                "text": {
+                  "value": "В течение одного дня я выдаю задания-практики, по результатам выполнения которых ты присылаешь обратную связь. На основе твоих ответов и Кина дня в системе Dreamspell я собираю твой Архетип. ",
+                  "show": true
+                },
+                "price": {
+                  "value": "3 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Заказать",
+                  "message": "Привет! \nЯ хочу заказать Карту-Отражение."
+                },
+                "image": "media/1fc12754e319e95a9f22.webp"
+              },
+              {
+                "id": "i-vlins",
+                "visible": true,
+                "order": 2,
+                "title": "Рассчитай свой Кин",
+                "action": {
+                  "kind": "contact",
+                  "label": "Записаться"
+                },
+                "kinWheel": true
+              }
+            ],
+            "max": 10,
+            "copyItems": true,
+            "tpl": "offerItem",
+            "view": "tiles"
+          },
+          {
+            "id": "b-ytyrl",
+            "kind": "actions",
+            "visible": true,
+            "actions": [
+              {
+                "kind": "contact",
+                "label": "Заказать Карту-Отражение",
+                "message": "Здравствуйте! Хочу заказать Карту-Отражение."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "candles",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Предзаказ",
+        "title": "Свечи 13 MIRRORS",
+        "subtitle": {
+          "value": "Портальные дни ноября",
+          "show": true
+        },
+        "status": {
+          "value": " ~03 · 06 · 11 · 19 · 22 · 27 · 30 ",
+          "show": true
+        },
+        "foot": {
+          "value": "предзаказ",
+          "show": true
+        },
+        "style": {
+          "patternColor": "#cfe0ff",
+          "glow": "off",
+          "glowColor": "#6f9df2",
+          "glowStrength": "medium",
+          "glowDir": "bottom"
+        }
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "",
+        "blocks": [
+          {
+            "id": "b-amip7",
+            "kind": "desc",
+            "visible": true,
+            "text": "Свечи создаются вручную в галактические портальные дни — дни, когда, по Dreamspell, граница между мирами становится тоньше. Каждая хранит энергию своего дня. Зажги её, когда хочешь вернуться к себе."
+          },
+          {
+            "id": "b-o8b7m",
+            "kind": "dates",
+            "visible": true,
+            "label": "Портальные дни ноября",
+            "dates": "03 · 06 · 11 · 19 · 22 · 27 · 30",
+            "note": "В эти даты изготавливаются свечи. Чтобы получить свою, нужен предзаказ."
+          },
+          {
+            "id": "b-exhwb",
+            "kind": "actions",
+            "visible": true,
+            "actions": [
+              {
+                "kind": "contact",
+                "label": "Оставить предзаказ",
+                "message": "Здравствуйте! Хочу оставить предзаказ на свечи 13 MIRRORS (портальные дни ноября)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "individual",
+      "visible": true,
+      "interactive": true,
+      "front": {
+        "image": null,
+        "eyebrow": "Индивидуально",
+        "title": "Индивидуальная работа",
+        "subtitle": {
+          "value": "До 90 минут",
+          "show": true
+        },
+        "status": {
+          "value": "от 3 500 ₽",
+          "show": true
+        },
+        "foot": {
+          "value": "запись",
+          "show": true
+        },
+        "style": {
+          "glow": "off",
+          "glowColor": "#6f9df2",
+          "glowStrength": "medium",
+          "glowDir": "bottom",
+          "patternColor": "#cfe0ff",
+          "lid": {},
+          "pattern": "custom",
+          "patternImage": "media/af478a3ab948fcc75a9c.webp",
+          "patternSize": 0,
+          "patternPlace": "bl",
+          "patternOpacity": 80,
+          "patternTilt": 12
+        }
+      },
+      "back": {
+        "type": "blocks",
+        "routeId": "",
+        "blocks": [
+          {
+            "id": "b-32d6x",
+            "kind": "desc",
+            "visible": true,
+            "text": "Личное пространство для совместного исследования того, что важно для тебя сейчас."
+          },
+          {
+            "id": "b-ea8ym",
+            "kind": "items",
+            "visible": true,
+            "items": [
+              {
+                "id": "i-awb92",
+                "visible": true,
+                "order": 1,
+                "title": "Индивидуальная встреча",
+                "duration": {
+                  "value": "до 90 минут",
+                  "show": true
+                },
+                "price": {
+                  "value": "7 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Записаться",
+                  "host": "individual_session"
+                }
+              },
+              {
+                "id": "i-40b3a",
+                "visible": true,
+                "order": 2,
+                "title": "Шаманская работа на колесе",
+                "duration": {
+                  "value": "До 60 минут",
+                  "show": true
+                },
+                "price": {
+                  "value": "3 500 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Узнать подробности",
+                  "host": "shamanic_wheel"
+                }
+              },
+              {
+                "id": "i-y7lee",
+                "visible": true,
+                "order": 3,
+                "title": "Регрессионная сессия",
+                "duration": {
+                  "value": "до 180 минут",
+                  "show": true
+                },
+                "price": {
+                  "value": "8 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Записаться",
+                  "host": "regression_session"
+                }
+              },
+              {
+                "id": "i-2chwe",
+                "visible": true,
+                "order": 4,
+                "title": "Расстановки",
+                "duration": {
+                  "value": "",
+                  "show": true
+                },
+                "price": {
+                  "value": "5 000 ₽",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Записаться",
+                  "host": "constellations"
+                }
+              }
+            ],
+            "max": 10,
+            "copyItems": true,
+            "tpl": "container"
+          }
+        ]
+      }
+    }
+  ],
+  "cardStyle": {
+    "glowDir": "around",
+    "glow": "off",
+    "smallSize": "lg",
+    "backSize": "lg",
+    "backGlass": 5,
+    "backBlur": 2,
+    "lid": {
+      "open": "",
+      "from": "left",
+      "speed": "slow",
+      "pause": 0.5,
+      "shadow": "deep",
+      "mat": "color",
+      "glass": 35,
+      "blur": 8,
+      "rim": "gold",
+      "feel": "soft"
+    },
+    "iconShape": "bare",
+    "closeMark": "dot",
+    "win": {},
+    "glass": 80,
+    "glassBlur": 3,
+    "rim": "candy",
+    "backBg": "#f7f1f1",
+    "rimColor": "#960c0d",
+    "bg": "#fcf7f7",
+    "textColor": "#452e02",
+    "font": "Cormorant Garamond",
+    "backText": "#573a05",
+    "btnStyle": "gradient",
+    "btnColor": "#960c0d",
+    "btnColor2": "#fcfcfc",
+    "btnDir": "diag",
+    "btnLive": "glint",
+    "overlay": "none",
+    "rimWidth": 1,
+    "sheen": 50,
+    "pattern": "custom",
+    "patternImage": null,
+    "patternTilt": -31,
+    "patternSize": 2,
+    "patternPlace": "br",
+    "btnOther": "outline",
+    "btnOtherColor": "#573a05",
+    "btnInk": "#ffffff",
+    "accent": "#960c0d",
+    "veil": "light",
+    "glowStrength": "weak",
+    "iconGlow": "none",
+    "iconColor": "#b5a176",
+    "rimPlace": "edge",
+    "iconSize": "",
+    "ctaLook": "pale"
+  },
+  "head": {
+    "align": "center",
+    "top": "text",
+    "evStyle": "line",
+    "color": "#452e02",
+    "evColor": "#573a05",
+    "wave": "corner",
+    "shineColor": "#960c0d",
+    "sheenKind": "soft",
+    "shineSpeed": "slow",
+    "waveSpeed": "slow"
+  },
+  "kinLook": {}
+}

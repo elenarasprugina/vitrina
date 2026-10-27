@@ -819,7 +819,7 @@ body.a-noscroll{overflow:hidden}
   .a-pp-sc{white-space:normal}
 }
 
-/* Пробник конфетти (27.10 (7)): две плитки — тёмная и светлая, как маленькие карточки */
+/* Пробник конфетти (27.10 (8)): две плитки — тёмная и светлая, как маленькие карточки */
 .a-cf-demos{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin:8px 0 4px}
 .a-cf-demo{position:relative;width:150px;height:120px;border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,.12)}
 .a-cf-demo--dark{background:linear-gradient(160deg,#2a2018,#0d0a08)}

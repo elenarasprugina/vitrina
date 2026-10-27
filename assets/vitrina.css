@@ -1441,7 +1441,7 @@ body.m13-locked{overflow:hidden}
 @keyframes m13-sheen-edge-back{to{transform:rotate(-180deg)}}
 /* Конфетти (27.10 (5)): крошки — <b> внутри блика (их ставит sheenCards), свои цвет, размер, путь (--dx, --dy, --fy) и поворот (--r, --fx).
    Сама полоса блика у конфетти не видна; крошки обрезаются краем карточки.
-   Падение (свойство translate, ровно, без остановок) и покачивание с кувырком (transform) — отдельные анимации (27.10 (7)) */
+   Падение (свойство translate, ровно, без остановок) и покачивание с кувырком (transform) — отдельные анимации (27.10 (8)) */
 .m13 i.m13-sheen.m13-sheen--confetti,.m13 i.m13-sheen.m13-sheen--popper{background:none;animation:none;opacity:1;overflow:hidden}
 .m13 i.m13-sheen > b{position:absolute;top:-8px;display:block;border-radius:1px;opacity:0;
   animation:m13-cf-fall 2600ms linear both,m13-cf-flut 900ms ease-in-out infinite alternate both}
@@ -1568,6 +1568,50 @@ body.m13-locked{overflow:hidden}
   100%{transform:scale(1) rotateY(calc(var(--fl-y) * 0deg)) rotateX(calc(var(--fl-x) * 0deg))}}
 @keyframes m13-flip-cast{0%{box-shadow:0 5px 15px rgba(0,0,0,.1);transform:scale(1)} 22%,60%{box-shadow:0 18px 36px rgba(0,0,0,.24);transform:scale(1.06)} 100%{box-shadow:0 5px 15px rgba(0,0,0,.08);transform:scale(1)}}
 @keyframes m13-flip-cast-d{0%{box-shadow:0 5px 15px rgba(0,0,0,.18);transform:scale(1)} 22%,60%{box-shadow:0 26px 48px rgba(0,0,0,.45);transform:scale(1.06)} 100%{box-shadow:0 5px 15px rgba(0,0,0,.1);transform:scale(1)}}
+/* Конверт: линии клапанов, печать на кончике клапана; при раскрытии клапан (и в «раскладывается» — остальные) поворачивается на своём крае */
+.m13-lid--envelope .m13-lid-cast{display:none}
+.m13-lid--envelope.is-open .m13-lid-leaf,.m13-lid--envelope.is-open .m13-lid-shade{animation:none}
+.m13-env-lines{position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;overflow:visible;
+  fill:none;stroke:rgba(60,40,25,.26);stroke-width:1;filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}
+.m13-env-lines polyline{vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.m13-env-lines .m13-env-edge{stroke:rgba(60,40,25,.34);stroke-width:1.2}
+.m13-env-dark .m13-env-lines{stroke:rgba(255,248,235,.3);filter:drop-shadow(0 1px 0 rgba(0,0,0,.3))}
+.m13-env-dark .m13-env-lines .m13-env-edge{stroke:rgba(255,248,235,.42)}
+.m13-env-face{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(0,0,0,.04))}
+.m13-lid--bottom .m13-env-face{background:linear-gradient(0deg,rgba(255,255,255,.1),rgba(0,0,0,.04))}
+.m13-lid--left .m13-env-face{background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(0,0,0,.04))}
+.m13-lid--right .m13-env-face{background:linear-gradient(270deg,rgba(255,255,255,.1),rgba(0,0,0,.04))}
+.m13-env-seal{position:absolute;z-index:2;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none}
+.m13-env-seal--wax{width:calc(var(--m13-lic) * .6 + 8cqw);aspect-ratio:1}
+.m13-env-drop{position:absolute;inset:0;border-radius:52% 48% 50% 47% / 47% 52% 48% 53%;
+  background:radial-gradient(circle at 34% 30%,color-mix(in srgb,var(--m13-wax) 62%,#fff) 0,var(--m13-wax) 42%,color-mix(in srgb,var(--m13-wax) 68%,#000) 100%);
+  box-shadow:0 2px 5px rgba(0,0,0,.35),0 0 0 1.5px color-mix(in srgb,var(--m13-wax) 80%,#000)}
+.m13-env-drop::after{content:"";position:absolute;inset:13%;border-radius:50%;border:1px solid rgba(255,235,210,.28);box-shadow:inset 0 1px 2px rgba(0,0,0,.3)}
+.m13-env-seal--wax .m13-env-mark{position:relative;display:flex;align-items:center;justify-content:center;width:68%;height:68%;
+  filter:drop-shadow(0 -.5px 0 rgba(0,0,0,.45)) drop-shadow(0 .6px 0 rgba(255,255,255,.22))}
+.m13-env-seal--wax svg{display:block;max-width:100%;max-height:100%;width:auto;height:100%;fill:currentColor;overflow:visible}
+.m13-env-seal--wax.m13-env-k-dand svg{height:96%}
+.m13-env-seal--wax .m13-lid-tx{font-size:calc(var(--m13-lsz) * .72);line-height:1.05;text-align:center}
+.m13-env-seal--wax .m13-logo{width:100%;max-width:100%}
+.m13-env-seal--wax img{display:block;max-width:100%;max-height:100%;object-fit:contain}
+.m13-env-seal--sign{width:var(--m13-lic)}
+.m13-env-seal--sign.m13-env-k-dand{width:calc(var(--m13-lic) * .7)}
+.m13-env-seal--sign.m13-env-k-logo{width:calc(var(--m13-lic) * 1.6)}
+.m13-env-seal--sign.m13-env-k-text{width:auto;max-width:84%}
+.m13-env-seal--sign .m13-env-mark{display:block;width:100%}
+.m13-env-seal--sign svg{display:block;width:100%;height:auto;fill:currentColor;overflow:visible}
+.m13-env-seal--sign .m13-lid-tx{display:block;font-size:var(--m13-lsz);line-height:1.1;text-align:center}
+.m13-env-seal--sign .m13-logo{width:100%}
+.m13-env-seal--sign img{display:block;width:100%;max-height:40cqh;object-fit:contain}
+.m13-lid--envelope.is-open .m13-env-seal{animation:m13-env-seal calc(var(--m13-lid-ms,1000ms) * .22) ease-in forwards}
+@keyframes m13-env-seal{to{opacity:0;transform:translate(-50%,-50%) scale(1.12)}}
+.m13-env-box,.m13-env-behind{position:absolute;inset:0;border-radius:var(--m13-radius);pointer-events:none}
+.m13-env-box{perspective:inherit}
+.m13-env-pc{position:absolute;inset:0;border-radius:var(--m13-radius);transform-style:preserve-3d;will-change:transform}
+.m13-env-mat,.m13-env-back{position:absolute;inset:0;border-radius:inherit;overflow:hidden;-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.m13-env-back{background:var(--m13-env-in,#d9d2c6)}
+.m13-env-sh{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none}
+.m13-env-behind{z-index:0}
 @media (max-width:680px){ .m13-lid{perspective:520px} .m13-lidcell--flip,.m13-lid.m13-lid--flip{perspective:760px} }
 @media (prefers-reduced-motion:reduce){ .m13-lid{display:none} .m13-lidcell--flip > .m13-thumb{transform:none;backface-visibility:visible} }
 
