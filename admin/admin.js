@@ -642,6 +642,8 @@
   }
   // Метка версии для ссылок на vitrina.js/css (опубликованные страницы, предпросмотр телефона): браузер не возьмёт старые из памяти
   var ASSET_V = window.M13V || Date.now();
+  // значок во вкладке и на экране телефона — общий с главной (репозиторий elenarasprugina.github.io)
+  var ICON_LINKS = '<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">\n<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=2">\n';
   function imgSrc(v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : '../' + v; }
   // Строка «Лучший размер» у поля картинки: o.size = {w, h, note} (ширина × высота) или {text, note}.
   // Окошко-миниатюра принимает ту же форму — видно, как картинка ляжет.
@@ -2404,7 +2406,7 @@
       if (!cimg) { cimg = absImg(sh.image, D); sized = !!cimg; }
       var target = '../#' + encodeURIComponent(cardId);
       return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ctitle) + '</title>\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' + ICON_LINKS + '<title>' + escAttr(ctitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + sc.id + '/' + encodeURIComponent(cardId) + '/', title: ctitle, description: cdesc, image: cimg, sized: sized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
@@ -2419,7 +2421,7 @@
       if (!pimg) { pimg = absImg(sh.image, D); psized = !!pimg; }
       var ptarget = '../#' + pv.hash;
       return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ptitle) + '</title>\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' + ICON_LINKS + '<title>' + escAttr(ptitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + pv.dir + '/' + encodeURIComponent(cardId) + '/', title: ptitle, description: pdesc, image: pimg, sized: psized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + ptarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + pv.dir + '/') + '">\n</head>\n' +
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
@@ -2433,7 +2435,7 @@
     if (soonT) sh = { title: soonT, description: sh.description, image: sh.image };
     var img = absImg(sh.image, D);
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
       '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind === 'kin' ? 'reflection' : kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
@@ -3597,7 +3599,7 @@
     var desc = (r.ogText || '') || ((r.days || []).length || 13) + ' дней' + (dates ? ' · ' + dates : '');
     var pic = r.scene === 'doors' && r.doors && r.doors.desktop ? r.doors.desktop : r.masterDesktop;
     var img = pic && !/^data:/.test(pic) ? (/^https?:/.test(pic) ? pic : u + pic) : '';
-    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr(name) + '</title>\n<meta name="description" content="' + escAttr('Маршрут «' + r.title + '» · ' + desc) + '">\n' +
       '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/') + '">\n' +
       '<meta property="og:title" content="' + escAttr(name) + '">\n<meta property="og:description" content="' + escAttr(desc) + '">\n' +
@@ -3645,7 +3647,7 @@
     D.showcases[st.currentShowcase] = slim;
     var dd = r.dates || {}, dt = [dd.from, dd.to].filter(Boolean).map(function (x) { var p = x.split('-'); return p[2] + '.' + p[1]; }).join('–');
     var desc = String(r.description || '').trim() || 'Маршрут 13 MIRRORS', img = absImg(r.image || shareOf(ms, P).image, P), base = '../../';
-    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr(site + ' · ' + r.title) + '</title>\n' + metaTags({ url: siteUrl(P) + 'routes/' + r.id + '/', title: r.title + (dt ? ' · ' + dt : ''), description: desc, image: img, sized: !r.image }, P) + '\n' +
       '<!-- Заглушка маршрута: создана панелью при публикации, пока у маршрута нет страницы по дням. Появится страница — займёт этот адрес. -->\n' +
       '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n<style>html,body{margin:0;background:#1d1a16}</style>\n</head>\n<body class="m13-body">\n' +
@@ -3668,7 +3670,7 @@
     var u = siteUrl(D), name = 'Как идти по маршруту · ' + (r.title || 'Маршрут');
     var pic = r.scene === 'doors' && r.doors && r.doors.desktop ? r.doors.desktop : r.masterDesktop;
     var img = pic && !/^data:/.test(pic) ? (/^https?:/.test(pic) ? pic : u + pic) : '';
-    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr('13 MIRRORS · ' + name) + '</title>\n<meta name="description" content="' + escAttr('Как проходить маршрут «' + r.title + '»: вход, каждый день, финал, личный код') + '">\n' +
       '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/kak/') + '">\n' +
       '<meta property="og:title" content="' + escAttr(name) + '">\n<meta property="og:description" content="Коротко: вход, каждый день, финал, личный код">\n' +
