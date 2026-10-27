@@ -9674,7 +9674,8 @@
      Результаты живут только здесь, в памяти вкладки: в черновик, в браузер и в GitHub не попадают. */
   var PP_URL = 'https://psypoint.13mirrors.ru/';
   var PP_KEY = 'm13-psypoint';
-  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, saved: {}, box: null };
+  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, saved: {}, box: null,
+    tab: 'results', ak: { list: null, busy: false, ed: null } };
   try { PP.pass = sessionStorage.getItem(PP_KEY) || null; } catch (e) {}
 
   function ppCall(action, extra) {
@@ -9692,7 +9693,7 @@
       });
   }
   function ppLogout(quiet) {
-    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.saved = {}; PP.err = '';
+    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.saved = {}; PP.err = ''; PP.ak = { list: null, busy: false, ed: null };
     try { sessionStorage.removeItem(PP_KEY); } catch (e) {}
     if (!quiet) { ppDraw(); toast('Вы вышли из ПсиПоинта. Результаты убраны с экрана.'); }
   }
@@ -9717,7 +9718,7 @@
     if (PP.pass && !PP.results && !PP.resultsBusy) ppLoad();
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'ПсиПоинт' }),
-        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами в Телеграме (работает на Beget). Здесь — включён ли он и результаты тестов.' })]),
+        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами и анкетами в Телеграме (работает на Beget). Здесь — результаты, тексты анкет и включён ли бот.' })]),
       PP.box
     ];
   }
@@ -9726,10 +9727,14 @@
     if (!box) return;
     box.replaceChildren();
     if (!PP.pass) { add(box, ppLoginBox()); return; }
+    if (PP.tab === 'anketas' && !PP.ak.list && !PP.ak.busy && !PP.err) { akLoad(); return; }
     add(box, [
-      PP.err ? el('div', { class: 'a-note' }, [PP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: ppLoad })]) : null,
-      ppStatusBlock(),
-      ppResultsBlock(),
+      el('div', { class: 'a-tabs a-pp-tabs' }, [['results', 'Результаты'], ['anketas', 'Анкеты'], ['status', 'Состояние бота']].map(function (t) {
+        return el('button', { type: 'button', class: PP.tab === t[0] ? 'is-active' : '', text: t[1], onclick: function () { PP.tab = t[0]; PP.err = ''; ppDraw(); } });
+      })),
+      PP.err ? el('div', { class: 'a-note' }, [PP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз',
+        onclick: PP.tab === 'anketas' ? function () { PP.err = ''; akLoad(); } : ppLoad })]) : null,
+      PP.tab === 'status' ? ppStatusBlock() : PP.tab === 'anketas' ? akBlock() : ppResultsBlock(),
       el('p', { class: 'a-hint a-pp-foot' }, ['Пароль ПсиПоинта хранится только в этой вкладке. ',
         el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти из ПсиПоинта', onclick: function () { ppLogout(); } }),
         el('br'), 'Запасной вход, если панель не открывается: psypoint.13mirrors.ru/setup.php'])
@@ -9914,6 +9919,275 @@
     ppDraw();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     toast('Таблица сохранена в «Загрузки»: ' + list.length + ' ' + (list.length === 1 ? 'результат' : 'результатов') + '.');
+  }
+
+  /* ---------- Анкеты (ПсиПоинт, 27.10): она сама правит тексты, кнопки и порядок, делает копии ----------
+     Анкеты живут на Beget (data/anketas/<id>.json; первая — из кода бота, app/tests/teen.json), не в черновике и не в GitHub.
+     Правка — в памяти вкладки до «Сохранить». Кто уже отвечает в боте, доходит по прежнему тексту (у бота своя копия). */
+  var AK_KINDS = [['text', 'Только свои слова'], ['one', 'Кнопки — один ответ'], ['many', 'Кнопки — несколько ответов']];
+  function akModel(t) {
+    var m = clone(t);
+    m.steps.forEach(function (s) {
+      if (s.type !== 'question') return;
+      s.opts = (s.options || []).map(function (o, k) {
+        return { text: o, alone: (s.alone || []).indexOf(k) >= 0, f1: (s.follow_on || []).indexOf(k) >= 0, f2: (s.follow2_on || []).indexOf(k) >= 0 };
+      });
+      delete s.options; delete s.alone; delete s.follow_on; delete s.follow2_on;
+    });
+    m.finish = m.finish || {};
+    return m;
+  }
+  function akFile(m) {
+    var t = clone(m);
+    delete t.saved_at;
+    t.steps.forEach(function (s) {
+      if (s.type !== 'question') return;
+      var o = s.opts || [], pick = function (f) { var r = []; o.forEach(function (x, k) { if (x[f]) r.push(k); }); return r; };
+      if (s.kind !== 'text') {
+        s.options = o.map(function (x) { return x.text; });
+        if (s.kind === 'many') s.alone = pick('alone');
+        s.follow_on = pick('f1'); s.follow2_on = pick('f2');
+      } else { delete s.follow; delete s.follow2; }
+      if (s.kind !== 'many') delete s.max;
+      delete s.opts;
+    });
+    return t;
+  }
+  function akLink(id) { return PP.status && PP.status.bot ? 'https://t.me/' + PP.status.bot + '?start=' + id : ''; }
+  function akCopyLink(id) {
+    var url = akLink(id);
+    if (!url) { toast('Ссылка появится, когда панель проверит бота: «Состояние бота» → «Проверить».', true); return; }
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { toast('Ссылка скопирована: ' + url); },
+      function () { toast('Не получилось скопировать — выделите ссылку вручную.', true); });
+  }
+  function akLoad() {
+    PP.ak.busy = true; ppDraw();
+    return ppCall('anketas').then(function (d) { PP.ak.list = d.anketas || []; PP.ak.busy = false; ppDraw(); })
+      .catch(function (e) { PP.ak.busy = false; PP.err = e.message; ppDraw(); });
+  }
+  function akOpen(a, copy) {
+    var m = akModel(a.test);
+    if (copy) {
+      var n = 2, ids = PP.ak.list.map(function (x) { return x.test.id; });
+      while (ids.indexOf('anketa' + n) >= 0) n++;
+      m.id = 'anketa' + n; m.title = m.title + ' (копия)'; m.on = false;
+    }
+    PP.ak.ed = { m: m, isNew: !!copy, builtin: !copy && a.builtin, edited: !copy && a.edited, dirty: !!copy };
+    ppDraw(); window.scrollTo(0, 0);
+  }
+  function akClose() {
+    var ed = PP.ak.ed;
+    (ed && ed.dirty ? dialog({ title: 'Выйти без сохранения?', body: 'Изменения в этой анкете пропадут.',
+      buttons: [['out', 'Выйти без сохранения', 'danger'], ['cancel', 'Остаться', 'dark']] }) : Promise.resolve('out')).then(function (v) {
+      if (v !== 'out') return;
+      PP.ak.ed = null; ppDraw(); window.scrollTo(0, 0);
+    });
+  }
+  function akSave() {
+    var ed = PP.ak.ed, id = ed.m.id;
+    busy('Сохраняем анкету на Beget…');
+    ppCall('anketa_save', { test: akFile(ed.m), isNew: ed.isNew }).then(function (d) {
+      busy(null);
+      PP.ak.list = d.anketas || [];
+      var a = PP.ak.list.filter(function (x) { return x.test.id === id; })[0];
+      if (a) akOpen(a); else { PP.ak.ed = null; ppDraw(); }
+      toast('Анкета сохранена. Кто откроет её теперь — увидит новый текст; кто уже отвечает — дойдёт по прежнему.');
+    }).catch(fail);
+  }
+  function akDelete() {
+    var ed = PP.ak.ed, m = ed.m;
+    dialog(ed.builtin
+      ? { title: 'Вернуть исходный текст?', body: 'Все правки анкеты «' + m.title + '», сделанные в панели, пропадут — снова будет текст, с которым анкета была сделана.',
+          buttons: [['del', 'Вернуть исходный', 'danger'], ['cancel', 'Отмена', 'dark']] }
+      : { title: 'Удалить анкету «' + m.title + '»?', body: 'Ссылка на неё перестанет работать. Ответы, которые уже пришли, останутся в «Результатах».',
+          buttons: [['del', 'Удалить анкету', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
+      if (v !== 'del') return;
+      busy(ed.builtin ? 'Возвращаем…' : 'Удаляем…');
+      ppCall('anketa_delete', { id: m.id }).then(function (d) {
+        busy(null); PP.ak.list = d.anketas || [];
+        var a = PP.ak.list.filter(function (x) { return x.test.id === m.id; })[0];
+        if (a) akOpen(a); else { PP.ak.ed = null; ppDraw(); }
+        toast(ed.builtin ? 'Вернули исходный текст.' : 'Анкета удалена.');
+      }).catch(fail);
+    });
+  }
+
+  function akBlock() {
+    if (PP.ak.ed) return akEditor();
+    var list = PP.ak.list;
+    if (!list) return block('Анкеты', [PP.ak.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем анкеты…' })])
+      : el('button', { type: 'button', class: 'a-btn', text: 'Загрузить анкеты', onclick: akLoad })]);
+    return block('Анкеты', [
+      el('div', { class: 'a-pp-list' }, list.length ? list.map(function (a) {
+        var t = a.test, url = akLink(t.id), q = t.steps.filter(function (s) { return s.type === 'question'; }).length;
+        return el('div', { class: 'a-pp-item a-ak-item' }, [
+          el('div', { class: 'a-ak-item-head' }, [el('b', { text: t.title }),
+            el('span', { class: 'a-tags' }, [t.on ? el('span', { class: 'a-tag a-tag--pub', text: 'в меню бота' }) : null,
+              a.edited ? el('span', { class: 'a-tag', text: 'правлена в панели' }) : null])]),
+          el('span', { class: 'a-hint', text: q + ' ' + (q % 10 === 1 && q % 100 !== 11 ? 'вопрос' : q % 10 > 1 && q % 10 < 5 && (q % 100 < 10 || q % 100 > 20) ? 'вопроса' : 'вопросов')
+            + ' · ссылка: ' + (url || 't.me/<бот>?start=' + t.id) }),
+          el('div', { class: 'a-pp-row' }, [
+            el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--dark', text: 'Править', onclick: function () { akOpen(a); } }),
+            el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать ссылку', onclick: function () { akCopyLink(t.id); } }),
+            el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Сделать копию', title: 'Новая анкета с тем же текстом — например, для взрослых', onclick: function () { akOpen(a, true); } })])
+        ]);
+      }) : el('p', { class: 'a-empty', text: 'Анкет пока нет.' })),
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Обновить', onclick: akLoad })]),
+      el('p', { class: 'a-hint', text: 'Ссылку на анкету отправляете человеку — он сразу попадает на её приветствие в боте. Новая анкета (например, для взрослых) — «Сделать копию» и поправить текст.' })
+    ], { note: String(list.length) });
+  }
+
+  // Поле анкеты: правка только в памяти вкладки (не черновик витрины — changed() не зовём).
+  function akIn(obj, key, label, o) {
+    o = o || {};
+    var i = o.one ? el('input', { class: 'a-input', type: 'text', placeholder: o.ph || '' }) : el('textarea', { class: 'a-input a-grow', rows: 1, placeholder: o.ph || '' });
+    i.value = obj[key] == null ? '' : obj[key];
+    if (o.disabled) i.disabled = true;
+    if (!o.one) growIn(i);
+    i.addEventListener('input', function () { obj[key] = i.value; akDirty(); });
+    if (o.onChange) i.addEventListener('change', function () { o.onChange(i.value); });
+    return field(label, i, o.hint);
+  }
+  function akCheck(on, label, onChange, hint) {
+    var cb = el('input', { type: 'checkbox', checked: !!on });
+    cb.addEventListener('change', function () { onChange(cb.checked); akDirty(); });
+    return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }),
+      el('span', { class: 'a-switch-text' }, [label, hint ? el('small', { text: hint }) : null])]);
+  }
+  function akDirty() {
+    var ed = PP.ak.ed;
+    if (ed && !ed.dirty) { ed.dirty = true; var s = document.querySelector('.a-ak-state'); if (s) { s.textContent = 'Есть несохранённые изменения'; s.classList.add('is-dirty'); } }
+  }
+  function akRedraw() { akDirty(); var y = window.scrollY; ppDraw(); window.scrollTo(0, y); }
+  function akNewStep(type, m) {
+    if (type !== 'question') return { type: type, text: '' };
+    var n = 1, ids = m.steps.map(function (s) { return s.id; });
+    while (ids.indexOf('q' + n) >= 0) n++;
+    return { type: 'question', id: 'q' + n, kind: 'text', text: '', opts: [] };
+  }
+
+  function akEditor() {
+    var ed = PP.ak.ed, m = ed.m, steps = m.steps, url = akLink(m.id);
+    var qNum = {}, n = 0;
+    steps.forEach(function (s, i) { if (s.type === 'question') qNum[i] = ++n; });
+    var linkHint = el('span', { class: 'a-hint' });
+    function drawLink() { linkHint.textContent = 'Ссылка: ' + (akLink(m.id) || 't.me/<бот>?start=' + m.id) + (ed.isNew ? '' : ' · слово в ссылке после сохранения не меняется (иначе старые ссылки перестанут работать)'); }
+    drawLink();
+    var actions = el('div', { class: 'a-pp-row a-ak-bar' }, [
+      el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave }),
+      el('span', { class: 'a-ak-state' + (ed.dirty ? ' is-dirty' : ''), text: ed.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' })]);
+    return el('div', { class: 'a-ak' }, [
+      actions,
+      block('Анкета: ' + (m.title || 'без названия'), [
+        akIn(m, 'title', 'Название', { one: true, hint: 'Для вас: так анкета называется в панели и в «Результатах». Человек его не видит.' }),
+        el('div', { class: 'a-field' }, [el('span', { class: 'a-label', text: 'Слово в ссылке' }),
+          (function () { var i = el('input', { class: 'a-input', type: 'text', value: m.id, disabled: !ed.isNew });
+            i.addEventListener('input', function () { m.id = i.value.trim().toLowerCase(); akDirty(); drawLink(); }); return i; })(),
+          linkHint,
+          el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать ссылку', disabled: ed.isNew,
+            onclick: function () { akCopyLink(m.id); } })])]),
+        akCheck(m.on, 'Показывать в меню бота', function (v) { m.on = v; }, 'Кнопка анкеты появится внизу экрана в меню бота. Без галочки анкета открывается только по ссылке.'),
+        akIn(m, 'button', 'Кнопка в меню бота', { one: true }),
+        ed.isNew ? null : el('p', { class: 'a-hint', text: url ? '' : 'Чтобы появилась ссылка с именем бота, откройте «Состояние бота» и нажмите «Проверить».' })
+      ]),
+      block('Начало', [
+        akIn(m, 'hello', 'Приветствие'),
+        akIn(m, 'hello_extra', 'Дополнительная строка в начале', { hint: 'Если пусто — не показывается.' }),
+        akIn(m, 'start', 'Кнопка под приветствием', { one: true }),
+        akIn(m, 'next', 'Кнопка «Дальше» внизу экрана', { one: true, hint: 'Одна на всю анкету: всё, что человек написал до неё, прикрепляется к вопросу; нажать сразу — пропустить вопрос.' }),
+        akIn(m, 'ready', 'Кнопка «Готово»', { one: true, hint: 'Появляется у вопросов, где можно отметить несколько кнопок.' })
+      ]),
+      block('Вопросы и части', [
+        el('p', { class: 'a-hint', text: 'Сверху вниз — так, как идёт в боте. «Часть» — заголовок раздела (жирным) и пояснение под ним; «Реплика бота» — короткая фраза между вопросами (курсивом).' }),
+        el('div', { class: 'a-ak-steps' }, steps.map(function (s, i) { return akStep(m, s, i, qNum, n); })),
+        akAddRow(m, steps.length)
+      ], { note: n + ' вопр.' }),
+      block('Конец', [
+        akIn(m.finish, 'text', 'Последнее сообщение'),
+        akIn(m.finish, 'button', 'Кнопка «Отправить»', { one: true }),
+        akIn(m.finish, 'done', 'Ответ после «Отправить»')
+      ]),
+      block('Ещё', [
+        el('div', { class: 'a-pp-row' }, [
+          ed.isNew ? null : el('button', { type: 'button', class: 'a-btn', text: 'Сделать копию', onclick: function () {
+            if (ed.dirty) { toast('Сначала сохраните или отмените изменения.', true); return; }
+            akOpen({ test: akFile(m) }, true); } }),
+          ed.dirty && !ed.isNew ? el('button', { type: 'button', class: 'a-btn', text: 'Отменить изменения', onclick: function () {
+            var a = PP.ak.list.filter(function (x) { return x.test.id === m.id; })[0]; if (a) akOpen(a); } }) : null,
+          !ed.isNew && (!ed.builtin || ed.edited) ? el('button', { type: 'button', class: 'a-btn a-btn--danger', text: ed.builtin ? 'Вернуть исходный текст…' : 'Удалить анкету…', onclick: akDelete }) : null]),
+        el('p', { class: 'a-hint', text: 'Анкета хранится на Beget, не в черновике витрины: кнопка «Сохранить» вверху панели её не сохраняет — только «Сохранить» здесь. Кто уже отвечает в боте, дойдёт по тексту, с каким начал.' })
+      ], { open: false }),
+      el('div', { class: 'a-pp-row a-ak-bar' }, [
+        el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave })])
+    ]);
+  }
+  function akAddRow(m, at) {
+    var sel = el('select', { class: 'a-input a-ak-add' }, [['', at < m.steps.length ? '+ Вставить ниже…' : '+ Добавить…'], ['question', 'вопрос'], ['part', 'часть (заголовок)'], ['say', 'реплику бота']].map(function (o) {
+      return el('option', { value: o[0], text: o[1] }); }));
+    sel.addEventListener('change', function () { if (!sel.value) return; m.steps.splice(at, 0, akNewStep(sel.value, m)); akRedraw(); });
+    return sel;
+  }
+  function akStep(m, s, i, qNum, total) {
+    var steps = m.steps;
+    function move(d) { var j = i + d; if (j < 0 || j >= steps.length) return; steps.splice(j, 0, steps.splice(i, 1)[0]); akRedraw(); }
+    var title = s.type === 'question' ? 'Вопрос ' + qNum[i] : s.type === 'part' ? 'Часть' : 'Реплика бота';
+    var left = 0; for (var k = i + 1; k < steps.length; k++) if (steps[k].type === 'question') left++;
+    var body = s.type === 'part' ? [akIn(s, 'text', 'Заголовок'), akIn(s, 'note', 'Пояснение под заголовком', { hint: 'Можно оставить пустым.' })]
+      : s.type === 'say' ? [akIn(s, 'text', 'Что пишет бот', { hint: 'После этой реплики — ещё ' + left + ' из ' + total + ' вопросов. Если в тексте есть число оставшихся вопросов — сверьте его после правок.' })]
+      : akQuestion(s);
+    return el('div', { class: 'a-ak-step a-ak-step--' + s.type }, [
+      el('div', { class: 'a-ak-step-head' }, [el('b', { text: title }),
+        el('span', { class: 'a-pp-row' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↑', title: 'Выше', disabled: i === 0, onclick: function () { move(-1); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↓', title: 'Ниже', disabled: i === steps.length - 1, onclick: function () { move(1); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: '✕', title: 'Убрать', onclick: function () {
+            dialog({ title: 'Убрать: ' + title.toLowerCase() + '?', body: (s.text || '').slice(0, 160) || null, buttons: [['del', 'Убрать', 'danger'], ['cancel', 'Отмена', 'dark']] })
+              .then(function (v) { if (v === 'del') { steps.splice(i, 1); akRedraw(); } }); } })])]),
+      el('div', { class: 'a-ak-step-body' }, body),
+      akAddRow(m, i + 1)
+    ]);
+  }
+  function akQuestion(s) {
+    var out = [akIn(s, 'text', 'Вопрос')];
+    out.push(selectKind());
+    function selectKind() {
+      var sel = el('select', { class: 'a-input' }, AK_KINDS.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      sel.value = s.kind;
+      sel.addEventListener('change', function () { s.kind = sel.value; if (s.kind !== 'text' && !s.opts.length) s.opts.push({ text: '' }); akRedraw(); });
+      return field('Как отвечать', sel, s.kind === 'text' ? 'Человек пишет своими словами.' : 'Под вопросом — кнопки; написать своими словами тоже можно.');
+    }
+    if (s.kind !== 'text') {
+      var many = s.kind === 'many', two = !!(s.follow2 || '').trim();
+      out.push(el('div', { class: 'a-field' }, [el('span', { class: 'a-label', text: 'Кнопки' }),
+        el('div', { class: 'a-ak-opts' }, s.opts.map(function (o, k) {
+          var inp = el('input', { class: 'a-input', type: 'text', value: o.text, placeholder: 'Надпись на кнопке' });
+          inp.addEventListener('input', function () { o.text = inp.value; akDirty(); });
+          function box(f, label) {
+            var cb = el('input', { type: 'checkbox', checked: !!o[f] });
+            cb.addEventListener('change', function () { o[f] = cb.checked; akDirty(); });
+            return el('label', { class: 'a-mini-switch' }, [cb, el('span', { text: label })]);
+          }
+          return el('div', { class: 'a-ak-opt' }, [inp,
+            el('span', { class: 'a-ak-opt-boxes' }, [box('f1', two ? 'уточнение 1' : 'уточнение'), two ? box('f2', 'уточнение 2') : null, many ? box('alone', 'снимает остальные') : null,
+              el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✕', title: 'Убрать кнопку', disabled: s.opts.length < 2, onclick: function () { s.opts.splice(k, 1); akRedraw(); } })])]);
+        })),
+        el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ кнопка', onclick: function () { s.opts.push({ text: '' }); akRedraw(); } })]),
+        el('span', { class: 'a-hint', text: (many ? '«Снимает остальные» — например, «Ничего такого»: если её отметить, другие отметки снимаются. ' : '') + '«Уточнение» — после каких кнопок бот задаёт уточнение; не отмечено ни одной — после любой.' })]));
+      if (many) {
+        var mx = el('input', { class: 'a-input', type: 'number', min: 1, value: s.max || '', placeholder: 'сколько угодно', style: 'max-width:160px' });
+        mx.addEventListener('input', function () { s.max = mx.value ? Math.max(1, Math.round(+mx.value)) : undefined; akDirty(); });
+        out.push(field('Сколько можно отметить', mx, 'Пусто — сколько угодно.'));
+      }
+      out.push(akIn(s, 'follow', 'Уточнение после кнопки', { hint: 'Бот пишет его, когда человек нажал кнопку. Пусто — без уточнения.' }));
+    }
+    // Редкое — свёрнуто, пока не заполнено
+    var more = [s.kind !== 'text' ? akIn(s, 'follow2', 'Второе уточнение', { hint: 'Например, только после одной особой кнопки (отметьте её «уточнение 2»). Обычно пусто.', onChange: function (v) { if (!!v.trim() !== two) akRedraw(); } }) : null,
+      akIn(s, 'after', 'Ответ бота после «Дальше»', { hint: 'Обычно пусто. {имя} — подставится первая строка ответа на этот вопрос (если человек не ответил — фраза без имени).' })];
+    out.push(el('details', { class: 'a-ak-more', open: (s.after || '').trim() || (s.kind !== 'text' && (s.follow2 || '').trim()) ? true : null },
+      [el('summary', { text: 'Ещё у этого вопроса' }), el('div', { class: 'a-ak-step-body' }, more)]));
+    return out;
   }
 
   /* ================= НАСТРОЙКИ ================= */

@@ -826,3 +826,24 @@ body.a-noscroll{overflow:hidden}
 .a-cf-demo--dark{background:linear-gradient(160deg,#2a2018,#0d0a08)}
 .a-cf-demo--light{background:linear-gradient(160deg,#fbf7f0,#e9e1d4)}
 .a-preset--on{outline:2px solid #1c150c;outline-offset:1px}
+/* ПсиПоинт: разделы и анкеты (27.10) */
+.a-pp-tabs{margin-bottom:2px}
+.a-ak{display:flex;flex-direction:column;gap:14px}
+.a-ak-state{font-size:12.5px;color:var(--a-muted)}
+.a-ak-state.is-dirty{color:var(--a-warn)}
+.a-ak-item{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.a-ak-item-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.a-ak-steps{display:flex;flex-direction:column;gap:10px}
+.a-ak-step{border:1px solid var(--a-line);border-radius:11px;background:#fff;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.a-ak-step--part{background:#f3f1ea}
+.a-ak-step--say{background:#f7f5f0;border-style:dashed}
+.a-ak-step-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.a-ak-step-head .a-pp-row{flex-wrap:nowrap;gap:4px}
+.a-ak-step-body{display:flex;flex-direction:column;gap:8px}
+.a-ak-add{width:auto;max-width:220px;font-size:12.5px;padding:4px 8px;color:var(--a-muted)}
+.a-ak-opts{display:flex;flex-direction:column;gap:6px}
+.a-ak-opt{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.a-ak-opt .a-input{flex:1 1 200px;width:auto}
+.a-ak-opt-boxes{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px}
+.a-ak-more summary{cursor:pointer;font-size:12.5px;color:var(--a-muted)}
+.a-ak-more[open] summary{margin-bottom:8px}
