@@ -515,10 +515,10 @@
   }
   // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке.
   // head.wave — откуда идёт волна: corner (из левого верхнего угла, по умолчанию) | top | bottom | left | right | center;
-  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | ray | dust | flash.
+  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | ray | dust (звёздная россыпь) | motes (частицы света, 27.10) | flash.
   // onlyLids — только по карточкам с обложкой (когда приветственный блик выключен).
   var WAVE_SPREAD = { fast: 400, normal: 650, slow: 1000, vslow: 1500 }, WAVE_PASS = { fast: 1200, normal: 1600, slow: 2100, vslow: 2800 };
-  var SHEEN_KINDS = { soft: 1, ray: 1, dust: 1, flash: 1 };
+  var SHEEN_KINDS = { soft: 1, ray: 1, dust: 1, motes: 1, flash: 1 };
   function sheenCards(onlyLids) {
     var g = S.root.querySelector('.m13-grid'); if (!g) return;
     var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
@@ -1127,6 +1127,8 @@
       patternSize: num('patternSize', 0, 0, 90), patternTilt: num('patternTilt', 0, -45, 45),
       patternMirror: pick('patternMirror', 'mirror'), patternShadow: none(pick('patternShadow', '')),
       // Блик леденца на стекле, 0 — нет; толщина контура в px (0 — как было, 1,3) и где он толще
+      // Кнопки «открыть» и «Нажать — открыть оборот» (её просьба 27.10): вид, свой цвет рамки и надписи, без тени
+      ctaLook: none(pick('ctaLook', '')), ctaColor: f.ctaColor || d.ctaColor || '', ctaShadow: none(pick('ctaShadow', '')),
       sheen: num('sheen', 0, 0, 100), rimWidth: num('rimWidth', 0, 0, 8), rimShape: none(pick('rimShape', '')),
       // Фон за открытой карточкой: dark (как было) | light — светлая молочная дымка | clear — почти без дымки
       veil: pick('veil', 'dark'),
@@ -1179,6 +1181,12 @@
     if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     if (st.glow === 'live' && TEMPO[st.glowTempo]) cls.push(TEMPO[st.glowTempo]);
+    if (st.ctaLook) cls.push('m13-cta-' + st.ctaLook);
+    if (st.ctaColor) {
+      cls.push('m13-cta-c'); css.push('--m13-cta:' + st.ctaColor);
+      if (st.ctaLook === 'fill') css.push('--m13-cta-ink:' + (lum(hexRgb(st.ctaColor)) > 150 ? '#1c150c' : '#ffffff'));
+    }
+    if (st.ctaShadow === 'off') cls.push('m13-cta-flat');
     var lay = decoHTML(st, true);
     if (lay) cls.push('m13-deco');
     if (st.rim) cls.push('m13-has-rim');
