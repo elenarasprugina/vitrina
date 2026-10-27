@@ -339,6 +339,15 @@
           { def: forCard ? 'inherit' : 'md', onChange: onChange,
             hint: 'Тип, даты, «Вход открыт», «открыть», «Нажать — открыть оборот». На телефоне увеличиваются мягче — там мало места.' })]),
       el('div', { class: 'a-row' }, [
+        selectIn(stl, 'ctaLook', 'Кнопка «открыть» — вид', inh.concat([['none', 'Как было — рамка'], ['pale', 'Тонкая бледная рамка'], ['glass', 'Стёклышко без рамки'], ['word', 'Только слово'], ['fill', 'Заливка цветом']]),
+          { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'И «открыть» на маленьких карточках, и «Нажать — открыть оборот» на большой.' }),
+        colorOptIn(stl, 'ctaColor', 'Кнопка «открыть» — цвет рамки и надписи', { none: forCard ? 'как у всей витрины' : 'как у текста и акцента', pick: '#960c0d', inh: inhOf(d, forCard, 'ctaColor'), onChange: onChange,
+          hint: 'У «Заливки» — цвет самой кнопки, надпись подберётся сама.' })]),
+      el('div', { class: 'a-row' }, [
+        selectIn(stl, 'ctaShadow', 'Кнопка «открыть» — тень', inh.concat([['none', 'Как у текста карточки'], ['off', 'Без тени']]),
+          { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Тень появляется, когда в «Чтобы текст читался» выбрана «Тень у букв». На светлой витрине лучше «Без тени».' }),
+        el('span')]),
+      el('div', { class: 'a-row' }, [
         colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины: без акцента' : 'без акцента', pick: '#8a6bb8', inh: inhOf(d, forCard, 'accent'),
           onChange: function () { if (glowBox) glowBox.redraw(); if (onChange) onChange(); } }),
         el('p', { class: 'a-hint', style: 'align-self:end', text: 'Красит рамку карточки, главную кнопку, счётчик дня и статус-плашку. Если цвет свечения не выбран — светится этим цветом.' })]),
@@ -2027,7 +2036,7 @@
         b !== 'none' && hd.shine ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineWhen', 'Когда повторяется', [['open', 'Только при открытии'], ['', 'Изредка — раз в 25 секунд'], ['often', 'Чаще — раз в 8 секунд']], { def: '' }), el('span')]) : null,
         hd.welcome !== false || lidAny ? el('div', { class: 'a-row3' }, [
-          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['ray', 'Тонкий яркий луч'], ['dust', 'Звёздная пыль'], ['flash', 'Вспышка из центра']], { def: 'soft' }),
+          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['ray', 'Тонкий яркий луч'], ['dust', 'Звёздная россыпь'], ['motes', 'Частицы света — мелкая пыль'], ['flash', 'Вспышка из центра']], { def: 'soft' }),
           selectIn(hd, 'wave', 'Откуда идёт волна', [['corner', 'Из левого верхнего угла'], ['center', 'От центра'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
             { def: 'corner', hint: 'В каком порядке карточки получают блик (и раскрываются обложки).' }),
           selectIn(hd, 'waveSpeed', 'Как быстро перебегает', SHINE_SPEEDS, { def: 'normal' })]) : null,
@@ -2465,7 +2474,7 @@
         sc.head = { align: sc.head.align };
         ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg',
           'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'rimSpeed', 'win',
-          'rimWidth', 'rimShape', 'sheen', 'veil', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow'].forEach(function (k) { delete sc.cardStyle[k]; });
+          'rimWidth', 'rimShape', 'sheen', 'veil', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow', 'ctaLook', 'ctaColor', 'ctaShadow'].forEach(function (k) { delete sc.cardStyle[k]; });
       }
       ST.pageOpen = true; changed(); renderMain();
       toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
@@ -2941,7 +2950,7 @@
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
     'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize',
     'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed',
-    'rimWidth', 'rimShape', 'sheen', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow'];
+    'rimWidth', 'rimShape', 'sheen', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow', 'ctaLook', 'ctaColor', 'ctaShadow'];
   var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur', 'btnSpeed'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
