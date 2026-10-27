@@ -326,7 +326,9 @@
     // Цвета — от цвета маршрута: светлая середина, глубокие края; надписи — тем же цветом, только темнее
     var tone = /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : routeTone(r), rgb = hexRgb(tone);
     var pale = Math.max(rgb[0], rgb[1], rgb[2]) - Math.min(rgb[0], rgb[1], rgb[2]) < 40;   // белый маршрут — почти без цвета
-    var ink = pale ? (hd.color || '#6f5320') : mixHex(tone, '#000000', 0.62);
+    // Белый маршрут: надписи — цветом шапки месяца, но если он светлый (задуман для тёмного фона) — сгущаем до тёплого тёмного золота (27.10)
+    var hc = /^#[0-9a-f]{6}$/i.test(hd.color || '') ? hd.color : '#6f5320', hrgb = hexRgb(hc);
+    var ink = pale ? (hrgb[0] * 0.299 + hrgb[1] * 0.587 + hrgb[2] * 0.114 > 110 ? mixHex(hc, '#2e1f08', 0.72) : hc) : mixHex(tone, '#000000', 0.62);
     var css = ['--rs-c:' + tone, '--rs-l:' + mixHex(tone, '#ffffff', pale ? 0.55 : 0.78), '--rs-m:' + mixHex(tone, '#ffffff', pale ? 0.05 : 0.35),
       '--rs-d:' + mixHex(tone, pale ? '#6b5a3c' : '#000000', pale ? 0.42 : 0.45), '--rs-ink:' + ink, '--rs-btn:' + (pale ? ink : mixHex(tone, '#000000', 0.35)),
       '--m13-shine:' + (pale ? '#fff3cf' : mixHex(tone, '#ffffff', 0.85))];
