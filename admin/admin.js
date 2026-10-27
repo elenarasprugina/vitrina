@@ -502,6 +502,28 @@
 
   // Скорость бликов: контур карточки, кнопка на обороте, подпись под сеткой
   var RIM_SPEEDS = [['fast', 'Быстрый — круг за 5 с'], ['normal', 'Обычный — круг за 7 с'], ['slow', 'Медленный — круг за 12 с'], ['vslow', 'Очень медленный — круг за 18 с']];
+  // Конфетти (блик по карточкам, 27.10 (7)): расцветка — кнопками с образцом, форма, сколько; рядом пробник на тёмном и светлом
+  var CF_COLORS = [['', '🌸 Нежные', '#f4c95d', '#8fb8f2'], ['bright', '🎉 Яркие', '#ff2d55', '#1f7bff'], ['gold', '✨ Золото', '#fff6cf', '#b8862c'],
+    ['silver', '🪞 Серебро-зеркало', '#ffffff', '#8a97a8'], ['pearl', '🐚 Перламутр', '#ffe6f2', '#cff3ff']];
+  function confettiFields(hd, draw) {
+    var tiles = [el('div', { class: 'a-cf-demo a-cf-demo--dark' }), el('div', { class: 'a-cf-demo a-cf-demo--light' })];
+    function play() { if (window.M13 && M13.confettiDemo) tiles.forEach(function (t) { M13.confettiDemo(t, hd); }); }
+    function set(k, v) { if (v) hd[k] = v; else delete hd[k]; changed(); draw(); }
+    setTimeout(play, 50);
+    return el('div', {}, [
+      el('p', { class: 'a-hint', text: 'Расцветка конфетти — нажмите, и ниже сразу видно, как она выглядит на тёмном и на светлом фоне.' }),
+      el('div', { class: 'a-presets' }, CF_COLORS.map(function (c) {
+        var on = (hd.confettiColor || '') === c[0];
+        return el('button', { type: 'button', class: 'a-btn a-btn--small a-preset' + (on ? ' a-preset--on' : ''), style: '--p1:' + c[2] + ';--p2:' + c[3], text: (on ? '✓ ' : '') + c[1],
+          onclick: function () { set('confettiColor', c[0]); } });
+      })),
+      el('div', { class: 'a-cf-demos m13' }, tiles.concat([el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '▶ Ещё раз', onclick: play })])),
+      el('div', { class: 'a-row' }, [
+        selectIn(hd, 'confettiShape', 'Форма конфетти', [['', 'Смесь — кружочки и полоски'], ['round', 'Только кружочки'], ['strip', 'Только полоски']], { def: '', onChange: play }),
+        selectIn(hd, 'confettiCount', 'Сколько конфетти', [['few', 'Немного'], ['mid', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: 'mid', onChange: play,
+          hint: 'На каждой карточке. Размер крошек не меняется.' })])
+    ]);
+  }
   var BTN_SPEEDS = [['fast', 'Быстрая'], ['normal', 'Обычная'], ['slow', 'Медленная'], ['vslow', 'Очень медленная']];
   var SHINE_SPEEDS = [['fast', 'Быстрый'], ['normal', 'Обычный'], ['slow', 'Медленный'], ['vslow', 'Очень медленный']];
   // «Кнопки на обороте»: вид главной кнопки, цвета, остальные кнопки, «живость», готовые наборы
@@ -2040,10 +2062,7 @@
           selectIn(hd, 'wave', 'Откуда идёт волна', [['corner', 'Из левого верхнего угла'], ['center', 'От центра'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
             { def: 'corner', hint: 'В каком порядке карточки получают блик (и раскрываются обложки).' }),
           selectIn(hd, 'waveSpeed', 'Как быстро перебегает', SHINE_SPEEDS, { def: 'normal' })]) : null,
-        (hd.welcome !== false || lidAny) && (hd.sheenKind === 'confetti' || hd.sheenKind === 'popper') ? el('div', { class: 'a-row' }, [
-          selectIn(hd, 'confettiShape', 'Форма конфетти', [['', 'Смесь — кружочки и полоски'], ['round', 'Только кружочки'], ['strip', 'Только полоски']], { def: '' }),
-          selectIn(hd, 'confettiCount', 'Сколько конфетти', [['few', 'Немного'], ['', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: '',
-            hint: 'На каждой карточке. Размер крошек не меняется.' })]) : null,
+        (hd.welcome !== false || lidAny) && (hd.sheenKind === 'confetti' || hd.sheenKind === 'popper') ? confettiFields(hd, draw) : null,
         glow ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineSpeed', 'Скорость блика', SHINE_SPEEDS, { def: 'slow', hint: 'Сколько свет идёт по надписи.' }),
           colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
