@@ -1439,6 +1439,18 @@ body.m13-locked{overflow:hidden}
   color-mix(in srgb,var(--m13-sh-c) 35%,transparent) 335deg,transparent 360deg);animation-name:m13-sheen-edge-back}
 @keyframes m13-sheen-edge{to{transform:rotate(180deg)}}
 @keyframes m13-sheen-edge-back{to{transform:rotate(-180deg)}}
+/* Конфетти (27.10 (5)): крошки — <b> внутри блика (их ставит sheenCards), свои цвет, размер, путь (--dx, --dy, --fy) и поворот (--r).
+   Сама полоса блика у конфетти не видна; крошки обрезаются краем карточки */
+.m13 i.m13-sheen.m13-sheen--confetti,.m13 i.m13-sheen.m13-sheen--popper{background:none;animation:none;opacity:1;overflow:hidden}
+.m13 i.m13-sheen > b{position:absolute;top:-8px;display:block;border-radius:1px;opacity:0;
+  box-shadow:0 0 2px rgba(255,255,255,.35);animation:m13-confetti-fall 2600ms cubic-bezier(.35,.1,.6,1) both}
+@keyframes m13-confetti-fall{0%{opacity:0;transform:translate(0,0) rotate(0) rotateX(0)} 8%{opacity:1}
+  50%{transform:translate(calc(var(--dx) * -.6),calc(var(--fy) * .5)) rotate(calc(var(--r) * .5)) rotateX(360deg)}
+  85%{opacity:1} 100%{opacity:0;transform:translate(var(--dx),var(--fy)) rotate(var(--r)) rotateX(720deg)}}
+.m13 i.m13-sheen.m13-sheen--popper > b{top:55%;left:50%;animation:m13-confetti-pop 1900ms cubic-bezier(.15,.75,.35,1) both}
+@keyframes m13-confetti-pop{0%{opacity:0;transform:translate(0,0) scale(.3) rotate(0)} 6%{opacity:1}
+  40%{transform:translate(var(--dx),var(--dy)) scale(1) rotate(calc(var(--r) * .5))} 75%{opacity:1}
+  100%{opacity:0;transform:translate(calc(var(--dx) * 1.12),calc(var(--dy) + var(--fy))) scale(.9) rotate(var(--r))}}
 /* Вспышка из центра */
 .m13 i.m13-sheen.m13-sheen--flash{background:radial-gradient(circle at 50% 50%,#fff 0,color-mix(in srgb,var(--m13-sh-c) 75%,transparent) 12%,
   color-mix(in srgb,var(--m13-sh-c) 22%,transparent) 38%,transparent 64%) center/100% 100% no-repeat;animation-name:m13-sheen-flash}

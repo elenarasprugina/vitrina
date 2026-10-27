@@ -2036,10 +2036,14 @@
         b !== 'none' && hd.shine ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineWhen', 'Когда повторяется', [['open', 'Только при открытии'], ['', 'Изредка — раз в 25 секунд'], ['often', 'Чаще — раз в 8 секунд']], { def: '' }), el('span')]) : null,
         hd.welcome !== false || lidAny ? el('div', { class: 'a-row3' }, [
-          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['silk', 'Шёлк — две мягкие полосы'], ['bunny', 'Солнечный зайчик'], ['edge', 'Свет по контуру'], ['ray', 'Тонкий яркий луч'], ['flash', 'Вспышка из центра']], { def: 'soft' }),
+          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['silk', 'Шёлк — две мягкие полосы'], ['bunny', 'Солнечный зайчик'], ['edge', 'Свет по контуру'], ['ray', 'Тонкий яркий луч'], ['flash', 'Вспышка из центра'], ['confetti', 'Конфетти — сыплется сверху'], ['popper', 'Конфетти — хлопушка']], { def: 'soft' , onChange: draw }),
           selectIn(hd, 'wave', 'Откуда идёт волна', [['corner', 'Из левого верхнего угла'], ['center', 'От центра'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
             { def: 'corner', hint: 'В каком порядке карточки получают блик (и раскрываются обложки).' }),
           selectIn(hd, 'waveSpeed', 'Как быстро перебегает', SHINE_SPEEDS, { def: 'normal' })]) : null,
+        (hd.welcome !== false || lidAny) && (hd.sheenKind === 'confetti' || hd.sheenKind === 'popper') ? el('div', { class: 'a-row' }, [
+          selectIn(hd, 'confettiShape', 'Форма конфетти', [['', 'Смесь — кружочки и полоски'], ['round', 'Только кружочки'], ['strip', 'Только полоски']], { def: '' }),
+          selectIn(hd, 'confettiCount', 'Сколько конфетти', [['few', 'Немного'], ['', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: '',
+            hint: 'На каждой карточке. Размер крошек не меняется.' })]) : null,
         glow ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineSpeed', 'Скорость блика', SHINE_SPEEDS, { def: 'slow', hint: 'Сколько свет идёт по надписи.' }),
           colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
