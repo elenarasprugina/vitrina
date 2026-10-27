@@ -338,7 +338,15 @@
       host: String(stub.host || '').trim() || hostAuto(r.title, 'question'), message: 'Здравствуйте! Хочу узнать подробнее про маршрут «' + r.title + '».' }, { card: r.title, action: ask }) + '>' + txt(ask) + '</button>';
     var home = '<a class="m13-rs-btn" href="' + esc(S.base + (card ? '#' + encodeURIComponent(card.id) : '')) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
     var desc = String(r.description || '').trim();
-    S.root.innerHTML = '<div class="m13-rs" style="' + esc(css.join(';')) + '"><i class="m13-rs-glow" aria-hidden="true"></i>' +
+    // Своя картинка фона (её «делаем» 27.10): r.soonBg = { image, imagePhone, pos: '' (по центру) | top | bottom | left | right, veil: 0–90 % (дымка цвета маршрута) }
+    var bg = r.soonBg || {}, bgHTML = '';
+    if (bg.image) {
+      var bgCss = "--rs-img:url('" + media(bg.image) + "')" + (bg.imagePhone ? ";--rs-img-ph:url('" + media(bg.imagePhone) + "')" : '') +
+        ';background-position:' + ({ top: '50% 0', bottom: '50% 100%', left: '0 50%', right: '100% 50%' }[bg.pos] || '50% 50%');
+      bgHTML = '<i class="m13-rs-bg" aria-hidden="true" style="' + esc(bgCss) + '"></i>' +
+        '<i class="m13-rs-veil" aria-hidden="true" style="opacity:' + (bg.veil == null ? 0.3 : Math.max(0, Math.min(90, +bg.veil || 0)) / 100) + '"></i>';
+    }
+    S.root.innerHTML = '<div class="m13-rs' + (bg.image ? ' m13-rs--img' : '') + '" style="' + esc(css.join(';')) + '">' + bgHTML + '<i class="m13-rs-glow" aria-hidden="true"></i>' +
       '<main class="m13-rs-in m13-shine">' +
       '<a class="m13-rs-top" href="' + esc(S.base) + '">' + txt([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</a>' +
       '<p class="m13-rs-kind">Маршрут</p>' +

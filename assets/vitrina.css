@@ -2217,6 +2217,13 @@ body.m13-locked{overflow:hidden}
 .m13-rs-btn:hover{filter:brightness(1.06)}
 @media (max-width:680px){.m13-rs-top{margin-bottom:7vh;font-size:11px}.m13-rs-btns{flex-direction:column;align-items:stretch;max-width:320px;margin-left:auto;margin-right:auto}}
 @media (prefers-reduced-motion:reduce){.m13-rs-glow,.m13-rs-title .m13-gt{animation:none}}
+/* Своя картинка фона заглушки (27.10): во весь экран, на телефоне — своя вертикальная, если есть; сверху — дымка цвета маршрута
+   (светлая середина, чтобы надписи читались; сила — r.soonBg.veil) и тот же дышащий свет, только тише */
+.m13-rs-bg,.m13-rs-veil{position:absolute;inset:0;pointer-events:none}
+.m13-rs-bg{background-image:var(--rs-img);background-size:cover;background-repeat:no-repeat}
+.m13-rs-veil{background:radial-gradient(ellipse 80% 70% at 50% 46%,var(--rs-l) 0%,color-mix(in srgb,var(--rs-l) 55%,transparent) 60%,color-mix(in srgb,var(--rs-l) 20%,transparent) 100%)}
+.m13-rs--img .m13-rs-glow{opacity:.5}
+@media (max-width:680px){.m13-rs-bg{background-image:var(--rs-img-ph,var(--rs-img))}}
 
 /* ================= Кнопки «открыть» и «Нажать — открыть оборот» (панель, «Кнопка „открыть“», 27.10) ================= */
 /* Пусто — как было. .m13-cta-c — свой цвет рамки и надписи (--m13-cta); pale — тонкая бледная рамка; glass — стёклышко без рамки;

@@ -3192,6 +3192,7 @@
               noImg: 'Нет картинки маршрута — стекло будет только у примеров со своей обложкой.', share: !!r.archive }),
             colorOptIn(r, 'color', 'Цвет маршрута', { none: 'без цвета', pick: '#c9a14a',
               hint: 'Лёгкий оттенок и свечение у обложек его примеров, Летописей, отзывов и в архиве. У отдельного примера можно поставить свой.' }),
+            soonBgFields(r),
             finalFields(r),
             archiveFields(r)
           ];
@@ -3612,6 +3613,28 @@
   // Заглушка маршрута routes/<id>/ (её «делаем» 26.10): у маршрута из библиотеки есть карточка на опубликованной витрине,
   // а страницы по дням ещё нет (не создана или «готовится») — в цвете маршрута: название, даты, «Маршрут начнётся …».
   // Рисует vitrina.js (data-view="routesoon"); в данных — только нужное: маршрут, настройки, шрифт месяца и заглушка карточки.
+  // Фон заглушки маршрута (её «делаем» 27.10): своя картинка вместо цветного фона — r.soonBg { image, imagePhone, pos, veil }
+  function soonBgFields(r) {
+    var bg = r.soonBg = r.soonBg || {}, box = el('div');
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        sub('Фон заглушки маршрута'),
+        el('p', { class: 'a-hint', text: 'Заглушка — страница маршрута, пока у него нет страницы по дням (туда ведёт «Подробнее»). Пусто — фон цвета маршрута, как было.' }),
+        el('div', { class: 'a-row' }, [
+          imageIn(bg, 'image', 'Картинка для компьютера', { max: 2400, size: { w: 2400, h: 1350, note: 'горизонтальная, 16:9; почти квадратная тоже подойдёт — края обрежутся' }, onChange: draw }),
+          imageIn(bg, 'imagePhone', 'Картинка для телефона', { max: 1920, size: { w: 1080, h: 1920, note: 'вертикальная, 9:16' }, hint: 'Необязательно: пусто — на телефоне та же, что для компьютера.' })]),
+        bg.image ? el('div', { class: 'a-row' }, [
+          selectIn(bg, 'pos', 'Где главное на картинке', [['', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
+            { def: '', hint: 'Эта часть картинки останется видна, когда края обрежутся.' }),
+          rangeIn(bg, 'veil', 'Дымка под надписями', { max: 90, step: 5, unit: '%', def: 30, hint: 'Светлая дымка цвета маршрута посередине — чтобы название и кнопки читались. 0 — картинка как есть.' })]) : null,
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть заглушку',
+          onclick: function () { openPreview('routesoon', null, null, false, r.id); } })])
+      ]);
+    }
+    draw();
+    return box;
+  }
   function routeSoonPageHTML(r, P) {
     var st = P.settings, site = st.siteTitle || '13 MIRRORS', ms = P.showcases[st.currentShowcase] || P.showcases[Object.keys(P.showcases).sort().pop()] || {};
     var card = null;
@@ -10138,7 +10161,7 @@
       else toast('Не получилось показать витрину в режиме телефона. Обновите страницу.', true);
     })();
   }
-  function openPreview(view, showcaseId, cardId, demo) {
+  function openPreview(view, showcaseId, cardId, demo, route) {
     if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : ST.section === 'events' ? 'events' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
@@ -10147,7 +10170,7 @@
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
       if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
-      M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
+      M.mount(mount, { base: '../', view: v, noHistory: true, route: v === 'routesoon' ? route : null, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
         soon: v === 'soon' ? window.M13.monthSoon(publishedIds(DATA)) || window.M13.monthNow(DATA.settings) : null })
         .then(function () {
           if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; }
