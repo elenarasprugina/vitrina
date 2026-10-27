@@ -26,7 +26,7 @@
       "visible": true,
       "interactive": true,
       "front": {
-        "image": null,
+        "image": "media/5a2edf5b7840cae7d47b.webp",
         "eyebrow": "Маршрут",
         "title": "Белый Соединитель Миров",
         "subtitle": {
@@ -177,7 +177,7 @@
       "visible": true,
       "interactive": true,
       "front": {
-        "image": null,
+        "image": "media/d061f7f58aefafd0a5a1.webp",
         "eyebrow": "Маршрут",
         "title": "Синяя Буря",
         "subtitle": {
@@ -328,7 +328,7 @@
       "visible": true,
       "interactive": true,
       "front": {
-        "image": null,
+        "image": "media/623c89c67e0a4763d246.webp",
         "eyebrow": "Маршрут",
         "title": "Жёлтый Человек",
         "subtitle": {
@@ -1037,7 +1037,9 @@
     "shineColor": "#960c0d",
     "sheenKind": "soft",
     "shineSpeed": "slow",
-    "waveSpeed": "slow"
+    "waveSpeed": "normal",
+    "confettiCount": "many",
+    "confettiShape": "round"
   },
   "kinLook": {}
 }
