@@ -585,23 +585,23 @@
         "on": true,
         "flyer": "star",
         "line": "wave",
-        "glow": "none",
+        "glow": "soft",
         "meetColor": "#960c0d",
         "starColor": "#960c0d",
-        "specialColor": "#f5b2b2",
+        "specialColor": "#960c0d",
         "specialLabel": "Портальные дни",
         "lineMode": "days",
         "routeColors": {
           "blue-hand": "#3f6fc4",
           "yellow-sun": "#e2a92e",
           "red-skywalker": "#b8413a",
-          "white-worldbridger": "#efece6",
+          "white-worldbridger": "#e7e2d6",
           "blue-storm": "#063689",
           "yellow-human": "#d69405"
         },
         "freeLabel": "✦",
         "face": "mini",
-        "numColor": ""
+        "numColor": "#452e02"
       }
     },
     {
@@ -675,7 +675,7 @@
       "interactive": true,
       "front": {
         "image": null,
-        "eyebrow": "",
+        "eyebrow": "Продукт",
         "title": "Карта-Отражение",
         "subtitle": {
           "value": "Какой твой архетип?",
@@ -864,11 +864,11 @@
           "patternColor": "#cfe0ff",
           "lid": {},
           "pattern": "custom",
-          "patternImage": "media/af478a3ab948fcc75a9c.webp",
+          "patternImage": null,
           "patternSize": 0,
           "patternPlace": "bl",
-          "patternOpacity": 80,
-          "patternTilt": 12
+          "patternOpacity": 70,
+          "patternTilt": 0
         }
       },
       "back": {
