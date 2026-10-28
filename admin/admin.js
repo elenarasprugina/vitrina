@@ -1494,7 +1494,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1551,6 +1551,7 @@
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
     else if (s === 'uzory') add(m, viewUzory());
+    else if (s === 'zapis') add(m, viewZapis());
     else if (s === 'psypoint') add(m, viewPsypoint());
     else add(m, viewSettings());
   }
@@ -9666,6 +9667,345 @@
         actionIn(rf, 'orderAction', '', { defLabel: 'Заказать Карту-Отражение' })
       ], { open: false })
     ];
+  }
+
+  /* ================= ЗАПИСЬ: программа записи клиентов на Beget (шаг 2 плана docs/zapis.md, 28.10) =================
+     Сервер — zapis.13mirrors.ru/panel.php (репозиторий 13mirrors-bot, zapis/). Настройки записи и занятое время живут
+     на Beget, не в черновике витрины: «Сохранить» вверху панели их не сохраняет — только «Сохранить на Beget» здесь.
+     Виды встреч — плашки карточки «Индивидуальная работа» (ключ — кнопка плашки: action.host); цена — с плашки.
+     Пароль записи — только в sessionStorage, как ключ GitHub. */
+  var ZP_URL = window.M13_ZAPIS_URL || 'https://zapis.13mirrors.ru/';
+  var ZP_KEY = 'm13-zapis';
+  var ZP = { pass: null, tab: 'list', busy: false, err: '', srv: null, set: null, dirty: false, free: null, freeKey: '', freeBusy: false, box: null,
+    blk: { day: '', from: '10:00', to: '19:00', note: '' } };
+  try { ZP.pass = sessionStorage.getItem(ZP_KEY) || null; } catch (e) {}
+  var ZP_WD = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  var ZP_WD_S = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  // Её длительности (решение 28.10); для новых плашек — из строки «до 90 минут» или 60
+  var ZP_MIN = { individual_session: 90, shamanic_wheel: 60, constellations: 60, regression_session: 180 };
+
+  function zpCall(action, extra) {
+    var body = { p: ZP.pass, action: action };
+    Object.keys(extra || {}).forEach(function (k) { body[k] = extra[k]; });
+    return fetch(ZP_URL + 'panel.php', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(body), cache: 'no-store' })
+      .catch(function () { throw new Error('Нет связи с программой записи (' + ZP_URL.replace(/^https?:\/\/|\/$/g, '') + '). Проверьте интернет и попробуйте ещё раз.'); })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (r.status === 401) { zpLogout(true); throw new Error('Пароль записи не подошёл. Войдите снова.'); }
+          if (!r.ok) throw new Error(d.error || 'Программа записи ответила ошибкой (код ' + r.status + ').');
+          return d;
+        });
+      });
+  }
+  function zpLogout(quiet) {
+    ZP.pass = null; ZP.srv = null; ZP.set = null; ZP.dirty = false; ZP.free = null; ZP.err = '';
+    try { sessionStorage.removeItem(ZP_KEY); } catch (e) {}
+    if (!quiet) { zpDraw(); toast('Вы вышли из записи.'); }
+  }
+  // Ответ сервера: настройки + занятое. Несохранённые правки настроек не затираем.
+  function zpTake(d) {
+    ZP.srv = d;
+    if (!ZP.dirty) { ZP.set = zpMerge(clone(d.settings)); ZP.dirty = zpDiffers(); }
+  }
+  function zpLoad() {
+    ZP.busy = true; ZP.err = ''; zpDraw();
+    return zpCall('get').then(function (d) { ZP.busy = false; zpTake(d); zpDraw(); })
+      .catch(function (e) { ZP.busy = false; ZP.err = e.message; zpDraw(); });
+  }
+
+  // Плашки «Индивидуальной работы» во всех месяцах: ключ → название, цена (число), строка длительности, подпись кнопки.
+  // Сначала месяц, который сейчас идёт, потом более поздние, потом ранние — у кого нашлось раньше, тот и главный.
+  function zpPlaques() {
+    var now = new Date(), cur = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+    var ids = Object.keys(DATA.showcases).sort();
+    ids = ids.filter(function (i) { return i >= cur; }).concat(ids.filter(function (i) { return i < cur; }).reverse());
+    var out = [], seen = {};
+    ids.forEach(function (id) {
+      (DATA.showcases[id].cards || []).forEach(function (c) {
+        if (c.id !== 'individual' || !c.back || !c.back.blocks) return;
+        c.back.blocks.forEach(function (b) {
+          (b.kind === 'items' ? b.items || [] : []).forEach(function (it) {
+            var key = it.action && it.action.host;
+            if (!key || seen[key]) return;
+            seen[key] = true;
+            var pr = String(it.price && it.price.value || '').replace(/\D/g, '');
+            out.push({ key: key, title: it.title || key, price: pr ? +pr : 0, priceText: it.price && it.price.value || '', month: id,
+              durText: it.duration && it.duration.value || '', label: it.action.label || '' });
+          });
+        });
+      });
+    });
+    return out;
+  }
+  // Виды встреч: с плашек (название и цена — оттуда) + сохранённые на Beget (вкл/выкл, длительность)
+  function zpMerge(s) {
+    var saved = {}, list = [];
+    (s.services || []).forEach(function (x) { saved[x.key] = x; });
+    zpPlaques().forEach(function (p) {
+      var o = saved[p.key], m = /(\d+)\s*мин/i.exec(p.durText);
+      list.push({ key: p.key, title: p.title, price: p.price, on: o ? !!o.on : /запис/i.test(p.label),
+        minutes: o ? o.minutes : ZP_MIN[p.key] || (m ? +m[1] : 60), plaque: p });
+      delete saved[p.key];
+    });
+    Object.keys(saved).forEach(function (k) { list.push(saved[k]); });
+    s.services = list;
+    return s;
+  }
+  function zpOut(s) {
+    var o = clone(s);
+    o.services = o.services.map(function (x) { return { key: x.key, title: x.title, on: !!x.on, minutes: +x.minutes || 60, price: +x.price || 0 }; });
+    delete o.updated;
+    return o;
+  }
+  // Отличается ли то, что на экране, от сохранённого на Beget (например, на плашке поменяли цену)
+  function zpDiffers() {
+    if (!ZP.srv || !ZP.set) return false;
+    var a = zpOut(ZP.set), b = clone(ZP.srv.settings); delete b.updated;
+    return JSON.stringify(a) !== JSON.stringify(b);
+  }
+  function zpChanged() {
+    ZP.dirty = true;
+    var s = ZP.box && ZP.box.querySelector('.a-ak-state');
+    if (s) { s.textContent = 'Есть несохранённые изменения'; s.classList.add('is-dirty'); }
+  }
+  function zpSave() {
+    busy('Сохраняем настройки записи на Beget…');
+    return zpCall('save', { settings: zpOut(ZP.set) }).then(function (d) {
+      busy(null); ZP.dirty = false; zpTake(d); ZP.free = null; zpDraw(); toast('Настройки записи сохранены на Beget.');
+    }).catch(function (e) { busy(null); toast(e.message, true); });
+  }
+
+  function viewZapis() {
+    ZP.box = el('div', { class: 'a-pp a-zp' });
+    zpDraw();
+    if (ZP.pass && !ZP.srv && !ZP.busy) zpLoad();
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'Запись' }),
+        el('p', { class: 'a-lead', text: 'Запись клиентов на встречи по календарю (программа работает на Beget). Здесь — записи, часы работы и виды встреч. Окошко записи на сайте появится вместе с оплатой (следующий шаг).' })]),
+      ZP.box
+    ];
+  }
+  function zpDraw() {
+    var box = ZP.box;
+    if (!box) return;
+    box.replaceChildren();
+    if (!ZP.pass) { add(box, zpLoginBox()); return; }
+    var tabs = [['list', 'Записи'], ['set', 'Расписание и встречи'], ['see', 'Как увидит человек'], ['state', 'Состояние']];
+    add(box, [
+      el('div', { class: 'a-tabs a-pp-tabs' }, tabs.map(function (t) {
+        return el('button', { type: 'button', class: ZP.tab === t[0] ? 'is-active' : '', text: t[1], onclick: function () { ZP.tab = t[0]; zpDraw(); } });
+      })),
+      ZP.err ? el('div', { class: 'a-note' }, [ZP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: zpLoad })]) : null,
+      !ZP.srv ? (ZP.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем с Beget…' })]) : null)
+        : ZP.tab === 'set' ? zpSetBlocks() : ZP.tab === 'see' ? zpSeeBlock() : ZP.tab === 'state' ? zpStateBlock() : zpListBlocks(),
+      el('p', { class: 'a-hint a-pp-foot' }, ['Пароль записи хранится только в этой вкладке. ',
+        el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти из записи', onclick: function () {
+          if (ZP.dirty) dialog({ title: 'Выйти без сохранения?', body: 'Изменения в расписании и встречах ещё не сохранены на Beget — они пропадут.',
+            buttons: [['out', 'Выйти', 'danger'], ['cancel', 'Остаться', 'dark']] }).then(function (v) { if (v === 'out') zpLogout(); });
+          else zpLogout();
+        } })])
+    ]);
+  }
+  function zpLoginBox() {
+    var input = el('input', { class: 'a-input', type: 'password', autocomplete: 'current-password', placeholder: 'Пароль записи' });
+    function go() {
+      var v = input.value.trim();
+      if (v.length < 10) { toast('Пароль записи — не короче 10 знаков (тот, что в app/config.php на Beget, сайт zapis).', true); return; }
+      ZP.pass = v;
+      try { sessionStorage.setItem(ZP_KEY, v); } catch (e) {}
+      zpLoad();
+    }
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    setTimeout(function () { input.focus(); }, 50);
+    return el('div', { class: 'a-card a-pp-login' }, [
+      el('label', { class: 'a-label', text: 'Пароль записи' }),
+      el('div', { class: 'a-pp-row' }, [input, el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Войти', onclick: go })]),
+      el('p', { class: 'a-hint', text: 'Пароль, который вы вписали в app/config.php на Beget (сайт zapis.13mirrors.ru). Хранится только в этой вкладке и забывается, когда вы её закрываете.' })
+    ]);
+  }
+
+  // ---------- Даты ----------
+  function zpDay(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function zpDayText(s) { var d = zpDay(s); return ZP_WD_S[d.getDay()] + ' ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1); }
+  function zpToday() { return (ZP.srv && ZP.srv.now || '').slice(0, 10); }
+  function zpPlural(n, a, b, c) { n = Math.abs(n) % 100; var k = n % 10; if (n > 10 && n < 20) return c; if (k > 1 && k < 5) return b; if (k === 1) return a; return c; }
+
+  // ---------- Записи ----------
+  function zpListBlocks() {
+    var today = zpToday(), all = ZP.srv.slots || [];
+    var ahead = all.filter(function (r) { return r.day >= today; }), past = all.filter(function (r) { return r.day < today; }).reverse();
+    var paid = ahead.filter(function (r) { return r.status === 'paid'; }).length;
+    return [
+      block('Впереди', [
+        el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Обновить', onclick: zpLoad })]),
+        el('div', { class: 'a-pp-list' }, ahead.length ? ahead.map(zpRow) : el('p', { class: 'a-empty', text: 'Пока ни одной записи и ничего не закрыто.' })),
+        el('p', { class: 'a-hint', text: 'Здесь только время и вид встречи — ни имени, ни телефона сервер не хранит. Кто записался, вы узнаете, когда человек вам напишет (и от бота — на последнем шаге).' })
+      ], { note: paid ? String(paid) : '' }),
+      zpBlockForm(),
+      past.length ? block('Прошедшие (30 дней)', [el('div', { class: 'a-pp-list' }, past.map(zpRow)),
+        el('p', { class: 'a-hint', text: 'Прошедшие старше 90 дней удаляются сами.' })], { open: false, note: String(past.length) }) : null
+    ];
+  }
+  function zpRow(r) {
+    var what = r.status === 'block' ? 'Закрыто вами' + (r.note ? ' · ' + r.note : '')
+      : [r.title || r.service, r.mode === 'offline' ? 'очно' : r.mode === 'online' ? 'онлайн' : '', r.price ? r.price.toLocaleString('ru-RU') + ' ₽' : ''].filter(Boolean).join(' · ');
+    var tag = r.status === 'paid' ? el('span', { class: 'a-tag a-tag--pub', text: 'оплачено' })
+      : r.status === 'hold' ? el('span', { class: 'a-tag a-tag--draft', text: 'на оплате до ' + String(r.hold_until || '').slice(11, 16) })
+      : el('span', { class: 'a-tag', text: 'занята' });
+    return el('div', { class: 'a-pp-item a-zp-item' }, [
+      el('span', { class: 'a-pp-date', text: zpDayText(r.day) + ', ' + r.from + '–' + r.to }),
+      el('span', { class: 'a-zp-what', text: what }), tag,
+      r.day >= zpToday() ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Освободить', onclick: function () { zpRelease(r); } }) : el('span')
+    ]);
+  }
+  function zpRelease(r) {
+    var paid = r.status === 'paid';
+    dialog({ title: 'Освободить ' + zpDayText(r.day) + ', ' + r.from + '–' + r.to + '?',
+      body: r.status === 'block' ? 'Это время снова станет свободным для записи.'
+        : 'Запись удалится, время снова станет свободным для записи.' + (paid ? ' Деньги сами не вернутся: если нужен возврат — сделайте его в ЮKassa.' : ''),
+      buttons: [['go', 'Освободить', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
+      if (v !== 'go') return;
+      busy('Освобождаем время…');
+      zpCall('release', { code: r.code }).then(function (d) { busy(null); zpTake(d); ZP.free = null; zpDraw(); toast(d.released ? 'Время освобождено.' : 'Этой записи уже не было.'); })
+        .catch(function (e) { busy(null); toast(e.message, true); });
+    });
+  }
+  function zpBlockForm() {
+    var b = ZP.blk;
+    if (!b.day) b.day = zpToday();
+    function inp(key, type, ph) {
+      var i = el('input', { class: 'a-input', type: type, value: b[key], placeholder: ph || '' });
+      i.addEventListener('input', function () { b[key] = i.value; });
+      return i;
+    }
+    return block('Закрыть время', [
+      el('div', { class: 'a-zp-blk' }, [field('День', inp('day', 'date')), field('С', inp('from', 'time')), field('До', inp('to', 'time')),
+        field('Пометка (видна только вам)', inp('note', 'text', 'например: врач'))]),
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Закрыть время', onclick: function () {
+        busy('Закрываем время…');
+        zpCall('block', { day: b.day, from: b.from, to: b.to, note: b.note }).then(function (d) {
+          busy(null); b.note = ''; zpTake(d); ZP.free = null; zpDraw(); toast('Время закрыто: ' + zpDayText(b.day) + ', ' + b.from + '–' + b.to + '.');
+        }).catch(function (e) { busy(null); toast(e.message, true); });
+      } })]),
+      el('p', { class: 'a-hint', text: 'Это время на сайте не предложат (с перерывом до и после). Целые дни и отпуск — в «Расписании», «Выходные и отпуск». Позже закрывать время можно будет и прямо из Бизнес-календаря.' })
+    ], { open: false });
+  }
+
+  // ---------- Расписание и встречи ----------
+  function zpNum(obj, key, label, o) {
+    o = o || {};
+    var i = el('input', { class: 'a-input a-zp-num', type: 'number', min: o.min, max: o.max, step: o.step || 1, value: obj[key] });
+    i.addEventListener('input', function () { obj[key] = i.value === '' ? '' : +i.value; zpChanged(); });
+    return field(label, i, o.hint);
+  }
+  function zpTime(obj, key, label) {
+    var i = el('input', { class: 'a-input', type: 'time', step: 300, value: obj[key], 'aria-label': label });
+    i.addEventListener('input', function () { if (i.value) { obj[key] = i.value; zpChanged(); } });
+    return i;
+  }
+  function zpCheck(obj, key, label, onChange) {
+    var cb = el('input', { type: 'checkbox', checked: !!obj[key] });
+    cb.addEventListener('change', function () { obj[key] = cb.checked; zpChanged(); if (onChange) onChange(cb.checked); });
+    return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text', text: label })]);
+  }
+  function zpSetBlocks() {
+    var s = ZP.set;
+    var week = el('div', { class: 'a-zp-week' }, s.week.map(function (w, i) {
+      var row = el('div', { class: 'a-zp-day' + (w.on ? '' : ' is-off') });
+      return add(row, [zpCheck(w, 'on', ZP_WD[i], function (on) { row.classList.toggle('is-off', !on); }),
+        el('span', { class: 'a-zp-hours' }, ['с ', zpTime(w, 'from', ZP_WD[i] + ', с'), ' до ', zpTime(w, 'to', ZP_WD[i] + ', до')])]);
+    }));
+    var offBox = el('div', { class: 'a-zp-offs' });
+    function drawOff() {
+      offBox.replaceChildren();
+      add(offBox, s.off.length ? s.off.map(function (o, i) {
+        function d(key) {
+          var x = el('input', { class: 'a-input', type: 'date', value: o[key] });
+          x.addEventListener('input', function () { o[key] = x.value; if (key === 'from' && (!o.to || o.to < x.value)) { o.to = x.value; drawOff(); } zpChanged(); });
+          return x;
+        }
+        var note = el('input', { class: 'a-input', type: 'text', value: o.note || '', placeholder: 'например: отпуск' });
+        note.addEventListener('input', function () { o.note = note.value; zpChanged(); });
+        return el('div', { class: 'a-zp-off' }, [field('С', d('from')), field('По', d('to')), field('Пометка', note),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✕', title: 'Убрать', 'aria-label': 'Убрать', onclick: function () { s.off.splice(i, 1); zpChanged(); drawOff(); } })]);
+      }) : el('p', { class: 'a-empty', text: 'Нет. Все дни — по часам работы выше.' }));
+    }
+    drawOff();
+    var svc = el('div', { class: 'a-zp-svcs' }, s.services.map(function (x) {
+      var p = x.plaque, row = el('div', { class: 'a-zp-svc' + (x.on ? '' : ' is-off') });
+      return add(row, [
+        zpCheck(x, 'on', x.title, function (on) { row.classList.toggle('is-off', !on); }),
+        zpNum(x, 'minutes', 'Длительность, минут', { min: 15, max: 720, step: 15 }),
+        el('span', { class: 'a-hint' }, p ? ['Цена — с плашки: ' + (p.priceText || 'не указана'), p.durText ? el('br') : null, p.durText ? 'На плашке написано: «' + p.durText + '»' : null]
+          : 'Этой плашки сейчас нет на витрине (цена — сохранённая: ' + (x.price || 0).toLocaleString('ru-RU') + ' ₽)')]);
+    }));
+    var foot = el('div', { class: 'a-zp-save' }, [
+      el('span', { class: 'a-ak-state' + (ZP.dirty ? ' is-dirty' : ''), text: ZP.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' }),
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Сохранить на Beget', onclick: zpSave }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Отменить изменения', onclick: function () { ZP.dirty = false; zpTake(ZP.srv); zpDraw(); } })]);
+    return [
+      block('Запись на сайте', [
+        zpCheck(s, 'open', 'Запись открыта'),
+        el('p', { class: 'a-hint', text: 'Выключено — сайт время не предлагает (окошко покажет «Запись временно через сообщение»). Пока окошка записи на сайте нет, это ни на что не влияет: включите, когда подключим оплату.' })]),
+      block('Часы работы', [week, el('p', { class: 'a-hint', text: 'Время — по Москве. Встреча целиком помещается в часы работы: при часах 10:00–19:00 регрессию (3 часа) можно начать не позже 16:00.' })]),
+      block('Правила', [el('div', { class: 'a-zp-nums' }, [
+        zpNum(s, 'breakMin', 'Перерыв между встречами, минут', { min: 0, max: 240, step: 5 }),
+        field('Время начала — каждые … минут', (function () {
+          var x = el('select', { class: 'a-input' }, [15, 30, 60].map(function (n) { return el('option', { value: String(n), text: String(n) }); }));
+          x.value = String(s.step); x.addEventListener('change', function () { s.step = +x.value; zpChanged(); });
+          return x;
+        })(), 'Начала — ровно по шагу от начала дня: 10:00, 10:30, 11:00…'),
+        zpNum(s, 'noticeH', 'Записаться можно не позже чем за … часов', { min: 0, max: 336 }),
+        zpNum(s, 'aheadD', 'Открывать запись на … дней вперёд', { min: 1, max: 180 }),
+        zpNum(s, 'cancelH', 'Отменить или перенести — не позднее чем за … часов', { min: 0, max: 336, hint: 'Это число подставится в вашу фразу про отмену в окошке записи.' }),
+        zpNum(s, 'holdMin', 'Пока человек платит, время держится за ним … минут', { min: 5, max: 60 })])]),
+      block('Выходные и отпуск', [offBox, el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ Добавить дни', onclick: function () {
+        var t = zpToday(); s.off.push({ from: t, to: t, note: '' }); zpChanged(); drawOff(); } })]),
+        el('p', { class: 'a-hint', text: 'В эти дни (включительно) запись закрыта целиком. Прошедшие можно убрать.' })]),
+      block('Виды встреч', [svc.childNodes.length ? svc : el('p', { class: 'a-empty', text: 'На витрине нет карточки «Индивидуальная работа» с плашками.' }),
+        el('p', { class: 'a-hint', text: 'Это плашки карточки «Индивидуальная работа» (названия и цены — с них; поменяли на плашке — нажмите здесь «Сохранить на Beget»). Включено — «Записаться» на плашке откроет окошко записи по календарю; выключено — как сейчас, окно «Куда написать?». Свободное время считается по длительности.' })]),
+      foot
+    ];
+  }
+
+  // ---------- Как увидит человек ----------
+  function zpSeeBlock() {
+    var on = ZP.set.services.filter(function (x) { return x.on; });
+    if (!ZP.freeKey || !on.some(function (x) { return x.key === ZP.freeKey; })) { ZP.freeKey = on[0] ? on[0].key : ''; ZP.free = null; }
+    function load() {
+      ZP.freeBusy = true; zpDraw();
+      zpCall('free', { service: ZP.freeKey }).then(function (d) { ZP.freeBusy = false; ZP.free = d; zpDraw(); })
+        .catch(function (e) { ZP.freeBusy = false; toast(e.message, true); zpDraw(); });
+    }
+    if (ZP.freeKey && !ZP.free && !ZP.freeBusy) setTimeout(load, 0);
+    var pick = el('select', { class: 'a-input' }, on.map(function (x) { return el('option', { value: x.key, text: x.title }); }));
+    pick.value = ZP.freeKey;
+    pick.addEventListener('change', function () { ZP.freeKey = pick.value; ZP.free = null; zpDraw(); });
+    var f = ZP.free, days = f && f.ok ? Object.keys(f.days) : [];
+    var nFree = days.filter(function (d) { return f.days[d].length; }).length;
+    return block('Свободное время', [
+      on.length ? field('Вид встречи', pick) : el('p', { class: 'a-empty', text: 'Ни одна встреча не включена — включите в «Расписании и встречах».' }),
+      ZP.dirty ? el('div', { class: 'a-note', text: 'Здесь — по настройкам, сохранённым на Beget. Ваши несохранённые изменения пока не учтены.' }) : null,
+      ZP.freeBusy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Считаем…' })]) : null,
+      f && !f.ok ? el('p', { class: 'a-empty', text: 'Эта встреча на Beget ещё не включена — сохраните «Расписание и встречи».' }) : null,
+      f && f.ok ? el('p', { class: 'a-hint', text: f.service.title + ' · ' + f.service.minutes + ' минут · ' + (f.service.price || 0).toLocaleString('ru-RU') + ' ₽. Свободных дней: ' + nFree + ' из ' + days.length + ' рабочих.' }) : null,
+      f && f.ok ? el('div', { class: 'a-zp-see' }, days.map(function (d) {
+        var t = f.days[d];
+        return el('div', { class: 'a-zp-seeday' + (t.length ? '' : ' is-full') }, [el('b', { text: zpDayText(d) }),
+          el('span', { text: t.length ? t.join('  ') : 'всё занято' })]);
+      })) : null,
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Обновить', disabled: !ZP.freeKey || ZP.freeBusy, onclick: function () { ZP.free = null; load(); } })]),
+      el('p', { class: 'a-hint', text: 'Так время увидит человек в окошке записи (время по Москве). Выходные и нерабочие дни не показаны. Сегодня и ближайшие часы закрыты правилом «не позже чем за … часов».' })
+    ]);
+  }
+
+  function zpStateBlock() {
+    var st = ZP.srv;
+    return block('Состояние', [
+      el('ul', { class: 'a-pp-checks' }, st.checks.map(function (c) { return el('li', { class: c[0] ? '' : 'is-bad', text: (c[0] ? '✅ ' : '❌ ') + c[1] }); })),
+      el('p', { class: 'a-hint', text: 'Программа записи: ' + ZP_URL.replace(/\/$/, '') + ' (время на Beget: ' + String(st.now || '').replace('T', ' ').slice(0, 16) + ', Мск).' }),
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Проверить', onclick: zpLoad })])
+    ]);
   }
 
   /* ================= ПСИПОИНТ: бот с тестами на Beget (её просьба 20.10: «я забуду про setup.php») =================
