@@ -10076,6 +10076,7 @@
     var actions = el('div', { class: 'a-pp-row a-ak-bar' }, [
       el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
       el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Скопировать для Claude', title: 'Все тексты анкеты одним сообщением — вставить в чат с Claude и попросить поправить', onclick: function () { akCopyText(m); } }),
       el('span', { class: 'a-ak-state' + (ed.dirty ? ' is-dirty' : ''), text: ed.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' })]);
     return el('div', { class: 'a-ak' }, [
       actions,
@@ -10122,6 +10123,46 @@
         el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
         el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave })])
     ]);
+  }
+  // Вся анкета текстом для чата с Claude (её просьба 28.10): подписи — как поля в панели, чтобы правки было куда вставить.
+  function akCopyText(m) {
+    var kinds = {}, L = [], n = 0;
+    AK_KINDS.forEach(function (k) { kinds[k[0]] = k[1].toLowerCase(); });
+    function line(label, v) { v = String(v == null ? '' : v).trim(); L.push(label + ': ' + (v ? (v.indexOf('\n') >= 0 ? '\n' + v : v) : '(пусто)')); }
+    L.push('Анкета ПсиПоинта «' + (m.title || '') + '» (слово в ссылке: ' + m.id + '). Ниже — все тексты; подписи — как поля в панели.', '');
+    L.push('— НАЧАЛО —');
+    line('Кнопка в меню бота', m.button); line('Приветствие', m.hello); line('Дополнительная строка в начале', m.hello_extra);
+    line('Кнопка под приветствием', m.start); line('Кнопка «Дальше» внизу экрана', m.next); line('Кнопка «Готово»', m.ready);
+    L.push('', '— ВОПРОСЫ И ЧАСТИ (сверху вниз) —');
+    m.steps.forEach(function (s) {
+      L.push('');
+      if (s.type === 'part') { line('Часть · заголовок', s.text); if ((s.note || '').trim()) line('Часть · пояснение', s.note); return; }
+      if (s.type === 'say') { line('Реплика бота', s.text); return; }
+      line('Вопрос ' + (++n) + ' (' + kinds[s.kind] + ')', s.text);
+      if (s.kind !== 'text') {
+        L.push('Кнопки: ' + (s.opts || []).map(function (o) {
+          var tags = [];
+          if (o.f1) tags.push('уточнение' + ((s.follow2 || '').trim() ? ' 1' : ''));
+          if (o.f2 && (s.follow2 || '').trim()) tags.push('уточнение 2');
+          if (s.kind === 'many' && o.alone) tags.push('снимает остальные');
+          return '[' + o.text + ']' + (tags.length ? ' (' + tags.join(', ') + ')' : '');
+        }).join(' '));
+        if (s.kind === 'many' && s.max) L.push('Сколько можно отметить: ' + s.max);
+        if ((s.follow || '').trim()) line('Уточнение после кнопки', s.follow);
+        if ((s.follow2 || '').trim()) line('Второе уточнение', s.follow2);
+      }
+      if ((s.after || '').trim()) line('Ответ бота после «Дальше»', s.after);
+    });
+    L.push('', '— КОНЕЦ —');
+    var f = m.finish || {};
+    line('Последнее сообщение', f.text); line('Кнопка «Отправить»', f.button); line('Ответ после «Отправить»', f.done);
+    var txt = L.join('\n');
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () {
+      toast('Анкета скопирована. Вставьте в чат с Claude (⌘V) и напишите, что поправить.');
+    }, function () {
+      var ta = el('textarea', { class: 'a-input', rows: 12, readonly: true }); ta.value = txt;
+      dialog({ title: 'Скопируйте текст анкеты', body: el('div', {}, [el('p', { text: 'Не получилось скопировать само: щёлкните в поле, ⌘A, ⌘C.' }), ta]) });
+    });
   }
   function akAddRow(m, at) {
     var sel = el('select', { class: 'a-input a-ak-add' }, [['', at < m.steps.length ? '+ Вставить ниже…' : '+ Добавить…'], ['question', 'вопрос'], ['part', 'часть (заголовок)'], ['say', 'реплику бота']].map(function (o) {
