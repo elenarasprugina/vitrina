@@ -2287,3 +2287,98 @@ body.m13-locked{overflow:hidden}
   .m13-legal{font-size:15px;border-radius:14px}
   .m13-legal-who div{grid-template-columns:1fr;gap:0;margin-bottom:6px}
 }
+
+/* ================= Окошко записи на встречу (docs/zapis.md, шаг 3) =================
+   Цвета — с карточки (как у «Куда написать?»: --w-*), без оформления — белое. Вид: --calm «Спокойный» (Montserrat, ровные кнопки,
+   свободный день — светлый кружок), «Как у витрины» (классы окна карточки, свободные дни светятся), --b-* / --glint / --mk-* — «Свой». */
+.m13-zpw{--zp-tx:var(--w-tx,#232323);--zp-ac:var(--w-ac,#232323);--zp-ink:var(--w-ac-ink,#fff);--zp-line:var(--w-line,rgba(35,35,35,.16));
+  --zp-mut:var(--w-mut,#6e6e6e);--zp-glow:#e3a83a;position:relative;display:flex;flex-direction:column;gap:12px;
+  max-height:calc(100vh - 28px);max-height:calc(100svh - 28px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.m13-zp{padding:14px}
+.m13-zpw > *{flex-shrink:0}
+.m13-zpw h3{margin:0;font-size:21px;line-height:1.15}
+.m13-zpw .m13-eyebrow{margin:0 0 3px}
+.m13-zpw .m13-hint,.m13-zpw .m13-modal-close,.m13-zpw .m13-channels{margin:0}
+.m13-zpw .m13-hint{min-height:0}
+.m13-zpw :is(.m13-channel,.m13-modal-close){padding:12px 10px;font-family:inherit;font-size:14px;line-height:1.25}
+.m13-zpw .m13-modal-close{color:inherit}
+.m13-zpw .m13-hint:empty{display:none}
+.m13-zp-sub,.m13-zp-when{margin:4px 0 0;color:var(--zp-mut);font-size:14px;line-height:1.35}
+.m13-zp-when{margin:0;color:var(--zp-tx)}
+.m13-zp-col{display:grid;gap:8px}
+.m13-zpw a.m13-channel{display:block;text-align:center;text-decoration:none}
+.m13-zp-wide{width:100%}
+.m13-zpw .m13-channel[disabled]{opacity:.4;cursor:default}
+.m13-zpw .m13-channel[disabled]::after{display:none}
+.m13-zpw .m13-channel.m13-ch2{background:transparent;border-color:var(--zp-tx);color:var(--zp-tx) !important}
+.m13-zpw .m13-msg strong{color:var(--zp-tx);font-weight:650}
+.m13-zp-wait{display:flex;align-items:center;gap:10px;margin:6px 0;color:var(--zp-mut);font-size:15px}
+.m13-zp-spin{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid var(--zp-line);border-top-color:var(--zp-ac);animation:m13-zp-spin .8s linear infinite}
+@keyframes m13-zp-spin{to{transform:rotate(360deg)}}
+.m13-zp-flash{margin:0;padding:8px 12px;border-left:3px solid var(--zp-ac);border-radius:6px;background:color-mix(in srgb,var(--zp-ac) 9%,transparent);font-size:14px;line-height:1.4}
+/* Календарь */
+.m13-zp-mon{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.m13-zp-mon strong{font-size:16px;font-weight:600}
+.m13-zp-arr{width:34px;height:34px;padding:0;border:1px solid var(--zp-line);border-radius:50%;background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer}
+.m13-zp-arr[disabled]{opacity:.3;cursor:default}
+.m13-zp-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;font-variant-numeric:tabular-nums}
+.m13-zp-wd{padding:2px 0 4px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--zp-mut)}
+.m13-zp-day{display:flex;align-items:center;justify-content:center;min-height:40px;padding:0;border:0;background:none;color:inherit;font:inherit;cursor:default}
+.m13-zp-n{position:relative;z-index:0;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;font-size:15px;transition:background .15s}
+.m13-zp-day.is-off .m13-zp-n{opacity:.32}
+.m13-zp-day.is-full .m13-zp-n{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 55%,transparent)}
+.m13-zp-day.is-free{cursor:pointer}
+.m13-zp-day.is-today .m13-zp-n{box-shadow:inset 0 0 0 1px currentColor}
+.m13-zpw--mk-circle .m13-zp-day.is-free .m13-zp-n{background:color-mix(in srgb,var(--zp-ac) 14%,transparent)}
+.m13-zpw--mk-circle .m13-zp-day.is-free:hover .m13-zp-n{background:color-mix(in srgb,var(--zp-ac) 26%,transparent)}
+.m13-zpw--mk-glow .m13-zp-day.is-free .m13-zp-n{font-weight:700;text-shadow:0 0 5px var(--zp-glow),0 0 12px var(--zp-glow)}
+.m13-zpw--mk-glow .m13-zp-day.is-free .m13-zp-n::before{content:"";position:absolute;inset:-4px;z-index:-1;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--zp-glow) 50%,transparent),transparent 68%)}
+.m13-zpw--mk-bold .m13-zp-day.is-free .m13-zp-n{font-weight:750}
+.m13-zpw--mk-bold .m13-zp-day.is-free:hover .m13-zp-n{background:color-mix(in srgb,var(--zp-ac) 10%,transparent)}
+.m13-zp-day.is-sel .m13-zp-n{background:var(--zp-ac) !important;color:var(--zp-ink);text-shadow:none;font-weight:600}
+.m13-zp-day.is-sel .m13-zp-n::before{display:none}
+.m13-zp-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;font-size:13px;color:var(--zp-mut)}
+.m13-zp-dot{display:inline-block;width:11px;height:11px;margin-right:6px;border-radius:50%;vertical-align:-1px;background:color-mix(in srgb,var(--zp-ac) 22%,transparent)}
+.m13-zpw--mk-glow .m13-zp-dot{background:radial-gradient(circle,var(--zp-glow),color-mix(in srgb,var(--zp-glow) 20%,transparent))}
+.m13-zp-group{display:flex;flex-direction:column;gap:7px}
+.m13-zp-group .m13-msg-label{margin:0}
+.m13-zp-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;font-variant-numeric:tabular-nums}
+.m13-zp-slot{padding:8px 2px;border:1px solid var(--zp-line);border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer}
+.m13-zp-slot:hover{border-color:var(--zp-tx)}
+.m13-zp-slot.is-sel{background:var(--zp-ac);border-color:var(--zp-ac);color:var(--zp-ink)}
+.m13-zp-seg{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border:1px solid var(--zp-line);border-radius:999px}
+.m13-zp-seg button{padding:7px;border:0;border-radius:999px;background:none;color:inherit;font:inherit;font-size:15px;cursor:pointer}
+.m13-zp-seg button.is-on{background:var(--zp-ac);color:var(--zp-ink)}
+.m13-zp-agree{margin-top:-4px;color:var(--zp-mut) !important;font-size:12px;line-height:1.35;text-align:center;text-decoration:underline;text-underline-offset:3px}
+.m13-zp-ok{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--zp-ac);color:var(--zp-ink);font-size:21px;font-weight:700}
+.m13-zp-sep{height:1px;background:var(--zp-line)}
+.m13-zp-ask{margin:0;font-size:16px;line-height:1.35}
+.m13-wait{cursor:progress !important;opacity:.7}
+/* «Спокойный»: тонкий простой шрифт, всё ровное */
+.m13-zpw--calm{font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-weight:300}
+.m13-zpw--calm h3{font-weight:500;letter-spacing:0}
+.m13-zpw--calm :is(.m13-channel,.m13-modal-close,.m13-zp-mon strong,.m13-msg strong){font-weight:500}
+.m13-zpw--calm .m13-zp-n{font-size:14.5px}
+.m13-zpw--font{font-family:var(--zp-font)}
+.m13-zpw--font h3{font-weight:600;letter-spacing:0}
+/* «Свой»: вид кнопок и блик */
+.m13-zpw[class*="m13-zpw--b-"] .m13-channel{position:relative;overflow:hidden;isolation:isolate}
+.m13-zpw--b-fill .m13-channel:not(.m13-ch2){background:var(--zp-ac);border-color:var(--zp-ac);color:var(--zp-ink) !important}
+.m13-zpw--b-line .m13-channel:not(.m13-ch2){background:transparent;border:1px solid var(--zp-ac);color:var(--zp-tx) !important}
+.m13-zpw--b-glass .m13-channel:not(.m13-ch2){background:color-mix(in srgb,var(--zp-ac) 16%,transparent);border:1px solid var(--zp-ac);color:var(--zp-tx) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 14px color-mix(in srgb,var(--zp-ac) 30%,transparent)}
+.m13-zpw--b-shimmer .m13-channel:not(.m13-ch2){background:linear-gradient(135deg,var(--zp-ac),color-mix(in srgb,var(--zp-ac) 35%,#fff),var(--zp-ac));background-size:260% 260%;
+  border-color:transparent;color:var(--zp-ink) !important;animation:m13-flow 9s ease-in-out infinite alternate}
+.m13-zpw--glint .m13-channel:not(.m13-ch2)::after{content:"";position:absolute;top:0;bottom:0;left:0;width:38%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:m13-glint 6.5s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.m13-zpw .m13-channel{animation:none !important}.m13-zpw .m13-channel::after{display:none}.m13-zp-spin{animation-duration:2.4s}}
+@media (min-width:700px){
+  .m13-zpw{gap:14px}
+  .m13-zpw h3{font-size:24px;margin:0}
+  .m13-zp-day{min-height:44px}
+  .m13-zp-n{width:38px;height:38px}
+}
+/* Строка-мостик под календарём витрины */
+.m13-cal-bridge{display:block;margin:12px auto 0;padding:6px 4px;border:0;background:none;color:inherit;font:inherit;font-size:17px;font-weight:600;cursor:pointer;
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent)}
+.m13-cal-bridge:hover{text-decoration-color:currentColor}
