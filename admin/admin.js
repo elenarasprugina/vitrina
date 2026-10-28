@@ -9780,10 +9780,10 @@
   function viewZapis() {
     ZP.box = el('div', { class: 'a-pp a-zp' });
     zpDraw();
-    if (ZP.pass && !ZP.srv && !ZP.busy) zpLoad();
+    if (ZP.pass && !ZP.srv && !ZP.busy && ZP.tab !== 'site') zpLoad();
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'Запись' }),
-        el('p', { class: 'a-lead', text: 'Запись клиентов на встречи по календарю (программа работает на Beget). Здесь — записи, часы работы и виды встреч. Окошко записи на сайте появится вместе с оплатой (следующий шаг).' })]),
+        el('p', { class: 'a-lead', text: 'Запись клиентов на встречи по календарю с оплатой через ЮKassa (программа работает на Beget). Здесь — записи, часы работы, виды встреч и как выглядит окошко записи на сайте.' })]),
       ZP.box
     ];
   }
@@ -9791,12 +9791,15 @@
     var box = ZP.box;
     if (!box) return;
     box.replaceChildren();
-    if (!ZP.pass) { add(box, zpLoginBox()); return; }
-    var tabs = [['list', 'Записи'], ['set', 'Расписание и встречи'], ['see', 'Как увидит человек'], ['state', 'Состояние']];
+    var tabs = [['list', 'Записи'], ['set', 'Расписание и встречи'], ['see', 'Как увидит человек'], ['site', 'Окошко на сайте'], ['state', 'Состояние']];
+    var tabBar = el('div', { class: 'a-tabs a-pp-tabs' }, tabs.map(function (t) {
+      return el('button', { type: 'button', class: ZP.tab === t[0] ? 'is-active' : '', text: t[1], onclick: function () { ZP.tab = t[0]; zpDraw(); if (t[0] !== 'site' && ZP.pass && !ZP.srv && !ZP.busy) zpLoad(); } });
+    }));
+    // «Окошко на сайте» — это данные витрины (верхняя «Сохранить»), пароль записи для него не нужен
+    if (ZP.tab === 'site') { add(box, [tabBar].concat(zpSiteBlocks())); return; }
+    if (!ZP.pass) { add(box, [tabBar, zpLoginBox()]); return; }
     add(box, [
-      el('div', { class: 'a-tabs a-pp-tabs' }, tabs.map(function (t) {
-        return el('button', { type: 'button', class: ZP.tab === t[0] ? 'is-active' : '', text: t[1], onclick: function () { ZP.tab = t[0]; zpDraw(); } });
-      })),
+      tabBar,
       ZP.err ? el('div', { class: 'a-note' }, [ZP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: zpLoad })]) : null,
       !ZP.srv ? (ZP.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем с Beget…' })]) : null)
         : ZP.tab === 'set' ? zpSetBlocks() : ZP.tab === 'see' ? zpSeeBlock() : ZP.tab === 'state' ? zpStateBlock() : zpListBlocks(),
@@ -9948,7 +9951,7 @@
     return [
       block('Запись на сайте', [
         zpCheck(s, 'open', 'Запись открыта'),
-        el('p', { class: 'a-hint', text: 'Выключено — сайт время не предлагает (окошко покажет «Запись временно через сообщение»). Пока окошка записи на сайте нет, это ни на что не влияет: включите, когда подключим оплату.' })]),
+        el('p', { class: 'a-hint', text: 'Выключено — сайт время не предлагает: у встреч, включённых ниже, окошко покажет «Запись временно через сообщение». Включите, когда в «Состоянии» ЮKassa зелёная. Как окошко выглядит и что в нём написано — вкладка «Окошко на сайте».' })]),
       block('Часы работы', [week, el('p', { class: 'a-hint', text: 'Время — по Москве. Встреча целиком помещается в часы работы: при часах 10:00–19:00 регрессию (3 часа) можно начать не позже 16:00.' })]),
       block('Правила', [el('div', { class: 'a-zp-nums' }, [
         zpNum(s, 'breakMin', 'Перерыв между встречами, минут', { min: 0, max: 240, step: 5 }),
@@ -10001,11 +10004,53 @@
     ]);
   }
 
+  // ---------- Окошко на сайте (settings.zapis: вид, надписи, строка-мостик; сохраняется верхней «Сохранить») ----------
+  function zpSiteBlocks() {
+    var st = DATA.settings, z = st.zapis = st.zapis || {};
+    z.own = z.own || {}; z.texts = z.texts || {}; z.bridge = z.bridge || {};
+    var pl = zpPlaques(), month = pl[0] ? pl[0].month : ST.showcase || st.currentShowcase;
+    function look(kind) {
+      var sc = DATA.showcases[month], c = sc && (sc.cards || []).filter(function (x) { return x.id === 'individual'; })[0];
+      openPreview('showcase', month, c ? c.id : null, kind);
+    }
+    var fonts = [['calm', 'Простой тонкий (Montserrat)'], ['month', 'Как у витрины месяца']].concat((window.M13.FONTS || []).map(function (f) { return [f, f]; }));
+    var ownBox = el('div', { class: 'a-zp-own', hidden: z.look !== 'own' }, [
+      el('div', { class: 'a-row' }, [fontLook(selectIn(z.own, 'font', 'Шрифт', fonts, { def: 'calm' })),
+        selectIn(z.own, 'btn', 'Кнопки', [['fill', 'Ровная заливка'], ['line', 'Контур'], ['glass', 'Стекло'], ['shimmer', 'Перелив']], { def: 'fill' })]),
+      el('div', { class: 'a-row' }, [selectIn(z.own, 'mark', 'Как отмечать свободные дни', [['circle', 'Светлый кружок цвета месяца'], ['glow', 'Свечение (как у календаря витрины)'], ['bold', 'Жирная цифра']], { def: 'circle' }),
+        switchIn(z.own, 'glint', 'Блик пробегает по кнопке')])]);
+    var texts = (window.M13.ZAPIS_TXT || []).filter(function (d) { return d[0] !== 'bridge'; });
+    var textBox = el('div', {}, texts.map(function (d) { return textIn(z.texts, d[0], d[1], { ph: d[2], multi: !!d[3], rows: 2 }); }));
+    return [
+      block('Вид окна записи', [
+        selectIn(z, 'look', 'Вид', [['calm', 'Спокойный — тонкий простой шрифт, ровные кнопки, тонкий контур'], ['vitrina', 'Как у витрины — как окно «Куда написать?»: шрифт, кнопки, блик, контур'], ['own', 'Свой']],
+          { def: 'calm', onChange: function (v) { ownBox.hidden = v !== 'own'; } }),
+        ownBox,
+        el('p', { class: 'a-hint', text: 'Цвета окна всегда берутся с витрины месяца (оборот карточки, откуда открыто, — как у окна «Куда написать?»). Свободный день — светлым кружком, выбранный — заливкой цвета месяца (в «Своём» можно иначе).' }),
+        el('div', { class: 'a-pp-row' }, [
+          el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть окошко', onclick: function () { look('zapis'); } }),
+          el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть «Вы записаны»', onclick: function () { look('zapis-done'); } })]),
+        el('p', { class: 'a-hint', text: 'В предпросмотре расписание выдуманное и оплата не открывается. Несохранённые изменения здесь видны сразу.' })]),
+      block('Строка-мостик под календарём витрины', [
+        switchIn(z.bridge, 'on', 'Показывать под календарём витрины'),
+        textIn(z.bridge, 'text', 'Текст', { ph: window.M13.ZAPIS_TXT ? window.M13.ZAPIS_TXT.filter(function (d) { return d[0] === 'bridge'; })[0][2] : '' }),
+        pl.length ? selectIn(z.bridge, 'key', 'Какую встречу открывает', pl.map(function (p) { return [p.key, p.title]; }), { def: 'individual_session' }) : null,
+        el('p', { class: 'a-hint', text: 'Строка внизу карточки-календаря месяца. Нажали — окошко записи сразу на месяце этого календаря.' })]),
+      block('Надписи в окне записи', [
+        el('p', { class: 'a-hint', text: 'Пустое поле — надпись как по умолчанию (она серым в поле). Подставляются сами: {название} — встреча, {день}, {время}, {как} — онлайн или очно, {часы} — «12 часов» (из «Отмена — не позднее чем за»), {цена}.' }),
+        textBox,
+        el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть все надписи как было', onclick: function () {
+          z.texts = {}; changed(); zpDraw(); toast('Надписи окна записи — как по умолчанию. Не забудьте «Сохранить».'); } })])
+      ], { open: false })
+    ];
+  }
+
   function zpStateBlock() {
     var st = ZP.srv;
     return block('Состояние', [
       el('ul', { class: 'a-pp-checks' }, st.checks.map(function (c) { return el('li', { class: c[0] ? '' : 'is-bad', text: (c[0] ? '✅ ' : '❌ ') + c[1] }); })),
       el('p', { class: 'a-hint', text: 'Программа записи: ' + ZP_URL.replace(/\/$/, '') + ' (время на Beget: ' + String(st.now || '').replace('T', ' ').slice(0, 16) + ', Мск).' }),
+      el('p', { class: 'a-hint', text: 'ЮKassa: shopId и секретный ключ — в app/config.php на Beget (shop_id, secret_key; в чат и сюда их не вписывать). В личном кабинете ЮKassa → «Интеграция» → «HTTP-уведомления» — адрес ' + ZP_URL + 'kassa.php, события «payment.succeeded» и «payment.canceled».' }),
       el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Проверить', onclick: zpLoad })])
     ]);
   }
@@ -10685,6 +10730,8 @@
       'Сайт не собирает персональные данные. Здесь нет регистрации, анкет и форм — вам не нужно сообщать о себе ни имя, ни телефон, ни почту.\n\n' +
       'На сайте нет счётчиков посещений, рекламы и систем статистики, сайт не использует cookie. Шрифты и картинки загружаются с самого сайта — без обращения к сторонним сервисам.\n\n' +
       'То, что вы отмечаете и выбираете на маршрутах, хранится только в браузере вашего устройства. Это не передаётся на сервер и не видно никому, кроме вас. Если очистить данные сайта в браузере, это сотрётся.\n\n' +
+      'Запись на встречу. Когда вы записываетесь на встречу на витрине, сайт обращается к своей программе записи (zapis.13mirrors.ru, на хостинге Beget в России). Она хранит только занятое время и вид встречи — без имени, телефона и почты. Номер вашей записи сохраняется в браузере вашего устройства, чтобы после оплаты показать, что вы записаны.\n\n' +
+      'Оплата проходит на странице платёжного сервиса ЮKassa. Данные карты, а также почту или телефон для чека вы вводите там — их видит только ЮKassa, наш сайт их не получает. ЮKassa обрабатывает эти данные по своим правилам.\n\n' +
       'Как и любой сайт в интернете, сервер, на котором размещён 13 MIRRORS, ведёт технические журналы обращений (адрес устройства в сети, время, открытая страница). Они нужны для работы сервера, и мы не используем их, чтобы узнавать, кто заходил.\n\n' +
       'Когда вы пишете нам в Telegram или VK, разговор идёт уже там, по правилам этих сервисов.\n\n' +
       'Если остались вопросы — напишите нам: ссылка «Задать вопрос» есть на главной странице.'
@@ -10729,6 +10776,16 @@
         el('p', { class: 'a-hint', text: 'Адрес — 13mirrors.ru/privacy/. Ссылка на неё — внизу главной и Гримуара, под пометкой. Цвет, шрифт и пометка внизу — как у главной.' }),
         textIn(h, 'privacyTitle', 'Заголовок', { hint: 'Он же — надпись ссылки внизу главной.' }),
         textIn(h, 'privacyText', 'Текст', { multi: true, rows: 14, hint: 'Пустая строка между абзацами — новый абзац. Первый абзац — курсивом, золотым.' }),
+        // Запись с оплатой (28.10): абзацы про программу записи и ЮKassa — одной кнопкой, после абзаца «…в браузере вашего устройства»
+        /ЮKassa/.test(h.privacyText || '') ? null : el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ Абзацы про запись на встречу и оплату (ЮKassa)', onclick: function () {
+          var more = HOME_DEFAULT.privacyText.split('\n\n').filter(function (x) { return /^(Запись на встречу|Оплата проходит)/.test(x); });
+          var parts = String(h.privacyText || '').trim().split(/\n\s*\n/), at = parts.length;
+          parts.forEach(function (x, i) { if (/в браузере вашего устройства/.test(x)) at = i + 1; });
+          if (at === parts.length && parts.length && /вопрос/i.test(parts[parts.length - 1])) at = parts.length - 1;
+          parts.splice.apply(parts, [at, 0].concat(more));
+          h.privacyText = parts.join('\n\n'); changed(); renderMain();
+          toast('Абзацы про запись и оплату добавлены. Посмотрите страницу, затем «Сохранить» и «Опубликовать».');
+        } })]),
         el('div', { class: 'a-tabs' }, [
           el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPagePreview('privacy', false); } }),
           el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openPagePreview('privacy', true); } })])
@@ -10868,7 +10925,11 @@
         .then(function () {
           if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; }
           // «Посмотреть окно»: сразу открыть «Куда написать?» и сообщение «Ссылка скопирована»
-          if (demo) { demo = false; setTimeout(function () { if (M.demoWin) M.demoWin(); }, 450); }
+          // «Посмотреть окошко записи»: окошко с выдуманным расписанием (zapis — выбор времени, zapis-done — «Вы записаны»)
+          if (demo) {
+            var dm = demo; demo = false;
+            setTimeout(function () { if (/^zapis/.test(dm)) { if (M.demoZapis) M.demoZapis(dm === 'zapis-done' ? 'done' : 'pick'); } else if (M.demoWin) M.demoWin(); }, 450);
+          }
         });
       pv.scrollTop = 0;
     }
