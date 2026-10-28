@@ -829,6 +829,39 @@ body.a-noscroll{overflow:hidden}
 /* ПсиПоинт: разделы и анкеты (27.10) */
 .a-pp-tabs{margin-bottom:2px}
 .a-ak{display:flex;flex-direction:column;gap:14px}
+/* Запись (28.10) */
+.a-zp-item{display:grid;grid-template-columns:150px 1fr auto auto;gap:10px;align-items:center;padding:9px 12px;font-size:13px}
+.a-zp-what{overflow-wrap:anywhere}
+.a-zp-blk{display:grid;grid-template-columns:160px 110px 110px 1fr;gap:8px}
+.a-zp-week{display:flex;flex-direction:column;gap:6px}
+.a-zp-day{display:grid;grid-template-columns:190px 1fr;gap:10px;align-items:center}
+.a-zp-hours{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--a-muted)}
+.a-zp-hours .a-input{width:auto;min-width:96px}
+.a-zp-day.is-off .a-zp-hours,.a-zp-svc.is-off .a-field,.a-zp-svc.is-off .a-hint{opacity:.4}
+.a-zp-nums{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.a-zp-num{max-width:120px}
+.a-zp-offs{display:flex;flex-direction:column;gap:8px}
+.a-zp-off{display:grid;grid-template-columns:160px 160px 1fr auto;gap:8px;align-items:end}
+.a-zp-svcs{display:flex;flex-direction:column;gap:10px}
+.a-zp-svc{display:grid;grid-template-columns:260px 170px 1fr;gap:10px;align-items:center;padding-bottom:10px;border-bottom:1px solid #ececea}
+.a-zp-save{position:sticky;bottom:0;z-index:2;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;background:#fff;border:1px solid var(--a-line);border-radius:12px;box-shadow:0 -4px 14px rgba(0,0,0,.06)}
+.a-zp-save .a-ak-state{flex:1 1 180px}
+.a-zp-see{display:flex;flex-direction:column;gap:4px;font-size:13px;font-variant-numeric:tabular-nums}
+.a-zp-seeday{display:grid;grid-template-columns:72px 1fr;gap:10px;padding:4px 0;border-bottom:1px solid #f0f0ee}
+.a-zp-seeday span{word-spacing:6px}
+.a-zp-seeday.is-full span{color:var(--a-muted);text-decoration:line-through}
+@media (max-width:700px){
+  .a-zp-item{grid-template-columns:1fr auto;gap:4px 10px}
+  .a-zp-item .a-pp-date{grid-column:1/-1}
+  .a-zp-item .a-btn{grid-column:1/-1;justify-self:start}
+  .a-zp-blk{grid-template-columns:1fr 1fr}
+  .a-zp-blk .a-field:first-child,.a-zp-blk .a-field:last-child{grid-column:1/-1}
+  .a-zp-day{grid-template-columns:1fr;gap:4px}
+  .a-zp-nums{grid-template-columns:1fr}
+  .a-zp-off{grid-template-columns:1fr 1fr auto}
+  .a-zp-off .a-field:nth-child(3){grid-column:1/-1;grid-row:2}
+  .a-zp-svc{grid-template-columns:1fr}
+}
 .a-ak-state{font-size:12.5px;color:var(--a-muted)}
 .a-ak-state.is-dirty{color:var(--a-warn)}
 .a-ak-item{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
