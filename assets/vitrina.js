@@ -361,10 +361,10 @@
     var sc = S.D.showcase || {}, mf = (sc.cardStyle || {}).font || '', hc = (sc.head || {}).color || '', css = [];
     if (mf && S.view !== 'oferta') css.push("--m13-hfont:'" + mf + "',Georgia,serif");
     if (hc && S.view !== 'oferta') css.push('color:' + hc);
-    // Тень под буквами, чтобы строку было видно на пёстром фоне: светлые буквы — тёмная тень, тёмные — светлая
+    // Подложка-стекло под ссылками, чтобы строку было видно на пёстром фоне: светлые буквы — тёмное стекло, тёмные — светлое
     if (S.view !== 'oferta' && /^#[0-9a-f]{6}$/i.test(hc)) {
       var lum = parseInt(hc.substr(1, 2), 16) * .3 + parseInt(hc.substr(3, 2), 16) * .59 + parseInt(hc.substr(5, 2), 16) * .11;
-      css.push('text-shadow:0 0 6px ' + (lum > 140 ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.8)') + ',0 0 14px ' + (lum > 140 ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.5)'));
+      css.push('--m13-lglass:' + (lum > 140 ? 'rgba(12,9,6,.55)' : 'rgba(255,255,255,.62)'));
     }
     return '<p class="m13-legal-line"' + (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + '><span class="m13-legal-links">' + links + '</span>' + req + '</p>';
   }
@@ -548,7 +548,7 @@
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
     // Сетка уменьшается и на высоту строки «Условия и цены ✦ Конфиденциальность», чтобы всё помещалось в экран
-    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 52 : 34) : 0);
+    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 64 : 46) : 0);
     var html = root + '<main class="m13-page' + (fh ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
