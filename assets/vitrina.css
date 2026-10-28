@@ -613,8 +613,8 @@ body.m13-locked{overflow:hidden}
 .m13-foot .m13-logo{width:min(clamp(96px,9vw,130px),calc(29px * var(--m13-lr,4.5)))}
 .m13-foot--m .m13-logo{width:min(clamp(150px,17vw,220px),calc(49px * var(--m13-lr,4.5)))}
 .m13-foot--l .m13-logo{width:min(clamp(200px,24vw,320px),calc(71px * var(--m13-lr,4.5)))}
-.m13-foot-text{display:inline-flex;align-items:center;gap:.45em;font-family:var(--m13-hfont,inherit);font-size:14px;letter-spacing:.04em;opacity:.85}
-.m13-foot--l .m13-foot-text{font-size:16px}
+.m13-foot-text{display:inline-flex;align-items:center;gap:.45em;font-family:var(--m13-hfont,inherit);font-size:16px;letter-spacing:.04em;opacity:.92}
+.m13-foot--l .m13-foot-text{font-size:18px}
 /* Надпись внизу — своё положение, отдельно от логотипа */
 .m13-foot-text.m13-al-left{align-self:flex-start;text-align:left}
 .m13-foot-text.m13-al-center{align-self:center;text-align:center}
@@ -665,7 +665,7 @@ body.m13-locked{overflow:hidden}
   .m13-foot .m13-logo{width:min(28vw,108px,calc(24px * var(--m13-lr,4.5)))}
   .m13-foot--m .m13-logo{width:min(42vw,160px,calc(36px * var(--m13-lr,4.5)))}
   .m13-foot--l .m13-logo{width:min(58vw,220px,calc(49px * var(--m13-lr,4.5)))}
-  .m13-foot-text{font-size:12px}
+  .m13-foot-text{font-size:13.5px}
 }
 
 /* Карточки-«зеркала»: полупрозрачное стекло с лёгким размытием того, что за ним */
@@ -2243,9 +2243,21 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-cta-flat :is(.m13-mini-cta,.m13-flip-hint){box-shadow:none;text-shadow:none}
 
 /* ---------- Реквизиты внизу витрины и страница «Условия и цены» (oferta/, для ЮKassa, 28.10) ---------- */
-.m13-legal-line{width:min(1180px,100%);margin:10px auto 0;padding:0 12px;text-align:center;font:400 12px/1.6 'Montserrat',system-ui,sans-serif;letter-spacing:.01em;color:var(--m13-head,var(--m13-ink));opacity:.72}
-.m13-legal-line a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+.m13-legal-line{width:100%;margin:6px 0 0;padding:0 2px;display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:center;
+  color:var(--m13-head,var(--m13-ink))}
+/* Ссылки — по углам внизу, мелко, приглушённо, с тонким подчёркиванием (её решение 28.10) */
+.m13-legal-links{display:flex;justify-content:space-between;align-items:center;gap:8px 16px;
+  font-family:var(--m13-hfont,inherit);font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;
+  text-shadow:0 0 5px var(--m13-lsh,transparent),0 0 12px var(--m13-lsh,transparent)}
+.m13-legal-line a{color:inherit;text-decoration:none;opacity:.62;transition:opacity .2s}
+.m13-legal-links a{padding:0 0 2px;border-bottom:1px solid color-mix(in srgb,currentColor 45%,transparent)}
 .m13-legal-line a:hover{opacity:1}
+.m13-legal-star{display:none}
+.m13-legal-req{font:400 12px/1.6 'Montserrat',system-ui,sans-serif;letter-spacing:.02em}
+@media (max-width:520px){
+  .m13-legal-links{font-size:9px;letter-spacing:.14em}
+}
+.m13-legal-req a{opacity:1;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
 .m13-legal-page{align-items:center}
 .m13-legal{box-sizing:border-box;width:min(760px,100%);margin:8px auto 24px;padding:22px clamp(18px,4.5vw,44px) 26px;border-radius:18px;
   background:var(--m13-lbg,rgba(14,11,8,.86));border:1px solid var(--m13-lline,rgba(255,255,255,.14));color:var(--m13-ltx,#efe6d6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
@@ -2267,7 +2279,10 @@ body.m13-locked{overflow:hidden}
 .m13-legal-pt small{display:block;font-size:13px;opacity:.65}
 .m13-legal-pp{white-space:nowrap;font-weight:400}
 .m13-legal-note{font-size:14px;opacity:.75}
-.m13-legal .m13-legal-line{margin-top:28px;padding:0;color:inherit}
+.m13-legal .m13-legal-line{margin-top:30px;padding:0;color:var(--m13-lacc,inherit)}
+.m13-legal .m13-legal-links{font-family:var(--m13-lfont);justify-content:center;gap:8px 24px}
+.m13 .m13-legal h3.m13-legal-group{font-family:var(--m13-lfont);font-size:20px;font-weight:500;margin:1.2em 0 .2em;letter-spacing:0}
+.m13-legal-group span{display:block;font:400 11px/1.4 'Montserrat',system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;opacity:.7;margin-bottom:2px}
 @media (max-width:520px){
   .m13-legal{font-size:15px;border-radius:14px}
   .m13-legal-who div{grid-template-columns:1fr;gap:0;margin-bottom:6px}
