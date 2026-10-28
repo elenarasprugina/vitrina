@@ -343,7 +343,7 @@
     var map = { 'исполнитель': L.name, 'статус': L.status, 'инн': L.inn, 'почта': L.email, 'телефон': L.phone };
     return String(s).replace(/\{(исполнитель|статус|инн|почта|телефон)\}/g, function (m, k) { return map[k] || ''; }).replace(/,(\s*,)+/g, ',').replace(/ {2,}/g, ' ');
   }
-  // Низ витрины: ссылки «Условия и цены ✦ Конфиденциальность» тонкой строкой; full — под ними «имя · ИНН · почта · телефон»
+  // Низ витрины: «Условия и цены» — в левом углу, «Конфиденциальность» — в правом (мелко, подчёркнуто); full — под ними «имя · ИНН · почта · телефон»
   function legalLineHTML() {
     var st = S.D.settings || {}, L = legalOf(st);
     if (L.footMode === 'none') return '';
@@ -361,10 +361,10 @@
     var sc = S.D.showcase || {}, mf = (sc.cardStyle || {}).font || '', hc = (sc.head || {}).color || '', css = [];
     if (mf && S.view !== 'oferta') css.push("--m13-hfont:'" + mf + "',Georgia,serif");
     if (hc && S.view !== 'oferta') css.push('color:' + hc);
-    // Подложка-стекло под ссылками, чтобы строку было видно на пёстром фоне: светлые буквы — тёмное стекло, тёмные — светлое
+    // Лёгкая тень под буквами, чтобы ссылки читались на пёстром фоне: светлые буквы — тёмная, тёмные — светлая
     if (S.view !== 'oferta' && /^#[0-9a-f]{6}$/i.test(hc)) {
       var lum = parseInt(hc.substr(1, 2), 16) * .3 + parseInt(hc.substr(3, 2), 16) * .59 + parseInt(hc.substr(5, 2), 16) * .11;
-      css.push('--m13-lglass:' + (lum > 140 ? 'rgba(12,9,6,.55)' : 'rgba(255,255,255,.62)'));
+      css.push('--m13-lsh:' + (lum > 140 ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.7)'));
     }
     return '<p class="m13-legal-line"' + (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + '><span class="m13-legal-links">' + links + '</span>' + req + '</p>';
   }
@@ -548,7 +548,7 @@
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
     // Сетка уменьшается и на высоту строки «Условия и цены ✦ Конфиденциальность», чтобы всё помещалось в экран
-    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 64 : 46) : 0);
+    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 40 : 20) : 0);
     var html = root + '<main class="m13-page' + (fh ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
@@ -1134,7 +1134,7 @@
   function footHeight(hd) {
     var b = hd.bottom, h = 18;
     if (b === 'logo' || b === 'both') h += { s: 30, m: 50, l: 70 }[hd.bottomSize] || 30;
-    if (b === 'text' || b === 'both') h += 26;
+    if (b === 'text' || b === 'both') h += 29;
     return h;
   }
 
