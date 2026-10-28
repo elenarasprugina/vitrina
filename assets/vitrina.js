@@ -306,23 +306,24 @@
   /* ---------- Реквизиты и страница «Условия и цены» (для ЮKassa, 28.10) ----------
      settings.legal = {name, status, inn, email, phone, foot, link, title, pricesTitle, payNote, offerTitle, offer}.
      Страница oferta/ (data-view="oferta"): исполнитель и контакты, «Услуги и цены» — сами с карточки «Индивидуальная работа»
-     (id individual) месяца, который идёт, и текст соглашения (пустая строка — новый абзац, строка с «# » — подзаголовок;
-     подстановки {исполнитель} {статус} {инн} {почта} {телефон}). Внизу витрины — строка с реквизитами и ссылками (foot, по умолчанию — да). */
+     — всех платных карточек месяца, который идёт (строками: «Маршрут · название», под ним — формат и цена), и текст соглашения (пустая строка — новый абзац, строка с «# » — подзаголовок;
+     подстановки {исполнитель} {статус} {инн} {почта} {телефон}). Внизу витрины — footMode: links (по умолчанию) — «Условия и цены ✦ Конфиденциальность»;
+     full — ещё строка «имя · ИНН · почта · телефон»; none — ничего. */
   var LEGAL_DEF = {
     name: 'Распругина Елена Вячеславовна', status: 'самозанятая (налог на профессиональный доход)', inn: '272498468707',
-    email: '13mirrors.host@gmail.com', phone: '', foot: true, link: 'Условия и цены', title: 'Условия и цены',
+    email: '13mirrors.host@gmail.com', phone: '', footMode: 'links', link: 'Условия и цены', title: 'Условия и цены',
     pricesTitle: 'Услуги и цены', payNote: 'Цены — в рублях. Оплата — полностью заранее, через ЮKassa. Время встреч — по Москве.',
     offerTitle: 'Пользовательское соглашение (договор-оферта)',
     offer: 'Этот документ — публичное предложение (оферта) {исполнитель}, {статус}, ИНН {инн} (далее — Исполнитель) заключить договор на оказание услуг на условиях ниже. Оплачивая услугу на сайте 13mirrors.ru, вы (далее — Клиент) полностью принимаете эти условия.\n\n' +
-      '# 1. Услуги\nИндивидуальные встречи и сессии из раздела «Услуги и цены» выше: название, длительность и цена каждой указаны там. Встреча проходит онлайн или очно — как Клиент выбрал при записи; ссылку или адрес Исполнитель присылает в переписке.\n\n' +
+      '# 1. Услуги\nУслуги — из раздела «Услуги и цены» выше: маршруты, индивидуальные встречи и сессии и другие предложения месяца; название, длительность (если указана) и цена каждой указаны там. Как проходит услуга (даты маршрута, формат, онлайн или очно) — написано на её карточке на витрине; ссылку или адрес Исполнитель присылает в переписке.\n\n' +
       'Услуги не являются медицинской помощью или психотерапией и не заменяют лечения у врача.\n\n' +
-      '# 2. Запись и оплата\nКлиент выбирает на сайте встречу, день и время (время указано по Москве) и оплачивает её полностью заранее. Цена — та, что указана на сайте в момент оплаты. Оплата принимается через платёжный сервис ЮKassa. Договор считается заключённым с момента оплаты.\n\n' +
+      '# 2. Запись и оплата\nКлиент выбирает на сайте услугу (для встречи — день и время; время указано по Москве) и оплачивает её полностью заранее. Цена — та, что указана на сайте в момент оплаты. Оплата принимается через платёжный сервис ЮKassa. Договор считается заключённым с момента оплаты.\n\n' +
       'Чек Исполнитель формирует как самозанятая — через «Мой налог».\n\n' +
-      '# 3. Перенос и отмена\nЕсли планы изменились, напишите Исполнителю не позднее чем за 12 часов до начала встречи — встречу можно перенести на другое время или отменить с возвратом всей оплаты.\n\n' +
-      'Если написать позже чем за 12 часов до начала или не прийти на встречу, оплата не возвращается.\n\n' +
-      'Если встречу отменяет Исполнитель, Клиент выбирает: перенос на другое время или возврат всей оплаты.\n\n' +
-      '# 4. Возврат денег\nДеньги возвращаются тем же способом, каким была оплата (на ту же карту), в течение 10 рабочих дней после обращения; срок зачисления зависит от банка Клиента. Для возврата напишите Исполнителю на почту {почта}, в Telegram или VK и укажите день и время встречи.\n\n' +
-      '# 5. Конфиденциальность\nВсё, о чём идёт речь на встрече, остаётся между Клиентом и Исполнителем. Сайт хранит только занятое время и вид встречи — без имени и контактов. Данные карты и почту для чека видит только ЮKassa. Подробнее — на странице «Конфиденциальность».\n\n' +
+      '# 3. Перенос и отмена\nЕсли планы изменились, напишите Исполнителю не позднее чем за 12 часов до начала встречи (маршрута) — её можно перенести на другое время или отменить с возвратом всей оплаты.\n\n' +
+      'Если написать позже чем за 12 часов до начала или не прийти, оплата не возвращается.\n\n' +
+      'Если встречу или маршрут отменяет Исполнитель, Клиент выбирает: перенос на другое время или возврат всей оплаты.\n\n' +
+      '# 4. Возврат денег\nДеньги возвращаются тем же способом, каким была оплата (на ту же карту), в течение 10 рабочих дней после обращения; срок зачисления зависит от банка Клиента. Для возврата напишите Исполнителю на почту {почта}, в Telegram или VK и укажите, за что и когда была оплата.\n\n' +
+      '# 5. Конфиденциальность\nВсё, о чём идёт речь на встрече, остаётся между Клиентом и Исполнителем. Для записи на встречу сайт хранит только занятое время и вид встречи — без имени и контактов. Данные карты и почту для чека видит только ЮKassa. Подробнее — на странице «Конфиденциальность».\n\n' +
       '# 6. Исполнитель\n{исполнитель}, {статус}, ИНН {инн}. Почта: {почта}.'
   };
   M13.LEGAL_DEF = LEGAL_DEF;
@@ -333,6 +334,8 @@
     // Телефон и статус могут быть пустыми (статус стёрт — его нет нигде)
     out.phone = String(o.phone || '').trim();
     if (o.status != null) out.status = String(o.status).trim();
+    if (!o.footMode && o.foot === false) out.footMode = 'none';
+    if (['full', 'links', 'none'].indexOf(out.footMode) < 0) out.footMode = 'links';
     return out;
   }
   function telHref(p) { return 'tel:' + String(p).replace(/[^\d+]/g, ''); }
@@ -340,17 +343,30 @@
     var map = { 'исполнитель': L.name, 'статус': L.status, 'инн': L.inn, 'почта': L.email, 'телефон': L.phone };
     return String(s).replace(/\{(исполнитель|статус|инн|почта|телефон)\}/g, function (m, k) { return map[k] || ''; }).replace(/,(\s*,)+/g, ',').replace(/ {2,}/g, ' ');
   }
-  // Строка внизу витрины: «Имя · ИНН … · почта · телефон · Условия и цены · Конфиденциальность» (статус — только на странице)
+  // Низ витрины: ссылки «Условия и цены ✦ Конфиденциальность» тонкой строкой; full — под ними «имя · ИНН · почта · телефон»
   function legalLineHTML() {
     var st = S.D.settings || {}, L = legalOf(st);
-    if (L.foot === false) return '';
+    if (L.footMode === 'none') return '';
     var priv = String(((st.home || {}).privacyTitle) || '').trim() || 'Конфиденциальность';
-    var parts = [txt(L.name), 'ИНН ' + txt(L.inn),
-      '<a href="mailto:' + esc(L.email) + '">' + txt(L.email) + '</a>'];
-    if (L.phone) parts.push('<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>');
-    parts.push('<a href="' + esc(S.base + 'oferta/') + '" data-m13-oferta>' + txt(L.link) + '</a>',
-      '<a href="' + esc(S.base + '../privacy/') + '" data-m13-priv>' + txt(priv) + '</a>');
-    return '<p class="m13-legal-line">' + parts.join('<span aria-hidden="true"> · </span>') + '</p>';
+    var star = '<i class="m13-legal-star" aria-hidden="true">✦</i>';
+    var links = '<a href="' + esc(S.base + 'oferta/') + '" data-m13-oferta>' + txt(L.link) + '</a>' + star +
+      '<a href="' + esc(S.base + '../privacy/') + '" data-m13-priv>' + txt(priv) + '</a>';
+    var req = '';
+    if (L.footMode === 'full') {
+      var parts = [txt(L.name), 'ИНН ' + txt(L.inn), '<a href="mailto:' + esc(L.email) + '">' + txt(L.email) + '</a>'];
+      if (L.phone) parts.push('<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>');
+      req = '<span class="m13-legal-req">' + parts.join('<span aria-hidden="true"> · </span>') + '</span>';
+    }
+    // Шрифт и цвет — как у надписей месяца над сеткой
+    var sc = S.D.showcase || {}, mf = (sc.cardStyle || {}).font || '', hc = (sc.head || {}).color || '', css = [];
+    if (mf && S.view !== 'oferta') css.push("--m13-hfont:'" + mf + "',Georgia,serif");
+    if (hc && S.view !== 'oferta') css.push('color:' + hc);
+    // Тень под буквами, чтобы строку было видно на пёстром фоне: светлые буквы — тёмная тень, тёмные — светлая
+    if (S.view !== 'oferta' && /^#[0-9a-f]{6}$/i.test(hc)) {
+      var lum = parseInt(hc.substr(1, 2), 16) * .3 + parseInt(hc.substr(3, 2), 16) * .59 + parseInt(hc.substr(5, 2), 16) * .11;
+      css.push('text-shadow:0 0 6px ' + (lum > 140 ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.8)') + ',0 0 14px ' + (lum > 140 ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.5)'));
+    }
+    return '<p class="m13-legal-line"' + (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + '><span class="m13-legal-links">' + links + '</span>' + req + '</p>';
   }
   function legalLineBind() {
     var a = S.root.querySelector('[data-m13-oferta]'), b = S.root.querySelector('[data-m13-priv]');
@@ -358,18 +374,28 @@
     if (a && S.onBack) a.addEventListener('click', function (e) { e.preventDefault(); if (M13.previewGo) M13.previewGo('oferta'); });
     if (b && S.onBack) b.addEventListener('click', function (e) { e.preventDefault(); });
   }
-  // Услуги и цены: видимые плашки карточки individual (название, длительность, цена) и её описание
-  function priceList(sc) {
-    var c = ((sc && sc.cards) || []).filter(function (x) { return x && x.id === 'individual'; })[0];
-    var out = { desc: '', items: [] };
-    if (!c || !c.back || !c.back.blocks) return out;
-    c.back.blocks.forEach(function (b) {
-      if (!b || b.visible === false) return;
-      if (b.kind === 'desc' && !out.desc) out.desc = String(b.text || '').trim();
-      if (b.kind === 'items') (b.items || []).slice().sort(function (x, y) { return (+x.order || 0) - (+y.order || 0); }).forEach(function (it) {
-        if (!it || it.visible === false || !String(it.title || '').trim()) return;
-        out.items.push({ title: String(it.title).trim(), dur: opt(it.duration), price: opt(it.price) });
+  // Услуги и цены: все видимые карточки месяца, где есть цена (цифры): форматы маршрутов и плашки с ценой.
+  // Группа — «Надпись сверху · Название» карточки, строки — название, подпись (длительность / примечание формата), цена.
+  function hasPrice(v) { return /\d/.test(String(v || '')); }
+  function priceGroups(sc) {
+    var out = [];
+    ((sc && sc.cards) || []).forEach(function (c) {
+      if (!c || c.visible === false || !c.back || !c.back.blocks) return;
+      var f = c.front || {}, rows = [];
+      c.back.blocks.forEach(function (b) {
+        if (!b || b.visible === false) return;
+        if (b.kind === 'formats') (b.formats || []).forEach(function (x) {
+          if (!x || x.visible === false || x.availability === 'closed') return;
+          var fm = formatById(x.formatId) || {}, price = (x.price && opt(x.price)) || fm.price || '';
+          if (hasPrice(price)) rows.push({ title: x.title || fm.title || '', sub: (x.note && opt(x.note)) || opt(fm.note), price: price });
+        });
+        if (b.kind === 'items') (b.items || []).slice().sort(function (x, y) { return (+x.order || 0) - (+y.order || 0); }).forEach(function (it) {
+          if (!it || it.visible === false || !String(it.title || '').trim()) return;
+          var price = opt(it.price);
+          if (hasPrice(price)) rows.push({ title: String(it.title).trim(), sub: opt(it.duration), price: price });
+        });
       });
+      if (rows.length) out.push({ title: String(f.title || '').trim(), eyebrow: eyeOf(f), rows: rows });
     });
     return out;
   }
@@ -409,17 +435,19 @@
       (L.phone ? row('Телефон', '<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>') : '') +
       (tg ? row('Telegram', '<a href="' + esc(/^https?:/.test(tg) ? tg : 'https://t.me/' + tg.replace(/^t\.me\//, '')) + '" target="_blank" rel="noopener">' + txt('@' + tg.replace(/^(https?:\/\/)?t\.me\//, '')) + '</a>') : '') +
       (vk ? row('VK', '<a href="' + esc(/^https?:/.test(vk) ? vk : 'https://vk.com/' + vk.replace(/^vk\.com\//, '')) + '" target="_blank" rel="noopener">' + txt('vk.com/' + vk.replace(/^https?:\/\/(vk\.com\/)?/, '')) + '</a>') : '');
-    var pl = priceList(sc);
-    var prices = pl.items.length ? '<ul class="m13-legal-prices">' + pl.items.map(function (it) {
-      return '<li><span class="m13-legal-pt">' + txt(it.title) + (it.dur ? '<small>' + txt(it.dur) + '</small>' : '') + '</span>' +
-        '<span class="m13-legal-pp">' + txt(it.price || '') + '</span></li>';
-    }).join('') + '</ul>' : '';
+    var prices = priceGroups(sc).map(function (g) {
+      return '<h3 class="m13-legal-group">' + (g.eyebrow ? '<span>' + txt(g.eyebrow) + '</span>' : '') + txt(g.title) + '</h3>' +
+        '<ul class="m13-legal-prices">' + g.rows.map(function (it) {
+          return '<li><span class="m13-legal-pt">' + txt(it.title) + (it.sub ? '<small>' + txt(it.sub) + '</small>' : '') + '</span>' +
+            '<span class="m13-legal-pp">' + txt(it.price) + '</span></li>';
+        }).join('') + '</ul>';
+    }).join('');
     S.root.innerHTML = rootOpen(sc.background || {}) + '<main class="m13-page m13-legal-page">' +
       '<header class="m13-header m13-header--center' + (hd.color ? ' m13-header--tinted' : '') + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker + '</header>' +
       '<article class="m13-legal" style="' + esc(css.join(';')) + '">' + back +
         '<h1>' + txt(L.title) + '</h1>' +
         '<section><dl class="m13-legal-who">' + who + '</dl></section>' +
-        '<section id="prices"><h2>' + txt(L.pricesTitle) + '</h2>' + (pl.desc ? '<p>' + txt(pl.desc) + '</p>' : '') + prices +
+        '<section id="prices"><h2>' + txt(L.pricesTitle) + '</h2>' + prices +
           '<p class="m13-legal-note">' + txt(L.payNote) + '</p></section>' +
         '<section id="oferta"><h2>' + txt(L.offerTitle) + '</h2>' + legalTextHTML(L.offer, L) + '</section>' +
         legalLineHTML() +
@@ -519,15 +547,16 @@
     var root = rootOpen(bg);
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
-    var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
-    var html = root + '<main class="m13-page' + (foot ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
+    // Сетка уменьшается и на высоту строки «Условия и цены ✦ Конфиденциальность», чтобы всё помещалось в экран
+    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 52 : 34) : 0);
+    var html = root + '<main class="m13-page' + (fh ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
         : '<h1><span class="m13-gt">' + txt(sc.title) + '</span>' + draft + '</h1>') +
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + monthNavHTML(sc.id) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
-      '</section></div>' + foot + legalLineHTML() + '</main>' +
+      '</section></div>' + foot + legal + '</main>' +
       overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
     bgWatch(S.root);
