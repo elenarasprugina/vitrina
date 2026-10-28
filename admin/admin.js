@@ -2351,7 +2351,7 @@
   // картинки к этому моменту — файлы media/…, а не data:.
   // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'card' (…/2026-10/sun/ — превью одной карточки
   // и сразу переход на витрину с открытой карточкой), 'sandbox', 'reflection'.
-  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События', kin: 'Узнать свой кин' };
+  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События', kin: 'Узнать свой кин', oferta: 'Условия и цены' };
   function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
   function absImg(src, D) { return src && !/^(data:|blob:)/.test(src) ? (/^https?:/.test(src) ? src : siteUrl(D) + src) : ''; }
   function metaTags(o, D) {
@@ -2398,6 +2398,8 @@
     var isMonth = kind === 'main' || kind === 'month' || kind === 'card' || kind === 'soon';
     // Заглушка: вид — последнего опубликованного месяца
     var sc = isMonth ? D.showcases[kind === 'main' ? st.currentShowcase : kind === 'soon' ? Object.keys(D.showcases).sort().pop() : id] : null;
+    // «Условия и цены»: оформление и цены — месяца, который сейчас идёт (как по основному адресу)
+    if (kind === 'oferta') sc = D.showcases[window.M13.monthPick(st, publishedIds(D)) || st.currentShowcase] || null;
     var sh = shareOf(sc, D);
     if (kind === 'card') {
       var c = (sc.cards || []).filter(function (x) { return x.id === cardId; })[0] || { front: {} }, f = c.front || {};
@@ -2431,7 +2433,7 @@
     var base = kind === 'main' ? './' : '../';
     var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind === 'soon' ? id + '/' : kind + '/');
     var soonT = kind === 'soon' ? window.M13.monthName(id, true) + ' · ' + (String((((st.months || {}).soon) || {}).word || '').trim() || 'скоро') : '';
-    var title = site + ' · ' + (soonT || (sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || ''));
+    var title = site + ' · ' + (soonT || (kind === 'oferta' ? window.M13.legalOf(st).title : sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || ''));
     if (!sc && !String((st.share || {}).title || '').trim()) sh.title = title;
     if (soonT) sh = { title: soonT, description: sh.description, image: sh.image };
     var img = absImg(sh.image, D);
@@ -2441,7 +2443,7 @@
       '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind === 'kin' ? 'reflection' : kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (kind === 'soon' ? 'soon' : isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') +
-      (kind === 'soon' ? ' data-showcase="' + escAttr(sc.id) + '" data-soon="' + escAttr(id) + '"' : '') + '></div>\n' +
+      (kind === 'soon' ? ' data-showcase="' + escAttr(sc.id) + '" data-soon="' + escAttr(id) + '"' : '') + (kind === 'oferta' && sc ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
       pageData(sc, D, kind === 'kin') + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
   // Чтобы страница открывалась без мигания: цвет фона — сразу, картинка фона начинает грузиться вместе со страницей
@@ -10585,6 +10587,26 @@
     ['prevItem', '«← Предыдущий»'], ['nextItem', '«Следующий →»'], ['showMore', '«Показать ещё»'], ['filterAll', 'Фильтр: «Все»'],
     ['shareButton', 'Кнопка «Поделиться» у примера'], ['routePage', 'Архив: кнопка «Страница маршрута»'], ['archiveRoute', 'Архив: подпись «Маршрут»']
   ];
+  /* Реквизиты и страница «Условия и цены» (oferta/) — для ЮKassa (28.10). settings.legal, по умолчанию — M13.LEGAL_DEF;
+     пустое поле — снова текст по умолчанию (кроме телефона). */
+  function legalBlock(st) {
+    var D0 = window.M13.LEGAL_DEF, L = st.legal = st.legal || {};
+    Object.keys(D0).forEach(function (k) { if (L[k] === undefined) L[k] = D0[k]; });
+    return block('Реквизиты и «Условия и цены»', [
+      el('p', { class: 'a-hint', text: 'Нужно для ЮKassa: кто оказывает услуги, контакты, цены и соглашение (оферта). Страница — 13mirrors.ru/vitrina/oferta/, строка с реквизитами и ссылками — внизу каждой витрины. Цены берутся сами с карточки «Индивидуальная работа» месяца, который идёт: поменяли цену на плашке — поменяется и здесь (после «Опубликовать»).' }),
+      el('div', { class: 'a-row' }, [textIn(L, 'name', 'Исполнитель (ФИО полностью)'), textIn(L, 'inn', 'ИНН')]),
+      textIn(L, 'status', 'Статус', { hint: 'Только на странице «Условия и цены» (внизу витрины его нет). Объясняет, почему нет ОГРНИП и откуда чек. Стереть — статуса не будет нигде.' }),
+      el('div', { class: 'a-row' }, [
+        textIn(L, 'email', 'Почта', { ph: 'mailto:' }),
+        textIn(L, 'phone', 'Телефон', { ph: 'tel:', hint: 'Например: +7 900 000-00-00. Пусто — не показывается.' })]),
+      switchIn(L, 'foot', 'Строка с реквизитами внизу витрины', { defTrue: true, hint: 'Имя · ИНН · почта · телефон · «Условия и цены» · «Конфиденциальность». ЮKassa требует, чтобы реквизиты были на сайте всё время.' }),
+      el('div', { class: 'a-row' }, [textIn(L, 'link', 'Надпись ссылки внизу витрины'), textIn(L, 'title', 'Заголовок страницы')]),
+      el('div', { class: 'a-row' }, [textIn(L, 'pricesTitle', 'Заголовок «Услуги и цены»'), textIn(L, 'offerTitle', 'Заголовок соглашения')]),
+      textIn(L, 'payNote', 'Строка под ценами', { multi: true, rows: 2 }),
+      textIn(L, 'offer', 'Текст соглашения (оферта)', { multi: true, rows: 22, hint: 'Пустая строка — новый абзац. Строка, которая начинается с «# », — подзаголовок. Сами подставляются: {исполнитель}, {статус}, {инн}, {почта}, {телефон}. Очистить поле — вернётся текст по умолчанию.' }),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPreview('oferta'); } })])
+    ], { open: false, note: 'для ЮKassa' });
+  }
   function viewSettings() {
     var st = DATA.settings;
     st.contacts = st.contacts || {}; st.texts = st.texts || {}; st.messages = st.messages || {};
@@ -10611,6 +10633,7 @@
         textIn(st.contacts, 'host', 'Telegram Host (бот)', { type: 'text', ph: 'thirteenmirrors_host_bot',
           hint: 'Имя бота без @. Кнопки, у которых заполнена «Метка Host», ведут сюда: https://t.me/<бот>?start=<метка>, без копирования текста обращения.' })
       ]),
+      legalBlock(st),
       block('Логотип', [
         logoIn(st, 'logo', 'logoRatio', 'Логотип витрины', { size: LOGO_SIZE, hint: 'Показывается над сеткой и под ней (если так выбрано в «Странице месяца»). PNG с прозрачным фоном; если фон белый — уберём его сами. Цвет логотипа задаётся в каждом месяце: «Цвет надписей и логотипа». У месяца может быть свой логотип.' })
       ], { open: false, note: 'общий для всех месяцев' }),
@@ -10838,6 +10861,7 @@
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
       if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
+      M.previewGo = go;
       M.mount(mount, { base: '../', view: v, noHistory: true, route: v === 'routesoon' ? route : null, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
         soon: v === 'soon' ? window.M13.monthSoon(publishedIds(DATA)) || window.M13.monthNow(DATA.settings) : null })
         .then(function () {
@@ -10871,6 +10895,7 @@
       el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
       el('button', { type: 'button', 'data-v': 'events', text: 'События', onclick: function () { go('events'); } }),
       el('button', { type: 'button', 'data-v': 'kin', text: 'Свой кин', onclick: function () { go('kin'); } }),
+      el('button', { type: 'button', 'data-v': 'oferta', text: 'Условия и цены', onclick: function () { go('oferta'); } }),
       el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', title: 'Открыть заново: блики и обложки', onclick: function () { go(cur); } }),
       canPhone() ? phoneBtn : null
     ]);
@@ -12150,6 +12175,7 @@
     files['reflection/index.html'] = { text: pageHTML('reflection', null, P) };
     files['events/index.html'] = { text: pageHTML('events', null, P) };
     files['kin/index.html'] = { text: pageHTML('kin', null, P) };
+    files['oferta/index.html'] = { text: pageHTML('oferta', null, P) };
     ((P.events || {}).items || []).forEach(function (e) {
       if (e && e.visible !== false && /^[\w-]+$/.test(e.id)) files['events/' + e.id + '/index.html'] = { text: pageHTML('event', null, P, e.id) };
     });

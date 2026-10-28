@@ -2241,3 +2241,34 @@ body.m13-locked{overflow:hidden}
 .m13 .m13-cta-word :is(.m13-mini-cta,.m13-flip-hint){border-color:transparent;background:transparent}
 .m13 .m13-cta-fill :is(.m13-mini-cta,.m13-flip-hint){border-color:transparent;background:var(--m13-cta,var(--m13-ac,#232323));color:var(--m13-cta-ink,#ffffff);text-shadow:none}
 .m13 .m13-cta-flat :is(.m13-mini-cta,.m13-flip-hint){box-shadow:none;text-shadow:none}
+
+/* ---------- Реквизиты внизу витрины и страница «Условия и цены» (oferta/, для ЮKassa, 28.10) ---------- */
+.m13-legal-line{width:min(1180px,100%);margin:10px auto 0;padding:0 12px;text-align:center;font:400 12px/1.6 'Montserrat',system-ui,sans-serif;letter-spacing:.01em;color:var(--m13-head,var(--m13-ink));opacity:.72}
+.m13-legal-line a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+.m13-legal-line a:hover{opacity:1}
+.m13-legal-page{align-items:center}
+.m13-legal{box-sizing:border-box;width:min(760px,100%);margin:8px auto 24px;padding:22px clamp(18px,4.5vw,44px) 26px;border-radius:18px;
+  background:var(--m13-lbg,rgba(14,11,8,.86));border:1px solid var(--m13-lline,rgba(255,255,255,.14));color:var(--m13-ltx,#efe6d6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  font:300 16px/1.65 'Montserrat',system-ui,sans-serif;text-align:left}
+.m13-legal .m13-iback{margin:0 0 6px;background:transparent;border-color:var(--m13-lline,rgba(255,255,255,.22));color:inherit;font-family:inherit}
+.m13 .m13-legal h1,.m13 .m13-legal h2{font-family:var(--m13-lfont);font-weight:400;color:var(--m13-lacc,#ecd3a3);line-height:1.2}
+.m13 .m13-legal h1{font-size:clamp(30px,5vw,42px);margin:.2em 0 .5em}
+.m13 .m13-legal h2{font-size:clamp(23px,3.4vw,29px);margin:1.4em 0 .5em}
+.m13 .m13-legal h3{font-size:16px;font-weight:500;color:var(--m13-lacc,inherit);margin:1.3em 0 .3em;letter-spacing:.01em}
+.m13 .m13-legal p{margin:0 0 .8em}
+.m13-legal a{color:var(--m13-lacc,#ecd3a3)}
+.m13-legal-who{margin:0;display:grid;gap:4px}
+.m13-legal-who div{display:grid;grid-template-columns:120px 1fr;gap:12px}
+.m13-legal-who dt{opacity:.65}
+.m13-legal-who dd{margin:0;overflow-wrap:anywhere}
+.m13-legal-prices{list-style:none;margin:.4em 0 1em;padding:0}
+.m13-legal-prices li{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:10px 0;border-bottom:1px solid var(--m13-lline,rgba(255,255,255,.14))}
+.m13-legal-prices li:first-child{border-top:1px solid var(--m13-lline,rgba(255,255,255,.14))}
+.m13-legal-pt small{display:block;font-size:13px;opacity:.65}
+.m13-legal-pp{white-space:nowrap;font-weight:400}
+.m13-legal-note{font-size:14px;opacity:.75}
+.m13-legal .m13-legal-line{margin-top:28px;padding:0;color:inherit}
+@media (max-width:520px){
+  .m13-legal{font-size:15px;border-radius:14px}
+  .m13-legal-who div{grid-template-columns:1fr;gap:0;margin-bottom:6px}
+}

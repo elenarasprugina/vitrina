@@ -91,7 +91,7 @@
     ]).then(function (r) {
       var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], index: null, showcase: null };
       var id = showcaseId || out.settings.currentShowcase;
-      if (S.view !== 'showcase' && S.view !== 'soon') return out;
+      if (S.view !== 'showcase' && S.view !== 'soon' && S.view !== 'oferta') return out;
       return getJSON(d + 'showcases/' + id + '.json').then(function (sc) { out.showcase = sc; return out; });
     });
   };
@@ -169,6 +169,7 @@
       else if (S.view === 'events') renderStandalone('events');
       else if (S.view === 'kin') renderStandalone('kin');
       else if (S.view === 'soon') renderSoon();
+      else if (S.view === 'oferta') renderOferta();
       else if (S.view === 'routesoon') renderRouteSoon();
       else renderShowcase();
     }).catch(function (e) {
@@ -302,6 +303,136 @@
     if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
     mnavBind();
   }
+  /* ---------- Реквизиты и страница «Условия и цены» (для ЮKassa, 28.10) ----------
+     settings.legal = {name, status, inn, email, phone, foot, link, title, pricesTitle, payNote, offerTitle, offer}.
+     Страница oferta/ (data-view="oferta"): исполнитель и контакты, «Услуги и цены» — сами с карточки «Индивидуальная работа»
+     (id individual) месяца, который идёт, и текст соглашения (пустая строка — новый абзац, строка с «# » — подзаголовок;
+     подстановки {исполнитель} {статус} {инн} {почта} {телефон}). Внизу витрины — строка с реквизитами и ссылками (foot, по умолчанию — да). */
+  var LEGAL_DEF = {
+    name: 'Распругина Елена Вячеславовна', status: 'самозанятая (налог на профессиональный доход)', inn: '272498468707',
+    email: '13mirrors.host@gmail.com', phone: '', foot: true, link: 'Условия и цены', title: 'Условия и цены',
+    pricesTitle: 'Услуги и цены', payNote: 'Цены — в рублях. Оплата — полностью заранее, через ЮKassa. Время встреч — по Москве.',
+    offerTitle: 'Пользовательское соглашение (договор-оферта)',
+    offer: 'Этот документ — публичное предложение (оферта) {исполнитель}, {статус}, ИНН {инн} (далее — Исполнитель) заключить договор на оказание услуг на условиях ниже. Оплачивая услугу на сайте 13mirrors.ru, вы (далее — Клиент) полностью принимаете эти условия.\n\n' +
+      '# 1. Услуги\nИндивидуальные встречи и сессии из раздела «Услуги и цены» выше: название, длительность и цена каждой указаны там. Встреча проходит онлайн или очно — как Клиент выбрал при записи; ссылку или адрес Исполнитель присылает в переписке.\n\n' +
+      'Услуги не являются медицинской помощью или психотерапией и не заменяют лечения у врача.\n\n' +
+      '# 2. Запись и оплата\nКлиент выбирает на сайте встречу, день и время (время указано по Москве) и оплачивает её полностью заранее. Цена — та, что указана на сайте в момент оплаты. Оплата принимается через платёжный сервис ЮKassa. Договор считается заключённым с момента оплаты.\n\n' +
+      'Чек Исполнитель формирует как самозанятая — через «Мой налог».\n\n' +
+      '# 3. Перенос и отмена\nЕсли планы изменились, напишите Исполнителю не позднее чем за 12 часов до начала встречи — встречу можно перенести на другое время или отменить с возвратом всей оплаты.\n\n' +
+      'Если написать позже чем за 12 часов до начала или не прийти на встречу, оплата не возвращается.\n\n' +
+      'Если встречу отменяет Исполнитель, Клиент выбирает: перенос на другое время или возврат всей оплаты.\n\n' +
+      '# 4. Возврат денег\nДеньги возвращаются тем же способом, каким была оплата (на ту же карту), в течение 10 рабочих дней после обращения; срок зачисления зависит от банка Клиента. Для возврата напишите Исполнителю на почту {почта}, в Telegram или VK и укажите день и время встречи.\n\n' +
+      '# 5. Конфиденциальность\nВсё, о чём идёт речь на встрече, остаётся между Клиентом и Исполнителем. Сайт хранит только занятое время и вид встречи — без имени и контактов. Данные карты и почту для чека видит только ЮKassa. Подробнее — на странице «Конфиденциальность».\n\n' +
+      '# 6. Исполнитель\n{исполнитель}, {статус}, ИНН {инн}. Почта: {почта}.'
+  };
+  M13.LEGAL_DEF = LEGAL_DEF;
+  M13.legalOf = function (st) { return legalOf(st); };
+  function legalOf(st) {
+    var o = (st && st.legal) || {}, out = {};
+    Object.keys(LEGAL_DEF).forEach(function (k) { out[k] = typeof LEGAL_DEF[k] === 'string' ? (String(o[k] == null ? '' : o[k]).trim() || LEGAL_DEF[k]) : (o[k] == null ? LEGAL_DEF[k] : o[k]); });
+    // Телефон и статус могут быть пустыми (статус стёрт — его нет нигде)
+    out.phone = String(o.phone || '').trim();
+    if (o.status != null) out.status = String(o.status).trim();
+    return out;
+  }
+  function telHref(p) { return 'tel:' + String(p).replace(/[^\d+]/g, ''); }
+  function legalSubst(s, L) {
+    var map = { 'исполнитель': L.name, 'статус': L.status, 'инн': L.inn, 'почта': L.email, 'телефон': L.phone };
+    return String(s).replace(/\{(исполнитель|статус|инн|почта|телефон)\}/g, function (m, k) { return map[k] || ''; }).replace(/,(\s*,)+/g, ',').replace(/ {2,}/g, ' ');
+  }
+  // Строка внизу витрины: «Имя · ИНН … · почта · телефон · Условия и цены · Конфиденциальность» (статус — только на странице)
+  function legalLineHTML() {
+    var st = S.D.settings || {}, L = legalOf(st);
+    if (L.foot === false) return '';
+    var priv = String(((st.home || {}).privacyTitle) || '').trim() || 'Конфиденциальность';
+    var parts = [txt(L.name), 'ИНН ' + txt(L.inn),
+      '<a href="mailto:' + esc(L.email) + '">' + txt(L.email) + '</a>'];
+    if (L.phone) parts.push('<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>');
+    parts.push('<a href="' + esc(S.base + 'oferta/') + '" data-m13-oferta>' + txt(L.link) + '</a>',
+      '<a href="' + esc(S.base + '../privacy/') + '" data-m13-priv>' + txt(priv) + '</a>');
+    return '<p class="m13-legal-line">' + parts.join('<span aria-hidden="true"> · </span>') + '</p>';
+  }
+  function legalLineBind() {
+    var a = S.root.querySelector('[data-m13-oferta]'), b = S.root.querySelector('[data-m13-priv]');
+    // В предпросмотре панели: «Условия и цены» открывается здесь же, «Конфиденциальность» — не уводит из панели
+    if (a && S.onBack) a.addEventListener('click', function (e) { e.preventDefault(); if (M13.previewGo) M13.previewGo('oferta'); });
+    if (b && S.onBack) b.addEventListener('click', function (e) { e.preventDefault(); });
+  }
+  // Услуги и цены: видимые плашки карточки individual (название, длительность, цена) и её описание
+  function priceList(sc) {
+    var c = ((sc && sc.cards) || []).filter(function (x) { return x && x.id === 'individual'; })[0];
+    var out = { desc: '', items: [] };
+    if (!c || !c.back || !c.back.blocks) return out;
+    c.back.blocks.forEach(function (b) {
+      if (!b || b.visible === false) return;
+      if (b.kind === 'desc' && !out.desc) out.desc = String(b.text || '').trim();
+      if (b.kind === 'items') (b.items || []).slice().sort(function (x, y) { return (+x.order || 0) - (+y.order || 0); }).forEach(function (it) {
+        if (!it || it.visible === false || !String(it.title || '').trim()) return;
+        out.items.push({ title: String(it.title).trim(), dur: opt(it.duration), price: opt(it.price) });
+      });
+    });
+    return out;
+  }
+  function legalTextHTML(t, L) {
+    return String(t || '').trim().split(/\n\s*\n/).map(function (par) {
+      par = legalSubst(par.trim(), L);
+      var m = /^#\s+([^\n]+)\n?([\s\S]*)$/.exec(par);
+      if (m) return '<h3>' + txt(m[1]) + '</h3>' + (m[2].trim() ? '<p>' + txt(m[2].trim()) + '</p>' : '');
+      return '<p>' + txt(par) + '</p>';
+    }).join('');
+  }
+  function renderOferta() {
+    var sc = S.D.showcase || {}, st = S.D.settings, L = legalOf(st), ct = st.contacts || {};
+    document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + L.title;
+    S.acts = [];
+    var hd = sc.head || {}, cs = sc.cardStyle || {}, hs = [];
+    if (hd.color) hs.push('--m13-head:' + hd.color);
+    var mf = cs.font || 'Cormorant Garamond';
+    ensureFont(mf); ensureFont('Montserrat');
+    var css = ["--m13-lfont:'" + mf + "',Georgia,serif"];
+    if (cs.accent) css.push('--m13-lacc:' + cs.accent);
+    // Подложка и буквы — как у оборота карточек месяца (светлый месяц — светлая страница)
+    var pbg = /^#[0-9a-f]{6}$/i.test(cs.backBg || '') ? cs.backBg : /^#[0-9a-f]{6}$/i.test(cs.bg || '') ? cs.bg : '';
+    if (pbg) css.push('--m13-lbg:' + pbg + 'eb');
+    if (/^#[0-9a-f]{6}$/i.test(cs.textColor || '')) css.push('--m13-ltx:' + cs.textColor);
+    if (pbg && parseInt(pbg.substr(1, 2), 16) + parseInt(pbg.substr(3, 2), 16) + parseInt(pbg.substr(5, 2), 16) > 384) css.push('--m13-lline:rgba(0,0,0,.14)');
+    var top = hd.top || (hd.logo ? 'logo' : 'text');
+    var topText = String(hd.topText || '').trim() || [st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ');
+    var kicker = top === 'logo' ? '<a class="m13-logo-wrap m13-logo-wrap--s" href="' + esc(S.base) + '" data-m13-lhome>' + logoHTML(hd) + '</a>'
+      : '<div class="m13-kicker"><span class="m13-gt">' + txt(topText) + '</span></div>';
+    var back = S.onBack ? '<button type="button" class="m13-iback" data-m13-lhome>' + txt(T('backToShowcase') || '← К витрине') + '</button>'
+      : '<a class="m13-iback" href="' + esc(S.base) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
+    function row(k, v) { return '<div><dt>' + txt(k) + '</dt><dd>' + v + '</dd></div>'; }
+    var tg = String(ct.telegram || '').trim().replace(/^@/, ''), vk = String(ct.vk || '').trim();
+    var who = row('Исполнитель', txt(L.name)) + (L.status ? row('Статус', txt(L.status)) : '') + row('ИНН', txt(L.inn)) +
+      row('Почта', '<a href="mailto:' + esc(L.email) + '">' + txt(L.email) + '</a>') +
+      (L.phone ? row('Телефон', '<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>') : '') +
+      (tg ? row('Telegram', '<a href="' + esc(/^https?:/.test(tg) ? tg : 'https://t.me/' + tg.replace(/^t\.me\//, '')) + '" target="_blank" rel="noopener">' + txt('@' + tg.replace(/^(https?:\/\/)?t\.me\//, '')) + '</a>') : '') +
+      (vk ? row('VK', '<a href="' + esc(/^https?:/.test(vk) ? vk : 'https://vk.com/' + vk.replace(/^vk\.com\//, '')) + '" target="_blank" rel="noopener">' + txt('vk.com/' + vk.replace(/^https?:\/\/(vk\.com\/)?/, '')) + '</a>') : '');
+    var pl = priceList(sc);
+    var prices = pl.items.length ? '<ul class="m13-legal-prices">' + pl.items.map(function (it) {
+      return '<li><span class="m13-legal-pt">' + txt(it.title) + (it.dur ? '<small>' + txt(it.dur) + '</small>' : '') + '</span>' +
+        '<span class="m13-legal-pp">' + txt(it.price || '') + '</span></li>';
+    }).join('') + '</ul>' : '';
+    S.root.innerHTML = rootOpen(sc.background || {}) + '<main class="m13-page m13-legal-page">' +
+      '<header class="m13-header m13-header--center' + (hd.color ? ' m13-header--tinted' : '') + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker + '</header>' +
+      '<article class="m13-legal" style="' + esc(css.join(';')) + '">' + back +
+        '<h1>' + txt(L.title) + '</h1>' +
+        '<section><dl class="m13-legal-who">' + who + '</dl></section>' +
+        '<section id="prices"><h2>' + txt(L.pricesTitle) + '</h2>' + (pl.desc ? '<p>' + txt(pl.desc) + '</p>' : '') + prices +
+          '<p class="m13-legal-note">' + txt(L.payNote) + '</p></section>' +
+        '<section id="oferta"><h2>' + txt(L.offerTitle) + '</h2>' + legalTextHTML(L.offer, L) + '</section>' +
+        legalLineHTML() +
+      '</article></main></div>';
+    bgWatch(S.root);
+    S.root.querySelectorAll('[data-m13-lhome]').forEach(function (x) {
+      if (S.onBack) x.addEventListener('click', function (e) { e.preventDefault(); S.onBack(); });
+    });
+    legalLineBind();
+    var h = (location.hash || '').slice(1), t = h && !S.onBack && document.getElementById(h);
+    if (t && t.scrollIntoView) setTimeout(function () { t.scrollIntoView(); }, 60);
+  }
+
   /* Заглушка маршрута routes/<id>/ (её «делаем» 26.10): страницы по дням ещё нет (маршрут «готовится» или не создан) —
      в цвете маршрута: «Маршрут», название, даты, «Маршрут начнётся 13 ноября» (идёт / завершён — по датам), строка описания
      из библиотеки маршрутов, «Задать вопрос» (Host: <печать>_question) и «← Витрина». Создаёт публикация (routeSoonPageHTML в admin.js),
@@ -396,7 +527,7 @@
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + monthNavHTML(sc.id) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
-      '</section></div>' + foot + '</main>' +
+      '</section></div>' + foot + legalLineHTML() + '</main>' +
       overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
     bgWatch(S.root);
@@ -412,7 +543,7 @@
     // В предпросмотре панели логотип внизу не уводит со страницы
     var fl = S.root.querySelector('.m13-foot-logo');
     if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
-    wake(hd);
+    wake(hd); legalLineBind();
     // В предпросмотре панели сайта ещё нет — открываем события поверх витрины
     var evl = S.root.querySelector('[data-m13-evlink]');
     if (evl && S.onBack) evl.addEventListener('click', function (e) { e.preventDefault(); openInternal('events'); });
