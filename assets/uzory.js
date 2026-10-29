@@ -185,7 +185,7 @@
     var dar = null, G = giftsOf(fl);
     if (fl && A.gift >= 0 && G[A.gift]) {
       var fw = Object.keys(L).some(function (k) { return L[k] === 'few'; }), mn = Object.keys(L).some(function (k) { return L[k] === 'many'; });
-      dar = { name: fl.nom_cap, spirit: str(fl.spirit), lead: T('giftLead', 'Прими от меня в дар'), t: G[A.gift].t, p: str(G[A.gift].p), bye: str(fl.bye),
+      dar = { name: fl.nom_cap, spirit: str(fl.spirit), lead: T('giftLead', 'Прими от меня в дар'), t: G[A.gift].t, p: str(G[A.gift].p), bye: str(G[A.gift].b, str(fl.bye)),
         lines: [fw ? str(fl.few) : '', mn ? str(fl.many) : ''].filter(function (x) { return x; }),
         more: fill(gForm(T('giftMore', 'Возвращайся за другими дарами.'), g), { gen: str(fl.gen, fl.nom), nom: fl.nom, nom_cap: fl.nom_cap }) };
     } else if (own && str(T('giftOwn', 'У твоего цветка свои дары, и никто не записал их заранее. То, что ты о нём знаешь, — и есть его дар.'))) {
@@ -1562,6 +1562,8 @@
       if (A.flower && !A.flower.own && A.gift == null) A.gift = drawGift(A.flower.fl);
       RES = buildResult(A); mode = 'done'; capShow(); liftTo = 1;
       if (only) { RES.lines = []; RES.reveal = ''; RES.support = ''; RES.closing = ''; RES.reflection = ''; RES.ack = ''; }
+      // под картой дара — только абзац дара, без пересказа ответов (её решение 29.10: «портянку невозможно читать»); вернуть — reveal.recap
+      else if (RES.dar && (IT.reveal || {}).recap !== true) { RES.answers = RES.lines; RES.lines = []; RES.reveal = ''; RES.support = ''; }
       var hp = IT.help || {}, box = $('#sh-res');
       var h = (RES.dar ? darHTML(RES, A) : '<p class="uz-title">' + esc(RES.title) + '</p>') + '<div class="uz-res-lines">' + RES.lines.map(function (l) { return '<p class="uz-p">' + esc(l) + '</p>'; }).join('') + '</div>' +
         (RES.reveal ? '<p class="uz-p is-dim">' + esc(RES.reveal) + '</p>' : '') +
@@ -1619,7 +1621,7 @@
       if (myName) out.push('Имя у света: ' + myName);
       out.push('Цветок выбран: ' + pickWord(), '', RES.title, '');
       if (RES.dar && RES.dar.t) out.push('Дар (выпал наугад): ' + RES.dar.t, '');
-      out = out.concat(RES.lines);
+      out = out.concat(RES.answers || RES.lines);   // проводнику — ответы всегда, даже если на экране их нет
       if (RES.reflection) out.push('', T('wordsLabel', 'Мои слова') + ':', RES.reflection);
       return out.join('\n');
     }
