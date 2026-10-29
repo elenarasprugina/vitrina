@@ -227,6 +227,15 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-ring.is-bloom .uz-el.is-open .uz-nm { opacity: 0; }
 /* 29.10: просто сад — без карточки с выбором и вопросами (space.quiz не включено) */
 .uz-walk .uz-bottom { display: none !important; }
+/* вступление перед хороводом (29.10) */
+.uz-intro { top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; padding-top: 90px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.uz-intro[hidden] { display: none; }
+.uz-intro-card { max-height: 100%; overflow-y: auto; gap: 14px; padding: 22px 22px 20px; }
+.uz-intro-card .uz-p { font-size: 15px; }
+.uz-intro-card .uz-btn { flex: 0 0 auto; margin-top: 4px; }
+.uz-pre .uz-bottom { display: none !important; }
+.uz-pre .uz-ring { opacity: 0; pointer-events: none; }
+.uz-ring { transition: opacity .9s ease; }
 
 /* стеклянная карта-итог с даром цветка (её решения 29.10, docs/uzory-duh-cvetov.md) */
 .uz-dar { position: relative; margin: 2px auto 4px; width: min(100%, 340px); box-sizing: border-box; padding: 18px 20px 20px; text-align: center; border-radius: 22px; isolation: isolate;

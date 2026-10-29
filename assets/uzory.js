@@ -228,6 +228,10 @@
     var enter = stepOf('enter'), pickStep = stepOf('pick_mode'), flStep = stepOf('flower');
     var ownOpt = flStep.own || {};
     // текст входа — свой у утра, дня, вечера и ночи (её решение 29.10; пусто — общий)
+    // вступление — карточкой перед хороводом (её текст 29.10: «у нас не викторина»); «-» в панели — без него
+    var INTRO_DEF = 'Это не викторина и не тест.\nЦветок — это метафорический образ, через который можно соприкоснуться с собой и с тем, что с тобой сейчас происходит.\n' +
+      'Выбери первый откликнувшийся тебе цветок или позволь ему выбрать тебя. После чего начни отвечать на вопросы, представляя себя этим цветком. Первое, что придёт в голову, будет самым правильным ответом. Любой вопрос можно пропустить.';
+    function introLines() { var t = T('introText', INTRO_DEF); return t === '-' ? [] : t.split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean); }
     function enterText() { return str(PART && (enter.byTime || {})[PART], str(enter.text)); }
 
     root.innerHTML =
@@ -238,6 +242,9 @@
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="../">' + esc(T('eyebrow', 'Узоры')) + '</a><h1 class="uz-h1">' + esc(IT.title) + '</h1>' +
         (T('honest') ? '<p class="uz-honest">' + esc(T('honest')) + '</p>' : '') + '</div>' +
         '<button class="uz-tbtn" id="uz-still" type="button"></button></div>' +
+      '<div class="uz-ui uz-intro" id="uz-intro" hidden><div class="uz-sheet uz-intro-card">' + introLines().map(function (l, i) {
+        return '<p class="' + (i ? 'uz-p' : 'uz-q') + '">' + esc(l) + '</p>'; }).join('') +
+        '<button class="uz-btn" id="b-intro" type="button">' + esc(T('introBtn', 'Входи в сад')) + '</button></div></div>' +
       '<div class="uz-ui uz-bottom" id="uz-bottom">' +
         '<div class="uz-sheet" id="sh-mode">' + (enterText() ? '<p class="uz-p is-dim">' + esc(enterText()) + '</p>' : '') +
           '<p class="uz-q">' + esc(str(pickStep.text, 'Как выбрать цветок?')) + '</p><div class="uz-row">' +
@@ -1761,7 +1768,13 @@
     setMode('idle');
     if (reduce) setStill(true); else setStill(false);
     speed = speedTarget;
-    if (!OKNO) bloomIntro();
+    // вступление: только когда в саду есть вопросы и сегодня ещё не было дара; хоровод появляется после «Входи в сад»
+    if (!OKNO && !WALK && mode === 'idle' && !giftToday() && introLines().length) {
+      document.body.classList.add('uz-pre'); $('#uz-intro').hidden = false;
+      $('#b-intro').addEventListener('click', function () {
+        $('#uz-intro').hidden = true; document.body.classList.remove('uz-pre'); bloomIntro();
+      });
+    } else if (!OKNO) bloomIntro();
     els.forEach(function (c) { if (c.v === 'line') c.el.classList.add('is-grow'); });
     requestAnimationFrame(function (ts) { last = ts; frame(ts); });
   }
