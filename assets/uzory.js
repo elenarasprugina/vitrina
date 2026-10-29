@@ -179,8 +179,10 @@
   function garden(root) {
     // окошко (живое окошко на карте витрины, её решение 29.10): только сад, без надписей и кнопок; нажатие — у витрины
     var OKNO = /[?&]okno=1/.test(location.search);
-    document.body.className = 'uz-body uz-garden' + (OKNO ? ' uz-okno' : '');
     var SP = IT.space || {}, UIt = IT.ui || {};
+    // пока — просто сад, без вопросов (её решение 29.10); вопросы вернёт «Вопросы в саду» в панели (space.quiz)
+    var WALK = SP.quiz !== true;
+    document.body.className = 'uz-body uz-garden' + (OKNO ? ' uz-okno' : '') + (WALK ? ' uz-walk' : '');
     var LY0 = SP.layers && SP.layers.on ? SP.layers : null, PART = LY0 ? partOf(timeNow(LY0.time)) : '';
     var st = str((SET || {}).siteTitle, '13 MIRRORS');
     document.title = st + ' · ' + str(IT.title, 'Узор');
@@ -305,7 +307,7 @@
     function geo() {
       var k = lift * lift * (3 - 2 * lift), zoom = 1 - (phone ? .28 : .15) * k;
       R = R0 * zoom; CAM = R0 * 3.4;
-      cx = W / 2; cy = H * (OKNO ? .56 : (phone ? .45 : .46) - ((phone ? .18 : .17) * k));
+      cx = W / 2; cy = H * (OKNO || WALK ? .56 : (phone ? .45 : .46) - ((phone ? .18 : .17) * k));
       var p = proj(0, hc * zoom * (LY ? 1.35 : 1), 0); px = p.x; py = p.y;   // в саду слоями свет чуть выше — выглядывает над цветами
       return zoom;
     }
