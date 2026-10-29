@@ -1,6 +1,56 @@
 {
   "routes": [
     {
+      "id": "blue-storm",
+      "title": "Синяя Буря",
+      "dates": {
+        "from": "2026-11-13",
+        "to": "2026-11-25"
+      },
+      "description": "13 дней перемен: заметить, что меняется само, и найти в этом свою силу.",
+      "image": null,
+      "routeUrl": "",
+      "glass": {},
+      "soonBg": {
+        "image": "media/a4061808c54437796ba6.webp",
+        "imagePhone": "media/e0a4cc364bf525fc304f.webp"
+      },
+      "finalWords": 1,
+      "finalText1": {
+        "value": "Маршрут пройден",
+        "show": true
+      },
+      "finalText2": {
+        "value": "Увидимся за поворотом…",
+        "show": true
+      }
+    },
+    {
+      "id": "yellow-human",
+      "title": "Жёлтый Человек",
+      "dates": {
+        "from": "2026-11-26",
+        "to": "2026-12-08"
+      },
+      "description": "13 дней свободы выбора: услышать свой голос и опереться на собственную мудрость.",
+      "image": null,
+      "routeUrl": "",
+      "glass": {},
+      "soonBg": {
+        "image": "media/d2ef7bfb95bf6e5962ad.webp",
+        "imagePhone": "media/b111a933e5644687d6ec.webp"
+      },
+      "finalWords": 1,
+      "finalText1": {
+        "value": "Маршрут пройден",
+        "show": true
+      },
+      "finalText2": {
+        "value": "Увидимся за поворотом…",
+        "show": true
+      }
+    },
+    {
       "id": "white-worldbridger",
       "title": "Белый Соединитель Миров",
       "dates": {
@@ -9,7 +59,21 @@
       },
       "description": "13 дней перехода: бережно завершить, отпустить уходящее и открыть место новому.",
       "image": null,
-      "routeUrl": ""
+      "routeUrl": "",
+      "glass": {},
+      "soonBg": {
+        "image": "media/6c129ecfa7061cfda1dd.webp",
+        "imagePhone": "media/b0339b3851ad33140e93.webp"
+      },
+      "finalWords": 1,
+      "finalText1": {
+        "value": "Маршрут пройден",
+        "show": true
+      },
+      "finalText2": {
+        "value": "Увидимся за поворотом…",
+        "show": true
+      }
     },
     {
       "id": "red-skywalker",
@@ -107,7 +171,7 @@
         "value": "Увидимся за поворотом…",
         "show": true
       },
-      "shareImage": "media/1c9a240455d1b9efcf69.jpg"
+      "shareImage": "media/764876c2cfd9226b572b.jpg"
     },
     {
       "id": "white-wizard",

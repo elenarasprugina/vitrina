@@ -339,6 +339,15 @@
           { def: forCard ? 'inherit' : 'md', onChange: onChange,
             hint: 'Тип, даты, «Вход открыт», «открыть», «Нажать — открыть оборот». На телефоне увеличиваются мягче — там мало места.' })]),
       el('div', { class: 'a-row' }, [
+        selectIn(stl, 'ctaLook', 'Кнопка «открыть» — вид', inh.concat([['none', 'Как было — рамка'], ['pale', 'Тонкая бледная рамка'], ['glass', 'Стёклышко без рамки'], ['word', 'Только слово'], ['fill', 'Заливка цветом']]),
+          { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'И «открыть» на маленьких карточках, и «Нажать — открыть оборот» на большой.' }),
+        colorOptIn(stl, 'ctaColor', 'Кнопка «открыть» — цвет рамки и надписи', { none: forCard ? 'как у всей витрины' : 'как у текста и акцента', pick: '#960c0d', inh: inhOf(d, forCard, 'ctaColor'), onChange: onChange,
+          hint: 'У «Заливки» — цвет самой кнопки, надпись подберётся сама.' })]),
+      el('div', { class: 'a-row' }, [
+        selectIn(stl, 'ctaShadow', 'Кнопка «открыть» — тень', inh.concat([['none', 'Как у текста карточки'], ['off', 'Без тени']]),
+          { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Тень появляется, когда в «Чтобы текст читался» выбрана «Тень у букв». На светлой витрине лучше «Без тени».' }),
+        el('span')]),
+      el('div', { class: 'a-row' }, [
         colorOptIn(stl, 'accent', 'Акцентный цвет', { none: forCard ? 'как у всей витрины: без акцента' : 'без акцента', pick: '#8a6bb8', inh: inhOf(d, forCard, 'accent'),
           onChange: function () { if (glowBox) glowBox.redraw(); if (onChange) onChange(); } }),
         el('p', { class: 'a-hint', style: 'align-self:end', text: 'Красит рамку карточки, главную кнопку, счётчик дня и статус-плашку. Если цвет свечения не выбран — светится этим цветом.' })]),
@@ -361,7 +370,13 @@
           { def: 'round', onChange: onChange, hint: 'Одна форма для всей витрины: открытая карточка, картинка крупно, окно отзыва. На карточке — в оттенке её цвета.' })]),
       forCard ? null : el('div', { class: 'a-row' }, [
         selectIn(stl, 'closeMark', 'Что внутри кнопки «закрыть»', [['dot', 'Светящаяся точка'], ['ring', 'Колечко'], ['star', 'Звёздочка — контур'], ['cross', 'Крестик'], ['none', 'Пусто']],
-          { def: 'dot', onChange: onChange, hint: 'Во всех окнах витрины одинаково. «Пусто» со светящимся кругом — просто светящийся круг, с тонкой линией — тонкое колечко. Если форма «Только знак», а внутри «Пусто» — будет точка.' })]),
+          { def: 'dot', onChange: onChange, hint: 'Во всех окнах витрины одинаково. «Пусто» со светящимся кругом — просто светящийся круг, с тонкой линией — тонкое колечко. Если форма «Только знак», а внутри «Пусто» — будет точка.' }),
+        colorOptIn(stl, 'iconColor', 'Цвет значков ✕ и ↺', { none: 'светлый оттенок цвета карточки', pick: '#960c0d', onChange: onChange })]),
+      forCard ? null : el('div', { class: 'a-row' }, [
+        selectIn(stl, 'iconGlow', 'Свечение и тень у значков', [['', 'Как задумано — светятся'], ['none', 'Без свечения и тени']],
+          { def: '', onChange: onChange, hint: 'Для светлой витрины — «Без свечения и тени»: значок — просто тонкая линия своего цвета. Во всех окнах витрины одинаково.' }),
+        selectIn(stl, 'iconSize', 'Размер значков ✕ и ↺', [['', 'Небольшие'], ['sm', 'Совсем маленькие'], ['lg', 'Крупные (как было до 27.10)']],
+          { def: '', onChange: onChange, hint: 'Только сам знак — кнопку по-прежнему легко нажать пальцем. Во всех окнах витрины одинаково.' })]),
       glassFields(stl, forCard, onChange, d),
       buttonFields(stl, forCard, onChange, d),
       el('p', { class: 'a-hint', text: forCard
@@ -413,13 +428,25 @@
           tx === 'haze' ? rangeOptIn(stl, 'hazeStrength', 'Сила дымки', { max: 100, step: 5, unit: '%', def: 60, onChange: onChange }, forCard) : el('span')]),
         sub('Контур карточки'),
         el('div', { class: 'a-row' }, [
-          selectIn(stl, 'rim', 'Контур', inh.concat([['none', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный (зимний)'], ['gold', 'Золотой — акцентным цветом']]),
-            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Тонкая линия с бликом по краю карточки. Цвет можно задать свой — ниже.' }),
+          selectIn(stl, 'rim', 'Контур', inh.concat([['none', 'Без контура'], ['light', 'Светлый'], ['cold', 'Холодный (зимний)'], ['gold', 'Золотой — акцентным цветом'],
+            ['candy', 'Леденец — брусничный лёд']]),
+            { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Тонкая линия с бликом по краю карточки. Цвет можно задать свой — ниже. «Леденец» — тёмный цвет с белыми бликами на углах, как ягода в ледяной корке; обычно брусничный, со своим цветом — леденец этого цвета.' }),
           rim ? selectIn(stl, 'rimPlace', 'Где', inh.concat([['edge', 'По всему краю'], ['corners', 'Только уголки']]), { def: forCard ? 'inherit' : 'edge', onChange: onChange }) : el('span')]),
         rim ? el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'rimColor', 'Цвет контура', { none: 'как выбрано выше', pick: '#ecd3a3', inh: inhOf(d, forCard, 'rimColor'), onChange: onChange }),
           selectIn(stl, 'rimLive', 'Живость контура', inh.concat([['none', 'Спокойный'], ['breathe', 'Дышит'], ['run', 'Бегущий блик']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Бегущий блик — светлая искра медленно обегает край. Лучше для одной-двух карточек.' })]) : null,
+        rim ? el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'rimWidth', 'Толщина контура', { min: 0.5, max: 8, step: 0.5, unit: ' px', def: 1.5, onChange: onChange,
+            hint: '1–1,5 — тонкая линия (как было). 3–5 — заметная кромка. Где толще — рядом.' }, forCard),
+          selectIn(stl, 'rimShape', 'Где толще', inh.concat([['none', 'Везде одинаково'], ['corners', 'Толще в уголках'], ['diag', 'Толще в двух углах — слева сверху и справа снизу'],
+            ['bottom', 'Толще внизу — как подтаявший лёд'], ['top', 'Толще сверху']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'Там контур в 2,5 раза толще и мягко сходит к обычной толщине.' })]) : null,
+        el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'sheen', 'Блик леденца на стекле', { max: 100, step: 5, unit: '%', def: 0, onChange: onChange,
+            hint: 'Косой светлый блик сверху слева и цвет, просвечивающий снизу (цвет контура или акцентный) — стекло как леденец. 0 — без блика, 40–70 — заметно.' }, forCard),
+          forCard ? el('span') : selectIn(stl, 'veil', 'Фон, когда карточка открыта', [['dark', 'Тёмная дымка (как было)'], ['light', 'Светлая молочная дымка'], ['clear', 'Почти без дымки']],
+            { def: 'dark', onChange: onChange, hint: 'Чем накрыта витрина за увеличенной карточкой. Для светлой витрины — «Светлая»: прозрачная карточка не станет серой, значки «закрыть» станут тёмными.' })]),
         rim && live === 'run' ? el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'rimRunColor', 'Цвет бегущего блика', { none: 'акцентный или светло-золотой', pick: '#fff1c4', inh: inhOf(d, forCard, 'rimRunColor'),
             base: function () { return stl.accent || d.accent || '#fff1c4'; }, onChange: onChange }),
@@ -428,10 +455,22 @@
         el('div', { class: 'a-row' }, [
           selectIn(stl, 'pattern', 'Узор на стекле', inh.concat([['none', 'Без узора'], ['frost', 'Иней'], ['sparks', 'Искры'], ['kaleido', 'Калейдоскоп'], ['custom', 'Свой узор (загрузить картинку)']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw }),
-          selectIn(stl, 'patternPlace', 'Где узор', inh.concat([['corners', 'В уголках'], ['edge', 'По краю — во всех углах'], ['full', 'По всей карточке']]),
+          selectIn(stl, 'patternPlace', 'Где узор', inh.concat([['corners', 'В уголках'], ['edge', 'По краю — во всех углах'], ['full', 'По всей карточке'],
+            ['tr', 'Один уголок — справа сверху'], ['tl', 'Один уголок — слева сверху'], ['br', 'Один уголок — справа снизу'], ['bl', 'Один уголок — слева снизу'],
+            ['diag', 'Два уголка — слева сверху и справа снизу']]),
             { def: forCard ? 'inherit' : 'corners', onChange: onChange })]),
         pat === 'custom' ? imageIn(stl, 'patternImage', 'Картинка узора', { max: 1200, onChange: onChange, size: { w: 1200, h: 1200, note: 'PNG с прозрачным фоном' },
-          hint: 'Лучше PNG с прозрачным фоном. Для «В уголках» и «По краю» — уголок для левого верхнего угла (для остальных углов он отразится сам). Для «По всей карточке» — узор или рамка на всю карточку.' }) : null,
+          hint: 'Лучше PNG с прозрачным фоном. Картинка не растягивается — остаётся в своих пропорциях. Для уголков — уголок, нарисованный для левого верхнего угла (в других углах отразится, если не выключить ниже), или предмет — веточка, ягоды. Для «По всей карточке» — узор или рамка на всю карточку.' }) : null,
+        pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
+          rangeOptIn(stl, 'patternSize', 'Размер узора', { max: 90, step: 2, unit: '%', def: 0, onChange: onChange,
+            hint: 'Какую часть ширины карточки занимает узор в уголке. 0 — обычный размер. Для «По всей карточке» не действует.' }, forCard),
+          rangeOptIn(stl, 'patternTilt', 'Наклон', { min: -45, max: 45, step: 1, unit: '°', def: 0, onChange: onChange,
+            hint: 'Повернуть узор или картинку: минус — против часовой стрелки, плюс — по часовой.' }, forCard)]) : null,
+        pat === 'custom' ? el('div', { class: 'a-row' }, [
+          selectIn(stl, 'patternMirror', 'В других углах', inh.concat([['mirror', 'Отражать (зеркально)'], ['same', 'Не отражать — как есть']]),
+            { def: forCard ? 'inherit' : 'mirror', onChange: onChange, hint: 'Для «В уголках», «По краю» и двух уголков. Ягоды, цветы, предметы — «Не отражать», иначе встанут вверх ногами.' }),
+          selectIn(stl, 'patternShadow', 'Тень под картинкой', inh.concat([['none', 'Без тени'], ['soft', 'Мягкая тень — будто лежит на стекле']]),
+            { def: forCard ? 'inherit' : 'none', onChange: onChange })]) : null,
         pat && pat !== 'none' ? el('div', { class: 'a-row' }, [
           rangeOptIn(stl, 'patternOpacity', 'Заметность узора', { min: 5, max: 100, step: 5, unit: '%', def: 80, onChange: onChange }, forCard),
           pat === 'custom' ? el('p', { class: 'a-hint', style: 'align-self:end', text: 'Свой узор показывается в своих цветах.' })
@@ -463,6 +502,28 @@
 
   // Скорость бликов: контур карточки, кнопка на обороте, подпись под сеткой
   var RIM_SPEEDS = [['fast', 'Быстрый — круг за 5 с'], ['normal', 'Обычный — круг за 7 с'], ['slow', 'Медленный — круг за 12 с'], ['vslow', 'Очень медленный — круг за 18 с']];
+  // Конфетти (блик по карточкам, 27.10 (8)): расцветка — кнопками с образцом, форма, сколько; рядом пробник на тёмном и светлом
+  var CF_COLORS = [['', '🌸 Нежные', '#f4c95d', '#8fb8f2'], ['bright', '🎉 Яркие', '#ff2d55', '#1f7bff'], ['gold', '✨ Золото', '#fff6cf', '#b8862c'],
+    ['silver', '🪞 Серебро-зеркало', '#ffffff', '#8a97a8'], ['pearl', '🐚 Перламутр', '#ffe6f2', '#cff3ff']];
+  function confettiFields(hd, draw) {
+    var tiles = [el('div', { class: 'a-cf-demo a-cf-demo--dark' }), el('div', { class: 'a-cf-demo a-cf-demo--light' })];
+    function play() { if (window.M13 && M13.confettiDemo) tiles.forEach(function (t) { M13.confettiDemo(t, hd); }); }
+    function set(k, v) { if (v) hd[k] = v; else delete hd[k]; changed(); draw(); }
+    setTimeout(play, 50);
+    return el('div', {}, [
+      el('p', { class: 'a-hint', text: 'Расцветка конфетти — нажмите, и ниже сразу видно, как она выглядит на тёмном и на светлом фоне.' }),
+      el('div', { class: 'a-presets' }, CF_COLORS.map(function (c) {
+        var on = (hd.confettiColor || '') === c[0];
+        return el('button', { type: 'button', class: 'a-btn a-btn--small a-preset' + (on ? ' a-preset--on' : ''), style: '--p1:' + c[2] + ';--p2:' + c[3], text: (on ? '✓ ' : '') + c[1],
+          onclick: function () { set('confettiColor', c[0]); } });
+      })),
+      el('div', { class: 'a-cf-demos m13' }, tiles.concat([el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: '▶ Ещё раз', onclick: play })])),
+      el('div', { class: 'a-row' }, [
+        selectIn(hd, 'confettiShape', 'Форма конфетти', [['', 'Смесь — кружочки и полоски'], ['round', 'Только кружочки'], ['strip', 'Только полоски']], { def: '', onChange: play }),
+        selectIn(hd, 'confettiCount', 'Сколько конфетти', [['few', 'Немного'], ['mid', 'Средне'], ['many', 'Много'], ['lots', 'Очень много']], { def: 'mid', onChange: play,
+          hint: 'На каждой карточке. Размер крошек не меняется.' })])
+    ]);
+  }
   var BTN_SPEEDS = [['fast', 'Быстрая'], ['normal', 'Обычная'], ['slow', 'Медленная'], ['vslow', 'Очень медленная']];
   var SHINE_SPEEDS = [['fast', 'Быстрый'], ['normal', 'Обычный'], ['slow', 'Медленный'], ['vslow', 'Очень медленный']];
   // «Кнопки на обороте»: вид главной кнопки, цвета, остальные кнопки, «живость», готовые наборы
@@ -581,6 +642,8 @@
   }
   // Метка версии для ссылок на vitrina.js/css (опубликованные страницы, предпросмотр телефона): браузер не возьмёт старые из памяти
   var ASSET_V = window.M13V || Date.now();
+  // значок во вкладке и на экране телефона — общий с главной (репозиторий elenarasprugina.github.io)
+  var ICON_LINKS = '<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">\n<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=2">\n';
   function imgSrc(v) { if (!v) return ''; return /^(data:|blob:|https?:)/.test(v) ? v : '../' + v; }
   // Строка «Лучший размер» у поля картинки: o.size = {w, h, note} (ширина × высота) или {text, note}.
   // Окошко-миниатюра принимает ту же форму — видно, как картинка ляжет.
@@ -1431,7 +1494,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1488,6 +1551,7 @@
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
     else if (s === 'uzory') add(m, viewUzory());
+    else if (s === 'zapis') add(m, viewZapis());
     else if (s === 'psypoint') add(m, viewPsypoint());
     else add(m, viewSettings());
   }
@@ -1630,9 +1694,9 @@
 
 
   /* ---------- Обложка карточки при открытии витрины ----------
-     Месяц: sc.cardStyle.lid = {open: '' | 'book', …}; карточка: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}.
+     Месяц: sc.cardStyle.lid = {open: '' | 'book' | 'flip' | 'envelope', …} (у конверта ещё flap, go, seal, wax, inner); карточка: front.style.lid = {mode: '' (как у всей витрины) | 'off' | 'own', …}.
      Поля — в vitrina.js (lidHTML). Волна и вид блика — в «Бликах» (head.wave, head.waveSpeed, head.sheenKind). */
-  var LID_OPENS = [['book', 'Книга — раскрывается на корешке'], ['flip', 'Переворот карты — обложка как рубашка']];
+  var LID_OPENS = [['book', 'Книга — раскрывается на корешке'], ['flip', 'Переворот карты — обложка как рубашка'], ['envelope', 'Конверт — клапан откидывается, конверт уходит']];
   var LID_DEF = { open: 'book', feel: 'soft', from: 'left', speed: 'normal', pause: 0.5, shadow: 'soft', mat: 'glass', glass: 35, blur: 8 };
   var DAND_KINDS = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave' };
   function lidOnOf(sc, c) {
@@ -1645,8 +1709,11 @@
     if (c) { var fs = c.front.style = c.front.style || {}; L = fs.lid = fs.lid || {}; } else L = cs.lid = cs.lid || {};
     var d = cs.lid || {};
     function fill() { Object.keys(LID_DEF).forEach(function (k) { if (L[k] == null || L[k] === '') L[k] = LID_DEF[k]; }); }
+    // у конверта клапан обычно сверху (у книги корешок — слева)
+    function envFrom(v) { if (v === 'envelope' && (!L.from || L.from === 'left')) L.from = 'top'; }
     function draw() {
-      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '', flip = L.open === 'flip';
+      var own = c ? L.mode === 'own' : !!L.open, mat = L.mat || 'glass', sign = L.sign || '', flip = L.open === 'flip', env = L.open === 'envelope';
+      var atSeal = env && L.seal !== 'none';
       box.replaceChildren();
       add(box, [
         el('p', { class: 'a-hint', text: 'Когда витрина открывается, волна блика доходит до карточки, свет скользит по обложке — и она раскрывается. Под ней — лицевая сторона. ' +
@@ -1656,19 +1723,32 @@
             if (v === 'own') { Object.keys(d).forEach(function (k) { if (L[k] == null) L[k] = clone(d[k]); }); if (!L.open) L.open = 'book'; fill(); }
             changed(); draw(); } })
           : selectIn(L, 'open', 'Обложка у карточек', [['', 'Без обложки (как обычно)']].concat(LID_OPENS), {
-            def: '', onChange: function (v) { if (v) fill(); changed(); draw(); },
+            def: '', onChange: function (v) { if (v) fill(); envFrom(v); changed(); draw(); },
             hint: 'Для всех карточек месяца. Обычно обложку ставят одной-двум карточкам — в их формах, раздел «Обложка при открытии витрины».' }),
         own ? sub('Как открывается') : null,
         own ? el('div', { class: 'a-row' }, [
-          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book', onChange: function () { changed(); draw(); } })
-            : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, конверт, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
+          c ? selectIn(L, 'open', 'Как раскрывается', LID_OPENS, { def: 'book', onChange: function (v) { envFrom(v); changed(); draw(); } })
+            : el('span', { class: 'a-hint', style: 'align-self:end', text: 'Скоро добавятся: свиток, жалюзи, уголок, лепестки, звёздная пыль, одуванчик, шторки.' }),
           flip ? selectIn(L, 'from', 'Куда переворачивается', [['left', 'Слева направо'], ['right', 'Справа налево'], ['top', 'Сверху вниз'], ['bottom', 'Снизу вверх']], { def: 'left' })
+            : env ? selectIn(L, 'from', 'Где клапан', [['top', 'Сверху — как у письма'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']], { def: 'top' })
             : selectIn(L, 'from', 'Где корешок', [['left', 'Слева — как книга'], ['right', 'Справа'], ['top', 'Сверху — поднимается вверх'], ['bottom', 'Снизу — откидывается вниз']], { def: 'left' })]) : null,
-        own ? selectIn(L, 'feel', 'Какая обложка', flip
+        own && env ? el('div', { class: 'a-row' }, [
+          selectIn(L, 'go', 'Куда уходит конверт', [['down', 'А — уезжает и тает (карточка остаётся)'], ['out', 'Б — карточка выдвигается из конверта, конверт уходит'],
+            ['unfold', 'В — раскладывается на четыре клапана']], { def: 'down' }),
+          selectIn(L, 'flap', 'Форма клапана', [['sharp', 'Острый'], ['gentle', 'Пологий'], ['round', 'Скруглённый']], { def: 'sharp' })]) : null,
+        own && env ? el('div', { class: 'a-row3' }, [
+          selectIn(L, 'seal', 'Печать', [['wax', 'Сургуч — капля со знаком'], ['sign', 'Просто знак на клапане'], ['none', 'Без печати']], { def: 'wax', onChange: function () { changed(); draw(); },
+            hint: 'Знак для печати — ниже, в «Надпись или значок». Печать стоит на кончике клапана.' }),
+          L.seal !== 'sign' && L.seal !== 'none' ? colorOptIn(L, 'wax', 'Цвет сургуча', { none: 'тёмно-красный', base: '#960c0d' }) : el('span'),
+          colorOptIn(L, 'inner', 'Цвет изнанки клапана', { none: 'цвет обложки чуть темнее', pick: '#d9cbb5' })]) : null,
+        own ? selectIn(L, 'feel', 'Какая обложка', env
+          ? [['soft', 'Мягкая бумага — клапан в конце чуть пружинит'], ['leather', 'Плотная, как кожа — плавно, без пружины'], ['hard', 'Твёрдая — откидывается ровно']]
+          : flip
           ? [['soft', 'Мягкая — в конце чуть пружинит, как картон'], ['leather', 'Кожаная — тяжёлая, переворачивается плавно, ложится без пружины'], ['hard', 'Твёрдая — ложится ровно']]
           : [['soft', 'Мягкая, как тетрадный лист — изгибается дугой'], ['leather', 'Мягкая, как толстая кожа — тяжёлый плавный изгиб'],
             ['hard', 'Твёрдая, как переплёт — поворачивается ровной доской']], { def: 'soft',
-          hint: flip ? 'Обложка — это рубашка карты: карточка приподнимается, переворачивается вокруг середины и ложится лицом.'
+          hint: env ? 'Печать тает, клапан откидывается — видна его изнанка, — и конверт уходит, открывая карточку.'
+            : flip ? 'Обложка — это рубашка карты: карточка приподнимается, переворачивается вокруг середины и ложится лицом.'
             : 'Мягкая изгибается, по изгибу бегут свет и тень, в конце лист чуть «доплывает». Кожаная — плотнее и тяжелее: край чуть скруглён, лист выгибается ровной дугой, свет на изгибе тёплый и матовый.' }) : null,
         own ? el('div', { class: 'a-row3' }, [
           selectIn(L, 'speed', 'Скорость раскрытия', [['fast', 'Быстро — 0,7 с'], ['normal', 'Обычно — 1 с'], ['slow', 'Медленно — 1,4 с'], ['vslow', 'Очень медленно — 2 с']], { def: 'normal' }),
@@ -1701,7 +1781,8 @@
         own && sign ? el('div', { class: 'a-row3' }, [
           colorOptIn(L, 'signColor', 'Цвет', { none: 'подберётся сам', pick: '#ecd3a3' }),
           selectIn(L, 'signSize', 'Размер', [['s', 'Маленький'], ['m', 'Средний'], ['l', 'Крупный']], { def: 'm' }),
-          selectIn(L, 'signPos', 'Где', [['center', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу']], { def: 'center' })]) : null,
+          atSeal ? el('span', { class: 'a-hint', style: 'align-self:end', text: 'Стоит печатью на кончике клапана.' })
+            : selectIn(L, 'signPos', 'Где', [['center', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу']], { def: 'center' })]) : null,
         own ? el('p', { class: 'a-hint', text: 'Откуда идёт волна по сетке, какой блик и как быстро он перебегает — в «Странице месяца», раздел «Блики».' }) : null,
         el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть раскрытие', onclick: function () { openPreview('showcase', sc.id); } })])
       ]);
@@ -1997,10 +2078,11 @@
         b !== 'none' && hd.shine ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineWhen', 'Когда повторяется', [['open', 'Только при открытии'], ['', 'Изредка — раз в 25 секунд'], ['often', 'Чаще — раз в 8 секунд']], { def: '' }), el('span')]) : null,
         hd.welcome !== false || lidAny ? el('div', { class: 'a-row3' }, [
-          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['ray', 'Тонкий яркий луч'], ['dust', 'Звёздная пыль'], ['flash', 'Вспышка из центра']], { def: 'soft' }),
+          selectIn(hd, 'sheenKind', 'Какой блик по карточкам', [['soft', 'Мягкая полоса'], ['silk', 'Шёлк — две мягкие полосы'], ['bunny', 'Солнечный зайчик'], ['edge', 'Свет по контуру'], ['ray', 'Тонкий яркий луч'], ['flash', 'Вспышка из центра'], ['confetti', 'Конфетти — сыплется сверху'], ['popper', 'Конфетти — хлопушка']], { def: 'soft' , onChange: draw }),
           selectIn(hd, 'wave', 'Откуда идёт волна', [['corner', 'Из левого верхнего угла'], ['center', 'От центра'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
             { def: 'corner', hint: 'В каком порядке карточки получают блик (и раскрываются обложки).' }),
           selectIn(hd, 'waveSpeed', 'Как быстро перебегает', SHINE_SPEEDS, { def: 'normal' })]) : null,
+        (hd.welcome !== false || lidAny) && (hd.sheenKind === 'confetti' || hd.sheenKind === 'popper') ? confettiFields(hd, draw) : null,
         glow ? el('div', { class: 'a-row' }, [
           selectIn(hd, 'shineSpeed', 'Скорость блика', SHINE_SPEEDS, { def: 'slow', hint: 'Сколько свет идёт по надписи.' }),
           colorOptIn(hd, 'shineColor', 'Цвет блика', { none: 'светло-золотой', base: function () { return (sc.cardStyle || {}).rimRunColor || '#fff3cf'; },
@@ -2269,7 +2351,7 @@
   // картинки к этому моменту — файлы media/…, а не data:.
   // kind: 'main' (13mirrors.ru/vitrina/), 'month' (…/2026-10/), 'card' (…/2026-10/sun/ — превью одной карточки
   // и сразу переход на витрину с открытой карточкой), 'sandbox', 'reflection'.
-  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События', kin: 'Узнать свой кин' };
+  var PAGE_TITLES = { sandbox: 'Как устроены маршруты', reflection: 'Карта-Отражение', events: 'События', kin: 'Узнать свой кин', oferta: 'Условия и цены' };
   function escAttr(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\s+/g, ' ').trim(); }
   function absImg(src, D) { return src && !/^(data:|blob:)/.test(src) ? (/^https?:/.test(src) ? src : siteUrl(D) + src) : ''; }
   function metaTags(o, D) {
@@ -2316,6 +2398,8 @@
     var isMonth = kind === 'main' || kind === 'month' || kind === 'card' || kind === 'soon';
     // Заглушка: вид — последнего опубликованного месяца
     var sc = isMonth ? D.showcases[kind === 'main' ? st.currentShowcase : kind === 'soon' ? Object.keys(D.showcases).sort().pop() : id] : null;
+    // «Условия и цены»: оформление и цены — месяца, который сейчас идёт (как по основному адресу)
+    if (kind === 'oferta') sc = D.showcases[window.M13.monthPick(st, publishedIds(D)) || st.currentShowcase] || null;
     var sh = shareOf(sc, D);
     if (kind === 'card') {
       var c = (sc.cards || []).filter(function (x) { return x.id === cardId; })[0] || { front: {} }, f = c.front || {};
@@ -2325,7 +2409,7 @@
       if (!cimg) { cimg = absImg(sh.image, D); sized = !!cimg; }
       var target = '../#' + encodeURIComponent(cardId);
       return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ctitle) + '</title>\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' + ICON_LINKS + '<title>' + escAttr(ctitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + sc.id + '/' + encodeURIComponent(cardId) + '/', title: ctitle, description: cdesc, image: cimg, sized: sized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + target + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + sc.id + '/') + '">\n</head>\n' +
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(target) + ');</script>\n' +
@@ -2340,7 +2424,7 @@
       if (!pimg) { pimg = absImg(sh.image, D); psized = !!pimg; }
       var ptarget = '../#' + pv.hash;
       return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>' + escAttr(ptitle) + '</title>\n' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' + ICON_LINKS + '<title>' + escAttr(ptitle) + '</title>\n' +
         metaTags({ url: siteUrl(D) + pv.dir + '/' + encodeURIComponent(cardId) + '/', title: ptitle, description: pdesc, image: pimg, sized: psized }, D) + '\n' +
         '<meta http-equiv="refresh" content="0; url=' + ptarget + '">\n<link rel="canonical" href="' + escAttr(siteUrl(D) + pv.dir + '/') + '">\n</head>\n' +
         '<body style="font-family:sans-serif;padding:24px"><script>location.replace(' + JSON.stringify(ptarget) + ');</script>\n' +
@@ -2349,17 +2433,17 @@
     var base = kind === 'main' ? './' : '../';
     var url = siteUrl(D) + (kind === 'main' ? '' : kind === 'month' ? sc.id + '/' : kind === 'soon' ? id + '/' : kind + '/');
     var soonT = kind === 'soon' ? window.M13.monthName(id, true) + ' · ' + (String((((st.months || {}).soon) || {}).word || '').trim() || 'скоро') : '';
-    var title = site + ' · ' + (soonT || (sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || ''));
+    var title = site + ' · ' + (soonT || (kind === 'oferta' ? window.M13.legalOf(st).title : sc ? sc.title : kind === 'kin' ? String(((D.reflection || {}).kin || {}).title || '').trim() || PAGE_TITLES.kin : PAGE_TITLES[kind] || ''));
     if (!sc && !String((st.share || {}).title || '').trim()) sh.title = title;
     if (soonT) sh = { title: soonT, description: sh.description, image: sh.image };
     var img = absImg(sh.image, D);
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr(title) + '</title>\n' + metaTags({ url: url, title: sh.title, description: sh.description, image: img, sized: true }, D) + '\n' +
       '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n' + quickStart(sc ? sc.background : ((D[kind === 'kin' ? 'reflection' : kind] || {}).look || {}).background, base) +
       '</head>\n<body class="m13-body">\n' +
       '<div id="m13" data-base="' + base + '" data-view="' + (kind === 'soon' ? 'soon' : isMonth ? 'showcase' : kind) + '"' + (kind === 'month' ? ' data-showcase="' + escAttr(sc.id) + '"' : '') +
-      (kind === 'soon' ? ' data-showcase="' + escAttr(sc.id) + '" data-soon="' + escAttr(id) + '"' : '') + '></div>\n' +
+      (kind === 'soon' ? ' data-showcase="' + escAttr(sc.id) + '" data-soon="' + escAttr(id) + '"' : '') + (kind === 'oferta' && sc ? ' data-showcase="' + escAttr(sc.id) + '"' : '') + '></div>\n' +
       pageData(sc, D, kind === 'kin') + '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
   // Чтобы страница открывалась без мигания: цвет фона — сразу, картинка фона начинает грузиться вместе со страницей
@@ -2434,7 +2518,8 @@
         sc.background.color = '#f2f2f2'; delete sc.background.dim; delete sc.background.blur;
         sc.head = { align: sc.head.align };
         ['font', 'textColor', 'bg', 'glass', 'glassBlur', 'rim', 'textHelp', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'accent', 'overlay', 'backBg',
-          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'rimSpeed', 'win'].forEach(function (k) { delete sc.cardStyle[k]; });
+          'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'rimSpeed', 'win',
+          'rimWidth', 'rimShape', 'sheen', 'veil', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow', 'ctaLook', 'ctaColor', 'ctaShadow'].forEach(function (k) { delete sc.cardStyle[k]; });
       }
       ST.pageOpen = true; changed(); renderMain();
       toast(dark ? 'Тёмная тема применена. Загрузите фоновую картинку и подправьте, что хочется, — всё ниже.' : 'Вернули светлое оформление, как было.');
@@ -2474,6 +2559,7 @@
       textIn(it, 'full', 'Подробный текст для окошка (у плиток)', { multi: true, rows: 4, hint: 'Показывается в окошке, когда нажали на плитку. Пусто — короткое описание.' }),
       el('div', { class: 'a-row' }, [optIn(it, 'duration', 'Длительность', { ph: 'до 90 минут' }), optIn(it, 'status', 'Статус', { ph: 'осталось 2 места' })]),
       actionIn(it, 'action', 'Кнопка на плашке', { defLabel: 'Записаться', kinds: ['contact', 'link', 'event'] }),
+      switchIn(it, 'wide', 'Во всю ширину карточки', { hint: 'Плашка занимает весь ряд: слева название и длительность, справа цена и кнопка (как встреча-знакомство — основа, над ней остальные плашки по две в ряд). Где она стоит — по порядку плашек: последняя — внизу.' }),
       itemCalendar(it)
     ];
   }
@@ -2909,7 +2995,8 @@
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
     'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize',
-    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed'];
+    'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed',
+    'rimWidth', 'rimShape', 'sheen', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow', 'ctaLook', 'ctaColor', 'ctaShadow'];
   var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur', 'btnSpeed'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
@@ -3037,6 +3124,8 @@
         switchIn(f, 'eyebrowShow', 'Надпись сверху — показывать на сайте', { defTrue: true, onChange: cb.redrawGrid,
           hint: 'Выключено — на сайте её нет, а в панели (в списке карточек) остаётся вашей пометкой.' }),
         textIn(f, 'title', 'Название'),
+        textIn(f, 'word', 'Крупное слово вместо надписей', { ph: 'скоро', onChange: cb.redrawGrid,
+          hint: 'Например, «скоро» — крупно, курсивом, с бликом, как на странице «Ноябрь · скоро». Пусто — обычные надписи. Шрифт — как у страницы «скоро» («Витрины» → «Месяцы как календарь»), иначе как у карточек.' }),
         optIn(f, 'subtitle', 'Подзаголовок', { ph: 'даты или короткая фраза' }),
         el('div', { class: 'a-row' }, [
           optIn(f, 'status', 'Статус', { ph: 'Вход открыт, Предзаказ, Осталось 3 места…' }),
@@ -3058,7 +3147,7 @@
       ]),
       block('Оформление', [el('p', { class: 'a-hint', text: 'Шрифт, цвет текста, дымка и свечение только для этой карточки.' })]
         .concat(styleFields(f.style = f.style || {}, true, cb.redrawGrid, sc.cardStyle)), { open: false }),
-      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'книга или переворот карты' })
+      block('Обложка при открытии витрины', [lidFields(sc, c)], { open: ((f.style || {}).lid || {}).mode === 'own', note: 'книга, переворот карты или конверт' })
     ];
     if (isCal) out.push(block('Календарь месяца', monthCalFields(sc, c, cb)));
     if (interactive) out.push(block('Пока подробностей нет: оборот-заглушка', stubFields(c, cb), { open: !!(c.back && c.back.stub && c.back.stub.on) }));
@@ -3109,6 +3198,7 @@
               noImg: 'Нет картинки маршрута — стекло будет только у примеров со своей обложкой.', share: !!r.archive }),
             colorOptIn(r, 'color', 'Цвет маршрута', { none: 'без цвета', pick: '#c9a14a',
               hint: 'Лёгкий оттенок и свечение у обложек его примеров, Летописей, отзывов и в архиве. У отдельного примера можно поставить свой.' }),
+            soonBgFields(r),
             finalFields(r),
             archiveFields(r)
           ];
@@ -3513,7 +3603,7 @@
     var desc = (r.ogText || '') || ((r.days || []).length || 13) + ' дней' + (dates ? ' · ' + dates : '');
     var pic = r.scene === 'doors' && r.doors && r.doors.desktop ? r.doors.desktop : r.masterDesktop;
     var img = pic && !/^data:/.test(pic) ? (/^https?:/.test(pic) ? pic : u + pic) : '';
-    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr(name) + '</title>\n<meta name="description" content="' + escAttr('Маршрут «' + r.title + '» · ' + desc) + '">\n' +
       '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/') + '">\n' +
       '<meta property="og:title" content="' + escAttr(name) + '">\n<meta property="og:description" content="' + escAttr(desc) + '">\n' +
@@ -3526,12 +3616,65 @@
       '<script>document.write(\'<script src="../../assets/kaleido.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/sun.js?v=\' + M13RV + \'"><\\/script><script src="../../assets/route.js?v=\' + M13RV + \'"><\\/script>\');</script>\n' +
       '<script>M13R.boot();</script>\n</body>\n</html>\n';
   }
+  // Заглушка маршрута routes/<id>/ (её «делаем» 26.10): у маршрута из библиотеки есть карточка на опубликованной витрине,
+  // а страницы по дням ещё нет (не создана или «готовится») — в цвете маршрута: название, даты, «Маршрут начнётся …».
+  // Рисует vitrina.js (data-view="routesoon"); в данных — только нужное: маршрут, настройки, шрифт месяца и заглушка карточки.
+  // Фон заглушки маршрута (её «делаем» 27.10): своя картинка вместо цветного фона — r.soonBg { image, imagePhone, pos, veil }
+  function soonBgFields(r) {
+    var bg = r.soonBg = r.soonBg || {}, box = el('div');
+    function draw() {
+      box.replaceChildren();
+      add(box, [
+        sub('Фон заглушки маршрута'),
+        el('p', { class: 'a-hint', text: 'Заглушка — страница маршрута, пока у него нет страницы по дням (туда ведёт «Подробнее»). Пусто — фон цвета маршрута, как было.' }),
+        el('div', { class: 'a-row' }, [
+          imageIn(bg, 'image', 'Картинка для компьютера', { max: 2400, size: { w: 2400, h: 1350, note: 'горизонтальная, 16:9; почти квадратная тоже подойдёт — края обрежутся' }, onChange: draw }),
+          imageIn(bg, 'imagePhone', 'Картинка для телефона', { max: 1920, size: { w: 1080, h: 1920, note: 'вертикальная, 9:16' }, hint: 'Необязательно: пусто — на телефоне та же, что для компьютера.' })]),
+        bg.image ? el('div', { class: 'a-row' }, [
+          selectIn(bg, 'pos', 'Где главное на картинке', [['', 'По центру'], ['top', 'Сверху'], ['bottom', 'Снизу'], ['left', 'Слева'], ['right', 'Справа']],
+            { def: '', hint: 'Эта часть картинки останется видна, когда края обрежутся.' }),
+          rangeIn(bg, 'veil', 'Дымка под надписями', { max: 90, step: 5, unit: '%', def: 30, hint: 'Светлая дымка цвета маршрута посередине — чтобы название и кнопки читались. 0 — картинка как есть.' })]) : null,
+        el('div', { class: 'a-theme' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Посмотреть заглушку',
+          onclick: function () { openPreview('routesoon', null, null, false, r.id); } })])
+      ]);
+    }
+    draw();
+    return box;
+  }
+  function routeSoonPageHTML(r, P) {
+    var st = P.settings, site = st.siteTitle || '13 MIRRORS', ms = P.showcases[st.currentShowcase] || P.showcases[Object.keys(P.showcases).sort().pop()] || {};
+    var card = null;
+    Object.keys(P.showcases).sort().forEach(function (id) { (P.showcases[id].cards || []).forEach(function (c) { if (c && c.visible !== false && c.back && c.back.routeId === r.id && (!card || id === ms.id)) card = c; }); });
+    var slim = { id: ms.id || '', title: ms.title || '', cardStyle: { font: (ms.cardStyle || {}).font || '' }, head: { color: (ms.head || {}).color || '' },
+      cards: card && card.back ? [{ id: card.id, back: { routeId: r.id, stub: card.back.stub || null } }] : [] };
+    var D = { settings: st, routes: { routes: [r] }, formats: P.formats, index: P.index, showcases: {} };
+    D.showcases[st.currentShowcase] = slim;
+    var dd = r.dates || {}, dt = [dd.from, dd.to].filter(Boolean).map(function (x) { var p = x.split('-'); return p[2] + '.' + p[1]; }).join('–');
+    var desc = String(r.description || '').trim() || 'Маршрут 13 MIRRORS', img = absImg(r.image || shareOf(ms, P).image, P), base = '../../';
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
+      '<title>' + escAttr(site + ' · ' + r.title) + '</title>\n' + metaTags({ url: siteUrl(P) + 'routes/' + r.id + '/', title: r.title + (dt ? ' · ' + dt : ''), description: desc, image: img, sized: !r.image }, P) + '\n' +
+      '<!-- Заглушка маршрута: создана панелью при публикации, пока у маршрута нет страницы по дням. Появится страница — займёт этот адрес. -->\n' +
+      '<link rel="stylesheet" href="' + base + 'assets/vitrina.css?v=' + ASSET_V + '">\n<style>html,body{margin:0;background:#1d1a16}</style>\n</head>\n<body class="m13-body">\n' +
+      '<div id="m13" data-base="' + base + '" data-view="routesoon" data-route="' + escAttr(r.id) + '"></div>\n' +
+      '<script>window.M13_DATA=' + JSON.stringify(D).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n' +
+      '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
+  }
+  // Каким маршрутам нужна заглушка: карточка на опубликованной витрине, маршрут ещё не закончился, своей страницы по дням нет
+  function routeSoonIds(P) {
+    var want = {}, today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+    Object.keys(P.showcases).forEach(function (id) { (P.showcases[id].cards || []).forEach(function (c) { if (c && c.visible !== false && c.back && c.back.routeId) want[c.back.routeId] = true; }); });
+    ((P.journeys || {}).items || []).forEach(function (j) { if (j) { delete want[j.id]; delete want[j.routeId]; } });
+    return ((P.routes || {}).routes || []).filter(function (r) {
+      return r && want[r.id] && /^[a-z0-9][a-z0-9-]*$/.test(r.id) && r.id !== 'preview' && r.id !== 'yellow-sun' && !String(r.routeUrl || '').trim() &&
+        !(r.dates && r.dates.to && r.dates.to < today);
+    });
+  }
   // Страница «Как идти по маршруту» routes/<id>/kak/ — создаёт публикация; тексты — journeys.json (r.howto)
   function howtoPageHTML(r, D) {
     var u = siteUrl(D), name = 'Как идти по маршруту · ' + (r.title || 'Маршрут');
     var pic = r.scene === 'doors' && r.doors && r.doors.desktop ? r.doors.desktop : r.masterDesktop;
     var img = pic && !/^data:/.test(pic) ? (/^https?:/.test(pic) ? pic : u + pic) : '';
-    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' +
+    return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr('13 MIRRORS · ' + name) + '</title>\n<meta name="description" content="' + escAttr('Как проходить маршрут «' + r.title + '»: вход, каждый день, финал, личный код') + '">\n' +
       '<meta property="og:type" content="website">\n<meta property="og:site_name" content="13 MIRRORS">\n<meta property="og:url" content="' + escAttr(u + 'routes/' + r.id + '/kak/') + '">\n' +
       '<meta property="og:title" content="' + escAttr(name) + '">\n<meta property="og:description" content="Коротко: вход, каждый день, финал, личный код">\n' +
@@ -7327,7 +7470,7 @@
   function libText(obj, key, label, part, o) {
     o = o || {};
     var v = obj[key] == null ? '' : String(obj[key]);
-    var i = el(o.line ? 'input' : 'textarea', { class: 'a-input', placeholder: o.ph || '', rows: o.line ? null : Math.max(o.rows || 2, Math.min(14, Math.ceil(v.length / 85) + v.split('\n').length - 1)) });
+    var i = el(o.line ? 'input' : 'textarea', { class: 'a-input', placeholder: o.ph || '', rows: o.line ? null : Math.max(o.rows || 2, Math.min(o.max || 14, Math.ceil(v.length / 85) + v.split('\n').length - 1)) });
     i.value = v;
     i.addEventListener('input', function () { obj[key] = i.value; libTouch(part, obj); if (o.onInput) o.onInput(i.value); });
     return field(label, i, o.hint);
@@ -7606,9 +7749,16 @@
   }
 
   /* ---------- Тоны и печати ---------- */
-  // Описание печати (её таблица «20 солнечных печатей», 09.10): [поле, подпись, в одну строку]
-  var LIB_SEAL_DESC = [['keywords', 'Ключевые слова', 1], ['force', 'Сила / энергия', 1], ['description', 'Описание', 0],
-    ['symbols', 'Символы и образы', 0], ['abilities', 'Способности и акценты', 0], ['source', 'Источник', 1]];
+  // Описание печати: её «Атлас печатей» 29.10 (по документу на печать, разделы 1–4) и таблица 09.10.
+  // Группы: [заголовок, [[поле, подпись, в одну строку, только если заполнено]]]
+  var LIB_SEAL_GROUPS = [
+    ['Взгляд источника', [['keywords', 'Ключевые слова', 1], ['force', 'Сила / энергия', 1], ['planet', 'Планета (по источнику)', 1],
+      ['description', 'Описание', 0], ['symbols', 'Символы и образы', 0, 1], ['abilities', 'Способности и акценты', 0, 1], ['source', 'Источник', 1], ['notes', 'Пометки', 0, 1]]],
+    ['Психологический перевод 13 MIRRORS', [['translation', '', 0]]],
+    ['Среда печати', [['env', '', 0]]],
+    ['Маршруты и тексты', [['routes', '', 0]]]];
+  var LIB_SEAL_DESC = [];
+  LIB_SEAL_GROUPS.forEach(function (g) { g[1].forEach(function (f) { LIB_SEAL_DESC.push([f[0], f[1] || g[0], f[2], f[3]]); }); });
   function libSignBody(a, o) {
     o = o || {};
     var kind = a.charAt(0), n = +a.slice(1), s = libSign(kind, n), P = 'signs', out = [];
@@ -7621,9 +7771,16 @@
       } else out.push(el('div', { class: 'a-lib-canon' }, [['Действие', c.action], ['Суть', c.essence], ['Сила', c.power], ['Вопрос', c.question]].filter(function (x) { return x[1]; })
         .map(function (x) { return el('span', {}, [el('small', { text: x[0] }), el('b', { text: x[1] })]); })));
       if (kind === 'S') {
-        out.push(el('div', { class: 'a-lib-grpt', text: 'Описание' }));
-        if (o.edit) LIB_SEAL_DESC.forEach(function (f) { out.push(libText(s, f[0], f[1], P, { line: !!f[2] })); });
-        else LIB_SEAL_DESC.forEach(function (f) { if (s[f[0]]) out.push(el('p', { class: 'a-lib-desc' }, [el('small', { text: f[1] + ': ' }), document.createTextNode(s[f[0]])])); });
+        LIB_SEAL_GROUPS.forEach(function (g) {
+          var fs = g[1].filter(function (f) { return !f[3] || s[f[0]]; });
+          if (!o.edit) fs = fs.filter(function (f) { return s[f[0]]; });
+          if (!fs.length) return;
+          out.push(el('div', { class: 'a-lib-grpt', text: g[0] }));
+          fs.forEach(function (f) {
+            if (o.edit) out.push(libText(s, f[0], f[1], P, { line: !!f[2], rows: f[2] ? null : 3, max: 32 }));
+            else out.push(el('p', { class: 'a-lib-desc' }, [f[1] ? el('small', { text: f[1] + ': ' }) : null, document.createTextNode(s[f[0]])]));
+          });
+        });
       }
       var H = s.workingHypotheses = s.workingHypotheses || [];
       out.push(el('div', { class: 'a-lib-grpt', text: 'Рабочие гипотезы (' + H.length + ')' }));
@@ -7664,8 +7821,13 @@
     var t = [], s = [], i;
     for (i = 1; i <= 13; i++) t.push(btn('T' + i));
     for (i = 1; i <= 20; i++) s.push(btn('S' + i, (i - 1) % 4));
+    var S = LIB.parts.signs, X = S && S.sealIndex, ix = null;
+    // Индекс её «Атласа печатей» (29.10): назначение, пары по планетам, открытые вопросы
+    if (X) ix = el('details', { class: 'a-card a-lib-stack' }, [el('summary', { class: 'a-lib-grpt', style: 'cursor:pointer', text: 'Об атласе печатей · пары по планетам · открытые вопросы' }),
+      libText(X, 'about', 'Об атласе печатей', 'signs', { rows: 4, max: 24 }), libText(X, 'pairs', 'Пары печатей по планетам (по источнику)', 'signs', { rows: 2, max: 24 }),
+      libText(X, 'questions', 'Открытые вопросы библиотеки', 'signs', { rows: 4, max: 24 })]);
     return [el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '13 тонов' }), el('div', { class: 'a-lib-signs' }, t)]),
-      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '20 печатей' }), el('div', { class: 'a-lib-signs' }, s)])];
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '20 печатей' }), el('div', { class: 'a-lib-signs' }, s)]), ix];
   }
 
   /* ---------- Цолькин и страница кина ---------- */
@@ -9529,13 +9691,448 @@
     ];
   }
 
+  /* ================= ЗАПИСЬ: программа записи клиентов на Beget (шаг 2 плана docs/zapis.md, 28.10) =================
+     Сервер — zapis.13mirrors.ru/panel.php (репозиторий 13mirrors-bot, zapis/). Настройки записи и занятое время живут
+     на Beget, не в черновике витрины: «Сохранить» вверху панели их не сохраняет — только «Сохранить на Beget» здесь.
+     Виды встреч — плашки карточки «Индивидуальная работа» (ключ — кнопка плашки: action.host); цена — с плашки.
+     Пароль записи — только в sessionStorage, как ключ GitHub. */
+  var ZP_URL = window.M13_ZAPIS_URL || 'https://zapis.13mirrors.ru/';
+  var ZP_KEY = 'm13-zapis';
+  var ZP = { pass: null, tab: 'list', busy: false, err: '', srv: null, set: null, dirty: false, free: null, freeKey: '', freeMode: '', freeBusy: false, box: null,
+    blk: { day: '', from: '10:00', to: '19:00', note: '', offline: false } };
+  try { ZP.pass = sessionStorage.getItem(ZP_KEY) || null; } catch (e) {}
+  var ZP_WD = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  var ZP_WD_S = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  // Её длительности (решение 28.10); для новых плашек — из строки «до 90 минут» или 60
+  var ZP_MIN = { individual_session: 90, shamanic_wheel: 60, constellations: 60, regression_session: 180 };
+  // Очные встречи (её решение 29.10): дорога до и после, не больше 2 в день; выключены, пока не включит сама
+  var ZP_OFF = { on: false, travelMin: 60, maxDay: 2, days: 'any', dates: [], address: '' };
+  var ZP_MODES = [['both', 'онлайн и очно'], ['online', 'только онлайн'], ['offline', 'только очно']];
+
+  function zpCall(action, extra) {
+    var body = { p: ZP.pass, action: action };
+    Object.keys(extra || {}).forEach(function (k) { body[k] = extra[k]; });
+    return fetch(ZP_URL + 'panel.php', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(body), cache: 'no-store' })
+      .catch(function () { throw new Error('Нет связи с программой записи (' + ZP_URL.replace(/^https?:\/\/|\/$/g, '') + '). Проверьте интернет и попробуйте ещё раз.'); })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (r.status === 401) { zpLogout(true); throw new Error('Пароль записи не подошёл. Войдите снова.'); }
+          if (!r.ok) throw new Error(d.error || 'Программа записи ответила ошибкой (код ' + r.status + ').');
+          return d;
+        });
+      });
+  }
+  function zpLogout(quiet) {
+    ZP.pass = null; ZP.srv = null; ZP.set = null; ZP.dirty = false; ZP.free = null; ZP.err = '';
+    try { sessionStorage.removeItem(ZP_KEY); } catch (e) {}
+    if (!quiet) { zpDraw(); toast('Вы вышли из записи.'); }
+  }
+  // Ответ сервера: настройки + занятое. Несохранённые правки настроек не затираем.
+  function zpTake(d) {
+    ZP.srv = d;
+    if (!ZP.dirty) { ZP.set = zpMerge(clone(d.settings)); ZP.dirty = zpDiffers(); }
+  }
+  function zpLoad() {
+    ZP.busy = true; ZP.err = ''; zpDraw();
+    return zpCall('get').then(function (d) { ZP.busy = false; zpTake(d); zpDraw(); })
+      .catch(function (e) { ZP.busy = false; ZP.err = e.message; zpDraw(); });
+  }
+
+  // Плашки «Индивидуальной работы» во всех месяцах: ключ → название, цена (число), строка длительности, подпись кнопки.
+  // Сначала месяц, который сейчас идёт, потом более поздние, потом ранние — у кого нашлось раньше, тот и главный.
+  function zpPlaques() {
+    var now = new Date(), cur = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+    var ids = Object.keys(DATA.showcases).sort();
+    ids = ids.filter(function (i) { return i >= cur; }).concat(ids.filter(function (i) { return i < cur; }).reverse());
+    var out = [], seen = {};
+    ids.forEach(function (id) {
+      (DATA.showcases[id].cards || []).forEach(function (c) {
+        if (c.id !== 'individual' || !c.back || !c.back.blocks) return;
+        c.back.blocks.forEach(function (b) {
+          (b.kind === 'items' ? b.items || [] : []).forEach(function (it) {
+            var key = it.action && it.action.host;
+            if (!key || seen[key]) return;
+            seen[key] = true;
+            var pr = String(it.price && it.price.value || '').replace(/\D/g, '');
+            out.push({ key: key, title: it.title || key, price: pr ? +pr : 0, priceText: it.price && it.price.value || '', month: id,
+              durText: it.duration && it.duration.value || '', label: it.action.label || '' });
+          });
+        });
+      });
+    });
+    return out;
+  }
+  // Виды встреч: с плашек (название и цена — оттуда) + сохранённые на Beget (вкл/выкл, длительность)
+  function zpMerge(s) {
+    var saved = {}, list = [];
+    (s.services || []).forEach(function (x) { saved[x.key] = x; });
+    zpPlaques().forEach(function (p) {
+      var o = saved[p.key], m = /(\d+)\s*мин/i.exec(p.durText);
+      list.push({ key: p.key, title: p.title, price: p.price, on: o ? !!o.on : /запис/i.test(p.label),
+        minutes: o ? o.minutes : ZP_MIN[p.key] || (m ? +m[1] : 60), modes: (o && o.modes) || 'both', plaque: p });
+      delete saved[p.key];
+    });
+    Object.keys(saved).forEach(function (k) { list.push(saved[k]); });
+    s.services = list;
+    // Программа записи на Beget старее 29.10 этих настроек не знает — исходные
+    s.offline = Object.assign(clone(ZP_OFF), s.offline || {});
+    if (s.freeMaxDay == null) s.freeMaxDay = 2;
+    return s;
+  }
+  function zpOut(s) {
+    var o = clone(s);
+    o.services = o.services.map(function (x) { return { key: x.key, title: x.title, on: !!x.on, minutes: +x.minutes || 60, price: +x.price || 0, modes: x.modes || 'both' }; });
+    delete o.updated;
+    return o;
+  }
+  // Отличается ли то, что на экране, от сохранённого на Beget (например, на плашке поменяли цену)
+  function zpDiffers() {
+    if (!ZP.srv || !ZP.set) return false;
+    var a = zpOut(ZP.set), b = clone(ZP.srv.settings); delete b.updated;
+    return JSON.stringify(a) !== JSON.stringify(b);
+  }
+  function zpChanged() {
+    ZP.dirty = true;
+    var s = ZP.box && ZP.box.querySelector('.a-ak-state');
+    if (s) { s.textContent = 'Есть несохранённые изменения'; s.classList.add('is-dirty'); }
+  }
+  function zpSave() {
+    busy('Сохраняем настройки записи на Beget…');
+    return zpCall('save', { settings: zpOut(ZP.set) }).then(function (d) {
+      busy(null); ZP.dirty = false; zpTake(d); ZP.free = null; zpDraw(); toast('Настройки записи сохранены на Beget.');
+    }).catch(function (e) { busy(null); toast(e.message, true); });
+  }
+
+  function viewZapis() {
+    ZP.box = el('div', { class: 'a-pp a-zp' });
+    zpDraw();
+    if (ZP.pass && !ZP.srv && !ZP.busy && ZP.tab !== 'site') zpLoad();
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'Запись' }),
+        el('p', { class: 'a-lead', text: 'Запись клиентов на встречи по календарю с оплатой через ЮKassa (программа работает на Beget). Здесь — записи, часы работы, виды встреч и как выглядит окошко записи на сайте.' })]),
+      ZP.box
+    ];
+  }
+  function zpDraw() {
+    var box = ZP.box;
+    if (!box) return;
+    box.replaceChildren();
+    var tabs = [['list', 'Записи'], ['set', 'Расписание и встречи'], ['see', 'Как увидит человек'], ['site', 'Окошко на сайте'], ['state', 'Состояние']];
+    var tabBar = el('div', { class: 'a-tabs a-pp-tabs' }, tabs.map(function (t) {
+      return el('button', { type: 'button', class: ZP.tab === t[0] ? 'is-active' : '', text: t[1], onclick: function () { ZP.tab = t[0]; zpDraw(); if (t[0] !== 'site' && ZP.pass && !ZP.srv && !ZP.busy) zpLoad(); } });
+    }));
+    // «Окошко на сайте» — это данные витрины (верхняя «Сохранить»), пароль записи для него не нужен
+    if (ZP.tab === 'site') { add(box, [tabBar].concat(zpSiteBlocks())); return; }
+    if (!ZP.pass) { add(box, [tabBar, zpLoginBox()]); return; }
+    add(box, [
+      tabBar,
+      ZP.err ? el('div', { class: 'a-note' }, [ZP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: zpLoad })]) : null,
+      !ZP.srv ? (ZP.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем с Beget…' })]) : null)
+        : ZP.tab === 'set' ? zpSetBlocks() : ZP.tab === 'see' ? zpSeeBlock() : ZP.tab === 'state' ? zpStateBlock() : zpListBlocks(),
+      el('p', { class: 'a-hint a-pp-foot' }, ['Пароль записи хранится только в этой вкладке. ',
+        el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти из записи', onclick: function () {
+          if (ZP.dirty) dialog({ title: 'Выйти без сохранения?', body: 'Изменения в расписании и встречах ещё не сохранены на Beget — они пропадут.',
+            buttons: [['out', 'Выйти', 'danger'], ['cancel', 'Остаться', 'dark']] }).then(function (v) { if (v === 'out') zpLogout(); });
+          else zpLogout();
+        } })])
+    ]);
+  }
+  function zpLoginBox() {
+    var input = el('input', { class: 'a-input', type: 'password', autocomplete: 'current-password', placeholder: 'Пароль записи' });
+    function go() {
+      var v = input.value.trim();
+      if (v.length < 10) { toast('Пароль записи — не короче 10 знаков (тот, что в app/config.php на Beget, сайт zapis).', true); return; }
+      ZP.pass = v;
+      try { sessionStorage.setItem(ZP_KEY, v); } catch (e) {}
+      zpLoad();
+    }
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+    setTimeout(function () { input.focus(); }, 50);
+    return el('div', { class: 'a-card a-pp-login' }, [
+      el('label', { class: 'a-label', text: 'Пароль записи' }),
+      el('div', { class: 'a-pp-row' }, [input, el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Войти', onclick: go })]),
+      el('p', { class: 'a-hint', text: 'Пароль, который вы вписали в app/config.php на Beget (сайт zapis.13mirrors.ru). Хранится только в этой вкладке и забывается, когда вы её закрываете.' })
+    ]);
+  }
+
+  // ---------- Даты ----------
+  function zpDay(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function zpDayText(s) { var d = zpDay(s); return ZP_WD_S[d.getDay()] + ' ' + pad(d.getDate()) + '.' + pad(d.getMonth() + 1); }
+  function zpToday() { return (ZP.srv && ZP.srv.now || '').slice(0, 10); }
+  function zpPlural(n, a, b, c) { n = Math.abs(n) % 100; var k = n % 10; if (n > 10 && n < 20) return c; if (k > 1 && k < 5) return b; if (k === 1) return a; return c; }
+
+  // ---------- Записи ----------
+  function zpListBlocks() {
+    var today = zpToday(), all = ZP.srv.slots || [];
+    var ahead = all.filter(function (r) { return r.day >= today; }), past = all.filter(function (r) { return r.day < today; }).reverse();
+    var paid = ahead.filter(function (r) { return r.status === 'paid' || r.status === 'booked'; }).length;
+    return [
+      block('Впереди', [
+        el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Обновить', onclick: zpLoad })]),
+        el('div', { class: 'a-pp-list' }, ahead.length ? ahead.map(zpRow) : el('p', { class: 'a-empty', text: 'Пока ни одной записи и ничего не закрыто.' })),
+        el('p', { class: 'a-hint', text: 'Здесь только время и вид встречи — ни имени, ни телефона сервер не хранит. Кто записался, вы узнаете, когда человек вам напишет (и от бота — на последнем шаге).' })
+      ], { note: paid ? String(paid) : '' }),
+      zpBlockForm(),
+      past.length ? block('Прошедшие (30 дней)', [el('div', { class: 'a-pp-list' }, past.map(zpRow)),
+        el('p', { class: 'a-hint', text: 'Прошедшие старше 90 дней удаляются сами.' })], { open: false, note: String(past.length) }) : null
+    ];
+  }
+  function zpRow(r) {
+    var what = r.status === 'block' ? 'Закрыто вами' + (r.mode === 'offline' ? ' · очно' : '') + (r.note ? ' · ' + r.note : '')
+      : [r.title || r.service, r.mode === 'offline' ? 'очно' : r.mode === 'online' ? 'онлайн' : '', r.price ? r.price.toLocaleString('ru-RU') + ' ₽' : ''].filter(Boolean).join(' · ');
+    var tag = r.status === 'paid' ? el('span', { class: 'a-tag a-tag--pub', text: 'оплачено' })
+      : r.status === 'booked' ? el('span', { class: 'a-tag a-tag--pub', text: 'записан(а), без оплаты' })
+      : r.status === 'hold' ? el('span', { class: 'a-tag a-tag--draft', text: 'на оплате до ' + String(r.hold_until || '').slice(11, 16) })
+      : el('span', { class: 'a-tag', text: 'занята' });
+    return el('div', { class: 'a-pp-item a-zp-item' }, [
+      el('span', { class: 'a-pp-date', text: zpDayText(r.day) + ', ' + r.from + '–' + r.to }),
+      el('span', { class: 'a-zp-what', text: what }), tag,
+      r.day >= zpToday() ? el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Освободить', onclick: function () { zpRelease(r); } }) : el('span')
+    ]);
+  }
+  function zpRelease(r) {
+    var paid = r.status === 'paid';
+    dialog({ title: 'Освободить ' + zpDayText(r.day) + ', ' + r.from + '–' + r.to + '?',
+      body: r.status === 'block' ? 'Это время снова станет свободным для записи.'
+        : 'Запись удалится, время снова станет свободным для записи.' + (paid ? ' Деньги сами не вернутся: если нужен возврат — сделайте его в ЮKassa.' : ''),
+      buttons: [['go', 'Освободить', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
+      if (v !== 'go') return;
+      busy('Освобождаем время…');
+      zpCall('release', { code: r.code }).then(function (d) { busy(null); zpTake(d); ZP.free = null; zpDraw(); toast(d.released ? 'Время освобождено.' : 'Этой записи уже не было.'); })
+        .catch(function (e) { busy(null); toast(e.message, true); });
+    });
+  }
+  function zpBlockForm() {
+    var b = ZP.blk;
+    if (!b.day) b.day = zpToday();
+    function inp(key, type, ph) {
+      var i = el('input', { class: 'a-input', type: type, value: b[key], placeholder: ph || '' });
+      i.addEventListener('input', function () { b[key] = i.value; });
+      return i;
+    }
+    var off = el('input', { type: 'checkbox', checked: !!b.offline });
+    off.addEventListener('change', function () { b.offline = off.checked; });
+    return block('Закрыть время', [
+      el('div', { class: 'a-zp-blk' }, [field('День', inp('day', 'date')), field('С', inp('from', 'time')), field('До', inp('to', 'time')),
+        field('Пометка (видна только вам)', inp('note', 'text', 'например: врач, фонд'))]),
+      el('label', { class: 'a-switch' }, [off, el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text' }, ['Очно (учесть дорогу)',
+        el('small', { text: 'Например, встреча в фонде: сайт сам придержит до и после время на дорогу (из «Очных встреч», сейчас ' + ((ZP.set && ZP.set.offline && ZP.set.offline.travelMin) || 60) + ' мин) и посчитает её в «очных в день».' })])]),
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Закрыть время', onclick: function () {
+        busy('Закрываем время…');
+        zpCall('block', { day: b.day, from: b.from, to: b.to, note: b.note, offline: !!b.offline }).then(function (d) {
+          busy(null); b.note = ''; b.offline = false; zpTake(d); ZP.free = null; zpDraw(); toast('Время закрыто: ' + zpDayText(b.day) + ', ' + b.from + '–' + b.to + '.');
+        }).catch(function (e) { busy(null); toast(e.message, true); });
+      } })]),
+      el('p', { class: 'a-hint', text: 'Это время на сайте не предложат (с перерывом до и после). Целые дни и отпуск — в «Расписании», «Выходные и отпуск». Позже закрывать время можно будет и прямо из Бизнес-календаря.' })
+    ], { open: false });
+  }
+
+  // ---------- Расписание и встречи ----------
+  function zpNum(obj, key, label, o) {
+    o = o || {};
+    var i = el('input', { class: 'a-input a-zp-num', type: 'number', min: o.min, max: o.max, step: o.step || 1, value: obj[key] });
+    i.addEventListener('input', function () { obj[key] = i.value === '' ? '' : +i.value; zpChanged(); });
+    return field(label, i, o.hint);
+  }
+  function zpTime(obj, key, label) {
+    var i = el('input', { class: 'a-input', type: 'time', step: 300, value: obj[key], 'aria-label': label });
+    i.addEventListener('input', function () { if (i.value) { obj[key] = i.value; zpChanged(); } });
+    return i;
+  }
+  function zpCheck(obj, key, label, onChange) {
+    var cb = el('input', { type: 'checkbox', checked: !!obj[key] });
+    cb.addEventListener('change', function () { obj[key] = cb.checked; zpChanged(); if (onChange) onChange(cb.checked); });
+    return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }), el('span', { class: 'a-switch-text', text: label })]);
+  }
+  function zpSetBlocks() {
+    var s = ZP.set;
+    var week = el('div', { class: 'a-zp-week' }, s.week.map(function (w, i) {
+      var row = el('div', { class: 'a-zp-day' + (w.on ? '' : ' is-off') });
+      return add(row, [zpCheck(w, 'on', ZP_WD[i], function (on) { row.classList.toggle('is-off', !on); }),
+        el('span', { class: 'a-zp-hours' }, ['с ', zpTime(w, 'from', ZP_WD[i] + ', с'), ' до ', zpTime(w, 'to', ZP_WD[i] + ', до')])]);
+    }));
+    var offBox = el('div', { class: 'a-zp-offs' });
+    function drawOff() {
+      offBox.replaceChildren();
+      add(offBox, s.off.length ? s.off.map(function (o, i) {
+        function d(key) {
+          var x = el('input', { class: 'a-input', type: 'date', value: o[key] });
+          x.addEventListener('input', function () { o[key] = x.value; if (key === 'from' && (!o.to || o.to < x.value)) { o.to = x.value; drawOff(); } zpChanged(); });
+          return x;
+        }
+        var note = el('input', { class: 'a-input', type: 'text', value: o.note || '', placeholder: 'например: отпуск' });
+        note.addEventListener('input', function () { o.note = note.value; zpChanged(); });
+        return el('div', { class: 'a-zp-off' }, [field('С', d('from')), field('По', d('to')), field('Пометка', note),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✕', title: 'Убрать', 'aria-label': 'Убрать', onclick: function () { s.off.splice(i, 1); zpChanged(); drawOff(); } })]);
+      }) : el('p', { class: 'a-empty', text: 'Нет. Все дни — по часам работы выше.' }));
+    }
+    drawOff();
+    var svc = el('div', { class: 'a-zp-svcs' }, s.services.map(function (x) {
+      var p = x.plaque, row = el('div', { class: 'a-zp-svc' + (x.on ? '' : ' is-off') });
+      var how = el('select', { class: 'a-input' }, ZP_MODES.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
+      how.value = x.modes || 'both'; how.addEventListener('change', function () { x.modes = how.value; zpChanged(); });
+      return add(row, [
+        zpCheck(x, 'on', x.title, function (on) { row.classList.toggle('is-off', !on); }),
+        zpNum(x, 'minutes', 'Длительность, минут', { min: 15, max: 720, step: 15 }),
+        field('Как проходит', how),
+        el('span', { class: 'a-hint' }, (p ? ['Цена — с плашки: ' + (p.priceText || 'не указана'), p.durText ? el('br') : null, p.durText ? 'На плашке написано: «' + p.durText + '»' : null]
+          : ['Этой плашки сейчас нет на витрине (цена — сохранённая: ' + (x.price || 0).toLocaleString('ru-RU') + ' ₽)']).concat(
+          !(+x.price > 0) ? [el('br'), 'Без цены — на сайте «Записаться» без оплаты (встреча-знакомство).'] : []))]);
+    }));
+    var o = s.offline;
+    var dateBox = el('div', { class: 'a-zp-offs', hidden: o.days !== 'dates' });
+    function drawDates() {
+      dateBox.replaceChildren();
+      add(dateBox, [o.dates.length ? el('div', { class: 'a-zp-dates' }, o.dates.map(function (d, i) {
+        return el('span', { class: 'a-tag a-zp-date' }, [zpDayText(d) + ' ', el('button', { type: 'button', class: 'a-gh-btn', text: '✕', title: 'Убрать', 'aria-label': 'Убрать ' + d,
+          onclick: function () { o.dates.splice(i, 1); zpChanged(); drawDates(); } })]);
+      })) : el('p', { class: 'a-empty', text: 'Дат пока нет — очно никто не запишется.' }),
+      (function () {
+        var x = el('input', { class: 'a-input', type: 'date', 'aria-label': 'Добавить дату' });
+        x.addEventListener('change', function () { if (x.value && o.dates.indexOf(x.value) < 0) { o.dates.push(x.value); o.dates.sort(); zpChanged(); drawDates(); } });
+        return field('Добавить дату', x);
+      })()]);
+    }
+    drawDates();
+    var daysSel = el('select', { class: 'a-input' }, [el('option', { value: 'any', text: 'в любой рабочий день' }), el('option', { value: 'dates', text: 'только в выбранные даты' })]);
+    daysSel.value = o.days; daysSel.addEventListener('change', function () { o.days = daysSel.value; dateBox.hidden = o.days !== 'dates'; zpChanged(); });
+    var addr = el('input', { class: 'a-input', type: 'text', value: o.address || '', placeholder: 'например: Москва, ул. …, кабинет 5' });
+    addr.addEventListener('input', function () { o.address = addr.value; zpChanged(); });
+    var offBody = el('div', { hidden: !o.on }, [
+      el('div', { class: 'a-zp-nums' }, [
+        zpNum(o, 'travelMin', 'Дорога до и после, минут', { min: 0, max: 360, step: 5, hint: 'Между очной и онлайн-встречей. Между двумя очными — обычный перерыв.' }),
+        zpNum(o, 'maxDay', 'Очных в день — не больше', { min: 1, max: 10, hint: 'Закрытое вами «очно» (например, фонд) тоже считается.' })]),
+      field('Когда можно очно', daysSel), dateBox,
+      field('Адрес', addr, 'Человек увидит его после записи. Пусто — «Адрес пришлю в сообщении».')]);
+    var foot = el('div', { class: 'a-zp-save' }, [
+      el('span', { class: 'a-ak-state' + (ZP.dirty ? ' is-dirty' : ''), text: ZP.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' }),
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Сохранить на Beget', onclick: zpSave }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Отменить изменения', onclick: function () { ZP.dirty = false; zpTake(ZP.srv); zpDraw(); } })]);
+    return [
+      block('Запись на сайте', [
+        zpCheck(s, 'open', 'Запись открыта'),
+        el('p', { class: 'a-hint', text: 'Выключено — сайт время не предлагает: у встреч, включённых ниже, окошко покажет «Запись временно через сообщение». Можно включить и до ключей ЮKassa (пока магазин на проверке): человек выберет время, а «Оплатить» предложит написать вам с готовым текстом. Ключи вписаны — «Оплатить» сам начнёт открывать ЮKassa. Как окошко выглядит и что в нём написано — вкладка «Окошко на сайте».' })]),
+      block('Часы работы', [week, el('p', { class: 'a-hint', text: 'Время — по Москве. Встреча целиком помещается в часы работы: при часах 10:00–19:00 регрессию (3 часа) можно начать не позже 16:00.' })]),
+      block('Правила', [el('div', { class: 'a-zp-nums' }, [
+        zpNum(s, 'breakMin', 'Перерыв между встречами, минут', { min: 0, max: 240, step: 5 }),
+        field('Время начала — каждые … минут', (function () {
+          var x = el('select', { class: 'a-input' }, [15, 30, 60].map(function (n) { return el('option', { value: String(n), text: String(n) }); }));
+          x.value = String(s.step); x.addEventListener('change', function () { s.step = +x.value; zpChanged(); });
+          return x;
+        })(), 'Начала — ровно по шагу от начала дня: 10:00, 10:30, 11:00…'),
+        zpNum(s, 'noticeH', 'Записаться можно не позже чем за … часов', { min: 0, max: 336 }),
+        zpNum(s, 'aheadD', 'Открывать запись на … дней вперёд', { min: 1, max: 180 }),
+        zpNum(s, 'cancelH', 'Отменить или перенести — не позднее чем за … часов', { min: 0, max: 336, hint: 'Это число подставится в вашу фразу про отмену в окошке записи.' }),
+        zpNum(s, 'holdMin', 'Пока человек платит, время держится за ним … минут', { min: 5, max: 60 }),
+        zpNum(s, 'freeMaxDay', 'Записей без оплаты в день — не больше', { min: 0, max: 50, hint: 'Для встреч без цены (встреча-знакомство): записаться можно, не платя, — так никто не займёт всё время. 0 — без оплаты не записывать.' })])]),
+      block('Выходные и отпуск', [offBox, el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ Добавить дни', onclick: function () {
+        var t = zpToday(); s.off.push({ from: t, to: t, note: '' }); zpChanged(); drawOff(); } })]),
+        el('p', { class: 'a-hint', text: 'В эти дни (включительно) запись закрыта целиком. Прошедшие можно убрать.' })]),
+      block('Очные встречи', [
+        zpCheck(o, 'on', 'Предлагать очные встречи на сайте', function (on) { offBody.hidden = !on; }),
+        el('p', { class: 'a-hint', text: 'Выключено — на сайте записываются только онлайн (встречи «только очно» тогда — как раньше, «Куда написать?»). Включено — у встреч «онлайн и очно» человек сначала выбирает «Онлайн» или «Очно», потом видит свободное время.' }),
+        offBody], { open: !!o.on }),
+      block('Виды встреч', [svc.childNodes.length ? svc : el('p', { class: 'a-empty', text: 'На витрине нет карточки «Индивидуальная работа» с плашками.' }),
+        el('p', { class: 'a-hint', text: 'Это плашки карточки «Индивидуальная работа» (названия и цены — с них; поменяли на плашке — нажмите здесь «Сохранить на Beget»). Включено — «Записаться» на плашке откроет окошко записи по календарю; выключено — как сейчас, окно «Куда написать?». Свободное время считается по длительности.' })]),
+      foot
+    ];
+  }
+
+  // ---------- Как увидит человек ----------
+  function zpSeeBlock() {
+    var on = ZP.set.services.filter(function (x) { return x.on; });
+    if (!ZP.freeKey || !on.some(function (x) { return x.key === ZP.freeKey; })) { ZP.freeKey = on[0] ? on[0].key : ''; ZP.free = null; }
+    function load() {
+      ZP.freeBusy = true; zpDraw();
+      zpCall('free', { service: ZP.freeKey, mode: ZP.freeMode }).then(function (d) { ZP.freeBusy = false; ZP.free = d; zpDraw(); })
+        .catch(function (e) { ZP.freeBusy = false; toast(e.message, true); zpDraw(); });
+    }
+    if (ZP.freeKey && !ZP.free && !ZP.freeBusy) setTimeout(load, 0);
+    var pick = el('select', { class: 'a-input' }, on.map(function (x) { return el('option', { value: x.key, text: x.title }); }));
+    pick.value = ZP.freeKey;
+    pick.addEventListener('change', function () { ZP.freeKey = pick.value; ZP.freeMode = ''; ZP.free = null; zpDraw(); });
+    var fm = ZP.free && ZP.free.modes && ZP.free.modes.length > 1 ? el('select', { class: 'a-input' }, ZP.free.modes.map(function (m) { return el('option', { value: m, text: m === 'offline' ? 'очно' : 'онлайн' }); })) : null;
+    if (fm) { fm.value = ZP.free.mode; fm.addEventListener('change', function () { ZP.freeMode = fm.value; ZP.free = null; zpDraw(); }); }
+    var f = ZP.free, days = f && f.ok ? Object.keys(f.days) : [];
+    var nFree = days.filter(function (d) { return f.days[d].length; }).length;
+    return block('Свободное время', [
+      on.length ? el('div', { class: 'a-row' }, [field('Вид встречи', pick), fm ? field('Как встречаемся', fm) : null]) : el('p', { class: 'a-empty', text: 'Ни одна встреча не включена — включите в «Расписании и встречах».' }),
+      ZP.dirty ? el('div', { class: 'a-note', text: 'Здесь — по настройкам, сохранённым на Beget. Ваши несохранённые изменения пока не учтены.' }) : null,
+      ZP.freeBusy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Считаем…' })]) : null,
+      f && !f.ok ? el('p', { class: 'a-empty', text: 'Эта встреча на Beget ещё не включена — сохраните «Расписание и встречи».' }) : null,
+      f && f.ok ? el('p', { class: 'a-hint', text: f.service.title + ' · ' + f.service.minutes + ' минут · ' + (f.service.price ? f.service.price.toLocaleString('ru-RU') + ' ₽' : 'без оплаты') + '. Свободных дней: ' + nFree + ' из ' + days.length + (f.mode === 'offline' && ZP.set.offline.days === 'dates' ? ' дат для очных.' : ' рабочих.') }) : null,
+      f && f.ok ? el('div', { class: 'a-zp-see' }, days.map(function (d) {
+        var t = f.days[d];
+        return el('div', { class: 'a-zp-seeday' + (t.length ? '' : ' is-full') }, [el('b', { text: zpDayText(d) }),
+          el('span', { text: t.length ? t.join('  ') : 'всё занято' })]);
+      })) : null,
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Обновить', disabled: !ZP.freeKey || ZP.freeBusy, onclick: function () { ZP.free = null; load(); } })]),
+      el('p', { class: 'a-hint', text: 'Так время увидит человек в окошке записи (время по Москве). Выходные и нерабочие дни не показаны. Сегодня и ближайшие часы закрыты правилом «не позже чем за … часов».' })
+    ]);
+  }
+
+  // ---------- Окошко на сайте (settings.zapis: вид, надписи, строка-мостик; сохраняется верхней «Сохранить») ----------
+  function zpSiteBlocks() {
+    var st = DATA.settings, z = st.zapis = st.zapis || {};
+    z.own = z.own || {}; z.texts = z.texts || {}; z.bridge = z.bridge || {};
+    var pl = zpPlaques(), month = pl[0] ? pl[0].month : ST.showcase || st.currentShowcase;
+    function look(kind) {
+      var sc = DATA.showcases[month], c = sc && (sc.cards || []).filter(function (x) { return x.id === 'individual'; })[0];
+      openPreview('showcase', month, c ? c.id : null, kind);
+    }
+    var fonts = [['calm', 'Простой тонкий (Montserrat)'], ['month', 'Как у витрины месяца']].concat((window.M13.FONTS || []).map(function (f) { return [f, f]; }));
+    var ownBox = el('div', { class: 'a-zp-own', hidden: z.look !== 'own' }, [
+      el('div', { class: 'a-row' }, [fontLook(selectIn(z.own, 'font', 'Шрифт', fonts, { def: 'calm' })),
+        selectIn(z.own, 'btn', 'Кнопки', [['fill', 'Ровная заливка'], ['line', 'Контур'], ['glass', 'Стекло'], ['shimmer', 'Перелив']], { def: 'fill' })]),
+      el('div', { class: 'a-row' }, [selectIn(z.own, 'mark', 'Как отмечать свободные дни', [['circle', 'Светлый кружок цвета месяца'], ['glow', 'Свечение (как у календаря витрины)'], ['bold', 'Жирная цифра']], { def: 'circle' }),
+        switchIn(z.own, 'glint', 'Блик пробегает по кнопке')])]);
+    var texts = (window.M13.ZAPIS_TXT || []).filter(function (d) { return d[0] !== 'bridge'; });
+    var textBox = el('div', {}, texts.map(function (d) { return textIn(z.texts, d[0], d[1], { ph: d[2], multi: !!d[3], rows: 2 }); }));
+    return [
+      block('Вид окна записи', [
+        selectIn(z, 'look', 'Вид', [['calm', 'Спокойный — тонкий простой шрифт, ровные кнопки, тонкий контур'], ['vitrina', 'Как у витрины — как окно «Куда написать?»: шрифт, кнопки, блик, контур'], ['own', 'Свой']],
+          { def: 'calm', onChange: function (v) { ownBox.hidden = v !== 'own'; } }),
+        ownBox,
+        el('p', { class: 'a-hint', text: 'Цвета окна всегда берутся с витрины месяца (оборот карточки, откуда открыто, — как у окна «Куда написать?»). Свободный день — светлым кружком, выбранный — заливкой цвета месяца (в «Своём» можно иначе).' }),
+        el('div', { class: 'a-pp-row' }, [
+          el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть окошко', onclick: function () { look('zapis'); } }),
+          el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть «Вы записаны»', onclick: function () { look('zapis-done'); } })]),
+        el('p', { class: 'a-hint', text: 'В предпросмотре расписание выдуманное и оплата не открывается. Несохранённые изменения здесь видны сразу.' })]),
+      block('После записи: «Напишите мне»', [
+        selectIn(z, 'tell', 'Кнопка Telegram ведёт', [['bot', 'к боту Host — с номером записи'], ['me', 'в ваш личный Telegram (как в «Настройках» → контакты)']], { def: 'bot' }),
+        el('p', { class: 'a-hint', text: 'В окне «Вы записаны» человек нажимает Telegram — текст «Я записан(а): …» копируется, и открывается чат. С ботом Host бот видит номер записи (Z-…); сообщать вам о новой записи сам бот научится на шаге 5. VK — всегда ваш.' })]),
+      block('Строка-мостик под календарём витрины', [
+        switchIn(z.bridge, 'on', 'Показывать под календарём витрины'),
+        textIn(z.bridge, 'text', 'Текст', { ph: window.M13.ZAPIS_TXT ? window.M13.ZAPIS_TXT.filter(function (d) { return d[0] === 'bridge'; })[0][2] : '' }),
+        pl.length ? selectIn(z.bridge, 'key', 'Какую встречу открывает', pl.map(function (p) { return [p.key, p.title]; }), { def: 'individual_session' }) : null,
+        el('p', { class: 'a-hint', text: 'Строка внизу карточки-календаря месяца. Нажали — окошко записи сразу на месяце этого календаря.' })]),
+      block('Надписи в окне записи', [
+        el('p', { class: 'a-hint', text: 'Пустое поле — надпись как по умолчанию (она серым в поле). Подставляются сами: {название} — встреча, {день}, {время}, {как} — онлайн или очно, {часы} — «12 часов» (из «Отмена — не позднее чем за»), {цена}.' }),
+        textBox,
+        el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Вернуть все надписи как было', onclick: function () {
+          z.texts = {}; changed(); zpDraw(); toast('Надписи окна записи — как по умолчанию. Не забудьте «Сохранить».'); } })])
+      ], { open: false })
+    ];
+  }
+
+  function zpStateBlock() {
+    var st = ZP.srv;
+    return block('Состояние', [
+      el('ul', { class: 'a-pp-checks' }, st.checks.map(function (c) { return el('li', { class: c[0] ? '' : 'is-bad', text: (c[0] ? '✅ ' : '❌ ') + c[1] }); })),
+      el('p', { class: 'a-hint', text: 'Программа записи: ' + ZP_URL.replace(/\/$/, '') + ' (время на Beget: ' + String(st.now || '').replace('T', ' ').slice(0, 16) + ', Мск).' }),
+      el('p', { class: 'a-hint', text: 'ЮKassa: shopId и секретный ключ — в app/config.php на Beget (shop_id, secret_key; в чат и сюда их не вписывать). В личном кабинете ЮKassa → «Интеграция» → «HTTP-уведомления» — адрес ' + ZP_URL + 'kassa.php, события «payment.succeeded» и «payment.canceled».' }),
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Проверить', onclick: zpLoad })])
+    ]);
+  }
+
   /* ================= ПСИПОИНТ: бот с тестами на Beget (её просьба 20.10: «я забуду про setup.php») =================
      Состояние бота с кнопками «Включить / Выключить» и результаты тестов. Сервер — psypoint.13mirrors.ru/panel.php
      (репозиторий 13mirrors-bot, psypoint/). Пароль ПсиПоинта — только в sessionStorage, как ключ GitHub.
      Результаты живут только здесь, в памяти вкладки: в черновик, в браузер и в GitHub не попадают. */
   var PP_URL = 'https://psypoint.13mirrors.ru/';
   var PP_KEY = 'm13-psypoint';
-  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, saved: {}, box: null };
+  var PP = { pass: null, status: null, statusBusy: false, results: null, resultsBusy: false, err: '', q: '', open: {}, saved: {}, box: null,
+    tab: 'results', ak: { list: null, busy: false, ed: null } };
   try { PP.pass = sessionStorage.getItem(PP_KEY) || null; } catch (e) {}
 
   function ppCall(action, extra) {
@@ -9553,7 +10150,7 @@
       });
   }
   function ppLogout(quiet) {
-    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.saved = {}; PP.err = '';
+    PP.pass = null; PP.status = null; PP.results = null; PP.open = {}; PP.saved = {}; PP.err = ''; PP.ak = { list: null, busy: false, ed: null };
     try { sessionStorage.removeItem(PP_KEY); } catch (e) {}
     if (!quiet) { ppDraw(); toast('Вы вышли из ПсиПоинта. Результаты убраны с экрана.'); }
   }
@@ -9578,7 +10175,7 @@
     if (PP.pass && !PP.results && !PP.resultsBusy) ppLoad();
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'ПсиПоинт' }),
-        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами в Телеграме (работает на Beget). Здесь — включён ли он и результаты тестов.' })]),
+        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами и анкетами в Телеграме (работает на Beget). Здесь — результаты, тексты анкет и включён ли бот.' })]),
       PP.box
     ];
   }
@@ -9587,10 +10184,14 @@
     if (!box) return;
     box.replaceChildren();
     if (!PP.pass) { add(box, ppLoginBox()); return; }
+    if (PP.tab === 'anketas' && !PP.ak.list && !PP.ak.busy && !PP.err) { akLoad(); return; }
     add(box, [
-      PP.err ? el('div', { class: 'a-note' }, [PP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: ppLoad })]) : null,
-      ppStatusBlock(),
-      ppResultsBlock(),
+      el('div', { class: 'a-tabs a-pp-tabs' }, [['results', 'Результаты'], ['anketas', 'Анкеты'], ['status', 'Состояние бота']].map(function (t) {
+        return el('button', { type: 'button', class: PP.tab === t[0] ? 'is-active' : '', text: t[1], onclick: function () { PP.tab = t[0]; PP.err = ''; ppDraw(); } });
+      })),
+      PP.err ? el('div', { class: 'a-note' }, [PP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз',
+        onclick: PP.tab === 'anketas' ? function () { PP.err = ''; akLoad(); } : ppLoad })]) : null,
+      PP.tab === 'status' ? ppStatusBlock() : PP.tab === 'anketas' ? akBlock() : ppResultsBlock(),
       el('p', { class: 'a-hint a-pp-foot' }, ['Пароль ПсиПоинта хранится только в этой вкладке. ',
         el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти из ПсиПоинта', onclick: function () { ppLogout(); } }),
         el('br'), 'Запасной вход, если панель не открывается: psypoint.13mirrors.ru/setup.php'])
@@ -9641,7 +10242,10 @@
     return [r.tg_username ? '@' + r.tg_username : '', r.tg_first_name || ''].filter(Boolean).join(' · ') || (r.source === 'site' ? 'с сайта, без имени' : 'без имени');
   }
   function ppDate(s) { var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)/.exec(s || ''); return m ? m[3] + '.' + m[2] + '.' + m[1] + ' ' + m[4] + ':' + m[5] : (s || ''); }
+  // Анкета перед встречей (ПсиПоинт, 27.10): без баллов, ответы — выбор кнопками и свои слова
+  function ppIsAnketa(r) { return (r.answers || []).some(function (a) { return a.texts !== undefined; }); }
   function ppScores(r) {
+    if (ppIsAnketa(r)) return 'анкета';
     return Object.keys(r.scores || {}).map(function (k) { var s = r.scores[k]; return s.name + ' ' + s.score + '/' + s.max; }).join(' · ');
   }
   function ppFiltered() {
@@ -9698,6 +10302,10 @@
           var s = r.scores[k]; return el('li', {}, [el('b', { text: s.name + ': ' + s.score + ' из ' + s.max }), s.text ? ' — ' + s.text : '']);
         })),
         el('ol', { class: 'a-pp-answers' }, (r.answers || []).map(function (a) {
+          if (a.texts !== undefined) return el('li', {}, [el('span', { text: a.question }),
+            a.choice && a.choice.length ? el('small', { text: 'Выбрано: ' + a.choice.join(', ') }) : null,
+            a.texts.length ? el('div', { class: 'a-pp-text', text: a.texts.join('\n\n') }) : null,
+            !(a.choice && a.choice.length) && !a.texts.length ? el('small', { text: '— пропущено' }) : null]);
           return el('li', {}, [el('span', { text: a.question }), el('small', { text: a.answer + ' · ' + a.score + (r.scores && r.scores[a.scale] ? ' (' + r.scores[a.scale].name.toLowerCase() + ')' : '') })]);
         })),
         el('div', { class: 'a-pp-row' }, [
@@ -9755,7 +10363,7 @@
     var rows = [head].concat(list.map(function (r) {
       var row = [r.code, r.test, ppDate(r.created_at), r.source === 'site' ? 'сайт' : 'Телеграм', r.tg_username ? '@' + r.tg_username : '', r.tg_first_name || '', r.taken_at ? ppDate(r.taken_at) : ''];
       scales.forEach(function (k) { var s = (r.scores || {})[k]; row.push(s ? s.score : '', s ? s.text : ''); });
-      for (var j = 0; j < maxQ; j++) { var a = (r.answers || [])[j]; row.push(a ? a.score : ''); }
+      for (var j = 0; j < maxQ; j++) { var a = (r.answers || [])[j]; row.push(a ? (a.texts !== undefined ? a.answer : a.score) : ''); }
       return row;
     }));
     var csv = '﻿' + rows.map(function (row) {
@@ -9768,6 +10376,316 @@
     ppDraw();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
     toast('Таблица сохранена в «Загрузки»: ' + list.length + ' ' + (list.length === 1 ? 'результат' : 'результатов') + '.');
+  }
+
+  /* ---------- Анкеты (ПсиПоинт, 27.10): она сама правит тексты, кнопки и порядок, делает копии ----------
+     Анкеты живут на Beget (data/anketas/<id>.json; первая — из кода бота, app/tests/teen.json), не в черновике и не в GitHub.
+     Правка — в памяти вкладки до «Сохранить». Кто уже отвечает в боте, доходит по прежнему тексту (у бота своя копия). */
+  var AK_KINDS = [['text', 'Только свои слова'], ['one', 'Кнопки — один ответ'], ['many', 'Кнопки — несколько ответов']];
+  function akModel(t) {
+    var m = clone(t);
+    m.steps.forEach(function (s) {
+      if (s.type !== 'question') return;
+      s.opts = (s.options || []).map(function (o, k) {
+        return { text: o, alone: (s.alone || []).indexOf(k) >= 0, f1: (s.follow_on || []).indexOf(k) >= 0, f2: (s.follow2_on || []).indexOf(k) >= 0 };
+      });
+      delete s.options; delete s.alone; delete s.follow_on; delete s.follow2_on;
+    });
+    m.finish = m.finish || {};
+    return m;
+  }
+  function akFile(m) {
+    var t = clone(m);
+    delete t.saved_at;
+    t.steps.forEach(function (s) {
+      if (s.type !== 'question') return;
+      var o = s.opts || [], pick = function (f) { var r = []; o.forEach(function (x, k) { if (x[f]) r.push(k); }); return r; };
+      if (s.kind !== 'text') {
+        s.options = o.map(function (x) { return x.text; });
+        if (s.kind === 'many') s.alone = pick('alone');
+        s.follow_on = pick('f1'); s.follow2_on = pick('f2');
+      } else { delete s.follow; delete s.follow2; }
+      if (s.kind !== 'many') delete s.max;
+      delete s.opts;
+    });
+    return t;
+  }
+  function akLink(id) { return PP.status && PP.status.bot ? 'https://t.me/' + PP.status.bot + '?start=' + id : ''; }
+  function akCopyLink(id) {
+    var url = akLink(id);
+    if (!url) { toast('Ссылка появится, когда панель проверит бота: «Состояние бота» → «Проверить».', true); return; }
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () { toast('Ссылка скопирована: ' + url); },
+      function () { toast('Не получилось скопировать — выделите ссылку вручную.', true); });
+  }
+  function akLoad() {
+    PP.ak.busy = true; ppDraw();
+    return ppCall('anketas').then(function (d) { PP.ak.list = d.anketas || []; PP.ak.busy = false; ppDraw(); })
+      .catch(function (e) { PP.ak.busy = false; PP.err = e.message; ppDraw(); });
+  }
+  function akOpen(a, copy) {
+    var m = akModel(a.test);
+    if (copy) {
+      var n = 2, ids = PP.ak.list.map(function (x) { return x.test.id; });
+      while (ids.indexOf('anketa' + n) >= 0) n++;
+      m.id = 'anketa' + n; m.title = m.title + ' (копия)'; m.on = false;
+    }
+    PP.ak.ed = { m: m, isNew: !!copy, builtin: !copy && a.builtin, edited: !copy && a.edited, dirty: !!copy };
+    ppDraw(); window.scrollTo(0, 0);
+  }
+  function akClose() {
+    var ed = PP.ak.ed;
+    (ed && ed.dirty ? dialog({ title: 'Выйти без сохранения?', body: 'Изменения в этой анкете пропадут.',
+      buttons: [['out', 'Выйти без сохранения', 'danger'], ['cancel', 'Остаться', 'dark']] }) : Promise.resolve('out')).then(function (v) {
+      if (v !== 'out') return;
+      PP.ak.ed = null; ppDraw(); window.scrollTo(0, 0);
+    });
+  }
+  function akSave() {
+    var ed = PP.ak.ed, id = ed.m.id;
+    busy('Сохраняем анкету на Beget…');
+    ppCall('anketa_save', { test: akFile(ed.m), isNew: ed.isNew }).then(function (d) {
+      busy(null);
+      PP.ak.list = d.anketas || [];
+      var a = PP.ak.list.filter(function (x) { return x.test.id === id; })[0];
+      if (a) akOpen(a); else { PP.ak.ed = null; ppDraw(); }
+      toast('Анкета сохранена. Кто откроет её теперь — увидит новый текст; кто уже отвечает — дойдёт по прежнему.');
+    }).catch(fail);
+  }
+  function akDelete() {
+    var ed = PP.ak.ed, m = ed.m;
+    dialog(ed.builtin
+      ? { title: 'Вернуть исходный текст?', body: 'Все правки анкеты «' + m.title + '», сделанные в панели, пропадут — снова будет текст, с которым анкета была сделана.',
+          buttons: [['del', 'Вернуть исходный', 'danger'], ['cancel', 'Отмена', 'dark']] }
+      : { title: 'Удалить анкету «' + m.title + '»?', body: 'Ссылка на неё перестанет работать. Ответы, которые уже пришли, останутся в «Результатах».',
+          buttons: [['del', 'Удалить анкету', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
+      if (v !== 'del') return;
+      busy(ed.builtin ? 'Возвращаем…' : 'Удаляем…');
+      ppCall('anketa_delete', { id: m.id }).then(function (d) {
+        busy(null); PP.ak.list = d.anketas || [];
+        var a = PP.ak.list.filter(function (x) { return x.test.id === m.id; })[0];
+        if (a) akOpen(a); else { PP.ak.ed = null; ppDraw(); }
+        toast(ed.builtin ? 'Вернули исходный текст.' : 'Анкета удалена.');
+      }).catch(fail);
+    });
+  }
+
+  function akBlock() {
+    if (PP.ak.ed) return akEditor();
+    var list = PP.ak.list;
+    if (!list) return block('Анкеты', [PP.ak.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем анкеты…' })])
+      : el('button', { type: 'button', class: 'a-btn', text: 'Загрузить анкеты', onclick: akLoad })]);
+    return block('Анкеты', [
+      el('div', { class: 'a-pp-list' }, list.length ? list.map(function (a) {
+        var t = a.test, url = akLink(t.id), q = t.steps.filter(function (s) { return s.type === 'question'; }).length;
+        return el('div', { class: 'a-pp-item a-ak-item' }, [
+          el('div', { class: 'a-ak-item-head' }, [el('b', { text: t.title }),
+            el('span', { class: 'a-tags' }, [t.on ? el('span', { class: 'a-tag a-tag--pub', text: 'в меню бота' }) : null,
+              a.edited ? el('span', { class: 'a-tag', text: 'правлена в панели' }) : null])]),
+          el('span', { class: 'a-hint', text: q + ' ' + (q % 10 === 1 && q % 100 !== 11 ? 'вопрос' : q % 10 > 1 && q % 10 < 5 && (q % 100 < 10 || q % 100 > 20) ? 'вопроса' : 'вопросов')
+            + ' · ссылка: ' + (url || 't.me/<бот>?start=' + t.id) }),
+          el('div', { class: 'a-pp-row' }, [
+            el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--dark', text: 'Править', onclick: function () { akOpen(a); } }),
+            el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать ссылку', onclick: function () { akCopyLink(t.id); } }),
+            el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Сделать копию', title: 'Новая анкета с тем же текстом — например, для взрослых', onclick: function () { akOpen(a, true); } })])
+        ]);
+      }) : el('p', { class: 'a-empty', text: 'Анкет пока нет.' })),
+      el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Обновить', onclick: akLoad })]),
+      el('p', { class: 'a-hint', text: 'Ссылку на анкету отправляете человеку — он сразу попадает на её приветствие в боте. Новая анкета (например, для взрослых) — «Сделать копию» и поправить текст.' })
+    ], { note: String(list.length) });
+  }
+
+  // Поле анкеты: правка только в памяти вкладки (не черновик витрины — changed() не зовём).
+  function akIn(obj, key, label, o) {
+    o = o || {};
+    var i = o.one ? el('input', { class: 'a-input', type: 'text', placeholder: o.ph || '' }) : el('textarea', { class: 'a-input a-grow', rows: 1, placeholder: o.ph || '' });
+    i.value = obj[key] == null ? '' : obj[key];
+    if (o.disabled) i.disabled = true;
+    if (!o.one) growIn(i);
+    i.addEventListener('input', function () { obj[key] = i.value; akDirty(); });
+    if (o.onChange) i.addEventListener('change', function () { o.onChange(i.value); });
+    return field(label, i, o.hint);
+  }
+  function akCheck(on, label, onChange, hint) {
+    var cb = el('input', { type: 'checkbox', checked: !!on });
+    cb.addEventListener('change', function () { onChange(cb.checked); akDirty(); });
+    return el('label', { class: 'a-switch' }, [cb, el('span', { class: 'a-switch-ui' }),
+      el('span', { class: 'a-switch-text' }, [label, hint ? el('small', { text: hint }) : null])]);
+  }
+  function akDirty() {
+    var ed = PP.ak.ed;
+    if (ed && !ed.dirty) { ed.dirty = true; var s = document.querySelector('.a-ak-state'); if (s) { s.textContent = 'Есть несохранённые изменения'; s.classList.add('is-dirty'); } }
+  }
+  function akRedraw() { akDirty(); var y = window.scrollY; ppDraw(); window.scrollTo(0, y); }
+  function akNewStep(type, m) {
+    if (type !== 'question') return { type: type, text: '' };
+    var n = 1, ids = m.steps.map(function (s) { return s.id; });
+    while (ids.indexOf('q' + n) >= 0) n++;
+    return { type: 'question', id: 'q' + n, kind: 'text', text: '', opts: [] };
+  }
+
+  function akEditor() {
+    var ed = PP.ak.ed, m = ed.m, steps = m.steps, url = akLink(m.id);
+    var qNum = {}, n = 0;
+    steps.forEach(function (s, i) { if (s.type === 'question') qNum[i] = ++n; });
+    var linkHint = el('span', { class: 'a-hint' });
+    function drawLink() { linkHint.textContent = 'Ссылка: ' + (akLink(m.id) || 't.me/<бот>?start=' + m.id) + (ed.isNew ? '' : ' · слово в ссылке после сохранения не меняется (иначе старые ссылки перестанут работать)'); }
+    drawLink();
+    var actions = el('div', { class: 'a-pp-row a-ak-bar' }, [
+      el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave }),
+      el('button', { type: 'button', class: 'a-btn', text: 'Скопировать для Claude', title: 'Все тексты анкеты одним сообщением — вставить в чат с Claude и попросить поправить', onclick: function () { akCopyText(m); } }),
+      el('span', { class: 'a-ak-state' + (ed.dirty ? ' is-dirty' : ''), text: ed.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' })]);
+    return el('div', { class: 'a-ak' }, [
+      actions,
+      block('Анкета: ' + (m.title || 'без названия'), [
+        akIn(m, 'title', 'Название', { one: true, hint: 'Для вас: так анкета называется в панели и в «Результатах». Человек его не видит.' }),
+        el('div', { class: 'a-field' }, [el('span', { class: 'a-label', text: 'Слово в ссылке' }),
+          (function () { var i = el('input', { class: 'a-input', type: 'text', value: m.id, disabled: !ed.isNew });
+            i.addEventListener('input', function () { m.id = i.value.trim().toLowerCase(); akDirty(); drawLink(); }); return i; })(),
+          linkHint,
+          el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Скопировать ссылку', disabled: ed.isNew,
+            onclick: function () { akCopyLink(m.id); } })])]),
+        akCheck(m.on, 'Показывать в меню бота', function (v) { m.on = v; }, 'Кнопка анкеты появится внизу экрана в меню бота. Без галочки анкета открывается только по ссылке.'),
+        akIn(m, 'button', 'Кнопка в меню бота', { one: true }),
+        ed.isNew ? null : el('p', { class: 'a-hint', text: url ? '' : 'Чтобы появилась ссылка с именем бота, откройте «Состояние бота» и нажмите «Проверить».' })
+      ]),
+      block('Начало', [
+        akIn(m, 'hello', 'Приветствие'),
+        akIn(m, 'hello_extra', 'Дополнительная строка в начале', { hint: 'Если пусто — не показывается.' }),
+        akIn(m, 'start', 'Кнопка под приветствием', { one: true }),
+        akIn(m, 'next', 'Кнопка «Дальше» внизу экрана', { one: true, hint: 'Одна на всю анкету: всё, что человек написал до неё, прикрепляется к вопросу; нажать сразу — пропустить вопрос.' }),
+        akIn(m, 'ready', 'Кнопка «Готово»', { one: true, hint: 'Появляется у вопросов, где можно отметить несколько кнопок.' })
+      ]),
+      block('Вопросы и части', [
+        el('p', { class: 'a-hint', text: 'Сверху вниз — так, как идёт в боте. «Часть» — заголовок раздела (жирным) и пояснение под ним; «Реплика бота» — короткая фраза между вопросами (курсивом).' }),
+        el('div', { class: 'a-ak-steps' }, steps.map(function (s, i) { return akStep(m, s, i, qNum, n); })),
+        akAddRow(m, steps.length)
+      ], { note: n + ' вопр.' }),
+      block('Конец', [
+        akIn(m.finish, 'text', 'Последнее сообщение'),
+        akIn(m.finish, 'button', 'Кнопка «Отправить»', { one: true }),
+        akIn(m.finish, 'done', 'Ответ после «Отправить»')
+      ]),
+      block('Ещё', [
+        el('div', { class: 'a-pp-row' }, [
+          ed.isNew ? null : el('button', { type: 'button', class: 'a-btn', text: 'Сделать копию', onclick: function () {
+            if (ed.dirty) { toast('Сначала сохраните или отмените изменения.', true); return; }
+            akOpen({ test: akFile(m) }, true); } }),
+          ed.dirty && !ed.isNew ? el('button', { type: 'button', class: 'a-btn', text: 'Отменить изменения', onclick: function () {
+            var a = PP.ak.list.filter(function (x) { return x.test.id === m.id; })[0]; if (a) akOpen(a); } }) : null,
+          !ed.isNew && (!ed.builtin || ed.edited) ? el('button', { type: 'button', class: 'a-btn a-btn--danger', text: ed.builtin ? 'Вернуть исходный текст…' : 'Удалить анкету…', onclick: akDelete }) : null]),
+        el('p', { class: 'a-hint', text: 'Анкета хранится на Beget, не в черновике витрины: кнопка «Сохранить» вверху панели её не сохраняет — только «Сохранить» здесь. Кто уже отвечает в боте, дойдёт по тексту, с каким начал.' })
+      ], { open: false }),
+      el('div', { class: 'a-pp-row a-ak-bar' }, [
+        el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
+        el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave })])
+    ]);
+  }
+  // Вся анкета текстом для чата с Claude (её просьба 28.10): подписи — как поля в панели, чтобы правки было куда вставить.
+  function akCopyText(m) {
+    var kinds = {}, L = [], n = 0;
+    AK_KINDS.forEach(function (k) { kinds[k[0]] = k[1].toLowerCase(); });
+    function line(label, v) { v = String(v == null ? '' : v).trim(); L.push(label + ': ' + (v ? (v.indexOf('\n') >= 0 ? '\n' + v : v) : '(пусто)')); }
+    L.push('Анкета ПсиПоинта «' + (m.title || '') + '» (слово в ссылке: ' + m.id + '). Ниже — все тексты; подписи — как поля в панели.', '');
+    L.push('— НАЧАЛО —');
+    line('Кнопка в меню бота', m.button); line('Приветствие', m.hello); line('Дополнительная строка в начале', m.hello_extra);
+    line('Кнопка под приветствием', m.start); line('Кнопка «Дальше» внизу экрана', m.next); line('Кнопка «Готово»', m.ready);
+    L.push('', '— ВОПРОСЫ И ЧАСТИ (сверху вниз) —');
+    m.steps.forEach(function (s) {
+      L.push('');
+      if (s.type === 'part') { line('Часть · заголовок', s.text); if ((s.note || '').trim()) line('Часть · пояснение', s.note); return; }
+      if (s.type === 'say') { line('Реплика бота', s.text); return; }
+      line('Вопрос ' + (++n) + ' (' + kinds[s.kind] + ')', s.text);
+      if (s.kind !== 'text') {
+        L.push('Кнопки: ' + (s.opts || []).map(function (o) {
+          var tags = [];
+          if (o.f1) tags.push('уточнение' + ((s.follow2 || '').trim() ? ' 1' : ''));
+          if (o.f2 && (s.follow2 || '').trim()) tags.push('уточнение 2');
+          if (s.kind === 'many' && o.alone) tags.push('снимает остальные');
+          return '[' + o.text + ']' + (tags.length ? ' (' + tags.join(', ') + ')' : '');
+        }).join(' '));
+        if (s.kind === 'many' && s.max) L.push('Сколько можно отметить: ' + s.max);
+        if ((s.follow || '').trim()) line('Уточнение после кнопки', s.follow);
+        if ((s.follow2 || '').trim()) line('Второе уточнение', s.follow2);
+      }
+      if ((s.after || '').trim()) line('Ответ бота после «Дальше»', s.after);
+    });
+    L.push('', '— КОНЕЦ —');
+    var f = m.finish || {};
+    line('Последнее сообщение', f.text); line('Кнопка «Отправить»', f.button); line('Ответ после «Отправить»', f.done);
+    var txt = L.join('\n');
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () {
+      toast('Анкета скопирована. Вставьте в чат с Claude (⌘V) и напишите, что поправить.');
+    }, function () {
+      var ta = el('textarea', { class: 'a-input', rows: 12, readonly: true }); ta.value = txt;
+      dialog({ title: 'Скопируйте текст анкеты', body: el('div', {}, [el('p', { text: 'Не получилось скопировать само: щёлкните в поле, ⌘A, ⌘C.' }), ta]) });
+    });
+  }
+  function akAddRow(m, at) {
+    var sel = el('select', { class: 'a-input a-ak-add' }, [['', at < m.steps.length ? '+ Вставить ниже…' : '+ Добавить…'], ['question', 'вопрос'], ['part', 'часть (заголовок)'], ['say', 'реплику бота']].map(function (o) {
+      return el('option', { value: o[0], text: o[1] }); }));
+    sel.addEventListener('change', function () { if (!sel.value) return; m.steps.splice(at, 0, akNewStep(sel.value, m)); akRedraw(); });
+    return sel;
+  }
+  function akStep(m, s, i, qNum, total) {
+    var steps = m.steps;
+    function move(d) { var j = i + d; if (j < 0 || j >= steps.length) return; steps.splice(j, 0, steps.splice(i, 1)[0]); akRedraw(); }
+    var title = s.type === 'question' ? 'Вопрос ' + qNum[i] : s.type === 'part' ? 'Часть' : 'Реплика бота';
+    var left = 0; for (var k = i + 1; k < steps.length; k++) if (steps[k].type === 'question') left++;
+    var body = s.type === 'part' ? [akIn(s, 'text', 'Заголовок'), akIn(s, 'note', 'Пояснение под заголовком', { hint: 'Можно оставить пустым.' })]
+      : s.type === 'say' ? [akIn(s, 'text', 'Что пишет бот', { hint: 'После этой реплики — ещё ' + left + ' из ' + total + ' вопросов. Если в тексте есть число оставшихся вопросов — сверьте его после правок.' })]
+      : akQuestion(s);
+    return el('div', { class: 'a-ak-step a-ak-step--' + s.type }, [
+      el('div', { class: 'a-ak-step-head' }, [el('b', { text: title }),
+        el('span', { class: 'a-pp-row' }, [
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↑', title: 'Выше', disabled: i === 0, onclick: function () { move(-1); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↓', title: 'Ниже', disabled: i === steps.length - 1, onclick: function () { move(1); } }),
+          el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--danger', text: '✕', title: 'Убрать', onclick: function () {
+            dialog({ title: 'Убрать: ' + title.toLowerCase() + '?', body: (s.text || '').slice(0, 160) || null, buttons: [['del', 'Убрать', 'danger'], ['cancel', 'Отмена', 'dark']] })
+              .then(function (v) { if (v === 'del') { steps.splice(i, 1); akRedraw(); } }); } })])]),
+      el('div', { class: 'a-ak-step-body' }, body),
+      akAddRow(m, i + 1)
+    ]);
+  }
+  function akQuestion(s) {
+    var out = [akIn(s, 'text', 'Вопрос')];
+    out.push(selectKind());
+    function selectKind() {
+      var sel = el('select', { class: 'a-input' }, AK_KINDS.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
+      sel.value = s.kind;
+      sel.addEventListener('change', function () { s.kind = sel.value; if (s.kind !== 'text' && !s.opts.length) s.opts.push({ text: '' }); akRedraw(); });
+      return field('Как отвечать', sel, s.kind === 'text' ? 'Человек пишет своими словами.' : 'Под вопросом — кнопки; написать своими словами тоже можно.');
+    }
+    if (s.kind !== 'text') {
+      var many = s.kind === 'many', two = !!(s.follow2 || '').trim();
+      out.push(el('div', { class: 'a-field' }, [el('span', { class: 'a-label', text: 'Кнопки' }),
+        el('div', { class: 'a-ak-opts' }, s.opts.map(function (o, k) {
+          var inp = el('input', { class: 'a-input', type: 'text', value: o.text, placeholder: 'Надпись на кнопке' });
+          inp.addEventListener('input', function () { o.text = inp.value; akDirty(); });
+          function box(f, label) {
+            var cb = el('input', { type: 'checkbox', checked: !!o[f] });
+            cb.addEventListener('change', function () { o[f] = cb.checked; akDirty(); });
+            return el('label', { class: 'a-mini-switch' }, [cb, el('span', { text: label })]);
+          }
+          return el('div', { class: 'a-ak-opt' }, [inp,
+            el('span', { class: 'a-ak-opt-boxes' }, [box('f1', two ? 'уточнение 1' : 'уточнение'), two ? box('f2', 'уточнение 2') : null, many ? box('alone', 'снимает остальные') : null,
+              el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✕', title: 'Убрать кнопку', disabled: s.opts.length < 2, onclick: function () { s.opts.splice(k, 1); akRedraw(); } })])]);
+        })),
+        el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ кнопка', onclick: function () { s.opts.push({ text: '' }); akRedraw(); } })]),
+        el('span', { class: 'a-hint', text: (many ? '«Снимает остальные» — например, «Ничего такого»: если её отметить, другие отметки снимаются. ' : '') + '«Уточнение» — после каких кнопок бот задаёт уточнение; не отмечено ни одной — после любой.' })]));
+      if (many) {
+        var mx = el('input', { class: 'a-input', type: 'number', min: 1, value: s.max || '', placeholder: 'сколько угодно', style: 'max-width:160px' });
+        mx.addEventListener('input', function () { s.max = mx.value ? Math.max(1, Math.round(+mx.value)) : undefined; akDirty(); });
+        out.push(field('Сколько можно отметить', mx, 'Пусто — сколько угодно.'));
+      }
+      out.push(akIn(s, 'follow', 'Уточнение после кнопки', { hint: 'Бот пишет его, когда человек нажал кнопку. Пусто — без уточнения.' }));
+    }
+    // Редкое — свёрнуто, пока не заполнено
+    var more = [s.kind !== 'text' ? akIn(s, 'follow2', 'Второе уточнение', { hint: 'Например, только после одной особой кнопки (отметьте её «уточнение 2»). Обычно пусто.', onChange: function (v) { if (!!v.trim() !== two) akRedraw(); } }) : null,
+      akIn(s, 'after', 'Ответ бота после «Дальше»', { hint: 'Обычно пусто. {имя} — подставится первая строка ответа на этот вопрос (если человек не ответил — фраза без имени).' })];
+    out.push(el('details', { class: 'a-ak-more', open: (s.after || '').trim() || (s.kind !== 'text' && (s.follow2 || '').trim()) ? true : null },
+      [el('summary', { text: 'Ещё у этого вопроса' }), el('div', { class: 'a-ak-step-body' }, more)]));
+    return out;
   }
 
   /* ================= НАСТРОЙКИ ================= */
@@ -9784,6 +10702,29 @@
     ['prevItem', '«← Предыдущий»'], ['nextItem', '«Следующий →»'], ['showMore', '«Показать ещё»'], ['filterAll', 'Фильтр: «Все»'],
     ['shareButton', 'Кнопка «Поделиться» у примера'], ['routePage', 'Архив: кнопка «Страница маршрута»'], ['archiveRoute', 'Архив: подпись «Маршрут»']
   ];
+  /* Реквизиты и страница «Условия и цены» (oferta/) — для ЮKassa (28.10). settings.legal, по умолчанию — M13.LEGAL_DEF;
+     пустое поле — снова текст по умолчанию (кроме телефона). */
+  function legalBlock(st) {
+    var D0 = window.M13.LEGAL_DEF, L = st.legal = st.legal || {};
+    // Прежняя редакция соглашения (до 28.10), которую не правили, — сменить на новую «Публичную оферту»
+    ['offer', 'offerTitle'].forEach(function (k) { if (window.M13.legalOld && window.M13.legalOld(k, L[k])) { L[k] = D0[k]; changed(); } });
+    Object.keys(D0).forEach(function (k) { if (L[k] === undefined) L[k] = D0[k]; });
+    return block('Реквизиты и «Условия и цены»', [
+      el('p', { class: 'a-hint', text: 'Нужно для ЮKassa: кто оказывает услуги, контакты, цены и соглашение (оферта). Страница — 13mirrors.ru/vitrina/oferta/, строка с реквизитами и ссылками — внизу каждой витрины. Цены берутся сами со всех карточек месяца, который идёт, где есть цена (форматы маршрутов, плашки): поменяли цену на карточке — поменяется и здесь (после «Опубликовать»).' }),
+      el('div', { class: 'a-row' }, [textIn(L, 'name', 'Исполнитель (ФИО полностью)'), textIn(L, 'inn', 'ИНН')]),
+      textIn(L, 'status', 'Статус', { hint: 'Например: самозанятая. Подставляется в оферту ({статус}) — «Исполнитель: …, самозанятая, ИНН …». Пусто — на странице его нет.' }),
+      el('div', { class: 'a-row' }, [
+        textIn(L, 'email', 'Почта', { ph: 'mailto:' }),
+        textIn(L, 'phone', 'Телефон', { ph: 'tel:', hint: 'Например: +7 900 000-00-00. Пусто — не показывается.' })]),
+      selectIn(L, 'footMode', 'Внизу витрины', [['links', 'Ссылки: «Условия и цены ✦ Конфиденциальность»'], ['full', 'Ссылки и строка «имя · ИНН · почта · телефон»'], ['none', 'Ничего']],
+        { hint: 'ЮKassa нужно, чтобы с витрины было видно, где реквизиты и условия, — ссылки лучше оставить. Сами реквизиты — на странице «Условия и цены».' }),
+      el('div', { class: 'a-row' }, [textIn(L, 'link', 'Надпись ссылки внизу витрины'), textIn(L, 'title', 'Заголовок страницы')]),
+      el('div', { class: 'a-row' }, [textIn(L, 'pricesTitle', 'Заголовок «Услуги и цены»'), textIn(L, 'offerTitle', 'Заголовок соглашения')]),
+      textIn(L, 'payNote', 'Строка под ценами', { multi: true, rows: 2 }),
+      textIn(L, 'offer', 'Текст соглашения (оферта)', { multi: true, rows: 22, hint: 'Пустая строка — новый абзац. Строка, которая начинается с «# », — подзаголовок. Сами подставляются: {исполнитель}, {статус}, {инн}, {почта}, {телефон}, {телеграм}, {вк} (ссылки — из «Контакты по умолчанию»). Очистить поле — вернётся текст по умолчанию.' }),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPreview('oferta'); } })])
+    ], { open: false, note: 'для ЮKassa' });
+  }
   function viewSettings() {
     var st = DATA.settings;
     st.contacts = st.contacts || {}; st.texts = st.texts || {}; st.messages = st.messages || {};
@@ -9810,6 +10751,7 @@
         textIn(st.contacts, 'host', 'Telegram Host (бот)', { type: 'text', ph: 'thirteenmirrors_host_bot',
           hint: 'Имя бота без @. Кнопки, у которых заполнена «Метка Host», ведут сюда: https://t.me/<бот>?start=<метка>, без копирования текста обращения.' })
       ]),
+      legalBlock(st),
       block('Логотип', [
         logoIn(st, 'logo', 'logoRatio', 'Логотип витрины', { size: LOGO_SIZE, hint: 'Показывается над сеткой и под ней (если так выбрано в «Странице месяца»). PNG с прозрачным фоном; если фон белый — уберём его сами. Цвет логотипа задаётся в каждом месяце: «Цвет надписей и логотипа». У месяца может быть свой логотип.' })
       ], { open: false, note: 'общий для всех месяцев' }),
@@ -9860,6 +10802,8 @@
       'Сайт не собирает персональные данные. Здесь нет регистрации, анкет и форм — вам не нужно сообщать о себе ни имя, ни телефон, ни почту.\n\n' +
       'На сайте нет счётчиков посещений, рекламы и систем статистики, сайт не использует cookie. Шрифты и картинки загружаются с самого сайта — без обращения к сторонним сервисам.\n\n' +
       'То, что вы отмечаете и выбираете на маршрутах, хранится только в браузере вашего устройства. Это не передаётся на сервер и не видно никому, кроме вас. Если очистить данные сайта в браузере, это сотрётся.\n\n' +
+      'Запись на встречу. Когда вы записываетесь на встречу на витрине, сайт обращается к своей программе записи (zapis.13mirrors.ru, на хостинге Beget в России). Она хранит только занятое время и вид встречи — без имени, телефона и почты. Номер вашей записи сохраняется в браузере вашего устройства, чтобы после оплаты показать, что вы записаны.\n\n' +
+      'Оплата проходит на странице платёжного сервиса ЮKassa. Данные карты, а также почту или телефон для чека вы вводите там — их видит только ЮKassa, наш сайт их не получает. ЮKassa обрабатывает эти данные по своим правилам.\n\n' +
       'Как и любой сайт в интернете, сервер, на котором размещён 13 MIRRORS, ведёт технические журналы обращений (адрес устройства в сети, время, открытая страница). Они нужны для работы сервера, и мы не используем их, чтобы узнавать, кто заходил.\n\n' +
       'Когда вы пишете нам в Telegram или VK, разговор идёт уже там, по правилам этих сервисов.\n\n' +
       'Если остались вопросы — напишите нам: ссылка «Задать вопрос» есть на главной странице.'
@@ -9904,6 +10848,16 @@
         el('p', { class: 'a-hint', text: 'Адрес — 13mirrors.ru/privacy/. Ссылка на неё — внизу главной и Гримуара, под пометкой. Цвет, шрифт и пометка внизу — как у главной.' }),
         textIn(h, 'privacyTitle', 'Заголовок', { hint: 'Он же — надпись ссылки внизу главной.' }),
         textIn(h, 'privacyText', 'Текст', { multi: true, rows: 14, hint: 'Пустая строка между абзацами — новый абзац. Первый абзац — курсивом, золотым.' }),
+        // Запись с оплатой (28.10): абзацы про программу записи и ЮKassa — одной кнопкой, после абзаца «…в браузере вашего устройства»
+        /ЮKassa/.test(h.privacyText || '') ? null : el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '+ Абзацы про запись на встречу и оплату (ЮKassa)', onclick: function () {
+          var more = HOME_DEFAULT.privacyText.split('\n\n').filter(function (x) { return /^(Запись на встречу|Оплата проходит)/.test(x); });
+          var parts = String(h.privacyText || '').trim().split(/\n\s*\n/), at = parts.length;
+          parts.forEach(function (x, i) { if (/в браузере вашего устройства/.test(x)) at = i + 1; });
+          if (at === parts.length && parts.length && /вопрос/i.test(parts[parts.length - 1])) at = parts.length - 1;
+          parts.splice.apply(parts, [at, 0].concat(more));
+          h.privacyText = parts.join('\n\n'); changed(); renderMain();
+          toast('Абзацы про запись и оплату добавлены. Посмотрите страницу, затем «Сохранить» и «Опубликовать».');
+        } })]),
         el('div', { class: 'a-tabs' }, [
           el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPagePreview('privacy', false); } }),
           el('button', { type: 'button', text: '📱 Как на телефоне', onclick: function () { openPagePreview('privacy', true); } })])
@@ -9916,7 +10870,11 @@
       resetBox
     ];
   }
-  function monthGenNow() { var m = /^\d{4}-(\d{2})$/.exec(DATA.settings.currentShowcase || ''); return m ? MONTHS_GEN[+m[1] - 1] : 'месяца'; }
+  // Месяц в подписи «Расписание …» — тот же, что открывает /vitrina/ по календарю (27.10), иначе выбранный в панели
+  function monthGenNow() {
+    var id = (window.M13 && window.M13.monthPick && window.M13.monthPick(DATA.settings, publishedIds(DATA))) || DATA.settings.currentShowcase || '';
+    var m = /^\d{4}-(\d{2})$/.exec(id); return m ? MONTHS_GEN[+m[1] - 1] : 'месяца';
+  }
   function openHomePreview(phone) {
     var pv = document.getElementById('a-preview');
     var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Главная страница', src: '/?preview=1' });
@@ -10024,7 +10982,7 @@
       else toast('Не получилось показать витрину в режиме телефона. Обновите страницу.', true);
     })();
   }
-  function openPreview(view, showcaseId, cardId, demo) {
+  function openPreview(view, showcaseId, cardId, demo, route) {
     if (!view) view = ST.section === 'sandbox' ? 'sandbox' : ST.section === 'reflection' ? 'reflection' : ST.section === 'events' ? 'events' : 'showcase';
     showcaseId = showcaseId || ST.showcase || DATA.settings.currentShowcase;
     var pv = document.getElementById('a-preview');
@@ -10033,12 +10991,17 @@
       cur = v;
       bar.querySelectorAll('[data-v]').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-v') === v); });
       if (v === 'events' && M.setStartEvent) M.setStartEvent(cardId || null);
-      M.mount(mount, { base: '../', view: v, noHistory: true, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
+      M.previewGo = go;
+      M.mount(mount, { base: '../', view: v, noHistory: true, route: v === 'routesoon' ? route : null, onBack: function () { go('showcase'); }, data: previewData(showcaseId),
         soon: v === 'soon' ? window.M13.monthSoon(publishedIds(DATA)) || window.M13.monthNow(DATA.settings) : null })
         .then(function () {
           if (cardId && v === 'showcase') { M.openCard(cardId, true); cardId = null; }
           // «Посмотреть окно»: сразу открыть «Куда написать?» и сообщение «Ссылка скопирована»
-          if (demo) { demo = false; setTimeout(function () { if (M.demoWin) M.demoWin(); }, 450); }
+          // «Посмотреть окошко записи»: окошко с выдуманным расписанием (zapis — выбор времени, zapis-done — «Вы записаны»)
+          if (demo) {
+            var dm = demo; demo = false;
+            setTimeout(function () { if (/^zapis/.test(dm)) { if (M.demoZapis) M.demoZapis(dm === 'zapis-done' ? 'done' : 'pick'); } else if (M.demoWin) M.demoWin(); }, 450);
+          }
         });
       pv.scrollTop = 0;
     }
@@ -10066,6 +11029,7 @@
       el('button', { type: 'button', 'data-v': 'reflection', text: 'Примеры', onclick: function () { go('reflection'); } }),
       el('button', { type: 'button', 'data-v': 'events', text: 'События', onclick: function () { go('events'); } }),
       el('button', { type: 'button', 'data-v': 'kin', text: 'Свой кин', onclick: function () { go('kin'); } }),
+      el('button', { type: 'button', 'data-v': 'oferta', text: 'Условия и цены', onclick: function () { go('oferta'); } }),
       el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', title: 'Открыть заново: блики и обложки', onclick: function () { go(cur); } }),
       canPhone() ? phoneBtn : null
     ]);
@@ -11345,6 +12309,7 @@
     files['reflection/index.html'] = { text: pageHTML('reflection', null, P) };
     files['events/index.html'] = { text: pageHTML('events', null, P) };
     files['kin/index.html'] = { text: pageHTML('kin', null, P) };
+    files['oferta/index.html'] = { text: pageHTML('oferta', null, P) };
     ((P.events || {}).items || []).forEach(function (e) {
       if (e && e.visible !== false && /^[\w-]+$/.test(e.id)) files['events/' + e.id + '/index.html'] = { text: pageHTML('event', null, P, e.id) };
     });
@@ -11365,6 +12330,8 @@
         if (it && it.visible !== false && /^[\w-]+$/.test(it.id)) files['sandbox/' + it.id + '/index.html'] = { text: pageHTML('sbitem', null, P, it.id) };
       });
     });
+    // Заглушки маршрутов без страницы по дням (её «делаем» 26.10)
+    routeSoonIds(P).forEach(function (r) { var p = 'routes/' + r.id + '/index.html'; if (!files[p]) files[p] = { text: routeSoonPageHTML(r, P) }; });
     Object.keys(P.showcases).forEach(function (id) {
       var sc = P.showcases[id];
       files['data/showcases/' + id + '.json'] = { text: jsonText(sc) };
@@ -11388,7 +12355,7 @@
     return { files: files, removed: removed };
   }
   // Для проверки страниц-превью из консоли браузера
-  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas, routePageHTML: routePageHTML, buildSite: buildSite, siteFiles: siteFiles };
+  window.M13_ADMIN = { pageHTML: pageHTML, bakeGlass: bakeGlass, glassCanvas: glassCanvas, routePageHTML: routePageHTML, routeSoonPageHTML: routeSoonPageHTML, buildSite: buildSite, siteFiles: siteFiles };
   function publish() {
     if (GHS.busy) return;
     if (!GHS.token) {

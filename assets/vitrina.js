@@ -91,7 +91,7 @@
     ]).then(function (r) {
       var out = { settings: r[0], routes: r[1], formats: r[2], sandbox: r[3], reflection: r[4], events: r[5], journeys: r[6], index: null, showcase: null };
       var id = showcaseId || out.settings.currentShowcase;
-      if (S.view !== 'showcase' && S.view !== 'soon') return out;
+      if (S.view !== 'showcase' && S.view !== 'soon' && S.view !== 'oferta') return out;
       return getJSON(d + 'showcases/' + id + '.json').then(function (sc) { out.showcase = sc; return out; });
     });
   };
@@ -106,7 +106,7 @@
       var id = M13.monthPick(P.settings, ((P.index || {}).showcases || []).map(function (x) { return x.id; }));
       if (id && id !== P.settings.currentShowcase) { location.replace(base + id + '/' + location.search + location.hash); return; }
     }
-    M13.mount(el, { base: base, view: view, showcase: el.getAttribute('data-showcase') || null, soon: el.getAttribute('data-soon') || null });
+    M13.mount(el, { base: base, view: view, showcase: el.getAttribute('data-showcase') || null, soon: el.getAttribute('data-soon') || null, route: el.getAttribute('data-route') || null });
   };
 
   /* ---------- Месяцы как календарь (её «делаем» 20.10) ----------
@@ -158,7 +158,7 @@
   M13.mount = function (el, opts) {
     if (S.wakeT) wakeStop();
     S.root = el; S.base = opts.base || './'; S.view = opts.view || 'showcase';
-    S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; S.soon = opts.soon || null; lock(false);
+    S.onBack = opts.onBack || null; S.layers = []; S.useHistory = !opts.noHistory; S.soon = opts.soon || null; S.route = opts.route || null; lock(false);
     el.classList.add('m13');
     el.innerHTML = '<div class="m13-loading">…</div>';
     var p = opts.data ? Promise.resolve(opts.data) : M13.load(S.base, opts.showcase);
@@ -169,6 +169,8 @@
       else if (S.view === 'events') renderStandalone('events');
       else if (S.view === 'kin') renderStandalone('kin');
       else if (S.view === 'soon') renderSoon();
+      else if (S.view === 'oferta') renderOferta();
+      else if (S.view === 'routesoon') renderRouteSoon();
       else renderShowcase();
     }).catch(function (e) {
       console.error(e);
@@ -199,6 +201,9 @@
       shareCard(ctx);
     } else if (action.kind === 'download') {
       if (action.url) { var a = document.createElement('a'); a.href = action.url; a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('download', ''); document.body.appendChild(a); a.click(); a.remove(); }
+    } else if (ctx.item && zpKeyOf(action) && (action.kind || 'contact') === 'contact') {
+      // Плашка с меткой: если эта встреча записывается по календарю — окошко записи (иначе всё равно «Куда написать?»)
+      zpTry(action, ctx);
     } else {
       openContact(action, ctx);
     }
@@ -301,6 +306,249 @@
     if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
     mnavBind();
   }
+  /* ---------- Реквизиты и страница «Условия и цены» (для ЮKassa, 28.10) ----------
+     settings.legal = {name, status, inn, email, phone, foot, link, title, pricesTitle, payNote, offerTitle, offer}.
+     Страница oferta/ (data-view="oferta"): исполнитель и контакты, «Услуги и цены» — сами с карточки «Индивидуальная работа»
+     — всех платных карточек месяца, который идёт (строками: «Маршрут · название», под ним — формат и цена), и текст соглашения (пустая строка — новый абзац, строка с «# » — подзаголовок;
+     подстановки {исполнитель} {статус} {инн} {почта} {телефон}). Внизу витрины — footMode: links (по умолчанию) — «Условия и цены» и «Конфиденциальность» по углам;
+     full — ещё строка «имя · ИНН · почта · телефон»; none — ничего. */
+  var LEGAL_DEF = {
+    name: 'Распругина Елена Вячеславовна', status: '', inn: '272498468707',
+    email: '13mirrors.host@gmail.com', phone: '', footMode: 'links', link: 'Условия и цены', title: 'Условия и цены',
+    pricesTitle: 'Услуги и цены', payNote: 'Цены — в рублях. Оплата — полностью заранее, через ЮKassa. Время встреч — по Москве.',
+    offerTitle: 'Публичная оферта',
+    // Её редакция оферты от 28.10 (подстановки: {исполнитель} {статус} {инн} {почта} {телефон} {телеграм} {вк})
+    offer: 'Редакция от 28 окт. 2026 г.\n\n' +
+      'Настоящий документ является публичным предложением (офертой) заключить договор на оказание услуг на указанных ниже условиях.\n\n' +
+      'Исполнитель: {исполнитель}, {статус}, ИНН {инн}.\nКлиент — физическое лицо, оплатившее услугу. Сайт — 13mirrors.ru.\n\n' +
+      'Оплачивая услугу на Сайте, Клиент подтверждает, что ознакомился с условиями оферты и принимает их. Договор считается заключённым с момента оплаты.\n\n' +
+      '# 1. Услуги\nИсполнитель оказывает услуги, представленные на Сайте в разделе «Услуги и цены»: маршруты 13 MIRRORS, индивидуальные встречи и сессии, события и другие предложения. Название, стоимость, длительность и формат каждой услуги указаны на её странице на Сайте.\n\n' +
+      'Если услуга проходит онлайн, ссылку для подключения Исполнитель направляет Клиенту дополнительно. Для очных встреч адрес сообщается в переписке.\n\n' +
+      'Услуги носят психологический, образовательный и рефлексивный характер. Они не являются медицинской помощью, не включают диагностику или лечение и не заменяют обращение к врачу. Материалы, основанные на календаре Dreamspell и авторских методиках 13 MIRRORS, не являются прогнозом, предсказанием или гарантией результата. Исполнитель не оказывает экстренную помощь: при угрозе жизни и здоровью Клиент обращается в экстренные службы (112).\n\n' +
+      '# 2. Запись и оплата\nКлиент самостоятельно выбирает услугу на Сайте. Для индивидуальной встречи Клиент выбирает доступные дату и время; если не указано иное, время указано по Москве.\n\n' +
+      'Услуга оплачивается полностью до её начала по цене, указанной на Сайте на момент оплаты. Оплата проходит через платёжный сервис ЮKassa. Клиент получает чек по адресу, указанному при оплате.\n\n' +
+      'Если оплата прошла, а выбранное время оказалось занято, Исполнитель предлагает другое время либо возвращает оплату полностью.\n\n' +
+      '# 3. Перенос и отмена индивидуальной встречи\nКлиенту желательно сообщить о переносе не позднее чем за 12 часов до начала встречи. В этом случае встречу можно перенести на другое доступное время по согласованию с Исполнителем. Перенос менее чем за 12 часов возможен по согласованию.\n\n' +
+      'Клиент вправе отказаться от встречи до её проведения, в том числе менее чем за 12 часов. В этом случае возвращается оплата за вычетом фактически понесённых Исполнителем расходов, если они были.\n\n' +
+      'Если Клиент не пришёл на встречу и не предупредил заранее, время встречи не продлевается; возможность переноса или возврата рассматривается по обращению Клиента.\n\n' +
+      'Если встречу отменяет Исполнитель или она не состоялась по техническим причинам на его стороне, Клиент выбирает перенос на другое время или полный возврат.\n\n' +
+      '# 4. Отказ от маршрута или программы\nКлиент вправе отказаться от участия в маршруте или другой программе в любое время.\n\n' +
+      'Если программа ещё не началась, оплата возвращается за вычетом фактически понесённых Исполнителем расходов, если они были.\n\n' +
+      'Если программа уже началась, возврат рассчитывается пропорционально неоказанной части (по числу дней или встреч) за вычетом фактически понесённых расходов.\n\n' +
+      'Если маршрут или событие отменяет Исполнитель, Клиенту возвращается полная стоимость либо, по согласованию, предлагается перенос или другой подходящий вариант участия.\n\n' +
+      '# 5. Возврат денежных средств\nДля возврата Клиенту нужно написать Исполнителю по адресу {почта}, в Telegram {телеграм} или VK {вк} и сообщить имя, название услуги, дату и сумму оплаты. Исполнитель отвечает на обращение и оформляет возврат в течение 10 календарных дней со дня получения заявления.\n\n' +
+      'Возврат производится тем же способом, которым была совершена оплата, если иной способ не согласован или не требуется правилами платёжной системы. Срок поступления денег зависит от банка и платёжной системы.\n\n' +
+      '# 6. Конфиденциальность и персональные данные\nИнформация, которой Клиент делится с Исполнителем в ходе индивидуальной работы, конфиденциальна и не передаётся третьим лицам, кроме случаев, предусмотренных законодательством РФ, и случаев угрозы жизни или здоровью Клиента или других лиц.\n\n' +
+      'Банковские реквизиты карты обрабатываются платёжным сервисом ЮKassa и Исполнителю не передаются. Подробнее — на странице «Конфиденциальность» Сайта.\n\n' +
+      '# 7. Авторские права и правила участия\nМатериалы маршрутов (тексты, аудио, видео, карты) являются объектами авторских прав Исполнителя и предоставляются Клиенту для личного использования. Копирование, распространение, публикация материалов и запись встреч без письменного согласия Исполнителя не допускаются.\n\n' +
+      '# 8. Изменение оферты и споры\nИсполнитель вправе изменять условия оферты. Действует редакция, размещённая на Сайте на момент оплаты.\n\n' +
+      'Претензии направляются по адресу, указанному в разделе 5; Исполнитель отвечает в течение 10 календарных дней. Споры, не разрешённые по соглашению, рассматриваются в соответствии с законодательством РФ.\n\n' +
+      '# Реквизиты Исполнителя\n{исполнитель}, {статус}, ИНН {инн}. Почта: {почта}. Telegram: {телеграм}. VK: {вк}.'
+  };
+  M13.LEGAL_DEF = LEGAL_DEF;
+  M13.legalOf = function (st) { return legalOf(st); };
+  // Прежняя редакция (до 28.10, вписывалась в черновик панелью) — считается пустой: встаёт новая
+  function legalOld(k, v) {
+    if (k === 'offerTitle') return v === 'Пользовательское соглашение (договор-оферта)';
+    if (k !== 'offer' || !v) return false;
+    var h = 5381; for (var i = 0; i < v.length; i++) h = ((h * 33) ^ v.charCodeAt(i)) >>> 0;
+    // 1oblguz — до 28.10, 1b3a6xg — первая «Публичная оферта» (с фразой про персональные данные и анкету)
+    return h.toString(36) === '1oblguz' || h.toString(36) === '1b3a6xg';
+  }
+  M13.legalOld = legalOld;
+  function legalOf(st) {
+    var o = Object.assign({}, (st && st.legal) || {}), out = {};
+    ['offer', 'offerTitle'].forEach(function (k) { if (legalOld(k, o[k])) o[k] = ''; });
+    Object.keys(LEGAL_DEF).forEach(function (k) { out[k] = typeof LEGAL_DEF[k] === 'string' ? (String(o[k] == null ? '' : o[k]).trim() || LEGAL_DEF[k]) : (o[k] == null ? LEGAL_DEF[k] : o[k]); });
+    // Телефон и статус могут быть пустыми (статус стёрт — его нет нигде)
+    out.phone = String(o.phone || '').trim();
+    if (o.status != null) out.status = String(o.status).trim();
+    if (!o.footMode && o.foot === false) out.footMode = 'none';
+    if (['full', 'links', 'none'].indexOf(out.footMode) < 0) out.footMode = 'links';
+    return out;
+  }
+  function telHref(p) { return 'tel:' + String(p).replace(/[^\d+]/g, ''); }
+  function legalSubst(s, L) {
+    var ct = (S.D && S.D.settings && S.D.settings.contacts) || {}, tg = tgName(ct.telegram), vk = String(ct.vk || '').trim().replace(/^https?:\/\/(m\.)?vk\.(com|me)\//i, '').replace(/^@/, '').replace(/\/.*$/, '');
+    var map = { 'исполнитель': L.name, 'статус': L.status, 'инн': L.inn, 'почта': L.email, 'телефон': L.phone, 'телеграм': tg ? 't.me/' + tg : '', 'вк': vk ? 'vk.com/' + vk : '' };
+    return String(s).replace(/\{(исполнитель|статус|инн|почта|телефон|телеграм|вк)\}/g, function (m, k) { return map[k] || ''; }).replace(/,(\s*,)+/g, ',').replace(/ {2,}/g, ' ');
+  }
+  // Низ витрины: «Условия и цены» — в левом углу, «Конфиденциальность» — в правом (мелко, подчёркнуто); full — под ними «имя · ИНН · почта · телефон»
+  function legalLineHTML() {
+    var st = S.D.settings || {}, L = legalOf(st);
+    if (L.footMode === 'none') return '';
+    var priv = String(((st.home || {}).privacyTitle) || '').trim() || 'Конфиденциальность';
+    var star = '<i class="m13-legal-star" aria-hidden="true">✦</i>';
+    var links = '<a href="' + esc(S.base + 'oferta/') + '" data-m13-oferta>' + txt(L.link) + '</a>' + star +
+      '<a href="' + esc(S.base + '../privacy/') + '" data-m13-priv>' + txt(priv) + '</a>';
+    var req = '';
+    if (L.footMode === 'full') {
+      var parts = [txt(L.name), 'ИНН ' + txt(L.inn), '<a href="mailto:' + esc(L.email) + '">' + txt(L.email) + '</a>'];
+      if (L.phone) parts.push('<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>');
+      req = '<span class="m13-legal-req">' + parts.join('<span aria-hidden="true"> · </span>') + '</span>';
+    }
+    // Шрифт и цвет — как у надписей месяца над сеткой
+    var sc = S.D.showcase || {}, mf = (sc.cardStyle || {}).font || '', hc = (sc.head || {}).color || '', css = [];
+    if (mf && S.view !== 'oferta') css.push("--m13-hfont:'" + mf + "',Georgia,serif");
+    if (hc && S.view !== 'oferta') css.push('color:' + hc);
+    // Лёгкая тень под буквами, чтобы ссылки читались на пёстром фоне: светлые буквы — тёмная, тёмные — светлая
+    if (S.view !== 'oferta' && /^#[0-9a-f]{6}$/i.test(hc)) {
+      var lum = parseInt(hc.substr(1, 2), 16) * .3 + parseInt(hc.substr(3, 2), 16) * .59 + parseInt(hc.substr(5, 2), 16) * .11;
+      css.push('--m13-lsh:' + (lum > 140 ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.7)'));
+    }
+    return '<p class="m13-legal-line"' + (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + '><span class="m13-legal-links">' + links + '</span>' + req + '</p>';
+  }
+  function legalLineBind() {
+    var a = S.root.querySelector('[data-m13-oferta]'), b = S.root.querySelector('[data-m13-priv]');
+    // В предпросмотре панели: «Условия и цены» открывается здесь же, «Конфиденциальность» — не уводит из панели
+    if (a && S.onBack) a.addEventListener('click', function (e) { e.preventDefault(); if (M13.previewGo) M13.previewGo('oferta'); });
+    if (b && S.onBack) b.addEventListener('click', function (e) { e.preventDefault(); });
+  }
+  // Услуги и цены: все видимые карточки месяца, где есть цена (цифры): форматы маршрутов и плашки с ценой.
+  // Группа — «Надпись сверху · Название» карточки, строки — название, подпись (длительность / примечание формата), цена.
+  function hasPrice(v) { return /\d/.test(String(v || '')); }
+  function priceGroups(sc) {
+    var out = [];
+    ((sc && sc.cards) || []).forEach(function (c) {
+      if (!c || c.visible === false || !c.back || !c.back.blocks) return;
+      var f = c.front || {}, rows = [];
+      c.back.blocks.forEach(function (b) {
+        if (!b || b.visible === false) return;
+        if (b.kind === 'formats') (b.formats || []).forEach(function (x) {
+          if (!x || x.visible === false || x.availability === 'closed') return;
+          var fm = formatById(x.formatId) || {}, price = (x.price && opt(x.price)) || fm.price || '';
+          if (hasPrice(price)) rows.push({ title: x.title || fm.title || '', sub: (x.note && opt(x.note)) || opt(fm.note), price: price });
+        });
+        if (b.kind === 'items') (b.items || []).slice().sort(function (x, y) { return (+x.order || 0) - (+y.order || 0); }).forEach(function (it) {
+          if (!it || it.visible === false || !String(it.title || '').trim()) return;
+          var price = opt(it.price);
+          if (hasPrice(price)) rows.push({ title: String(it.title).trim(), sub: opt(it.duration), price: price });
+        });
+      });
+      if (rows.length) out.push({ title: String(f.title || '').trim(), eyebrow: eyeOf(f), rows: rows });
+    });
+    return out;
+  }
+  function legalTextHTML(t, L) {
+    return String(t || '').trim().split(/\n\s*\n/).map(function (par) {
+      par = legalSubst(par.trim(), L);
+      var m = /^#\s+([^\n]+)\n?([\s\S]*)$/.exec(par);
+      if (m) return '<h3>' + txt(m[1]) + '</h3>' + (m[2].trim() ? '<p>' + txt(m[2].trim()) + '</p>' : '');
+      return '<p>' + txt(par) + '</p>';
+    }).join('');
+  }
+  function renderOferta() {
+    var sc = S.D.showcase || {}, st = S.D.settings, L = legalOf(st), ct = st.contacts || {};
+    document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + L.title;
+    S.acts = [];
+    var hd = sc.head || {}, cs = sc.cardStyle || {}, hs = [];
+    if (hd.color) hs.push('--m13-head:' + hd.color);
+    var mf = cs.font || 'Cormorant Garamond';
+    ensureFont(mf); ensureFont('Montserrat');
+    var css = ["--m13-lfont:'" + mf + "',Georgia,serif"];
+    if (cs.accent) css.push('--m13-lacc:' + cs.accent);
+    // Подложка и буквы — как у оборота карточек месяца (светлый месяц — светлая страница)
+    var pbg = /^#[0-9a-f]{6}$/i.test(cs.backBg || '') ? cs.backBg : /^#[0-9a-f]{6}$/i.test(cs.bg || '') ? cs.bg : '';
+    if (pbg) css.push('--m13-lbg:' + pbg + 'eb');
+    if (/^#[0-9a-f]{6}$/i.test(cs.textColor || '')) css.push('--m13-ltx:' + cs.textColor);
+    if (pbg && parseInt(pbg.substr(1, 2), 16) + parseInt(pbg.substr(3, 2), 16) + parseInt(pbg.substr(5, 2), 16) > 384) css.push('--m13-lline:rgba(0,0,0,.14)');
+    var top = hd.top || (hd.logo ? 'logo' : 'text');
+    var topText = String(hd.topText || '').trim() || [st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ');
+    var kicker = top === 'logo' ? '<a class="m13-logo-wrap m13-logo-wrap--s" href="' + esc(S.base) + '" data-m13-lhome>' + logoHTML(hd) + '</a>'
+      : '<div class="m13-kicker"><span class="m13-gt">' + txt(topText) + '</span></div>';
+    var back = S.onBack ? '<button type="button" class="m13-iback" data-m13-lhome>' + txt(T('backToShowcase') || '← К витрине') + '</button>'
+      : '<a class="m13-iback" href="' + esc(S.base) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
+    function row(k, v) { return '<div><dt>' + txt(k) + '</dt><dd>' + v + '</dd></div>'; }
+    var tg = String(ct.telegram || '').trim().replace(/^@/, ''), vk = String(ct.vk || '').trim();
+    var who = row('Исполнитель', txt(L.name)) + (L.status ? row('Статус', txt(L.status)) : '') + row('ИНН', txt(L.inn)) +
+      row('Почта', '<a href="mailto:' + esc(L.email) + '">' + txt(L.email) + '</a>') +
+      (L.phone ? row('Телефон', '<a href="' + esc(telHref(L.phone)) + '">' + txt(L.phone) + '</a>') : '') +
+      (tg ? row('Telegram', '<a href="' + esc(/^https?:/.test(tg) ? tg : 'https://t.me/' + tg.replace(/^t\.me\//, '')) + '" target="_blank" rel="noopener">' + txt('@' + tg.replace(/^(https?:\/\/)?t\.me\//, '')) + '</a>') : '') +
+      (vk ? row('VK', '<a href="' + esc(/^https?:/.test(vk) ? vk : 'https://vk.com/' + vk.replace(/^vk\.com\//, '')) + '" target="_blank" rel="noopener">' + txt('vk.com/' + vk.replace(/^https?:\/\/(vk\.com\/)?/, '')) + '</a>') : '');
+    var prices = priceGroups(sc).map(function (g) {
+      return '<h3 class="m13-legal-group">' + (g.eyebrow ? '<span>' + txt(g.eyebrow) + '</span>' : '') + txt(g.title) + '</h3>' +
+        '<ul class="m13-legal-prices">' + g.rows.map(function (it) {
+          return '<li><span class="m13-legal-pt">' + txt(it.title) + (it.sub ? '<small>' + txt(it.sub) + '</small>' : '') + '</span>' +
+            '<span class="m13-legal-pp">' + txt(it.price) + '</span></li>';
+        }).join('') + '</ul>';
+    }).join('');
+    S.root.innerHTML = rootOpen(sc.background || {}) + '<main class="m13-page m13-legal-page">' +
+      '<header class="m13-header m13-header--center' + (hd.color ? ' m13-header--tinted' : '') + '"' + (hs.length ? ' style="' + esc(hs.join(';')) + '"' : '') + '>' + kicker + '</header>' +
+      '<article class="m13-legal" style="' + esc(css.join(';')) + '">' + back +
+        '<h1>' + txt(L.title) + '</h1>' +
+        '<section><dl class="m13-legal-who">' + who + '</dl></section>' +
+        '<section id="prices"><h2>' + txt(L.pricesTitle) + '</h2>' + prices +
+          '<p class="m13-legal-note">' + txt(L.payNote) + '</p></section>' +
+        '<section id="oferta"><h2>' + txt(L.offerTitle) + '</h2>' + legalTextHTML(L.offer, L) + '</section>' +
+        legalLineHTML() +
+      '</article></main></div>';
+    bgWatch(S.root);
+    S.root.querySelectorAll('[data-m13-lhome]').forEach(function (x) {
+      if (S.onBack) x.addEventListener('click', function (e) { e.preventDefault(); S.onBack(); });
+    });
+    legalLineBind();
+    var h = (location.hash || '').slice(1), t = h && !S.onBack && document.getElementById(h);
+    if (t && t.scrollIntoView) setTimeout(function () { t.scrollIntoView(); }, 60);
+  }
+
+  /* Заглушка маршрута routes/<id>/ (её «делаем» 26.10): страницы по дням ещё нет (маршрут «готовится» или не создан) —
+     в цвете маршрута: «Маршрут», название, даты, «Маршрут начнётся 13 ноября» (идёт / завершён — по датам), строка описания
+     из библиотеки маршрутов, «Задать вопрос» (Host: <печать>_question) и «← Витрина». Создаёт публикация (routeSoonPageHTML в admin.js),
+     пока у маршрута нет своей страницы; появится страница — она займёт этот адрес. */
+  function routeSoonRange(d) {
+    var a = parseDate(d.from), b = parseDate(d.to); if (!a) return '';
+    if (!b) return a.getDate() + ' ' + MONTHS_GEN[a.getMonth()];
+    return a.getMonth() === b.getMonth() ? a.getDate() + '–' + b.getDate() + ' ' + MONTHS_GEN[b.getMonth()]
+      : a.getDate() + ' ' + MONTHS_GEN[a.getMonth()] + ' – ' + b.getDate() + ' ' + MONTHS_GEN[b.getMonth()];
+  }
+  function mixHex(a, b, k) { var x = hexRgb(a), y = hexRgb(b); return '#' + [0, 1, 2].map(function (i) { return ('0' + Math.round(x[i] + (y[i] - x[i]) * k).toString(16)).slice(-2); }).join(''); }
+  function renderRouteSoon() {
+    var st = S.D.settings, sc = S.D.showcase || {}, cs = sc.cardStyle || {}, hd = sc.head || {};
+    var r = (((S.D.routes || {}).routes) || []).filter(function (x) { return x && x.id === S.route; })[0] || { title: 'Маршрут', dates: {} };
+    var d = r.dates || {}, from = parseDate(d.from), to = parseDate(d.to), now = mskToday(), line;
+    if (from && now < from) line = 'Маршрут начнётся ' + from.getDate() + ' ' + MONTHS_GEN[from.getMonth()];
+    else if (from && to && now <= to) line = 'Маршрут идёт · день ' + (Math.round((now - from) / 864e5) + 1) + ' из ' + (Math.round((to - from) / 864e5) + 1);
+    else if (to) line = 'Маршрут завершён';
+    else line = 'Маршрут скоро начнётся';
+    document.title = (st.siteTitle || '13 MIRRORS') + ' · ' + r.title + ' · ' + line;
+    S.acts = [];
+    // Цвета — от цвета маршрута: светлая середина, глубокие края; надписи — тем же цветом, только темнее
+    var tone = /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : routeTone(r), rgb = hexRgb(tone);
+    var pale = Math.max(rgb[0], rgb[1], rgb[2]) - Math.min(rgb[0], rgb[1], rgb[2]) < 40;   // белый маршрут — почти без цвета
+    // Белый маршрут: надписи — цветом шапки месяца, но если он светлый (задуман для тёмного фона) — сгущаем до тёплого тёмного золота (27.10)
+    var hc = /^#[0-9a-f]{6}$/i.test(hd.color || '') ? hd.color : '#6f5320', hrgb = hexRgb(hc);
+    var ink = pale ? (hrgb[0] * 0.299 + hrgb[1] * 0.587 + hrgb[2] * 0.114 > 110 ? mixHex(hc, '#2e1f08', 0.72) : hc) : mixHex(tone, '#000000', 0.62);
+    var css = ['--rs-c:' + tone, '--rs-l:' + mixHex(tone, '#ffffff', pale ? 0.55 : 0.78), '--rs-m:' + mixHex(tone, '#ffffff', pale ? 0.05 : 0.35),
+      '--rs-d:' + mixHex(tone, pale ? '#6b5a3c' : '#000000', pale ? 0.42 : 0.45), '--rs-ink:' + ink, '--rs-btn:' + (pale ? ink : mixHex(tone, '#000000', 0.35)),
+      '--m13-shine:' + (pale ? '#fff3cf' : mixHex(tone, '#ffffff', 0.85))];
+    var font = cs.font || 'Cormorant Garamond'; ensureFont(font); css.push("--rs-font:'" + font + "',Georgia,serif");
+    // Кнопка «Задать вопрос»: метка Host и контакты — с заглушки карточки маршрута, если она есть
+    var card = (sc.cards || []).filter(function (c) { return c && c.back && c.back.routeId === r.id; })[0], stub = (card && card.back.stub) || {};
+    var ask = String(stub.ask || '').trim() || 'Задать вопрос';
+    var askBtn = '<button type="button" class="m13-rs-btn m13-rs-btn--main"' + act({ kind: 'contact', label: ask, telegram: stub.telegram || '', vk: stub.vk || '',
+      host: String(stub.host || '').trim() || hostAuto(r.title, 'question'), message: 'Здравствуйте! Хочу узнать подробнее про маршрут «' + r.title + '».' }, { card: r.title, action: ask }) + '>' + txt(ask) + '</button>';
+    var home = '<a class="m13-rs-btn" href="' + esc(S.base + (card ? '#' + encodeURIComponent(card.id) : '')) + '">' + txt(T('backToShowcase') || '← К витрине') + '</a>';
+    var desc = String(r.description || '').trim();
+    // Своя картинка фона (её «делаем» 27.10): r.soonBg = { image, imagePhone, pos: '' (по центру) | top | bottom | left | right, veil: 0–90 % (дымка цвета маршрута) }
+    var bg = r.soonBg || {}, bgHTML = '';
+    if (bg.image) {
+      var bgCss = "--rs-img:url('" + media(bg.image) + "')" + (bg.imagePhone ? ";--rs-img-ph:url('" + media(bg.imagePhone) + "')" : '') +
+        ';background-position:' + ({ top: '50% 0', bottom: '50% 100%', left: '0 50%', right: '100% 50%' }[bg.pos] || '50% 50%');
+      bgHTML = '<i class="m13-rs-bg" aria-hidden="true" style="' + esc(bgCss) + '"></i>' +
+        '<i class="m13-rs-veil" aria-hidden="true" style="opacity:' + (bg.veil == null ? 0.3 : Math.max(0, Math.min(90, +bg.veil || 0)) / 100) + '"></i>';
+    }
+    S.root.innerHTML = '<div class="m13-rs' + (bg.image ? ' m13-rs--img' : '') + '" style="' + esc(css.join(';')) + '">' + bgHTML + '<i class="m13-rs-glow" aria-hidden="true"></i>' +
+      '<main class="m13-rs-in m13-shine">' +
+      '<a class="m13-rs-top" href="' + esc(S.base) + '">' + txt([st.siteTitle || '13 MIRRORS', T('kicker')].filter(Boolean).join(' · ')) + '</a>' +
+      '<p class="m13-rs-kind">Маршрут</p>' +
+      '<h1 class="m13-rs-title"><span class="m13-gt">' + txt(r.title) + '</span></h1>' +
+      (from ? '<p class="m13-rs-dates">' + txt(routeSoonRange(d)) + '</p>' : '') +
+      '<p class="m13-rs-line">' + txt(line) + '</p>' +
+      (desc ? '<p class="m13-rs-desc">' + txt(desc) + '</p>' : '') +
+      '<div class="m13-rs-btns">' + askBtn + home + '</div>' +
+      '</main></div>' + modalHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
+    bindModal(); bindActs(S.root);
+  }
   function renderShowcase() {
     var sc = S.D.showcase;
     if (!sc) throw new Error('Нет данных витрины');
@@ -329,16 +577,17 @@
     var root = rootOpen(bg);
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
-    var foot = footHTML(hd, hs), fh = foot ? footHeight(hd) : 0;
-    var html = root + '<main class="m13-page' + (foot ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
+    // Сетка уменьшается и на высоту строки «Условия и цены ✦ Конфиденциальность», чтобы всё помещалось в экран
+    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 40 : 20) : 0);
+    var html = root + '<main class="m13-page' + (fh ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
         : '<h1><span class="m13-gt">' + txt(sc.title) + '</span>' + draft + '</h1>') +
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + monthNavHTML(sc.id) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
-      '</section></div>' + foot + '</main>' +
-      overlayHTML() + internalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
+      '</section></div>' + foot + legal + '</main>' +
+      overlayHTML() + internalHTML() + zpModalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
     bgWatch(S.root);
 
@@ -349,11 +598,11 @@
     var lids = S.root.querySelectorAll('.m13-lid');
     lids.forEach(function (l) { l.addEventListener('click', function (e) { e.stopPropagation(); lidOpen(l); }); });
     if (lids.length) setTimeout(function () { lids.forEach(lidOpen); }, 10000);
-    bindOverlay(); bindModal();
+    bindOverlay(); bindModal(); zpBind();
     // В предпросмотре панели логотип внизу не уводит со страницы
     var fl = S.root.querySelector('.m13-foot-logo');
     if (fl && S.onBack) fl.addEventListener('click', function (e) { e.preventDefault(); });
-    wake(hd);
+    wake(hd); legalLineBind();
     // В предпросмотре панели сайта ещё нет — открываем события поверх витрины
     var evl = S.root.querySelector('[data-m13-evlink]');
     if (evl && S.onBack) evl.addEventListener('click', function (e) { e.preventDefault(); openInternal('events'); });
@@ -365,6 +614,8 @@
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
       openCard(h);
     }
+    // Вернулись со страницы оплаты ЮKassa (или есть неоплаченная запись) — окошко записи скажет, что с ней
+    zpResume();
   }
 
   // Логотип (картинка-маска цветом надписей): свой у месяца (head.logoImg), общий (settings.logo) или обычный.
@@ -466,10 +717,62 @@
   }
   // Мягкий свет волной по карточкам: каждой — свой момент, по месту в сетке.
   // head.wave — откуда идёт волна: corner (из левого верхнего угла, по умолчанию) | top | bottom | left | right | center;
-  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | ray | dust | flash.
+  // head.waveSpeed — как быстро перебегает (fast | normal | slow | vslow); head.sheenKind — вид блика: soft | silk (шёлк) | bunny (солнечный зайчик) | edge (свет по контуру) | ray | flash |
+  // confetti (мелкое разноцветное конфетти сыплется сверху) | popper (хлопушка из середины карточки)
+  // (27.10 (4); прежние dust и motes убраны по её слову — у таких месяцев идёт мягкая полоса).
   // onlyLids — только по карточкам с обложкой (когда приветственный блик выключен).
   var WAVE_SPREAD = { fast: 400, normal: 650, slow: 1000, vslow: 1500 }, WAVE_PASS = { fast: 1200, normal: 1600, slow: 2100, vslow: 2800 };
-  var SHEEN_KINDS = { soft: 1, ray: 1, dust: 1, flash: 1 };
+  var SHEEN_KINDS = { soft: 1, silk: 1, bunny: 1, edge: 1, ray: 1, flash: 1, confetti: 1, popper: 1 };
+  // Конфетти (27.10 (5), её «разноцветные, мелкие, не пятна»): крошки на карточку — полоски и кружочки, свой цвет, путь и поворот у каждой.
+  // head.confettiShape: '' смесь | round только кружочки | strip только полоски; head.confettiCount: few | mid или пусто (средне) | many | lots — сколько крошек;
+  // head.confettiColor (27.10 (8)): '' нежные | bright яркие | gold золото | silver серебро-зеркало | pearl перламутр (металл и перламутр поблёскивают).
+  // Падение и покачивание — две отдельные анимации (translate и transform): раньше падение шло двумя отрезками и замирало на середине
+  var CONFETTI_MS = 2600, CONFETTI_N = { few: 18, many: 50, lots: 75 }, CONFETTI_C = {
+    soft: ['#f4c95d', '#ef8fa8', '#7fd1c1', '#8fb8f2', '#c4a3f0', '#f59a6b', '#fff6dc'],
+    bright: ['#ff2d55', '#ffb300', '#00d1a0', '#1f7bff', '#b042ff', '#ff6a00', '#ffe600', '#ff4fd8'],
+    gold: ['linear-gradient(135deg,#fff6cf,#e8b84a 45%,#9b6a16)', 'linear-gradient(135deg,#ffe9a8,#c99232 55%,#7a4e0e)', 'linear-gradient(135deg,#fffbe8,#f0cf7a 50%,#b8862c)'],
+    silver: ['linear-gradient(135deg,#ffffff,#c3ccd8 40%,#6f7c8d)', 'linear-gradient(135deg,#eef3fa,#9eabbd 50%,#535f6f)', 'linear-gradient(135deg,#ffffff,#d9e0ea 45%,#8793a3)'],
+    pearl: ['linear-gradient(135deg,#ffb8dc,#a9e4ff 50%,#cdb6ff)', 'linear-gradient(135deg,#9ff0d4,#ffc2e0 50%,#b9c8ff)', 'linear-gradient(135deg,#ffe2a0,#d0b8ff 50%,#9fe6ff)', 'linear-gradient(135deg,#c8b4ff,#ffd0e8 50%,#a6f0e0)']
+  };
+  function confetti(n, kind, delay, h, hd) {
+    var cnt = CONFETTI_N[hd.confettiCount] || 32, shape = hd.confettiShape, col = CONFETTI_C[hd.confettiColor] ? hd.confettiColor : 'soft', pal = CONFETTI_C[col];
+    var shine = col === 'gold' || col === 'silver' || col === 'pearl';
+    n.className += ' m13-cf--' + col;
+    for (var i = 0; i < cnt; i++) {
+      var b = document.createElement('b'), dot = shape === 'round' || shape !== 'strip' && i % 2 === 0, w = dot ? 3.5 + Math.random() * 1.5 : 2.5 + Math.random() * 2.5;
+      b.style.width = w.toFixed(1) + 'px'; b.style.height = (dot ? w : w * (1.6 + Math.random() * 0.8)).toFixed(1) + 'px';
+      if (dot) b.style.borderRadius = '50%';
+      b.style.background = pal[i % pal.length];
+      if (col === 'bright') b.style.boxShadow = '0 0 3px ' + pal[i % pal.length];
+      b.style.setProperty('--r', Math.round((Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 200)) + 'deg');
+      // Кружочек не кувыркается через ребро — иначе он то и дело становится чёрточкой и пропадает
+      b.style.setProperty('--fx', dot ? '0deg' : Math.round(150 + Math.random() * 210) + 'deg');
+      var flut = Math.round(700 + Math.random() * 600), gl = shine ? ', ' + Math.round(350 + Math.random() * 450) + 'ms' : '', del;
+      if (kind === 'popper') {
+        var a = (i / cnt) * 6.283 + Math.random() * 0.35, d = h * (0.22 + Math.random() * 0.24);
+        b.style.setProperty('--dx', Math.round(Math.cos(a) * d) + 'px'); b.style.setProperty('--dy', Math.round(Math.sin(a) * d - h * 0.06) + 'px');
+        b.style.setProperty('--fy', Math.round(h * (0.1 + Math.random() * 0.12)) + 'px');
+        del = delay + Math.round(Math.random() * 90);
+        b.style.animationDuration = '1900ms' + gl;
+      } else {
+        b.style.left = (3 + Math.random() * 94).toFixed(1) + '%';
+        b.style.setProperty('--dx', Math.round(8 + Math.random() * 14) + 'px'); b.style.setProperty('--fy', Math.round(h + 16) + 'px');
+        del = delay + Math.round(Math.random() * (500 + cnt * 12));
+        b.style.animationDuration = Math.round(CONFETTI_MS * (0.75 + Math.random() * 0.25)) + 'ms, ' + flut + 'ms' + gl;
+      }
+      b.style.animationDelay = del + 'ms, ' + (del - Math.round(Math.random() * flut)) + 'ms' + (shine ? ', ' + del + 'ms' : '');
+      n.appendChild(b);
+    }
+  }
+  // Пробник для панели: конфетти по образцу (box — любой блок с position:relative), с настройками hd
+  M13.confettiDemo = function (box, hd) {
+    var kind = hd.sheenKind === 'popper' ? 'popper' : 'confetti', n = document.createElement('i');
+    box.querySelectorAll('i.m13-sheen').forEach(function (x) { x.remove(); });
+    n.className = 'm13-sheen m13-sheen--' + kind; n.setAttribute('aria-hidden', 'true');
+    n.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+    box.appendChild(n); confetti(n, kind, 0, box.getBoundingClientRect().height || 160, hd);
+    setTimeout(function () { n.remove(); }, CONFETTI_MS + 1800);
+  };
   function sheenCards(onlyLids) {
     var g = S.root.querySelector('.m13-grid'); if (!g) return;
     var hd = S.D.showcase.head || {}, col = hd.shineColor || (S.D.showcase.cardStyle || {}).rimRunColor || '#fff3cf';
@@ -488,8 +791,11 @@
       var n = document.createElement('i'); n.className = 'm13-sheen' + (kind !== 'soft' ? ' m13-sheen--' + kind : ''); n.setAttribute('aria-hidden', 'true');
       n.style.animationDelay = delay + 'ms'; n.style.animationDuration = run + 'ms';
       n.style.setProperty('--m13-shine-c', col);
-      (o.lid ? o.lid.querySelector('.m13-lid-leaf') : o.t).appendChild(n);
-      S.wakeT.push(setTimeout(function () { n.remove(); }, delay + run + 200));
+      var host = o.lid ? o.lid.querySelector('.m13-lid-leaf') : o.t;
+      host.appendChild(n);
+      var conf = kind === 'confetti' || kind === 'popper';
+      if (conf) confetti(n, kind, delay, host.getBoundingClientRect().height || 200, hd);
+      S.wakeT.push(setTimeout(function () { n.remove(); }, delay + (conf ? CONFETTI_MS + 1600 : run) + 200));
       // Обложка раскрывается, когда блик почти прошёл, и после паузы
       if (o.lid) S.wakeT.push(setTimeout(function () { lidOpen(o.lid); }, delay + Math.round(run * 0.7) + (+o.lid.getAttribute('data-pause') || 0)));
     });
@@ -508,8 +814,14 @@
      (from left | right — слева направо / справа налево, top | bottom — сверху вниз / снизу вверх).
      feel: soft (по умолчанию) — мягкая: книга изгибается, как тетрадный лист, карта чуть пружинит, как картон |
      leather — как толстая мягкая кожа: тяжёлый плавный изгиб ровной дугой, скруглённый край, матовый тёплый свет; карта переворачивается плавно, без пружины |
-     hard — твёрдая, как переплёт. */
-  var LID_OPEN = { book: 1, flip: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
+     hard — твёрдая, как переплёт.
+     envelope — конверт (её «делаем» 27.10): на закрытой обложке линии клапанов, печать на кончике клапана; печать тает → клапан откидывается
+     (видна изнанка) → конверт уходит. from — где клапан (top по умолчанию | bottom | left | right);
+     flap sharp (острый, по умолчанию) | gentle (пологий) | round (скруглённый); go down (А — конверт уезжает и тает, по умолчанию) |
+     out (Б — карточка выдвигается из конверта, конверт уходит) | unfold (В — раскладывается на четыре клапана);
+     seal wax (сургуч: капля, в ней знак из sign; по умолчанию) | sign (просто знак на кончике клапана) | none (без печати — знак стоит, где signPos);
+     wax — цвет сургуча (#960c0d); inner — цвет изнанки (обычно — цвет обложки чуть темнее). */
+  var LID_OPEN = { book: 1, flip: 1, envelope: 1 }, LID_MS = { fast: 700, normal: 1000, slow: 1400, vslow: 2000 }, LID_FROM = { left: 1, right: 1, top: 1, bottom: 1 };
   function lidQuiet() { return !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function lidOf(c) {
     if (!c || c.visible === false || lidQuiet()) return null;
@@ -567,23 +879,81 @@
   // Значки-одуванчики на обложке: sign → вид одуванчика
   var DAND_SIGN = { dandelion: 'logo', dandelion2: 'line', dandelion3: 'wave' };
   // Надпись или значок на обложке
-  function lidSign(L, dark) {
-    var k = L.sign, inner = '', ty = [];
+  function lidSignInner(L, ty) {
+    var k = L.sign;
     if (k === 'text') {
       var tx = String(L.text || '').trim(); if (!tx) return '';
       if (L.font) { ensureFont(L.font); ty.push("font-family:'" + L.font + "',Georgia,serif"); }
-      inner = '<span class="m13-lid-tx">' + txt(tx) + '</span>';
-    } else if (STAR_PATH[k]) inner = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH[k] + '"/></svg>';
-    else if (DAND_SIGN[k]) inner = dandSVG(DAND_SIGN[k], !!L.signMirror);
-    else if (k === 'logo') inner = logoHTML(S.D.showcase.head || {});
-    else if (k === 'image' && L.signImg) inner = '<img alt="" src="' + esc(media(L.signImg)) + '">';
+      return '<span class="m13-lid-tx">' + txt(tx) + '</span>';
+    }
+    if (STAR_PATH[k]) return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH[k] + '"/></svg>';
+    if (DAND_SIGN[k]) return dandSVG(DAND_SIGN[k], !!L.signMirror);
+    if (k === 'logo') return logoHTML(S.D.showcase.head || {});
+    if (k === 'image' && L.signImg) return '<img alt="" src="' + esc(media(L.signImg)) + '">';
+    return '';
+  }
+  function lidSign(L, dark) {
+    var ty = [], inner = lidSignInner(L, ty), k = L.sign;
     if (!inner) return '';
     ty.push('color:' + (L.signColor || (dark ? '#f3e6cc' : '#3b2f24')));
     var at = L.signPos === 'top' || L.signPos === 'bottom' ? L.signPos : 'center', sz = L.signSize === 's' || L.signSize === 'l' ? L.signSize : 'm';
     return '<div class="m13-lid-sign m13-lid-sign--' + (DAND_SIGN[k] ? 'dand' : k) + ' m13-lid-at-' + at + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' + inner + '</div>';
   }
+
+  /* Конверт: геометрия в долях (0–100) «как будто клапан сверху»: x — поперёк, d — вглубь от края с клапаном; envAt переводит в место на карточке.
+     Отверстие конверта — треугольник от углов края с клапаном к середине; клапан — своей формы поверх. */
+  var ENV_TIP = { sharp: 60, gentle: 38, round: 56 };
+  function envAt(from, x, d) { return from === 'bottom' ? [x, 100 - d] : from === 'left' ? [d, x] : from === 'right' ? [100 - d, x] : [x, d]; }
+  function envFlap(shape) {
+    if (shape !== 'round') return [[0, 0], [100, 0], [50, ENV_TIP[shape] || 60]];
+    var pts = [[0, 0], [100, 0]], i, t, u;
+    // скруглённый: две кривые от углов к низу клапана
+    for (i = 1; i <= 10; i++) { t = i / 10; u = 1 - t; pts.push([u * u * u * 100 + 3 * u * u * t * 100 + 3 * u * t * t * 80 + t * t * t * 50, 3 * u * u * t * 26 + 3 * u * t * t * 56 + t * t * t * 56]); }
+    for (i = 1; i < 10; i++) { t = i / 10; u = 1 - t; pts.push([u * u * u * 50 + 3 * u * u * t * 20 + 3 * u * t * t * 0, u * u * u * 56 + 3 * u * u * t * 56 + 3 * u * t * t * 26]); }
+    return pts;
+  }
+  function envPoly(from, pts, back) {
+    return 'polygon(' + pts.map(function (p) { var q = envAt(from, p[0], back ? 100 - p[1] : p[1]); return q[0].toFixed(2) + '% ' + q[1].toFixed(2) + '%'; }).join(',') + ')';
+  }
+  function envInside(pts, x, y) {
+    for (var i = 0, j = pts.length - 1, c = false; i < pts.length; j = i++) {
+      if ((pts[i][1] > y) !== (pts[j][1] > y) && x < (pts[j][0] - pts[i][0]) * (y - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) c = !c;
+    }
+    return c;
+  }
+  // Линии на закрытом конверте: косые от углов к середине (под клапаном не видны) и край клапана
+  function envLines(from, shape) {
+    var F = envFlap(shape), out = [], k;
+    function pt(p) { var q = envAt(from, p[0], p[1]); return q[0].toFixed(2) + ',' + q[1].toFixed(2); }
+    [[0, 0], [100, 0], [0, 100], [100, 100]].forEach(function (a) {
+      var run = [];
+      for (k = 0; k <= 40; k++) {
+        var p = [a[0] + (50 - a[0]) * k / 40, a[1] + (50 - a[1]) * k / 40];
+        if (!envInside(F, p[0], p[1]) || (k === 0 && a[1] === 0)) run.push(p);
+        else { if (run.length > 1) out.push(run); run = []; }
+      }
+      if (run.length > 1) out.push(run);
+    });
+    var edge = F.slice(1).concat([F[0]]);
+    var lines = out.map(function (r) { return '<polyline points="' + r.map(pt).join(' ') + '"/>'; }).join('');
+    return '<svg class="m13-env-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + lines +
+      '<polyline class="m13-env-edge" points="' + edge.map(pt).join(' ') + '"/></svg>' +
+      '<i class="m13-env-face" style="clip-path:' + envPoly(from, F) + '"></i>';
+  }
+  // Печать на кончике клапана: сургуч со знаком или просто знак
+  function envSeal(L, from, shape) {
+    var seal = L.seal === 'sign' || L.seal === 'none' ? L.seal : 'wax';
+    if (seal === 'none') return '';
+    var ty = [], inner = lidSignInner(L, ty), sz = L.signSize === 's' || L.signSize === 'l' ? L.signSize : 'm';
+    if (seal === 'sign' && !inner) return '';
+    var at = envAt(from, 50, (ENV_TIP[shape] || 60) - (seal === 'wax' ? 4 : 2));
+    ty.push('left:' + at[0] + '%', 'top:' + at[1] + '%', 'color:' + (L.signColor || (seal === 'wax' ? '#f2d9a8' : '#3b2f24')));
+    if (seal === 'wax') ty.push('--m13-wax:' + (L.wax || '#960c0d'));
+    return '<div class="m13-env-seal m13-env-seal--' + seal + ' m13-env-k-' + (DAND_SIGN[L.sign] ? 'dand' : L.sign || 'none') + ' m13-lid-sz-' + sz + '" style="' + esc(ty.join(';')) + '">' +
+      (seal === 'wax' ? '<i class="m13-env-drop"></i>' : '') + (inner ? '<span class="m13-env-mark">' + inner + '</span>' : '') + '</div>';
+  }
   function lidHTML(c, L) {
-    var st = cardStyle(c), from = LID_FROM[L.from] ? L.from : 'left', mat = L.mat === 'color' || L.mat === 'frost' || (L.mat === 'image' && L.image) ? L.mat : 'glass';
+    var st = cardStyle(c), from = LID_FROM[L.from] ? L.from : L.open === 'envelope' ? 'top' : 'left', mat = L.mat === 'color' || L.mat === 'frost' || (L.mat === 'image' && L.image) ? L.mat : 'glass';
     var col = L.color || (mat === 'frost' ? '#e4ebf1' : st.bg || '#f4efe6'), rgb = hexRgb(col), dark = mat === 'image' || (mat !== 'frost' && lum(rgb) < 128);
     var css = ['--m13-lid-ms:' + (LID_MS[L.speed] || LID_MS.normal) + 'ms', '--m13-ac:' + (st.accent || '#ecd3a3')], leaf = [];
     // Плотный цвет листа для мягкого изгиба (у стекла и инея — как они выглядят поверх карточки): размытие на изгибающихся полосках не работает
@@ -597,15 +967,24 @@
       leaf.push('background-color:rgba(' + rgb.join(',') + ',' + (1 - gl / 100).toFixed(2) + ')', '--m13-lb:' + bl + 'px');
     }
     var rim = L.rim === 'light' || L.rim === 'cold' || L.rim === 'gold' ? '<i class="m13-lay m13-rim m13-rim--' + L.rim + '"' + (L.rimColor ? ' style="' + esc('--m13-rc:' + L.rimColor) + '"' : '') + '></i>' : '';
-    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft' + (L.feel === 'leather' ? ' m13-lid--leather' : '')) + (L.shadow === 'deep' ? ' m13-lid--deep' : '') + '" aria-hidden="true" data-pause="' +
+    var env = L.open === 'envelope', shape = ENV_TIP[L.flap] ? L.flap : 'sharp', sign = env && L.seal !== 'none' ? envSeal(L, from, shape) : lidSign(L, dark), data = '';
+    if (env) {
+      // изнанка клапанов — цвет обложки чуть темнее (или свой)
+      css.push('--m13-env-in:' + (L.inner || 'rgb(' + rgb.map(function (v, j) { return Math.round((v * k + under[j] * (1 - k)) * 0.9); }).join(',') + ')'));
+      data = ' data-flap="' + shape + '" data-go="' + (L.go === 'out' || L.go === 'unfold' ? L.go : 'down') + '"';
+      sign = envLines(from, shape) + sign;
+    }
+    return '<div class="m13-lid m13-lid--' + L.open + ' m13-lid--' + from + (L.feel === 'hard' ? ' m13-lid--hard' : ' m13-lid--soft' + (L.feel === 'leather' ? ' m13-lid--leather' : '')) + (L.shadow === 'deep' ? ' m13-lid--deep' : '') +
+      (env && dark ? ' m13-env-dark' : '') + '" aria-hidden="true"' + data + ' data-pause="' +
       Math.round(lidNum(L.pause, 0.5, 0, 3) * 1000) + '" style="' + esc(css.join(';')) + '"><i class="m13-lid-cast"></i>' +
       '<div class="m13-lid-leaf m13-lid-' + mat + '"' + (leaf.length ? ' style="' + esc(leaf.join(';')) + '"' : '') + '>' +
-      (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + lidSign(L, dark) + rim + '<i class="m13-lid-shade"></i></div></div>';
+      (mat === 'frost' ? '<i class="m13-lid-fog"></i>' : '') + sign + rim + '<i class="m13-lid-shade"></i></div></div>';
   }
   function lidOpen(lid) {
     if (!lid || !lid.isConnected || lid.classList.contains('is-open')) return;
     var cell = lid.parentNode, ms = parseFloat(lid.style.getPropertyValue('--m13-lid-ms')) || 1000, cl = lid.classList, total = ms;
     if (cl.contains('m13-lid--flip')) total = Math.round(ms * (cl.contains('m13-lid--leather') ? 1.5 : 1.3));
+    else if (cl.contains('m13-lid--envelope')) total = lidEnvelope(lid, ms);
     else if (cl.contains('m13-lid--soft')) total = lidBend(lid, ms);
     // скорость — и для самой карточки (у переворота она поворачивается вместе с рубашкой; переменная стоит на обложке и до неё не доходит)
     cell.style.setProperty('--m13-lid-ms', ms + 'ms');
@@ -689,6 +1068,91 @@
     requestAnimationFrame(frame);
     return Math.round(ms * END);
   }
+  /* Конверт раскрывается (всё — по кадрам, время в долях скорости ms):
+     печать тает (CSS) → клапан откидывается, с изнанкой и тенью (мягкий в конце чуть «доплывает») → дальше по data-go:
+     down — конверт уезжает от клапана и тает; out — карточка выдвигается из конверта в сторону клапана (клапан уходит назад, за неё),
+     конверт уезжает, карточка садится на место; unfold — три других клапана раскладываются наружу, потом всё тает.
+     Стекло и иней: у повёрнутых кусков размытие не работает — они плотные, тем цветом, каким обложка видится поверх карточки. */
+  function lidEnvelope(lid, ms) {
+    var leaf = lid.querySelector('.m13-lid-leaf'), cell = lid.parentNode, card = cell.querySelector(':scope > .m13-thumb') || cell.firstElementChild;
+    if (!leaf || !lid.offsetWidth || !window.requestAnimationFrame) return ms;
+    var cl = lid.classList, from = cl.contains('m13-lid--right') ? 'right' : cl.contains('m13-lid--left') ? 'left' : cl.contains('m13-lid--bottom') ? 'bottom' : 'top';
+    var shape = lid.getAttribute('data-flap') || 'sharp', go = lid.getAttribute('data-go') || 'down';
+    var feel = cl.contains('m13-lid--hard') ? 'hard' : cl.contains('m13-lid--leather') ? 'leather' : 'soft', K = feel === 'leather' ? 1.25 : 1;
+    var deep = cl.contains('m13-lid--deep') ? 0.5 : 0.32;
+    var cs = getComputedStyle(leaf), clear = (cs.backdropFilter || cs.webkitBackdropFilter || 'none') !== 'none', solid = lid.style.getPropertyValue('--m13-lid-solid');
+    var inner = lid.style.getPropertyValue('--m13-env-in') || solid, box = document.createElement('div');
+    box.className = 'm13-env-box'; lid.insertBefore(box, leaf); box.appendChild(leaf);
+    var ROT = { top: ['X', 1, '50% 0'], bottom: ['X', -1, '50% 100%'], left: ['Y', -1, '0 50%'], right: ['Y', 1, '100% 50%'] };
+    // Клапан (или кусок конверта): лицо — тот же материал, изнанка — цвет изнанки; поворачивается на своём крае
+    function piece(side, pts) {
+      var w = document.createElement('div'), f = document.createElement('div'), b = document.createElement('div'), fs = document.createElement('i'), bs = document.createElement('i');
+      w.className = 'm13-env-pc'; w.style.transformOrigin = ROT[side][2];
+      f.className = leaf.className.replace('m13-lid-leaf', 'm13-env-mat'); f.style.cssText = leaf.style.cssText;
+      if (clear) { f.style.backdropFilter = f.style.webkitBackdropFilter = 'none'; if (solid) f.style.backgroundColor = solid; f.style.backgroundImage = 'none'; }
+      f.style.clipPath = f.style.webkitClipPath = envPoly(side, pts);
+      b.className = 'm13-env-back'; b.style.background = inner; b.style.clipPath = b.style.webkitClipPath = envPoly(side, pts, true);
+      b.style.transform = 'rotate' + ROT[side][0] + '(180deg)';
+      fs.className = bs.className = 'm13-env-sh'; f.appendChild(fs); b.appendChild(bs); w.appendChild(f); w.appendChild(b);
+      return { w: w, f: fs, b: bs, side: side };
+    }
+    function turn(o, a, sq) {
+      var r = ROT[o.side], s = Math.abs(Math.sin(a * Math.PI / 180));
+      o.w.style.transform = 'rotate' + r[0] + '(' + (r[1] * a).toFixed(2) + 'deg)' + (sq ? ' scale' + (r[0] === 'X' ? 'Y' : 'X') + '(' + sq.toFixed(3) + ')' : '');
+      o.f.style.opacity = (s * deep).toFixed(3); o.b.style.opacity = (s * deep * 0.9).toFixed(3);
+    }
+    var flap = piece(from, envFlap(shape)), pcs = [];
+    box.appendChild(flap.w); flap.w.style.opacity = '0';
+    // остальные три клапана (для «раскладывается»): сначала соседние, потом напротив
+    var SIDES = ['top', 'right', 'bottom', 'left'], fi = SIDES.indexOf(from);
+    if (go === 'unfold') [1, 3, 2].forEach(function (k, j) { var o = piece(SIDES[(fi + k) % 4], [[0, 0], [100, 0], [50, 50]]); o.at = j < 2 ? 0.6 : 0.8; o.w.style.opacity = '0'; box.appendChild(o.w); pcs.push(o); });
+    var away = { top: [0, 1], bottom: [0, -1], left: [1, 0], right: [-1, 0] }[from], W = lid.offsetWidth, H = lid.offsetHeight;
+    var pocket = envPoly(from, [[0, 0], [50, 50], [100, 0], [100, 100], [0, 100]]), back = null;
+    function cut(x) { return Math.max(0, Math.min(1, x)); }
+    function io(p) { return feel === 'leather' ? (p < 0.5 ? 8 * p * p * p * p : 1 - Math.pow(-2 * p + 2, 4) / 2) : p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+    function slide(el, p, k) { el.style.transform = 'translate(' + (away[0] * W * k * p).toFixed(1) + 'px,' + (away[1] * H * k * p).toFixed(1) + 'px)'; }
+    var END = go === 'out' ? 2.1 : go === 'unfold' ? 1.75 : 1.6, t0 = 0, cardT = card.style.transform;
+    function done() { if (back) back.remove(); if (go === 'out') card.style.transform = cardT; }
+    function frame(now) {
+      if (!box.isConnected) { done(); return; }
+      if (!t0) t0 = now;
+      var t = (now - t0) / ms / K;
+      // клапан: 0,18–0,88; мягкий в конце чуть перелетает и возвращается
+      var p = cut((t - 0.18) / 0.7), a = 180 * io(p) + (feel === 'soft' ? 9 * Math.sin(Math.PI * cut((p - 0.7) / 0.3)) : 0);
+      if (t > 0.18) {
+        flap.w.style.opacity = clear ? cut((t - 0.18) / 0.05).toFixed(3) : '1';
+        if (t > 0.21 && !leaf.style.clipPath) leaf.style.clipPath = leaf.style.webkitClipPath = pocket;
+      }
+      turn(flap, a, feel === 'soft' ? 1 - 0.07 * Math.sin(Math.PI * p) : 0);
+      if (go === 'down') {
+        var q = io(cut((t - 0.85) / 0.7));
+        slide(box, q, 0.7); box.style.opacity = (1 - Math.pow(q, 1.4)).toFixed(3);
+      } else if (go === 'out') {
+        // клапан лёг — уходит назад, за карточку (иначе карточка выедет из-под него)
+        if (p >= 1 && !back) {
+          back = document.createElement('div'); back.className = 'm13-env-behind';
+          back.style.perspective = getComputedStyle(lid).perspective;
+          back.appendChild(flap.w); cell.insertBefore(back, cell.firstChild);
+        }
+        var up = io(cut((t - 0.9) / 0.5)) * (1 - io(cut((t - 1.45) / 0.6))), q2 = io(cut((t - 1.35) / 0.6));
+        card.style.transform = 'translate(' + (-away[0] * W * 0.36 * up).toFixed(1) + 'px,' + (-away[1] * H * 0.36 * up).toFixed(1) + 'px) scale(' + (1 + 0.02 * up).toFixed(4) + ')';
+        slide(box, q2, 0.7); box.style.opacity = (1 - Math.pow(q2, 1.4)).toFixed(3);
+        if (back) { slide(back, q2, 0.7); back.style.opacity = (1 - q2).toFixed(3); }
+      } else {
+        pcs.forEach(function (o) {
+          var r = cut((t - o.at) / 0.6);
+          if (t > 0.55) o.w.style.opacity = clear ? cut((t - 0.55) / 0.05).toFixed(3) : '1';
+          turn(o, 180 * io(r) + (feel === 'soft' ? 7 * Math.sin(Math.PI * cut((r - 0.7) / 0.3)) : 0), 0);
+        });
+        if (t > (clear ? 0.6 : 0.56)) leaf.style.visibility = 'hidden';
+        box.style.opacity = (1 - io(cut((t - 1.25) / 0.45))).toFixed(3);
+      }
+      if (t < END) requestAnimationFrame(frame);
+      else done();
+    }
+    requestAnimationFrame(frame);
+    return Math.round(ms * K * END);
+  }
   // Карточка с обложкой: обложка стоит над карточкой в общей обёртке (m13-cell), чтобы при раскрытии выходить за её край
   function withLid(c, html) {
     var L = lidOf(c); if (!L || !html) return html;
@@ -702,7 +1166,7 @@
   function footHeight(hd) {
     var b = hd.bottom, h = 18;
     if (b === 'logo' || b === 'both') h += { s: 30, m: 50, l: 70 }[hd.bottomSize] || 30;
-    if (b === 'text' || b === 'both') h += 26;
+    if (b === 'text' || b === 'both') h += 29;
     return h;
   }
 
@@ -993,7 +1457,12 @@
     return 'rgb(' + a.map(function (v, i) { return Math.round(v + (b[i] - v) * k); }).join(',') + ')';
   }
   function iconVars(st, r) {
+    var own = ((S.D && S.D.showcase && S.D.showcase.cardStyle) || {}).iconColor;
+    if (/^#[0-9a-f]{6}$/i.test(own || '')) return '--m13-icb:' + mixHex(own, '#ffffff', .8) + ';--m13-ixl:' + own + ';--m13-ixc:' + own + ';--m13-ixg:' + mixHex(own, '#ffffff', .5);
     var hue = [st.glowColor, st.accent, r && r.color, st.rimColor].filter(function (x) { return /^#[0-9a-f]{6}$/i.test(x || ''); })[0];
+    // Светлый фон за открытой карточкой: светлые значки на светлом стекле не видны — берём тёмный оттенок того же цвета
+    if (st.veil === 'light') { hue = hue || '#5a4636';
+      return '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#000000', .1) + ';--m13-ixc:' + mixHex(hue, '#000000', .3) + ';--m13-ixg:rgba(255,255,255,.7)'; }
     return hue ? '--m13-icb:' + mixHex(hue, '#ffffff', .8) + ';--m13-ixl:' + mixHex(hue, '#ffffff', .5) + ';--m13-ixc:' + mixHex(hue, '#ffffff', .85) + ';--m13-ixg:' + mixHex(hue, '#ffffff', .25) : '';
   }
 
@@ -1007,12 +1476,23 @@
     star: '<path d="M8 1.8 9.5 6.5 14.2 8 9.5 9.5 8 14.2 6.5 9.5 1.8 8 6.5 6.5Z"/>',
     cross: '<path d="M4 4 12 12M12 4 4 12"/>'
   };
+  var UNFLIP_SVG = '<svg class="m13-xm m13-xm--back" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3.6 6.4A5 5 0 1 1 3.3 9.8"/><path d="M3.2 2.9 3.6 6.4 7 5.8"/></svg>';
   function xLook() {
     var cs = (S.D && S.D.showcase && S.D.showcase.cardStyle) || {}, sh = cs.iconShape, cm = cs.closeMark;
     if (cm === 'check') cm = 'cross';
     if (!cm || (cm === 'none' && sh === 'bare') || (cm !== 'none' && !X_MARK[cm])) cm = 'dot';
-    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin');
+    S.root.classList.remove('m13-ic-square', 'm13-ic-bare', 'm13-ic-thin', 'm13-ic-flat', 'm13-ic-md', 'm13-ic-sm');
+    // Размер знаков ✕ и ↺ (cardStyle.iconSize): '' — меньше (её просьба 27.10, теперь обычно) | 'sm' — совсем маленькие | 'lg' — крупные, как было
+    if (cs.iconSize !== 'lg') S.root.classList.add(cs.iconSize === 'sm' ? 'm13-ic-sm' : 'm13-ic-md');
     if (sh === 'square' || sh === 'bare' || sh === 'thin') S.root.classList.add('m13-ic-' + sh);
+    // Её просьба 27.10: значки без свечения и тени (cardStyle.iconGlow 'none') и своим цветом (cardStyle.iconColor) —
+    // одинаково во всех окнах витрины; ↺ — тоже тонкой линией, как знак «закрыть»
+    if (cs.iconGlow === 'none') S.root.classList.add('m13-ic-flat');
+    var ic = /^#[0-9a-f]{6}$/i.test(cs.iconColor || '') ? cs.iconColor : '';
+    S.root.style.setProperty('--m13-ixc', ic || ''); S.root.style.setProperty('--m13-ixl', ic || '');
+    if (!ic) { S.root.style.removeProperty('--m13-ixc'); S.root.style.removeProperty('--m13-ixl'); }
+    [].forEach.call(S.root.querySelectorAll('.m13-unflip'), function (b) { b.innerHTML = UNFLIP_SVG; });
     var svg = X_MARK[cm] ? '<svg class="m13-xm m13-xm--' + cm + '" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + X_MARK[cm] + '</svg>' : '';
     [].forEach.call(S.root.querySelectorAll('.m13-x:not(.m13-unflip)'), function (b) { b.innerHTML = svg; });
   }
@@ -1057,6 +1537,16 @@
       rim: none(pick('rim', '')), pattern: none(pick('pattern', '')),
       patternImage: f.patternImage || d.patternImage || '', patternPlace: pick('patternPlace', 'corners'),
       patternColor: f.patternColor || d.patternColor || '', patternOpacity: num('patternOpacity', 80, 5, 100),
+      // Картинка узора (её просьба 26.10, ягоды): размер — % ширины карточки (0 — как было), наклон в градусах,
+      // 'same' — в других углах не отражать, тень под картинкой
+      patternSize: num('patternSize', 0, 0, 90), patternTilt: num('patternTilt', 0, -45, 45),
+      patternMirror: pick('patternMirror', 'mirror'), patternShadow: none(pick('patternShadow', '')),
+      // Блик леденца на стекле, 0 — нет; толщина контура в px (0 — как было, 1,3) и где он толще
+      // Кнопки «открыть» и «Нажать — открыть оборот» (её просьба 27.10): вид, свой цвет рамки и надписи, без тени
+      ctaLook: none(pick('ctaLook', '')), ctaColor: f.ctaColor || d.ctaColor || '', ctaShadow: none(pick('ctaShadow', '')),
+      sheen: num('sheen', 0, 0, 100), rimWidth: num('rimWidth', 0, 0, 8), rimShape: none(pick('rimShape', '')),
+      // Фон за открытой карточкой: dark (как было) | light — светлая молочная дымка | clear — почти без дымки
+      veil: pick('veil', 'dark'),
       textHelp: none(pick('textHelp', '')), hazeStrength: num('hazeStrength', 60, 0, 100),
       // Контур (кромка): где (весь край / уголки), свой цвет, живость (дышит / бегущий блик) и цвет блика; темп живого свечения
       rimPlace: pick('rimPlace', 'edge'), rimColor: f.rimColor || d.rimColor || '', rimLive: none(pick('rimLive', '')),
@@ -1106,6 +1596,12 @@
     if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     if (st.glow === 'live' && TEMPO[st.glowTempo]) cls.push(TEMPO[st.glowTempo]);
+    if (st.ctaLook) cls.push('m13-cta-' + st.ctaLook);
+    if (st.ctaColor) {
+      cls.push('m13-cta-c'); css.push('--m13-cta:' + st.ctaColor);
+      if (st.ctaLook === 'fill') css.push('--m13-cta-ink:' + (lum(hexRgb(st.ctaColor)) > 150 ? '#1c150c' : '#ffffff'));
+    }
+    if (st.ctaShadow === 'off') cls.push('m13-cta-flat');
     var lay = decoHTML(st, true);
     if (lay) cls.push('m13-deco');
     if (st.rim) cls.push('m13-has-rim');
@@ -1145,22 +1641,37 @@
 
   // Слои поверх карточки: затемнение под текстом, узор, кромка. Добавляются последними,
   // текст карточки стоит над ними (.m13-deco > * — z-index 2).
+  var PAT_ONE = { tl: 1, tr: 1, bl: 1, br: 1 }, RIM_SHAPES = { corners: 1, bottom: 1, top: 1, diag: 1 };
   function decoHTML(st, front) {
     var h = '';
     if (front && st.textHelp === 'shade') h += '<i class="m13-lay m13-shade" aria-hidden="true"></i>';
     var p = st.pattern, img = '';
     if (p === 'custom') img = st.patternImage ? media(st.patternImage) : '';
-    else if (p === 'frost' || p === 'sparks' || p === 'kaleido') img = S.base + 'assets/patterns/' + p + '-' + (st.patternPlace === 'full' ? 'full' : 'corner') + '.webp';
+    else if (p === 'frost' || p === 'sparks' || p === 'kaleido') img = media('assets/patterns/' + p + '-' + (st.patternPlace === 'full' ? 'full' : 'corner') + '.webp');   // полный адрес: url() в переменной считается от vitrina.css
     if (img) {
       var col = st.patternColor || (p === 'frost' ? '#eef6ff' : st.accent || '#ecd3a3');
-      var place = st.patternPlace === 'full' || st.patternPlace === 'edge' ? st.patternPlace : 'corners';
-      h += '<i class="m13-lay m13-pat m13-pat--' + place + (p === 'custom' ? ' m13-pat--img' : '') + '" aria-hidden="true" style="' +
-        esc("--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100)) + '"><i></i><i></i><i></i><i></i></i>';
+      // Где: corners | edge | full | один угол tl tr bl br | diag — два угла по диагонали
+      var place = { full: 1, edge: 1, diag: 1 }[st.patternPlace] ? st.patternPlace : PAT_ONE[st.patternPlace] ? 'one m13-pat--at-' + st.patternPlace : 'corners';
+      var pv = "--m13-pimg:url('" + img + "');--m13-pcol:" + col + ';--m13-pop:' + (st.patternOpacity / 100) +
+        (st.patternTilt ? ';--m13-ptl:' + st.patternTilt + 'deg' : '') + (st.patternSize ? ';--m13-psz:' + st.patternSize + '%' : '');
+      h += '<i class="m13-lay m13-pat m13-pat--' + place + (p === 'custom' ? ' m13-pat--img' : '') + (st.patternSize && place !== 'full' ? ' m13-pat--sz' : '') +
+        (st.patternMirror === 'same' ? ' m13-pat--same' : '') + (st.patternShadow ? ' m13-pat--shadow' : '') + '" aria-hidden="true" style="' +
+        esc(pv) + '"><i></i><i></i><i></i><i></i></i>';
+    }
+    // Блик леденца: косой светлый блик сверху и цвет, просвечивающий снизу (цвет контура, иначе акцент)
+    if (st.sheen) {
+      var shc = st.rimColor || (st.rim === 'candy' ? '#b8183c' : st.accent || '#ffffff');
+      h += '<i class="m13-lay m13-candy" aria-hidden="true" style="' + esc('--m13-cy:' + (st.sheen / 100) + ';--m13-shc:' + shc) + '"></i>';
     }
     if (st.rim) {
-      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4') + ';--m13-rs:' + (RIM_S[st.rimSpeed] || RIM_S.slow) + 's';
+      var rv = (st.rimColor ? '--m13-rc:' + st.rimColor + ';' : '') + '--m13-runc:' + (st.rimRunColor || st.accent || '#fff1c4') + ';--m13-rs:' + (RIM_S[st.rimSpeed] || RIM_S.slow) + 's' +
+        (st.rimWidth ? ';--m13-rw:' + st.rimWidth + 'px' : '');
+      // Контур толще в части края (уголки, низ, верх, диагональ) — второй, более толстый слой, видный только там
+      // Свой цвет — на самой линии: у вида контура (светлый, золотой, леденец) свой цвет по умолчанию, он перебил бы цвет, заданный выше
+      var rc = st.rimColor ? ' style="' + esc('--m13-rc:' + st.rimColor) + '"' : '';
+      var thick = RIM_SHAPES[st.rimShape] ? '<i class="m13-rim-zone m13-rim-zone--' + st.rimShape + '"><i class="m13-rim m13-rim--thick m13-rim--' + esc(st.rim) + '"' + rc + '></i></i>' : '';
       h += '<i class="m13-lay m13-rimbox' + (st.rimPlace === 'corners' ? ' m13-rim--corners' : '') + (st.rimLive ? ' m13-rim--' + esc(st.rimLive) : '') +
-        '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"></i>' +
+        '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"' + rc + '></i>' + thick +
         (st.rimLive === 'run' ? '<i class="m13-rim-run m13-rim-glow"></i><i class="m13-rim-run"></i>' : '') + '</i>';
     }
     return h;
@@ -1193,6 +1704,17 @@
     var sub = opt(f.subtitle), foot = opt(f.foot);
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
+    // Крупное слово вместо надписей (её «скоро» на 4-й карточке ноября, 26.10) — как на странице «Ноябрь · скоро»
+    var word = String(f.word || '').trim();
+    if (word) {
+      var so = soonOf(S.D.settings), wf = so.font || '';
+      if (wf) ensureFont(wf);
+      cls += ' m13-thumb--word';
+      css += esc((wf ? "--m13-sfont:'" + wf + "',Georgia,serif;" : '') + (so.color ? '--m13-sc:' + so.color + ';' : ''));
+      var wtext = '<div class="m13-thumb-word"><span class="m13-gt">' + txt(word) + '</span></div>';
+      if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '" aria-label="' + esc(f.title || word) + '">' + wtext + lay + '</div>');
+      return breathWrap(sty, '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '" aria-label="' + esc(f.title || word) + '">' + wtext + lay + '</button>');
+    }
     var text = '<div class="m13-thumb-text">' +
       (eyeOf(f) ? '<div class="m13-mini-type">' + txt(eyeOf(f)) + '</div>' : '') +
       (f.title ? '<div class="m13-mini-title">' + txt(f.title) + '</div>' : '') +
@@ -1237,6 +1759,8 @@
   function openCard(id) {
     var c = findCard(id); if (!c) return;
     S.card = c;
+    // Карточка с плашками записи: заранее узнаём у программы записи, какие встречи записываются по календарю
+    if (zpHasKeys(c)) zpServices().catch(function () {});
     var f = c.front || {};
     var front = S.root.querySelector('#m13-front');
     var sty = styleOf(c, !!f.image);
@@ -1335,7 +1859,10 @@
       calUnlight();
       big.classList.add('m13-noanim', 'is-flipped'); void big.offsetWidth; big.classList.remove('m13-noanim');
     } else big.classList.remove('is-flipped');
-    S.root.querySelector('#m13-overlay').classList.add('is-open');
+    var ov = S.root.querySelector('#m13-overlay');
+    ov.classList.remove('m13-veil--light', 'm13-veil--clear');
+    if (sty.st.veil === 'light' || sty.st.veil === 'clear') ov.classList.add('m13-veil--' + sty.st.veil);
+    ov.classList.add('is-open');
     evenRows(backc);
     // Поворот телефона, смена ширины окна, догрузка шрифта — выровнять заново
     if (!S.evenBound) {
@@ -1525,7 +2052,7 @@
     return '<div' + calLook(cal, 'm13-cal') + '>' +
       '<div class="m13-cal-head"><div class="m13-eyebrow">' + txt(cal.eyebrow || 'Календарь') + '</div>' +
       '<h3>' + txt(cal.title || M13.calMonthName(ym)) + '</h3>' + (cal.noHint ? '' : '<div class="m13-cal-hint">' + txt(hint) + '</div>') + '</div>' +
-      calGridHTML(M, false) + (legend ? '<div class="m13-cal-legend">' + legend + '</div>' : '') + free + '</div>';
+      calGridHTML(M, false) + (legend ? '<div class="m13-cal-legend">' + legend + '</div>' : '') + free + zpBridgeHTML() + '</div>';
   }
   function calBind(scope, c) {
     var M = calModel(c.monthCal || {});
@@ -1535,6 +2062,7 @@
     scope.querySelectorAll('.m13-cal-chip[data-to]').forEach(function (b) {
       b.addEventListener('click', function () { calFly(c, [b.getAttribute('data-to')]); });
     });
+    zpBridgeBind(scope, M.ym);
   }
   function thumbOf(id) { return S.root.querySelector('.m13-grid [data-card="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'); }
   function calUnlight() {
@@ -1646,7 +2174,8 @@
   /* ---------- Оборот: контейнер (встречи, индивидуальная работа) ---------- */
   // Плашки-элементы (встречи, виды работы, варианты продукта) — одна общая схема.
   // Блок x (docs/plashki.md, 19.10): view 'list' (как было) | 'tiles' — по две в ряд, нажатие — окошко; lastTile 'center' | 'wide'; tileShape 'square' | 'card' (4:5).
-  // У плашки: image — картинка (в списке маленькая слева, в плитке сверху); kinWheel — вместо картинки живое колесо «Узнать свой кин», нажатие — страница кина.
+  // У плашки: image — картинка (в списке маленькая слева, в плитке сверху); kinWheel — вместо картинки живое колесо «Узнать свой кин», нажатие — страница кина;
+  // wide — во всю ширину карточки (её решение 29.10: встреча-знакомство — основа под остальными плашками): слева название, справа цена и кнопка.
   function itemsHTML(c, list, max, tplKey, x) {
     var items = visibleSorted(list, max || 10);
     if (!items.length) return '';
@@ -1659,7 +2188,8 @@
       if (opt(it.date)) has.date = 1; if (opt(it.text)) has.text = 1; if (opt(it.price)) has.price = 1;
       if (opt(it.duration) || opt(it.status)) has.meta = 1;
     });
-    function part(cls, on, html) { return on ? '<div class="' + cls + '">' + html + '</div>' : (has[cls.slice(9)] && !one ? '<div class="' + cls + '"></div>' : ''); }
+    var solo = one;
+    function part(cls, on, html) { return on ? '<div class="' + cls + '">' + html + '</div>' : (has[cls.slice(9)] && !solo ? '<div class="' + cls + '"></div>' : ''); }
     var rows = 2 + (has.date ? 1 : 0) + (has.text ? 1 : 0) + (has.meta ? 1 : 0) + (has.price ? 1 : 0);
     return '<div class="m13-items' + (one ? ' m13-items--one' : ' m13-items--rows') + '" style="--rows:' + rows + '">' + items.map(function (it) {
       var date = opt(it.date), text = opt(it.text), dur = opt(it.duration), price = opt(it.price), status = opt(it.status);
@@ -1668,6 +2198,8 @@
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       var pic = itemPic(it, 'm13-item-pic'), pc = pic ? ' m13-item--pic' + kinBgCls(it) : '';
+      solo = one || !!it.wide;
+      if (it.wide && !one) pc += ' m13-item--wide';
       if (it.kinWheel) { a = { kind: 'internal', target: 'kin' }; if (!a.label) a.label = kinT('wpGo').replace(/\s*→\s*$/, ''); }
       if (cal && !it.kinWheel) return '<div class="m13-item m13-item--cal' + pc + '" role="button" tabindex="0"' + act(a, ctx) + kinStyle(it) + '>' + pic +
         part('m13-item-date', date, txt(date)) +
@@ -1677,6 +2209,12 @@
         part('m13-item-price', price, txt(price)) +
         '<div class="m13-item-acts"><span class="m13-item-action">' + txt(a.label || 'Написать') + ' →</span>' +
         '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + txt(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
+      if (it.wide && !one) return '<button type="button" class="m13-item' + pc + '"' + act(a, ctx) + kinStyle(it) + '>' + pic +
+        '<div class="m13-item-main">' + part('m13-item-date', date, txt(date)) +
+        '<div class="m13-item-title">' + txt(it.title || (it.kinWheel ? kinT('wpTitle') : '')) + '</div>' +
+        part('m13-item-text', text, txt(text)) + part('m13-item-meta', meta, txt(meta)) + '</div>' +
+        '<div class="m13-item-side">' + part('m13-item-price', price, txt(price)) +
+        '<div class="m13-item-action">' + txt(a.label || 'Написать') + ' →</div></div></button>';
       return '<button type="button" class="m13-item' + pc + '"' + act(a, ctx) + kinStyle(it) + '>' + pic +
         part('m13-item-date', date, txt(date)) +
         '<div class="m13-item-title">' + txt(it.title || (it.kinWheel ? kinT('wpTitle') : '')) + '</div>' +
@@ -1696,11 +2234,12 @@
   function kinStyle(it) { var css = it.kinWheel ? kinLookCss(kinLook()) : ''; return css ? ' style="' + esc(css) + '"' : ''; }
   // Плитки: по две в ряд (и на телефоне), сверху картинка, под ней название и коротко цена; нечётная последняя — по центру или во всю ширину
   function tilesHTML(c, items, tplKey, x) {
-    var odd = items.length % 2 === 1, wide = x.lastTile === 'wide', last = items.length - 1;
+    var odd = items.filter(function (it) { return !it.wide; }).length % 2 === 1, wide = x.lastTile === 'wide', last = items.length - 1;
+    while (last > 0 && items[last].wide) last--;
     return '<div class="m13-tiles m13-tiles--' + (x.tileShape === 'card' ? 'card' : 'square') + '">' + items.map(function (it, i) {
       var date = opt(it.date), price = opt(it.price), a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
-      var cls = 'm13-item m13-tile' + (odd && i === last && items.length > 1 ? (wide ? ' m13-tile--wide' : ' m13-tile--mid') : '') + kinBgCls(it);
+      var cls = 'm13-item m13-tile' + (it.wide ? ' m13-tile--wide' : odd && i === last && items.length > 1 ? (wide ? ' m13-tile--wide' : ' m13-tile--mid') : '') + kinBgCls(it);
       var line = price || (it.kinWheel ? opt(it.text) || kinT('wpSub') : '');   // у колеса — своё «Короткое описание», пусто — запасная строка
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       var at = it.kinWheel ? act({ kind: 'internal', target: 'kin' }) : ' data-m13-tile="' + (S.tiles.push({ it: it, a: a, ctx: ctx, cal: cal, shape: x.tileShape }) - 1) + '"';
@@ -1899,7 +2438,8 @@
       else if (x.kind === 'info') { var it = String(x.text || '').trim(); if (it) html = '<div class="m13-info">' + txt(it) + '</div>'; }
       else if (x.kind === 'kin') html = kinCardHTML(x, list);
       else if (x.kind === 'sandbox') {
-        html = '<button type="button" class="m13-soft' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
+        // m13-action — чтобы кнопка слушалась «Кнопок на обороте» (остальные кнопки: рамка или как главная; её просьба 27.10)
+        html = '<button type="button" class="m13-soft m13-action' + (i === push ? ' m13-push' : '') + '"' + act({ kind: 'internal', target: 'sandbox' }) + '>' +
           txt(x.label || 'Как устроены маршруты 13 MIRRORS') + '</button>';
       }
       h += html;
@@ -2213,6 +2753,495 @@
     applyWin();
     m.classList.add('is-open');
     pushLayer('calendar', function () { m.classList.remove('is-open'); });
+  }
+
+  /* ================= ЗАПИСЬ НА ВСТРЕЧУ (шаг 3 плана docs/zapis.md, 28.10) =================
+     Плашка, чья метка (action.host) в панели включена «по календарю» («Запись» → «Виды встреч»), и строка-мостик под календарём
+     витрины открывают окошко записи: свободные дни → время (Мск) → онлайн / очно → «Оплатить» (страница ЮKassa) → «Вы записаны».
+     Свободное время и оплату ведёт программа записи на Beget (zapis.13mirrors.ru): о человеке туда ничего не уходит.
+     Номер записи (Z-…) хранится только в браузере человека (localStorage m13-zapis) — чтобы после оплаты показать «Вы записаны».
+     Запись выключена — у этих плашек «Запись временно через сообщение»; программа не отвечает — как раньше, «Куда написать?».
+     settings.zapis = {look: 'calm' (по умолчанию) | 'vitrina' | 'own', own: {font: 'calm' | 'month' | имя шрифта, btn: fill | line | glass | shimmer,
+     glint, mark: circle | glow | bold}, texts: {ключ: надпись}, bridge: {on, text, key}, tell: 'bot' (по умолчанию) | 'me'}. Цвета — всегда с витрины (как у «Куда написать?»).
+     29.10: встреча без цены (встреча-знакомство) — «Записаться» вместо «Оплатить», запись сразу, без ЮKassa; номер такой записи — в localStorage
+     m13-zapis-intro (новая запись с этого устройства отпускает прежнюю). Очные встречи: если встреча бывает и онлайн, и очно —
+     сначала выбор «онлайн / очно», потом свободное время для этого вида (у очных своё: дорога, не больше N в день). */
+  var ZP_URL = window.M13_ZAPIS_URL || 'https://zapis.13mirrors.ru/';
+  var ZP_LS = 'm13-zapis';
+  var ZP_LS_INTRO = 'm13-zapis-intro';
+  // Надписи окна: [ключ, что это (для панели), как по умолчанию, длинная]. Подстановки: {название} {день} {время} {как} {часы} {цена} {минуты}
+  var ZP_TXT = [
+    ['eyebrow', 'Надпись над названием', 'Запись'],
+    ['loading', 'Пока загружается', 'Смотрю свободное время…'],
+    ['pick', 'Пока день не выбран', 'Выберите день — покажу свободное время.'],
+    ['free', 'Пояснение: свободные дни', 'есть свободное время'],
+    ['full', 'Пояснение: занятые дни', 'зачёркнуто — всё занято'],
+    ['none', 'Свободного времени нет совсем', 'Сейчас всё время занято. Напишите мне — найдём время вместе.', true],
+    ['times', 'Над временем', '{день} · время по Москве'],
+    ['how', 'Над выбором «онлайн / очно» (когда очные встречи включены)', 'Как встречаемся'],
+    ['online', 'Кнопка «онлайн»', 'онлайн'],
+    ['offline', 'Кнопка «очно»', 'очно'],
+    ['chosen', 'Над выбранным', 'Вы выбрали'],
+    ['cancel', 'Про отмену и перенос', 'Если планы изменятся, напишите мне, пожалуйста, не позднее чем за {часы} до встречи.', true],
+    ['pay', 'Кнопка оплаты', 'Оплатить {цена}'],
+    ['agree', 'Под кнопкой оплаты (ссылка на «Условия и цены»)', 'Оплачивая, вы соглашаетесь с условиями записи и оплаты'],
+    ['book', 'Кнопка записи у встречи без цены (встреча-знакомство)', 'Записаться'],
+    ['booking', 'Пока записываю (встреча без цены)', 'Записываю…'],
+    ['freeFull', 'Встреча без цены: на этот день запись уже заполнена', 'На этот день запись на эту встречу уже заполнена — выберите, пожалуйста, другой день.', true],
+    ['ask', 'Кнопка вопроса', 'Задать вопрос'],
+    ['askMsg', 'Сообщение для «Задать вопрос»', 'Здравствуйте! У меня вопрос про «{название}».', true],
+    ['close', 'Кнопка закрыть', 'Закрыть'],
+    ['paying', 'Пока открывается оплата', 'Открываю страницу оплаты ЮKassa…'],
+    ['taken', 'Время только что заняли', 'Это время только что заняли — выберите, пожалуйста, другое.', true],
+    ['many', 'Слишком много оплачивают сразу', 'Сейчас несколько человек одновременно оплачивают запись. Попробуйте, пожалуйста, через несколько минут.', true],
+    ['soon', 'Оплата ещё не подключена (пока ЮKassa проверяет сайт)', 'Оплата на сайте скоро заработает. Напишите мне, пожалуйста, — запишу вас на это время.', true],
+    ['backPick', 'Кнопка «назад к выбору»', '← Назад к выбору времени'],
+    ['soonMsg', 'Сообщение, пока оплата не подключена', 'Здравствуйте! Хочу записаться: {название}, {день}, {время} (Мск), {как}.', true],
+    ['payErr', 'Оплата не открылась', 'Не получилось открыть оплату. Попробуйте ещё раз или напишите мне.', true],
+    ['checking', 'Проверка оплаты', 'Проверяю оплату…'],
+    ['waitTitle', 'Оплата ещё не пришла: заголовок', 'Оплата ещё не пришла'],
+    ['waitText', 'Оплата ещё не пришла: текст', 'Если вы уже оплатили, подождите минуту и нажмите «Проверить ещё раз».', true],
+    ['hold', 'Сколько ещё держится время', 'Время держится за вами ещё'],
+    ['check', 'Кнопка «проверить»', 'Проверить ещё раз'],
+    ['payAgain', 'Кнопка «вернуться к оплате»', 'Вернуться к оплате'],
+    ['dontPay', 'Кнопка «не оплачивать»', 'Не оплачивать, выбрать другое время'],
+    ['goneTitle', 'Не оплачено: заголовок', 'Оплата не прошла'],
+    ['goneText', 'Не оплачено: текст', 'Время снова свободно. Можно выбрать его ещё раз.', true],
+    ['again', 'Кнопка «выбрать время»', 'Выбрать время'],
+    ['doneTitle', 'После оплаты: заголовок', 'Вы записаны'],
+    ['addCal', 'Кнопка календаря', 'Добавить в мой календарь'],
+    ['addr', 'Очная встреча: подпись к адресу', 'Адрес'],
+    ['noAddr', 'Очная встреча, адрес в панели не задан', 'Адрес пришлю в сообщении.'],
+    ['contact', 'Просьба написать', 'Чтобы я могла с вами связаться, напишите мне, пожалуйста.', true],
+    ['message', 'Готовое сообщение после записи', 'Здравствуйте! Я записан(а): {название}, {день}, {время} (Мск), {как}.', true],
+    ['done', 'Кнопка в конце', 'Готово'],
+    ['downTitle', 'Запись выключена или сбой: заголовок', 'Запись временно через сообщение'],
+    ['downText', 'Запись выключена или сбой: текст', 'Сейчас я не вижу свободное время. Напишите мне — договоримся о дне и часе.', true],
+    ['downBtn', 'Запись выключена или сбой: кнопка', 'Написать'],
+    ['bridge', 'Строка-мостик под календарём витрины', 'Записаться на индивидуальную встречу →']
+  ];
+  M13.ZAPIS_TXT = ZP_TXT;
+  var ZP_WD = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+  var ZP_WD_FULL = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
+  var ZP = { svc: null, svcT: 0, svcP: null, st: null, timer: 0 };
+
+  function zpSet() { return (S.D && S.D.settings && S.D.settings.zapis) || {}; }
+  function zpT(k) {
+    var o = (zpSet().texts || {})[k];
+    if (o != null && String(o).trim()) return String(o);
+    for (var i = 0; i < ZP_TXT.length; i++) if (ZP_TXT[i][0] === k) return ZP_TXT[i][2];
+    return '';
+  }
+  function zpPlural(n, a, b, c) { n = Math.abs(n) % 100; var k = n % 10; if (n > 10 && n < 20) return c; if (k > 1 && k < 5) return b; if (k === 1) return a; return c; }
+  function zpRub(n) { return (+n || 0).toLocaleString('ru-RU') + ' ₽'; }
+  // Дни — строки «2026-11-03» (по Москве); считаем в UTC, чтобы пояс человека не сдвигал числа
+  function zpD(iso) { var p = String(iso).split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); }
+  function zpIso(d) { return d.getUTCFullYear() + '-' + z(d.getUTCMonth() + 1) + '-' + z(d.getUTCDate()); }
+  function zpWd(iso) { return (zpD(iso).getUTCDay() + 6) % 7; }
+  function zpDayLong(iso) { var d = zpD(iso); return ZP_WD_FULL[zpWd(iso)] + ', ' + d.getUTCDate() + ' ' + MONTHS_GEN[d.getUTCMonth()]; }
+  function zpMin(t) { var p = String(t).split(':'); return (+p[0]) * 60 + (+p[1]); }
+  function zpHm(m) { return z(Math.floor(m / 60)) + ':' + z(m % 60); }
+  // «2026-10-28T17:39:38» по Москве → миллисекунды
+  function zpMs(s) { var m = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)/.exec(String(s || '')); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - MSK, +m[5], +m[6]) : 0; }
+  function zpLeft(until) { return Math.max(0, zpMs(until) - Date.now()); }
+  // Подстановки в надписи окна
+  function zpFill(k, st) {
+    st = st || ZP.st || {};
+    var sv = st.sv || {}, h = st.cancelH == null ? 12 : st.cancelH;
+    var map = { 'название': sv.title || '', 'цена': sv.price ? zpRub(sv.price) : '', 'день': st.day ? zpDayLong(st.day) : '', 'время': st.time || '',
+      'как': zpT(st.mode === 'offline' ? 'offline' : 'online'), 'часы': h + ' ' + zpPlural(h, 'час', 'часа', 'часов'),
+      'минуты': st.holdMin ? st.holdMin + ' ' + zpPlural(st.holdMin, 'минуту', 'минуты', 'минут') : '' };
+    return zpT(k).replace(/\{([а-яё]+)\}/g, function (m, w) { return map.hasOwnProperty(w) ? map[w] : m; }).replace(/\s{2,}/g, ' ').trim();
+  }
+  function zpStore(v) {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem(ZP_LS) || 'null');
+      if (v === null) localStorage.removeItem(ZP_LS); else localStorage.setItem(ZP_LS, JSON.stringify(v));
+    } catch (e) {}
+    return null;
+  }
+  function zpIntro(v) {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem(ZP_LS_INTRO) || 'null');
+      localStorage.setItem(ZP_LS_INTRO, JSON.stringify(v));
+    } catch (e) {}
+    return null;
+  }
+  function zpGet(q) {
+    return fetch(ZP_URL + 'index.php?' + q, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('zapis ' + r.status); return r.json(); });
+  }
+  // text/plain — браузер отправляет сразу, без предварительного вопроса серверу
+  function zpPost(a, body) {
+    return fetch(ZP_URL + 'index.php?a=' + a, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(body), cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('zapis ' + r.status); return r.json(); });
+  }
+  function zpServices() {
+    if (ZP.svc && Date.now() - ZP.svcT < 120000) return Promise.resolve(ZP.svc);
+    if (!ZP.svcP) ZP.svcP = zpGet('a=services').then(function (d) { ZP.svc = d; ZP.svcT = Date.now(); ZP.svcP = null; return d; },
+      function (e) { ZP.svcP = null; throw e; });
+    return ZP.svcP;
+  }
+  function zpKeyOf(a) { var k = String((a && a.host) || '').trim(); return /^[A-Za-z0-9_-]{1,60}$/.test(k) ? k : ''; }
+  // Записывается ли эта встреча по календарю: 'open' — да, 'down' — запись сейчас выключена, '' — нет (обычное «Куда написать?»)
+  function zpHow(d, key) {
+    if (!d || !key) return '';
+    if (d.open) return (d.services || []).some(function (s) { return s.key === key; }) ? 'open' : '';
+    return (d.keys || []).indexOf(key) >= 0 ? 'down' : '';
+  }
+  // Есть ли на карточке плашки с меткой — тогда, открывая карточку, заранее спрашиваем программу записи (кнопка сработает сразу)
+  function zpHasKeys(c) {
+    return !!(c && c.back && (c.back.blocks || []).some(function (b) {
+      return b && b.kind === 'items' && (b.items || []).some(function (it) { var a = it && it.action; return a && (a.kind || 'contact') === 'contact' && zpKeyOf(a); });
+    }));
+  }
+  // Нажали на плашку с меткой: встреча по календарю — окошко записи, иначе — как всегда, «Куда написать?»
+  function zpTry(action, ctx) {
+    var key = zpKeyOf(action), from = S.from;
+    if (from) from.classList.add('m13-wait');
+    zpServices().then(function (d) {
+      if (from) from.classList.remove('m13-wait');
+      var how = zpHow(d, key);
+      if (how) zpOpen(key, action, ctx, null, how === 'down'); else openContact(action, ctx);
+    }, function () { if (from) from.classList.remove('m13-wait'); openContact(action, ctx); });
+  }
+  M13.zapisTry = zpTry;
+
+  function zpModalHTML() {
+    return '<div class="m13-modal m13-zp" id="m13-zp" role="dialog" aria-modal="true" aria-labelledby="m13-zp-t"><div class="m13-modal-box m13-zpw" id="m13-zp-box"></div></div>';
+  }
+  function zpBind() {
+    var m = S.root.querySelector('#m13-zp'); if (!m) return;
+    m.addEventListener('click', function (e) {
+      if (e.target === m) { closeTop(); return; }
+      var b = e.target.closest ? e.target.closest('[data-zp]') : null;
+      if (!b || b.disabled) return;
+      var v = b.getAttribute('data-v');
+      zpDo(b.getAttribute('data-zp'), v, b);
+    });
+  }
+  // Вид окна: «Спокойный» (по умолчанию) — шрифт тонкий и простой, кнопки ровные, контур — тонкая линия; «Как у витрины» — как «Куда написать?»;
+  // «Свой» — шрифт, кнопки, блик и как отмечать свободные дни. Цвета всегда — с карточки (страницы), откуда открыто.
+  function zpLook(box) {
+    var zs = zpSet(), look = zs.look === 'vitrina' || zs.look === 'own' ? zs.look : 'calm', o = zs.own || {};
+    var L = winSource(), cls = ['m13-modal-box', 'm13-zpw'], css = [], lay = '';
+    box.querySelectorAll(':scope > .m13-lay').forEach(function (x) { x.remove(); });
+    if (L && look === 'vitrina') { cls = cls.concat(L.cls); css = L.css.slice(); lay = L.lay || ''; }
+    else if (L) { cls.push('m13-win'); css = L.css.filter(function (x) { return !/^--w-font:/.test(x); }); }
+    var font = look === 'vitrina' ? '' : look === 'own' ? (o.font || 'calm') : 'calm';
+    if (font === 'month') font = (S.card && cardStyle(S.card).font) || ((S.D.showcase || {}).cardStyle || {}).font || 'calm';
+    if (font === 'calm') { ensureFont('Montserrat'); cls.push('m13-zpw--calm'); }
+    else if (font && FONTS[font]) { ensureFont(font); css.push("--zp-font:'" + font + "',Georgia,serif"); cls.push('m13-zpw--font'); }
+    cls.push('m13-zpw--mk-' + (look === 'vitrina' ? 'glow' : look === 'own' && /^(glow|bold)$/.test(o.mark) ? o.mark : 'circle'));
+    if (look === 'own') { cls.push('m13-zpw--b-' + (/^(line|glass|shimmer)$/.test(o.btn) ? o.btn : 'fill')); if (o.glint) cls.push('m13-zpw--glint'); }
+    box.className = cls.join(' ');
+    box.setAttribute('style', css.join(';'));
+    if (lay) box.insertAdjacentHTML('beforeend', lay);
+  }
+  function zpShow() {
+    var m = S.root.querySelector('#m13-zp'); if (!m) return;
+    zpLook(m.querySelector('.m13-modal-box'));
+    if (!m.classList.contains('is-open')) {
+      m.classList.add('is-open');
+      pushLayer('zapis', function () { m.classList.remove('is-open'); clearInterval(ZP.timer); ZP.st = null; });
+    }
+    zpRender();
+  }
+  function zpOpen(key, action, ctx, ym, down, demo) {
+    ZP.st = { key: key, action: action || { kind: 'contact', host: key }, ctx: ctx || {}, ym: ym || null, view: down ? 'down' : 'load',
+      sv: ((ZP.svc && ZP.svc.services) || []).filter(function (s) { return s.key === key; })[0] || { title: (ctx && ctx.item) || '' },
+      free: null, day: null, time: null, mode: '', modes: ['online'], flash: '', cancelH: 12, demo: !!demo };
+    zpShow();
+    if (!down && !demo) zpLoadFree();
+  }
+  M13.zapisOpen = zpOpen;
+  function zpLoadFree() {
+    var s = ZP.st;
+    s.view = 'load'; zpRender();
+    zpGet(zpFreeQ(s)).then(function (d) {
+      if (ZP.st !== s) return;
+      zpTakeFree(s, d);
+      zpRender();
+    }, function () { if (ZP.st !== s) return; s.view = 'down'; zpRender(); });
+  }
+  function zpFreeQ(s) { return 'a=free&s=' + encodeURIComponent(s.key) + (s.mode ? '&m=' + s.mode : ''); }
+  function zpFree(s) { return !(+(s.sv || {}).price > 0); }
+  function zpTakeFree(s, d) {
+    if (!d || !d.open || !d.ok) { s.view = 'down'; return; }
+    // Ключей ЮKassa ещё нет (магазин на проверке): время выбрать можно, «Оплатить» предложит написать
+    s.nopay = !d.pay;
+    s.free = d; s.sv = d.service; s.cancelH = d.cancelH; s.holdMin = d.holdMin; s.view = 'pick';
+    s.modes = d.modes && d.modes.length ? d.modes : ['online']; s.mode = d.mode || s.modes[0];
+    if (s.day && !(d.days[s.day] || []).length) { s.day = null; s.time = null; }
+    if (s.time && (d.days[s.day] || []).indexOf(s.time) < 0) s.time = null;
+    // Месяц: с календаря витрины (если там есть время), иначе — первый, где есть свободный день
+    var first = Object.keys(d.days).filter(function (k) { return d.days[k].length; })[0] || d.from;
+    var want = s.month || (s.ym ? s.ym.y + '-' + z(s.ym.m) : '');
+    var lo = d.from.slice(0, 7), hi = d.to.slice(0, 7);
+    s.month = want && want >= lo && want <= hi && Object.keys(d.days).some(function (k) { return k.slice(0, 7) === want && d.days[k].length; }) ? want : first.slice(0, 7);
+  }
+
+  function zpBtn(cls, act, label, extra) { return '<button type="button" class="' + cls + '" data-zp="' + act + '"' + (extra || '') + '>' + txt(label) + '</button>'; }
+  function zpHead(s) {
+    var sv = s.sv || {}, sub = [sv.minutes ? sv.minutes + ' ' + zpPlural(sv.minutes, 'минута', 'минуты', 'минут') : '', sv.price ? zpRub(sv.price) : ''].filter(Boolean).join(' · ');
+    return '<div class="m13-zp-head"><div class="m13-eyebrow">' + txt(zpT('eyebrow')) + '</div><h3 id="m13-zp-t">' + txt(sv.title || '') + '</h3>' +
+      (sub ? '<p class="m13-zp-sub">' + txt(sub) + '</p>' : '') + '</div>';
+  }
+  function zpWhen(s) { return zpDayLong(s.day) + ', ' + s.time + '–' + zpHm(zpMin(s.time) + (+(s.sv || {}).minutes || 60)) + ' (Мск) · ' + zpT(s.mode === 'offline' ? 'offline' : 'online'); }
+  function zpRender() {
+    var s = ZP.st, box = S.root && S.root.querySelector('#m13-zp-box'); if (!s || !box) return;
+    var keep = box.scrollTop, h = '';
+    clearInterval(ZP.timer);
+    if (s.view === 'load' || s.view === 'paying' || s.view === 'booking' || s.view === 'checking') {
+      h = zpHead(s) + '<p class="m13-zp-wait"><span class="m13-zp-spin" aria-hidden="true"></span>' + txt(zpT(s.view === 'load' ? 'loading' : s.view)) + '</p>' + zpBtn('m13-modal-close', 'close', zpT('close'));
+    } else if (s.view === 'down') {
+      h = zpHead(s) + '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('downTitle')) + '</div>' + txt(zpT('downText')) + '</div>' +
+        '<div class="m13-zp-col">' + zpBtn('m13-channel', 'ask', zpT('downBtn')) + zpBtn('m13-modal-close', 'close', zpT('close')) + '</div>';
+    } else if (s.view === 'wait') {
+      h = zpHead(s) + '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('waitTitle')) + '</div>' + txt(zpT('waitText')) + '</div>' +
+        (s.day ? '<p class="m13-zp-when">' + txt(zpWhen(s)) + '</p>' : '') +
+        (s.until && zpLeft(s.until) ? '<p class="m13-hint">' + txt(zpT('hold')) + ' <b class="m13-zp-timer" data-zp-timer></b></p>' : '') +
+        '<div class="m13-zp-col">' + zpBtn('m13-channel', 'check', zpT('check')) +
+        (s.url && zpLeft(s.until) ? '<a class="m13-channel m13-ch2" href="' + esc(s.url) + '" rel="noopener">' + txt(zpT('payAgain')) + '</a>' : '') +
+        zpBtn('m13-modal-close', 'drop', zpT('dontPay')) + '</div>';
+    } else if (s.view === 'soon') {
+      h = zpHead(s) + '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('chosen')) + '</div><strong>' + txt((s.sv || {}).title || '') + '</strong><br>' + txt(zpWhen(s)) + '</div>' +
+        '<p class="m13-zp-ask">' + txt(zpT('soon')) + '</p>' +
+        '<div class="m13-zp-col">' + zpBtn('m13-channel', 'soonAsk', zpT('downBtn')) + zpBtn('m13-modal-close', 'back', zpT('backPick')) + '</div>';
+    } else if (s.view === 'gone') {
+      h = zpHead(s) + '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('goneTitle')) + '</div>' + txt(zpT('goneText')) + '</div>' +
+        '<div class="m13-zp-col">' + (s.key ? zpBtn('m13-channel', 'again', zpT('again')) : '') + zpBtn('m13-ch2 m13-channel', 'ask', zpT('ask')) + zpBtn('m13-modal-close', 'close', zpT('close')) + '</div>';
+    } else if (s.view === 'done') {
+      h = '<div class="m13-zp-ok" aria-hidden="true">✓</div><h3 id="m13-zp-t">' + txt(zpT('doneTitle')) + '</h3>' +
+        '<div class="m13-msg"><strong>' + txt((s.sv || {}).title || '') + '</strong><br>' + txt(zpWhen(s)) +
+        (s.mode === 'offline' ? '<br><span class="m13-zp-addr">' + txt(s.address ? zpT('addr') + ': ' + s.address : zpT('noAddr')) + '</span>' : '') + '</div>' +
+        zpBtn('m13-channel m13-ch2 m13-zp-wide', 'cal', zpT('addCal')) +
+        '<div class="m13-zp-sep"></div><p class="m13-zp-ask">' + txt(zpFill('contact')) + '</p>' +
+        '<div class="m13-msg"><div class="m13-msg-label">' + txt(T('contactMessageLabel') || 'Текст обращения') + '</div>' + txt(zpFill('message')) + '</div>' +
+        '<div class="m13-channels">' + zpBtn('m13-channel', 'tell', 'Telegram', ' data-v="telegram"') + zpBtn('m13-channel', 'tell', 'VK', ' data-v="vk"') + '</div>' +
+        '<p class="m13-hint" data-zp-hint aria-live="polite"></p><p class="m13-hint">' + txt(zpFill('cancel')) + '</p>' + zpBtn('m13-modal-close', 'close', zpT('done'));
+    } else {
+      h = zpHead(s) + zpPickHTML(s);
+    }
+    box.querySelectorAll(':scope > :not(.m13-lay)').forEach(function (x) { x.remove(); });
+    box.insertAdjacentHTML('afterbegin', h);
+    box.scrollTop = s.view === 'pick' ? keep : 0;
+    if (s.view === 'wait' && s.until) zpTick();
+  }
+  function zpPickHTML(s) {
+    var d = s.free, ym = s.month.split('-'), y = +ym[0], mo = +ym[1];
+    var lo = d.from.slice(0, 7), hi = d.to.slice(0, 7);
+    var first = zpD(s.month + '-01'), n = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    var g = ZP_WD.map(function (w) { return '<span class="m13-zp-wd">' + w + '</span>'; }).join('');
+    for (var i = 0; i < zpWd(s.month + '-01'); i++) g += '<span></span>';
+    for (i = 1; i <= n; i++) {
+      var iso = s.month + '-' + z(i), t = d.days[iso], st = !t ? 'off' : t.length ? 'free' : 'full';
+      g += '<button type="button" class="m13-zp-day is-' + st + (iso === s.day ? ' is-sel' : '') + (iso === d.from ? ' is-today' : '') + '"' +
+        (st === 'free' ? ' data-zp="day" data-v="' + iso + '"' : ' disabled') + ' aria-label="' + esc(zpDayLong(iso) + (st === 'free' ? ', есть время' : st === 'full' ? ', всё занято' : '')) + '"' +
+        (iso === s.day ? ' aria-pressed="true"' : '') + '><span class="m13-zp-n">' + i + '</span></button>';
+    }
+    var any = Object.keys(d.days).some(function (k) { return d.days[k].length; });
+    var h = (s.flash ? '<p class="m13-zp-flash" role="alert">' + txt(s.flash) + '</p>' : '') +
+      (s.modes.length > 1 ? '<div class="m13-zp-group m13-zp-fmt"><div class="m13-msg-label">' + txt(zpT('how')) + '</div><div class="m13-zp-seg">' +
+        s.modes.map(function (f) { return '<button type="button" data-zp="mode" data-v="' + f + '" class="' + (s.mode === f ? 'is-on' : '') + '" aria-pressed="' + (s.mode === f) + '">' + txt(zpT(f)) + '</button>'; }).join('') +
+        '</div></div>' : '') +
+      '<div class="m13-zp-mon"><button type="button" class="m13-zp-arr" data-zp="month" data-v="-1" aria-label="Прошлый месяц"' + (s.month <= lo ? ' disabled' : '') + '>‹</button>' +
+      '<strong>' + txt(MONTHS_NOM[mo - 1] + ' ' + y) + '</strong>' +
+      '<button type="button" class="m13-zp-arr" data-zp="month" data-v="1" aria-label="Следующий месяц"' + (s.month >= hi ? ' disabled' : '') + '>›</button></div>' +
+      '<div class="m13-zp-grid">' + g + '</div>' +
+      '<div class="m13-zp-legend"><span><i class="m13-zp-dot"></i>' + txt(zpT('free')) + '</span><span>' + txt(zpT('full')) + '</span></div>';
+    if (!any) h += '<p class="m13-hint">' + txt(zpT('none')) + '</p>';
+    else if (s.day) {
+      h += '<div class="m13-zp-group"><div class="m13-msg-label">' + txt(zpFill('times')) + '</div><div class="m13-zp-slots">' +
+        d.days[s.day].map(function (t) { return '<button type="button" class="m13-zp-slot' + (t === s.time ? ' is-sel' : '') + '" data-zp="time" data-v="' + t + '"' + (t === s.time ? ' aria-pressed="true"' : '') + '>' + t + '</button>'; }).join('') +
+        '</div></div>';
+    } else h += '<p class="m13-hint">' + txt(zpT('pick')) + '</p>';
+    if (s.time) h += '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('chosen')) + '</div><strong>' + txt(s.sv.title) + '</strong><br>' + txt(zpWhen(s)) + '</div>';
+    h += '<p class="m13-hint">' + txt(zpFill('cancel')) + '</p>' +
+      '<button type="button" class="m13-channel m13-zp-wide m13-zp-pay" data-zp="pay"' + (s.time ? '' : ' disabled') + '>' + txt(zpFree(s) ? zpFill('book') : zpFill('pay')) + '</button>' +
+      (zpFree(s) ? '' : '<a class="m13-zp-agree" href="' + esc(S.base + 'oferta/#oferta') + '" target="_blank" rel="noopener">' + txt(zpT('agree')) + '</a>') +
+      '<div class="m13-channels">' + zpBtn('m13-channel m13-ch2', 'ask', zpT('ask')) + zpBtn('m13-modal-close', 'close', zpT('close')) + '</div>';
+    return h;
+  }
+  function zpTick() {
+    var s = ZP.st;
+    function upd() {
+      var b = S.root.querySelector('[data-zp-timer]'), left = s && s.until ? zpLeft(s.until) : 0;
+      if (b) { var sec = Math.ceil(left / 1000); b.textContent = Math.floor(sec / 60) + ':' + z(sec % 60); }
+      if (!left || ZP.st !== s) { clearInterval(ZP.timer); if (ZP.st === s) zpCheck(s.code, true); }
+    }
+    upd(); ZP.timer = setInterval(upd, 1000);
+  }
+  function zpDo(a, v, b) {
+    var s = ZP.st; if (!s) return;
+    if (a === 'close') { closeTop(); return; }
+    if (a === 'day') { s.day = v; s.time = null; s.flash = ''; zpRender(); zpScroll('.m13-zp-slots'); }
+    else if (a === 'time') { s.time = v; zpRender(); zpScroll('.m13-zp-pay'); }
+    else if (a === 'mode') { if (s.mode === v) return; s.mode = v; s.time = null; s.flash = ''; if (s.demo) zpRender(); else zpLoadFree(); }
+    else if (a === 'month') {
+      var p = s.month.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1 + (+v), 1));
+      s.month = d.getUTCFullYear() + '-' + z(d.getUTCMonth() + 1); zpRender();
+    }
+    else if (a === 'pay') { if (zpFree(s)) zpBook(); else if (s.nopay && !s.demo && !S.onBack) { s.view = 'soon'; zpRender(); } else zpPay(); }
+    else if (a === 'back') { s.view = 'pick'; zpRender(); }
+    else if (a === 'soonAsk') openContact(Object.assign({}, s.action, { host: '', message: zpFill('soonMsg') }), Object.assign({}, s.ctx, { item: s.ctx.item || (s.sv || {}).title }));
+    else if (a === 'ask') {
+      var act = Object.assign({}, s.action, { message: zpFill('askMsg') });
+      openContact(act, Object.assign({}, s.ctx, { item: s.ctx.item || (s.sv || {}).title }));
+    }
+    else if (a === 'cal') openCalendar({ date: s.day, time: s.time, duration: +(s.sv || {}).minutes || 60, title: ((s.sv || {}).title || '') + ' · 13 MIRRORS', details: zpFill('cancel') }, {});
+    else if (a === 'tell') zpTell(v);
+    else if (a === 'check') zpCheck(s.code, true);
+    else if (a === 'drop') {
+      zpPost('cancel', { c: s.code }).catch(function () {});
+      zpStore(null); s.code = ''; s.until = ''; s.time = null; s.flash = '';
+      zpLoadFree();
+    }
+    else if (a === 'again') { s.time = null; s.flash = ''; zpLoadFree(); }
+  }
+  function zpScroll(sel) {
+    var n = S.root.querySelector('#m13-zp-box ' + sel);
+    if (n && n.scrollIntoView) setTimeout(function () { n.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 30);
+  }
+  // «Оплатить»: программа записи держит время за человеком и даёт страницу оплаты ЮKassa; номер записи — только в этом браузере
+  function zpPay() {
+    var s = ZP.st, sv = s.sv || {};
+    if (s.demo || S.onBack) { s.flash = 'Это предпросмотр: на сайте здесь откроется страница оплаты ЮKassa.'; zpRender(); return; }
+    var prev = zpStore();
+    s.view = 'paying'; s.flash = ''; zpRender();
+    zpPost('hold', { s: s.key, day: s.day, time: s.time, mode: s.mode, prev: (prev && prev.code) || '', back: location.origin + location.pathname }).then(function (d) {
+      if (ZP.st !== s) return;
+      if (d && d.ok && d.url) {
+        zpStore({ code: d.code, until: d.until, url: d.url, key: s.key, title: sv.title, minutes: sv.minutes, price: sv.price, day: s.day, time: s.time, mode: s.mode, cancelH: s.cancelH });
+        location.href = d.url;
+        return;
+      }
+      var why = d && d.why;
+      s.flash = zpT(why === 'taken' ? 'taken' : why === 'many' ? 'many' : 'payErr');
+      if (why === 'taken') { s.time = null; zpGet(zpFreeQ(s)).then(function (f) { if (ZP.st === s) { zpTakeFree(s, f); zpRender(); } }, function () { s.view = 'pick'; zpRender(); }); }
+      else if (why === 'closed') s.view = 'down';
+      else s.view = 'pick';
+      zpRender();
+    }, function () { if (ZP.st !== s) return; s.flash = zpT('payErr'); s.view = 'pick'; zpRender(); });
+  }
+  // Встреча без цены: записать сразу (без ЮKassa) → «Вы записаны»
+  function zpBook() {
+    var s = ZP.st, prev = zpIntro();
+    if (s.demo || S.onBack) { s.code = ''; s.address = ''; s.view = 'done'; zpRender(); return; }
+    s.view = 'booking'; s.flash = ''; zpRender();
+    zpPost('hold', { s: s.key, day: s.day, time: s.time, mode: s.mode, prev: (prev && prev.code) || '' }).then(function (d) {
+      if (ZP.st !== s) return;
+      if (d && d.ok && d.booked) {
+        zpIntro({ code: d.code, day: s.day });
+        s.code = d.code; s.address = d.address || ''; s.view = 'done'; zpRender();
+        return;
+      }
+      var why = d && d.why;
+      s.flash = zpT(why === 'taken' ? 'taken' : why === 'full' ? 'freeFull' : 'payErr');
+      s.view = why === 'closed' ? 'down' : 'pick';
+      if (why === 'taken' || why === 'full') { s.time = null; if (why === 'full') s.day = null; zpLoadFree(); return; }
+      zpRender();
+    }, function () { if (ZP.st !== s) return; s.flash = zpT('payErr'); s.view = 'pick'; zpRender(); });
+  }
+  // После записи — написать ей: Telegram с готовым текстом — к боту Host с номером записи (по умолчанию, её решение 29.10)
+  // или в её личный Telegram («Окошко на сайте» → «Куда ведёт Telegram»); VK — текст копируется
+  function zpTell(ch) {
+    var def = (S.D.settings || {}).contacts || {}, msg = zpFill('message'), st = ZP.st;
+    var bot = hostUrl(st.code ? 'zapis_' + st.code : st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
+    var url = ch === 'telegram' ? (zpSet().tell === 'me' ? me || bot : bot || me) : contactUrl('vk', def.vk, '');
+    var ok = copyText(msg), hint = S.root.querySelector('[data-zp-hint]');
+    if (url) window.open(url, '_blank', 'noopener');
+    if (hint) {
+      hint.textContent = url ? (ok ? (T('contactCopied') || 'Текст скопирован — вставьте его в чат.') : '') : fill(T('contactMissing') || 'Ссылка на {channel} ещё не задана.', { channel: ch === 'telegram' ? 'Telegram' : 'VK' });
+      hint.classList.add('is-done');
+    }
+  }
+  // Оплачено ли: после возврата с ЮKassa (?zapis=Z-…) или если в этом браузере есть неоплаченная запись
+  function zpCheck(code, loud) {
+    var s = ZP.st;
+    if (loud && s) { s.view = 'checking'; zpRender(); }
+    return zpGet('a=check&c=' + encodeURIComponent(code)).then(function (d) {
+      var rec = zpStore() || {};
+      if (d.status === 'paid') {
+        zpStore(null);
+        zpShowRec(code, d, rec, 'done');
+      } else if (d.status === 'hold') {
+        rec.until = d.until; rec.url = d.url || rec.url; zpStore(Object.assign(rec, { code: code }));
+        if (loud) zpShowRec(code, d, rec, 'wait');
+      } else if (d.status === 'gone') {
+        zpStore(null);
+        if (loud) zpShowRec(code, d, rec, 'gone');
+      } else if (loud) zpShowRec(code, d, rec, 'wait');
+    }, function () { if (loud) zpShowRec(code, {}, zpStore() || {}, 'wait'); });
+  }
+  function zpShowRec(code, d, rec, view) {
+    var key = d.service || rec.key || '', s = ZP.st;
+    if (!s || s.code !== code) {
+      s = ZP.st = { key: key, action: { kind: 'contact', host: key }, ctx: { card: '' }, view: view, free: null, mode: 'online', modes: ['online'], flash: '', code: code };
+    }
+    s.view = view; s.code = code;
+    s.sv = { title: d.title || rec.title || '', minutes: d.from && d.to ? zpMin(d.to) - zpMin(d.from) : rec.minutes, price: d.price || rec.price };
+    s.day = d.day || rec.day; s.time = d.from || rec.time; s.mode = d.mode || rec.mode || 'online'; s.address = d.address || '';
+    s.until = d.until || rec.until || ''; s.url = d.url || rec.url || ''; s.cancelH = rec.cancelH == null ? 12 : rec.cancelH;
+    if (view === 'gone') { s.time = null; s.until = ''; }
+    s.ctx.item = s.sv.title;
+    zpShow();
+  }
+  function zpResume() {
+    if (S.onBack) return;
+    var m = /[?&]zapis=([A-Za-z0-9-]{3,20})/.exec(location.search), rec = zpStore(), code = m ? m[1] : rec && rec.code;
+    if (m) {
+      var q = location.search.replace(/([?&])zapis=[^&]*&?/, '$1').replace(/[?&]$/, '');
+      try { history.replaceState(history.state, '', location.pathname + q + location.hash); } catch (e) {}
+    }
+    if (!code) return;
+    // Вернулся с ЮKassa или время ещё держится — показываем окно; иначе проверяем молча (вдруг оплата дошла позже)
+    var loud = !!m || !!(rec && zpLeft(rec.until));
+    if (loud) zpShowRec(code, {}, rec || {}, 'checking');
+    zpCheck(code, loud);
+  }
+  window.addEventListener('pageshow', function (e) { if (e.persisted && S.root && S.view === 'showcase') zpResume(); });
+
+  // Предпросмотр в панели: окошко с выдуманным расписанием (без программы записи), view: 'pick' | 'done' | 'down'
+  M13.demoZapis = function (view) {
+    var now = new Date(Date.now() + MSK * 3600000), from = zpIso(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))), days = {};
+    for (var i = 0; i <= 30; i++) {
+      var iso = zpIso(new Date(zpD(from).getTime() + i * 86400000)), w = zpWd(iso);
+      if (w > 4) continue;
+      days[iso] = i < 1 || i % 6 === 3 ? [] : ['10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30', '17:00'].filter(function (t, k) { return (k + i) % 3; });
+    }
+    var to = zpIso(new Date(zpD(from).getTime() + 30 * 86400000));
+    var card = S.card || null, it = null;
+    ((card && card.back && card.back.blocks) || []).forEach(function (b) { (b.kind === 'items' ? b.items || [] : []).forEach(function (x) { if (!it && zpKeyOf(x.action)) it = x; }); });
+    var title = (it && it.title) || 'Индивидуальная встреча', price = +String(it && opt(it.price) || '7000').replace(/\D/g, '') || 7000;
+    var free = { open: true, ok: true, pay: true, from: from, to: to, days: days, cancelH: 12, holdMin: 15, service: { key: 'demo', title: title, minutes: 90, price: price } };
+    zpOpen('demo', { kind: 'contact' }, { card: card ? (card.front || {}).title : '', item: title }, null, view === 'down', true);
+    var s = ZP.st;
+    if (view === 'down') { s.sv = free.service; zpRender(); return; }
+    zpTakeFree(s, free);
+    if (view === 'done') {
+      s.day = Object.keys(days).filter(function (k) { return days[k].length; })[1]; s.time = days[s.day][0]; s.view = 'done';
+    }
+    zpRender();
+  };
+  // Строка-мостик под календарём витрины: «Записаться на индивидуальную встречу →»
+  function zpBridgeHTML() {
+    var b = zpSet().bridge || {};
+    if (!b.on || !zpKeyOf({ host: b.key || 'individual_session' })) return '';
+    return '<button type="button" class="m13-cal-bridge" data-zp-bridge>' + txt(String(b.text || '').trim() || zpT('bridge')) + '</button>';
+  }
+  function zpBridgeBind(scope, ym) {
+    var btn = scope.querySelector('[data-zp-bridge]'); if (!btn) return;
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation(); S.from = btn;
+      var b = zpSet().bridge || {}, key = zpKeyOf({ host: b.key || 'individual_session' }), action = { kind: 'contact', host: key };
+      var ctx = { card: S.card ? (S.card.front || {}).title : '' };
+      btn.classList.add('m13-wait');
+      zpServices().then(function (d) {
+        btn.classList.remove('m13-wait');
+        var how = zpHow(d, key);
+        if (how) zpOpen(key, action, ctx, ym, how === 'down'); else openContact(action, ctx);
+      }, function () { btn.classList.remove('m13-wait'); openContact(action, ctx); });
+    });
   }
 
   /* ================= КАРТИНКА КРУПНО =================
