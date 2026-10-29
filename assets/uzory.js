@@ -123,6 +123,34 @@
   function optLabel(step, id) { var o = (step.options || []).filter(function (x) { return x.id === id; })[0]; return o ? o.label : ''; }
   function joinList(p) { return p.length <= 1 ? p.join('') : p.slice(0, -1).join(', ') + ' и ' + p[p.length - 1]; }
   function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  /* ---------- дар цветка (её решения 29.10, docs/uzory-duh-cvetov.md) ----------
+     У цветка: spirit (дух), gen (кого/чего), gifts [{ t — на карте после «Прими от меня в дар», p — абзац под картой }], few, many, bye.
+     Дар выпадает наугад из ещё не выпадавших этому человеку; один дар в день. Помнит только устройство человека (localStorage), на сервер ничего не уходит.
+     В окне панели день не считается — чтобы можно было смотреть сколько угодно. */
+  var PANEL = (function () { try { return window.parent !== window && !!window.parent.M13_UZ_DRAFT; } catch (e) { return false; } })();
+  function dayNow() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function giftMem(v) {
+    try {
+      var k = 'm13uz-gift-' + IT.id;
+      if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null') || {};
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch (e) {}
+    return {};
+  }
+  function giftsOf(fl) { return ((fl && fl.gifts) || []).filter(function (x) { return x && str(x.t); }); }
+  function giftDaily() { return !PANEL && (IT.space || {}).giftDaily !== false; }
+  function giftToday() { var M = giftMem(); return giftDaily() && M.day === dayNow() && M.fl ? M : null; }
+  function drawGift(fl) {
+    var G = giftsOf(fl); if (!G.length) return -1;
+    var M = giftMem(), seen = ((M.seen || {})[fl.id] || []).filter(function (i) { return i < G.length; }), free = [], i;
+    for (i = 0; i < G.length; i++) if (seen.indexOf(i) < 0) free.push(i);
+    if (!free.length) { seen = []; for (i = 0; i < G.length; i++) if (i !== M.last || G.length < 2) free.push(i); }   // все выпадали — по кругу, без повтора подряд
+    var gi = free[Math.floor(Math.random() * free.length)];
+    M.seen = M.seen || {}; M.seen[fl.id] = seen.concat([gi]);
+    M.day = dayNow(); M.fl = fl.id; M.gi = gi; M.last = gi;
+    giftMem(M);
+    return gi;
+  }
   function buildResult(A) {
     var a = IT.answers || {}, rv = IT.reveal || {}, lines = [], title = str(rv.title_if_skipped, 'Твой сад'), reveal = rv.text_if_skipped || '';
     var fl = A.flower && !A.flower.own ? A.flower.fl : null, own = A.flower && A.flower.own ? A.flower.text : '';
@@ -154,12 +182,21 @@
     }
     if (fl && str((a.listed_flower || {}).unique)) lines.push(fill(gForm(a.listed_flower.unique, g), { nom: fl.nom, nom_cap: fl.nom_cap }));
     else if (own && str((a.own_flower || {}).unique)) lines.push(fill(a.own_flower.unique, { text: own }));
+    var dar = null, G = giftsOf(fl);
+    if (fl && A.gift >= 0 && G[A.gift]) {
+      var fw = Object.keys(L).some(function (k) { return L[k] === 'few'; }), mn = Object.keys(L).some(function (k) { return L[k] === 'many'; });
+      dar = { name: fl.nom_cap, spirit: str(fl.spirit), lead: T('giftLead', 'Прими от меня в дар'), t: G[A.gift].t, p: str(G[A.gift].p), bye: str(fl.bye),
+        lines: [fw ? str(fl.few) : '', mn ? str(fl.many) : ''].filter(function (x) { return x; }),
+        more: fill(gForm(T('giftMore', 'Возвращайся за другими дарами.'), g), { gen: str(fl.gen, fl.nom), nom: fl.nom, nom_cap: fl.nom_cap }) };
+    } else if (own && str(T('giftOwn', 'У твоего цветка свои дары, и никто не записал их заранее. То, что ты о нём знаешь, — и есть его дар.'))) {
+      dar = { name: own, spirit: '', lead: '', t: '', own: T('giftOwn', 'У твоего цветка свои дары, и никто не записал их заранее. То, что ты о нём знаешь, — и есть его дар.'), p: '', bye: '', lines: [], more: '' };
+    }
     var sl = (IT.support_lines || []).filter(function (x) { return str(x); });
     var seed = JSON.stringify([A.flower ? (A.flower.own ? A.flower.text : A.flower.fl.id) : '', A.place, A.care, L, A.says, A.reflect]);
     return {
       title: title, lines: lines, reveal: reveal, support: sl.length ? sl[hash(seed) % sl.length] : '',
       closing: ((IT.closing_question || {}).inside) || '', reflection: str(A.reflect), ack: str(A.reflect) ? IT.reflection_ack || '' : '',
-      footer: IT.footer || ''
+      footer: IT.footer || '', dar: dar
     };
   }
 
@@ -223,6 +260,7 @@
           '<button class="uz-link uz-link--dim" data-again type="button">' + esc(T('again', 'Начать сначала')) + '</button></div>' +
         '<form class="uz-sheet" id="sh-name" hidden><label class="uz-p" for="nameIn">' + esc(T('nameAsk', 'Твоё имя у света')) + '</label>' +
           '<div class="uz-field"><input id="nameIn" maxlength="24" autocomplete="off" placeholder="' + esc(T('namePh')) + '"><button class="uz-btn" type="submit">' + esc(T('done', 'Готово')) + '</button></div></form>' +
+        '<div class="uz-sheet" id="sh-today" hidden><p class="uz-p" id="todayText"></p><div class="uz-row"><button class="uz-btn" id="b-today" type="button">' + esc(T('giftTodayBtn', 'Мой сегодняшний дар')) + '</button></div></div>' +
         '<div class="uz-sheet" id="sh-q" hidden></div>' +
         '<div class="uz-sheet uz-sheet--long" id="sh-res" hidden></div>' +
       '</div>';
@@ -1144,7 +1182,7 @@
       if (SP.sparks !== false || SP.ground !== false) els.forEach(function (c, k) { if (!c.gone && !c.flying) spark(c, 900 + k * 25 + Math.random() * 200, true); });
     }
     function liven() { if (!spin && !fly && !touched && spd()) speed = Math.max(speed, .9); }
-    var SHEETS = ['sh-mode', 'sh-random', 'sh-choose', 'sh-own', 'sh-wait', 'sh-reveal', 'sh-name', 'sh-q', 'sh-res'];
+    var SHEETS = ['sh-mode', 'sh-random', 'sh-choose', 'sh-own', 'sh-wait', 'sh-reveal', 'sh-name', 'sh-q', 'sh-res', 'sh-today'];
     function sheet(id) { SHEETS.forEach(function (s) { $('#' + s).hidden = s !== id; }); }
     var bloomT = [];
     function bloomStop() { bloomT.forEach(clearTimeout); bloomT = []; if (ringEl.classList.contains('is-bloom')) { ringEl.classList.remove('is-bloom', 'is-buds'); els.forEach(function (c) { c.el.classList.remove('is-open'); }); } }
@@ -1162,11 +1200,18 @@
       ringEl.classList.toggle('is-pick', m === 'choose');
       els.forEach(function (c) { c.el.tabIndex = m === 'choose' ? 0 : -1; });
       speedTarget = spd() * (m === 'choose' ? .5 : 1);
-      if (m === 'idle') sheet('sh-mode');
+      if (m === 'idle') { if (todayShow()) return; sheet('sh-mode'); }
       else if (m === 'random') { sheet('sh-random'); $('#randomText').textContent = T('randomHint'); }
       else if (m === 'choose') sheet('sh-choose');
       else if (m === 'own') { sheet('sh-own'); setTimeout(function () { $('#ownName').focus(); }, 50); }
       capShow();
+    }
+    // дар сегодня уже был (её решение 29.10: не проходить все дары за один день) — вместо выбора цветка приглашение вернуться завтра
+    function todayFl() { var M = giftToday(); return M ? { M: M, fl: FL.filter(function (f) { return f.id === M.fl; })[0] } : null; }
+    function todayShow() {
+      var t = todayFl(); if (!t || !t.fl || !giftsOf(t.fl)[t.M.gi]) return false;
+      $('#todayText').textContent = fill(gForm(T('giftToday', 'Возвращайся завтра — за новым даром.'), t.fl.g), { nom_cap: t.fl.nom_cap, nom: t.fl.nom, gen: str(t.fl.gen, t.fl.nom) });
+      sheet('sh-today'); capShow(); return true;
     }
     function capShow() {
       var c = merged && merged.own ? merged.own : T('caption', 'Ты Здесь');
@@ -1340,6 +1385,11 @@
     Array.prototype.forEach.call(root.querySelectorAll('[data-again]'), function (b) { b.addEventListener('click', function () { reset('idle'); }); });
     $('#b-tochoose').addEventListener('click', function () { reset('choose'); });
     $('#b-toq').addEventListener('click', function () { startQuestions(); });
+    $('#b-today').addEventListener('click', function () {
+      var t = todayFl(); if (!t || !t.fl) return;
+      A = { flower: { fl: t.fl }, gift: t.M.gi, place: null, care: null, lamps: {}, says: null, reflect: '' }; A.pick = 'today';
+      showResult(true);
+    });
     $('#sh-own').addEventListener('submit', function (e) {
       e.preventDefault(); var v = $('#ownName').value.trim(); if (!v) { $('#ownName').focus(); return; }
       $('#ownName').blur();
@@ -1484,10 +1534,29 @@
 
     /* ---------- итог ---------- */
     var RES = null;
-    function showResult() {
+    function darArt(fl, own) {
+      if (!own && fl && fl.image && (fl.view || SP.view || 'live') === 'live') return '<img src="' + esc(imgUrl(fl.image)) + '" alt="">';
+      return '<div class="uz-v-line">' + artSvg(own ? null : fl, true) + '</div>';
+    }
+    // стеклянная карта цветка: имя · дух, «Прими от меня в дар», дар, прощальное слово; под ней — абзац дара, строчки цветка, приглашение вернуться
+    function darHTML(R, A) {
+      var d = R.dar; if (!d) return '';
+      var fl = A.flower && !A.flower.own ? A.flower.fl : null;
+      return '<div class="uz-dar"><div class="uz-dar-glass"></div><div class="uz-dar-art">' + darArt(fl, !fl) + '</div>' +
+          '<p class="uz-dar-name">' + esc(d.name) + (d.spirit ? '<span>' + esc(d.spirit) + '</span>' : '') + '</p>' +
+          (d.t ? '<p class="uz-dar-lead">' + esc(d.lead) + '</p><p class="uz-dar-gift">' + esc(d.t) + '</p>' : '') +
+          (d.own ? '<p class="uz-dar-own">' + esc(d.own) + '</p>' : '') +
+          (d.bye ? '<p class="uz-dar-bye">' + esc(d.bye) + '</p>' : '') + '</div>' +
+        (d.p ? '<p class="uz-p">' + esc(d.p) + '</p>' : '') +
+        d.lines.map(function (l) { return '<p class="uz-p">' + esc(l) + '</p>'; }).join('') +
+        (d.more ? '<p class="uz-p is-dim uz-dar-more">' + esc(d.more) + '</p>' : '');
+    }
+    function showResult(only) {
+      if (A.flower && !A.flower.own && A.gift == null) A.gift = drawGift(A.flower.fl);
       RES = buildResult(A); mode = 'done'; capShow(); liftTo = 1;
+      if (only) { RES.lines = []; RES.reveal = ''; RES.support = ''; RES.closing = ''; RES.reflection = ''; RES.ack = ''; }
       var hp = IT.help || {}, box = $('#sh-res');
-      var h = '<p class="uz-title">' + esc(RES.title) + '</p><div class="uz-res-lines">' + RES.lines.map(function (l) { return '<p class="uz-p">' + esc(l) + '</p>'; }).join('') + '</div>' +
+      var h = (RES.dar ? darHTML(RES, A) : '<p class="uz-title">' + esc(RES.title) + '</p>') + '<div class="uz-res-lines">' + RES.lines.map(function (l) { return '<p class="uz-p">' + esc(l) + '</p>'; }).join('') + '</div>' +
         (RES.reveal ? '<p class="uz-p is-dim">' + esc(RES.reveal) + '</p>' : '') +
         (RES.support ? '<p class="uz-p">' + esc(RES.support) + '</p>' : '') +
         (RES.ack ? '<p class="uz-p is-dim">' + esc(RES.ack) + '</p>' : '') +
@@ -1498,8 +1567,8 @@
         (T('writeInvite') ? '<p class="uz-p">' + esc(T('writeInvite')) + '</p>' : '') +
         '<div class="uz-row"><button class="uz-btn" type="button" data-r="write">' + esc(T('write', 'Написать проводнику')) + '</button></div>' +
         '<p class="uz-note uz-status" id="resStatus" aria-live="polite"></p>' +
-        '<div class="uz-row uz-row--between"><button class="uz-link uz-link--dim" type="button" data-r="back">' + esc(T('back', '← Назад')) + '</button>' +
-          '<button class="uz-link uz-link--dim" type="button" data-again>' + esc(T('again', 'Начать сначала')) + '</button></div>';
+        '<div class="uz-row uz-row--between">' + (only ? '<button class="uz-link uz-link--dim" type="button" data-again>' + esc(T('back', '← Назад')) + '</button>' : '<button class="uz-link uz-link--dim" type="button" data-r="back">' + esc(T('back', '← Назад')) + '</button>' +
+          '<button class="uz-link uz-link--dim" type="button" data-again>' + esc(T('again', 'Начать сначала')) + '</button>') + '</div>';
       if (hp.show !== false && ((hp.contacts || []).length || str(hp.text))) {
         h += '<div class="uz-help">' + (str(hp.title) ? '<h3>' + esc(hp.title) + '</h3>' : '') + (str(hp.text) ? '<p class="uz-p is-dim">' + esc(hp.text) + '</p>' : '') +
           '<ul>' + (hp.contacts || []).filter(function (c) { return c && str(c.phone); }).map(function (c) {
@@ -1516,12 +1585,16 @@
         stt.textContent = ok ? T('writeDone', 'Итог скопирован — вставь его в чат.') : '';
       });
       box.querySelector('[data-r="img"]').addEventListener('click', function () { stt.textContent = '…'; saveImage(function () { stt.textContent = ''; }); });
-      box.querySelector('[data-r="back"]').addEventListener('click', function () { if (Q.pages.length) { Q.i = Q.pages.length - 1; mode = 'q'; capShow(); drawQ(); } else qBack(); });
+      var bb = box.querySelector('[data-r="back"]'); if (bb) bb.addEventListener('click', function () { if (Q.pages.length) { Q.i = Q.pages.length - 1; mode = 'q'; capShow(); drawQ(); } else qBack(); });
       box.querySelector('[data-again]').addEventListener('click', function () { reset('idle'); });
     }
-    function pickWord() { return A.pick === 'random' ? 'наугад' : A.pick === 'choose' ? 'по картинке' : A.pick === 'own' ? 'свой цветок' : 'не выбран'; }
+    function darLines() {
+      var d = RES.dar; if (!d || !d.t) return [];
+      return [d.name + (d.spirit ? ' · ' + d.spirit : ''), d.lead + ': ' + d.t + '.', d.bye, d.p].concat(d.lines).filter(function (x) { return str(x); }).concat(['']);
+    }
+    function pickWord() { return A.pick === 'random' ? 'наугад' : A.pick === 'choose' ? 'по картинке' : A.pick === 'own' ? 'свой цветок' : A.pick === 'today' ? 'сегодня раньше' : 'не выбран'; }
     function selfText() {
-      var out = [str((SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('eyebrow', 'Узоры') + ' · ' + IT.title, '', RES.title, ''].concat(RES.lines);
+      var out = [str((SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('eyebrow', 'Узоры') + ' · ' + IT.title, '', RES.title, ''].concat(darLines(), RES.lines);
       if (RES.reveal) out.push('', RES.reveal);
       if (RES.support) out.push('', RES.support);
       if (RES.closing) out.push('', T('closingLabel', 'Вопрос с собой') + ':', RES.closing);
@@ -1538,6 +1611,7 @@
       var out = [IT.title + ' · ' + str((SET || {}).siteTitle, '13 MIRRORS')];
       if (myName) out.push('Имя у света: ' + myName);
       out.push('Цветок выбран: ' + pickWord(), '', RES.title, '');
+      if (RES.dar && RES.dar.t) out.push('Дар (выпал наугад): ' + RES.dar.t, '');
       out = out.concat(RES.lines);
       if (RES.reflection) out.push('', T('wordsLabel', 'Мои слова') + ':', RES.reflection);
       return out.join('\n');
@@ -1564,10 +1638,69 @@
       return lines;
     }
     function saveImage(done) {
-      var src = merged ? (merged.v === 'live' && !merged.own && merged.fl.image ? imgUrl(merged.fl.image) : 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(merged.own ? artSvg(null, true) : artSvg(merged.fl, merged.v === 'line'))) : '';
-      var im = new Image(), go = function () { try { paint(src ? im : null); } catch (e) { console.error(e); } done(); };
+      var f0 = A.flower && !A.flower.own ? A.flower.fl : null, own0 = !!(A.flower && A.flower.own), v0 = merged ? merged.v : f0 ? viewOf(f0) : 'line';
+      var src = f0 && f0.image && v0 === 'live' ? imgUrl(f0.image) : f0 || own0 ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(own0 ? artSvg(null, true) : artSvg(f0, v0 === 'line' || !!RES.dar)) : '';
+      var im = new Image(), go = function () { try { if (RES.dar) paintDar(src ? im : null); else paint(src ? im : null); } catch (e) { console.error(e); } done(); };
       var fonts = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('italic 500 64px "Cormorant Garamond"'), document.fonts.load('500 40px "Cormorant Garamond"')]).catch(function () {}) : Promise.resolve();
       fonts.then(function () { if (!src) { go(); return; } im.onload = go; im.onerror = function () { src = ''; go(); }; im.src = src; });
+    }
+    function rrect(c2, x, y, w, h, r) { c2.beginPath(); c2.moveTo(x + r, y); c2.arcTo(x + w, y, x + w, y + h, r); c2.arcTo(x + w, y + h, x, y + h, r); c2.arcTo(x, y + h, x, y, r); c2.arcTo(x, y, x + w, y, r); c2.closePath(); }
+    function shareCanvas(cv) {
+      var name = '13mirrors-' + IT.id + '.png';
+      cv.toBlob(function (blob) {
+        try {
+          var f = new File([blob], name, { type: 'image/png' });
+          if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
+        } catch (e) {}
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      }, 'image/png');
+    }
+    // «Сохранить себе» с даром — сама стеклянная карта (её решение 29.10)
+    function paintDar(im) {
+      var d = RES.dar, Wc = 1080, Hc = 1350, cv = document.createElement('canvas'), c2 = cv.getContext('2d');
+      var HEAD = '"Cormorant Garamond", Georgia, serif', UI = '-apple-system, "Segoe UI", Roboto, sans-serif';
+      var X = 110, Y = 96, CW = Wc - X * 2, CH = Hc - Y * 2 - 40, pad = 70, mw = CW - pad * 2;
+      cv.width = Wc; cv.height = Hc; c2.textBaseline = 'top';
+      var sky = c2.createLinearGradient(0, 0, 0, Hc); sky.addColorStop(0, '#0b0f26'); sky.addColorStop(.4, '#231f4a'); sky.addColorStop(.7, '#2a2340'); sky.addColorStop(1, '#121428');
+      c2.fillStyle = sky; c2.fillRect(0, 0, Wc, Hc);
+      for (var i = 0; i < 160; i++) { c2.globalAlpha = .15 + Math.random() * .4; c2.fillStyle = '#fff'; c2.beginPath(); c2.arc(Math.random() * Wc, Math.random() * Hc, Math.random() * 1.6 + .3, 0, 6.283); c2.fill(); }
+      c2.globalAlpha = 1;
+      // стекло
+      c2.save(); rrect(c2, X, Y, CW, CH, 44); c2.shadowColor = 'rgba(0,0,0,.45)'; c2.shadowBlur = 50; c2.shadowOffsetY = 18;
+      var gl = c2.createLinearGradient(X, Y, X + CW, Y + CH); gl.addColorStop(0, 'rgba(255,255,255,.20)'); gl.addColorStop(.46, 'rgba(255,255,255,.06)'); gl.addColorStop(1, 'rgba(170,190,255,.14)');
+      c2.fillStyle = gl; c2.fill(); c2.restore();
+      c2.save(); rrect(c2, X, Y, CW, CH, 44); c2.clip();
+      var sh = c2.createLinearGradient(X, Y, X + CW * .9, Y + CH * .6); sh.addColorStop(.40, 'rgba(255,255,255,0)'); sh.addColorStop(.47, 'rgba(255,255,255,.16)'); sh.addColorStop(.52, 'rgba(255,255,255,.03)'); sh.addColorStop(.58, 'rgba(255,255,255,0)');
+      c2.fillStyle = sh; c2.fillRect(X, Y, CW, CH); c2.restore();
+      rrect(c2, X, Y, CW, CH, 44); c2.lineWidth = 2; c2.strokeStyle = 'rgba(255,236,206,.55)'; c2.stroke();
+      // текст — сначала меряем, чтобы картинка цветка заняла остальное
+      var B = [];
+      B.push({ f: 'italic 500 64px ' + HEAD, c: '#fff4e2', t: d.name, lh: 68, gap: 4 });
+      if (d.spirit) B.push({ f: 'italic 500 38px ' + HEAD, c: 'rgba(255,226,180,.9)', t: d.spirit, lh: 44, gap: 30 }); else B[0].gap = 30;
+      if (d.t) B.push({ f: '500 24px ' + UI, c: 'rgba(233,184,114,.95)', t: d.lead.toUpperCase(), lh: 32, gap: 10, sp: true }, { f: 'italic 600 48px ' + HEAD, c: '#fff8ec', t: d.t, lh: 56, gap: 30 });
+      if (d.own) B.push({ f: 'italic 500 38px ' + HEAD, c: '#fff4e2', t: d.own, lh: 46, gap: 30 });
+      if (d.bye) B.push({ f: 'italic 500 34px ' + HEAD, c: 'rgba(232,230,244,.85)', t: d.bye, lh: 42, gap: 0 });
+      var th = 0; B.forEach(function (x) { c2.font = x.f; if (x.sp) c2.letterSpacing = '3px'; x.L = wrap(c2, x.t, mw); if (x.sp) c2.letterSpacing = '0px'; th += x.L.length * x.lh + x.gap; });
+      var artH = Math.max(300, Math.min(560, CH - pad * 2 - th - 40)), ay = Y + Math.max(pad - 10, (CH - artH - 40 - th) / 2);   // всё — посередине карты
+      var gx = Wc / 2, gy = ay + artH * .5, glow = c2.createRadialGradient(gx, gy, 0, gx, gy, artH * .62);
+      glow.addColorStop(0, 'rgba(255,236,200,.42)'); glow.addColorStop(.45, 'rgba(255,214,150,.12)'); glow.addColorStop(1, 'rgba(255,214,150,0)');
+      c2.fillStyle = glow; c2.fillRect(X, ay - 30, CW, artH + 60);
+      if (im) {
+        var ar = (im.naturalWidth || 100) / (im.naturalHeight || 140), hh = artH, ww = hh * ar; if (ww > mw) { ww = mw; hh = ww / ar; }
+        c2.save(); c2.shadowColor = 'rgba(255,226,170,.8)'; c2.shadowBlur = 34; c2.drawImage(im, (Wc - ww) / 2, ay + (artH - hh), ww, hh); c2.restore();
+      }
+      var y = ay + artH + 40;
+      B.forEach(function (x) {
+        c2.font = x.f; c2.fillStyle = x.c; if (x.sp) c2.letterSpacing = '3px';
+        x.L.forEach(function (l) { var lw = c2.measureText(l).width; c2.fillText(l, (Wc - lw) / 2, y); y += x.lh; });
+        if (x.sp) c2.letterSpacing = '0px'; y += x.gap;
+      });
+      c2.font = '600 20px ' + UI; c2.fillStyle = 'rgba(232,230,244,.6)'; c2.letterSpacing = '4px';
+      var brand = (str((SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('eyebrow', 'Узоры') + ' · ' + IT.title).toUpperCase() + (myName ? '   — ' + myName : '');
+      var bw = c2.measureText(brand).width; c2.fillText(brand, (Wc - bw) / 2, Hc - 76); c2.letterSpacing = '0px';
+      shareCanvas(cv);
     }
     function paint(im) {
       var Wc = 1080, pad = 96, mw = Wc - pad * 2, cv = document.createElement('canvas'), c2 = cv.getContext('2d');
@@ -1615,16 +1748,7 @@
       });
       c2.font = '400 20px ' + UI; c2.fillStyle = 'rgba(232,230,244,.5)';
       var ft = str(IT.footer); if (ft) { var fl2 = wrap(c2, ft, mw); fl2.forEach(function (l, k) { c2.fillText(l, pad, Hc - pad / 2 - (fl2.length - k) * 28); }); }
-      var name = '13mirrors-' + IT.id + '.png';
-      cv.toBlob(function (blob) {
-        try {
-          var f = new File([blob], name, { type: 'image/png' });
-          if (window.matchMedia('(pointer: coarse)').matches && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function () {}); return; }
-        } catch (e) {}
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-        document.body.appendChild(a); a.click();
-        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
-      }, 'image/png');
+      shareCanvas(cv);
     }
 
     // для проверки (Playwright) и панели
