@@ -1005,7 +1005,8 @@
                   "kind": "contact",
                   "label": "Записаться",
                   "host": "intro_meeting_20"
-                }
+                },
+                "wide": true
               }
             ],
             "max": 10,
