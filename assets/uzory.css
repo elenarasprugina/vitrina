@@ -225,3 +225,5 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-okno .uz-ui, .uz-okno .uz-ghint, .uz-okno .uz-cap, .uz-okno .uz-name { display: none !important; }
 .uz-okno .uz-scene { pointer-events: none; }
 .uz-ring.is-bloom .uz-el.is-open .uz-nm { opacity: 0; }
+/* 29.10: просто сад — без карточки с выбором и вопросами (space.quiz не включено) */
+.uz-walk .uz-bottom { display: none !important; }
