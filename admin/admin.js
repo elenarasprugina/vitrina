@@ -7469,7 +7469,7 @@
   function libText(obj, key, label, part, o) {
     o = o || {};
     var v = obj[key] == null ? '' : String(obj[key]);
-    var i = el(o.line ? 'input' : 'textarea', { class: 'a-input', placeholder: o.ph || '', rows: o.line ? null : Math.max(o.rows || 2, Math.min(14, Math.ceil(v.length / 85) + v.split('\n').length - 1)) });
+    var i = el(o.line ? 'input' : 'textarea', { class: 'a-input', placeholder: o.ph || '', rows: o.line ? null : Math.max(o.rows || 2, Math.min(o.max || 14, Math.ceil(v.length / 85) + v.split('\n').length - 1)) });
     i.value = v;
     i.addEventListener('input', function () { obj[key] = i.value; libTouch(part, obj); if (o.onInput) o.onInput(i.value); });
     return field(label, i, o.hint);
@@ -7748,9 +7748,16 @@
   }
 
   /* ---------- Тоны и печати ---------- */
-  // Описание печати (её таблица «20 солнечных печатей», 09.10): [поле, подпись, в одну строку]
-  var LIB_SEAL_DESC = [['keywords', 'Ключевые слова', 1], ['force', 'Сила / энергия', 1], ['description', 'Описание', 0],
-    ['symbols', 'Символы и образы', 0], ['abilities', 'Способности и акценты', 0], ['source', 'Источник', 1]];
+  // Описание печати: её «Атлас печатей» 29.10 (по документу на печать, разделы 1–4) и таблица 09.10.
+  // Группы: [заголовок, [[поле, подпись, в одну строку, только если заполнено]]]
+  var LIB_SEAL_GROUPS = [
+    ['Взгляд источника', [['keywords', 'Ключевые слова', 1], ['force', 'Сила / энергия', 1], ['planet', 'Планета (по источнику)', 1],
+      ['description', 'Описание', 0], ['symbols', 'Символы и образы', 0, 1], ['abilities', 'Способности и акценты', 0, 1], ['source', 'Источник', 1], ['notes', 'Пометки', 0, 1]]],
+    ['Психологический перевод 13 MIRRORS', [['translation', '', 0]]],
+    ['Среда печати', [['env', '', 0]]],
+    ['Маршруты и тексты', [['routes', '', 0]]]];
+  var LIB_SEAL_DESC = [];
+  LIB_SEAL_GROUPS.forEach(function (g) { g[1].forEach(function (f) { LIB_SEAL_DESC.push([f[0], f[1] || g[0], f[2], f[3]]); }); });
   function libSignBody(a, o) {
     o = o || {};
     var kind = a.charAt(0), n = +a.slice(1), s = libSign(kind, n), P = 'signs', out = [];
@@ -7763,9 +7770,16 @@
       } else out.push(el('div', { class: 'a-lib-canon' }, [['Действие', c.action], ['Суть', c.essence], ['Сила', c.power], ['Вопрос', c.question]].filter(function (x) { return x[1]; })
         .map(function (x) { return el('span', {}, [el('small', { text: x[0] }), el('b', { text: x[1] })]); })));
       if (kind === 'S') {
-        out.push(el('div', { class: 'a-lib-grpt', text: 'Описание' }));
-        if (o.edit) LIB_SEAL_DESC.forEach(function (f) { out.push(libText(s, f[0], f[1], P, { line: !!f[2] })); });
-        else LIB_SEAL_DESC.forEach(function (f) { if (s[f[0]]) out.push(el('p', { class: 'a-lib-desc' }, [el('small', { text: f[1] + ': ' }), document.createTextNode(s[f[0]])])); });
+        LIB_SEAL_GROUPS.forEach(function (g) {
+          var fs = g[1].filter(function (f) { return !f[3] || s[f[0]]; });
+          if (!o.edit) fs = fs.filter(function (f) { return s[f[0]]; });
+          if (!fs.length) return;
+          out.push(el('div', { class: 'a-lib-grpt', text: g[0] }));
+          fs.forEach(function (f) {
+            if (o.edit) out.push(libText(s, f[0], f[1], P, { line: !!f[2], rows: f[2] ? null : 3, max: 32 }));
+            else out.push(el('p', { class: 'a-lib-desc' }, [f[1] ? el('small', { text: f[1] + ': ' }) : null, document.createTextNode(s[f[0]])]));
+          });
+        });
       }
       var H = s.workingHypotheses = s.workingHypotheses || [];
       out.push(el('div', { class: 'a-lib-grpt', text: 'Рабочие гипотезы (' + H.length + ')' }));
@@ -7806,8 +7820,13 @@
     var t = [], s = [], i;
     for (i = 1; i <= 13; i++) t.push(btn('T' + i));
     for (i = 1; i <= 20; i++) s.push(btn('S' + i, (i - 1) % 4));
+    var S = LIB.parts.signs, X = S && S.sealIndex, ix = null;
+    // Индекс её «Атласа печатей» (29.10): назначение, пары по планетам, открытые вопросы
+    if (X) ix = el('details', { class: 'a-card a-lib-stack' }, [el('summary', { class: 'a-lib-grpt', style: 'cursor:pointer', text: 'Об атласе печатей · пары по планетам · открытые вопросы' }),
+      libText(X, 'about', 'Об атласе печатей', 'signs', { rows: 4, max: 24 }), libText(X, 'pairs', 'Пары печатей по планетам (по источнику)', 'signs', { rows: 2, max: 24 }),
+      libText(X, 'questions', 'Открытые вопросы библиотеки', 'signs', { rows: 4, max: 24 })]);
     return [el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '13 тонов' }), el('div', { class: 'a-lib-signs' }, t)]),
-      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '20 печатей' }), el('div', { class: 'a-lib-signs' }, s)])];
+      el('div', { class: 'a-card a-lib-stack' }, [el('div', { class: 'a-lib-grpt', text: '20 печатей' }), el('div', { class: 'a-lib-signs' }, s)]), ix];
   }
 
   /* ---------- Цолькин и страница кина ---------- */
