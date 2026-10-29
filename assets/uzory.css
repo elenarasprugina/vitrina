@@ -212,3 +212,16 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-layers .uz-v-live .uz-art img, .uz-layers .uz-v-live .uz-bud img { -webkit-mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); mask-image: linear-gradient(to top, transparent 0, rgba(0, 0, 0, .55) 6%, #000 14%); }
 /* бабочку несут над цветком — цветок чуть светится: «сюда сядет» */
 .uz-el.is-perch .uz-art { filter: brightness(1.16) drop-shadow(0 0 12px rgba(255, 236, 190, .85)); transition: filter .2s; }
+
+/* 29.10: имя цветка — только когда его коснулись или навели (её решение: поляна — картина) */
+.uz-ring:not(.is-bloom) .uz-el.is-say .uz-nm { opacity: 1; }
+@media (hover: hover) { .uz-ring:not(.is-bloom):not(.is-pick) .uz-el:hover .uz-nm { opacity: 1; } }
+/* 29.10: редкие ссылки — под одной «ещё…» */
+.uz-more { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.uz-more[hidden] { display: none; }
+/* 29.10: утро — свет справа, с востока */
+.uz-t-morning .uz-v-live .uz-art > *, .uz-t-morning .uz-v-live .uz-bud > * { filter: saturate(.96) brightness(1.04) drop-shadow(2px -1px 1.5px rgba(255, 218, 204, .75)); }
+/* 29.10: окошко на витрине — только сад: без надписей и кнопок, нажатие ловит витрина */
+.uz-okno .uz-ui, .uz-okno .uz-ghint, .uz-okno .uz-cap, .uz-okno .uz-name { display: none !important; }
+.uz-okno .uz-scene { pointer-events: none; }
+.uz-ring.is-bloom .uz-el.is-open .uz-nm { opacity: 0; }

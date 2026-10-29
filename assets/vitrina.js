@@ -594,6 +594,9 @@
     S.root.querySelectorAll('.m13-thumb[data-card]').forEach(function (b) {
       b.addEventListener('click', function () { openCard(b.getAttribute('data-card')); });
     });
+    // В предпросмотре панели окошко открывает сад в новой вкладке (панель не закрывается)
+    if (S.onBack) S.root.querySelectorAll('[data-m13-okno]').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); window.open(a.href, '_blank'); }); });
+    oknoMount();
     // Нажатие на закрытую обложку раскрывает её сразу; на всякий случай все обложки раскрываются не позже чем через 10 с
     var lids = S.root.querySelectorAll('.m13-lid');
     lids.forEach(function (l) { l.addEventListener('click', function (e) { e.stopPropagation(); lidOpen(l); }); });
@@ -1685,6 +1688,32 @@
       html.replace(/ m13-glow-live/, '') + '</div>';
   }
   function thumbHTML(c) { return withLid(c, thumbCore(c)); }
+  // Окошко: адрес страницы сайта (по умолчанию — сад «Мой цветок») и надпись-приглашение
+  function oknoOf(c) {
+    var o = (c.front || {}).okno; if (!o || !o.on) return null;
+    var h = String(o.href || '').trim().replace(/^\/+/, '');
+    return { href: /^[a-z0-9\/_-]+\/$/i.test(h) ? h : 'uzory/cvetok/', text: o.text };
+  }
+  // Сад в окошке грузится, когда витрина уже открылась и окошко видно; не видно — стоит на паузе (батарея и трафик)
+  function oknoMount() {
+    var boxes = S.root.querySelectorAll('.m13-okno[data-src]'); if (!boxes.length) return;
+    function put(b) {
+      if (b.firstChild) return;
+      var fr = document.createElement('iframe');
+      fr.setAttribute('title', 'Сад'); fr.setAttribute('tabindex', '-1'); fr.setAttribute('loading', 'lazy');
+      fr.onload = function () { fr.classList.add('is-on'); };
+      fr.src = b.getAttribute('data-src'); b.appendChild(fr);
+    }
+    function say(b, m) { var fr = b.firstChild; if (fr && fr.contentWindow) try { fr.contentWindow.postMessage({ m13okno: m }, '*'); } catch (e) {} }
+    function go() {
+      if (!('IntersectionObserver' in window)) { [].forEach.call(boxes, put); return; }
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) { put(e.target); say(e.target, 'play'); } else say(e.target, 'pause'); });
+      });
+      [].forEach.call(boxes, function (b) { io.observe(b); });
+    }
+    if (document.readyState === 'complete') setTimeout(go, 600); else window.addEventListener('load', function () { setTimeout(go, 600); });
+  }
   function thumbCore(c) {
     if (!c || c.visible === false) {
       return '<div class="m13-thumb m13-thumb--empty" aria-hidden="true"><span class="m13-empty-mark"></span></div>';
@@ -1701,11 +1730,11 @@
     var evp = evPeekHTML(c), lay = evp + sty.lay;
     var cls = 'm13-thumb' + (f.image ? ' m13-thumb--img' : '') + (sty.cls ? ' ' + sty.cls : '') + (evp ? ' m13-has-ev' + (sty.lay ? '' : ' m13-deco') : '');
     var isStatic = !isCalCard(c) && (c.interactive === false || !c.back || c.back.type === 'static');
-    var sub = opt(f.subtitle), foot = opt(f.foot);
+    var sub = opt(f.subtitle), foot = opt(f.foot), ok = oknoOf(c);
     var ph = phaseOf(c), phCls = '';
     if (ph && ph.label) { foot = ph.label; phCls = ' m13-phase m13-phase--' + ph.key; }
     // Крупное слово вместо надписей (её «скоро» на 4-й карточке ноября, 26.10) — как на странице «Ноябрь · скоро»
-    var word = String(f.word || '').trim();
+    var word = ok ? '' : String(f.word || '').trim();   // окошко с садом важнее слова
     if (word) {
       var so = soonOf(S.D.settings), wf = so.font || '';
       if (wf) ensureFont(wf);
@@ -1720,6 +1749,10 @@
       (f.title ? '<div class="m13-mini-title">' + txt(f.title) + '</div>' : '') +
       (sub ? '<div class="m13-mini-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
+    // Живое окошко (её решение 29.10): на карточке — живой сад «Узоров» (та же страница, без надписей); нажатие — вход в сад
+    if (ok) return breathWrap(sty, '<a class="' + cls + ' m13-thumb--okno" style="' + css + '" href="' + esc(S.base + ok.href) + '" data-m13-okno>' +
+      '<span class="m13-okno" data-src="' + esc(S.base + ok.href + '?okno=1') + '" aria-hidden="true"></span>' + text +
+      '<div class="m13-mini-foot"><span class="m13-mini-cta m13-okno-go">' + txt(ok.text || 'Входи') + '</span></div>' + lay + '</a>');
     if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + lay + '</div>');
     return breathWrap(sty, '<button type="button" class="' + cls + '" style="' + css + '" data-card="' + esc(c.id) + '">' + text +
       '<div class="m13-mini-foot">' + (foot ? '<span' + (phCls ? ' class="' + phCls.trim() + '"' : '') + '>' + txt(foot) + '</span>' : '') +
