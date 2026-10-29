@@ -9326,6 +9326,7 @@
         box.appendChild(el('div', { class: 'a-card', style: 'padding:10px 12px;margin:0 0 8px' }, [
           textIn(x, 't', 'Дар ' + (i + 1) + ' — на карте, после «Прими от меня в дар»', { ph: 'умение начинать, когда ещё холодно' }),
           textIn(x, 'p', 'Абзац под картой — откуда у цветка этот дар', { multi: true, rows: 3 }),
+          textIn(x, 'b', 'Прощальное слово к этому дару (пусто — общее, внизу)', { ph: String(f.bye || '').trim() || '«…»' }),
           el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать дар', onclick: function () { G.splice(i, 1); changed(); draw(); } })]));
       });
       box.appendChild(el('button', { type: 'button', class: 'a-btn a-add', text: '+ Добавить дар', onclick: function () { G.push({ t: '', p: '' }); changed(); draw(); } }));
@@ -9338,7 +9339,7 @@
       sub('Под картой и прощальное слово'),
       textIn(f, 'few', 'Под картой — если человек отметил «бывает мало»', { multi: true, rows: 2 }),
       textIn(f, 'many', 'Под картой — если «бывает слишком много»', { multi: true, rows: 2 }),
-      textIn(f, 'bye', 'Прощальное слово — внизу карты, в кавычках', { multi: true, rows: 2 })], { open: false });
+      textIn(f, 'bye', 'Прощальное слово — внизу карты, в кавычках (общее — если у дара нет своего)', { multi: true, rows: 2 })], { open: false });
   }
   function uzStep(it, id) { return (it.steps || []).filter(function (s) { return s && s.id === id; })[0]; }
   function uzOptRows(s, key) {
@@ -9402,6 +9403,7 @@
     var G = 'Подстановки: {nom} — цветок в тексте, {nom_cap} — с большой, {text} — что вписал человек; [мужской|женский] — форма по роду цветка.';
     return [
       el('p', { class: 'a-hint', text: 'Итог собирается из строк ниже — по ответам человека. Пропущенный вопрос — строки нет. ' + G }),
+      switchIn(rv, 'recap', 'Под картой дара — ещё и пересказ ответов (строки ниже)', { hint: 'Выключено — под картой только абзац дара, «мало»/«слишком много» и «Возвращайся…». Без карты (цветок не выбран, свой цветок без даров) строки ниже показываются всегда. «Написать проводнику» берёт ответы в любом случае.' }),
       block('Цветок', [
         el('div', { class: 'a-row' }, [textIn(lf, 'title', 'Заголовок — цветок из двенадцати', { ph: 'Твой цветок: {nom_cap}' }), textIn(of, 'title', 'Заголовок — свой цветок', { ph: 'Твой цветок: {text}' })]),
         textIn(lf, 'unique', 'Последняя строка — цветок из двенадцати', { multi: true, rows: 2 }),
