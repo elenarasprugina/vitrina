@@ -187,7 +187,7 @@
       var fw = Object.keys(L).some(function (k) { return L[k] === 'few'; }), mn = Object.keys(L).some(function (k) { return L[k] === 'many'; });
       dar = { name: fl.nom_cap, spirit: str(fl.spirit), lead: T('giftLead', 'Прими от меня в дар'), t: G[A.gift].t, p: str(G[A.gift].p), bye: str(fl.bye),
         lines: [fw ? str(fl.few) : '', mn ? str(fl.many) : ''].filter(function (x) { return x; }),
-        more: fill(gForm(T('giftMore', 'Возвращайся завтра — у {gen} есть и другие дары.'), g), { gen: str(fl.gen, fl.nom), nom: fl.nom, nom_cap: fl.nom_cap }) };
+        more: fill(gForm(T('giftMore', 'Возвращайся за другими дарами.'), g), { gen: str(fl.gen, fl.nom), nom: fl.nom, nom_cap: fl.nom_cap }) };
     } else if (own && str(T('giftOwn', 'У твоего цветка свои дары, и никто не записал их заранее. То, что ты о нём знаешь, — и есть его дар.'))) {
       dar = { name: own, spirit: '', lead: '', t: '', own: T('giftOwn', 'У твоего цветка свои дары, и никто не записал их заранее. То, что ты о нём знаешь, — и есть его дар.'), p: '', bye: '', lines: [], more: '' };
     }
@@ -1210,7 +1210,7 @@
     function todayFl() { var M = giftToday(); return M ? { M: M, fl: FL.filter(function (f) { return f.id === M.fl; })[0] } : null; }
     function todayShow() {
       var t = todayFl(); if (!t || !t.fl || !giftsOf(t.fl)[t.M.gi]) return false;
-      $('#todayText').textContent = fill(gForm(T('giftToday', 'Сегодня {nom} уже [сделал|сделала|сделало] тебе подарок. Возвращайся завтра — за новым даром.'), t.fl.g), { nom_cap: t.fl.nom_cap, nom: t.fl.nom, gen: str(t.fl.gen, t.fl.nom) });
+      $('#todayText').textContent = fill(gForm(T('giftToday', 'Возвращайся завтра — за новым даром.'), t.fl.g), { nom_cap: t.fl.nom_cap, nom: t.fl.nom, gen: str(t.fl.gen, t.fl.nom) });
       sheet('sh-today'); capShow(); return true;
     }
     function capShow() {
