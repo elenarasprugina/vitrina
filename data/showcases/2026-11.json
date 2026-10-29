@@ -480,8 +480,8 @@
       "interactive": false,
       "front": {
         "image": null,
-        "eyebrow": "",
-        "title": "Скоро",
+        "eyebrow": "Узоры",
+        "title": "Мой цветок",
         "word": "скоро",
         "style": {
           "glow": "off",
@@ -498,6 +498,11 @@
           "patternSize": 0,
           "sheen": 45,
           "patternTilt": 0
+        },
+        "okno": {
+          "on": true,
+          "text": "Входи",
+          "href": "uzory/cvetok/"
         }
       },
       "back": {

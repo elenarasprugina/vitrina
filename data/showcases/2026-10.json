@@ -991,6 +991,21 @@
                   "label": "Записаться",
                   "host": "constellations"
                 }
+              },
+              {
+                "id": "i-g1ksf",
+                "visible": true,
+                "order": 5,
+                "title": "Встреча-знакомство",
+                "duration": {
+                  "value": "до 20 минут",
+                  "show": true
+                },
+                "action": {
+                  "kind": "contact",
+                  "label": "Записаться",
+                  "host": "intro_meeting_20"
+                }
               }
             ],
             "max": 10,
