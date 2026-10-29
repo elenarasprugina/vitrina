@@ -271,6 +271,12 @@ body.m13-locked{overflow:hidden}
 .m13-items--one .m13-item > *{grid-column:1}
 .m13-items--one .m13-item-price{grid-column:2;grid-row:1 / span 3;font-size:17px;margin:0}
 .m13-items--one .m13-item-action{grid-column:2;padding-top:4px}
+/* Плашка во всю ширину (wide, 29.10): слева название и срок, справа цена и кнопка */
+.m13 .m13-items .m13-item--wide{grid-column:1 / -1;grid-row:auto;display:flex;flex-direction:row;align-items:center;gap:12px}
+.m13-item--wide .m13-item-main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.m13-item--wide .m13-item-side{display:flex;flex-direction:column;align-items:flex-end;text-align:right;flex-shrink:0}
+.m13-item--wide .m13-item-side .m13-item-price{margin:0;font-size:17px}
+.m13-item--wide .m13-item-side .m13-item-action{margin-top:0;padding-top:4px}
 
 /* Предложение (Карта-Отражение, Свечи) */
 .m13-info{border:1px solid #d5d5d5;border-radius:12px;background:#fff;padding:9px 10px;color:#4c4c4c;font-size:11.5px;line-height:1.32}
@@ -372,6 +378,7 @@ body.m13-locked{overflow:hidden}
   .m13-item-date + .m13-item-title{font-size:9.5px}
   .m13-item-text,.m13-item-meta,.m13-item-action{font-size:8.5px}.m13-item-price{font-size:11px}
   .m13-items--one .m13-item-price{font-size:14px}
+  .m13-item--wide .m13-item-side .m13-item-price{font-size:14px}
   .m13-ibar{top:9px;right:9px;gap:7px}
   .m13-ibar--back{right:auto;left:9px}
   .m13-close,.m13-unflip{width:34px;height:34px}

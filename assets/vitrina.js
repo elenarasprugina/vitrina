@@ -2174,7 +2174,8 @@
   /* ---------- Оборот: контейнер (встречи, индивидуальная работа) ---------- */
   // Плашки-элементы (встречи, виды работы, варианты продукта) — одна общая схема.
   // Блок x (docs/plashki.md, 19.10): view 'list' (как было) | 'tiles' — по две в ряд, нажатие — окошко; lastTile 'center' | 'wide'; tileShape 'square' | 'card' (4:5).
-  // У плашки: image — картинка (в списке маленькая слева, в плитке сверху); kinWheel — вместо картинки живое колесо «Узнать свой кин», нажатие — страница кина.
+  // У плашки: image — картинка (в списке маленькая слева, в плитке сверху); kinWheel — вместо картинки живое колесо «Узнать свой кин», нажатие — страница кина;
+  // wide — во всю ширину карточки (её решение 29.10: встреча-знакомство — основа под остальными плашками): слева название, справа цена и кнопка.
   function itemsHTML(c, list, max, tplKey, x) {
     var items = visibleSorted(list, max || 10);
     if (!items.length) return '';
@@ -2187,7 +2188,8 @@
       if (opt(it.date)) has.date = 1; if (opt(it.text)) has.text = 1; if (opt(it.price)) has.price = 1;
       if (opt(it.duration) || opt(it.status)) has.meta = 1;
     });
-    function part(cls, on, html) { return on ? '<div class="' + cls + '">' + html + '</div>' : (has[cls.slice(9)] && !one ? '<div class="' + cls + '"></div>' : ''); }
+    var solo = one;
+    function part(cls, on, html) { return on ? '<div class="' + cls + '">' + html + '</div>' : (has[cls.slice(9)] && !solo ? '<div class="' + cls + '"></div>' : ''); }
     var rows = 2 + (has.date ? 1 : 0) + (has.text ? 1 : 0) + (has.meta ? 1 : 0) + (has.price ? 1 : 0);
     return '<div class="m13-items' + (one ? ' m13-items--one' : ' m13-items--rows') + '" style="--rows:' + rows + '">' + items.map(function (it) {
       var date = opt(it.date), text = opt(it.text), dur = opt(it.duration), price = opt(it.price), status = opt(it.status);
@@ -2196,6 +2198,8 @@
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       var pic = itemPic(it, 'm13-item-pic'), pc = pic ? ' m13-item--pic' + kinBgCls(it) : '';
+      solo = one || !!it.wide;
+      if (it.wide && !one) pc += ' m13-item--wide';
       if (it.kinWheel) { a = { kind: 'internal', target: 'kin' }; if (!a.label) a.label = kinT('wpGo').replace(/\s*→\s*$/, ''); }
       if (cal && !it.kinWheel) return '<div class="m13-item m13-item--cal' + pc + '" role="button" tabindex="0"' + act(a, ctx) + kinStyle(it) + '>' + pic +
         part('m13-item-date', date, txt(date)) +
@@ -2205,6 +2209,12 @@
         part('m13-item-price', price, txt(price)) +
         '<div class="m13-item-acts"><span class="m13-item-action">' + txt(a.label || 'Написать') + ' →</span>' +
         '<button type="button" class="m13-item-cal"' + act({ kind: 'calendar', cal: cal }, ctx) + '>' + txt(cal.label || T('calendarButton') || 'В календарь') + '</button></div></div>';
+      if (it.wide && !one) return '<button type="button" class="m13-item' + pc + '"' + act(a, ctx) + kinStyle(it) + '>' + pic +
+        '<div class="m13-item-main">' + part('m13-item-date', date, txt(date)) +
+        '<div class="m13-item-title">' + txt(it.title || (it.kinWheel ? kinT('wpTitle') : '')) + '</div>' +
+        part('m13-item-text', text, txt(text)) + part('m13-item-meta', meta, txt(meta)) + '</div>' +
+        '<div class="m13-item-side">' + part('m13-item-price', price, txt(price)) +
+        '<div class="m13-item-action">' + txt(a.label || 'Написать') + ' →</div></div></button>';
       return '<button type="button" class="m13-item' + pc + '"' + act(a, ctx) + kinStyle(it) + '>' + pic +
         part('m13-item-date', date, txt(date)) +
         '<div class="m13-item-title">' + txt(it.title || (it.kinWheel ? kinT('wpTitle') : '')) + '</div>' +
@@ -2224,11 +2234,12 @@
   function kinStyle(it) { var css = it.kinWheel ? kinLookCss(kinLook()) : ''; return css ? ' style="' + esc(css) + '"' : ''; }
   // Плитки: по две в ряд (и на телефоне), сверху картинка, под ней название и коротко цена; нечётная последняя — по центру или во всю ширину
   function tilesHTML(c, items, tplKey, x) {
-    var odd = items.length % 2 === 1, wide = x.lastTile === 'wide', last = items.length - 1;
+    var odd = items.filter(function (it) { return !it.wide; }).length % 2 === 1, wide = x.lastTile === 'wide', last = items.length - 1;
+    while (last > 0 && items[last].wide) last--;
     return '<div class="m13-tiles m13-tiles--' + (x.tileShape === 'card' ? 'card' : 'square') + '">' + items.map(function (it, i) {
       var date = opt(it.date), price = opt(it.price), a = it.action || { kind: 'contact' };
       var ctx = { card: (c.front || {}).title, item: it.title, date: date, price: price, tplKey: tplKey };
-      var cls = 'm13-item m13-tile' + (odd && i === last && items.length > 1 ? (wide ? ' m13-tile--wide' : ' m13-tile--mid') : '') + kinBgCls(it);
+      var cls = 'm13-item m13-tile' + (it.wide ? ' m13-tile--wide' : odd && i === last && items.length > 1 ? (wide ? ' m13-tile--wide' : ' m13-tile--mid') : '') + kinBgCls(it);
       var line = price || (it.kinWheel ? opt(it.text) || kinT('wpSub') : '');   // у колеса — своё «Короткое описание», пусто — запасная строка
       var cal = it.calendar && it.calendar.on && calActive(it.calendar) ? it.calendar : null;
       var at = it.kinWheel ? act({ kind: 'internal', target: 'kin' }) : ' data-m13-tile="' + (S.tiles.push({ it: it, a: a, ctx: ctx, cal: cal, shape: x.tileShape }) - 1) + '"';
@@ -2751,9 +2762,13 @@
      Номер записи (Z-…) хранится только в браузере человека (localStorage m13-zapis) — чтобы после оплаты показать «Вы записаны».
      Запись выключена — у этих плашек «Запись временно через сообщение»; программа не отвечает — как раньше, «Куда написать?».
      settings.zapis = {look: 'calm' (по умолчанию) | 'vitrina' | 'own', own: {font: 'calm' | 'month' | имя шрифта, btn: fill | line | glass | shimmer,
-     glint, mark: circle | glow | bold}, texts: {ключ: надпись}, bridge: {on, text, key}}. Цвета — всегда с витрины (как у «Куда написать?»). */
+     glint, mark: circle | glow | bold}, texts: {ключ: надпись}, bridge: {on, text, key}, tell: 'bot' (по умолчанию) | 'me'}. Цвета — всегда с витрины (как у «Куда написать?»).
+     29.10: встреча без цены (встреча-знакомство) — «Записаться» вместо «Оплатить», запись сразу, без ЮKassa; номер такой записи — в localStorage
+     m13-zapis-intro (новая запись с этого устройства отпускает прежнюю). Очные встречи: если встреча бывает и онлайн, и очно —
+     сначала выбор «онлайн / очно», потом свободное время для этого вида (у очных своё: дорога, не больше N в день). */
   var ZP_URL = window.M13_ZAPIS_URL || 'https://zapis.13mirrors.ru/';
   var ZP_LS = 'm13-zapis';
+  var ZP_LS_INTRO = 'm13-zapis-intro';
   // Надписи окна: [ключ, что это (для панели), как по умолчанию, длинная]. Подстановки: {название} {день} {время} {как} {часы} {цена} {минуты}
   var ZP_TXT = [
     ['eyebrow', 'Надпись над названием', 'Запись'],
@@ -2763,13 +2778,16 @@
     ['full', 'Пояснение: занятые дни', 'зачёркнуто — всё занято'],
     ['none', 'Свободного времени нет совсем', 'Сейчас всё время занято. Напишите мне — найдём время вместе.', true],
     ['times', 'Над временем', '{день} · время по Москве'],
-    ['how', 'Над выбором «онлайн / очно»', 'Как встречаемся'],
+    ['how', 'Над выбором «онлайн / очно» (когда очные встречи включены)', 'Как встречаемся'],
     ['online', 'Кнопка «онлайн»', 'онлайн'],
     ['offline', 'Кнопка «очно»', 'очно'],
     ['chosen', 'Над выбранным', 'Вы выбрали'],
     ['cancel', 'Про отмену и перенос', 'Если планы изменятся, напишите мне, пожалуйста, не позднее чем за {часы} до встречи.', true],
     ['pay', 'Кнопка оплаты', 'Оплатить {цена}'],
     ['agree', 'Под кнопкой оплаты (ссылка на «Условия и цены»)', 'Оплачивая, вы соглашаетесь с условиями записи и оплаты'],
+    ['book', 'Кнопка записи у встречи без цены (встреча-знакомство)', 'Записаться'],
+    ['booking', 'Пока записываю (встреча без цены)', 'Записываю…'],
+    ['freeFull', 'Встреча без цены: на этот день запись уже заполнена', 'На этот день запись на эту встречу уже заполнена — выберите, пожалуйста, другой день.', true],
     ['ask', 'Кнопка вопроса', 'Задать вопрос'],
     ['askMsg', 'Сообщение для «Задать вопрос»', 'Здравствуйте! У меня вопрос про «{название}».', true],
     ['close', 'Кнопка закрыть', 'Закрыть'],
@@ -2792,6 +2810,8 @@
     ['again', 'Кнопка «выбрать время»', 'Выбрать время'],
     ['doneTitle', 'После оплаты: заголовок', 'Вы записаны'],
     ['addCal', 'Кнопка календаря', 'Добавить в мой календарь'],
+    ['addr', 'Очная встреча: подпись к адресу', 'Адрес'],
+    ['noAddr', 'Очная встреча, адрес в панели не задан', 'Адрес пришлю в сообщении.'],
     ['contact', 'Просьба написать', 'Чтобы я могла с вами связаться, напишите мне, пожалуйста.', true],
     ['message', 'Готовое сообщение после записи', 'Здравствуйте! Я записан(а): {название}, {день}, {время} (Мск), {как}.', true],
     ['done', 'Кнопка в конце', 'Готово'],
@@ -2837,6 +2857,13 @@
     try {
       if (v === undefined) return JSON.parse(localStorage.getItem(ZP_LS) || 'null');
       if (v === null) localStorage.removeItem(ZP_LS); else localStorage.setItem(ZP_LS, JSON.stringify(v));
+    } catch (e) {}
+    return null;
+  }
+  function zpIntro(v) {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem(ZP_LS_INTRO) || 'null');
+      localStorage.setItem(ZP_LS_INTRO, JSON.stringify(v));
     } catch (e) {}
     return null;
   }
@@ -2922,7 +2949,7 @@
   function zpOpen(key, action, ctx, ym, down, demo) {
     ZP.st = { key: key, action: action || { kind: 'contact', host: key }, ctx: ctx || {}, ym: ym || null, view: down ? 'down' : 'load',
       sv: ((ZP.svc && ZP.svc.services) || []).filter(function (s) { return s.key === key; })[0] || { title: (ctx && ctx.item) || '' },
-      free: null, day: null, time: null, mode: 'online', flash: '', cancelH: 12, demo: !!demo };
+      free: null, day: null, time: null, mode: '', modes: ['online'], flash: '', cancelH: 12, demo: !!demo };
     zpShow();
     if (!down && !demo) zpLoadFree();
   }
@@ -2930,17 +2957,20 @@
   function zpLoadFree() {
     var s = ZP.st;
     s.view = 'load'; zpRender();
-    zpGet('a=free&s=' + encodeURIComponent(s.key)).then(function (d) {
+    zpGet(zpFreeQ(s)).then(function (d) {
       if (ZP.st !== s) return;
       zpTakeFree(s, d);
       zpRender();
     }, function () { if (ZP.st !== s) return; s.view = 'down'; zpRender(); });
   }
+  function zpFreeQ(s) { return 'a=free&s=' + encodeURIComponent(s.key) + (s.mode ? '&m=' + s.mode : ''); }
+  function zpFree(s) { return !(+(s.sv || {}).price > 0); }
   function zpTakeFree(s, d) {
     if (!d || !d.open || !d.ok) { s.view = 'down'; return; }
     // Ключей ЮKassa ещё нет (магазин на проверке): время выбрать можно, «Оплатить» предложит написать
     s.nopay = !d.pay;
     s.free = d; s.sv = d.service; s.cancelH = d.cancelH; s.holdMin = d.holdMin; s.view = 'pick';
+    s.modes = d.modes && d.modes.length ? d.modes : ['online']; s.mode = d.mode || s.modes[0];
     if (s.day && !(d.days[s.day] || []).length) { s.day = null; s.time = null; }
     if (s.time && (d.days[s.day] || []).indexOf(s.time) < 0) s.time = null;
     // Месяц: с календаря витрины (если там есть время), иначе — первый, где есть свободный день
@@ -2961,7 +2991,7 @@
     var s = ZP.st, box = S.root && S.root.querySelector('#m13-zp-box'); if (!s || !box) return;
     var keep = box.scrollTop, h = '';
     clearInterval(ZP.timer);
-    if (s.view === 'load' || s.view === 'paying' || s.view === 'checking') {
+    if (s.view === 'load' || s.view === 'paying' || s.view === 'booking' || s.view === 'checking') {
       h = zpHead(s) + '<p class="m13-zp-wait"><span class="m13-zp-spin" aria-hidden="true"></span>' + txt(zpT(s.view === 'load' ? 'loading' : s.view)) + '</p>' + zpBtn('m13-modal-close', 'close', zpT('close'));
     } else if (s.view === 'down') {
       h = zpHead(s) + '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('downTitle')) + '</div>' + txt(zpT('downText')) + '</div>' +
@@ -2982,7 +3012,8 @@
         '<div class="m13-zp-col">' + (s.key ? zpBtn('m13-channel', 'again', zpT('again')) : '') + zpBtn('m13-ch2 m13-channel', 'ask', zpT('ask')) + zpBtn('m13-modal-close', 'close', zpT('close')) + '</div>';
     } else if (s.view === 'done') {
       h = '<div class="m13-zp-ok" aria-hidden="true">✓</div><h3 id="m13-zp-t">' + txt(zpT('doneTitle')) + '</h3>' +
-        '<div class="m13-msg"><strong>' + txt((s.sv || {}).title || '') + '</strong><br>' + txt(zpWhen(s)) + '</div>' +
+        '<div class="m13-msg"><strong>' + txt((s.sv || {}).title || '') + '</strong><br>' + txt(zpWhen(s)) +
+        (s.mode === 'offline' ? '<br><span class="m13-zp-addr">' + txt(s.address ? zpT('addr') + ': ' + s.address : zpT('noAddr')) + '</span>' : '') + '</div>' +
         zpBtn('m13-channel m13-ch2 m13-zp-wide', 'cal', zpT('addCal')) +
         '<div class="m13-zp-sep"></div><p class="m13-zp-ask">' + txt(zpFill('contact')) + '</p>' +
         '<div class="m13-msg"><div class="m13-msg-label">' + txt(T('contactMessageLabel') || 'Текст обращения') + '</div>' + txt(zpFill('message')) + '</div>' +
@@ -3010,6 +3041,9 @@
     }
     var any = Object.keys(d.days).some(function (k) { return d.days[k].length; });
     var h = (s.flash ? '<p class="m13-zp-flash" role="alert">' + txt(s.flash) + '</p>' : '') +
+      (s.modes.length > 1 ? '<div class="m13-zp-group m13-zp-fmt"><div class="m13-msg-label">' + txt(zpT('how')) + '</div><div class="m13-zp-seg">' +
+        s.modes.map(function (f) { return '<button type="button" data-zp="mode" data-v="' + f + '" class="' + (s.mode === f ? 'is-on' : '') + '" aria-pressed="' + (s.mode === f) + '">' + txt(zpT(f)) + '</button>'; }).join('') +
+        '</div></div>' : '') +
       '<div class="m13-zp-mon"><button type="button" class="m13-zp-arr" data-zp="month" data-v="-1" aria-label="Прошлый месяц"' + (s.month <= lo ? ' disabled' : '') + '>‹</button>' +
       '<strong>' + txt(MONTHS_NOM[mo - 1] + ' ' + y) + '</strong>' +
       '<button type="button" class="m13-zp-arr" data-zp="month" data-v="1" aria-label="Следующий месяц"' + (s.month >= hi ? ' disabled' : '') + '>›</button></div>' +
@@ -3019,14 +3053,12 @@
     else if (s.day) {
       h += '<div class="m13-zp-group"><div class="m13-msg-label">' + txt(zpFill('times')) + '</div><div class="m13-zp-slots">' +
         d.days[s.day].map(function (t) { return '<button type="button" class="m13-zp-slot' + (t === s.time ? ' is-sel' : '') + '" data-zp="time" data-v="' + t + '"' + (t === s.time ? ' aria-pressed="true"' : '') + '>' + t + '</button>'; }).join('') +
-        '</div></div><div class="m13-zp-group"><div class="m13-msg-label">' + txt(zpT('how')) + '</div><div class="m13-zp-seg">' +
-        ['online', 'offline'].map(function (f) { return '<button type="button" data-zp="mode" data-v="' + f + '" class="' + (s.mode === f ? 'is-on' : '') + '" aria-pressed="' + (s.mode === f) + '">' + txt(zpT(f)) + '</button>'; }).join('') +
         '</div></div>';
     } else h += '<p class="m13-hint">' + txt(zpT('pick')) + '</p>';
     if (s.time) h += '<div class="m13-msg"><div class="m13-msg-label">' + txt(zpT('chosen')) + '</div><strong>' + txt(s.sv.title) + '</strong><br>' + txt(zpWhen(s)) + '</div>';
     h += '<p class="m13-hint">' + txt(zpFill('cancel')) + '</p>' +
-      '<button type="button" class="m13-channel m13-zp-wide m13-zp-pay" data-zp="pay"' + (s.time ? '' : ' disabled') + '>' + txt(zpFill('pay')) + '</button>' +
-      '<a class="m13-zp-agree" href="' + esc(S.base + 'oferta/#oferta') + '" target="_blank" rel="noopener">' + txt(zpT('agree')) + '</a>' +
+      '<button type="button" class="m13-channel m13-zp-wide m13-zp-pay" data-zp="pay"' + (s.time ? '' : ' disabled') + '>' + txt(zpFree(s) ? zpFill('book') : zpFill('pay')) + '</button>' +
+      (zpFree(s) ? '' : '<a class="m13-zp-agree" href="' + esc(S.base + 'oferta/#oferta') + '" target="_blank" rel="noopener">' + txt(zpT('agree')) + '</a>') +
       '<div class="m13-channels">' + zpBtn('m13-channel m13-ch2', 'ask', zpT('ask')) + zpBtn('m13-modal-close', 'close', zpT('close')) + '</div>';
     return h;
   }
@@ -3044,12 +3076,12 @@
     if (a === 'close') { closeTop(); return; }
     if (a === 'day') { s.day = v; s.time = null; s.flash = ''; zpRender(); zpScroll('.m13-zp-slots'); }
     else if (a === 'time') { s.time = v; zpRender(); zpScroll('.m13-zp-pay'); }
-    else if (a === 'mode') { s.mode = v; zpRender(); }
+    else if (a === 'mode') { if (s.mode === v) return; s.mode = v; s.time = null; s.flash = ''; if (s.demo) zpRender(); else zpLoadFree(); }
     else if (a === 'month') {
       var p = s.month.split('-'), d = new Date(Date.UTC(+p[0], +p[1] - 1 + (+v), 1));
       s.month = d.getUTCFullYear() + '-' + z(d.getUTCMonth() + 1); zpRender();
     }
-    else if (a === 'pay') { if (s.nopay && !s.demo && !S.onBack) { s.view = 'soon'; zpRender(); } else zpPay(); }
+    else if (a === 'pay') { if (zpFree(s)) zpBook(); else if (s.nopay && !s.demo && !S.onBack) { s.view = 'soon'; zpRender(); } else zpPay(); }
     else if (a === 'back') { s.view = 'pick'; zpRender(); }
     else if (a === 'soonAsk') openContact(Object.assign({}, s.action, { host: '', message: zpFill('soonMsg') }), Object.assign({}, s.ctx, { item: s.ctx.item || (s.sv || {}).title }));
     else if (a === 'ask') {
@@ -3085,16 +3117,37 @@
       }
       var why = d && d.why;
       s.flash = zpT(why === 'taken' ? 'taken' : why === 'many' ? 'many' : 'payErr');
-      if (why === 'taken') { s.time = null; zpGet('a=free&s=' + encodeURIComponent(s.key)).then(function (f) { if (ZP.st === s) { zpTakeFree(s, f); zpRender(); } }, function () { s.view = 'pick'; zpRender(); }); }
+      if (why === 'taken') { s.time = null; zpGet(zpFreeQ(s)).then(function (f) { if (ZP.st === s) { zpTakeFree(s, f); zpRender(); } }, function () { s.view = 'pick'; zpRender(); }); }
       else if (why === 'closed') s.view = 'down';
       else s.view = 'pick';
       zpRender();
     }, function () { if (ZP.st !== s) return; s.flash = zpT('payErr'); s.view = 'pick'; zpRender(); });
   }
-  // После записи — написать ей: Telegram с готовым текстом (личный, если задан; иначе бот), VK — текст копируется
+  // Встреча без цены: записать сразу (без ЮKassa) → «Вы записаны»
+  function zpBook() {
+    var s = ZP.st, prev = zpIntro();
+    if (s.demo || S.onBack) { s.code = ''; s.address = ''; s.view = 'done'; zpRender(); return; }
+    s.view = 'booking'; s.flash = ''; zpRender();
+    zpPost('hold', { s: s.key, day: s.day, time: s.time, mode: s.mode, prev: (prev && prev.code) || '' }).then(function (d) {
+      if (ZP.st !== s) return;
+      if (d && d.ok && d.booked) {
+        zpIntro({ code: d.code, day: s.day });
+        s.code = d.code; s.address = d.address || ''; s.view = 'done'; zpRender();
+        return;
+      }
+      var why = d && d.why;
+      s.flash = zpT(why === 'taken' ? 'taken' : why === 'full' ? 'freeFull' : 'payErr');
+      s.view = why === 'closed' ? 'down' : 'pick';
+      if (why === 'taken' || why === 'full') { s.time = null; if (why === 'full') s.day = null; zpLoadFree(); return; }
+      zpRender();
+    }, function () { if (ZP.st !== s) return; s.flash = zpT('payErr'); s.view = 'pick'; zpRender(); });
+  }
+  // После записи — написать ей: Telegram с готовым текстом — к боту Host с номером записи (по умолчанию, её решение 29.10)
+  // или в её личный Telegram («Окошко на сайте» → «Куда ведёт Telegram»); VK — текст копируется
   function zpTell(ch) {
-    var def = (S.D.settings || {}).contacts || {}, msg = zpFill('message');
-    var url = ch === 'telegram' ? (contactUrl('telegram', def.telegram, msg) || hostUrl(ZP.st.key, def.host)) : contactUrl('vk', def.vk, '');
+    var def = (S.D.settings || {}).contacts || {}, msg = zpFill('message'), st = ZP.st;
+    var bot = hostUrl(st.code ? 'zapis_' + st.code : st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
+    var url = ch === 'telegram' ? (zpSet().tell === 'me' ? me || bot : bot || me) : contactUrl('vk', def.vk, '');
     var ok = copyText(msg), hint = S.root.querySelector('[data-zp-hint]');
     if (url) window.open(url, '_blank', 'noopener');
     if (hint) {
@@ -3123,11 +3176,11 @@
   function zpShowRec(code, d, rec, view) {
     var key = d.service || rec.key || '', s = ZP.st;
     if (!s || s.code !== code) {
-      s = ZP.st = { key: key, action: { kind: 'contact', host: key }, ctx: { card: '' }, view: view, free: null, mode: 'online', flash: '', code: code };
+      s = ZP.st = { key: key, action: { kind: 'contact', host: key }, ctx: { card: '' }, view: view, free: null, mode: 'online', modes: ['online'], flash: '', code: code };
     }
     s.view = view; s.code = code;
     s.sv = { title: d.title || rec.title || '', minutes: d.from && d.to ? zpMin(d.to) - zpMin(d.from) : rec.minutes, price: d.price || rec.price };
-    s.day = d.day || rec.day; s.time = d.from || rec.time; s.mode = d.mode || rec.mode || 'online';
+    s.day = d.day || rec.day; s.time = d.from || rec.time; s.mode = d.mode || rec.mode || 'online'; s.address = d.address || '';
     s.until = d.until || rec.until || ''; s.url = d.url || rec.url || ''; s.cancelH = rec.cancelH == null ? 12 : rec.cancelH;
     if (view === 'gone') { s.time = null; s.until = ''; }
     s.ctx.item = s.sv.title;

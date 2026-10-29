@@ -841,9 +841,12 @@ body.a-noscroll{overflow:hidden}
 .a-zp-nums{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
 .a-zp-num{max-width:120px}
 .a-zp-offs{display:flex;flex-direction:column;gap:8px}
+.a-zp-offs[hidden]{display:none}
 .a-zp-off{display:grid;grid-template-columns:160px 160px 1fr auto;gap:8px;align-items:end}
 .a-zp-svcs{display:flex;flex-direction:column;gap:10px}
-.a-zp-svc{display:grid;grid-template-columns:260px 170px 1fr;gap:10px;align-items:center;padding-bottom:10px;border-bottom:1px solid #ececea}
+.a-zp-svc{display:grid;grid-template-columns:240px 150px 170px 1fr;gap:10px;align-items:center;padding-bottom:10px;border-bottom:1px solid #ececea}
+.a-zp-dates{display:flex;flex-wrap:wrap;gap:6px}
+.a-zp-date{display:inline-flex;align-items:center;gap:4px}
 .a-zp-save{position:sticky;bottom:0;z-index:2;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;background:#fff;border:1px solid var(--a-line);border-radius:12px;box-shadow:0 -4px 14px rgba(0,0,0,.06)}
 .a-zp-save .a-ak-state{flex:1 1 180px}
 .a-zp-see{display:flex;flex-direction:column;gap:4px;font-size:13px;font-variant-numeric:tabular-nums}
