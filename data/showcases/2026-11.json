@@ -74,10 +74,10 @@
         },
         "style": {
           "patternColor": "#cfe0ff",
-          "glow": "inherit",
+          "glow": "off",
           "glowColor": "",
-          "glowStrength": "strong",
-          "glowDir": "around",
+          "glowStrength": "inherit",
+          "glowDir": "inherit",
           "lid": {
             "mode": "",
             "open": "book",
@@ -93,7 +93,10 @@
           },
           "overlay": "inherit",
           "rim": "inherit",
-          "glowTempo": "inherit"
+          "glowTempo": "flicker",
+          "rimLive": "inherit",
+          "accent": "",
+          "rimColor": "#573a05"
         },
         "dayShow": false,
         "dayBg": ""
@@ -106,12 +109,13 @@
             "id": "b-0saxa",
             "kind": "desc",
             "visible": true,
-            "text": "13 дней о переходах — о том, что подходит к концу, и о том, что может начаться, когда мы перестаём держаться за прежнее.\n\nКаждый день открывает новый Kin, новый вопрос и новую точку наблюдения за собой. \n\nЗа дорогой постепенно собирается ваш собственный Калейдоскоп отражений — из состояний, встреч и прожитых дней. На 13-й день весь маршрут складывается в один узор.\n\nЗдесь не нужно ничего обрывать силой. \nЗадача — увидеть, где проходит граница, и бережно её перейти."
+            "text": ""
           },
           {
             "id": "b-86gt0",
             "kind": "day",
-            "visible": true
+            "visible": true,
+            "koster": true
           },
           {
             "id": "b-pg419",
@@ -123,41 +127,13 @@
                 "visible": true,
                 "availability": "open",
                 "price": {
-                  "value": "",
+                  "value": "Проходи к огню",
                   "show": true
                 },
                 "action": {
                   "kind": "link",
-                  "label": "Подробнее",
-                  "url": "https://13mirrors.ru/vitrina/routes/white-worldbridger/"
-                }
-              },
-              {
-                "formatId": "journey",
-                "visible": true,
-                "availability": "open",
-                "price": {
-                  "value": "7 000 ₽",
-                  "show": true
-                },
-                "action": {
-                  "kind": "contact",
-                  "label": "Написать",
-                  "message": "Привет! Хочу на маршрут \"Белый Соединитель Миров\", формат \"Путешествие\"."
-                }
-              },
-              {
-                "formatId": "immersion",
-                "visible": true,
-                "availability": "open",
-                "price": {
-                  "value": "18 000 ₽",
-                  "show": true
-                },
-                "action": {
-                  "kind": "contact",
-                  "label": "Написать",
-                  "message": "Привет! Хочу на маршрут \"Белый Соединитель Миров\", формат \"Погружение\"."
+                  "label": "Проходи к огню",
+                  "url": "https://13mirrors.ru/vitrina/uzory/cvetok/"
                 }
               }
             ],
@@ -500,7 +476,7 @@
           "patternTilt": 0
         },
         "okno": {
-          "on": true,
+          "on": false,
           "text": "Входи",
           "href": "uzory/cvetok/"
         }

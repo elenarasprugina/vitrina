@@ -537,18 +537,57 @@
           "glowColor": "#6f9df2",
           "glowStrength": "medium",
           "glowDir": "bottom",
-          "lid": {}
+          "lid": {},
+          "rim": "light",
+          "rimColor": "#f0b070",
+          "rimLive": "fire"
         }
       },
       "back": {
         "type": "blocks",
         "routeId": "white-worldbridger",
-        "blocks": [],
-        "stub": {
-          "on": true,
-          "text": "Маршрут начнётся 31 октября. Подробное описание, форматы участия и запись появятся здесь совсем скоро.\n\nЕсли хочется узнать больше уже сейчас — задайте вопрос, я с радостью отвечу.",
-          "sandbox": true
-        }
+        "blocks": [
+          {
+            "id": "b-0saxa",
+            "kind": "desc",
+            "visible": true,
+            "text": ""
+          },
+          {
+            "id": "b-86gt0",
+            "kind": "day",
+            "visible": true,
+            "koster": true
+          },
+          {
+            "id": "b-pg419",
+            "kind": "formats",
+            "visible": true,
+            "formats": [
+              {
+                "formatId": "observe",
+                "visible": true,
+                "availability": "open",
+                "price": {
+                  "value": "Проходи к огню",
+                  "show": true
+                },
+                "action": {
+                  "kind": "link",
+                  "label": "Проходи к огню",
+                  "url": "https://13mirrors.ru/vitrina/uzory/cvetok/"
+                }
+              }
+            ],
+            "closed": "dim"
+          },
+          {
+            "id": "b-b5rp8",
+            "kind": "sandbox",
+            "visible": true,
+            "label": "Как устроены маршруты 13 MIRRORS"
+          }
+        ]
       }
     },
     {
