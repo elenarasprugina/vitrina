@@ -13,7 +13,12 @@
     function $(s) { return root.querySelector(s) || document.querySelector(s); }
     var VID = U.imgUrl(str(K.video, 'assets/koster/ogon.mp4')), POSTER = U.imgUrl(str(K.poster, K.video ? '' : 'assets/koster/ogon-poster.jpg'));
     // где в кадре видео огонь (доли кадра 540 × 960): сердце пламени и кромка поленьев
-    var FIRE = { x: .5, y: .5 }, VW = 540, VH = 960;
+    var FIRE = { x: .5, y: .43 }, VW = 540, VH = 960;
+    // её замечания 30.10: огонь дальше (меньше на экране, края тают в темноту), искр от огня больше, светлячков больше
+    var FAR = Math.max(.4, Math.min(1, (K.far == null || K.far === '' ? 86 : +K.far) / 100));
+    var SPARKS = { off: 0, few: 5, mid: 12, many: 24, lots: 40 }[K.sparks || 'mid'];
+    if (SPARKS == null) SPARKS = 12;
+    var FF_N = Math.max(0, Math.min(40, K.ffN == null || K.ffN === '' ? 12 : +K.ffN));
 
     document.body.className = 'uz-body ks-body' + (OKNO ? ' uz-okno' : '');
     document.title = str((U.SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('kTitle', 'Костёр');
@@ -27,7 +32,7 @@
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="../">' + esc(T('eyebrow', 'Узоры')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
         '<div class="uz-sheet" id="ks-ask"><p class="uz-q">' + esc(str(dayText.ask, T('kAsk', 'Что ты оставишь огню?'))) + '</p>' +
-          '<div class="ks-paper" id="ks-paper"><textarea id="ks-text" rows="4" maxlength="400" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kPaperPh', 'Напиши здесь…')) + '"></textarea></div>' +
+          '<div class="ks-paper-sh"><div class="ks-paper" id="ks-paper"><textarea id="ks-text" rows="4" maxlength="400" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kPaperPh', 'Напиши здесь…')) + '"></textarea></div></div>' +
           '<p class="uz-p is-dim">' + esc(T('kNote', 'Никто, кроме огня, это не прочтёт.')) + '</p>' +
           '<div class="uz-row"><button class="uz-btn" id="ks-burn" type="button">' + esc(T('kBurn', 'Отдать огню')) + '</button></div></div>' +
         '<div class="uz-sheet" id="ks-after" hidden><p class="uz-p" id="ks-after-t"></p>' +
@@ -42,6 +47,7 @@
         '<p class="ks-card-note">' + esc(T('kWishNote', 'Твоё желание никуда не уходит — оно только у тебя.')) + '</p></div></div>');
 
     var scene = $('#ks-scene'), video = $('#ks-video'), fx = $('#ks-fx'), g = fx.getContext('2d');
+    if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
     var W = 0, H = 0, DPR = 1, last = performance.now(), now = 0, paused = false;
     var life = [], parts = [], spark = null, burn = null, flash = null;
     var tq = (location.search.match(/[?&]t=(\w+)/) || [])[1], hr = new Date().getHours();
@@ -70,15 +76,15 @@
 
     /* ---------- живность: днём пара бабочек, ночью светлячки ---------- */
     function seedLife() {
-      var n = lifeKind === 'ff' ? 4 : lifeKind === 'bf' ? 2 : 0;
-      for (var i = 0; i < n; i++) life.push({ x: W * (i % 2 ? .78 : .2) + (Math.random() - .5) * W * .2, y: H * (.18 + Math.random() * .35), a: Math.random() * 6.28,
-        v: lifeKind === 'ff' ? 9 + Math.random() * 8 : 34 + Math.random() * 16, ph: Math.random() * 6.28, bl: .4 + Math.random() * .5,
-        c: ['#f6f1e4', '#f3d65a', '#e9965a'][i % 3] });
+      var n = lifeKind === 'ff' ? FF_N : lifeKind === 'bf' ? 2 : 0;
+      for (var i = 0; i < n; i++) life.push({ x: W * (i % 2 ? .62 + Math.random() * .34 : .04 + Math.random() * .34), y: H * (.1 + Math.random() * .58), a: Math.random() * 6.28,
+        v: lifeKind === 'ff' ? 7 + Math.random() * 10 : 34 + Math.random() * 16, ph: Math.random() * 6.28, bl: .3 + Math.random() * .6,
+        sz: lifeKind === 'ff' ? .55 + Math.random() * .6 : 1, c: ['#f6f1e4', '#f3d65a', '#e9965a'][i % 3] });
     }
     function stepLife(dt) {
       life.forEach(function (b) {
         // держатся по краям, над огнём не летают — там жарко
-        var fp = firePt(), dx = b.x - fp.x, away = Math.abs(dx) < W * .2 && b.y > H * .12 ? (dx < 0 ? -1 : 1) : 0;
+        var fp = firePt(), dx = b.x - fp.x, away = Math.abs(dx) < Math.min(W * .2, 150 * fp.s) && b.y > H * .12 ? (dx < 0 ? -1 : 1) : 0;
         b.a += (Math.sin(now * (lifeKind === 'ff' ? .5 : 1.3) + b.ph) * .9 + (Math.random() - .5) * .6) * dt;
         if (away) b.a += (Math.atan2(0, away) - b.a) * Math.min(1, dt * .8);
         if (b.x < 20) b.a = 0; if (b.x > W - 20) b.a = Math.PI; if (b.y < 40) b.a = Math.PI / 2; if (b.y > H * .7) b.a = -Math.PI / 2;
@@ -88,7 +94,7 @@
     function drawLife() {
       life.forEach(function (b) {
         if (lifeKind === 'ff') {
-          var on = Math.max(0, Math.sin(now * b.bl * 2 + b.ph)), r = 14 * on + 2, gr = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+          var on = Math.max(0, Math.sin(now * b.bl * 2 + b.ph)), r = (14 * on + 2) * b.sz, gr = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
           gr.addColorStop(0, 'rgba(232,255,170,' + (.25 + .7 * on) + ')'); gr.addColorStop(.3, 'rgba(190,240,120,' + (.25 * on) + ')'); gr.addColorStop(1, 'rgba(190,240,120,0)');
           g.fillStyle = gr; g.beginPath(); g.arc(b.x, b.y, r, 0, 6.283); g.fill();
         } else {
@@ -111,6 +117,20 @@
       parts.push({ x: x, y: y, vx: (Math.random() - .5) * 40 * k, vy: -(40 + Math.random() * 90) * k, l: 0, L: .8 + Math.random() * 1.6, r: .8 + Math.random() * 1.8, ash: false });
     }
     function ash(x, y) { parts.push({ x: x, y: y, vx: (Math.random() - .5) * 30, vy: -(20 + Math.random() * 50), l: 0, L: 1.6 + Math.random() * 2, r: 1.5 + Math.random() * 3, ash: true, a: Math.random() * 6, va: (Math.random() - .5) * 6 }); }
+    // искры от огня: летят вверх всё время, вразнобой
+    var sparkAcc = 0;
+    function fireSparks(dt) {
+      if (!SPARKS || reduce) return;
+      sparkAcc += dt * SPARKS;
+      if (sparkAcc < 1) return;
+      var fp = firePt();
+      while (sparkAcc >= 1) {
+        sparkAcc -= 1;
+        var x = fp.x + (Math.random() - .5) * 230 * fp.s, y = fp.y - (Math.random() * 230 - 40) * fp.s, k = .6 + Math.random() * .9;
+        parts.push({ x: x, y: y, vx: (Math.random() - .5) * 50 * k, vy: -(60 + Math.random() * 140) * k, l: 0, L: 1.2 + Math.random() * 2.6,
+          r: .6 + Math.random() * 1.7, ash: false, tw: Math.random() * 6.28 });
+      }
+    }
     function stepParts(dt) {
       parts = parts.filter(function (p) {
         p.l += dt; if (p.l > p.L) return false;
@@ -123,6 +143,7 @@
       parts.forEach(function (p) {
         var o = 1 - p.l / p.L;
         if (p.ash) { g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = 'rgba(40,34,30,' + (.75 * o) + ')'; g.fillRect(-p.r, -p.r * .4, p.r * 2, p.r * .8); g.restore(); return; }
+        if (p.tw != null) o *= .55 + .45 * Math.sin(now * 14 + p.tw);   // искра от огня мерцает
         g.fillStyle = 'rgba(255,' + Math.round(150 + 90 * o) + ',' + Math.round(60 + 80 * o) + ',' + o + ')';
         g.beginPath(); g.arc(p.x, p.y, p.r * (.6 + .4 * o), 0, 6.283); g.fill();
       });
@@ -169,11 +190,28 @@
       });
       return out;
     }
+    // неровный край листка (её слова 30.10: «не такой прямой, более живой») — один и тот же у листка в окошке и у того, что горит
+    var DECK = (function () {
+      var out = [], sides = [14, 6, 14, 6], j = function () { return Math.random() * Math.random() * 4.5; };
+      sides.forEach(function (n, side) { for (var i = 0; i < n; i++) out.push({ s: side, t: i / n + (i ? (Math.random() - .5) * .4 / n : 0), j: side % 2 ? j() * .8 : j() }); });
+      return out;
+    })();
+    function deckPt(d, w, h) {
+      return d.s === 0 ? [d.t * w, d.j] : d.s === 1 ? [w - d.j, d.t * h] : d.s === 2 ? [w - d.t * w, h - d.j] : [d.j, h - d.t * h];
+    }
+    function deckClip() {
+      return 'polygon(' + DECK.map(function (d) {
+        var p = d.t * 100;
+        return d.s === 0 ? p + '% ' + d.j + 'px' : d.s === 1 ? 'calc(100% - ' + d.j + 'px) ' + p + '%' : d.s === 2 ? (100 - p) + '% calc(100% - ' + d.j + 'px)' : d.j + 'px ' + (100 - p) + '%';
+      }).join(',') + ')';
+    }
     function paperCanvas(w, h, text) {
       var cv = document.createElement('canvas'), c = cv.getContext('2d'), k = 1.5;
       cv.width = Math.round(w * k); cv.height = Math.round(h * k); c.scale(k, k);
+      c.beginPath(); DECK.forEach(function (d, i) { var p = deckPt(d, w, h); if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); c.clip();
       var gr = c.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#f6ead2'); gr.addColorStop(1, '#e8d6b4');
       c.fillStyle = gr; c.fillRect(0, 0, w, h);
+      c.strokeStyle = 'rgba(150,110,70,.35)'; c.lineWidth = 2.5; c.stroke();   // край чуть темнее, как у настоящей бумаги
       c.strokeStyle = 'rgba(120,90,60,.16)'; c.lineWidth = 1;
       for (var y = 36; y < h - 8; y += 26) { c.beginPath(); c.moveTo(14, y + .5); c.lineTo(w - 14, y + .5); c.stroke(); }
       c.fillStyle = '#3b2a1e'; c.font = '20px "Marck Script", cursive'; c.textBaseline = 'alphabetic';
@@ -204,37 +242,83 @@
         i = y * w + x; var dx = x / w - cxr, dy = 1 - y / h;
         T0[i] = .55 * Math.sqrt(dx * dx * .6 + dy * dy) + .45 * nf[i];
       }
-      cv.className = 'ks-burn';
-      cv.style.width = rect.width + 'px'; cv.style.height = rect.height + 'px';
-      cv.style.left = rect.left + 'px'; cv.style.top = rect.top + 'px';
-      document.body.appendChild(cv);
+      // листок рисуется на отдельном холсте во весь экран полосками — так он гнётся, колышется и скручивается
+      var ov = document.createElement('canvas');
+      ov.className = 'ks-burn'; ov.width = Math.round(W * DPR); ov.height = Math.round(H * DPR);
+      document.body.appendChild(ov);
       var fp = firePt(), tx = fp.x - rect.left - rect.width / 2, ty = Math.max(H * .26, fp.y - 120 * fp.s) - rect.top - rect.height / 2;
-      burn = { cv: cv, c: c, img: img, orig: orig, T0: T0, w: w, h: h, t: 0, fly: reduce ? .01 : 1.2, L: reduce ? 1.2 : 3.2, tx: tx, ty: ty, rect: rect, sc: .78, rot: (Math.random() - .5) * 12 };
+      burn = { cv: cv, c: c, img: img, orig: orig, T0: T0, w: w, h: h, t: 0, fly: reduce ? .01 : 1.5, L: reduce ? 1.2 : 3.4, tx: tx, ty: ty, rect: rect,
+        sc: .45 + .3 * FAR, rot: (Math.random() - .5) * 24, ph: Math.random() * 6.28, sway: (Math.random() < .5 ? -1 : 1) * (18 + Math.random() * 16),
+        ov: ov, o: ov.getContext('2d'), N: 48, cols: [] };
+    }
+    // где на экране точка листка (xx, yy в пикселях картинки листка) — с учётом изгиба
+    function burnPt(b, xx, yy) {
+      var N = b.N, fi = xx / b.w * N, ci = Math.min(N - 1, Math.floor(fi)), col = b.cols[ci], f = (fi - ci) * b.rect.width / N, ly = (yy / b.h - .5) * b.rect.height * col.hs;
+      var lx = col.x + Math.cos(col.a) * f - Math.sin(col.a) * ly, lyy = col.y + Math.sin(col.a) * f + Math.cos(col.a) * ly;
+      var cs = Math.cos(b.R), sn = Math.sin(b.R);
+      return { x: b.X + (lx * cs - lyy * sn) * b.S, y: b.Y + (lx * sn + lyy * cs) * b.S };
     }
     function stepBurn(dt) {
       if (!burn) return;
       var b = burn; b.t += dt;
-      var u = Math.min(1, b.t / b.fly), e = 1 - Math.pow(1 - u, 3), p = (b.t - b.fly) / b.L;
-      var lift = Math.max(0, p) * 40, wob = Math.sin(b.t * 5) * 2 * Math.max(0, p);
-      b.cv.style.transform = 'translate(' + (b.tx * e + wob) + 'px,' + (b.ty * e - lift) + 'px) scale(' + (1 - (1 - b.sc) * e) + ') rotate(' + (b.rot * e) + 'deg)';
+      var u = Math.min(1, b.t / b.fly), e = 1 - Math.pow(1 - u, 3), p = (b.t - b.fly) / b.L, pp = Math.max(0, p), mid = Math.sin(Math.PI * u);
+      // полёт: не по линейке — покачивается, как лист на тёплом воздухе
+      b.X = b.rect.left + b.rect.width / 2 + b.tx * e + Math.sin(b.t * 2.3 + b.ph) * b.sway * mid + Math.sin(b.t * 4.1) * 3 * pp;
+      b.Y = b.rect.top + b.rect.height / 2 + b.ty * e - pp * 46 - mid * 18;
+      b.R = (-.6 + (b.rot + .6) * e + Math.sin(b.t * 1.9 + b.ph) * (9 * mid + 6 * pp)) * Math.PI / 180;
+      b.S = 1 - (1 - b.sc) * e - .12 * pp;
+      if (p > 0) {
+        var P = p * 1.25 - .08, d = b.img.data, o = b.orig, T0 = b.T0, n = b.w * b.h, i, j, q;
+        for (i = 0; i < n; i++) {
+          q = P - T0[i]; j = i * 4;
+          if (q < -.07 || o[j + 3] === 0) continue;
+          if (q < 0) { var s = 1 + q / .07; d[j] = o[j] * (1 - .55 * s); d[j + 1] = o[j + 1] * (1 - .7 * s); d[j + 2] = o[j + 2] * (1 - .85 * s); d[j + 3] = o[j + 3]; }   // темнеет, буреет
+          else if (q < .025) { d[j] = 255; d[j + 1] = 150 + 90 * (1 - q / .025); d[j + 2] = 40 + 60 * (1 - q / .025); d[j + 3] = o[j + 3]; }   // тлеющая кромка
+          else if (q < .06) { d[j] = 34; d[j + 1] = 24; d[j + 2] = 18; d[j + 3] = o[j + 3] * (1 - (q - .025) / .035); }   // уголь
+          else d[j + 3] = 0;
+        }
+        b.c.putImageData(b.img, 0, 0);
+      }
+      // изгиб: полоски листка цепочкой, у каждой свой наклон — бегущая волна; чем сильнее горит, тем больше скручивается
+      var N = b.N, rw = b.rect.width, rh = b.rect.height, dw = rw / N, amp = .08 + .16 * mid + .22 * Math.min(1, pp), curl = .9 * Math.min(1, pp * 1.2);
+      var x = 0, y = 0, cols = [], k, a, sx = 0, sy = 0;
+      for (k = 0; k < N; k++) {
+        var uc = k / (N - 1), m = uc * 2 - 1;
+        a = amp * Math.sin(uc * Math.PI * 1.7 + b.t * 2.6 + b.ph) + curl * m * m * m * .5 + .05 * Math.sin(uc * 9 + b.t * 3.3);
+        cols.push({ x: x, y: y, a: a, hs: 1 - .025 * (1 + Math.sin(uc * 4.1 + b.t * 2.9 + b.ph)) * (.4 + Math.min(1, pp)) });
+        sx += x + Math.cos(a) * dw / 2; sy += y + Math.sin(a) * dw / 2;
+        x += Math.cos(a) * dw; y += Math.sin(a) * dw;
+      }
+      sx /= N; sy /= N;
+      cols.forEach(function (c2) { c2.x -= sx; c2.y -= sy; });
+      b.cols = cols;
+      var O = b.o;
+      O.setTransform(1, 0, 0, 1, 0, 0); O.clearRect(0, 0, b.ov.width, b.ov.height);
+      O.setTransform(DPR, 0, 0, DPR, 0, 0); O.translate(b.X, b.Y); O.rotate(b.R); O.scale(b.S, b.S);
+      var sw = b.w / N;
+      for (k = 0; k < N; k++) {
+        var cc = cols[k], hh = rh * cc.hs;
+        O.save(); O.translate(cc.x, cc.y); O.rotate(cc.a);
+        var ov2 = k < N - 1 ? 1.6 : 1;   // полоска берётся внахлёст со следующей — без швов
+        O.drawImage(b.cv, k * sw, 0, sw * ov2, b.h, 0, -hh / 2, dw * ov2, hh);
+        O.restore();
+      }
+      // свет и тень на сгибах — плавно, поверх всего листка: где наклон растёт — тень, где падает — блик
+      O.globalCompositeOperation = 'source-atop';
+      for (k = 0; k < N; k++) {
+        var c0 = cols[k], c1 = cols[Math.min(N - 1, k + 1)], c9 = cols[Math.max(0, k - 1)], da = (c1.a - c9.a) / 2;
+        var sh = da > 0 ? 'rgba(40,20,10,' + Math.min(.3, da * 7) + ')' : 'rgba(255,240,215,' + Math.min(.18, -da * 5) + ')';
+        O.save(); O.translate(c0.x, c0.y); O.rotate(c0.a); O.fillStyle = sh; O.fillRect(0, -rh, dw + .15, rh * 2); O.restore();
+      }
+      O.globalCompositeOperation = 'source-over';
       if (p <= 0) return;
-      var P = p * 1.25 - .08, d = b.img.data, o = b.orig, T0 = b.T0, n = b.w * b.h, i, j, q;
-      for (i = 0; i < n; i++) {
-        q = P - T0[i]; j = i * 4;
-        if (q < -.07) continue;
-        if (q < 0) { var s = 1 + q / .07; d[j] = o[j] * (1 - .55 * s); d[j + 1] = o[j + 1] * (1 - .7 * s); d[j + 2] = o[j + 2] * (1 - .85 * s); d[j + 3] = 255; }   // темнеет, буреет
-        else if (q < .025) { d[j] = 255; d[j + 1] = 150 + 90 * (1 - q / .025); d[j + 2] = 40 + 60 * (1 - q / .025); d[j + 3] = 255; }   // тлеющая кромка
-        else if (q < .06) { d[j] = 34; d[j + 1] = 24; d[j + 2] = 18; d[j + 3] = 255 * (1 - (q - .025) / .035); }   // уголь
-        else d[j + 3] = 0;
-      }
-      b.c.putImageData(b.img, 0, 0);
       // искры и пепел с кромки
-      var r = b.cv.getBoundingClientRect(), tries = 40;
+      var tries = 40;
       while (tries--) {
-        var xx = Math.floor(Math.random() * b.w), yy = Math.floor(Math.random() * b.h), qq = P - T0[yy * b.w + xx];
-        if (qq > 0 && qq < .03) { var sx = r.left + xx / b.w * r.width, sy = r.top + yy / b.h * r.height; if (Math.random() < .7) ember(sx, sy, .8); else ash(sx, sy); }
+        var xx = Math.floor(Math.random() * b.w), yy = Math.floor(Math.random() * b.h), qq = (p * 1.25 - .08) - b.T0[yy * b.w + xx];
+        if (qq > 0 && qq < .03 && b.orig[(yy * b.w + xx) * 4 + 3]) { var sp = burnPt(b, xx, yy); if (Math.random() < .7) ember(sp.x, sp.y, .8); else ash(sp.x, sp.y); }
       }
-      if (p >= 1) { b.cv.remove(); burn = null; if (b.done) b.done(); }
+      if (p >= 1) { b.ov.remove(); burn = null; if (b.done) b.done(); }
     }
 
     /* ---------- кадр ---------- */
@@ -244,7 +328,7 @@
       if (W !== scene.clientWidth || H !== scene.clientHeight) layout();
       g.clearRect(0, 0, W, H);
       if (!reduce) stepLife(dt);
-      stepParts(dt); stepSpark(dt); stepBurn(dt);
+      fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
       drawLife(); drawParts(); drawSpark();
       requestAnimationFrame(frame);
@@ -267,6 +351,7 @@
 
     /* ---------- ход: листок → огонь → искра → карта → желание ---------- */
     var ask = $('#ks-ask'), after = $('#ks-after'), afterT = $('#ks-after-t'), text = $('#ks-text'), paper = $('#ks-paper');
+    paper.style.clipPath = deckClip();
     var wrap = $('#ks-card-wrap'), card = $('#ks-card'), wish = $('#ks-wish');
     function show(n) { [ask, after].forEach(function (x) { x.hidden = x !== n; }); }
     function showAfter(t) { afterT.textContent = t; show(after); }

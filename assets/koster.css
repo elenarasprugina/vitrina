@@ -9,16 +9,19 @@ body.ks-body { background: #070504; overflow: hidden; }
 /* края и низ притемнены — надписи на тёмном стекле читаются */
 .ks-shade { position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(ellipse 80% 65% at 50% 45%, rgba(7, 5, 4, 0) 40%, rgba(7, 5, 4, .55) 100%), linear-gradient(180deg, rgba(7, 5, 4, .45), rgba(7, 5, 4, 0) 22%, rgba(7, 5, 4, 0) 58%, rgba(7, 5, 4, .7)); }
+/* огонь дальше (панель: «Огонь: размер на экране» < 100 %) — кадр меньше, края тают в ночь */
+.ks-far .ks-video { -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 20%, rgba(0, 0, 0, .5) 50%, rgba(0, 0, 0, .12) 72%, transparent 88%); mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 20%, rgba(0, 0, 0, .5) 50%, rgba(0, 0, 0, .12) 72%, transparent 88%); }
 .ks-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ks-body .uz-sheet { background: rgba(14, 9, 7, .62); border-color: rgba(255, 214, 170, .18); }
 .ks-body .uz-top { z-index: 210; }
 /* листок */
-.ks-paper { position: relative; border-radius: 4px 4px 6px 5px; padding: 8px 14px 10px; transform: rotate(-.6deg);
-  background: linear-gradient(135deg, #f6ead2, #e8d6b4); box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 0 22px rgba(160, 120, 70, .25); }
+.ks-paper-sh { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45)); }
+.ks-paper { position: relative; padding: 8px 14px 10px; transform: rotate(-.6deg);
+  background: linear-gradient(135deg, #f6ead2, #e8d6b4); box-shadow: inset 0 0 22px rgba(160, 120, 70, .25), inset 0 0 3px rgba(150, 110, 70, .5); }
 .ks-paper textarea { display: block; width: 100%; box-sizing: border-box; border: 0; outline: 0; resize: none; background: repeating-linear-gradient(180deg, transparent 0 25px, rgba(120, 90, 60, .16) 25px 26px);
   background-position: 0 6px; font: 20px/26px "Marck Script", cursive; color: #3b2a1e; padding: 4px 2px 0; min-height: 110px; }
 .ks-paper textarea::placeholder { color: rgba(59, 42, 30, .45); }
-.ks-burn { position: fixed; z-index: 220; pointer-events: none; transform-origin: 50% 50%; will-change: transform; }
+.ks-burn { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 220; pointer-events: none; }
 /* стеклянная карта, которую выдаёт огонь */
 .ks-card-wrap { position: fixed; inset: 0; z-index: 230; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: none; }
 .ks-card-wrap[hidden] { display: none; }
