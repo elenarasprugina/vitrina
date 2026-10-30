@@ -43,3 +43,12 @@ body.ks-body { background: #070504; overflow: hidden; }
 .ks-card.is-gone { transform: scale(.04); opacity: 0; filter: brightness(3) blur(6px); }
 @keyframes ks-card-in { from { opacity: 0; transform: scale(.08); filter: brightness(3) blur(10px); } 60% { opacity: 1; } to { opacity: 1; transform: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) { .ks-card { animation-duration: .3s; transition-duration: .2s; } }
+/* золотая каёмка карты и бегущий по ней прозрачный блик — как у карточек маршрутов (её слова 31.10) */
+.ks-rim, .ks-rim-run { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2; }
+.ks-rim { padding: 1px; background: linear-gradient(135deg, #ffe7b0, #b8862e 30%, #f6d58a 52%, #8a5f1c 75%, #ffe2a0); opacity: .85;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.ks-rim-run { padding: 1.6px; overflow: hidden; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.ks-rim-run::before { content: ""; position: absolute; left: 50%; top: 50%; width: 200%; aspect-ratio: 1; margin: -100% 0 0 -100%;
+  background: conic-gradient(from 0deg, transparent 0deg 300deg, rgba(255, 214, 140, .35) 330deg, #ffe6b0 350deg, #fff 357deg, transparent 360deg); animation: ks-rim-spin 7s linear infinite; }
+@keyframes ks-rim-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ks-rim-run::before { animation: none; } }
