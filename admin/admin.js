@@ -3885,7 +3885,14 @@
     '.m13f-ptr--pen svg{left:-2px;top:-46px}.m13f-ptr--wand svg{left:-4px;top:-4px}' +
     '.m13f-ptr--dot i{left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.92);filter:none;box-shadow:0 0 0 1.5px rgba(0,0,0,.3),0 1px 4px rgba(0,0,0,.25),0 0 14px 4px rgba(255,255,255,.55)}' +
     '.m13f-sp{position:fixed;z-index:2147483646;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:0 0 1px 1px rgba(150,100,30,.55),0 0 6px 2px rgba(255,205,120,.95);pointer-events:none;animation:m13fSp .9s ease-out forwards}' +
-    '@keyframes m13fSp{from{opacity:1;transform:none}to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}';
+    '@keyframes m13fSp{from{opacity:1;transform:none}to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}' +
+    '.m13f-ink{position:fixed;z-index:2147483646;left:0;top:0;width:100%;height:100%;pointer-events:none}';
+  // Рисунок указателем (её «делаем» 30.10): зажат Пробел — за пером остаётся светящийся след, держится и тает
+  var FILM_INK_HOLD = [['1.5', '1,5 секунды'], ['2.5', '2,5 секунды'], ['4', '4 секунды'], ['6', '6 секунд']];
+  var FILM_INK_MELT = [['dust', 'Рассыпается искорками'], ['fade', 'Растворяется']];
+  var FILM_INK_COL = [['auto', 'Как указатель'], ['gold', 'Золото'], ['white', 'Белый'], ['pink', 'Розовый'], ['blue', 'Голубой']];
+  var FILM_INK_W = [['.6', 'Тонко'], ['1', 'Обычно'], ['1.6', 'Толсто']];
+  var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
   function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
   // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
   function filmForget() {
@@ -3915,7 +3922,7 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, title: true, mark: true, dayCap: true, caption: '' };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'dust', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '' };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
     var WHAT = filmWhat(r);
     if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
@@ -3977,25 +3984,105 @@
         d.documentElement.classList.toggle('m13f-nocur', st.ptr !== 'mouse');
         p.className = 'm13f-ptr m13f-ptr--' + (k || 'none'); p.innerHTML = k ? FILM_PTR[k] : '';
       }
-      function spark(x, y, big) {
+      function spark(x, y, big, rgb) {
         var t = d.createElement('i'), z = big ? 3 + Math.random() * 4 : 2 + Math.random() * 3, a = Math.random() * 6.283, r0 = big ? 14 + Math.random() * 22 : 4 + Math.random() * 8;
         t.className = 'm13f-sp'; t.style.left = x + 'px'; t.style.top = y + 'px'; t.style.width = t.style.height = z + 'px';
         t.style.setProperty('--dx', Math.round(Math.cos(a) * r0) + 'px'); t.style.setProperty('--dy', Math.round(Math.sin(a) * r0 + (big ? 0 : 10)) + 'px');
+        if (rgb) t.style.boxShadow = '0 0 1px 1px rgba(0,0,0,.18),0 0 6px 2px rgba(' + rgb + ',.95)';
         d.body.appendChild(t); setTimeout(function () { t.remove(); }, 900);
       }
       function at(e, down) {
         p.style.left = e.clientX + 'px'; p.style.top = e.clientY + 'px'; p.hidden = !kind();
+        mx = e.clientX; my = e.clientY; inside = true;
+        if (drawing && !down) { addPt(); return; }
         if (!st.spark || st.ptr === 'mouse' || !kind()) return;
         if (down) { for (var i = 0; i < 8; i++) spark(e.clientX, e.clientY, true); return; }
         var now = Date.now(), dd = Math.abs(e.clientX - lx) + Math.abs(e.clientY - ly);
         if (now - last > 45 && dd > 5) { last = now; lx = e.clientX; ly = e.clientY; spark(e.clientX, e.clientY); }
       }
-      look(); ptrLook = look;
+      // Рисунок: штрихи одного рисунка (отпустили Пробел и снова зажали, пока он не начал таять — та же группа)
+      // держатся вместе и тают вместе — так получается «!» из палочки и точки
+      var cv = d.createElement('canvas'), cx = cv.getContext('2d'), mx = -99, my = -99, inside = false, drawing = false, S = [], G = null, raf = 0;
+      cv.className = 'm13f-ink'; d.body.insertBefore(cv, p);
+      function sp() { return parseFloat(st.speed) || 1; }
+      function hold() { return (parseFloat(st.inkHold) || 2.5) * 1000 * sp(); }
+      function melt() { return (st.inkMelt === 'fade' ? 1300 : 1100) * sp(); }
+      function pal() { var c = st.inkCol; if (!FILM_INK_PAL[c]) c = st.ptr === 'pen' || st.ptr === 'wand' ? 'gold' : 'white'; return FILM_INK_PAL[c]; }
+      function addPt() {
+        var s = S[S.length - 1], q = s && s.pts[s.pts.length - 1];
+        if (!s || (q && Math.abs(q[0] - mx) + Math.abs(q[1] - my) < 2)) return;
+        s.pts.push([mx, my]); tick();
+      }
+      function inkDown() {
+        if (drawing || !st.ink || !inside) return;
+        var now = Date.now();
+        drawing = true;
+        if (!G || (G.end && now > G.end + hold())) G = { end: 0 };
+        G.end = 0;
+        S.push({ g: G, pts: [[mx, my]], k: st.ptr, pal: pal(), w: parseFloat(st.inkW) || 1 });
+        tick();
+      }
+      function inkUp() { if (!drawing) return; drawing = false; if (G) G.end = Date.now(); tick(); }
+      function path(s) {
+        var a = s.pts; cx.beginPath(); cx.moveTo(a[0][0], a[0][1]);
+        if (a.length === 1) { cx.lineTo(a[0][0] + .1, a[0][1]); return; }
+        for (var i = 1; i < a.length - 1; i++) cx.quadraticCurveTo(a[i][0], a[i][1], (a[i][0] + a[i + 1][0]) / 2, (a[i][1] + a[i + 1][1]) / 2);
+        cx.lineTo(a[a.length - 1][0], a[a.length - 1][1]);
+      }
+      function star(x, y, r) {
+        cx.beginPath(); cx.moveTo(x, y - r); cx.quadraticCurveTo(x, y, x + r, y); cx.quadraticCurveTo(x, y, x, y + r);
+        cx.quadraticCurveTo(x, y, x - r, y); cx.quadraticCurveTo(x, y, x, y - r); cx.fill();
+      }
+      function frame() {
+        raf = 0;
+        var win = d.defaultView, W = win.innerWidth, H = win.innerHeight, dpr = win.devicePixelRatio || 1, now = Date.now();
+        if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+        cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
+        S = S.filter(function (s) { return !s.g.end || now < s.g.end + hold() + melt(); });
+        S.forEach(function (s) {
+          var m = s.g.end ? (now - s.g.end - hold()) / melt() : -1, a = m < 0 ? 1 : Math.max(0, 1 - m), w = (s.k === 'wand' ? 2.6 : s.k === 'dot' ? 5 : 3.6) * s.w;
+          if (m >= 0 && st.inkMelt !== 'fade') {
+            // рассыпается: с каждого кадра с рисунка слетает горсть искорок, линия тем временем бледнеет
+            for (var n = 0; n < Math.max(1, Math.round(s.pts.length / 25)); n++) { var q = s.pts[Math.floor(Math.random() * s.pts.length)]; spark(q[0], q[1], Math.random() < .3, s.pal[2]); }
+            a = a * a;
+          }
+          cx.lineCap = cx.lineJoin = 'round'; cx.globalAlpha = a;
+          path(s); cx.shadowBlur = 0; cx.strokeStyle = 'rgba(70,45,15,.22)'; cx.lineWidth = w + 2.5; cx.stroke();
+          cx.shadowColor = s.pal[1]; cx.shadowBlur = 12 * s.w + 4; cx.strokeStyle = s.pal[1]; cx.lineWidth = w + 2; cx.stroke();
+          cx.shadowBlur = 4; cx.strokeStyle = s.pal[0]; cx.lineWidth = w * .55; cx.stroke();
+          if (s.k === 'wand') {
+            // у палочки по линии мерцают звёздочки
+            cx.fillStyle = s.pal[0]; cx.shadowBlur = 8; cx.shadowColor = s.pal[1];
+            for (var i = 0, run = 99, k = 0; i < s.pts.length; i++) {
+              if (i) run += Math.abs(s.pts[i][0] - s.pts[i - 1][0]) + Math.abs(s.pts[i][1] - s.pts[i - 1][1]);
+              if (run < 22) continue;
+              run = 0; k++; var t = (now / 260 + k * 1.7) % 6.283; star(s.pts[i][0], s.pts[i][1], (3 + 2.5 * Math.sin(t)) * s.w + 1);
+            }
+          }
+          cx.shadowBlur = 0; cx.globalAlpha = 1;
+        });
+        if (S.length) tick();
+      }
+      function tick() { if (!raf) raf = (d.defaultView || window).requestAnimationFrame(frame); }
+      look(); ptrLook = look; ink.down = inkDown; ink.up = inkUp;
       d.addEventListener('pointermove', function (e) { at(e); }, true);
       d.addEventListener('pointerdown', function (e) { at(e, true); }, true);
-      d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; });
+      d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; inside = false; });
+      d.addEventListener('keydown', inkKey, true); d.addEventListener('keyup', inkKey, true);
+      d.defaultView.addEventListener('blur', inkUp);
     }
-    var ptrLook = function () {};
+    var ptrLook = function () {}, ink = { down: function () {}, up: function () {} };
+    // Пробел зажат — рисуем (и в окне, и когда в фокусе панель); в полях ввода Пробел — обычный
+    function inkKey(e) {
+      if (e.code !== 'Space' && e.key !== ' ') return;
+      var t = e.target, tg = t && t.tagName;
+      if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || (t && t.isContentEditable)) return;
+      if (!st.ink) return;
+      e.preventDefault(); e.stopPropagation();
+      if (e.type === 'keydown') { if (!e.repeat) ink.down(); } else ink.up();
+    }
+    document.addEventListener('keydown', inkKey, true); document.addEventListener('keyup', inkKey, true);
+    window.addEventListener('blur', function () { ink.up(); });
     // Кружок касания и «без плашки проверки во время записи и прогона» — прямо в страницу окна (тот же сайт)
     function hush() { try { fr.contentDocument.documentElement.classList.toggle('m13f-rec', !!(REC || AP)); } catch (e) {} }
     fr.addEventListener('load', function () {
@@ -4408,7 +4495,7 @@
       if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
       if (REC) abort(REC);
       apStop(); drop();
-      window.removeEventListener('message', onMsg); closePreview(); pv.classList.remove('is-rec');
+      window.removeEventListener('message', onMsg); document.removeEventListener('keydown', inkKey, true); document.removeEventListener('keyup', inkKey, true); closePreview(); pv.classList.remove('is-rec');
     }
     function selF(opts, key, after) {
       var s = el('select', { class: 'a-input' }, opts.map(function (o) { return el('option', { value: o[0], text: o[1] }); }));
@@ -4459,6 +4546,12 @@
     var routeBox = el('div', {}, [
       field('Формат', selF(J_MODES, 'mode', function () { filmForget(); reload(); how(); }), 'Смена формата — новый придуманный участник.'),
       field('Как снимать', selF(FILM_HOW, 'how', function () { filmPreset(st, r, st.how); spSel.value = st.speed; how(); }))]);
+    var inkBox = el('div', { class: 'a-film-ink' }, [
+      field('Рисунок держится', selF(FILM_INK_HOLD, 'inkHold'), 'Столько он виден в ролике, потом тает. Отпустили Пробел и снова зажали, пока рисунок не начал таять, — дорисовываете тот же (так получается «!»).'),
+      field('Как тает', selF(FILM_INK_MELT, 'inkMelt')),
+      field('Цвет', selF(FILM_INK_COL, 'inkCol'), 'Как указатель: перо и палочка — золото, точка — белый.'),
+      field('Толщина', selF(FILM_INK_W, 'inkW'))]);
+    inkBox.hidden = !st.ink;
     var spSel = null, whatSel = null, side = el('div', { class: 'a-film-side' }, [
       el('h2', { class: 'a-film-h', text: '🎬 Ролик' }),
       el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — выберите «Эта вкладка» и «Поделиться».' }),
@@ -4469,6 +4562,8 @@
       el('p', { class: 'a-hint', text: 'В окне — придуманный участник: его двери, карты и код хранятся отдельно, ваши настоящие отметки на этом компьютере не меняются. Плашка проверки внизу окна во время записи прячется.' }),
       field('Скорость ролика', spSel = selF(FILM_SPEED, 'speed'), 'Ролик идёт быстрее, чем вы проходите: × 2 — минута прохода станет 30 секундами.'),
       field('Указатель', selF(FILM_PTR_OPTS, 'ptr', function () { ptrLook(); }), 'Что видно вместо мышки в окне и в ролике.'),
+      el('div', { class: 'a-film-opts' }, [chk('ink', 'Рисовать: зажмите Пробел и ведите мышкой', function () { inkBox.hidden = !st.ink; })]),
+      inkBox,
       el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
       el('div', { class: 'a-film-rec' }, [bTry, bRec, bPause, bStop, clock]),
