@@ -9,7 +9,7 @@
   // 13 дней волны Белого Соединителя Миров — её тексты 31.10 (docs/koster-iskry.md): подпись и вопрос дня — в живом окошке на витрине,
   // искра-пожелание — на стеклянной карте. Она правит в панели («Узоры» → Пространство → «Костёр Самайна» → «13 дней»); пока не сохраняла — берутся эти.
   window.M13_KOSTER_DAYS = [
-    { date: '2026-10-31', kin: '66 · Белый Магнитный Соединитель Миров', label: 'Костёр Самайна', ask: 'Что в твоей жизни уже закончилось, а ты всё ещё не можешь отпустить?', wish: 'Пусть получится отпустить то, что уже закончилось, — и заметить, что появляется на освободившемся месте.' },
+    { date: '2026-10-31', kin: '66 · Белый Магнитный Соединитель Миров', label: 'Костёр Самайна', ask: 'Что в твоей жизни уже закончилось, а ты всё ещё не можешь отпустить?', wish: 'Пусть получится отпустить то, что уже закончилось, — и заметить, что появляется в освободившемся пространстве.' },
     { date: '2026-11-01', kin: '67 · Синяя Лунная Рука', label: 'Белый Соединитель Миров', ask: 'За что ты продолжаешь держаться, хотя это уже не помогает тебе двигаться дальше?', wish: 'Пусть получится отпустить то, что больше не поддерживает, и найти то, на что действительно можно опереться сейчас.' },
     { date: '2026-11-02', kin: '68 · Жёлтая Электрическая Звезда', label: 'Белый Соединитель Миров', ask: 'Где ты всё ещё говоришь или поступаешь не совсем по-своему?', wish: 'Пусть сегодня найдётся хотя бы один момент, где получится сделать по-своему.' },
     { date: '2026-11-03', kin: '69 · Красная Самосущая Луна', label: 'Белый Соединитель Миров', ask: 'Какое чувство возвращается к тебе снова и снова — и о чём оно может говорить?', wish: 'Пусть сегодня получится не отталкивать это чувство, а немного побыть рядом и услышать его.' },
@@ -61,7 +61,8 @@
         '<textarea class="ks-wish" id="ks-wish" rows="3" maxlength="200" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kWishPh', 'Загадай желание и напиши его здесь')) + '"></textarea>' +
         '<div class="uz-row"><button class="uz-btn" id="ks-go" type="button">' + esc(T('kRelease', 'Отпустить искрой')) + '</button>' +
           '<button class="uz-btn uz-btn--ghost" id="ks-save" type="button">' + esc(T('kSave', 'Сохранить себе')) + '</button></div>' +
-        '<p class="ks-card-note">' + esc(T('kWishNote', 'Твоё желание никуда не уходит — оно только у тебя.')) + '</p></div></div>');
+        // строка под картой — только если она сама впишет (её слова 31.10: «Твоё желание никуда не уходит…» — лишняя)
+        (T('kWishNote', '') ? '<p class="ks-card-note">' + esc(T('kWishNote', '')) + '</p>' : '') + '</div></div>');
 
     var scene = $('#ks-scene'), video = $('#ks-video'), fx = $('#ks-fx'), g = fx.getContext('2d');
     if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
@@ -259,21 +260,19 @@
         i = y * w + x; var dx = x / w - cxr, dy = 1 - y / h;
         T0[i] = .55 * Math.sqrt(dx * dx * .6 + dy * dy) + .45 * nf[i];
       }
-      // листок рисуется на отдельном холсте во весь экран полосками — так он гнётся, колышется и скручивается
+      // листок рисуется на отдельном холсте во весь экран — ровный, обычной бумажкой (её слова 31.10: никакой «гармошки»)
       var ov = document.createElement('canvas');
       ov.className = 'ks-burn'; ov.width = Math.round(W * DPR); ov.height = Math.round(H * DPR);
       document.body.appendChild(ov);
       var fp = firePt(), tx = fp.x - rect.left - rect.width / 2, ty = Math.max(H * .26, fp.y - 120 * fp.s) - rect.top - rect.height / 2;
       burn = { cv: cv, c: c, img: img, orig: orig, T0: T0, w: w, h: h, t: 0, fly: reduce ? .01 : 1.5, L: reduce ? 1.2 : 3.4, tx: tx, ty: ty, rect: rect,
         sc: .45 + .3 * FAR, rot: (Math.random() - .5) * 24, ph: Math.random() * 6.28, sway: (Math.random() < .5 ? -1 : 1) * (18 + Math.random() * 16),
-        ov: ov, o: ov.getContext('2d'), N: 96, cols: [] };
+        ov: ov, o: ov.getContext('2d'), K: 1 };
     }
-    // где на экране точка листка (xx, yy в пикселях картинки листка) — с учётом изгиба
+    // где на экране точка листка (xx, yy в пикселях картинки листка)
     function burnPt(b, xx, yy) {
-      var N = b.N, fi = xx / b.w * N, ci = Math.min(N - 1, Math.floor(fi)), col = b.cols[ci], f = (fi - ci) * b.rect.width / N, ly = (yy / b.h - .5) * b.rect.height * col.hs;
-      var lx = col.x + Math.cos(col.a) * f - Math.sin(col.a) * ly, lyy = col.y + Math.sin(col.a) * f + Math.cos(col.a) * ly;
-      var cs = Math.cos(b.R), sn = Math.sin(b.R);
-      return { x: b.X + (lx * cs - lyy * sn) * b.S, y: b.Y + (lx * sn + lyy * cs) * b.S };
+      var lx = (xx / b.w - .5) * b.rect.width * b.K, ly = (yy / b.h - .5) * b.rect.height, cs = Math.cos(b.R), sn = Math.sin(b.R);
+      return { x: b.X + (lx * cs - ly * sn) * b.S, y: b.Y + (lx * sn + ly * cs) * b.S };
     }
     function stepBurn(dt) {
       if (!burn) return;
@@ -296,38 +295,18 @@
         }
         b.c.putImageData(b.img, 0, 0);
       }
-      // изгиб: полоски листка цепочкой, у каждой свой наклон — одна длинная пологая волна (её слова 31.10: «гармошкой» — мелкие изломы убраны); чем сильнее горит, тем больше скручивается
-      var N = b.N, rw = b.rect.width, rh = b.rect.height, dw = rw / N, amp = .05 + .09 * mid + .12 * Math.min(1, pp), curl = .7 * Math.min(1, pp * 1.2);
-      var x = 0, y = 0, cols = [], k, a, sx = 0, sy = 0;
-      for (k = 0; k < N; k++) {
-        var uc = k / (N - 1), m = uc * 2 - 1;
-        a = amp * Math.sin(uc * Math.PI * 1.1 + b.t * 2.2 + b.ph) + curl * m * m * m * .5;
-        cols.push({ x: x, y: y, a: a, hs: 1 - .02 * (1 + Math.sin(uc * 2.6 + b.t * 2.4 + b.ph)) * (.4 + Math.min(1, pp)) });
-        sx += x + Math.cos(a) * dw / 2; sy += y + Math.sin(a) * dw / 2;
-        x += Math.cos(a) * dw; y += Math.sin(a) * dw;
-      }
-      sx /= N; sy /= N;
-      cols.forEach(function (c2) { c2.x -= sx; c2.y -= sy; });
-      b.cols = cols;
+      // ровный листок: только чуть поворачивается в тёплом воздухе (сужается по ширине), свет и тень — одной плавной заливкой
+      var rw = b.rect.width, rh = b.rect.height, tilt = (.12 + .25 * mid + .2 * Math.min(1, pp)) * Math.sin(b.t * 1.6 + b.ph);
+      b.K = Math.cos(tilt);
       var O = b.o;
       O.setTransform(1, 0, 0, 1, 0, 0); O.clearRect(0, 0, b.ov.width, b.ov.height);
-      O.setTransform(DPR, 0, 0, DPR, 0, 0); O.translate(b.X, b.Y); O.rotate(b.R); O.scale(b.S, b.S);
-      var sw = b.w / N;
-      for (k = 0; k < N; k++) {
-        var cc = cols[k], hh = rh * cc.hs;
-        O.save(); O.translate(cc.x, cc.y); O.rotate(cc.a);
-        var ov2 = k < N - 1 ? 1.6 : 1;   // полоска берётся внахлёст со следующей — без швов
-        O.drawImage(b.cv, k * sw, 0, sw * ov2, b.h, 0, -hh / 2, dw * ov2, hh);
-        O.restore();
-      }
-      // свет и тень на сгибах — одной плавной заливкой вдоль листка (не полосками — иначе видны вертикальные швы)
+      O.setTransform(DPR, 0, 0, DPR, 0, 0); O.translate(b.X, b.Y); O.rotate(b.R); O.scale(b.S * b.K, b.S);
+      O.drawImage(b.cv, -rw / 2, -rh / 2, rw, rh);
       O.globalCompositeOperation = 'source-atop';
-      var gx0 = cols[0].x, gx1 = cols[N - 1].x + Math.cos(cols[N - 1].a) * dw, gr = O.createLinearGradient(gx0, 0, gx1, 0);
-      for (k = 0; k < N; k += 6) {
-        var c1 = cols[Math.min(N - 1, k + 3)], c9 = cols[Math.max(0, k - 3)], da = (c1.a - c9.a) / 6;
-        gr.addColorStop(k / (N - 1), da > 0 ? 'rgba(40,20,10,' + Math.min(.26, da * 9).toFixed(3) + ')' : 'rgba(255,240,215,' + Math.min(.16, -da * 6).toFixed(3) + ')');
-      }
-      O.fillStyle = gr; O.fillRect(gx0 - 10, -rh * 2, gx1 - gx0 + 20, rh * 4);
+      var gr = O.createLinearGradient(-rw / 2, 0, rw / 2, 0), sh = Math.min(.22, Math.abs(Math.sin(tilt)) * .9);
+      gr.addColorStop(0, tilt > 0 ? 'rgba(40,20,10,' + sh.toFixed(3) + ')' : 'rgba(255,240,215,' + (sh * .6).toFixed(3) + ')');
+      gr.addColorStop(1, tilt > 0 ? 'rgba(255,240,215,' + (sh * .6).toFixed(3) + ')' : 'rgba(40,20,10,' + sh.toFixed(3) + ')');
+      O.fillStyle = gr; O.fillRect(-rw / 2 - 2, -rh / 2 - 2, rw + 4, rh + 4);
       O.globalCompositeOperation = 'source-over';
       if (p <= 0) return;
       // искры и пепел с кромки
