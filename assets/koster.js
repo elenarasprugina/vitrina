@@ -45,9 +45,7 @@
       '<div class="ks-scene" id="ks-scene"><video class="ks-video" id="ks-video" muted playsinline loop autoplay preload="auto"' +
         (POSTER ? ' poster="' + esc(POSTER) + '"' : '') + ' src="' + esc(VID) + '" aria-hidden="true"></video>' +
         '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
-      // в живом окошке на витрине — только подпись дня поверх огня; вопрос дня окошко передаёт витрине — он на открытой карточке (её решение 31.10);
-      // у самого костра вопроса нет — только листок
-      (OKNO ? (dayText.label ? '<div class="ks-okq"><p class="ks-okq-l">' + esc(dayText.label) + '</p></div>' : '') :
+      (OKNO ? '' :
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="../">' + esc(T('eyebrow', 'Узоры')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
         '<div class="uz-sheet" id="ks-ask"><p class="uz-q">' + esc(T('kAsk', 'Здесь ты можешь написать то, что хочешь отдать огню')) + '</p>' +
@@ -361,12 +359,8 @@
     // телефон в режиме энергосбережения не запускает видео сам — запустим от первого касания
     document.addEventListener('pointerdown', playVideo, { once: true });
     if (OKNO) {
-      // витрине — подпись и вопрос дня: нажатие на окошко откроет карточку с вопросом
-      var tell = function () { if (dayText.ask && window.parent !== window) try { window.parent.postMessage({ m13koster: { label: dayText.label || '', ask: dayText.ask } }, '*'); } catch (e) {} };
-      tell();
       window.addEventListener('message', function (e) {
         var m = e.data && e.data.m13okno; if (!m) return;
-        if (m === 'play') tell();
         if (m === 'pause') { paused = true; video.pause(); }
         else if (paused) { paused = false; playVideo(); requestAnimationFrame(function (ts) { last = ts; frame(ts); }); }
       });
