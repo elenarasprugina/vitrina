@@ -578,15 +578,21 @@
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
     // Сетка уменьшается и на высоту строки «Условия и цены ✦ Конфиденциальность», чтобы всё помещалось в экран
-    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 40 : 20) : 0);
+    // «События и архив» и стрелки месяцев: под названием (как было) или внизу, под карточками (head.navPos = 'bottom', её решение 30.10);
+    // у стрелок — стеклянная подложка, тёмная под светлый цвет надписей
+    var hcol = hd.color || '', mnBg = '--mn-bg:' + (hcol && lum(hexRgb(hcol)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)');
+    var navs = eventsLinkHTML(hd) + monthNavHTML(sc.id), low = hd.navPos === 'bottom' && navs;
+    hs2.push(mnBg);
+    var below = low ? '<div class="m13-below' + (hd.color ? ' m13-header--tinted' : '') + '" style="' + esc(hs.concat([mnBg]).join(';')) + '">' + navs + '</div>' : '';
+    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 40 : 20) : 0) + (low ? 96 : 0);
     var html = root + '<main class="m13-page' + (fh ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
         : '<h1><span class="m13-gt">' + txt(sc.title) + '</span>' + draft + '</h1>') +
-      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + eventsLinkHTML(hd) + monthNavHTML(sc.id) + '</header>' +
+      (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + (low ? '' : navs) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
-      '</section></div>' + foot + legal + '</main>' +
+      '</section></div>' + below + foot + legal + '</main>' +
       overlayHTML() + internalHTML() + zpModalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
     bgWatch(S.root);
