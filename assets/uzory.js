@@ -213,9 +213,18 @@
     if (v && v !== 'auto') return v;
     var p = partNow(); return p === 'evening' ? EVE : p;
   }
+  // Костёр Самайна вместо сада (её решение 30.10; panel: «Пространство» → «Что в пространстве»; проверка — ?koster=1 / ?sad=1)
+  function koster(root, OKNO) {
+    var v = '20261030k', sc = document.createElement('script');
+    ['assets/fonts/marck-script.css', 'assets/koster.css?v=' + v].forEach(function (h) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = BASE + h; document.head.appendChild(l); });
+    sc.src = BASE + 'assets/koster.js?v=' + v;
+    sc.onload = function () { window.M13_KOSTER(root, { IT: IT, SET: SET, T: T, esc: esc, str: str, imgUrl: imgUrl, PANEL: PANEL, OKNO: OKNO }); };
+    document.head.appendChild(sc);
+  }
   function garden(root) {
     // окошко (живое окошко на карте витрины, её решение 29.10): только сад, без надписей и кнопок; нажатие — у витрины
     var OKNO = /[?&]okno=1/.test(location.search);
+    if (/[?&]koster=1/.test(location.search) || ((IT.space || {}).scene === 'koster' && !/[?&]sad=1/.test(location.search))) { koster(root, OKNO); return; }
     var SP = IT.space || {}, UIt = IT.ui || {};
     // пока — просто сад, без вопросов (её решение 29.10); вопросы вернёт «Вопросы в саду» в панели (space.quiz)
     var WALK = SP.quiz !== true;

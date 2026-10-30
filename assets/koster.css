@@ -1,0 +1,39 @@
+/* Костёр Самайна — пространство «Узоров» (assets/koster.js, docs/koster-iskry.md) */
+body.ks-body { background: #070504; overflow: hidden; }
+.ks-scene { position: fixed; inset: 0; overflow: hidden; background: #070504; }
+.ks-video { position: absolute; top: 0; left: 50%; height: 100%; width: 100%; transform: translateX(-50%); object-fit: cover; }
+/* широкий экран: огонь — вертикальной полосой по центру, края тают в темноту */
+@media (min-aspect-ratio: 3/4) {
+  .ks-video { width: min(100%, 75vh); -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
+}
+/* края и низ притемнены — надписи на тёмном стекле читаются */
+.ks-shade { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 80% 65% at 50% 45%, rgba(7, 5, 4, 0) 40%, rgba(7, 5, 4, .55) 100%), linear-gradient(180deg, rgba(7, 5, 4, .45), rgba(7, 5, 4, 0) 22%, rgba(7, 5, 4, 0) 58%, rgba(7, 5, 4, .7)); }
+.ks-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ks-body .uz-sheet { background: rgba(14, 9, 7, .62); border-color: rgba(255, 214, 170, .18); }
+.ks-body .uz-top { z-index: 210; }
+/* листок */
+.ks-paper { position: relative; border-radius: 4px 4px 6px 5px; padding: 8px 14px 10px; transform: rotate(-.6deg);
+  background: linear-gradient(135deg, #f6ead2, #e8d6b4); box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 0 22px rgba(160, 120, 70, .25); }
+.ks-paper textarea { display: block; width: 100%; box-sizing: border-box; border: 0; outline: 0; resize: none; background: repeating-linear-gradient(180deg, transparent 0 25px, rgba(120, 90, 60, .16) 25px 26px);
+  background-position: 0 6px; font: 20px/26px "Marck Script", cursive; color: #3b2a1e; padding: 4px 2px 0; min-height: 110px; }
+.ks-paper textarea::placeholder { color: rgba(59, 42, 30, .45); }
+.ks-burn { position: fixed; z-index: 220; pointer-events: none; transform-origin: 50% 50%; will-change: transform; }
+/* стеклянная карта, которую выдаёт огонь */
+.ks-card-wrap { position: fixed; inset: 0; z-index: 230; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: none; }
+.ks-card-wrap[hidden] { display: none; }
+.ks-card { position: relative; pointer-events: auto; width: min(100%, 360px); box-sizing: border-box; padding: 20px 20px 16px; text-align: center; border-radius: 22px; isolation: isolate;
+  display: flex; flex-direction: column; gap: 12px; animation: ks-card-in 1.3s cubic-bezier(.2, .8, .2, 1) both; transition: transform .9s cubic-bezier(.6, 0, .8, .4), opacity .9s, filter .9s; }
+.ks-card .uz-dar-glass { background: linear-gradient(150deg, rgba(255, 240, 220, .16), rgba(30, 16, 10, .62) 40%, rgba(20, 10, 6, .7) 75%, rgba(255, 190, 140, .12)); border-color: rgba(255, 226, 190, .5);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 0 40px rgba(255, 170, 90, .25), 0 18px 40px rgba(0, 0, 0, .5); }
+.ks-card .uz-dar-lead { margin: 0; }
+.ks-card-t { margin: 0; font-family: var(--uz-head); font-style: italic; font-size: 22px; line-height: 1.25; color: #fff4e2; text-wrap: balance; }
+.ks-wish { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; border-bottom: 1px solid rgba(255, 226, 190, .35); outline: 0; background: transparent;
+  font: 24px/1.3 "Marck Script", cursive; color: #ffe2b0; text-align: center; padding: 6px 4px; text-shadow: 0 0 12px rgba(255, 180, 100, .5); }
+.ks-wish:focus-visible, .ks-paper textarea:focus-visible { outline: 0; }
+.ks-wish:focus { border-bottom-color: rgba(255, 226, 190, .7); }
+.ks-wish::placeholder { color: rgba(255, 226, 190, .5); font-size: 20px; }
+.ks-card-note { margin: 0; font-size: 12px; color: rgba(255, 236, 214, .6); }
+.ks-card.is-gone { transform: scale(.04); opacity: 0; filter: brightness(3) blur(6px); }
+@keyframes ks-card-in { from { opacity: 0; transform: scale(.08); filter: brightness(3) blur(10px); } 60% { opacity: 1; } to { opacity: 1; transform: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { .ks-card { animation-duration: .3s; transition-duration: .2s; } }
