@@ -1716,6 +1716,18 @@
       fr.src = b.getAttribute('data-src'); b.appendChild(fr);
     }
     function say(b, m) { var fr = b.firstChild; if (fr && fr.contentWindow) try { fr.contentWindow.postMessage({ m13okno: m }, '*'); } catch (e) {} }
+    // Костёр в окошке сообщает подпись и вопрос дня (её решение 31.10): тогда нажатие открывает карточку с вопросом, а не сразу огонь
+    window.addEventListener('message', function (e) {
+      var q = e.data && e.data.m13koster; if (!q || !q.ask) return;
+      [].forEach.call(boxes, function (bx) { if (bx.firstChild && bx.firstChild.contentWindow === e.source) bx.parentNode.m13ask = q; });
+    });
+    [].forEach.call(boxes, function (bx) {
+      bx.parentNode.addEventListener('click', function (e) {
+        var a = bx.parentNode, q = a.m13ask, id = a.getAttribute('data-m13-okno');
+        if (!q || !id || S.onBack) return;
+        e.preventDefault(); openAsk(id, q, a.href);
+      });
+    });
     function go() {
       if (!('IntersectionObserver' in window)) { [].forEach.call(boxes, put); return; }
       var io = new IntersectionObserver(function (es) {
@@ -1761,7 +1773,7 @@
       (sub ? '<div class="m13-mini-date">' + txt(sub) + '</div>' : '') +
       statusHTML(c, 'm13-mini-status') + '</div>';
     // Живое окошко (её решение 29.10): на карточке — живой сад «Узоров» (та же страница, без надписей); нажатие — вход в сад
-    if (ok) return breathWrap(sty, '<a class="' + cls + ' m13-thumb--okno" style="' + css + '" href="' + esc(S.base + ok.href) + '" data-m13-okno>' +
+    if (ok) return breathWrap(sty, '<a class="' + cls + ' m13-thumb--okno" style="' + css + '" href="' + esc(S.base + ok.href) + '" data-m13-okno="' + esc(c.id) + '">' +
       '<span class="m13-okno" data-src="' + esc(S.base + ok.href + '?okno=1') + '" aria-hidden="true"></span>' + text +
       '<div class="m13-mini-foot"><span class="m13-mini-cta m13-okno-go">' + txt(ok.text || 'Входи') + '</span></div>' + lay + '</a>');
     if (isStatic) return breathWrap(sty, '<div class="' + cls + ' m13-thumb--static" style="' + css + '">' + text + lay + '</div>');
@@ -1800,8 +1812,8 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) closeTop(); });
   }
 
-  function openCard(id) {
-    var c = findCard(id); if (!c) return;
+  function openCard(id, cc) {
+    var c = cc || findCard(id); if (!c) return;
     S.card = c;
     // Карточка с плашками записи: заранее узнаём у программы записи, какие встречи записываются по календарю
     if (zpHasKeys(c)) zpServices().catch(function () {});
@@ -1899,6 +1911,7 @@
 
     // Календарь месяца открывается сразу сеткой (без лицевой стороны и переворота)
     big.classList.toggle('m13-calmode', isCal);
+    big.classList.remove('m13-askmode');
     if (isCal) {
       calUnlight();
       big.classList.add('m13-noanim', 'is-flipped'); void big.offsetWidth; big.classList.remove('m13-noanim');
@@ -1917,6 +1930,23 @@
     }
     lock(true);
     pushLayer('card', closeCardNow, '#' + encodeURIComponent(c.id));
+  }
+  // Карточка с вопросом дня у костра (её решение 31.10): открывается сразу оборотом — подпись и вопрос дня;
+  // через несколько секунд (или по нажатию) вопрос рассеивается, как дым, и появляется кнопка к огню
+  function openAsk(id, q, href) {
+    // карточка-окошко обычно без оборота («оборот не открывается») — открываем её напрямую
+    var c = (S.D.showcase.cards || []).filter(function (x) { return x.id === id; })[0]; if (!c) return;
+    openCard(id, c);
+    var big = S.root.querySelector('#m13-bigcard'), backc = S.root.querySelector('#m13-backc'), ok = oknoOf(c) || {};
+    var words = String(q.ask).split(/\s+/).map(function (w, i) { return '<span style="transition-delay:' + (i * .07).toFixed(2) + 's">' + txt(w) + '</span>'; }).join(' ');
+    backc.innerHTML = '<div class="m13-ask">' + (q.label ? '<div class="m13-eyebrow">' + txt(q.label) + '</div>' : '') +
+      '<div class="m13-ask-mid"><p class="m13-ask-q">' + words + '</p>' +
+      '<a class="m13-action m13-action--primary m13-ask-go" href="' + esc(href) + '">' + txt(ok.text || 'Проходи к огню') + '</a></div></div>';
+    big.classList.add('m13-noanim', 'is-flipped', 'm13-askmode'); void big.offsetWidth; big.classList.remove('m13-noanim');
+    var box = backc.querySelector('.m13-ask'), n = String(q.ask).length;
+    function smoke() { if (box && !box.classList.contains('is-smoke')) box.classList.add('is-smoke'); }
+    setTimeout(smoke, Math.max(5000, Math.min(10000, 3000 + n * 55)));
+    box.querySelector('.m13-ask-q').addEventListener('click', smoke);
   }
   // Квадраты форматов: в каждом ряду название, цена и подпись получают одинаковую высоту (по самой высокой),
   // поэтому в ряду всё стоит на одном уровне, а сами квадраты остаются по центру.

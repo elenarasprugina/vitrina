@@ -2410,3 +2410,18 @@ body.m13-locked{overflow:hidden}
 .m13-thumb--okno .m13-mini-foot .m13-mini-cta.m13-okno-go{margin:0 auto;border:1px solid rgba(255,255,255,.8);color:#fff;font-size:13px;padding:5px 16px;background:rgba(20,26,18,.34);text-shadow:0 1px 4px rgba(0,0,0,.4);
   -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);letter-spacing:.03em}
 .m13-thumb--okno .m13-pat,.m13-thumb--okno .m13-shade{display:none}
+/* Вопрос дня у костра (её решение 31.10): карточка открывается сразу оборотом; вопрос рассеивается дымом — появляется кнопка к огню */
+.m13-big-card.m13-askmode .m13-front{visibility:hidden}
+.m13-big-card.m13-askmode .m13-unflip{display:none}
+.m13-ask{display:flex;flex-direction:column;min-height:100%;text-align:center;padding:6px 4px}
+.m13-ask .m13-eyebrow{margin-top:6px}
+.m13-ask-mid{flex:1;display:grid;place-items:center;padding:18px 6px}
+.m13-ask-q,.m13-ask-go{grid-area:1/1}
+.m13-ask-q{margin:0;font-weight:600;font-size:clamp(23px,5.6vw,32px);line-height:1.22;text-wrap:balance;cursor:pointer}
+.m13-ask-q span{display:inline-block;transition:opacity 1.8s ease,filter 1.8s ease,transform 2.4s cubic-bezier(.3,.1,.3,1)}
+.m13-ask.is-smoke .m13-ask-q{pointer-events:none}
+.m13-ask.is-smoke .m13-ask-q span{opacity:0;filter:blur(10px);transform:translateY(-28px) scale(1.15)}
+.m13-ask.is-smoke .m13-ask-q span:nth-child(odd){transform:translate(-8px,-36px) scale(1.2) rotate(-4deg)}
+.m13-ask-go{align-self:center;justify-self:center;text-decoration:none;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity 1.2s ease 1.4s,transform 1.2s ease 1.4s}
+.m13-ask.is-smoke .m13-ask-go{opacity:1;transform:none;pointer-events:auto}
+@media (prefers-reduced-motion:reduce){.m13-ask-q span,.m13-ask-go{transition-duration:.4s;transition-delay:0s!important}}
