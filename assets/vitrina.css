@@ -2097,18 +2097,21 @@ body.m13-locked{overflow:hidden}
 .m13-mnav{display:flex;gap:10px 28px;flex-wrap:wrap;margin-top:10px;font-family:var(--m13-hfont,inherit);font-size:15px;letter-spacing:.02em}
 .m13-header--center .m13-mnav{justify-content:center}
 .m13-header--center .m13-mnav > span{display:none}
-/* Стрелки месяцев — стеклянная капсула (её решение 30.10: на светлом фоне надписи терялись) */
-.m13-mnav a{color:inherit;text-decoration:none;padding:5px 14px;border:1px solid color-mix(in srgb,currentColor 45%,transparent);border-radius:999px;
+.m13-mnav a{color:inherit;text-decoration:none;opacity:.88;text-shadow:0 1px 8px rgba(0,0,0,.55);padding:4px 0;border-bottom:1px solid transparent;transition:opacity .2s ease,border-color .2s ease}
+.m13-mnav a:hover{opacity:1;border-bottom-color:currentColor}
+.m13-mnav--own a{color:var(--mn-c)}
+/* Стрелки на стекле (по желанию, head.mnStyle = 'glass'; цвет стекла — head.mnBg, пусто — светлое/тёмное под цвет надписи) */
+.m13-mnav--glass a{opacity:1;text-shadow:none;padding:5px 14px;border:1px solid color-mix(in srgb,currentColor 45%,transparent);border-radius:999px;
   background:var(--mn-bg,rgba(255,255,255,.62));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 3px 14px rgba(0,0,0,.18);transition:filter .2s ease}
-.m13-mnav a:hover{filter:brightness(1.08)}
-/* Внизу, под карточками (Страница месяца → «Где они»: внизу) */
-.m13-below{width:min(1180px,100%);margin:14px auto 0;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;color:var(--m13-ink)}
+.m13-mnav--glass a:hover{filter:brightness(1.08);border-bottom-color:color-mix(in srgb,currentColor 45%,transparent)}
+/* Внизу (Страница месяца → «Где они»: внизу): у нижнего края экрана, над «Условия ✦ Конфиденциальность»; head.navLift — поднять */
+.m13-below{width:min(1180px,100%);margin:18px auto 0;padding-bottom:calc(8px + var(--nav-lift,0px));display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;color:var(--m13-ink)}
 .m13-below.m13-header--tinted{color:var(--m13-head)}
 .m13-below .m13-mnav{justify-content:center}
 .m13-below .m13-mnav > span{display:none}
 .m13-mnav-next{text-align:right}
 .m13-header--tinted .m13-mnav{color:var(--m13-head)}
-@media (max-width:680px){.m13-mnav{font-size:12.5px;margin-top:8px;gap:8px 14px}.m13-mnav a{padding:4px 11px}.m13-below{margin-top:12px;margin-bottom:auto;padding-bottom:18px}.m13-page:has(> .m13-below) > .m13-stage{flex:0 0 auto;margin-top:4px}.m13-page:has(> .m13-below) .m13-grid{transform:none}}
+@media (max-width:680px){.m13-mnav{font-size:12.5px;margin-top:8px;gap:8px 14px}.m13-mnav--glass a{padding:4px 11px}.m13-below{margin-top:14px;padding-bottom:calc(12px + var(--nav-lift,0px))}}
 .m13-soon-page{text-align:center}
 .m13-soon{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4vh 8px 8vh;color:#232323;
   background:radial-gradient(closest-side,rgba(8,6,4,.42),transparent) center/min(760px,100%) 70% no-repeat;text-shadow:0 1px 10px rgba(0,0,0,.45)}

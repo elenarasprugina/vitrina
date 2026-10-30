@@ -136,7 +136,8 @@
   M13.monthName = function (id, withYear) { var p = String(id || '').split('-'); return (MONTHS_NOM[+p[1] - 1] || '') + (withYear ? ' ' + p[0] : ''); };
   function pubIds() { return ((S.D.index || {}).showcases || []).filter(function (x) { return x && x.status !== 'draft'; }).map(function (x) { return x.id; }).sort(); }
   // Стрелки к соседним месяцам. id — эта страница (у заглушки — её месяц)
-  function monthNavHTML(id) {
+  // hd — шапка месяца: вид стрелок head.mnStyle ('' — просто надпись | glass), свой цвет надписи mnColor, цвет стекла mnBg
+  function monthNavHTML(id, hd) {
     if (monthsOf(S.D.settings).arrows === false || !/^\d{4}-\d{2}$/.test(id || '')) return '';
     var ids = pubIds(), prev = null, next = null, soon = M13.monthSoon(ids);
     ids.forEach(function (x) { if (x < id) prev = x; if (x > id && !next) next = x; });
@@ -145,7 +146,11 @@
     var y = id.split('-')[0];
     function a(x, cls, label) { return '<a class="m13-mnav-' + cls + '" href="' + esc(S.base + x + '/') + '" data-m13-mnav>' + label + '</a>'; }
     function nm(x) { return esc(M13.monthName(x, x.split('-')[0] !== y)); }
-    return '<nav class="m13-mnav" aria-label="Месяцы">' + (prev ? a(prev, 'prev', '← ' + nm(prev)) : '<span></span>') +
+    hd = hd || {};
+    var glass = hd.mnStyle === 'glass', css = [], col = hd.mnColor || hd.color || '';
+    if (hd.mnColor) css.push('--mn-c:' + hd.mnColor);
+    if (glass) css.push('--mn-bg:' + (hd.mnBg ? 'color-mix(in srgb,' + hd.mnBg + ' 62%,transparent)' : col && lum(hexRgb(col)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)'));
+    return '<nav class="m13-mnav' + (glass ? ' m13-mnav--glass' : '') + (hd.mnColor ? ' m13-mnav--own' : '') + '"' + (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + ' aria-label="Месяцы">' + (prev ? a(prev, 'prev', '← ' + nm(prev)) : '<span></span>') +
       (next ? a(next, 'next', nm(next) + (next === soon && ids.indexOf(next) < 0 ? ' · ' + esc(soonOf(S.D.settings).word) : '') + ' →') : '') + '</nav>';
   }
   function soonOf(st) { var o = monthsOf(st).soon || {}; return { word: String(o.word || '').trim() || 'скоро', font: o.font || '', color: o.color || '', note: String(o.note || '').trim(), size: o.size || 'l' }; }
@@ -255,14 +260,14 @@
   /* ================= ВИТРИНА ================= */
   // Кнопка «События и архив» в шапке витрины — если есть хоть одно видимое событие или маршрут в архиве (выключается в панели)
   // Вид — head.evStyle: glass (стекло, по умолчанию) | line (тонкий контур, как было) | fill (заливка); evSize l (по умолчанию) | m;
-  // evColor — свой цвет (пусто — цвет надписей над сеткой)
+  // evColor — свой цвет (пусто — цвет надписей над сеткой); evBg — цвет стекла (пусто — светлое/тёмное под цвет надписи)
   function eventsLinkHTML(hd) {
     var ev = S.D.events || {}, st = S.D.settings || {};
     if (st.eventsLink === false || !((ev.items || []).some(function (e) { return e && e.visible !== false; }) || archRoutes().length)) return '';
     hd = hd || {};
     var kind = hd.evStyle === 'line' || hd.evStyle === 'fill' ? hd.evStyle : 'glass', col = hd.evColor || hd.color || '', css = [];
     if (hd.evColor) css.push('--ev-c:' + hd.evColor);
-    if (kind === 'glass') css.push('--ev-bg:' + (col && lum(hexRgb(col)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)'));
+    if (kind === 'glass') css.push('--ev-bg:' + (hd.evBg ? 'color-mix(in srgb,' + hd.evBg + ' 62%,transparent)' : col && lum(hexRgb(col)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)'));
     if (kind === 'fill') { var bg = col || '#232323'; css.push('--ev-c:' + bg, '--ev-ink:' + inkFor(bg)); }
     return '<a class="m13-evlink m13-evlink--' + kind + (hd.evSize === 'm' ? '' : ' m13-evlink--l') + (hd.evColor ? ' m13-evlink--own' : '') + '"' +
       (css.length ? ' style="' + esc(css.join(';')) + '"' : '') + ' href="' + esc(S.base + 'events/') + '" data-m13-evlink>' + txt(T('eventsLink') || 'События и архив') + ' →</a>';
@@ -578,13 +583,11 @@
 
     var intro = opt(sc.intro), draft = sc.status === 'draft' ? '<span class="m13-draft">' + txt(T('draft') || 'черновик') + '</span>' : '';
     // Сетка уменьшается и на высоту строки «Условия и цены ✦ Конфиденциальность», чтобы всё помещалось в экран
-    // «События и архив» и стрелки месяцев: под названием (как было) или внизу, под карточками (head.navPos = 'bottom', её решение 30.10);
-    // у стрелок — стеклянная подложка, тёмная под светлый цвет надписей
-    var hcol = hd.color || '', mnBg = '--mn-bg:' + (hcol && lum(hexRgb(hcol)) > 150 ? 'rgba(14,10,6,.5)' : 'rgba(255,255,255,.62)');
-    var navs = eventsLinkHTML(hd) + monthNavHTML(sc.id), low = hd.navPos === 'bottom' && navs;
-    hs2.push(mnBg);
-    var below = low ? '<div class="m13-below' + (hd.color ? ' m13-header--tinted' : '') + '" style="' + esc(hs.concat([mnBg]).join(';')) + '">' + navs + '</div>' : '';
-    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 40 : 20) : 0) + (low ? 96 : 0);
+    // «События и архив» и стрелки месяцев: под названием (как было) или внизу, у нижнего края (head.navPos = 'bottom', её решения 30.10;
+    // head.navLift — поднять над краем, px)
+    var navs = eventsLinkHTML(hd) + monthNavHTML(sc.id, hd), low = hd.navPos === 'bottom' && navs, lift = Math.max(0, Math.min(300, +hd.navLift || 0));
+    var below = low ? '<div class="m13-below' + (hd.color ? ' m13-header--tinted' : '') + '" style="' + esc(hs.concat(lift ? ['--nav-lift:' + lift + 'px'] : []).join(';')) + '">' + navs + '</div>' : '';
+    var legal = legalLineHTML(), foot = footHTML(hd, hs), fh = (foot ? footHeight(hd) : 0) + (legal ? (legalOf(st).footMode === 'full' ? 40 : 20) : 0) + (low ? 100 + lift : 0);
     var html = root + '<main class="m13-page' + (fh ? ' m13-page--foot' : '') + '"' + (fh ? ' style="--m13-fh:' + fh + 'px"' : '') + '>' +
       '<header class="' + hcls + '"' + (hs2.length ? ' style="' + esc(hs2.join(';')) + '"' : '') + '>' + kicker +
       (hd.hideTitle ? '<h1 class="m13-sr">' + txt(sc.title) + '</h1>' + (draft ? '<div>' + draft + '</div>' : '')
