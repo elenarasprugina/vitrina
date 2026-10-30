@@ -3978,17 +3978,23 @@
     }
     function dateOf(d) { return window.M13R ? window.M13R.dateOf(r, d) : ''; }
     // Её просьба 30.10: вместо стрелки-ручки мышки — перо, волшебная палочка или точка, за ними искорки.
-    // Настоящая мышка в окне скрыта (cursor:none), её место занимает свой указатель — его и снимает запись.
-    function pointer(d) {
-      var p = d.createElement('div'), last = 0, lx = -99, ly = -99;
-      p.className = 'm13f-ptr'; p.hidden = true; d.body.appendChild(p);
+    // Настоящая мышка в окне скрыта (cursor:none), её место занимает свой указатель.
+    // Перо и рисунок — слой панели поверх окна (fx), не в самой странице (её слова 30.10: в записи рывки, рисунок едва виден,
+    // перо пропадает): запись снимает окно без этого слоя (Element Capture) и дорисовывает перо и огоньки в каждый кадр ролика
+    // сама — чётко, в полный размер и плавно, даже если снимок окна запаздывает. Нет Element Capture — слой снимается вместе с окном.
+    var fx = el('div', { class: 'a-film-fx' }), ptrLook = function () {}, ptrHook = function () {}, ptrPaint = function () {}, ink = { down: function () {}, up: function () {} };
+    (function () {
+      var p = el('div', { class: 'm13f-ptr' }), d = null, last = 0, lx = -99, ly = -99;
+      p.hidden = true;
       function kind() { return FILM_PTR[st.ptr] ? st.ptr : ''; }
       function look() {
         var k = kind();
-        d.documentElement.classList.toggle('m13f-nocur', st.ptr !== 'mouse');
+        if (d) d.documentElement.classList.toggle('m13f-nocur', st.ptr !== 'mouse');
         p.className = 'm13f-ptr m13f-ptr--' + (k || 'none'); p.innerHTML = k ? FILM_PTR[k] : '';
       }
+      // искорки — в самой странице (запись снимает их вместе с окном)
       function spark(x, y, big, rgb) {
+        if (!d || !d.body) return;
         var t = d.createElement('i'), z = big ? 3 + Math.random() * 4 : 2 + Math.random() * 3, a = Math.random() * 6.283, r0 = big ? 14 + Math.random() * 22 : 4 + Math.random() * 8;
         t.className = 'm13f-sp'; t.style.left = x + 'px'; t.style.top = y + 'px'; t.style.width = t.style.height = z + 'px';
         t.style.setProperty('--dx', Math.round(Math.cos(a) * r0) + 'px'); t.style.setProperty('--dy', Math.round(Math.sin(a) * r0 + (big ? 0 : 10)) + 'px');
@@ -4011,8 +4017,8 @@
       }
       // Рисунок: штрихи одного рисунка (отпустили Пробел и снова зажали, пока он не начал таять — та же группа)
       // держатся вместе и тают вместе — так получается «!» из палочки и точки
-      var cv = d.createElement('canvas'), cx = cv.getContext('2d'), mx = -99, my = -99, inside = false, drawing = false, S = [], G = null, raf = 0;
-      cv.className = 'm13f-ink'; d.body.insertBefore(cv, p);
+      var cv = el('canvas', { class: 'm13f-ink' }), cx = cv.getContext('2d'), mx = -99, my = -99, inside = false, drawing = false, S = [], G = null, raf = 0;
+      fx.appendChild(cv); fx.appendChild(p);
       function sp() { return parseFloat(st.speed) || 1; }
       function hold() { return (parseFloat(st.inkHold) || 2.5) * 1000 * sp(); }
       function melt() { return (st.inkMelt === 'seq' ? 2200 : st.inkMelt === 'trail' ? 900 : st.inkMelt === 'fade' ? 1300 : 1500) * sp(); }
@@ -4053,7 +4059,7 @@
       var SPR = {};
       function sprite(c) {
         if (SPR[c[2]]) return SPR[c[2]];
-        var z = d.createElement('canvas'), g = z.getContext('2d'), gr;
+        var z = el('canvas'), g = z.getContext('2d'), gr;
         z.width = z.height = 64;
         gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
         gr.addColorStop(0, 'rgba(60,40,15,.22)'); gr.addColorStop(.35, 'rgba(60,40,15,.1)'); gr.addColorStop(1, 'rgba(60,40,15,0)');
@@ -4064,19 +4070,16 @@
         g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
         return (SPR[c[2]] = z);
       }
-      function star(x, y, r) {
-        cx.beginPath(); cx.moveTo(x, y - r); cx.quadraticCurveTo(x, y, x + r, y); cx.quadraticCurveTo(x, y, x, y + r);
-        cx.quadraticCurveTo(x, y, x - r, y); cx.quadraticCurveTo(x, y, x, y - r); cx.fill();
+      function star(c, x, y, r) {
+        c.beginPath(); c.moveTo(x, y - r); c.quadraticCurveTo(x, y, x + r, y); c.quadraticCurveTo(x, y, x, y + r);
+        c.quadraticCurveTo(x, y, x - r, y); c.quadraticCurveTo(x, y, x, y - r); c.fill();
       }
-      function frame() {
-        raf = 0;
-        var win = d.defaultView, W = win.innerWidth, H = win.innerHeight, dpr = win.devicePixelRatio || 1, now = Date.now(), mode = st.inkMelt;
-        if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-        cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
-        S = S.filter(function (s) { return !s.g.end || now < (mode === 'trail' ? s.lastB : s.g.end) + hold() + melt(); });
+      // Все огоньки в холст c (и на экране, и в кадре ролика — одна и та же картинка)
+      function draw(c, now) {
+        var mode = st.inkMelt;
         S.forEach(function (s) {
           var m = mode === 'trail' ? 0 : s.g.end ? (now - s.g.end - hold()) / melt() : -1, img = sprite(s.pal), N = Math.max(1, s.g.n);
-          cx.fillStyle = s.pal[0]; cx.shadowColor = s.pal[1];
+          c.fillStyle = s.pal[0]; c.shadowColor = s.pal[1];
           s.dots.forEach(function (p) {
             // пока висит — точки мерцают, рисунок живой, не замирает
             var tw = Math.sin(now / 320 + p.ph), a = .72 + .28 * tw, r = p.r * (.9 + .2 * tw), x = p.x, y = p.y, f;
@@ -4094,27 +4097,76 @@
               }
             }
             if (a <= 0) return;
-            cx.globalAlpha = a;
-            if (p.star) { cx.shadowBlur = 8; star(x, y, (3.2 + 2 * tw) * s.w); cx.shadowBlur = 0; }
-            var R = r * 7; cx.drawImage(img, x - R, y - R, R * 2, R * 2);
+            c.globalAlpha = a;
+            if (p.star) { c.shadowBlur = 8; star(c, x, y, (3.2 + 2 * tw) * s.w); c.shadowBlur = 0; }
+            var R = r * 7; c.drawImage(img, x - R, y - R, R * 2, R * 2);
           });
-          cx.globalAlpha = 1;
+          c.globalAlpha = 1;
         });
+      }
+      function frame() {
+        raf = 0;
+        var W = fx.clientWidth, H = fx.clientHeight, dpr = window.devicePixelRatio || 1, now = Date.now(), mode = st.inkMelt;
+        if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+        cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
+        S = S.filter(function (s) { return !s.g.end || now < (mode === 'trail' ? s.lastB : s.g.end) + hold() + melt(); });
+        draw(cx, now);
         if (S.length) tick();
       }
-      function tick() { if (!raf) raf = (d.defaultView || window).requestAnimationFrame(frame); }
-      look(); ptrLook = look; ink.down = inkDown; ink.up = inkUp;
-      d.addEventListener('pointermove', function (e) { at(e); }, true);
-      d.addEventListener('pointerdown', function (e) { at(e, true); }, true);
-      d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; inside = false; });
-      d.addEventListener('keydown', inkKey, true); d.addEventListener('keyup', inkKey, true);
-      d.defaultView.addEventListener('blur', inkUp);
-      // Пока зажат Пробел — касания (и случайный тап тачпада) до страницы не доходят: цветок не выбирается
-      ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick'].forEach(function (t) {
-        d.defaultView.addEventListener(t, function (e) { if (drawing) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+      function tick() { if (!raf) raf = requestAnimationFrame(frame); }
+      // Перо в кадре ролика: та же картинка, что на экране, заранее нарисованная в размер ролика (с тенью и светлым ореолом)
+      var PEN = {}, PIMG = {};
+      Object.keys(FILM_PTR).forEach(function (k) {
+        if (k === 'dot') return;
+        var im = new Image();
+        im.src = 'data:image/svg+xml,' + encodeURIComponent(FILM_PTR[k].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
+        PIMG[k] = im;
       });
-    }
-    var ptrLook = function () {}, ink = { down: function () {}, up: function () {} };
+      function penSprite(k, q) {
+        var id = k + q, pad = 12, box = k === 'pen' ? [-2, -46, 46, 48] : k === 'wand' ? [-4, -4, 48, 48] : [-8, -8, 16, 16];
+        if (PEN[id]) return PEN[id];
+        var im = PIMG[k];
+        if (k !== 'dot' && !(im && im.complete && im.naturalWidth)) return null;
+        var z = el('canvas'), g = z.getContext('2d');
+        z.width = Math.ceil((box[2] + pad * 2) * q); z.height = Math.ceil((box[3] + pad * 2) * q);
+        if (k === 'dot') {
+          var c0 = (pad + 8) * q, gr = g.createRadialGradient(c0, c0, 0, c0, c0, 20 * q);
+          gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(.6, 'rgba(255,255,255,.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          g.fillStyle = gr; g.fillRect(0, 0, z.width, z.height);
+          g.shadowColor = 'rgba(0,0,0,.25)'; g.shadowBlur = 4 * q; g.shadowOffsetY = q;
+          g.beginPath(); g.arc(c0, c0, 8.75 * q, 0, 6.283); g.fillStyle = 'rgba(0,0,0,.3)'; g.fill();
+          g.shadowColor = 'transparent';
+          g.beginPath(); g.arc(c0, c0, 8 * q, 0, 6.283); g.fillStyle = 'rgba(255,255,255,.92)'; g.fill();
+        } else {
+          g.filter = 'drop-shadow(0 0 ' + q + 'px rgba(0,0,0,.6)) drop-shadow(0 ' + q + 'px ' + 3 * q + 'px rgba(0,0,0,.25)) drop-shadow(0 0 ' + 6 * q + 'px rgba(255,255,255,.6))';
+          g.drawImage(im, pad * q, pad * q, box[2] * q, box[3] * q);
+        }
+        z.ox = (box[0] - pad) * q; z.oy = (box[1] - pad) * q;
+        return (PEN[id] = z);
+      }
+      // В кадр ролика: огоньки и перо; k — во сколько раз ролик крупнее окна, ox/oy — где в кадре левый верхний угол окна
+      ptrPaint = function (x, k, ox, oy) {
+        if (S.length) { x.save(); x.setTransform(k, 0, 0, k, ox, oy); draw(x, Date.now()); x.restore(); }
+        var kk = kind();
+        if (!kk || p.hidden) return;
+        var z = penSprite(kk, Math.round(k * 4) / 4);
+        if (z) x.drawImage(z, ox + mx * k + z.ox, oy + my * k + z.oy);
+      };
+      // Каждая новая страница в окне: свои слушатели мышки и Пробела
+      ptrHook = function (dd) {
+        d = dd; p.hidden = true; inside = false; inkUp(); look();
+        d.addEventListener('pointermove', function (e) { at(e); }, true);
+        d.addEventListener('pointerdown', function (e) { at(e, true); }, true);
+        d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; inside = false; });
+        d.addEventListener('keydown', inkKey, true); d.addEventListener('keyup', inkKey, true);
+        d.defaultView.addEventListener('blur', inkUp);
+        // Пока зажат Пробел — касания (и случайный тап тачпада) до страницы не доходят: цветок не выбирается
+        ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick'].forEach(function (t) {
+          d.defaultView.addEventListener(t, function (e) { if (drawing) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+        });
+      };
+      look(); ptrLook = look; ink.down = inkDown; ink.up = inkUp;
+    })();
     // Пробел зажат — рисуем (и в окне, и когда в фокусе панель); в полях ввода Пробел — обычный
     function inkKey(e) {
       if (e.code !== 'Space' && e.key !== ' ') return;
@@ -4137,7 +4189,7 @@
         'pointer-events:none;animation:m13fTap .6s ease-out forwards}@keyframes m13fTap{from{transform:scale(.45);opacity:1}to{transform:scale(1.5);opacity:0}}' +
         'html.m13f-rec .ys-debug{display:none!important}' + FILM_PTR_CSS;
       d.head.appendChild(s);
-      hush(); stay(fr.contentWindow, d); pointer(d);
+      hush(); stay(fr.contentWindow, d); ptrHook(d);
       if (!isR() && !/^uz:/.test(st.what) && d.URL === 'about:srcdoc') mountSite(fr.contentWindow, d, st.what);
       d.addEventListener('pointerdown', function (e) {
         if (!st.tap) return;
@@ -4164,6 +4216,11 @@
       if (R.fade != null && R.still) {
         var fk = (t - R.fade) / .8;
         if (fk < 1) { x.globalAlpha = 1 - fk * fk * (3 - 2 * fk); x.drawImage(R.still, 0, 0); x.globalAlpha = 1; } else R.fade = null;
+      }
+      // Перо и огоньки — прямо в кадр, в полный размер (окно снято без них)
+      if (R.own && fr.clientWidth) {
+        var fk2 = Math.max(FILM_W / fr.clientWidth, FILM_H / fr.clientHeight);
+        ptrPaint(x, fk2, (FILM_W - fr.clientWidth * fk2) / 2, (FILM_H - fr.clientHeight * fk2) / 2);
       }
       x.textAlign = 'center'; x.textBaseline = 'middle';
       if (st.title && t < 3.4) {
@@ -4233,10 +4290,14 @@
           stream.getTracks().forEach(function (k) { k.stop(); });
           toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
         }
-        // Её просьба 30.10 (перо подтормаживает на записи): окно берём размером с ролик, а не почти 4K — компьютеру легче, кадры не пропадают
-        return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); }).then(function () {
-          return tr.applyConstraints({ frameRate: 30, width: { ideal: FILM_W, max: FILM_W }, height: { ideal: FILM_H, max: FILM_H } }).catch(function () {});
-        }).then(function () { begin(stream); }, function (e) {
+        // Снимаем только само окно, без слоя пера над ним (Element Capture) — перо и рисунок ролик дорисует сам.
+        // Браузер так не умеет — обрезаем вкладку до окна (CropTarget), слой пера снимается вместе с окном, как раньше.
+        // (Её слова 30.10: «размер с ролик» сделал кадр мелким — рисунок в записи едва виден; снимаем крупно, как было.)
+        var own = false;
+        return (window.RestrictionTarget && tr.restrictTo ? RestrictionTarget.fromElement(fr).then(function (rt) { return tr.restrictTo(rt); }).then(function () { own = true; })
+          : Promise.reject()).catch(function () {
+          return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); });
+        }).then(function () { begin(stream, own); }, function (e) {
           stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
         });
       }).catch(function (e) {
@@ -4244,11 +4305,11 @@
         else { console.error(e); toast('Не получилось начать запись: ' + (e && e.message || e), true); }
       });
     }
-    function begin(stream) {
+    function begin(stream, own) {
       var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
-      var R = REC = { stream: stream, v: v, chk: 0, cv: cv, x: cv.getContext('2d'), t: 0, slot: -1, last: performance.now(), paused: false, cut: auto, speed: +st.speed || 1, lastKey: -1, n: 0, raf: 0 };
+      var R = REC = { stream: stream, v: v, cv: cv, x: cv.getContext('2d'), t: 0, slot: -1, last: performance.now(), paused: false, cut: auto, speed: +st.speed || 1, lastKey: -1, n: 0, raf: 0, own: own };
       clock.textContent = 'Готовлю…'; drop(); ui();
       // «Закрыть доступ» на плашке Chrome — тоже стоп
       stream.getVideoTracks()[0].addEventListener('ended', function () { if (REC === R) stop(); });
@@ -4268,8 +4329,6 @@
             if (REC !== R || R.finishing) return;
             var now = performance.now(), dt = Math.min(.25, (now - R.last) / 1000);
             R.last = now;
-            // Запас: если браузер понял размер иначе и окно вышло мелким — возвращаем прежний крупный
-            if (!R.chk && v.videoHeight) { R.chk = 1; if (v.videoHeight < FILM_H * .6) stream.getVideoTracks()[0].applyConstraints({ frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }).catch(function () {}); }
             if (!R.paused && !R.cut) {
               R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
               var slot = Math.floor(R.t * VID_FPS);
@@ -4620,7 +4679,7 @@
     window.addEventListener('message', onMsg);
     var bar = el('div', { class: 'a-pbar' }, [el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: close })]);
     pv.classList.add('is-phone');
-    pv.replaceChildren(el('div', { class: 'a-film' }, [el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]), side]), bar);
+    pv.replaceChildren(el('div', { class: 'a-film' }, [el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, [el('div', { class: 'a-film-win' }, [fr, fx])])]), side]), bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
     reload();
   }

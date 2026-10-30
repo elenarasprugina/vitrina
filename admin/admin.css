@@ -774,6 +774,17 @@ body.a-noscroll{overflow:hidden}
 .a-film-clock.is-on::before{content:'● '}
 .a-film-vid{width:100%;max-height:420px;background:#000;border-radius:10px}
 .a-preview.is-rec .a-film-screen{border-radius:0}
+.a-preview.is-rec .a-film-fx{border-radius:0}
+/* Перо и рисунок пером — слой над окном ролика; окно — отдельный слой (так запись снимает его без пера) */
+.a-film-win{position:relative}
+.a-film-screen{position:relative;z-index:0;isolation:isolate}
+.a-film-fx{position:absolute;inset:0;z-index:1;overflow:hidden;border-radius:32px;pointer-events:none}
+.a-film-fx .m13f-ptr{position:absolute;left:-99px;top:-99px;width:0;height:0;pointer-events:none}
+.a-film-fx .m13f-ptr[hidden]{display:none}
+.a-film-fx .m13f-ptr svg,.a-film-fx .m13f-ptr i{position:absolute;display:block;filter:drop-shadow(0 0 1px rgba(0,0,0,.6)) drop-shadow(0 1px 3px rgba(0,0,0,.25)) drop-shadow(0 0 6px rgba(255,255,255,.6))}
+.a-film-fx .m13f-ptr--pen svg{left:-2px;top:-46px}.a-film-fx .m13f-ptr--wand svg{left:-4px;top:-4px}
+.a-film-fx .m13f-ptr--dot i{left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.92);filter:none;box-shadow:0 0 0 1.5px rgba(0,0,0,.3),0 1px 4px rgba(0,0,0,.25),0 0 14px 4px rgba(255,255,255,.55)}
+.a-film-fx .m13f-ink{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
 .a-preview.is-rec .a-phone-body{box-shadow:0 0 0 3px #a1332b,0 18px 50px rgba(0,0,0,.28)}
 .a-film-h{font-size:18px;font-weight:700}
 .a-film-h--s{font-size:15px;margin-top:6px}
