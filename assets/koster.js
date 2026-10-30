@@ -47,6 +47,8 @@
         '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
       (OKNO ? '' :
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="../">' + esc(T('eyebrow', 'Узоры')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
+      (K.sound === 'off' ? '' : '<button class="ks-snd" id="ks-snd" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l5-4v14l-5-4H4z"/>' +
+        '<path class="ks-snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="ks-snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>') +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
         '<div class="uz-sheet" id="ks-ask"><p class="uz-q">' + esc(T('kAsk', 'Здесь ты можешь написать то, что хочешь отдать огню')) + '</p>' +
           '<div class="ks-paper-sh"><div class="ks-paper" id="ks-paper"><textarea id="ks-text" rows="4" maxlength="400" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kPaperPh', 'Напиши здесь…')) + '"></textarea></div></div>' +
@@ -346,6 +348,104 @@
       return;
     }
 
+    /* ---------- звук костра (её просьба 31.10): треск в стерео — щелчки слева и справа, в наушниках огонь вокруг ----------
+       Звук не файл, а «живой»: собирается в браузере каждый раз заново (гул, шипение, треск и редкие хлопки поленьев) — ничего не скачивается.
+       Своя запись (панель: «Костёр Самайна» → «Звук: своя запись») — играет по кругу вместо него.
+       Браузер даёт включить звук только после касания: звук начинается с первого касания экрана. Выключил — устройство помнит. */
+    sound();
+    function sound() {
+      var btn = $('#ks-snd'); if (!btn) return;
+      var KEY = 'm13-koster-snd', VOL = Math.max(0, Math.min(1, (K.vol == null || K.vol === '' ? 70 : +K.vol) / 100));
+      var on = true, ac = null, out = null, timer = 0, el = null, FILE = str(K.soundFile) ? U.imgUrl(K.soundFile) : '';
+      try { on = localStorage.getItem(KEY) !== 'off'; } catch (e) {}
+      function mark() {
+        btn.classList.toggle('is-off', !on);
+        btn.setAttribute('aria-label', on ? T('kSndOff', 'Выключить звук костра') : T('kSndOn', 'Включить звук костра'));
+        btn.title = btn.getAttribute('aria-label');
+      }
+      mark();
+      function start() {
+        if (FILE) {
+          if (!el) { el = new Audio(FILE); el.loop = true; el.volume = VOL; }
+          var pr = el.play(); if (pr && pr.catch) pr.catch(function () {});
+          return;
+        }
+        var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        // айфон с выключенным звонком глушит такой звук — просим играть как музыку
+        try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+        if (!ac) build(new AC());
+        if (ac.resume) ac.resume();
+        out.gain.cancelScheduledValues(ac.currentTime); out.gain.setTargetAtTime(VOL, ac.currentTime, .6);
+        if (!timer) timer = setInterval(tick, 60);
+      }
+      function stop() {
+        if (el) el.pause();
+        if (!ac) return;
+        out.gain.setTargetAtTime(0, ac.currentTime, .15);
+        clearInterval(timer); timer = 0;
+        setTimeout(function () { if (!timer && ac.suspend) ac.suspend(); }, 700);
+      }
+      var noise, roarG, hissG, roarF, until = 0, next = 0;
+      function build(c) {
+        ac = c; out = ac.createGain(); out.gain.value = 0; out.connect(ac.destination);
+        // шум на 4 с — левый и правый разные, поэтому гул звучит широко, «вокруг»
+        var n = ac.sampleRate * 4, i, ch, d, b = 0;
+        noise = ac.createBuffer(2, n, ac.sampleRate);
+        for (ch = 0; ch < 2; ch++) { d = noise.getChannelData(ch); for (i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; }
+        function loop(off) { var s = ac.createBufferSource(); s.buffer = noise; s.loop = true; s.start(0, off); return s; }
+        // гул пламени — низкий, медленно дышит
+        roarF = ac.createBiquadFilter(); roarF.type = 'lowpass'; roarF.frequency.value = 170; roarF.Q.value = .5;
+        roarG = ac.createGain(); roarG.gain.value = .5; loop(0).connect(roarF); roarF.connect(roarG); roarG.connect(out);
+        // шипение — тихое, верхнее
+        var hf = ac.createBiquadFilter(); hf.type = 'bandpass'; hf.frequency.value = 3200; hf.Q.value = .5;
+        hissG = ac.createGain(); hissG.gain.value = .025; loop(1.7).connect(hf); hf.connect(hissG); hissG.connect(out);
+        next = ac.currentTime + .2;
+      }
+      // один щелчок: короткий всплеск шума, своя высота, своё место слева-справа
+      function crack(t, pan, big) {
+        var s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), len = big ? .03 + Math.random() * .05 : .004 + Math.random() * .018;
+        s.buffer = noise;
+        f.type = big ? 'bandpass' : 'highpass'; f.frequency.value = big ? 300 + Math.random() * 700 : 1200 + Math.random() * 4000; f.Q.value = big ? 1.2 : .7;
+        var amp = big ? .5 + Math.random() * .4 : .08 + Math.pow(Math.random(), 2) * .55;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + .001); g.gain.exponentialRampToValueAtTime(.0005, t + len);
+        s.connect(f); f.connect(g);
+        if (ac.createStereoPanner) { var p = ac.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(out); } else g.connect(out);
+        s.start(t, Math.random() * 3.5, len + .02);
+      }
+      function tick() {
+        var t = ac.currentTime, ahead = t + .25;
+        // гул и шипение плавно гуляют
+        if (t > until) { until = t + .3 + Math.random() * .6;
+          roarG.gain.setTargetAtTime(.35 + Math.random() * .3, t, .4); roarF.frequency.setTargetAtTime(130 + Math.random() * 90, t, .5);
+          hissG.gain.setTargetAtTime(.012 + Math.random() * .03, t, .3); }
+        if (next < t) next = t;
+        while (next < ahead) {
+          var pan = (Math.random() * 2 - 1) * .9, r = Math.random();
+          if (r < .06) crack(next, pan, true);                       // хлопок полена
+          else if (r < .3) {                                          // россыпь щелчков в одном месте
+            var k = 2 + Math.floor(Math.random() * 5), tt = next;
+            while (k--) { crack(tt, Math.max(-1, Math.min(1, pan + (Math.random() - .5) * .2)), false); tt += .008 + Math.random() * .05; }
+          } else crack(next, pan, false);
+          next += -Math.log(1 - Math.random()) / 7;                   // в среднем ~7 раз в секунду, вразнобой
+        }
+      }
+      // первое касание экрана — включаем (если не выключали); касание самой кнопки — не считается
+      function first(e) {
+        if (btn.contains(e.target)) return;
+        document.removeEventListener('pointerdown', first, true);
+        if (on) start();
+      }
+      document.addEventListener('pointerdown', first, true);
+      btn.onclick = function () {
+        on = !on; mark();
+        try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch (e) {}
+        document.removeEventListener('pointerdown', first, true);
+        if (on) start(); else stop();
+      };
+      // ушли со страницы — тишина, вернулись — снова огонь
+      document.addEventListener('visibilitychange', function () { if (!on || (!ac && !el)) return; if (document.hidden) stop(); else start(); });
+    }
+
     /* ---------- ход: листок → огонь → искра → карта → желание ---------- */
     var ask = $('#ks-ask'), after = $('#ks-after'), afterT = $('#ks-after-t'), text = $('#ks-text'), paper = $('#ks-paper');
     paper.style.clipPath = deckClip();
@@ -384,7 +484,7 @@
         var x = r.left + r.width / 2, y = r.top + r.height / 2;
         flash = { x: x, y: y, t: 0, L: .7 };
         flySpark({ x: x, y: y }, { x: x + (Math.random() - .5) * W * .3, y: -40 }, reduce ? .3 : 2.4, (Math.random() < .5 ? -1 : 1) * W * .1, function () {
-          showAfter(T('kAfter', 'Искра унесла твоё желание. Возвращайся завтра — к огню.'));
+          showAfter(T('kAfter', 'Искра унесла твоё желание. Возвращайся к огню завтра.'));
         });
       }, reduce ? 50 : 900);
     };

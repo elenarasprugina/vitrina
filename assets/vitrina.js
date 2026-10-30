@@ -1689,9 +1689,19 @@
       h += '<i class="m13-lay m13-rimbox' + (st.rimPlace === 'corners' ? ' m13-rim--corners' : '') + (st.rimLive ? ' m13-rim--' + esc(st.rimLive) : '') +
         '" aria-hidden="true" style="' + esc(rv) + '"><i class="m13-rim m13-rim--' + esc(st.rim) + '"' + rc + '></i>' + thick +
         (st.rimLive === 'run' ? '<i class="m13-rim-run m13-rim-glow"></i><i class="m13-rim-run"></i>' : '') +
-        (st.rimLive === 'fire' ? '<i class="m13-rim-fire"></i><i class="m13-rim-fire"></i>' : '') + '</i>';
+        (st.rimLive === 'fire' ? fireSparks() : '') + '</i>';
     }
     return h;
+  }
+
+  // Искры контура «Огонь» (её слова 31.10: прежние — «отряд облаков» строем): каждая — своя точка, со своим местом, временем, высотой и отклонением
+  function fireSparks() {
+    var h = '<i class="m13-rim-fire">', i, r = Math.random;
+    for (i = 0; i < 14; i++) {
+      h += '<b style="--x:' + (3 + r() * 94).toFixed(1) + '%;--d:' + (-r() * 6).toFixed(2) + 's;--t:' + (2.2 + r() * 2.6).toFixed(2) + 's;--dx:' + ((r() - .5) * 36).toFixed(0) +
+        'px;--h:' + (50 + r() * 70).toFixed(0) + 'px;--s:' + (.6 + r() * .8).toFixed(2) + ';--f:' + (.12 + r() * .2).toFixed(2) + 's"></b>';
+    }
+    return h + '</i>';
   }
 
   // Живое свечение — отдельным слоем за карточкой: свет нарисован один раз, «дышат» только яркость и размер (плавно, без дрожи)
