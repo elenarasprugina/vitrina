@@ -1819,7 +1819,9 @@
     return S.kDays;
   }
   function kaskFill(scope) {
+    scope.classList.remove('m13-kmode');
     var p = scope.querySelector('[data-m13-kask]'); if (!p) return;
+    scope.classList.add('m13-kmode');
     var t = today(), iso = t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
     kosterDays().then(function (days) {
       var d = (days || []).filter(function (x) { return x && x.date === iso; })[0], q = d && String(d.ask || '').trim();
