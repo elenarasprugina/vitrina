@@ -177,10 +177,18 @@ body.uz-list-page { min-height: 100%; background: radial-gradient(120% 80% at 50
 .uz-list .uz-h1 { font-size: 44px; margin-top: 18px; }
 .uz-list-lead { margin: 8px 0 0; font-family: var(--uz-head); font-size: 22px; font-style: italic; color: #fff4e2; }
 .uz-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 28px; }
+/* её слова 31.10: на компьютере карточка и надписи — по центру, как на телефоне */
+.uz-list { text-align: center; }
+.uz-list .uz-honest { margin-left: auto; margin-right: auto; }
+.uz-list-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 300px)); justify-content: center; }
+.uz-list-card { text-align: center; }
+/* её слова 31.10: картинка в карточке — крупно, во всю ширину карточки, а не маленькая полоска */
+.uz-list-img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
 .uz-list-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 20px; text-decoration: none; color: var(--uz-mist);
   background: linear-gradient(160deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .03) 50%, rgba(170, 190, 255, .07)); border: 1px solid rgba(255, 255, 255, .22); transition: border-color .3s, transform .3s; }
 .uz-list-card:hover { border-color: rgba(255, 230, 190, .6); transform: translateY(-2px); }
 .uz-list-card .uz-list-art { height: 140px; display: flex; justify-content: center; }
+.uz-list-card .uz-list-art--img { height: auto; margin: -6px -6px 4px; border-radius: 14px; overflow: hidden; }
 .uz-list-card .uz-list-art svg { height: 100%; width: auto; filter: drop-shadow(0 0 10px rgba(255, 220, 160, .45)); }
 .uz-list-card b { font-family: var(--uz-head); font-size: 26px; font-weight: 500; font-style: italic; color: #fff4e2; }
 .uz-list-card span { font-size: 14px; line-height: 1.45; color: var(--uz-mist-dim); }

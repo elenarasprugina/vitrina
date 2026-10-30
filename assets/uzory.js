@@ -107,8 +107,8 @@
       // картинка в списке: своя (панель: «Картинка в списке узоров»); у костра — кадр огня; иначе — первый цветок
       var fl = (it.flowers || [])[0], ks = (it.space || {}).scene === 'koster' ? (it.space.koster || {}) : null,
         img = str(it.cardImage) || (ks ? str(ks.poster, ks.video ? '' : 'assets/koster/ogon-7-poster.jpg') : '') || (fl && fl.image);
-      return '<a class="uz-list-card" href="' + esc(it.id) + '/"><div class="uz-list-art">' +
-        (img ? '<img src="' + esc(imgUrl(img)) + '" alt="" style="height:100%">' : artSvg(fl, true)) + '</div>' +
+      return '<a class="uz-list-card" href="' + esc(it.id) + '/"><div class="uz-list-art' + (img ? ' uz-list-art--img' : '') + '">' +
+        (img ? '<img class="uz-list-img" src="' + esc(imgUrl(img)) + '" alt="">' : artSvg(fl, true)) + '</div>' +
         '<b>' + esc(it.title) + '</b>' + (str(it.card) ? '<span>' + esc(it.card) + '</span>' : '') + '</a>';
     }).join('') + '</div>';
     root.innerHTML = h + '</div>';
@@ -217,7 +217,7 @@
   }
   // Костёр Самайна вместо сада (её решение 30.10; panel: «Пространство» → «Что в пространстве»; проверка — ?koster=1 / ?sad=1)
   function koster(root, OKNO) {
-    var v = '20261031h', sc = document.createElement('script');
+    var v = '20261031j', sc = document.createElement('script');
     ['assets/fonts/marck-script.css', 'assets/koster.css?v=' + v].forEach(function (h) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = BASE + h; document.head.appendChild(l); });
     sc.src = BASE + 'assets/koster.js?v=' + v;
     sc.onload = function () { window.M13_KOSTER(root, { IT: IT, SET: SET, T: T, esc: esc, str: str, imgUrl: imgUrl, PANEL: PANEL, OKNO: OKNO }); };
