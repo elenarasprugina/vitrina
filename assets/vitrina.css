@@ -426,8 +426,9 @@ body.m13-locked{overflow:hidden}
   animation:m13-breathe 9s cubic-bezier(.45,0,.55,1) infinite;will-change:opacity,transform}
 .m13-gt-slow > .m13-breath{animation-duration:13s}
 .m13-gt-flicker > .m13-breath{animation-name:m13-breathe-f}
-@keyframes m13-breathe{0%,100%{opacity:.25;transform:scale(.975)} 45%{opacity:1;transform:scale(1.012)}}
-@keyframes m13-breathe-f{0%,100%{opacity:.25;transform:scale(.975)} 15%{opacity:.5} 18%{opacity:.4} 22%{opacity:.62} 30%{opacity:.55} 45%{opacity:1;transform:scale(1.012)}
+/* на вдохе свет не отходит от края карточки (было scale 1.012 — между карточкой и светом проступала светлая щель, её замечание 31.10) */
+@keyframes m13-breathe{0%,100%{opacity:.25;transform:scale(.975)} 45%{opacity:1;transform:scale(1)}}
+@keyframes m13-breathe-f{0%,100%{opacity:.25;transform:scale(.975)} 15%{opacity:.5} 18%{opacity:.4} 22%{opacity:.62} 30%{opacity:.55} 45%{opacity:1;transform:scale(1)}
   60%{opacity:.8} 63%{opacity:.9} 67%{opacity:.7} 80%{opacity:.5} 83%{opacity:.58}}
 .m13-big-stage.m13-glow-live::before{content:"";position:absolute;inset:0;border-radius:22px;pointer-events:none;
   box-shadow:0 calc(var(--m13-gy)*32px*var(--m13-gk)) calc(56px*var(--m13-gk)) calc(12px*var(--m13-gk)*var(--m13-gsp)) var(--m13-glow);
@@ -2417,21 +2418,28 @@ body.m13-locked{overflow:hidden}
 .m13-kask.is-smoke span:nth-child(odd){transform:translate(-6px,-30px) scale(1.18) rotate(-4deg)}
 .m13-kask.is-gone{max-height:0!important;margin:0}
 @media (prefers-reduced-motion:reduce){.m13-kask span{transition-duration:.4s;transition-delay:0s!important}}
-/* Контур «Огонь» (её слова 31.10: по краю будто что-то горит — отсылка к костру): тёплый отсвет мерцает по краю, снизу поднимаются искорки */
-.m13-rim--fire .m13-rim-fire{overflow:hidden;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,170,80,.9),inset 0 -14px 22px -10px rgba(255,110,30,.75),inset 0 0 16px -2px rgba(255,140,50,.5);
+/* Контур «Огонь» (её слова 31.10: по краю будто что-то горит — отсылка к костру): тёплый отсвет мерцает по краю (сильнее снизу), снизу поднимаются искры.
+   Без светлой линии по самой кромке — на светлом фоне она читалась серой полосой (её замечание 31.10) */
+.m13-rim--fire .m13-rim-fire{overflow:hidden;pointer-events:none;
+  box-shadow:inset 0 -30px 34px -16px rgba(255,96,16,.85),inset 0 0 28px -8px rgba(255,118,36,.7),inset 0 0 0 1px rgba(214,84,20,.55);
   animation:m13-fire-fl 3.1s ease-in-out infinite}
-.m13-rim--fire .m13-rim-fire + .m13-rim-fire{box-shadow:inset 0 0 0 1.5px rgba(255,210,120,.55),inset 0 -6px 12px -4px rgba(255,200,90,.6);animation:m13-fire-fl2 1.7s ease-in-out infinite}
-.m13-rim--fire .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire::after{content:"";position:absolute;left:0;right:0;bottom:0;height:70%;
-  background:radial-gradient(circle at 12% 100%,#ffd38a 0 1.2px,transparent 2px),radial-gradient(circle at 37% 100%,#ffb560 0 1px,transparent 1.8px),
-    radial-gradient(circle at 63% 100%,#ffe0a0 0 1.3px,transparent 2.1px),radial-gradient(circle at 86% 100%,#ffb05a 0 1px,transparent 1.8px);
-  animation:m13-fire-sp 4.2s linear infinite;opacity:0}
-.m13-rim--fire .m13-rim-fire::after{animation-delay:2.1s;transform:scaleX(-1)}
-.m13-rim--fire .m13-rim-fire + .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire + .m13-rim-fire::after{content:none}
-@keyframes m13-fire-fl{0%,100%{opacity:.7}18%{opacity:1}31%{opacity:.82}47%{opacity:.95}63%{opacity:.75}80%{opacity:1}}
-@keyframes m13-fire-fl2{0%,100%{opacity:.3}25%{opacity:.8}50%{opacity:.45}70%{opacity:.9}}
-@keyframes m13-fire-sp{0%{opacity:0;transform:translateY(0)}12%{opacity:1}70%{opacity:.8}100%{opacity:0;transform:translateY(-70%)}}
-.m13-rim--fire .m13-rim-fire::after{animation-name:m13-fire-sp2}
-@keyframes m13-fire-sp2{0%{opacity:0;transform:scaleX(-1) translateY(0)}12%{opacity:1}70%{opacity:.8}100%{opacity:0;transform:scaleX(-1) translateY(-70%)}}
+.m13-rim--fire .m13-rim-fire + .m13-rim-fire{box-shadow:inset 0 -14px 20px -8px rgba(255,186,70,.9),inset 0 0 14px -6px rgba(255,160,60,.6);animation:m13-fire-fl2 1.7s ease-in-out infinite}
+.m13-rim--fire .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire::after{content:"";position:absolute;left:0;right:0;bottom:0;height:85%;
+  background:radial-gradient(circle at 7% 100%,#ffd38a 0 1.8px,transparent 2.8px),radial-gradient(circle at 21% 100%,#ffa24a 0 1.4px,transparent 2.4px),
+    radial-gradient(circle at 34% 100%,#ffe2a0 0 2px,transparent 3px),radial-gradient(circle at 48% 100%,#ffb560 0 1.3px,transparent 2.3px),
+    radial-gradient(circle at 61% 100%,#ffd38a 0 1.8px,transparent 2.8px),radial-gradient(circle at 74% 100%,#ff9a40 0 1.5px,transparent 2.5px),
+    radial-gradient(circle at 87% 100%,#ffe0a0 0 2px,transparent 3px),radial-gradient(circle at 96% 100%,#ffb05a 0 1.3px,transparent 2.3px);
+  filter:drop-shadow(0 0 2px rgba(255,150,50,.9));animation:m13-fire-sp 3.4s linear infinite;opacity:0}
+.m13-rim--fire .m13-rim-fire::after{animation:m13-fire-sp2 4.3s linear 1.6s infinite}
+.m13-rim--fire .m13-rim-fire + .m13-rim-fire::before{left:4%;animation-duration:2.9s;animation-delay:.9s}
+.m13-rim--fire .m13-rim-fire + .m13-rim-fire::after{left:-3%;animation-duration:3.8s;animation-delay:2.4s}
+@keyframes m13-fire-fl{0%,100%{opacity:.72}18%{opacity:1}31%{opacity:.84}47%{opacity:.96}63%{opacity:.78}80%{opacity:1}}
+@keyframes m13-fire-fl2{0%,100%{opacity:.35}25%{opacity:.85}50%{opacity:.5}70%{opacity:.95}}
+@keyframes m13-fire-sp{0%{opacity:0;transform:translateY(0)}10%{opacity:1}65%{opacity:.85}100%{opacity:0;transform:translateY(-75%)}}
+@keyframes m13-fire-sp2{0%{opacity:0;transform:scaleX(-1) translateY(0)}10%{opacity:1}65%{opacity:.85}100%{opacity:0;transform:scaleX(-1) translateY(-75%)}}
+/* у огня свой край: обычный контур (у ноября — «Леденец» со светлыми бликами) поверх огня читался серой полосой — прячем */
+.m13-rim--fire > .m13-rim,.m13-rim--fire > .m13-rim-zone{display:none}
+/* открытая карточка: искры — только у нижнего края, текст не задевают */
+.m13-big-card .m13-rim--fire .m13-rim-fire::before,.m13-big-card .m13-rim--fire .m13-rim-fire::after{height:26%}
 @media (prefers-reduced-motion:reduce){.m13-rim--fire .m13-rim-fire,.m13-rim--fire .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire::after{animation:none}}
 .m13-hush .m13-page .m13-rim-fire,.m13-hush .m13-page .m13-rim-fire::before,.m13-hush .m13-page .m13-rim-fire::after{animation-play-state:paused}
-.m13-big-card .m13-rim--fire .m13-rim-fire::before,.m13-big-card .m13-rim--fire .m13-rim-fire::after{content:none}
