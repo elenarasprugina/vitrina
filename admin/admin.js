@@ -3870,6 +3870,22 @@
   // Автопилот (её «панель ведёт сама», 19.10): сам касается в окне по сценарию — дверь/камень → Карта дня → глубже → следующий день.
   // Звук не пишем, файл никуда не уходит.
   var FILM_W = 1080, FILM_H = 1920, FILM_MAX = 300;
+  // Указатель в окне ролика (её выбор 30.10): кончик пера / звёздочка палочки / центр точки — там, где мышка
+  var FILM_PTR_OPTS = [['pen', 'Перо'], ['wand', 'Волшебная палочка'], ['dot', 'Светлая точка'], ['none', 'Не показывать (только касания)'], ['mouse', 'Обычная мышка']];
+  var FILM_PTR = {
+    pen: '<svg width="46" height="48" viewBox="0 0 46 48"><path d="M2 46C10 34 18 22 30 10C34 6 40 3 44 2C43 8 40 14 36 18C30 24 22 28 14 33C10 36 6 40 2 46Z" fill="rgba(255,255,255,.94)"/>' +
+      '<path d="M2 46L36 12" stroke="rgba(150,118,66,.85)" stroke-width="1.3" fill="none"/><path d="M20 28l6 1M24 23l6 1M28 18l6 1" stroke="rgba(150,118,66,.45)" stroke-width="1"/></svg>',
+    wand: '<svg width="48" height="48" viewBox="0 0 48 48"><path d="M8 8L44 44" stroke="#2b1d10" stroke-width="4.5" stroke-linecap="round"/><path d="M8 8L16 16" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>' +
+      '<path d="M4 -1L5.4 2.6L9 4L5.4 5.4L4 9L2.6 5.4L-1 4L2.6 2.6Z" fill="#fff6d8"/></svg>',
+    dot: '<i></i>'
+  };
+  var FILM_PTR_CSS = 'html.m13f-nocur,html.m13f-nocur *{cursor:none!important}' +
+    '.m13f-ptr{position:fixed;z-index:2147483647;left:-99px;top:-99px;width:0;height:0;pointer-events:none}' +
+    '.m13f-ptr svg,.m13f-ptr i{position:absolute;display:block;filter:drop-shadow(0 0 1px rgba(0,0,0,.6)) drop-shadow(0 1px 3px rgba(0,0,0,.25)) drop-shadow(0 0 6px rgba(255,255,255,.6))}' +
+    '.m13f-ptr--pen svg{left:-2px;top:-46px}.m13f-ptr--wand svg{left:-4px;top:-4px}' +
+    '.m13f-ptr--dot i{left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.92);filter:none;box-shadow:0 0 0 1.5px rgba(0,0,0,.3),0 1px 4px rgba(0,0,0,.25),0 0 14px 4px rgba(255,255,255,.55)}' +
+    '.m13f-sp{position:fixed;z-index:2147483646;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:0 0 1px 1px rgba(150,100,30,.55),0 0 6px 2px rgba(255,205,120,.95);pointer-events:none;animation:m13fSp .9s ease-out forwards}' +
+    '@keyframes m13fSp{from{opacity:1;transform:none}to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}';
   function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
   // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
   function filmForget() {
@@ -3899,7 +3915,7 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, title: true, mark: true, dayCap: true, caption: '' };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, title: true, mark: true, dayCap: true, caption: '' };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
     var WHAT = filmWhat(r);
     if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
@@ -3923,11 +3939,15 @@
     }
     // Страница витрины в окне: тот же рендерер, что в «Посмотреть» (месяц — m:<id>)
     function mountSite(w, d, v) {
-      var m = d.getElementById('m13'), sid = DATA.settings.currentShowcase;
+      var m = d.getElementById('m13'), sid = DATA.settings.currentShowcase, soon = null;
       if (!m || !w.M13 || !w.M13.mount) return;
       if (v.indexOf('m:') === 0) { sid = v.slice(2); v = 'showcase'; }
+      // Месяца ещё нет в черновике — заглушка «скоро», как на сайте
+      if (v === 'showcase' && !DATA.showcases[sid]) { soon = sid; sid = DATA.settings.currentShowcase; v = 'soon'; }
       w.M13.previewGo = function (x) { mountSite(w, d, x); };
-      w.M13.mount(m, { base: '../', view: v, noHistory: true, onBack: function () { mountSite(w, d, 'showcase'); }, data: previewData(sid) });
+      // Её просьба 30.10: стрелки месяцев в окне ролика открывают соседний месяц здесь же (в «Посмотреть» — по-прежнему никуда)
+      w.M13.previewMonth = function (id) { mountSite(w, d, 'm:' + id); w.scrollTo(0, 0); };
+      w.M13.mount(m, { base: '../', view: v, noHistory: true, soon: soon, onBack: function () { mountSite(w, d, 'showcase'); }, data: previewData(sid) });
     }
     function reload() { load(st.day); }
     // Её просьба 30.10: страница сайта, которая обычно открывается в новом окне («Мой цветок» → «Узоры»), открывается здесь же —
@@ -3946,6 +3966,36 @@
       }, true);
     }
     function dateOf(d) { return window.M13R ? window.M13R.dateOf(r, d) : ''; }
+    // Её просьба 30.10: вместо стрелки-ручки мышки — перо, волшебная палочка или точка, за ними искорки.
+    // Настоящая мышка в окне скрыта (cursor:none), её место занимает свой указатель — его и снимает запись.
+    function pointer(d) {
+      var p = d.createElement('div'), last = 0, lx = -99, ly = -99;
+      p.className = 'm13f-ptr'; p.hidden = true; d.body.appendChild(p);
+      function kind() { return FILM_PTR[st.ptr] ? st.ptr : ''; }
+      function look() {
+        var k = kind();
+        d.documentElement.classList.toggle('m13f-nocur', st.ptr !== 'mouse');
+        p.className = 'm13f-ptr m13f-ptr--' + (k || 'none'); p.innerHTML = k ? FILM_PTR[k] : '';
+      }
+      function spark(x, y, big) {
+        var t = d.createElement('i'), z = big ? 3 + Math.random() * 4 : 2 + Math.random() * 3, a = Math.random() * 6.283, r0 = big ? 14 + Math.random() * 22 : 4 + Math.random() * 8;
+        t.className = 'm13f-sp'; t.style.left = x + 'px'; t.style.top = y + 'px'; t.style.width = t.style.height = z + 'px';
+        t.style.setProperty('--dx', Math.round(Math.cos(a) * r0) + 'px'); t.style.setProperty('--dy', Math.round(Math.sin(a) * r0 + (big ? 0 : 10)) + 'px');
+        d.body.appendChild(t); setTimeout(function () { t.remove(); }, 900);
+      }
+      function at(e, down) {
+        p.style.left = e.clientX + 'px'; p.style.top = e.clientY + 'px'; p.hidden = !kind();
+        if (!st.spark || st.ptr === 'mouse' || !kind()) return;
+        if (down) { for (var i = 0; i < 8; i++) spark(e.clientX, e.clientY, true); return; }
+        var now = Date.now(), dd = Math.abs(e.clientX - lx) + Math.abs(e.clientY - ly);
+        if (now - last > 45 && dd > 5) { last = now; lx = e.clientX; ly = e.clientY; spark(e.clientX, e.clientY); }
+      }
+      look(); ptrLook = look;
+      d.addEventListener('pointermove', function (e) { at(e); }, true);
+      d.addEventListener('pointerdown', function (e) { at(e, true); }, true);
+      d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; });
+    }
+    var ptrLook = function () {};
     // Кружок касания и «без плашки проверки во время записи и прогона» — прямо в страницу окна (тот же сайт)
     function hush() { try { fr.contentDocument.documentElement.classList.toggle('m13f-rec', !!(REC || AP)); } catch (e) {} }
     fr.addEventListener('load', function () {
@@ -3955,9 +4005,9 @@
       s.textContent = '.m13f-tap{position:fixed;z-index:2147483647;left:0;top:0;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;' +
         'border:2px solid rgba(255,255,255,.95);background:rgba(255,255,255,.3);box-shadow:0 0 0 1px rgba(0,0,0,.2),0 0 16px rgba(255,255,255,.55);' +
         'pointer-events:none;animation:m13fTap .6s ease-out forwards}@keyframes m13fTap{from{transform:scale(.45);opacity:1}to{transform:scale(1.5);opacity:0}}' +
-        'html.m13f-rec .ys-debug{display:none!important}';
+        'html.m13f-rec .ys-debug{display:none!important}' + FILM_PTR_CSS;
       d.head.appendChild(s);
-      hush(); stay(fr.contentWindow, d);
+      hush(); stay(fr.contentWindow, d); pointer(d);
       if (!isR() && !/^uz:/.test(st.what) && d.URL === 'about:srcdoc') mountSite(fr.contentWindow, d, st.what);
       d.addEventListener('pointerdown', function (e) {
         if (!st.tap) return;
@@ -4366,9 +4416,9 @@
       s.addEventListener('change', function () { st[key] = s.value; if (after) after(); });
       return s;
     }
-    function chk(key, label) {
+    function chk(key, label, after) {
       var c = el('input', { type: 'checkbox', checked: st[key] });
-      c.addEventListener('change', function () { st[key] = c.checked; });
+      c.addEventListener('change', function () { st[key] = c.checked; if (after) after(); });
       return el('label', { class: 'a-jwho-i' }, [c, el('span', { text: label })]);
     }
     var days = [['', 'По сегодняшней дате']].concat(r.days.map(function (d, i) { return [String(i + 1), 'День ' + (i + 1) + (window.M13R ? ' · ' + dateOf(i + 1) : '')]; }));
@@ -4418,7 +4468,8 @@
       el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↺ Начать заново', onclick: function () { if (AP) return; filmForget(); reload(); toast('Новый придуманный участник: двери снова закрыты, карты не открыты.'); } })]),
       el('p', { class: 'a-hint', text: 'В окне — придуманный участник: его двери, карты и код хранятся отдельно, ваши настоящие отметки на этом компьютере не меняются. Плашка проверки внизу окна во время записи прячется.' }),
       field('Скорость ролика', spSel = selF(FILM_SPEED, 'speed'), 'Ролик идёт быстрее, чем вы проходите: × 2 — минута прохода станет 30 секундами.'),
-      el('div', { class: 'a-film-opts' }, [chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
+      field('Указатель', selF(FILM_PTR_OPTS, 'ptr', function () { ptrLook(); }), 'Что видно вместо мышки в окне и в ролике.'),
+      el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
       el('div', { class: 'a-film-rec' }, [bTry, bRec, bPause, bStop, clock]),
       res]);
