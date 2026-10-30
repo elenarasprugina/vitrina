@@ -1793,7 +1793,7 @@
     var ov = S.root.querySelector('#m13-overlay');
     S.root.querySelector('#m13-front').addEventListener('click', function () {
       S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
-      var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0; kaskGo(bc);
+      var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0;
       var fv = S.root.querySelector('#m13-front video'); if (fv) fv.pause();
     });
     S.root.querySelector('#m13-unflip').addEventListener('click', function () {
@@ -1803,16 +1803,19 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) closeTop(); });
   }
 
-  // Вопрос дня у костра на обороте маршрута: берётся из «Узоров» (костёр → «13 дней»; не сохраняла — черновик из assets/koster.js)
+  // Фраза костра на обороте маршрута (её слова 31.10: не вопрос дня, а «…что хочешь отдать огню») — та же, что над листком у костра
+  // («Узоры» → Тексты → «Над листком»); показывается в дни костра («13 дней»; не сохраняла — черновик из assets/koster.js)
+  var KASK = 'Здесь ты можешь написать то, что хочешь отдать огню';
   function kosterDays() {
     if (S.kDays) return S.kDays;
     S.kDays = fetch(S.base + 'data/uzory.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (u) {
-      var it = (u.items || []).filter(function (x) { return x && x.space && x.space.koster; })[0], d = it && it.space.koster.days;
-      if (d && d.length) return d;
+      var it = (u.items || []).filter(function (x) { return x && x.space && x.space.koster; })[0], d = it && it.space.koster.days,
+        ask = String((it && it.ui && it.ui.kAsk) || '').trim() || KASK;
+      if (d && d.length) return { days: d, ask: ask };
       return new Promise(function (ok) {
-        if (window.M13_KOSTER_DAYS) return ok(window.M13_KOSTER_DAYS);
+        if (window.M13_KOSTER_DAYS) return ok({ days: window.M13_KOSTER_DAYS, ask: ask });
         var sc = document.createElement('script'); sc.src = S.base + 'assets/koster.js?v=' + Date.now().toString(36).slice(0, 5);
-        sc.onload = function () { ok(window.M13_KOSTER_DAYS || []); }; sc.onerror = function () { ok([]); };
+        sc.onload = function () { ok({ days: window.M13_KOSTER_DAYS || [], ask: ask }); }; sc.onerror = function () { ok({ days: [], ask: ask }); };
         document.head.appendChild(sc);
       });
     });
@@ -1822,23 +1825,85 @@
     scope.classList.remove('m13-kmode');
     var p = scope.querySelector('[data-m13-kask]'); if (!p) return;
     scope.classList.add('m13-kmode');
+    [].forEach.call(scope.querySelectorAll('.m13-formats .m13-format:not(.is-closed)'), emberBtn);
     var t = today(), iso = t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
-    kosterDays().then(function (days) {
-      var d = (days || []).filter(function (x) { return x && x.date === iso; })[0], q = d && String(d.ask || '').trim();
+    kosterDays().then(function (K) {
+      var d = (K.days || []).filter(function (x) { return x && x.date === iso; })[0], q = d && K.ask;
       if (!q || !p.isConnected) return;
-      p.innerHTML = q.split(/\s+/).map(function (w, i) { return '<span style="transition-delay:' + (i * .07).toFixed(2) + 's">' + txt(w) + '</span>'; }).join(' ');
-      p.hidden = false; p.m13n = q.length;
-      if (S.root.querySelector('#m13-bigcard').classList.contains('is-flipped')) kaskGo(scope);
+      p.textContent = q; p.hidden = false;   // приглашение остаётся на месте (вопрос раньше таял дымом)
     });
   }
-  // через 6–11 с (по длине вопроса) после переворота вопрос рассеивается, как дым, по словам и место под ним плавно сходится
-  function kaskGo(scope) {
-    var p = scope.querySelector('[data-m13-kask]'); if (!p || p.hidden || p.m13t) return;
-    p.m13t = setTimeout(function () {
-      if (!p.isConnected) return;
-      p.style.maxHeight = p.offsetHeight + 'px'; p.classList.add('is-smoke');
-      setTimeout(function () { p.classList.add('is-gone'); }, 2600);
-    }, Math.max(6000, Math.min(11000, 3500 + p.m13n * 60)));
+  /* Кнопка формата у костра горит по-настоящему (её слова 31.10: «реально сгорает», а не огонёк бегает по кругу):
+     кнопка нарисована на холсте, огонь занимается с края и с одного угла, кромка тлеет и мерцает, сгоревшее чернеет и осыпается,
+     вверх летят искорки. Прогорает только край — до надписи огонь не доходит. */
+  function emberBtn(btn) {
+    if (btn.querySelector('.m13-burn')) return;
+    var cv = document.createElement('canvas'); cv.className = 'm13-burn'; cv.setAttribute('aria-hidden', 'true');
+    var bg = getComputedStyle(btn).backgroundColor;
+    btn.insertBefore(cv, btn.firstChild); btn.classList.add('m13-burnbtn');
+    var g = cv.getContext('2d'), still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var PAD = { t: 34, s: 10, b: 6 }, B = null, sparks = [], t0 = 0, last = 0;
+    function setup() {
+      var w = btn.offsetWidth, h = btn.offsetHeight; if (!w || !h) return false;
+      var k = Math.min(2, window.devicePixelRatio || 1), W = Math.round(w * k), H = Math.round(h * k), cs = getComputedStyle(btn);
+      cv.width = Math.round((w + PAD.s * 2) * k); cv.height = Math.round((h + PAD.t + PAD.b) * k);
+      cv.style.width = (w + PAD.s * 2) + 'px'; cv.style.height = (h + PAD.t + PAD.b) + 'px';
+      // сама кнопка: цвет, рамка, скругление — как у неё в обычном виде
+      var bc = document.createElement('canvas'); bc.width = W; bc.height = H;
+      var c = bc.getContext('2d'), r = (parseFloat(cs.borderTopLeftRadius) || 12) * k;
+      c.beginPath(); c.moveTo(r, 0); c.arcTo(W, 0, W, H, r); c.arcTo(W, H, 0, H, r); c.arcTo(0, H, 0, 0, r); c.arcTo(0, 0, W, 0, r); c.closePath();
+      c.fillStyle = bg && !/rgba\(.*,\s*0\)|transparent/.test(bg) ? bg : '#fff'; c.fill();
+      c.lineWidth = 1.4 * k; c.strokeStyle = 'rgba(120,70,40,.42)'; c.stroke();
+      var img = c.getImageData(0, 0, W, H), o = new Uint8ClampedArray(img.data), T = new Float32Array(W * H);
+      // где кромка пройдёт раньше: от края внутрь, у одного нижнего угла — глубже, неровно (шум)
+      var gv = [], G = 9, i, x, y, cx = Math.random() < .5 ? 0 : 1;
+      for (i = 0; i < (G + 2) * (G + 2); i++) gv.push(Math.random());
+      function nz(u, v) {
+        var gx = u * G, gy = v * G, i0 = Math.floor(gx), j0 = Math.floor(gy), fx = gx - i0, fy = gy - j0, s2 = G + 2;
+        fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+        return gv[j0 * s2 + i0] * (1 - fx) * (1 - fy) + gv[j0 * s2 + i0 + 1] * fx * (1 - fy) + gv[(j0 + 1) * s2 + i0] * (1 - fx) * fy + gv[(j0 + 1) * s2 + i0 + 1] * fx * fy;
+      }
+      for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+        var u = x / W, v = y / H, d = Math.min(u, 1 - u, v, 1 - v), dc = Math.sqrt((u - cx) * (u - cx) + (v - 1) * (v - 1));
+        T[y * W + x] = d + .14 * nz(u, v) - .1 * Math.max(0, 1 - dc / .45);
+      }
+      B = { W: W, H: H, k: k, img: img, o: o, T: T, c: c, bc: bc };
+      return true;
+    }
+    function draw(ts) {
+      if (!cv.isConnected) return;
+      requestAnimationFrame(draw);
+      if (!B && !setup()) return;
+      if (!btn.offsetParent) return;
+      if (!t0) t0 = last = ts;
+      var dt = Math.min(.05, (ts - last) / 1000), tt = (ts - t0) / 1000; last = ts;
+      // огонь съедает край медленно и останавливается, не дойдя до надписи; кромка дышит
+      var P = still ? .13 : .02 + .11 * (1 - Math.exp(-tt / 7)), d = B.img.data, o = B.o, T = B.T, n = B.W * B.H, j, q, fl;
+      for (var i = 0; i < n; i++) {
+        q = P - T[i]; j = i * 4;
+        if (o[j + 3] === 0) continue;
+        if (q < -.035) { d[j] = o[j]; d[j + 1] = o[j + 1]; d[j + 2] = o[j + 2]; d[j + 3] = o[j + 3]; }
+        else if (q < 0) { var s = 1 + q / .035; d[j] = o[j] * (1 - .35 * s); d[j + 1] = o[j + 1] * (1 - .55 * s); d[j + 2] = o[j + 2] * (1 - .75 * s); d[j + 3] = o[j + 3]; }   // буреет
+        else if (q < .016) { fl = .7 + .3 * Math.sin(tt * 7 + T[i] * 300); d[j] = 255; d[j + 1] = (120 + 110 * (1 - q / .016)) * fl; d[j + 2] = (30 + 70 * (1 - q / .016)) * fl; d[j + 3] = o[j + 3]; }   // тлеющая кромка
+        else if (q < .04) { fl = Math.max(0, Math.sin(tt * 3 + T[i] * 900)) * .45; d[j] = 30 + 130 * fl; d[j + 1] = 18 + 30 * fl; d[j + 2] = 12; d[j + 3] = o[j + 3] * (1 - (q - .016) / .024 * .6); }   // уголь, местами вспыхивает
+        else d[j + 3] = 0;
+      }
+      B.c.putImageData(B.img, 0, 0);
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+      g.drawImage(B.bc, PAD.s * B.k, PAD.t * B.k);
+      if (still) return;
+      // искорки и пепел — с тлеющей кромки вверх
+      if (Math.random() < dt * 9) for (var tr = 0; tr < 30; tr++) {
+        var xx = Math.floor(Math.random() * B.W), yy = Math.floor(Math.random() * B.H), qq = P - T[yy * B.W + xx];
+        if (qq > 0 && qq < .016 && o[(yy * B.W + xx) * 4 + 3]) { sparks.push({ x: PAD.s * B.k + xx, y: PAD.t * B.k + yy, vx: (Math.random() - .5) * 14 * B.k, vy: -(16 + Math.random() * 26) * B.k, l: 0, L: .9 + Math.random() * 1.2, ash: Math.random() < .3 }); break; }
+      }
+      sparks = sparks.filter(function (p) {
+        p.l += dt; p.x += (p.vx + Math.sin(p.l * 6) * 8 * B.k) * dt; p.y += p.vy * dt; var a = 1 - p.l / p.L; if (a <= 0) return false;
+        g.fillStyle = p.ash ? 'rgba(70,60,55,' + (a * .6).toFixed(2) + ')' : 'rgba(255,' + Math.round(150 + 80 * a) + ',70,' + a.toFixed(2) + ')';
+        g.beginPath(); g.arc(p.x, p.y, (p.ash ? 1.1 : 1.3 * a + .5) * B.k, 0, 6.283); g.fill(); return true;
+      });
+    }
+    requestAnimationFrame(draw);
   }
   function sameSite(url) {
     try { var u = new URL(url, location.href), b = new URL(S.base, location.href); return u.origin === location.origin && u.pathname.indexOf(b.pathname) === 0; } catch (e) { return false; }
