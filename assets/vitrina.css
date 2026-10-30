@@ -2412,7 +2412,12 @@ body.m13-locked{overflow:hidden}
   -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);letter-spacing:.03em}
 .m13-thumb--okno .m13-pat,.m13-thumb--okno .m13-shade{display:none}
 /* Вопрос дня у костра на обороте маршрута (её решение 31.10): под «Сегодня день N», тает дымом по словам */
-.m13-kask{flex-shrink:0;margin:2px 0 0;font-style:italic;font-size:1.12em;line-height:1.35;text-wrap:balance}
+.m13-kask{flex-shrink:0;margin:2px 0 0;font-style:italic;font-size:1.12em;line-height:1.35;text-wrap:balance;overflow:hidden;transition:max-height 1.4s ease .2s,margin 1.4s ease .2s}
+.m13-kask span{display:inline-block;transition:opacity 1.8s ease,filter 1.8s ease,transform 2.4s cubic-bezier(.3,.1,.3,1)}
+.m13-kask.is-smoke span{opacity:0;filter:blur(8px);transform:translateY(-22px) scale(1.12)}
+.m13-kask.is-smoke span:nth-child(odd){transform:translate(-6px,-30px) scale(1.18) rotate(-4deg)}
+.m13-kask.is-gone{max-height:0!important;margin:0}
+@media (prefers-reduced-motion:reduce){.m13-kask span{transition-duration:.4s;transition-delay:0s!important}}
 /* Контур «Огонь» (её слова 31.10: отсылка к костру): снизу поднимаются искры.
    Без светлой линии по самой кромке — на светлом фоне она читалась серой полосой (её замечание 31.10) */
 /* её слова 31.10: оранжевое свечение на розовом — «не то»; у карточки остаются только искорки, тлеет кнопка «Проходи к огню» */
@@ -2434,10 +2439,11 @@ body.m13-locked{overflow:hidden}
 .m13-big-card .m13-rim--fire .m13-rim-fire::before,.m13-big-card .m13-rim--fire .m13-rim-fire::after{height:26%}
 @media (prefers-reduced-motion:reduce){.m13-rim--fire .m13-rim-fire,.m13-rim--fire .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire::after{animation:none}}
 .m13-hush .m13-page .m13-rim-fire,.m13-hush .m13-page .m13-rim-fire::before,.m13-hush .m13-page .m13-rim-fire::after{animation-play-state:paused}
-/* Оборот маршрута у костра (её слова 31.10): «Сегодня день», фраза «…отдать огню» и формат — одним блоком по центру, фразе — воздух сверху и снизу;
+/* Оборот маршрута у костра (её слова 31.10): «Сегодня день», вопрос дня и формат — одним блоком по центру, вопросу — воздух сверху и снизу;
    кнопка формата горит по-настоящему — нарисована на холсте .m13-burn (emberBtn в vitrina.js) */
 .m13-kmode .m13-dayrow{justify-content:center;margin-top:auto}
 .m13-kmode .m13-kask{text-align:center;margin:1.1em 0 1.3em}
+.m13-kmode .m13-kask.is-gone{margin:.4em 0}
 .m13-kmode .m13-formats{margin-bottom:auto}
 .m13-kmode .m13-format{position:relative;isolation:isolate;overflow:visible}
 .m13-burnbtn{background:transparent!important;border-color:transparent!important;box-shadow:none!important}

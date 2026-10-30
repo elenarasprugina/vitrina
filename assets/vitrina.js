@@ -1793,7 +1793,7 @@
     var ov = S.root.querySelector('#m13-overlay');
     S.root.querySelector('#m13-front').addEventListener('click', function () {
       S.root.querySelector('#m13-bigcard').classList.add('is-flipped');
-      var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0;
+      var bc = S.root.querySelector('#m13-backc'); bc.scrollTop = 0; kaskGo(bc);
       var fv = S.root.querySelector('#m13-front video'); if (fv) fv.pause();
     });
     S.root.querySelector('#m13-unflip').addEventListener('click', function () {
@@ -1803,19 +1803,16 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) closeTop(); });
   }
 
-  // Фраза костра на обороте маршрута (её слова 31.10: не вопрос дня, а «…что хочешь отдать огню») — та же, что над листком у костра
-  // («Узоры» → Тексты → «Над листком»); показывается в дни костра («13 дней»; не сохраняла — черновик из assets/koster.js)
-  var KASK = 'Здесь ты можешь написать то, что хочешь отдать огню';
+  // Вопрос дня у костра на обороте маршрута: берётся из «Узоров» (костёр → «13 дней»; не сохраняла — черновик из assets/koster.js)
   function kosterDays() {
     if (S.kDays) return S.kDays;
     S.kDays = fetch(S.base + 'data/uzory.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(function (u) {
-      var it = (u.items || []).filter(function (x) { return x && x.space && x.space.koster; })[0], d = it && it.space.koster.days,
-        ask = String((it && it.ui && it.ui.kAsk) || '').trim() || KASK;
-      if (d && d.length) return { days: d, ask: ask };
+      var it = (u.items || []).filter(function (x) { return x && x.space && x.space.koster; })[0], d = it && it.space.koster.days;
+      if (d && d.length) return d;
       return new Promise(function (ok) {
-        if (window.M13_KOSTER_DAYS) return ok({ days: window.M13_KOSTER_DAYS, ask: ask });
+        if (window.M13_KOSTER_DAYS) return ok(window.M13_KOSTER_DAYS);
         var sc = document.createElement('script'); sc.src = S.base + 'assets/koster.js?v=' + Date.now().toString(36).slice(0, 5);
-        sc.onload = function () { ok({ days: window.M13_KOSTER_DAYS || [], ask: ask }); }; sc.onerror = function () { ok({ days: [], ask: ask }); };
+        sc.onload = function () { ok(window.M13_KOSTER_DAYS || []); }; sc.onerror = function () { ok([]); };
         document.head.appendChild(sc);
       });
     });
@@ -1827,10 +1824,12 @@
     scope.classList.add('m13-kmode');
     [].forEach.call(scope.querySelectorAll('.m13-formats .m13-format:not(.is-closed)'), emberBtn);
     var t = today(), iso = t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
-    kosterDays().then(function (K) {
-      var d = (K.days || []).filter(function (x) { return x && x.date === iso; })[0], q = d && K.ask;
+    kosterDays().then(function (days) {
+      var d = (days || []).filter(function (x) { return x && x.date === iso; })[0], q = d && String(d.ask || '').trim();
       if (!q || !p.isConnected) return;
-      p.textContent = q; p.hidden = false;   // приглашение остаётся на месте (вопрос раньше таял дымом)
+      p.innerHTML = q.split(/\s+/).map(function (w, i) { return '<span style="transition-delay:' + (i * .07).toFixed(2) + 's">' + txt(w) + '</span>'; }).join(' ');
+      p.hidden = false; p.m13n = q.length;
+      if (S.root.querySelector('#m13-bigcard').classList.contains('is-flipped')) kaskGo(scope);
     });
   }
   /* Кнопка формата у костра горит по-настоящему (её слова 31.10: «реально сгорает», а не огонёк бегает по кругу):
@@ -1904,6 +1903,15 @@
       });
     }
     requestAnimationFrame(draw);
+  }
+  // через 6–11 с (по длине вопроса) после переворота вопрос рассеивается, как дым, по словам и место под ним плавно сходится
+  function kaskGo(scope) {
+    var p = scope.querySelector('[data-m13-kask]'); if (!p || p.hidden || p.m13t) return;
+    p.m13t = setTimeout(function () {
+      if (!p.isConnected) return;
+      p.style.maxHeight = p.offsetHeight + 'px'; p.classList.add('is-smoke');
+      setTimeout(function () { p.classList.add('is-gone'); }, 2600);
+    }, Math.max(6000, Math.min(11000, 3500 + p.m13n * 60)));
   }
   function sameSite(url) {
     try { var u = new URL(url, location.href), b = new URL(S.base, location.href); return u.origin === location.origin && u.pathname.indexOf(b.pathname) === 0; } catch (e) { return false; }
