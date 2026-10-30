@@ -1060,7 +1060,8 @@
     "shineSpeed": "slow",
     "waveSpeed": "normal",
     "confettiCount": "many",
-    "confettiShape": "round"
+    "confettiShape": "round",
+    "navPos": "bottom"
   },
   "kinLook": {}
 }
