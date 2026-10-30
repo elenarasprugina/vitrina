@@ -3871,6 +3871,15 @@
   var FILM_HOW = [['hand', 'Сама — я прохожу, панель записывает'], ['path', 'Весь путь коротко — дни подряд, дверь и Карта дня'],
     ['day', 'Один день изнутри — дверь, карта, глубже, спокойно'], ['teaser', 'Тизер — три дня и финал']];
   var FILM_SPEED = [['1', 'Как есть'], ['1.5', 'Быстрее × 1,5'], ['2', 'Быстрее × 2'], ['3', 'Быстрее × 3']];
+  // Что снимать (её просьба 30.10): страница маршрута или любая страница сайта — витрина, месяц, кин, «Узоры» (черновик из панели)
+  function filmWhat(r) {
+    var cur = DATA.showcases[DATA.settings.currentShowcase], U = DATA.uzory || {};
+    return [['route', 'Страница маршрута «' + (r.title || r.id) + '»'], ['showcase', 'Витрина' + (cur ? ' — ' + cur.title : '')]]
+      .concat(Object.keys(DATA.showcases).sort().map(function (id) { return ['m:' + id, 'Месяц · ' + DATA.showcases[id].title]; }))
+      .concat([['kin', 'Узнать свой кин'], ['uz:', (U.title || 'Узоры') + ' — список']])
+      .concat((U.items || []).map(function (x) { return ['uz:' + x.id, 'Сад · ' + (x.title || x.id)]; }))
+      .concat([['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Примеры'], ['oferta', 'Условия и цены']]);
+  }
   function filmPreset(st, r, k) {
     var last = r.days.length, all = [], i;
     for (i = 1; i < last; i++) all.push(i);
@@ -3881,14 +3890,36 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, title: true, mark: true, dayCap: true, caption: '' };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, title: true, mark: true, dayCap: true, caption: '' };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
+    var WHAT = filmWhat(r);
+    if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
+    function isR() { return st.what === 'route'; }
+    function whatName() {
+      if (isR()) return r.title || '';
+      var o = WHAT.filter(function (x) { return x[0] === st.what; })[0], t = o ? o[1] : '';
+      return t.replace(/^(Месяц|Сад) · /, '').replace(/^Витрина — /, '').replace(/ — список$/, '');
+    }
     var REC = null, AP = null, nonce = 0, res = el('div', { class: 'a-film-res' });
     var h = Math.max(460, Math.min(800, window.innerHeight - 130)), w = Math.round(h * 9 / 16);
     var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, style: 'width:' + w + 'px;height:' + h + 'px' });
     function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady && e.source === fr.contentWindow) send(); }
-    function load(day) { fr.src = '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (day ? '&sim=' + day : '') + '&f=' + (++nonce); }
+    function load(day) {
+      if (isR() || /^uz:/.test(st.what)) {
+        fr.removeAttribute('srcdoc');
+        fr.src = isR() ? '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (day ? '&sim=' + day : '') + '&f=' + (++nonce)
+          : '../uzory/' + (st.what.slice(3) ? encodeURIComponent(st.what.slice(3)) + '/' : '') + '?draft=1&f=' + (++nonce);
+      } else fr.srcdoc = phoneHTML() + '<!--' + (++nonce) + '-->';   // витрина, месяц, кин… — черновик из панели, как «Посмотреть»
+    }
+    // Страница витрины в окне: тот же рендерер, что в «Посмотреть» (месяц — m:<id>)
+    function mountSite(w, d, v) {
+      var m = d.getElementById('m13'), sid = DATA.settings.currentShowcase;
+      if (!m || !w.M13 || !w.M13.mount) return;
+      if (v.indexOf('m:') === 0) { sid = v.slice(2); v = 'showcase'; }
+      w.M13.previewGo = function (x) { mountSite(w, d, x); };
+      w.M13.mount(m, { base: '../', view: v, noHistory: true, onBack: function () { mountSite(w, d, 'showcase'); }, data: previewData(sid) });
+    }
     function reload() { load(st.day); }
     function dateOf(d) { return window.M13R ? window.M13R.dateOf(r, d) : ''; }
     // Кружок касания и «без плашки проверки во время записи и прогона» — прямо в страницу окна (тот же сайт)
@@ -3903,6 +3934,7 @@
         'html.m13f-rec .ys-debug{display:none!important}';
       d.head.appendChild(s);
       hush();
+      if (!isR() && !/^uz:/.test(st.what)) mountSite(fr.contentWindow, d, st.what);
       d.addEventListener('pointerdown', function (e) {
         if (!st.tap) return;
         var t = d.createElement('div'); t.className = 'm13f-tap'; t.style.left = e.clientX + 'px'; t.style.top = e.clientY + 'px';
@@ -3935,8 +3967,8 @@
         shade(x, 0, 640, .62, 0);
         x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.fillStyle = '#fff';
         x.font = '600 76px Georgia, "Times New Roman", serif';
-        filmLines(x, r.title || '', 940).forEach(function (l, i) { x.fillText(l, FILM_W / 2, 230 + i * 92); });
-        var dt = [jDateText(r.start), last ? last + ' дней' : ''].filter(Boolean).join(' · ');
+        filmLines(x, whatName(), 940).forEach(function (l, i) { x.fillText(l, FILM_W / 2, 230 + i * 92); });
+        var dt = isR() ? [jDateText(r.start), last ? last + ' дней' : ''].filter(Boolean).join(' · ') : '';
         if (dt) { x.font = '400 40px -apple-system, "Segoe UI", Roboto, sans-serif'; x.fillText(dt, FILM_W / 2, 150); }
         x.shadowBlur = 0; x.globalAlpha = 1;
       }
@@ -3976,11 +4008,12 @@
     var bTry = el('button', { type: 'button', class: 'a-btn', text: '▶ Прогнать без записи', onclick: function () { if (AP) apStop('Прогон остановлен.'); else apStart(); } });
     var bPause = el('button', { type: 'button', class: 'a-btn', text: '⏸ Пауза', disabled: true, onclick: function () { pause(); } });
     var bStop = el('button', { type: 'button', class: 'a-btn', text: '■ Стоп', disabled: true, onclick: function () { stop(); } });
-    var clock = el('span', { class: 'a-film-clock', text: '0:00' }), auto = st.how !== 'hand';
+    var clock = el('span', { class: 'a-film-clock', text: '0:00' }), auto = isR() && st.how !== 'hand';
     function ui() {
-      auto = st.how !== 'hand';
+      auto = isR() && st.how !== 'hand';
       bRec.disabled = !!(REC || AP); bPause.disabled = bStop.disabled = !REC || !!REC.finishing;
-      bTry.hidden = !auto; bTry.disabled = !!REC; bTry.textContent = AP && !REC ? '■ Остановить прогон' : '▶ Прогнать без записи';
+      bTry.hidden = !auto; bTry.disabled = !!REC;
+      if (whatSel) whatSel.disabled = !!REC; bTry.textContent = AP && !REC ? '■ Остановить прогон' : '▶ Прогнать без записи';
       bPause.textContent = REC && REC.paused ? '▶ Дальше' : '⏸ Пауза';
       clock.classList.toggle('is-on', !!REC && !REC.paused && !REC.cut);
       pv.classList.toggle('is-rec', !!REC);
@@ -4082,7 +4115,7 @@
     function done(R, blob) {
       var url = URL.createObjectURL(blob), dur = (R.slot + 1) / VID_FPS;
       clock.textContent = filmTime(dur);
-      var name = '13mirrors-' + (r.id || 'route') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(dur).replace(':', 'm') + 's.mp4';
+      var name = '13mirrors-' + (isR() ? r.id || 'route' : st.what.replace(':', '-').replace(/-$/, '') || 'site') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(dur).replace(':', 'm') + 's.mp4';
       var vid = el('video', { class: 'a-film-vid', src: url, controls: true, playsinline: true });
       function cover() {
         if (!vid.videoWidth) { toast('Сначала запустите ролик и остановите на нужном кадре.', true); return; }
@@ -4325,8 +4358,11 @@
     }
     var howBox = el('div', { class: 'a-film-opts' });
     function how() {
-      auto = st.how !== 'hand';
-      howBox.replaceChildren.apply(howBox, auto ? [
+      auto = isR() && st.how !== 'hand';
+      routeBox.hidden = !isR();
+      howBox.replaceChildren.apply(howBox, !isR() ? [
+        el('p', { class: 'a-hint', text: 'Листайте и нажимайте в окне, как посетитель: карточки, плашки, кнопки. Панель запишет то, что видно в окне-телефоне. В окне — ваш черновик из панели (как «Посмотреть»).' })
+      ] : auto ? [
         el('p', { class: 'a-hint', text: 'Панель сама касается в окне: дверь или камень → Карта дня' + (st.mode === 'observation' ? '' : ' → глубже (карта, стёклышко, капля)') + ' → следующий день. Сначала «▶ Прогнать без записи» — посмотреть; понравилось — «● Записать», ролик закончится сам. Каждый раз — новый придуманный участник.' }),
         field('Дни', dayChips(), 'День ' + last + ' — это финал, он ниже отдельной галочкой.'),
         el('div', { class: 'a-film-opts' }, [
@@ -4339,16 +4375,19 @@
       ]);
       ui();
     }
-    var spSel = null, side = el('div', { class: 'a-film-side' }, [
-      el('h2', { class: 'a-film-h', text: '🎬 Ролик маршрута' }),
-      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — выберите «Эта вкладка» и «Поделиться».' }),
+    var routeBox = el('div', {}, [
       field('Формат', selF(J_MODES, 'mode', function () { filmForget(); reload(); how(); }), 'Смена формата — новый придуманный участник.'),
-      field('Как снимать', selF(FILM_HOW, 'how', function () { filmPreset(st, r, st.how); spSel.value = st.speed; how(); })),
+      field('Как снимать', selF(FILM_HOW, 'how', function () { filmPreset(st, r, st.how); spSel.value = st.speed; how(); }))]);
+    var spSel = null, whatSel = null, side = el('div', { class: 'a-film-side' }, [
+      el('h2', { class: 'a-film-h', text: '🎬 Ролик' }),
+      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — выберите «Эта вкладка» и «Поделиться».' }),
+      field('Что снимать', whatSel = selF(WHAT, 'what', function () { if (AP) apStop(); reload(); how(); }), 'Страница маршрута или любая страница сайта: витрина, месяц, кин, сад «Узоров».'),
+      routeBox,
       howBox,
       el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '↺ Начать заново', onclick: function () { if (AP) return; filmForget(); reload(); toast('Новый придуманный участник: двери снова закрыты, карты не открыты.'); } })]),
       el('p', { class: 'a-hint', text: 'В окне — придуманный участник: его двери, карты и код хранятся отдельно, ваши настоящие отметки на этом компьютере не меняются. Плашка проверки внизу окна во время записи прячется.' }),
       field('Скорость ролика', spSel = selF(FILM_SPEED, 'speed'), 'Ролик идёт быстрее, чем вы проходите: × 2 — минута прохода станет 30 секундами.'),
-      el('div', { class: 'a-film-opts' }, [chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название маршрута в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня'), chk('mark', 'Знак 13 MIRRORS в углу')]),
+      el('div', { class: 'a-film-opts' }, [chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
       el('div', { class: 'a-film-rec' }, [bTry, bRec, bPause, bStop, clock]),
       res]);
@@ -11033,13 +11072,14 @@
   }
   // Окно-«телефон»: пишем в пустой iframe страницу с тем же рендерером и ждём, пока он загрузится.
   // Вызывать, когда iframe уже вставлен в страницу.
-  function fillPhone(fr, onReady) {
-    var d = fr.contentDocument, base = location.href.replace(/[#?].*$/, '');
-    d.open();
-    d.write('<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><base href="' + base + '">' +
+  function phoneHTML() {
+    return '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><base href="' + location.href.replace(/[#?].*$/, '') + '">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="../assets/vitrina.css?v=' + ASSET_V + '"></head>' +
-      '<body class="m13-body"><div id="m13"></div><script src="../assets/vitrina.js?v=' + ASSET_V + '"><\/script></body></html>');
-    d.close();
+      '<body class="m13-body"><div id="m13"></div><script src="../assets/vitrina.js?v=' + ASSET_V + '"><\/script></body></html>';
+  }
+  function fillPhone(fr, onReady) {
+    var d = fr.contentDocument;
+    d.open(); d.write(phoneHTML()); d.close();
     var w = fr.contentWindow, tries = 0;
     (function wait() {
       if (w.M13 && w.M13.mount) onReady(w, w.document.getElementById('m13'));
