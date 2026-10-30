@@ -3889,7 +3889,8 @@
     '.m13f-ink{position:fixed;z-index:2147483646;left:0;top:0;width:100%;height:100%;pointer-events:none}';
   // Рисунок указателем (её «делаем» 30.10): зажат Пробел — за пером остаётся светящийся след, держится и тает
   var FILM_INK_HOLD = [['1.5', '1,5 секунды'], ['2.5', '2,5 секунды'], ['4', '4 секунды'], ['6', '6 секунд']];
-  var FILM_INK_MELT = [['dust', 'Рассыпается искорками'], ['fade', 'Растворяется']];
+  // Её слова 30.10: рисунок — не карандашная линия, а цепочка светящихся точек; висит и рассыпается
+  var FILM_INK_MELT = [['dust', 'Висит и рассыпается разом'], ['seq', 'Гаснет точка за точкой, с начала'], ['fade', 'Растворяется']];
   var FILM_INK_COL = [['auto', 'Как указатель'], ['gold', 'Золото'], ['white', 'Белый'], ['pink', 'Розовый'], ['blue', 'Голубой']];
   var FILM_INK_W = [['.6', 'Тонко'], ['1', 'Обычно'], ['1.6', 'Толсто']];
   var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
@@ -4006,28 +4007,53 @@
       cv.className = 'm13f-ink'; d.body.insertBefore(cv, p);
       function sp() { return parseFloat(st.speed) || 1; }
       function hold() { return (parseFloat(st.inkHold) || 2.5) * 1000 * sp(); }
-      function melt() { return (st.inkMelt === 'fade' ? 1300 : 1100) * sp(); }
+      function melt() { return (st.inkMelt === 'seq' ? 2200 : st.inkMelt === 'fade' ? 1300 : 1500) * sp(); }
       function pal() { var c = st.inkCol; if (!FILM_INK_PAL[c]) c = st.ptr === 'pen' || st.ptr === 'wand' ? 'gold' : 'white'; return FILM_INK_PAL[c]; }
+      // Линия — из точек: по пути пера через несколько пикселей ставится светящаяся точка, чуть в сторону, разного размера.
+      // Путь сглажен (среднее последних касаний) — дрожь руки на тачпаде не видна, рисунок читается контуром из огоньков.
       function addPt() {
-        var s = S[S.length - 1], q = s && s.pts[s.pts.length - 1];
-        if (!s || (q && Math.abs(q[0] - mx) + Math.abs(q[1] - my) < 2)) return;
-        s.pts.push([mx, my]); tick();
+        var s = S[S.length - 1];
+        if (!s) return;
+        var q = s.raw[s.raw.length - 1];
+        if (q && Math.abs(q[0] - mx) + Math.abs(q[1] - my) < 2) return;
+        s.raw.push([mx, my]);
+        var n = Math.min(5, s.raw.length), x = 0, y = 0, i;
+        for (i = s.raw.length - n; i < s.raw.length; i++) { x += s.raw[i][0]; y += s.raw[i][1]; }
+        x /= n; y /= n;
+        var ax = s.at[0], ay = s.at[1], dx = x - ax, dy = y - ay, L = Math.sqrt(dx * dx + dy * dy), gap = 5.5 * Math.sqrt(s.w), t = gap - s.acc;
+        for (; t <= L; t += gap) dot(s, ax + dx * t / L, ay + dy * t / L);
+        s.acc = L ? (s.acc + L) % gap : s.acc; s.at = [x, y]; tick();
+      }
+      function dot(s, x, y) {
+        var a = Math.random() * 6.283, o = Math.random() * 2.4 * s.w;
+        s.dots.push({ x: x + Math.cos(a) * o, y: y + Math.sin(a) * o, r: (.7 + Math.random() * .9) * s.w * (s.k === 'dot' ? 1.3 : 1), ph: Math.random() * 6.283,
+          i: s.g.n++, dl: Math.random() * .35, vx: Math.cos(a + 1) * (.4 + Math.random()), vy: Math.sin(a + 1) * (.4 + Math.random()) - .3, star: s.k === 'wand' && Math.random() < .18 });
       }
       function inkDown() {
         if (drawing || !st.ink || !inside) return;
         var now = Date.now();
         drawing = true;
-        if (!G || (G.end && now > G.end + hold())) G = { end: 0 };
+        if (!G || (G.end && now > G.end + hold())) G = { end: 0, n: 0 };
         G.end = 0;
-        S.push({ g: G, pts: [[mx, my]], k: st.ptr, pal: pal(), w: parseFloat(st.inkW) || 1 });
+        S.push({ g: G, raw: [[mx, my]], at: [mx, my], acc: 0, dots: [], k: st.ptr, pal: pal(), w: parseFloat(st.inkW) || 1 });
+        dot(S[S.length - 1], mx, my);
         tick();
       }
       function inkUp() { if (!drawing) return; drawing = false; if (G) G.end = Date.now(); tick(); }
-      function path(s) {
-        var a = s.pts; cx.beginPath(); cx.moveTo(a[0][0], a[0][1]);
-        if (a.length === 1) { cx.lineTo(a[0][0] + .1, a[0][1]); return; }
-        for (var i = 1; i < a.length - 1; i++) cx.quadraticCurveTo(a[i][0], a[i][1], (a[i][0] + a[i + 1][0]) / 2, (a[i][1] + a[i + 1][1]) / 2);
-        cx.lineTo(a[a.length - 1][0], a[a.length - 1][1]);
+      // Огонёк — заранее нарисованная картинка (белая сердцевина, цветное сияние, едва заметная тень для светлого фона)
+      var SPR = {};
+      function sprite(c) {
+        if (SPR[c[2]]) return SPR[c[2]];
+        var z = d.createElement('canvas'), g = z.getContext('2d'), gr;
+        z.width = z.height = 64;
+        gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, 'rgba(60,40,15,.22)'); gr.addColorStop(.35, 'rgba(60,40,15,.1)'); gr.addColorStop(1, 'rgba(60,40,15,0)');
+        g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+        gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, c[0]); gr.addColorStop(.12, c[0]); gr.addColorStop(.22, 'rgba(' + c[2] + ',.9)');
+        gr.addColorStop(.5, 'rgba(' + c[2] + ',.28)'); gr.addColorStop(1, 'rgba(' + c[2] + ',0)');
+        g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+        return (SPR[c[2]] = z);
       }
       function star(x, y, r) {
         cx.beginPath(); cx.moveTo(x, y - r); cx.quadraticCurveTo(x, y, x + r, y); cx.quadraticCurveTo(x, y, x, y + r);
@@ -4035,31 +4061,35 @@
       }
       function frame() {
         raf = 0;
-        var win = d.defaultView, W = win.innerWidth, H = win.innerHeight, dpr = win.devicePixelRatio || 1, now = Date.now();
+        var win = d.defaultView, W = win.innerWidth, H = win.innerHeight, dpr = win.devicePixelRatio || 1, now = Date.now(), mode = st.inkMelt;
         if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
         cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
         S = S.filter(function (s) { return !s.g.end || now < s.g.end + hold() + melt(); });
         S.forEach(function (s) {
-          var m = s.g.end ? (now - s.g.end - hold()) / melt() : -1, a = m < 0 ? 1 : Math.max(0, 1 - m), w = (s.k === 'wand' ? 2.6 : s.k === 'dot' ? 5 : 3.6) * s.w;
-          if (m >= 0 && st.inkMelt !== 'fade') {
-            // рассыпается: с каждого кадра с рисунка слетает горсть искорок, линия тем временем бледнеет
-            for (var n = 0; n < Math.max(1, Math.round(s.pts.length / 25)); n++) { var q = s.pts[Math.floor(Math.random() * s.pts.length)]; spark(q[0], q[1], Math.random() < .3, s.pal[2]); }
-            a = a * a;
-          }
-          cx.lineCap = cx.lineJoin = 'round'; cx.globalAlpha = a;
-          path(s); cx.shadowBlur = 0; cx.strokeStyle = 'rgba(70,45,15,.22)'; cx.lineWidth = w + 2.5; cx.stroke();
-          cx.shadowColor = s.pal[1]; cx.shadowBlur = 12 * s.w + 4; cx.strokeStyle = s.pal[1]; cx.lineWidth = w + 2; cx.stroke();
-          cx.shadowBlur = 4; cx.strokeStyle = s.pal[0]; cx.lineWidth = w * .55; cx.stroke();
-          if (s.k === 'wand') {
-            // у палочки по линии мерцают звёздочки
-            cx.fillStyle = s.pal[0]; cx.shadowBlur = 8; cx.shadowColor = s.pal[1];
-            for (var i = 0, run = 99, k = 0; i < s.pts.length; i++) {
-              if (i) run += Math.abs(s.pts[i][0] - s.pts[i - 1][0]) + Math.abs(s.pts[i][1] - s.pts[i - 1][1]);
-              if (run < 22) continue;
-              run = 0; k++; var t = (now / 260 + k * 1.7) % 6.283; star(s.pts[i][0], s.pts[i][1], (3 + 2.5 * Math.sin(t)) * s.w + 1);
+          var m = s.g.end ? (now - s.g.end - hold()) / melt() : -1, img = sprite(s.pal), N = Math.max(1, s.g.n);
+          cx.fillStyle = s.pal[0]; cx.shadowColor = s.pal[1];
+          s.dots.forEach(function (p) {
+            // пока висит — точки мерцают, рисунок живой, не замирает
+            var tw = Math.sin(now / 320 + p.ph), a = .72 + .28 * tw, r = p.r * (.9 + .2 * tw), x = p.x, y = p.y, f;
+            if (m >= 0) {
+              if (mode === 'fade') a *= Math.max(0, 1 - m);
+              else {
+                // разом — все срываются почти вместе; по точке — с первой к последней, каждая вспыхивает и осыпается
+                f = mode === 'seq' ? (m - p.i / N * .75) / .25 : (m - p.dl) / .65;
+                if (f > 0) {
+                  if (f >= 1) return;
+                  var e = f * f, k = mode === 'seq' ? 14 : 26;
+                  x += p.vx * k * f; y += p.vy * k * f + 18 * e;
+                  r *= f < .15 ? 1 + f * 3 : 1.45 * (1 - e * .8); a *= 1 - e;
+                }
+              }
             }
-          }
-          cx.shadowBlur = 0; cx.globalAlpha = 1;
+            if (a <= 0) return;
+            cx.globalAlpha = a;
+            if (p.star) { cx.shadowBlur = 8; star(x, y, (3.2 + 2 * tw) * s.w); cx.shadowBlur = 0; }
+            var R = r * 7; cx.drawImage(img, x - R, y - R, R * 2, R * 2);
+          });
+          cx.globalAlpha = 1;
         });
         if (S.length) tick();
       }
@@ -4548,7 +4578,7 @@
       field('Как снимать', selF(FILM_HOW, 'how', function () { filmPreset(st, r, st.how); spSel.value = st.speed; how(); }))]);
     var inkBox = el('div', { class: 'a-film-ink' }, [
       field('Рисунок держится', selF(FILM_INK_HOLD, 'inkHold'), 'Столько он виден в ролике, потом тает. Отпустили Пробел и снова зажали, пока рисунок не начал таять, — дорисовываете тот же (так получается «!»).'),
-      field('Как тает', selF(FILM_INK_MELT, 'inkMelt')),
+      field('Как тает', selF(FILM_INK_MELT, 'inkMelt'), 'Рисунок — цепочка светящихся точек, они мерцают, пока он висит.'),
       field('Цвет', selF(FILM_INK_COL, 'inkCol'), 'Как указатель: перо и палочка — золото, точка — белый.'),
       field('Толщина', selF(FILM_INK_W, 'inkW'))]);
     inkBox.hidden = !st.ink;
