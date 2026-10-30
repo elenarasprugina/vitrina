@@ -3930,6 +3930,21 @@
       w.M13.mount(m, { base: '../', view: v, noHistory: true, onBack: function () { mountSite(w, d, 'showcase'); }, data: previewData(sid) });
     }
     function reload() { load(st.day); }
+    // Её просьба 30.10: страница сайта, которая обычно открывается в новом окне («Мой цветок» → «Узоры»), открывается здесь же —
+    // ролик снимает только это окно. Чужие сайты (Telegram и т. п.) — как обычно, в новом окне, в ролик не попадут.
+    function stay(w, d) {
+      function go(u) {
+        var a; try { a = new URL(String(u || ''), d.baseURI); } catch (e) { return false; }
+        if (a.origin !== location.origin) return false;
+        w.location.href = a.href; return true;
+      }
+      var open0 = w.open;
+      w.open = function (u) { return go(u) ? null : open0.apply(w, arguments); };
+      d.addEventListener('click', function (e) {
+        var a = e.target && e.target.closest && e.target.closest('a[target="_blank"]');
+        if (a && !a.hasAttribute('download') && go(a.href)) { e.preventDefault(); e.stopPropagation(); }
+      }, true);
+    }
     function dateOf(d) { return window.M13R ? window.M13R.dateOf(r, d) : ''; }
     // Кружок касания и «без плашки проверки во время записи и прогона» — прямо в страницу окна (тот же сайт)
     function hush() { try { fr.contentDocument.documentElement.classList.toggle('m13f-rec', !!(REC || AP)); } catch (e) {} }
@@ -3942,8 +3957,8 @@
         'pointer-events:none;animation:m13fTap .6s ease-out forwards}@keyframes m13fTap{from{transform:scale(.45);opacity:1}to{transform:scale(1.5);opacity:0}}' +
         'html.m13f-rec .ys-debug{display:none!important}';
       d.head.appendChild(s);
-      hush();
-      if (!isR() && !/^uz:/.test(st.what)) mountSite(fr.contentWindow, d, st.what);
+      hush(); stay(fr.contentWindow, d);
+      if (!isR() && !/^uz:/.test(st.what) && d.URL === 'about:srcdoc') mountSite(fr.contentWindow, d, st.what);
       d.addEventListener('pointerdown', function (e) {
         if (!st.tap) return;
         var t = d.createElement('div'); t.className = 'm13f-tap'; t.style.left = e.clientX + 'px'; t.style.top = e.clientY + 'px';
@@ -4051,7 +4066,7 @@
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
       var R = REC = { stream: stream, v: v, cv: cv, x: cv.getContext('2d'), t: 0, slot: -1, last: performance.now(), paused: false, cut: auto, speed: +st.speed || 1, lastKey: -1, n: 0, raf: 0 };
-      clock.textContent = 'Готовлю…'; res.replaceChildren(); ui();
+      clock.textContent = 'Готовлю…'; drop(); ui();
       // «Закрыть доступ» на плашке Chrome — тоже стоп
       stream.getVideoTracks()[0].addEventListener('ended', function () { if (REC === R) stop(); });
       function fail(msg) { abort(R); toast(msg, true); }
@@ -4121,8 +4136,11 @@
         done(R, new Blob([R.mux.target.buffer], { type: 'video/mp4' }));
       }, function (e) { abort(R); toast('Не получилось записать ролик: ' + (e && e.message || e), true); });
     }
+    // Готовый ролик живёт только в памяти этой вкладки; «Удалить», новая запись или выход — память освобождается
+    var made = '';
+    function drop() { if (made) URL.revokeObjectURL(made); made = ''; res.replaceChildren(); }
     function done(R, blob) {
-      var url = URL.createObjectURL(blob), dur = (R.slot + 1) / VID_FPS;
+      var url = made = URL.createObjectURL(blob), dur = (R.slot + 1) / VID_FPS;
       clock.textContent = filmTime(dur);
       var name = '13mirrors-' + (isR() ? r.id || 'route' : st.what.replace(':', '-').replace(/-$/, '') || 'site') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(dur).replace(':', 'm') + 's.mp4';
       var vid = el('video', { class: 'a-film-vid', src: url, controls: true, playsinline: true });
@@ -4136,9 +4154,13 @@
         el('h3', { class: 'a-film-h a-film-h--s', text: 'Готово · ' + filmTime(dur) }), vid,
         el('div', { class: 'a-backup-btns' }, [
           el('a', { class: 'a-btn a-btn--dark', href: url, download: name, text: '⬇ Сохранить ролик' }),
-          el('button', { type: 'button', class: 'a-btn', text: '🖼 Этот кадр — обложкой', onclick: cover })]),
+          el('button', { type: 'button', class: 'a-btn', text: '🖼 Этот кадр — обложкой', onclick: cover }),
+          el('button', { type: 'button', class: 'a-btn', text: '🗑 Удалить', onclick: function () {
+            if (!confirm('Удалить этот ролик? Если вы его не сохранили, вернуть не получится.')) return;
+            drop(); clock.textContent = '0:00'; toast('Ролик удалён.');
+          } })]),
         el('p', { class: 'a-hint', text: (R.vp9 ? 'Этот браузер не умеет H.264 — ролик в MP4 со сжатием VP9: откроется на компьютере, но соцсети могут его не взять. Лучше записывать в свежем Chrome. ' : 'MP4, 1080 × 1920 — подходит для Reels, Stories, Shorts. ') +
-          'Обложка: остановите ролик на нужном кадре и нажмите «Этот кадр — обложкой». Ролик остаётся только у вас на компьютере, пока вы его не сохраните.' }));
+          'Обложка: остановите ролик на нужном кадре и нажмите «Этот кадр — обложкой». Ролик никуда не отправляется: пока вы его не сохранили, он только в памяти этой вкладки и исчезнет по «Удалить», при новой записи или выходе из окна.' }));
     }
 
     /* ---------- Автопилот: панель сама касается в окне ----------
@@ -4335,7 +4357,7 @@
     function close() {
       if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
       if (REC) abort(REC);
-      apStop();
+      apStop(); drop();
       window.removeEventListener('message', onMsg); closePreview(); pv.classList.remove('is-rec');
     }
     function selF(opts, key, after) {
@@ -4370,7 +4392,7 @@
       auto = isR() && st.how !== 'hand';
       routeBox.hidden = !isR();
       howBox.replaceChildren.apply(howBox, !isR() ? [
-        el('p', { class: 'a-hint', text: 'Листайте и нажимайте в окне, как посетитель: карточки, плашки, кнопки. Панель запишет то, что видно в окне-телефоне. В окне — ваш черновик из панели (как «Посмотреть»).' })
+        el('p', { class: 'a-hint', text: 'Листайте и нажимайте в окне, как посетитель: карточки, плашки, кнопки. Панель запишет то, что видно в окне-телефоне. В окне — ваш черновик из панели (как «Посмотреть»). Страницы, которые на сайте открываются в новом окне (например, «Мой цветок» → «Узоры»), здесь открываются в этом же окне — и попадают в ролик.' })
       ] : auto ? [
         el('p', { class: 'a-hint', text: 'Панель сама касается в окне: дверь или камень → Карта дня' + (st.mode === 'observation' ? '' : ' → глубже (карта, стёклышко, капля)') + ' → следующий день. Сначала «▶ Прогнать без записи» — посмотреть; понравилось — «● Записать», ролик закончится сам. Каждый раз — новый придуманный участник.' }),
         field('Дни', dayChips(), 'День ' + last + ' — это финал, он ниже отдельной галочкой.'),
