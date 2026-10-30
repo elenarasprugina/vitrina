@@ -4,7 +4,10 @@ body.ks-body { background: #070504; overflow: hidden; }
 .ks-video { position: absolute; top: 0; left: 50%; height: 100%; width: 100%; transform: translateX(-50%); object-fit: cover; }
 /* широкий экран: огонь — вертикальной полосой по центру, края тают в темноту */
 @media (min-aspect-ratio: 3/4) {
-  .ks-video { width: min(100%, 75vh); -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
+  /* поленья уходят под карточку с листком, выглядывают из-за неё (её слова 30.10) */
+  .ks-video { top: 10vh; width: min(100%, 75vh);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent), linear-gradient(180deg, transparent, #000 14%); -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent), linear-gradient(180deg, transparent, #000 14%); mask-composite: intersect; }
 }
 /* края и низ притемнены — надписи на тёмном стекле читаются */
 .ks-shade { position: absolute; inset: 0; pointer-events: none;
