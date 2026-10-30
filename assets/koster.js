@@ -28,11 +28,11 @@
     var SNOVA = /[?&]snova=1/.test(location.search);   // проверка: огонь отвечает ещё раз в тот же день
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     function $(s) { return root.querySelector(s) || document.querySelector(s); }
-    var VID = U.imgUrl(str(K.video, 'assets/koster/ogon-2.mp4')), POSTER = U.imgUrl(str(K.poster, K.video ? '' : 'assets/koster/ogon-2-poster.jpg'));
+    var VID = U.imgUrl(str(K.video, 'assets/koster/ogon-4.mp4')), POSTER = U.imgUrl(str(K.poster, K.video ? '' : 'assets/koster/ogon-4-poster.jpg'));
     // где в кадре видео огонь (доли кадра 540 × 960): сердце пламени и кромка поленьев
-    var FIRE = { x: .5, y: .43 }, VW = 540, VH = 960;
+    var FIRE = { x: .5, y: .27 }, VW = 540, VH = 960;
     // её замечания 30.10: огонь дальше (меньше на экране, края тают в темноту), искр от огня больше, светлячков больше
-    var FAR = Math.max(.4, Math.min(1, (K.far == null || K.far === '' ? 86 : +K.far) / 100));
+    var FAR = Math.max(.4, Math.min(1, (K.far == null || K.far === '' ? 100 : +K.far) / 100));
     var SPARKS = { off: 0, few: 5, mid: 12, many: 24, lots: 40 }[K.sparks || 'mid'];
     if (SPARKS == null) SPARKS = 12;
     var FF_N = Math.max(0, Math.min(40, K.ffN == null || K.ffN === '' ? 12 : +K.ffN));
