@@ -767,6 +767,7 @@ body.a-noscroll{overflow:hidden}
 .a-film{display:flex;gap:28px;justify-content:center;align-items:flex-start;flex-wrap:wrap;padding:0 16px}
 .a-film-side{width:330px;max-width:100%;display:flex;flex-direction:column;gap:10px;background:#fff;border-radius:14px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
 .a-film-opts{display:flex;flex-direction:column;gap:4px}
+.a-film-ink{display:flex;flex-direction:column;gap:8px;padding-left:10px;border-left:2px solid #efe6d6}.a-film-ink[hidden]{display:none}
 .a-film-rec{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .a-film-clock{font-variant-numeric:tabular-nums;color:#6b6b68;margin-left:4px}
 .a-film-clock.is-on{color:#a1332b;font-weight:650}
