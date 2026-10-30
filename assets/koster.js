@@ -13,9 +13,9 @@
     function $(s) { return root.querySelector(s) || document.querySelector(s); }
     var VID = U.imgUrl(str(K.video, 'assets/koster/ogon.mp4')), POSTER = U.imgUrl(str(K.poster, K.video ? '' : 'assets/koster/ogon-poster.jpg'));
     // где в кадре видео огонь (доли кадра 540 × 960): сердце пламени и кромка поленьев
-    var FIRE = { x: .5, y: .5 }, VW = 540, VH = 960;
+    var FIRE = { x: .5, y: .43 }, VW = 540, VH = 960;
     // её замечания 30.10: огонь дальше (меньше на экране, края тают в темноту), искр от огня больше, светлячков больше
-    var FAR = Math.max(.4, Math.min(1, (K.far == null || K.far === '' ? 72 : +K.far) / 100));
+    var FAR = Math.max(.4, Math.min(1, (K.far == null || K.far === '' ? 86 : +K.far) / 100));
     var SPARKS = { off: 0, few: 5, mid: 12, many: 24, lots: 40 }[K.sparks || 'mid'];
     if (SPARKS == null) SPARKS = 12;
     var FF_N = Math.max(0, Math.min(40, K.ffN == null || K.ffN === '' ? 12 : +K.ffN));
