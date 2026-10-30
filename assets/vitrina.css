@@ -2421,24 +2421,23 @@ body.m13-locked{overflow:hidden}
 /* Контур «Огонь» (её слова 31.10: отсылка к костру): снизу поднимаются искры.
    Без светлой линии по самой кромке — на светлом фоне она читалась серой полосой (её замечание 31.10) */
 /* её слова 31.10: оранжевое свечение на розовом — «не то»; у карточки остаются только искорки, тлеет кнопка «Проходи к огню» */
-.m13-rim--fire .m13-rim-fire{overflow:hidden;pointer-events:none}
-.m13-rim--fire .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire::after{content:"";position:absolute;left:0;right:0;bottom:0;height:85%;
-  background:radial-gradient(circle at 7% 100%,#ffd38a 0 1.8px,transparent 2.8px),radial-gradient(circle at 21% 100%,#ffa24a 0 1.4px,transparent 2.4px),
-    radial-gradient(circle at 34% 100%,#ffe2a0 0 2px,transparent 3px),radial-gradient(circle at 48% 100%,#ffb560 0 1.3px,transparent 2.3px),
-    radial-gradient(circle at 61% 100%,#ffd38a 0 1.8px,transparent 2.8px),radial-gradient(circle at 74% 100%,#ff9a40 0 1.5px,transparent 2.5px),
-    radial-gradient(circle at 87% 100%,#ffe0a0 0 2px,transparent 3px),radial-gradient(circle at 96% 100%,#ffb05a 0 1.3px,transparent 2.3px);
-  animation:m13-fire-sp 3.4s linear infinite;opacity:0}
-.m13-rim--fire .m13-rim-fire::after{animation:m13-fire-sp2 4.3s linear 1.6s infinite}
-.m13-rim--fire .m13-rim-fire + .m13-rim-fire::before{left:4%;animation-duration:2.9s;animation-delay:.9s}
-.m13-rim--fire .m13-rim-fire + .m13-rim-fire::after{left:-3%;animation-duration:3.8s;animation-delay:2.4s}
-@keyframes m13-fire-sp{0%{opacity:0;transform:translateY(0)}10%{opacity:1}65%{opacity:.85}100%{opacity:0;transform:translateY(-75%)}}
-@keyframes m13-fire-sp2{0%{opacity:0;transform:scaleX(-1) translateY(0)}10%{opacity:1}65%{opacity:.85}100%{opacity:0;transform:scaleX(-1) translateY(-75%)}}
+.m13-rim--fire .m13-rim-fire{overflow:hidden;pointer-events:none;--m13-fh:1}
+/* её слова 31.10: прежние искры шли строем полукругов («отряд облаков») — теперь каждая искра отдельная: яркая точка, летит вверх, качается, мерцает, остывает и гаснет */
+.m13-rim--fire .m13-rim-fire b{position:absolute;left:var(--x);bottom:2px;width:calc(2.4px * var(--s));height:calc(2.4px * var(--s));border-radius:50%;opacity:0;
+  background:#fff6d6;box-shadow:0 0 2px 1px rgba(255,190,90,.95),0 0 6px 2px rgba(255,120,30,.5);
+  animation:m13-fire-up var(--t) cubic-bezier(.25,.6,.45,1) var(--d) infinite,m13-fire-fl var(--f) steps(2) infinite alternate}
+@keyframes m13-fire-up{0%{opacity:0;transform:translate(0,0) scale(1)}
+  7%{opacity:1}
+  35%{transform:translate(calc(var(--dx) * -.35),calc(var(--h) * var(--m13-fh) * -.35)) scale(.95)}
+  70%{opacity:.8;background:#ffc46a;transform:translate(calc(var(--dx) * .6),calc(var(--h) * var(--m13-fh) * -.72)) scale(.7)}
+  100%{opacity:0;background:#ff7a30;transform:translate(var(--dx),calc(var(--h) * var(--m13-fh) * -1)) scale(.3)}}
+@keyframes m13-fire-fl{to{filter:brightness(.55)}}
 /* у огня свой край: обычный контур (у ноября — «Леденец» со светлыми бликами) поверх огня читался серой полосой — прячем */
 .m13-rim--fire > .m13-rim,.m13-rim--fire > .m13-rim-zone{display:none}
 /* открытая карточка: искры — только у нижнего края, текст не задевают */
-.m13-big-card .m13-rim--fire .m13-rim-fire::before,.m13-big-card .m13-rim--fire .m13-rim-fire::after{height:26%}
-@media (prefers-reduced-motion:reduce){.m13-rim--fire .m13-rim-fire,.m13-rim--fire .m13-rim-fire::before,.m13-rim--fire .m13-rim-fire::after{animation:none}}
-.m13-hush .m13-page .m13-rim-fire,.m13-hush .m13-page .m13-rim-fire::before,.m13-hush .m13-page .m13-rim-fire::after{animation-play-state:paused}
+.m13-big-card .m13-rim--fire .m13-rim-fire{--m13-fh:.8}
+@media (prefers-reduced-motion:reduce){.m13-rim--fire .m13-rim-fire b{animation:none}}
+.m13-hush .m13-page .m13-rim-fire b{animation-play-state:paused}
 /* Оборот маршрута у костра (её слова 31.10): «Сегодня день», вопрос дня и формат — одним блоком по центру, вопросу — воздух сверху и снизу;
    кнопка формата горит по-настоящему — нарисована на холсте .m13-burn (emberBtn в vitrina.js) */
 .m13-kmode .m13-dayrow{justify-content:center;margin-top:auto}

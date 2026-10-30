@@ -52,3 +52,13 @@ body.ks-body { background: #070504; overflow: hidden; }
   background: conic-gradient(from 0deg, transparent 0deg 300deg, rgba(255, 214, 140, .35) 330deg, #ffe6b0 350deg, #fff 357deg, transparent 360deg); animation: ks-rim-spin 7s linear infinite; }
 @keyframes ks-rim-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .ks-rim-run::before { animation: none; } }
+/* звук костра: кнопка в правом верхнем углу (её просьба 31.10) */
+.ks-snd { position: fixed; top: max(14px, env(safe-area-inset-top)); right: 14px; z-index: 215; width: 42px; height: 42px; padding: 0; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; background: rgba(14, 9, 7, .55); border: 1px solid rgba(255, 214, 170, .25); color: rgba(255, 228, 196, .85);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: color .3s, border-color .3s; }
+.ks-snd:hover { color: #ffe4c4; border-color: rgba(255, 214, 170, .5); }
+.ks-snd svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ks-snd svg path:first-child { fill: currentColor; fill-opacity: .25; }
+.ks-snd .ks-snd-off, .ks-snd.is-off .ks-snd-on { display: none; }
+.ks-snd.is-off .ks-snd-off { display: inline; }
+.ks-snd.is-off { color: rgba(255, 228, 196, .5); }
