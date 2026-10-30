@@ -1086,10 +1086,10 @@ body.m13-locked{overflow:hidden}
 .m13-header--tinted .m13-evlink{color:var(--m13-head)}
 @media (max-width:680px){.m13-evlink{font-size:11.5px;padding:5px 11px;margin-top:6px}}
 /* Вид кнопки (Страница месяца → «Кнопка «События и архив»»): стекло, заливка, крупнее, свой цвет */
-.m13-header .m13-evlink--own{color:var(--ev-c)}
+:is(.m13-header,.m13-below) .m13-evlink--own{color:var(--ev-c)}
 .m13-evlink--glass{opacity:1;background:var(--ev-bg);border-color:color-mix(in srgb,currentColor 65%,transparent);
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(0,0,0,.25)}
-.m13-header .m13-evlink--fill{opacity:1;background:var(--ev-c);border-color:var(--ev-c);color:var(--ev-ink);box-shadow:0 4px 18px rgba(0,0,0,.22)}
+:is(.m13-header,.m13-below) .m13-evlink--fill{opacity:1;background:var(--ev-c);border-color:var(--ev-c);color:var(--ev-ink);box-shadow:0 4px 18px rgba(0,0,0,.22)}
 .m13-evlink--fill:hover,.m13-evlink--glass:hover{filter:brightness(1.08)}
 .m13-evlink--l{font-size:16px;padding:9px 20px;letter-spacing:.02em}
 @media (max-width:680px){.m13-evlink--l{font-size:13.5px;padding:7px 15px;margin-top:8px}}
@@ -2099,9 +2099,19 @@ body.m13-locked{overflow:hidden}
 .m13-header--center .m13-mnav > span{display:none}
 .m13-mnav a{color:inherit;text-decoration:none;opacity:.88;text-shadow:0 1px 8px rgba(0,0,0,.55);padding:4px 0;border-bottom:1px solid transparent;transition:opacity .2s ease,border-color .2s ease}
 .m13-mnav a:hover{opacity:1;border-bottom-color:currentColor}
+.m13-mnav--own a{color:var(--mn-c)}
+/* Стрелки на стекле (по желанию, head.mnStyle = 'glass'; цвет стекла — head.mnBg, пусто — светлое/тёмное под цвет надписи) */
+.m13-mnav--glass a{opacity:1;text-shadow:none;padding:5px 14px;border:1px solid color-mix(in srgb,currentColor 45%,transparent);border-radius:999px;
+  background:var(--mn-bg,rgba(255,255,255,.62));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:0 3px 14px rgba(0,0,0,.18);transition:filter .2s ease}
+.m13-mnav--glass a:hover{filter:brightness(1.08);border-bottom-color:color-mix(in srgb,currentColor 45%,transparent)}
+/* Внизу (Страница месяца → «Где они»: внизу): у нижнего края экрана, над «Условия ✦ Конфиденциальность»; head.navLift — поднять */
+.m13-below{width:min(1180px,100%);margin:18px auto 0;padding-bottom:calc(8px + var(--nav-lift,0px));display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;color:var(--m13-ink)}
+.m13-below.m13-header--tinted{color:var(--m13-head)}
+.m13-below .m13-mnav{justify-content:center}
+.m13-below .m13-mnav > span{display:none}
 .m13-mnav-next{text-align:right}
 .m13-header--tinted .m13-mnav{color:var(--m13-head)}
-@media (max-width:680px){.m13-mnav{font-size:12.5px;margin-top:8px}}
+@media (max-width:680px){.m13-mnav{font-size:12.5px;margin-top:8px;gap:8px 14px}.m13-mnav--glass a{padding:4px 11px}.m13-below{margin-top:14px;padding-bottom:calc(12px + var(--nav-lift,0px))}}
 .m13-soon-page{text-align:center}
 .m13-soon{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4vh 8px 8vh;color:#232323;
   background:radial-gradient(closest-side,rgba(8,6,4,.42),transparent) center/min(760px,100%) 70% no-repeat;text-shadow:0 1px 10px rgba(0,0,0,.45)}
