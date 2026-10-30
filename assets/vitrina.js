@@ -144,7 +144,7 @@
     if (!next && soon && soon > id) next = soon;
     if (!prev && !next) return '';
     var y = id.split('-')[0];
-    function a(x, cls, label) { return '<a class="m13-mnav-' + cls + '" href="' + esc(S.base + x + '/') + '" data-m13-mnav>' + label + '</a>'; }
+    function a(x, cls, label) { return '<a class="m13-mnav-' + cls + '" href="' + esc(S.base + x + '/') + '" data-m13-mnav="' + esc(x) + '">' + label + '</a>'; }
     function nm(x) { return esc(M13.monthName(x, x.split('-')[0] !== y)); }
     hd = hd || {};
     var glass = hd.mnStyle === 'glass', css = [], col = hd.mnColor || hd.color || '';
@@ -155,8 +155,10 @@
   }
   function soonOf(st) { var o = monthsOf(st).soon || {}; return { word: String(o.word || '').trim() || 'скоро', font: o.font || '', color: o.color || '', note: String(o.note || '').trim(), size: o.size || 'l' }; }
   function mnavBind() {
-    // В предпросмотре панели стрелки никуда не уводят
-    if (S.onBack) S.root.querySelectorAll('[data-m13-mnav]').forEach(function (x) { x.addEventListener('click', function (e) { e.preventDefault(); }); });
+    // В предпросмотре панели стрелки никуда не уводят; в окне ролика (M13.previewMonth) — открывают месяц здесь же
+    if (S.onBack) S.root.querySelectorAll('[data-m13-mnav]').forEach(function (x) {
+      x.addEventListener('click', function (e) { e.preventDefault(); if (M13.previewMonth) M13.previewMonth(x.getAttribute('data-m13-mnav')); });
+    });
   }
 
   // opts: {base, view, showcase, data?}  data — готовые данные (для предпросмотра в панели).
