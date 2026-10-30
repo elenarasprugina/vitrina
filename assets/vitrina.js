@@ -197,7 +197,9 @@
     var action = a.action, ctx = a.ctx;
     if (action.kind === 'link') {
       var url = action.url || ctx.routeUrl;
-      if (url) window.open(url, '_blank', 'noopener');
+      // страница этого же сайта (например, костёр в «Узорах») — в том же окне (её слова 31.10); чужой сайт и предпросмотр в панели — в новом
+      if (url && !S.onBack && sameSite(url)) location.href = url;
+      else if (url) window.open(url, '_blank', 'noopener');
     } else if (action.kind === 'internal') {
       openInternal(action.target, action.tab);
     } else if (action.kind === 'event') {
@@ -1817,7 +1819,9 @@
     return S.kDays;
   }
   function kaskFill(scope) {
+    scope.classList.remove('m13-kmode');
     var p = scope.querySelector('[data-m13-kask]'); if (!p) return;
+    scope.classList.add('m13-kmode');
     var t = today(), iso = t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2);
     kosterDays().then(function (days) {
       var d = (days || []).filter(function (x) { return x && x.date === iso; })[0], q = d && String(d.ask || '').trim();
@@ -1835,6 +1839,9 @@
       p.style.maxHeight = p.offsetHeight + 'px'; p.classList.add('is-smoke');
       setTimeout(function () { p.classList.add('is-gone'); }, 2600);
     }, Math.max(6000, Math.min(11000, 3500 + p.m13n * 60)));
+  }
+  function sameSite(url) {
+    try { var u = new URL(url, location.href), b = new URL(S.base, location.href); return u.origin === location.origin && u.pathname.indexOf(b.pathname) === 0; } catch (e) { return false; }
   }
   function openCard(id) {
     var c = findCard(id); if (!c) return;
