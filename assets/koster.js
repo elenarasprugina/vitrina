@@ -373,16 +373,18 @@
       function start() {
         if (FILE) {
           if (!el) { el = new Audio(FILE); el.loop = true; el.volume = VOL; }
-          var pr = el.play(); if (pr && pr.catch) pr.catch(function () {});
+          var pr = el.play(); if (pr && pr.then) pr.then(unlocked, function () {}); else unlocked();
           return;
         }
         var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
         // айфон с выключенным звонком глушит такой звук — просим играть как музыку
         try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
         if (!ac) build(new AC());
-        if (ac.resume) ac.resume();
-        out.gain.cancelScheduledValues(ac.currentTime); out.gain.setTargetAtTime(VOL, ac.currentTime, .6);
-        if (!timer) timer = setInterval(tick, 60);
+        if (ac.resume) { var rs = ac.resume(); if (rs && rs.then) rs.then(function () { if (ac.state === 'running') unlocked(); }, function () {}); }
+        if (ac.state === 'running') unlocked();
+        // её слова 31.10 «слышен с опозданием»: громкость набирается быстро (~0,3 с), первый треск — сразу
+        out.gain.cancelScheduledValues(ac.currentTime); out.gain.setTargetAtTime(VOL, ac.currentTime, .1);
+        if (!timer) { next = ac.currentTime + .02; tick(); timer = setInterval(tick, 60); }
       }
       function stop() {
         if (el) el.pause();
@@ -435,17 +437,20 @@
           next += -Math.log(1 - Math.random()) / 7;                   // в среднем ~7 раз в секунду, вразнобой
         }
       }
-      // первое касание экрана — включаем (если не выключали); касание самой кнопки — не считается
+      // первое касание экрана — включаем (если не выключали); касание самой кнопки — не считается.
+      // Айфон часто не пускает звук по первому «нажал» — ловим и «отпустил», и клик, и клавишу, пока звук правда не заиграет
+      var GEST = ['pointerdown', 'touchend', 'click', 'keydown'];
       function first(e) {
-        if (btn.contains(e.target)) return;
-        document.removeEventListener('pointerdown', first, true);
-        if (on) start();
+        if (e.target && btn.contains(e.target)) return;
+        if (!on) { unlocked(); return; }
+        start();
       }
-      document.addEventListener('pointerdown', first, true);
+      function unlocked() { GEST.forEach(function (g) { document.removeEventListener(g, first, true); }); }
+      GEST.forEach(function (g) { document.addEventListener(g, first, true); });
       btn.onclick = function () {
         on = !on; mark();
         try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch (e) {}
-        document.removeEventListener('pointerdown', first, true);
+        unlocked();
         if (on) start(); else stop();
       };
       // ушли со страницы — тишина, вернулись — снова огонь
