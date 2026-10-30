@@ -434,7 +434,7 @@
           rim ? selectIn(stl, 'rimPlace', 'Где', inh.concat([['edge', 'По всему краю'], ['corners', 'Только уголки']]), { def: forCard ? 'inherit' : 'edge', onChange: onChange }) : el('span')]),
         rim ? el('div', { class: 'a-row' }, [
           colorOptIn(stl, 'rimColor', 'Цвет контура', { none: 'как выбрано выше', pick: '#ecd3a3', inh: inhOf(d, forCard, 'rimColor'), onChange: onChange }),
-          selectIn(stl, 'rimLive', 'Живость контура', inh.concat([['none', 'Спокойный'], ['breathe', 'Дышит'], ['run', 'Бегущий блик']]),
+          selectIn(stl, 'rimLive', 'Живость контура', inh.concat([['none', 'Спокойный'], ['breathe', 'Дышит'], ['run', 'Бегущий блик'], ['fire', 'Огонь — тёплый отсвет и искорки']]),
             { def: forCard ? 'inherit' : 'none', onChange: redraw, hint: 'Бегущий блик — светлая искра медленно обегает край. Лучше для одной-двух карточек.' })]) : null,
         rim ? el('div', { class: 'a-row' }, [
           rangeOptIn(stl, 'rimWidth', 'Толщина контура', { min: 0.5, max: 8, step: 0.5, unit: ' px', def: 1.5, onChange: onChange,
@@ -2777,7 +2777,8 @@
     if (x.kind === 'images') return [galleryForm(x.images = x.images || [])];
     if (x.kind === 'price') return [el('div', { class: 'a-row' }, [textIn(x, 'value', 'Цена', { ph: '3 000 ₽' }),
       textIn(x, 'label', 'Подпись к цене', { ph: 'Пусто — название карточки' })])];
-    if (x.kind === 'day') return [el('p', { class: 'a-hint', text: 'Появляется только в дни маршрута и считается по его датам.' }), needRoute('Счётчику нужны даты маршрута.')];
+    if (x.kind === 'day') return [el('p', { class: 'a-hint', text: 'Появляется только в дни маршрута и считается по его датам.' }), needRoute('Счётчику нужны даты маршрута.'),
+      switchIn(x, 'koster', 'Под счётчиком — вопрос дня у костра', { hint: 'Из «Узоры» → Пространство → «Костёр Самайна» → «13 дней». Через несколько секунд после того, как карточку перевернули, вопрос тает, как дым. Дня нет в списке — ничего не появляется.' })];
     if (x.kind === 'routeButton') return [textIn(x, 'label', 'Текст на кнопке'),
       textIn(x, 'url', 'Куда ведёт', { ph: r && r.routeUrl ? r.routeUrl : 'https://…', hint: r ? 'Пусто — страница маршрута из библиотеки.' : 'Полный адрес, начиная с https://' }),
       !String(x.url || '').trim() && !(r && r.routeUrl) ? el('p', { class: 'a-hint a-hint--warn', text: 'Пока нет адреса — кнопка не появится.' }) : null];
