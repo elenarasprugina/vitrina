@@ -3175,11 +3175,11 @@
       zpRender();
     }, function () { if (ZP.st !== s) return; s.flash = zpT('payErr'); s.view = 'pick'; zpRender(); });
   }
-  // После записи — написать ей: Telegram с готовым текстом — к боту Host с номером записи (по умолчанию, её решение 29.10)
+  // После записи — написать ей: Telegram с готовым текстом — к боту Host с меткой плашки (action.host, как у её команд бота; по умолчанию, её решение 29.10)
   // или в её личный Telegram («Окошко на сайте» → «Куда ведёт Telegram»); VK — текст копируется
   function zpTell(ch) {
     var def = (S.D.settings || {}).contacts || {}, msg = zpFill('message'), st = ZP.st;
-    var bot = hostUrl(st.code ? 'zapis_' + st.code : st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
+    var bot = hostUrl(st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
     var url = ch === 'telegram' ? (zpSet().tell === 'me' ? me || bot : bot || me) : contactUrl('vk', def.vk, '');
     var ok = copyText(msg), hint = S.root.querySelector('[data-zp-hint]');
     if (url) window.open(url, '_blank', 'noopener');
