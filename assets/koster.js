@@ -28,7 +28,7 @@
     var SNOVA = /[?&]snova=1/.test(location.search);   // проверка: огонь отвечает ещё раз в тот же день
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     function $(s) { return root.querySelector(s) || document.querySelector(s); }
-    var VID = U.imgUrl(str(K.video, 'assets/koster/ogon-5.mp4')), POSTER = U.imgUrl(str(K.poster, K.video ? '' : 'assets/koster/ogon-5-poster.jpg'));
+    var VID = U.imgUrl(str(K.video, 'assets/koster/ogon-6.mp4')), POSTER = U.imgUrl(str(K.poster, K.video ? '' : 'assets/koster/ogon-6-poster.jpg'));
     // где в кадре видео огонь (доли кадра 540 × 960): сердце пламени и кромка поленьев
     var FIRE = { x: .5, y: .44 }, VW = 540, VH = 960;
     // её замечания 30.10: огонь дальше (меньше на экране, края тают в темноту), искр от огня больше, светлячков больше
