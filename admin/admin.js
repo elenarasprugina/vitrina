@@ -3886,11 +3886,14 @@
     '.m13f-ptr--dot i{left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.92);filter:none;box-shadow:0 0 0 1.5px rgba(0,0,0,.3),0 1px 4px rgba(0,0,0,.25),0 0 14px 4px rgba(255,255,255,.55)}' +
     '.m13f-sp{position:fixed;z-index:2147483646;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:0 0 1px 1px rgba(150,100,30,.55),0 0 6px 2px rgba(255,205,120,.95);pointer-events:none;animation:m13fSp .9s ease-out forwards}' +
     '@keyframes m13fSp{from{opacity:1;transform:none}to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}' +
-    '.m13f-ink{position:fixed;z-index:2147483646;left:0;top:0;width:100%;height:100%;pointer-events:none}';
+    '.m13f-ink{position:fixed;z-index:2147483646;left:0;top:0;width:100%;height:100%;pointer-events:none}' +
+    // в окне ролика — без рамок-подсказок вокруг цветка или кнопки (на сайте они остаются)
+    '*:focus,*:focus-visible{outline:none!important}';
   // Рисунок указателем (её «делаем» 30.10): зажат Пробел — за пером остаётся светящийся след, держится и тает
   var FILM_INK_HOLD = [['1.5', '1,5 секунды'], ['2.5', '2,5 секунды'], ['4', '4 секунды'], ['6', '6 секунд']];
   // Её слова 30.10: рисунок — не карандашная линия, а цепочка светящихся точек; висит и рассыпается
-  var FILM_INK_MELT = [['dust', 'Висит и рассыпается разом'], ['seq', 'Гаснет точка за точкой, с начала'], ['fade', 'Растворяется']];
+  // trail (её просьба 30.10): каждая точка живёт своё время с той минуты, как нарисована, — рисунок тает следом за пером
+  var FILM_INK_MELT = [['trail', 'Тает следом за пером, с начала линии'], ['dust', 'Висит и рассыпается разом'], ['seq', 'Дорисовали — гаснет точка за точкой'], ['fade', 'Растворяется']];
   var FILM_INK_COL = [['auto', 'Как указатель'], ['gold', 'Золото'], ['white', 'Белый'], ['pink', 'Розовый'], ['blue', 'Голубой']];
   var FILM_INK_W = [['.6', 'Тонко'], ['1', 'Обычно'], ['1.6', 'Толсто']];
   var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
@@ -3923,7 +3926,7 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'dust', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '' };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '' };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
     var WHAT = filmWhat(r);
     if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
@@ -3995,7 +3998,12 @@
       function at(e, down) {
         p.style.left = e.clientX + 'px'; p.style.top = e.clientY + 'px'; p.hidden = !kind();
         mx = e.clientX; my = e.clientY; inside = true;
-        if (drawing && !down) { addPt(); return; }
+        if (drawing && !down) {
+          // все промежуточные положения мышки, даже если страница не успевала, — линия точно по руке
+          var co = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+          if (co.length > 1) co.forEach(function (c) { mx = c.clientX; my = c.clientY; addPt(); });
+          mx = e.clientX; my = e.clientY; addPt(); return;
+        }
         if (!st.spark || st.ptr === 'mouse' || !kind()) return;
         if (down) { for (var i = 0; i < 8; i++) spark(e.clientX, e.clientY, true); return; }
         var now = Date.now(), dd = Math.abs(e.clientX - lx) + Math.abs(e.clientY - ly);
@@ -4007,7 +4015,7 @@
       cv.className = 'm13f-ink'; d.body.insertBefore(cv, p);
       function sp() { return parseFloat(st.speed) || 1; }
       function hold() { return (parseFloat(st.inkHold) || 2.5) * 1000 * sp(); }
-      function melt() { return (st.inkMelt === 'seq' ? 2200 : st.inkMelt === 'fade' ? 1300 : 1500) * sp(); }
+      function melt() { return (st.inkMelt === 'seq' ? 2200 : st.inkMelt === 'trail' ? 900 : st.inkMelt === 'fade' ? 1300 : 1500) * sp(); }
       function pal() { var c = st.inkCol; if (!FILM_INK_PAL[c]) c = st.ptr === 'pen' || st.ptr === 'wand' ? 'gold' : 'white'; return FILM_INK_PAL[c]; }
       // Линия — из точек: по пути пера через несколько пикселей ставится светящаяся точка, чуть в сторону, разного размера.
       // Путь сглажен (среднее последних касаний) — дрожь руки на тачпаде не видна, рисунок читается контуром из огоньков.
@@ -4026,7 +4034,8 @@
       }
       function dot(s, x, y) {
         var a = Math.random() * 6.283, o = Math.random() * 2.4 * s.w;
-        s.dots.push({ x: x + Math.cos(a) * o, y: y + Math.sin(a) * o, r: (.7 + Math.random() * .9) * s.w * (s.k === 'dot' ? 1.3 : 1), ph: Math.random() * 6.283,
+        s.lastB = Date.now();
+        s.dots.push({ b: s.lastB, x: x + Math.cos(a) * o, y: y + Math.sin(a) * o, r: (.7 + Math.random() * .9) * s.w * (s.k === 'dot' ? 1.3 : 1), ph: Math.random() * 6.283,
           i: s.g.n++, dl: Math.random() * .35, vx: Math.cos(a + 1) * (.4 + Math.random()), vy: Math.sin(a + 1) * (.4 + Math.random()) - .3, star: s.k === 'wand' && Math.random() < .18 });
       }
       function inkDown() {
@@ -4064,9 +4073,9 @@
         var win = d.defaultView, W = win.innerWidth, H = win.innerHeight, dpr = win.devicePixelRatio || 1, now = Date.now(), mode = st.inkMelt;
         if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
         cx.setTransform(dpr, 0, 0, dpr, 0, 0); cx.clearRect(0, 0, W, H);
-        S = S.filter(function (s) { return !s.g.end || now < s.g.end + hold() + melt(); });
+        S = S.filter(function (s) { return !s.g.end || now < (mode === 'trail' ? s.lastB : s.g.end) + hold() + melt(); });
         S.forEach(function (s) {
-          var m = s.g.end ? (now - s.g.end - hold()) / melt() : -1, img = sprite(s.pal), N = Math.max(1, s.g.n);
+          var m = mode === 'trail' ? 0 : s.g.end ? (now - s.g.end - hold()) / melt() : -1, img = sprite(s.pal), N = Math.max(1, s.g.n);
           cx.fillStyle = s.pal[0]; cx.shadowColor = s.pal[1];
           s.dots.forEach(function (p) {
             // пока висит — точки мерцают, рисунок живой, не замирает
@@ -4075,10 +4084,10 @@
               if (mode === 'fade') a *= Math.max(0, 1 - m);
               else {
                 // разом — все срываются почти вместе; по точке — с первой к последней, каждая вспыхивает и осыпается
-                f = mode === 'seq' ? (m - p.i / N * .75) / .25 : (m - p.dl) / .65;
+                f = mode === 'trail' ? (now - p.b - hold()) / melt() : mode === 'seq' ? (m - p.i / N * .75) / .25 : (m - p.dl) / .65;
                 if (f > 0) {
                   if (f >= 1) return;
-                  var e = f * f, k = mode === 'seq' ? 14 : 26;
+                  var e = f * f, k = mode === 'dust' ? 26 : 14;
                   x += p.vx * k * f; y += p.vy * k * f + 18 * e;
                   r *= f < .15 ? 1 + f * 3 : 1.45 * (1 - e * .8); a *= 1 - e;
                 }
@@ -4100,6 +4109,10 @@
       d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; inside = false; });
       d.addEventListener('keydown', inkKey, true); d.addEventListener('keyup', inkKey, true);
       d.defaultView.addEventListener('blur', inkUp);
+      // Пока зажат Пробел — касания (и случайный тап тачпада) до страницы не доходят: цветок не выбирается
+      ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick'].forEach(function (t) {
+        d.defaultView.addEventListener(t, function (e) { if (drawing) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+      });
     }
     var ptrLook = function () {}, ink = { down: function () {}, up: function () {} };
     // Пробел зажат — рисуем (и в окне, и когда в фокусе панель); в полях ввода Пробел — обычный
@@ -4220,7 +4233,10 @@
           stream.getTracks().forEach(function (k) { k.stop(); });
           toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
         }
-        return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); }).then(function () { begin(stream); }, function (e) {
+        // Её просьба 30.10 (перо подтормаживает на записи): окно берём размером с ролик, а не почти 4K — компьютеру легче, кадры не пропадают
+        return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); }).then(function () {
+          return tr.applyConstraints({ frameRate: 30, width: { ideal: FILM_W, max: FILM_W }, height: { ideal: FILM_H, max: FILM_H } }).catch(function () {});
+        }).then(function () { begin(stream); }, function (e) {
           stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
         });
       }).catch(function (e) {
@@ -4232,7 +4248,7 @@
       var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
-      var R = REC = { stream: stream, v: v, cv: cv, x: cv.getContext('2d'), t: 0, slot: -1, last: performance.now(), paused: false, cut: auto, speed: +st.speed || 1, lastKey: -1, n: 0, raf: 0 };
+      var R = REC = { stream: stream, v: v, chk: 0, cv: cv, x: cv.getContext('2d'), t: 0, slot: -1, last: performance.now(), paused: false, cut: auto, speed: +st.speed || 1, lastKey: -1, n: 0, raf: 0 };
       clock.textContent = 'Готовлю…'; drop(); ui();
       // «Закрыть доступ» на плашке Chrome — тоже стоп
       stream.getVideoTracks()[0].addEventListener('ended', function () { if (REC === R) stop(); });
@@ -4252,6 +4268,8 @@
             if (REC !== R || R.finishing) return;
             var now = performance.now(), dt = Math.min(.25, (now - R.last) / 1000);
             R.last = now;
+            // Запас: если браузер понял размер иначе и окно вышло мелким — возвращаем прежний крупный
+            if (!R.chk && v.videoHeight) { R.chk = 1; if (v.videoHeight < FILM_H * .6) stream.getVideoTracks()[0].applyConstraints({ frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }).catch(function () {}); }
             if (!R.paused && !R.cut) {
               R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
               var slot = Math.floor(R.t * VID_FPS);
