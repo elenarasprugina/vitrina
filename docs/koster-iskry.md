@@ -66,3 +66,11 @@
 **Опущено (её слова: «по центру не огонь, а брёвна»)** → `ogon-5.mp4`: тот же кадр положен ниже — с y 160 (было 0), верх мягко тает 70 точек (языки, что упираются в край исходника), `FIRE = { x: .5, y: .44 }`. 
 
 **30.10, её слова: «на компе поленья ниже, пусть карточка заходит на поленья»** → на широком экране `.ks-video { top: 10vh }` + сверху маска тает 14 % (`koster.css`). Чёрный исходника поднят до цвета страницы `#070504` (`lutrgb`), иначе вокруг огня видна чуть более тёмная «коробка» → `ogon-6.mp4`. Следующее видео — `ogon-7.mp4`.
+
+## Тёплый свет вокруг огня (30.10, её слова «огня мало, не вкусно, видно, что сгенерированное»)
+`<div class="ks-glow">` между видео и притемнением (`koster.css`): два радиальных градиента (ореол над огнём + отсвет на землю), `mix-blend-mode: screen`; размер — 1,15 высоты кадра видео, центр — `FIRE`. `stepGlow()` в `koster.js` раз в 0,07 с рисует кадр видео в 12×20 и берёт среднюю яркость относительно скользящего среднего → прозрачность и лёгкий масштаб ореола, а `--ks-fl` на `body` — отсвет на стекле листка (верхний край и сияние). Чужой адрес видео (кадр не читается) — мерцание синусами. Сила: `space.koster.warm` = off | soft | mid (по умолчанию) | strong. Дрожание горячего воздуха — не делали (тяжело для телефона), предложить при случае.
+
+**Видео — что дальше.** Её разбор: брёвна с одинаковой «сеткой» выдают генерацию; брёвен много, пламени мало. Pexels, Pixabay, Wikimedia, Mixkit из окружения закрыты (сеть). Она несёт в Kling свою фотографию (высокий костёр, кольцо камней, искры, дым) как первый кадр, промпт:
+> Static locked-off tripod shot, the camera does not move, no zoom, no pan. A real campfire at night burns steadily: tall living flames dance and lick upward between the charred logs, glowing red embers pulse and breathe underneath, small sparks constantly rise and drift into the dark sky, thin wisps of smoke curl and fade. Warm firelight flickers softly on the stones and the ground. Logs and stones stay perfectly still. Natural, calm, hypnotic motion, realistic documentary footage, seamless loop.
+
+Negative: camera movement, zoom, shaking, morphing logs, moving stones, people, hands, text, explosion, sudden flare, cartoon, CGI. Следующее видео — `ogon-7.mp4`.

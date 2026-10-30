@@ -36,6 +36,9 @@
     var SPARKS = { off: 0, few: 5, mid: 12, many: 24, lots: 40 }[K.sparks || 'mid'];
     if (SPARKS == null) SPARKS = 12;
     var FF_N = Math.max(0, Math.min(40, K.ffN == null || K.ffN === '' ? 12 : +K.ffN));
+    // её слова 30.10 «огня мало, не вкусно»: тёплый свет от огня на ночь вокруг, на землю и на стекло — дышит вместе с пламенем
+    var WARM = { off: 0, soft: .6, mid: 1, strong: 1.4 }[K.warm || 'mid'];
+    if (WARM == null) WARM = 1;
 
     document.body.className = 'uz-body ks-body' + (OKNO ? ' uz-okno' : '');
     document.title = str((U.SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('kTitle', 'Костёр');
@@ -44,7 +47,7 @@
     root.innerHTML =
       '<div class="ks-scene" id="ks-scene"><video class="ks-video" id="ks-video" muted playsinline loop autoplay preload="auto"' +
         (POSTER ? ' poster="' + esc(POSTER) + '"' : '') + ' src="' + esc(VID) + '" aria-hidden="true"></video>' +
-        '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
+        (WARM ? '<div class="ks-glow" id="ks-glow"></div>' : '') + '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
       (OKNO ? '' :
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="../">' + esc(T('eyebrow', 'Узоры')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
@@ -67,6 +70,7 @@
     if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
     var W = 0, H = 0, DPR = 1, last = performance.now(), now = 0, paused = false;
     var life = [], parts = [], spark = null, burn = null, flash = null;
+    var glow = $('#ks-glow'), lum = { c: null, g: null, t: 0, v: 0, avg: 0, f: .5 };
     var tq = (location.search.match(/[?&]t=(\w+)/) || [])[1], hr = new Date().getHours();
     var night = tq ? tq !== 'day' && tq !== 'morning' : hr >= 17 || hr < 7;   // светлячки — с вечера до рассвета (по часам человека; проверка — ?t=day / ?t=night)
     var lifeKind = K.life === 'off' ? '' : K.life === 'fireflies' ? 'ff' : K.life === 'moths' ? 'bf' : night ? 'ff' : 'bf';
@@ -89,6 +93,32 @@
       W = scene.clientWidth; H = scene.clientHeight; DPR = Math.min(window.devicePixelRatio || 1, 2);
       fx.width = Math.round(W * DPR); fx.height = Math.round(H * DPR); g.setTransform(DPR, 0, 0, DPR, 0, 0);
       if (!life.length) seedLife();
+      if (glow) { var fp = firePt(), R = VH * fp.s * 1.15; glow.style.cssText = 'left:' + (fp.x - R / 2) + 'px;top:' + (fp.y - R / 2) + 'px;width:' + R + 'px;height:' + R + 'px'; }
+    }
+
+    /* ---------- тёплый свет от огня: яркость берётся из самого видео (крошечная копия кадра), чтобы свет дышал в такт пламени ---------- */
+    function stepGlow(dt) {
+      if (!glow) return;
+      lum.t -= dt;
+      if (lum.t <= 0 && video.readyState >= 2) {
+        lum.t = .07;
+        try {
+          if (!lum.c) { lum.c = document.createElement('canvas'); lum.c.width = 12; lum.c.height = 20; lum.g = lum.c.getContext('2d', { willReadFrequently: true }); }
+          lum.g.drawImage(video, 0, 0, 12, 20);
+          var d = lum.g.getImageData(0, 0, 12, 20).data, sum = 0;
+          for (var i = 0; i < d.length; i += 4) sum += d[i] * .5 + d[i + 1] * .4 + d[i + 2] * .1;
+          lum.v = sum / (d.length / 4);
+          lum.avg = lum.avg ? lum.avg + (lum.v - lum.avg) * .03 : lum.v;
+        } catch (e) { lum.v = 0; }
+      }
+      // нет кадра (чужой адрес видео) — мерцание само по себе
+      var target = lum.avg ? .5 + (lum.v - lum.avg) / lum.avg * 4 : .5 + Math.sin(now * 7.3) * .18 + Math.sin(now * 13.1 + 1) * .12 + Math.sin(now * 2.1) * .15;
+      if (reduce) target = .5;
+      lum.f += (Math.max(0, Math.min(1, target)) - lum.f) * Math.min(1, dt * 9);
+      var f = lum.f;
+      glow.style.opacity = Math.min(1, (.62 + f * .38) * WARM);
+      glow.style.transform = 'scale(' + (.96 + f * .08) + ')';
+      document.body.style.setProperty('--ks-fl', (Math.min(1.4, (.55 + f * .45) * WARM)).toFixed(3));
     }
 
     /* ---------- живность: днём пара бабочек, ночью светлячки ---------- */
@@ -345,6 +375,7 @@
       if (W !== scene.clientWidth || H !== scene.clientHeight) layout();
       g.clearRect(0, 0, W, H);
       if (!reduce) stepLife(dt);
+      stepGlow(dt);
       fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
       drawLife(); drawParts(); drawSpark();
