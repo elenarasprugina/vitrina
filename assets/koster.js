@@ -40,13 +40,19 @@
     document.body.className = 'uz-body ks-body' + (OKNO ? ' uz-okno' : '');
     document.title = str((U.SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('kTitle', 'Костёр');
     var dayText = dayOf();
+    // её слова 31.10: от огня — прямо на витрину (список «Узоры» с одной карточкой не нужен); пришли с месяца — на тот же месяц
+    function backHref() {
+      var r = document.referrer, base = '../../';
+      try { var u = new URL(r), b = new URL(base, location.href); if (u.origin === location.origin && u.pathname.indexOf(b.pathname) === 0 && u.pathname.indexOf(b.pathname + 'uzory/') !== 0) return u.pathname + u.search; } catch (e) {}
+      return base;
+    }
 
     root.innerHTML =
       '<div class="ks-scene" id="ks-scene"><video class="ks-video" id="ks-video" muted playsinline loop autoplay preload="auto"' +
         (POSTER ? ' poster="' + esc(POSTER) + '"' : '') + ' src="' + esc(VID) + '" aria-hidden="true"></video>' +
         '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
       (OKNO ? '' :
-      '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="../">' + esc(T('eyebrow', 'Узоры')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
+      '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="' + esc(backHref()) + '">' + esc(T('kBack', '← К витрине')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
       (K.sound === 'off' ? '' : '<button class="ks-snd" id="ks-snd" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l5-4v14l-5-4H4z"/>' +
         '<path class="ks-snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="ks-snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>') +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
