@@ -71,15 +71,12 @@
     root.innerHTML =
       '<div class="ks-scene" id="ks-scene"><video class="ks-video" id="ks-video" muted playsinline loop autoplay preload="auto"' +
         (POSTER ? ' poster="' + esc(POSTER) + '"' : '') + ' src="' + esc(VID) + '" aria-hidden="true"></video>' +
-        '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
+        '<div class="ks-shade"></div><canvas class="ks-st" id="ks-st"></canvas><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
       (OKNO ? '' :
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="' + esc(backHref()) + '">' + esc(T('kBack', '← К витрине')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
       (K.sound === 'off' ? '' : '<button class="ks-snd" id="ks-snd" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l5-4v14l-5-4H4z"/>' +
         '<path class="ks-snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="ks-snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>') +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
-        (K.coals !== false && DAY_I >= 0 ? '<div class="ks-coals" id="ks-coals"><div class="ks-coals-row">' + DAYS.slice(0, 13).map(function (x, i) {
-          return '<i class="ks-coal' + (i === DAY_I ? ' is-today' : '') + '" style="--d:' + (-Math.random() * 4).toFixed(2) + 's;--r:' + Math.round(40 + Math.random() * 20) + '% ' + Math.round(40 + Math.random() * 20) + '%"></i>';
-        }).join('') + '</div><p class="ks-coals-t">' + esc(T('kCoals', 'Твои угольки: по одному за каждый день у огня')) + '</p></div>' : '') +
         '<div class="uz-sheet" id="ks-ask"><p class="uz-q">' + esc(T('kAsk', 'Здесь ты можешь написать то, что хочешь отдать огню')) + '</p>' +
           '<div class="ks-paper-sh"><div class="ks-paper" id="ks-paper"><textarea id="ks-text" rows="4" maxlength="400" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kPaperPh', 'Напиши здесь…')) + '"></textarea></div></div>' +
           '<p class="uz-p is-dim">' + esc(T('kNote', 'Никто, кроме огня, это не прочтёт.')) + '</p>' +
@@ -96,7 +93,7 @@
         // строка под картой — только если она сама впишет (её слова 31.10: «Твоё желание никуда не уходит…» — лишняя)
         (T('kWishNote', '') ? '<p class="ks-card-note">' + esc(T('kWishNote', '')) + '</p>' : '') + '</div></div>');
 
-    var scene = $('#ks-scene'), video = $('#ks-video'), fx = $('#ks-fx'), g = fx.getContext('2d');
+    var scene = $('#ks-scene'), video = $('#ks-video'), fx = $('#ks-fx'), g = fx.getContext('2d'), stc = $('#ks-st'), sg = stc.getContext('2d');
     // сила огня по тону: в тихие дни пламя чуть приглушено, в сильные — во весь свет
     if (TONE_FX || dayText.power) video.style.filter = 'brightness(' + (.84 + .16 * Math.min(1.1, POW)).toFixed(3) + ')';
     if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
@@ -112,23 +109,16 @@
     var MEM = 'm13uz-koster-' + IT.id;
     function daily() { return !PANEL && !SNOVA && K.daily !== false; }
     function doneToday() { try { return daily() && localStorage.getItem(MEM) === dayNow(); } catch (e) { return false; } }
-    // угольки волны: устройство помнит только даты, когда огонь ответил (без текстов)
-    var COALS = 'm13uz-koster-coals-' + IT.id;
-    function coalDates() { try { return JSON.parse(localStorage.getItem(COALS) || '[]') || []; } catch (e) { return []; } }
-    function paintCoals(fresh) {
-      var box = root.querySelector('#ks-coals'); if (!box) return;
-      var have = coalDates(), n = 0;
-      [].forEach.call(box.querySelectorAll('.ks-coal'), function (c, i) {
-        var on = DAYS[i] && have.indexOf(DAYS[i].date) >= 0; if (on) n++;
-        c.classList.toggle('is-lit', on); if (fresh && i === DAY_I) c.classList.add('is-new');
-      });
-      box.setAttribute('aria-label', T('kCoals', 'Твои угольки: по одному за каждый день у огня') + ' — ' + n + ' из ' + Math.min(13, DAYS.length));
-    }
-    function lightCoal() {
-      if (DAY_I < 0) return;
-      if (!PANEL) { var have = coalDates(); if (have.indexOf(iso()) < 0) { have.push(iso()); try { localStorage.setItem(COALS, JSON.stringify(have)); } catch (e) {} } }
-      var c = root.querySelectorAll('.ks-coal')[DAY_I]; if (PANEL && c) c.classList.add('is-lit');
-      paintCoals(true);
+    /* 13 камней у огня — память (её решение 31.10): камни переднего ряда в кадре поделены на 13 мест слева направо;
+       день, когда огонь ответил, — его камень мягко светится цветом печати того дня. Устройство помнит только даты (без текстов). */
+    var STONES = 'm13uz-koster-kamni-' + IT.id, STONES_ON = K.stones !== false && DAY_I >= 0, panelLit = {};
+    function stoneDates() { try { return JSON.parse(localStorage.getItem(STONES) || '[]') || []; } catch (e) { return []; } }
+    var litAt = {};   // номер камня → когда загорелся (для вспышки)
+    function lightStone() {
+      if (!STONES_ON) return;
+      if (PANEL) panelLit[iso()] = 1;
+      else { var have = stoneDates(); if (have.indexOf(iso()) < 0) { have.push(iso()); try { localStorage.setItem(STONES, JSON.stringify(have)); } catch (e) {} } }
+      litAt[DAY_I] = now; stoneList = null;
     }
     function markToday() { if (!daily()) return; try { localStorage.setItem(MEM, dayNow()); } catch (e) {} }
 
@@ -137,9 +127,45 @@
       var r = video.getBoundingClientRect(), s = Math.max(r.width / VW, r.height / VH), dw = VW * s, dh = VH * s;
       return { x: r.left + (r.width - dw) / 2 + FIRE.x * dw, y: r.top + (r.height - dh) / 2 + FIRE.y * dh, s: s };
     }
+    function vidPt(x, y) {
+      var r = video.getBoundingClientRect(), s = Math.max(r.width / VW, r.height / VH), dw = VW * s, dh = VH * s;
+      return { x: r.left + (r.width - dw) / 2 + x * s, y: r.top + (r.height - dh) / 2 + y * s, s: s };
+    }
+    // 13 мест на камнях переднего ряда (точки кадра 540 × 960, видео ogon-7): слева направо — дни 1…13
+    var STONE_XY = [[62, 790], [96, 800], [131, 806], [166, 808], [201, 808], [236, 808], [271, 806], [306, 804], [341, 800], [376, 790], [411, 782], [446, 786], [481, 790]];
+    var stoneList = null, oc = document.createElement('canvas'), ox = oc.getContext('2d');
+    function stoneCol(d) { var kin = parseInt(d && d.kin, 10) || 0, c = hexRgb(d && d.color) || (kin > 0 ? SEAL_RGB[(kin - 1) % 20 % 4] : [255, 214, 150]);
+      return [Math.round(c[0] * .6 + 255 * .4), Math.round(c[1] * .6 + 176 * .4), Math.round(c[2] * .6 + 100 * .4)]; }   // цвет дня, согретый огнём
+    function drawStones() {
+      sg.clearRect(0, 0, W, H);
+      if (!STONES_ON || (K.video && !/ogon-7/.test(K.video))) return;   // места камней — только для этого видео
+      if (!stoneList) { var have = PANEL ? panelLit : {}; if (!PANEL) stoneDates().forEach(function (d) { have[d] = 1; });
+        stoneList = []; DAYS.slice(0, 13).forEach(function (d, i) { if (have[d.date]) stoneList.push({ i: i, c: stoneCol(d) }); }); }
+      if (!stoneList.length || !video.videoWidth) return;
+      // свет на камне — не пятно поверх: берём сам камень из кадра, делаем светлее и теплее (цвет дня), края тают мягко
+      var kx = video.videoWidth / VW, ky = video.videoHeight / VH, RX = 44, RY = 24;
+      stoneList.forEach(function (st) {
+        var q = STONE_XY[st.i], p = vidPt(q[0], q[1]), w = Math.max(2, Math.ceil(2 * RX * p.s)), h = Math.max(2, Math.ceil(2 * RY * p.s)), t0 = litAt[st.i],
+          f = t0 == null ? 1 : Math.min(1, (now - t0) / 1.6),
+          a = Math.min(1, (.8 + .12 * Math.sin(now * 1.3 + st.i * 1.7) + .06 * Math.sin(now * 3.7 + st.i)) * f + (t0 == null ? 0 : Math.max(0, 1 - (now - t0) / 1.2) * .5));
+        if (oc.width !== w || oc.height !== h) { oc.width = w; oc.height = h; }
+        ox.setTransform(1, 0, 0, 1, 0, 0); ox.globalCompositeOperation = 'copy'; ox.globalAlpha = 1;
+        try { ox.drawImage(video, (q[0] - RX) * kx, (q[1] - RY) * ky, 2 * RX * kx, 2 * RY * ky, 0, 0, w, h); } catch (e) { return; }
+        ox.globalCompositeOperation = 'lighter'; ox.drawImage(oc, 0, 0); ox.globalAlpha = .5; ox.drawImage(oc, 0, 0); ox.globalAlpha = 1;   // камень втрое светлее — как от тлеющего угля рядом
+        ox.globalCompositeOperation = 'multiply'; ox.fillStyle = rgba(st.c, 1); ox.fillRect(0, 0, w, h);   // в тон дня
+        ox.globalCompositeOperation = 'lighter'; ox.fillStyle = rgba(st.c, .1); ox.fillRect(0, 0, w, h);
+        ox.globalCompositeOperation = 'destination-in';
+        ox.translate(w / 2, h / 2); ox.scale(1, h / w);
+        var gr = ox.createRadialGradient(0, 0, 0, 0, 0, w / 2);
+        gr.addColorStop(0, 'rgba(0,0,0,' + a.toFixed(3) + ')'); gr.addColorStop(.35, 'rgba(0,0,0,' + (a * .75).toFixed(3) + ')'); gr.addColorStop(.7, 'rgba(0,0,0,' + (a * .25).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        ox.fillStyle = gr; ox.fillRect(-w / 2, -w / 2, w, w);
+        sg.drawImage(oc, p.x - w / 2, p.y - h / 2, w, h);
+      });
+    }
     function layout() {
       W = scene.clientWidth; H = scene.clientHeight; DPR = Math.min(window.devicePixelRatio || 1, 2);
       fx.width = Math.round(W * DPR); fx.height = Math.round(H * DPR); g.setTransform(DPR, 0, 0, DPR, 0, 0);
+      stc.width = fx.width; stc.height = fx.height; sg.setTransform(DPR, 0, 0, DPR, 0, 0);
       if (!life.length) seedLife();
     }
 
@@ -232,10 +258,10 @@
         var o = 1 - p.l / p.L;
         if (p.ash) { g.save(); g.translate(p.x, p.y); g.rotate(p.a); g.fillStyle = 'rgba(40,34,30,' + (.75 * o) + ')'; g.fillRect(-p.r, -p.r * .4, p.r * 2, p.r * .8); g.restore(); return; }
         if (p.tw != null) o *= .55 + .45 * Math.sin(now * 14 + p.tw);   // искра от огня мерцает
-        if (p.col) {   // искра цвета печати: светящаяся, с ореолом
-          g.save(); g.globalCompositeOperation = 'lighter';
-          g.fillStyle = rgba(p.col, .35 * o); g.beginPath(); g.arc(p.x, p.y, p.r * 3.2, 0, 6.283); g.fill();
-          g.fillStyle = rgba(p.col, o); g.beginPath(); g.arc(p.x, p.y, p.r * (.7 + .4 * o), 0, 6.283); g.fill(); g.restore();
+        if (p.col) {   // искра цвета печати — тонкий штрих по ходу полёта (её слова 31.10: никаких пятен), светлая с лёгким отливом
+          var vl = Math.sqrt(p.vx * p.vx + p.vy * p.vy) || 1, ln = Math.min(9, 2 + vl * .035) * (.5 + .5 * o);
+          g.strokeStyle = rgba(p.col.map(function (v) { return Math.round(v + (255 - v) * .45); }), o); g.lineWidth = Math.max(.7, p.r * .7); g.lineCap = 'round';
+          g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx / vl * ln, p.y - p.vy / vl * ln); g.stroke();
         } else {
           g.fillStyle = 'rgba(255,' + Math.round(150 + 90 * o) + ',' + Math.round(60 + 80 * o) + ',' + o + ')';
           g.beginPath(); g.arc(p.x, p.y, p.r * (.6 + .4 * o), 0, 6.283); g.fill();
@@ -252,66 +278,101 @@
       }
     }
 
-    /* ---------- знак тона из искр: листок сгорел — искры цвета печати поднимаются из огня, на миг складываются
-       в знак тона дня (точки и черты майя: черта — 5, точка — 1) и рассыпаются дымом ---------- */
-    var sign = null;
+    /* ---------- знак тона бенгальским огнём (её решение 31.10): листок сгорел — из огня выскакивает яркая искорка и быстро
+       прочерчивает знак тона тонкой светящейся линией (черта — 5, точка — 1; точки сверху, черты под ними), сыплет мелкими искрами;
+       знак держится миг и осыпается вниз искрами; одна искра падает на камень этого дня — камень загорается ---------- */
+    var sign = null, crackle = [];
+    var CORE = DCOL.map(function (v) { return Math.round(v + (255 - v) * .5); });   // линия — светлая, с отливом цвета печати
     function startSign(done) {
       if (K.toneSign === false || !TONE || reduce) { done(); return; }
       var fp = firePt(), k = Math.max(.8, Math.min(1.25, Math.min(W, 700) / 390)) * 1.45, cx = fp.x, cy = Math.max(H * .2, fp.y - 230 * fp.s);
-      var bars = Math.floor(TONE / 5), dots = TONE % 5, bw = 116 * k, gap = 24 * k, tg = [], i, j;
+      var bars = Math.floor(TONE / 5), dots = TONE % 5, bw = 116 * k, gap = 24 * k, segs = [], i;
       var hgt = (dots ? 1 : 0) * gap + bars * gap, y0 = cy - hgt / 2 + (dots ? 0 : gap / 2);
-      for (i = 0; i < dots; i++) {   // точки — сверху, в ряд
-        var dx = cx + (i - (dots - 1) / 2) * 30 * k;
-        tg.push([dx, y0, 1.25]);
-        for (j = 0; j < 6; j++) tg.push([dx + Math.cos(j * 1.047) * 5.5 * k, y0 + Math.sin(j * 1.047) * 5.5 * k, .9]);
-      }
-      for (i = 0; i < bars; i++) {   // черты — под точками
-        var by = y0 + (dots ? gap : 0) + i * gap;
-        for (j = 0; j <= 20; j++) { var bx = cx - bw / 2 + bw * j / 20; tg.push([bx, by - 2.6 * k, .9]); tg.push([bx + 2.9 * k, by + 2.6 * k, .9]); }
-      }
-      sign = { t: 0, k: k, cx: cx, cy: cy, done: done, pts: tg.map(function (q) {
-        var sx = fp.x + (Math.random() - .5) * 120 * fp.s, sy = fp.y + (Math.random() - .3) * 60 * fp.s;
-        return { sx: sx, sy: sy, tx: q[0], ty: q[1], r: q[2], d: Math.random() * .45, bend: (Math.random() - .5) * 120 * k, ph: Math.random() * 6.28,
-          vx: (Math.random() - .5) * 50, vy: -(25 + Math.random() * 55), x: sx, y: sy };
-      }) };
+      for (i = 0; i < dots; i++) segs.push({ dot: 1, x: cx + (i - (dots - 1) / 2) * 30 * k, y: y0 });
+      for (i = 0; i < bars; i++) { var by = y0 + (dots ? gap : 0) + i * gap; segs.push({ x: cx - bw / 2, y: by, x2: cx + bw / 2 }); }
+      // путь головы: из огня — к первому элементу, по элементам, между ними — быстрый невидимый перелёт
+      var path = [], t = 0, hx = fp.x, hy = fp.y - 40 * fp.s;
+      function go(x, y, dur, draw) { path.push({ t0: t, t1: t + dur, ax: hx, ay: hy, bx: x, by: y, draw: draw }); t += dur; hx = x; hy = y; }
+      segs.forEach(function (sg2, n) {
+        go(sg2.x, sg2.y, n ? .16 : .55, false);
+        if (sg2.dot) { path.push({ t0: t, t1: t + .22, ax: hx, ay: hy, bx: hx, by: hy, dot: 1 }); t += .22; }
+        else go(sg2.x2, sg2.y, .5, true);
+      });
+      sign = { t: 0, k: k, path: path, T: t, segs: segs, drawn: [], stars: [], done: done, phase: 0 };
     }
-    var CORE = DCOL.map(function (v) { return Math.round(v + (255 - v) * .55); });   // сердцевина искры — светлее цвета печати
-    var SG_IN = 1.6, SG_HOLD = 1.7, SG_OUT = 1.8;
+    var SG_HOLD = 1.2, SG_OUT = 1.1;
+    function crack(x, y, k, down) {   // искорка бенгальского огня: тонкий штрих, гаснет за доли секунды
+      var a = down ? Math.PI / 2 + (Math.random() - .5) * 1.4 : Math.random() * 6.283, v = (down ? 30 : 60) + Math.random() * (down ? 90 : 160);
+      crackle.push({ x: x, y: y, vx: Math.cos(a) * v * k, vy: Math.sin(a) * v * k, l: 0, L: down ? .5 + Math.random() * .9 : .12 + Math.random() * .25, g: down ? 260 : 120 });
+    }
     function stepSign(dt) {
+      if (crackle.length) {
+        g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+        crackle = crackle.filter(function (c) {
+          c.l += dt; if (c.l > c.L) return false;
+          c.vy += c.g * dt; c.x += c.vx * dt; c.y += c.vy * dt;
+          var o = 1 - c.l / c.L, vl = Math.sqrt(c.vx * c.vx + c.vy * c.vy) || 1, ln = Math.min(10, 2 + vl * .03);
+          g.strokeStyle = rgba(c.l < c.L * .3 ? [255, 250, 235] : CORE, o); g.lineWidth = .9;
+          g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(c.x - c.vx / vl * ln, c.y - c.vy / vl * ln); g.stroke();
+          return true;
+        });
+        g.restore();
+      }
       if (!sign) return;
       var S = sign; S.t += dt;
-      var t = S.t, hold = Math.max(0, Math.min(1, (t - SG_IN) / .4)), out = Math.max(0, (t - SG_IN - SG_HOLD) / SG_OUT);
-      var ga = Math.min(1, Math.max(0, t - SG_IN * .5) / .8) * (1 - Math.min(1, out * 1.2)), R = 105 * S.k, gr;
-      if (ga > 0) {   // за знаком — облачко тёмного дыма, чтобы знак читался на пламени
-        gr = g.createRadialGradient(S.cx, S.cy, 0, S.cx, S.cy, R);
-        gr.addColorStop(0, 'rgba(12,7,5,' + (.55 * ga).toFixed(3) + ')'); gr.addColorStop(.55, 'rgba(12,7,5,' + (.3 * ga).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(12,7,5,0)');
-        g.fillStyle = gr; g.fillRect(S.cx - R, S.cy - R, R * 2, R * 2);
-      }
-      g.save(); g.globalCompositeOperation = 'lighter';
-      if (ga > 0) {   // мягкое сияние цвета печати
-        gr = g.createRadialGradient(S.cx, S.cy, 0, S.cx, S.cy, R * .8);
-        gr.addColorStop(0, rgba(DCOL, .14 * ga)); gr.addColorStop(1, rgba(DCOL, 0));
-        g.fillStyle = gr; g.fillRect(S.cx - R, S.cy - R, R * 2, R * 2);
-      }
-      S.pts.forEach(function (p) {
-        var u = Math.max(0, Math.min(1, (t - p.d) / (SG_IN - .45))), e = 1 - Math.pow(1 - u, 3), a;
-        if (out <= 0) {
-          p.x = p.sx + (p.tx - p.sx) * e + Math.sin(e * Math.PI) * p.bend + Math.sin(now * 3 + p.ph) * .8 * hold;
-          p.y = p.sy + (p.ty - p.sy) * e + Math.cos(now * 2.6 + p.ph) * .8 * hold;
-          a = Math.min(1, u * 3) * (.75 + .25 * Math.sin(now * 7 + p.ph));
-        } else {   // рассыпается дымом: вверх, с завитками
-          p.vx += Math.sin(now * 2 + p.ph + p.y * .03) * 40 * dt; p.vy -= 8 * dt;
-          p.x += p.vx * dt * out; p.y += p.vy * dt * out;
-          a = Math.max(0, 1 - out);
-        }
-        if (a <= 0) return;
-        var rr = p.r * S.k;
-        g.fillStyle = rgba(DCOL, .3 * a); g.beginPath(); g.arc(p.x, p.y, 5 * rr, 0, 6.283); g.fill();
-        g.fillStyle = rgba(CORE, a); g.beginPath(); g.arc(p.x, p.y, 1.5 * rr, 0, 6.283); g.fill();
+      var t = S.t, k = S.k, out = Math.max(0, (t - S.T - SG_HOLD) / SG_OUT), hx = null, hy = null;
+      // голова: где сейчас, что уже прочерчено
+      S.path.forEach(function (sgm) {
+        if (t < sgm.t0) return;
+        var u = Math.min(1, (t - sgm.t0) / (sgm.t1 - sgm.t0)), x = sgm.ax + (sgm.bx - sgm.ax) * u, y = sgm.ay + (sgm.by - sgm.ay) * u;
+        if (t <= sgm.t1) { hx = x; hy = y; }
+        if (sgm.draw) sgm.u = u;
+        if (sgm.dot && !sgm.lit && u > .3) { sgm.lit = 1; S.stars.push({ x: sgm.bx, y: sgm.by }); for (var n = 0; n < 10; n++) crack(sgm.bx, sgm.by, k * .8); }
       });
+      if (hx != null && Math.random() < .9) { crack(hx, hy, k * .7); crack(hx, hy, k * .7); }
+      var fade = 1 - Math.min(1, out * 1.15), fl = .85 + .15 * Math.sin(t * 23) * Math.sin(t * 7);
+      g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      if (fade > 0) {
+        // черты: тонкая светлая линия с узким свечением
+        S.path.forEach(function (sgm) {
+          if (!sgm.draw || !sgm.u) return;
+          var x2 = sgm.ax + (sgm.bx - sgm.ax) * sgm.u, wob = out > 0 ? 1 - out : 1;
+          g.strokeStyle = rgba(DCOL, .22 * fade * fl); g.lineWidth = 4.5 * k * .6;
+          g.beginPath(); g.moveTo(sgm.ax, sgm.ay); g.lineTo(x2, sgm.by); g.stroke();
+          g.strokeStyle = rgba(CORE, .95 * fade * fl * wob + .4 * fade); g.lineWidth = 1.6 * k * .6;
+          g.beginPath(); g.moveTo(sgm.ax, sgm.ay); g.lineTo(x2, sgm.by); g.stroke();
+          if (out > 0 && Math.random() < .7) crack(sgm.ax + Math.random() * (x2 - sgm.ax), sgm.by, k * .7, true);   // осыпается вниз
+          else if (!out && Math.random() < .12) crack(sgm.ax + Math.random() * (x2 - sgm.ax), sgm.by, k * .5);   // потрескивает
+        });
+        // точки: звёздочка из тонких лучей и светлая сердцевинка
+        S.stars.forEach(function (st) {
+          var R = 6 * k * .8 * (.8 + .2 * Math.sin(t * 17 + st.x));
+          g.strokeStyle = rgba(CORE, .9 * fade); g.lineWidth = 1.1;
+          g.beginPath(); for (var n = 0; n < 4; n++) { var a = n * Math.PI / 4 + t * .6; g.moveTo(st.x - Math.cos(a) * R, st.y - Math.sin(a) * R); g.lineTo(st.x + Math.cos(a) * R, st.y + Math.sin(a) * R); } g.stroke();
+          g.fillStyle = rgba([255, 252, 240], fade); g.beginPath(); g.arc(st.x, st.y, 1.7 * k * .7, 0, 6.283); g.fill();
+          if (out > 0 && Math.random() < .5) crack(st.x, st.y, k * .7, true);
+        });
+      }
+      // голова — яркая искорка
+      if (hx != null) { g.fillStyle = 'rgba(255,253,245,1)'; g.beginPath(); g.arc(hx, hy, 2.2 * k * .7, 0, 6.283); g.fill(); }
       g.restore();
-      if (out >= .45 && S.done) { var d = S.done; S.done = null; d(); }   // искра-ответ вылетает, пока знак тает
-      if (out >= 1) sign = null;
+      if (out > 0 && !S.fell) {   // одна искра падает на камень этого дня
+        S.fell = 1;
+        var from = S.segs[S.segs.length - 1], fx2 = from.dot ? from.x : (from.x + from.x2) / 2;
+        if (STONES_ON && STONE_XY[DAY_I] && !(K.video && !/ogon-7/.test(K.video))) {
+          var q = STONE_XY[DAY_I], to = vidPt(q[0], q[1]);
+          S.drop = { ax: fx2, ay: from.y, bx: to.x, by: to.y - 4, t: 0, L: 1.3, bend: (to.x - fx2) * .25 };
+        }
+      }
+      if (S.drop) {
+        var d = S.drop; d.t += dt;
+        var u = Math.min(1, d.t / d.L), e = u * u, x = d.ax + (d.bx - d.ax) * e + Math.sin(u * Math.PI) * d.bend, y = d.ay + (d.by - d.ay) * e;
+        if (u < 1) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,250,235,1)'; g.beginPath(); g.arc(x, y, 1.8, 0, 6.283); g.fill(); g.restore(); if (Math.random() < .8) crack(x, y, .5, true); }
+        else if (!d.hit) { d.hit = 1; lightStone(); for (var n2 = 0; n2 < 14; n2++) crack(d.bx, d.by, .7); }
+      }
+      var ready = out >= 1 && (!S.drop || S.drop.hit);
+      if (ready && S.done) { var dn = S.done; S.done = null; dn(); }
+      if (ready) sign = null;
     }
 
     /* ---------- искра: летит по дуге от a к b, за ней — хвост ---------- */
@@ -469,7 +530,7 @@
       if (!reduce) stepLife(dt);
       fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
-      drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark();
+      drawStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark();
       requestAnimationFrame(frame);
     }
     layout();
@@ -594,7 +655,6 @@
     /* ---------- ход: листок → огонь → искра → карта → желание ---------- */
     var ask = $('#ks-ask'), after = $('#ks-after'), afterT = $('#ks-after-t'), text = $('#ks-text'), paper = $('#ks-paper');
     paper.style.clipPath = deckClip();
-    paintCoals();
     var wrap = $('#ks-card-wrap'), card = $('#ks-card'), wish = $('#ks-wish');
     function show(n) { [ask, after].forEach(function (x) { x.hidden = x !== n; }); }
     function showAfter(t) { afterT.textContent = t; show(after); }
@@ -617,7 +677,7 @@
       flySpark({ x: fp.x + (Math.random() - .5) * 40 * fp.s, y: fp.y }, to, reduce ? .3 : 2.2, (Math.random() < .5 ? -1 : 1) * W * .12, function (x, y) {
         flash = { x: x, y: y, t: 0, L: 1.1 };
         for (var i = 0; i < 26; i++) ember(x, y, 1.4, TONE && i % 2 ? DCOL : null);
-        markToday(); lightCoal();
+        markToday(); if (!TONE || K.toneSign === false || reduce) lightStone();
         wrap.hidden = false; card.classList.remove('is-gone'); card.style.transformOrigin = '';
         setTimeout(function () { try { wish.focus({ preventScroll: true }); } catch (e) {} }, 1300);
       });
