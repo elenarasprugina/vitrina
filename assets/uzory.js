@@ -217,7 +217,7 @@
   }
   // Костёр Самайна вместо сада (её решение 30.10; panel: «Пространство» → «Что в пространстве»; проверка — ?koster=1 / ?sad=1)
   function koster(root, OKNO) {
-    var v = '20261031l', sc = document.createElement('script');
+    var v = '20261031p', sc = document.createElement('script');
     ['assets/fonts/marck-script.css', 'assets/koster.css?v=' + v].forEach(function (h) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = BASE + h; document.head.appendChild(l); });
     sc.src = BASE + 'assets/koster.js?v=' + v;
     sc.onload = function () { window.M13_KOSTER(root, { IT: IT, SET: SET, T: T, esc: esc, str: str, imgUrl: imgUrl, PANEL: PANEL, OKNO: OKNO }); };
