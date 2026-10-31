@@ -2586,7 +2586,8 @@
       }
       else if (x.kind === 'routeButton') {
         var url = String(x.url || '').trim() || (r && r.routeUrl) || '';
-        if (url) html = '<a class="m13-go" href="' + esc(url) + '" target="_blank" rel="noopener"><span>' +
+        // страница этого же сайта (маршрут, костёр) — в том же окне (её слова 31.10, второй раз); чужой сайт и предпросмотр в панели — в новом
+        if (url) html = '<a class="m13-go" href="' + esc(url) + '"' + (!S.onBack && sameSite(url) ? '' : ' target="_blank" rel="noopener"') + '><span>' +
           txt(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
       }
       else if (x.kind === 'formats') {
