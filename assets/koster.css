@@ -62,5 +62,18 @@ body.ks-body { background: #070504; overflow: hidden; }
 .ks-snd .ks-snd-off, .ks-snd.is-off .ks-snd-on { display: none; }
 .ks-snd.is-off .ks-snd-off { display: inline; }
 .ks-snd.is-off { color: rgba(255, 228, 196, .5); }
-/* 13 камней у огня — память (её решение 31.10): свет ложится на камни переднего ряда мягко, без краёв */
-.ks-st { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* 13 камушков на кромке нижней карточки (её слова 31.10: камней в кадре не видно) — тёмные речные камушки;
+   день, когда огонь ответил, светится цветом печати (--c), сегодняшний — чуть обведён; переезжают вместе с карточкой */
+.ks-stones { position: fixed; z-index: 205; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; padding: 0 16px; height: 16px; pointer-events: none; }
+.ks-stones.is-placed { transition: top .9s ease, left .9s ease, width .9s ease; }
+.ks-stones[hidden] { display: none; }
+.ks-stone { display: block; width: 19px; height: 12px; background: radial-gradient(ellipse at 48% 28%, #5a463a 0%, #2c211b 55%, #140e0b 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 196, 140, .3), 0 2px 4px rgba(0, 0, 0, .7); transition: background 1.2s ease, box-shadow 1.2s ease; }
+.ks-stone.is-today { box-shadow: inset 0 1px 1px rgba(255, 196, 140, .35), 0 2px 4px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 214, 170, .35); }
+.ks-stone.is-lit { background: radial-gradient(ellipse at 50% 40%, rgb(255, 250, 240) 0%, rgb(var(--c)) 30%, rgba(var(--c), .7) 62%, #3a2a20 100%);
+  box-shadow: 0 0 8px 1px rgba(var(--c), .7), 0 0 20px 5px rgba(var(--c), .3), 0 2px 4px rgba(0, 0, 0, .5); animation: ks-stone-glow 4.5s ease-in-out infinite; }
+.ks-stone.is-new { animation: ks-stone-new 1.8s ease-out, ks-stone-glow 4.5s ease-in-out 1.8s infinite; }
+@keyframes ks-stone-glow { 50% { filter: brightness(1.18); } }
+@keyframes ks-stone-new { 0% { filter: brightness(2.6); box-shadow: 0 0 18px 6px rgba(var(--c), .95), 0 0 46px 16px rgba(var(--c), .5); } }
+@media (min-width: 900px) { .ks-stones { padding: 0 20px; height: 18px; } .ks-stone { width: 24px; height: 14px; } }
+@media (prefers-reduced-motion: reduce) { .ks-stone.is-lit, .ks-stone.is-new { animation: none; } }

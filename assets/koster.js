@@ -71,7 +71,7 @@
     root.innerHTML =
       '<div class="ks-scene" id="ks-scene"><video class="ks-video" id="ks-video" muted playsinline loop autoplay preload="auto"' +
         (POSTER ? ' poster="' + esc(POSTER) + '"' : '') + ' src="' + esc(VID) + '" aria-hidden="true"></video>' +
-        '<div class="ks-shade"></div><canvas class="ks-st" id="ks-st"></canvas><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
+        '<div class="ks-shade"></div><canvas class="ks-fx" id="ks-fx"></canvas></div>' +
       (OKNO ? '' :
       '<div class="uz-ui uz-top"><div><a class="uz-eyebrow" href="' + esc(backHref()) + '">' + esc(T('kBack', '← К витрине')) + '</a><h1 class="uz-h1">' + esc(T('kTitle', 'Костёр')) + '</h1></div></div>' +
       (K.sound === 'off' ? '' : '<button class="ks-snd" id="ks-snd" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l5-4v14l-5-4H4z"/>' +
@@ -84,6 +84,7 @@
         '<div class="uz-sheet" id="ks-after" hidden><p class="uz-p" id="ks-after-t"></p>' +
           '<button class="uz-link uz-link--dim" id="ks-stay" type="button">' + esc(T('kStay', 'Посидеть у огня')) + '</button></div>' +
       '</div>' +
+      '<div class="ks-stones" id="ks-stones" aria-hidden="true" hidden></div>' +
       '<div class="ks-card-wrap" id="ks-card-wrap" hidden><div class="ks-card" id="ks-card"><div class="uz-dar-glass"></div><i class="ks-rim"></i><i class="ks-rim-run"></i>' +
         '<p class="uz-dar-lead">' + esc(T('kCardLead', 'Огонь отвечает')) + '</p>' +
         (str(dayText.wish, T('kCardText')) ? '<p class="ks-card-t">' + esc(str(dayText.wish, T('kCardText'))) + '</p>' : '') +
@@ -93,7 +94,7 @@
         // строка под картой — только если она сама впишет (её слова 31.10: «Твоё желание никуда не уходит…» — лишняя)
         (T('kWishNote', '') ? '<p class="ks-card-note">' + esc(T('kWishNote', '')) + '</p>' : '') + '</div></div>');
 
-    var scene = $('#ks-scene'), video = $('#ks-video'), fx = $('#ks-fx'), g = fx.getContext('2d'), stc = $('#ks-st'), sg = stc.getContext('2d');
+    var scene = $('#ks-scene'), video = $('#ks-video'), fx = $('#ks-fx'), g = fx.getContext('2d');
     // сила огня по тону: в тихие дни пламя чуть приглушено, в сильные — во весь свет
     if (TONE_FX || dayText.power) video.style.filter = 'brightness(' + (.84 + .16 * Math.min(1.1, POW)).toFixed(3) + ')';
     if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
@@ -111,14 +112,14 @@
     function doneToday() { try { return daily() && localStorage.getItem(MEM) === dayNow(); } catch (e) { return false; } }
     /* 13 камней у огня — память (её решение 31.10): камни переднего ряда в кадре поделены на 13 мест слева направо;
        день, когда огонь ответил, — его камень мягко светится цветом печати того дня. Устройство помнит только даты (без текстов). */
-    var STONES = 'm13uz-koster-kamni-' + IT.id, STONES_ON = K.stones !== false && DAY_I >= 0, panelLit = {};
+    var STONES = 'm13uz-koster-kamni-' + IT.id, STONES_ON = K.stones !== false && DAY_I >= 0 && !OKNO, panelLit = {};
     function stoneDates() { try { return JSON.parse(localStorage.getItem(STONES) || '[]') || []; } catch (e) { return []; } }
     var litAt = {};   // номер камня → когда загорелся (для вспышки)
     function lightStone() {
       if (!STONES_ON) return;
       if (PANEL) panelLit[iso()] = 1;
       else { var have = stoneDates(); if (have.indexOf(iso()) < 0) { have.push(iso()); try { localStorage.setItem(STONES, JSON.stringify(have)); } catch (e) {} } }
-      litAt[DAY_I] = now; stoneList = null;
+      litAt[DAY_I] = 1; paintStones();
     }
     function markToday() { if (!daily()) return; try { localStorage.setItem(MEM, dayNow()); } catch (e) {} }
 
@@ -127,45 +128,48 @@
       var r = video.getBoundingClientRect(), s = Math.max(r.width / VW, r.height / VH), dw = VW * s, dh = VH * s;
       return { x: r.left + (r.width - dw) / 2 + FIRE.x * dw, y: r.top + (r.height - dh) / 2 + FIRE.y * dh, s: s };
     }
-    function vidPt(x, y) {
-      var r = video.getBoundingClientRect(), s = Math.max(r.width / VW, r.height / VH), dw = VW * s, dh = VH * s;
-      return { x: r.left + (r.width - dw) / 2 + x * s, y: r.top + (r.height - dh) / 2 + y * s, s: s };
-    }
-    // 13 мест на камнях переднего ряда (точки кадра 540 × 960, видео ogon-7): слева направо — дни 1…13
-    var STONE_XY = [[62, 790], [96, 800], [131, 806], [166, 808], [201, 808], [236, 808], [271, 806], [306, 804], [341, 800], [376, 790], [411, 782], [446, 786], [481, 790]];
-    var stoneList = null, oc = document.createElement('canvas'), ox = oc.getContext('2d');
+    /* 13 камушков — на верхней кромке нижней карточки (её слова 31.10: камни в кадре не видно — их закрывала карточка, и свет был слишком тихим).
+       Лежат рядком, будто на земле перед огнём; день, когда огонь ответил, — камушек светится цветом печати дня; камушек сегодняшнего дня чуть обведён. */
+    var stRow = $('#ks-stones'), stEls = [], stPos = '';
     function stoneCol(d) { var kin = parseInt(d && d.kin, 10) || 0, c = hexRgb(d && d.color) || (kin > 0 ? SEAL_RGB[(kin - 1) % 20 % 4] : [255, 214, 150]);
-      return [Math.round(c[0] * .6 + 255 * .4), Math.round(c[1] * .6 + 176 * .4), Math.round(c[2] * .6 + 100 * .4)]; }   // цвет дня, согретый огнём
-    function drawStones() {
-      sg.clearRect(0, 0, W, H);
-      if (!STONES_ON || (K.video && !/ogon-7/.test(K.video))) return;   // места камней — только для этого видео
-      if (!stoneList) { var have = PANEL ? panelLit : {}; if (!PANEL) stoneDates().forEach(function (d) { have[d] = 1; });
-        stoneList = []; DAYS.slice(0, 13).forEach(function (d, i) { if (have[d.date]) stoneList.push({ i: i, c: stoneCol(d) }); }); }
-      if (!stoneList.length || !video.videoWidth) return;
-      // свет на камне — не пятно поверх: берём сам камень из кадра, делаем светлее и теплее (цвет дня), края тают мягко
-      var kx = video.videoWidth / VW, ky = video.videoHeight / VH, RX = 44, RY = 24;
-      stoneList.forEach(function (st) {
-        var q = STONE_XY[st.i], p = vidPt(q[0], q[1]), w = Math.max(2, Math.ceil(2 * RX * p.s)), h = Math.max(2, Math.ceil(2 * RY * p.s)), t0 = litAt[st.i],
-          f = t0 == null ? 1 : Math.min(1, (now - t0) / 1.6),
-          a = Math.min(1, (.8 + .12 * Math.sin(now * 1.3 + st.i * 1.7) + .06 * Math.sin(now * 3.7 + st.i)) * f + (t0 == null ? 0 : Math.max(0, 1 - (now - t0) / 1.2) * .5));
-        if (oc.width !== w || oc.height !== h) { oc.width = w; oc.height = h; }
-        ox.setTransform(1, 0, 0, 1, 0, 0); ox.globalCompositeOperation = 'copy'; ox.globalAlpha = 1;
-        try { ox.drawImage(video, (q[0] - RX) * kx, (q[1] - RY) * ky, 2 * RX * kx, 2 * RY * ky, 0, 0, w, h); } catch (e) { return; }
-        ox.globalCompositeOperation = 'lighter'; ox.drawImage(oc, 0, 0); ox.globalAlpha = .5; ox.drawImage(oc, 0, 0); ox.globalAlpha = 1;   // камень втрое светлее — как от тлеющего угля рядом
-        ox.globalCompositeOperation = 'multiply'; ox.fillStyle = rgba(st.c, 1); ox.fillRect(0, 0, w, h);   // в тон дня
-        ox.globalCompositeOperation = 'lighter'; ox.fillStyle = rgba(st.c, .1); ox.fillRect(0, 0, w, h);
-        ox.globalCompositeOperation = 'destination-in';
-        ox.translate(w / 2, h / 2); ox.scale(1, h / w);
-        var gr = ox.createRadialGradient(0, 0, 0, 0, 0, w / 2);
-        gr.addColorStop(0, 'rgba(0,0,0,' + a.toFixed(3) + ')'); gr.addColorStop(.35, 'rgba(0,0,0,' + (a * .75).toFixed(3) + ')'); gr.addColorStop(.7, 'rgba(0,0,0,' + (a * .25).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-        ox.fillStyle = gr; ox.fillRect(-w / 2, -w / 2, w, w);
-        sg.drawImage(oc, p.x - w / 2, p.y - h / 2, w, h);
+      return [Math.round(c[0] * .75 + 255 * .25), Math.round(c[1] * .75 + 190 * .25), Math.round(c[2] * .75 + 120 * .25)]; }   // цвет дня, чуть согретый огнём
+    function paintStones() {
+      if (!stRow) return;
+      var have = {}; if (PANEL) have = panelLit; else stoneDates().forEach(function (d) { have[d] = 1; });
+      stEls.forEach(function (e, i) {
+        var d = DAYS[i], on = !!(d && have[d.date]);
+        e.className = 'ks-stone' + (on ? ' is-lit' : '') + (i === DAY_I && !on ? ' is-today' : '') + (on && litAt[i] ? ' is-new' : '');
+        if (on) e.style.setProperty('--c', stoneCol(d).join(','));
       });
     }
+    if (stRow && STONES_ON) {
+      var SHAPES = ['52% 48% 44% 50% / 62% 58% 42% 38%', '46% 54% 50% 44% / 58% 64% 36% 42%', '50% 50% 46% 52% / 66% 56% 44% 34%', '44% 56% 52% 48% / 60% 60% 40% 40%'];
+      for (var si = 0; si < Math.min(13, DAYS.length); si++) {
+        var se = document.createElement('i'); se.style.borderRadius = SHAPES[si % 4];
+        se.style.transform = 'translateY(' + [1, -1, 0, 2, -1, 1, 0, -2, 1, 0, -1, 2, 0][si] + 'px) rotate(' + [-6, 4, -2, 7, -4, 3, -7, 5, -3, 6, -5, 2, -4][si] + 'deg) scale(' + [1, .9, 1.06, .94, 1.02, .88, 1.08, .96, .92, 1.04, .9, 1, .95][si] + ')';
+        stRow.appendChild(se); stEls.push(se);
+      }
+      stRow.hidden = false; paintStones();
+    }
+    // ряд стоит на верхнем краю той карточки внизу, что сейчас видна; карточки нет (знак, карта) — камушки опускаются на землю перед огнём
+    function placeStones() {
+      if (!stEls.length || !ask) return;
+      var sh = !ask.hidden ? ask : !after.hidden ? after : null, r, top;
+      if (sh) { r = sh.getBoundingClientRect(); top = r.top - stRow.offsetHeight * .55; }
+      else {
+        var v = video.getBoundingClientRect(), vs = Math.max(v.width / VW, v.height / VH), w = Math.min(W - 32, 540 * vs * .78, W < 900 ? 540 : 580);
+        r = { left: (W - w) / 2, width: w }; top = Math.min(H - 40, v.top + (v.height - VH * vs) / 2 + 812 * vs);
+      }
+      var pos = Math.round(r.left) + ',' + Math.round(top) + ',' + Math.round(r.width);
+      if (pos === stPos || !r.width) return;
+      stRow.style.left = Math.round(r.left) + 'px'; stRow.style.width = Math.round(r.width) + 'px'; stRow.style.top = Math.round(top) + 'px';
+      if (!stPos) { stRow.offsetWidth; stRow.classList.add('is-placed'); }   // первый раз — без переезда
+      stPos = pos;
+    }
+    function stoneAt(i) { var e = stEls[i]; if (!e) return null; var r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * .45 }; }
     function layout() {
       W = scene.clientWidth; H = scene.clientHeight; DPR = Math.min(window.devicePixelRatio || 1, 2);
       fx.width = Math.round(W * DPR); fx.height = Math.round(H * DPR); g.setTransform(DPR, 0, 0, DPR, 0, 0);
-      stc.width = fx.width; stc.height = fx.height; sg.setTransform(DPR, 0, 0, DPR, 0, 0);
       if (!life.length) seedLife();
     }
 
@@ -285,6 +289,9 @@
        в конце головка вспыхивает, и одна искра по дуге падает на камень этого дня — камень загорается ---------- */
     var sign = null, crackle = [], specks = [];
     var CORE = DCOL.map(function (v) { return Math.round(v + (255 - v) * .55); });   // огоньки — светлые, с отливом цвета печати
+    // скорость знака (её слова 31.10: «пролетело — вау, а что это было?»): головка идёт медленнее, след живёт дольше,
+    // и знак миг виден целиком, прежде чем растаять. «Быстро» — как было до этого.
+    var SGN = { slow: { d: 2.7, l: 3.3, h: .9 }, mid: { d: 2, l: 2.6, h: .6 }, fast: { d: 1, l: 1, h: 0 } }[K.signSpeed] || { d: 2, l: 2.6, h: .6 };
     function startSign(done) {
       if (K.toneSign === false || !TONE || reduce) { done(); return; }
       var fp = firePt(), k = Math.max(.8, Math.min(1.25, Math.min(W, 700) / 390)) * 1.45, cx = fp.x, cy = Math.max(H * .2, fp.y - 230 * fp.s);
@@ -295,14 +302,14 @@
       function go(x, y, dur, burn) { path.push({ t0: t, t1: t + dur, ax: hx, ay: hy, bx: x, by: y, burn: burn }); t += dur; hx = x; hy = y; }
       for (i = bars - 1; i >= 0; i--) {
         var by = y0 + (dots ? gap : 0) + i * gap, ltr = (bars - 1 - i) % 2 === 0, xa = cx + (ltr ? -bw / 2 : bw / 2), xb = cx + (ltr ? bw / 2 : -bw / 2);
-        go(xa, by, i === bars - 1 ? .6 : .2, false); go(xb, by, .55, true);
+        go(xa, by, (i === bars - 1 ? .6 : .2) * SGN.d, false); go(xb, by, .55 * SGN.d, true);
       }
       for (i = 0; i < dots; i++) {
         var dx = cx + (i - (dots - 1) / 2) * 32 * k;
-        go(dx, y0, path.length ? .2 : .6, false);
-        path.push({ t0: t, t1: t + .3, ax: dx, ay: y0, bx: dx, by: y0, dot: 4 * k, burn: true }); t += .3;
+        go(dx, y0, (path.length ? .2 : .6) * SGN.d, false);
+        path.push({ t0: t, t1: t + .3 * SGN.d, ax: dx, ay: y0, bx: dx, by: y0, dot: 4 * k, burn: true }); t += .3 * SGN.d;
       }
-      sign = { t: 0, k: k, path: path, T: t, done: done, lx: null, ly: null };
+      sign = { t: 0, k: k, path: path, T: t + SGN.h, done: done, lx: null, ly: null };
     }
     function crack(x, y, k, vx0, vy0) {   // искра бенгальского огня: во все стороны, быстрая, ветвится
       var a = Math.random() * 6.283, v = (90 + Math.random() * 230) * k;
@@ -310,7 +317,7 @@
     }
     function speck(x, y, k) {   // огонёк следа: мерцает и тает
       var rr = Math.random() * Math.random() * 5.5 * k, aa = Math.random() * 6.283;   // огоньки — облачком вокруг пути, гуще к середине
-      specks.push({ x: x + Math.cos(aa) * rr, y: y + Math.sin(aa) * rr, l: 0, L: .4 + Math.random() * .45, r: (.5 + Math.random() * 1.1) * Math.min(1.4, k * .7), gl: Math.random() < .18 });
+      specks.push({ x: x + Math.cos(aa) * rr, y: y + Math.sin(aa) * rr, l: 0, L: (.4 + Math.random() * .45) * SGN.l, r: (.5 + Math.random() * 1.1) * Math.min(1.4, k * .7) * (SGN.l > 1 ? 1.25 : 1), gl: Math.random() < .18 });
     }
     function stepSign(dt) {
       var S = sign;
@@ -333,13 +340,14 @@
           var vx = (hx - (S.px == null ? hx : S.px)) / (dt || .016), vy = (hy - (S.py == null ? hy : S.py)) / (dt || .016);
           S.px = hx; S.py = hy;
           for (var m = 0; m < (burning ? 5 : 3); m++) crack(hx, hy, k * .6, vx * .1, vy * .1);
-        }
+        } else if (!S.end && S.lx != null && Math.random() < .5) crack(S.lx, S.ly, k * .45);
         if (t >= S.T && !S.end) {   // знак выжжен: головка вспыхивает и гаснет
           S.end = 1; S.lx = null;
           var last = S.path[S.path.length - 1];
           for (var b = 0; b < 34; b++) crack(last.bx, last.by, k * .8);
-          if (STONES_ON && STONE_XY[DAY_I] && !(K.video && !/ogon-7/.test(K.video))) {   // одна искра — на камень дня
-            var q = STONE_XY[DAY_I], to = vidPt(q[0], q[1]), T2 = 1.25, G = 340;
+          var to = STONES_ON && stoneAt(DAY_I);
+          if (to) {   // одна искра — на камушек дня
+            var T2 = 1.4, G = 340;
             S.drop = { x: last.bx, y: last.by, vx: (to.x - last.bx) / T2, vy: (to.y - 4 - last.by - .5 * G * T2 * T2) / T2, G: G, t: 0, L: T2, bx: to.x, by: to.y - 4, tail: [] };
           }
         }
@@ -349,11 +357,11 @@
       g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
       specks = specks.filter(function (p) {
         p.l += dt; if (p.l > p.L) return false;
-        var u = p.l / p.L, o = (1 - u) * (1 - u) * (.55 + .45 * Math.random());
+        var u = p.l / p.L, o = (SGN.l > 1 ? 1 - u * u : (1 - u) * (1 - u)) * (.55 + .45 * Math.random());
         g.fillStyle = rgba(u < .18 ? [255, 252, 240] : CORE, o);
         g.beginPath(); g.arc(p.x, p.y, p.r * (1 - u * .5), 0, 6.283); g.fill();
         if (p.gl) { g.fillStyle = rgba(DCOL, o * .22); g.beginPath(); g.arc(p.x, p.y, p.r * 3.2, 0, 6.283); g.fill(); }
-        if (Math.random() < .015) crackle.push({ x: p.x, y: p.y, vx: (Math.random() - .5) * 120, vy: (Math.random() - .5) * 120, l: 0, L: .1 + Math.random() * .12, br: 0 });
+        if (Math.random() < .015 / SGN.l) crackle.push({ x: p.x, y: p.y, vx: (Math.random() - .5) * 120, vy: (Math.random() - .5) * 120, l: 0, L: .1 + Math.random() * .12, br: 0 });
         return true;
       });
       // искры: тонкие штрихи, разлетаются, тормозят, часть ветвится на 2–3 искорки
@@ -400,22 +408,46 @@
     }
 
     /* ---------- искра: летит по дуге от a к b, за ней — хвост ---------- */
-    function flySpark(a, b, dur, bend, done) {
-      spark = { a: a, b: b, t: 0, L: dur, bend: bend, tail: [], done: done };
+    function flySpark(a, b, dur, bend, done, path) {
+      spark = { a: a, b: b, t: 0, L: dur, bend: bend, tail: [], done: done, path: path || null };
+    }
+    /* искра желания (её слова 31.10): от карты — к огню, оборот вокруг пламени (позади огня она тускнеет — как будто за ним),
+       потом поднимается вверх змейкой, чем выше — тем шире и легче. Путь — заранее точками, летит по нему ровно */
+    function wishPath(a) {
+      var fp = firePt(), cx = fp.x, cy = fp.y + 55 * fp.s, rx = Math.min(W * .36, 175 * fp.s), ry = rx * .32, dir = Math.random() < .5 ? 1 : -1,
+        pts = [], i, n, th, th0 = Math.PI / 2, th1 = th0 + dir * Math.PI * 2.5, e0 = { x: cx, y: cy + ry };
+      // к огню — мягкой дугой, приходим на передний край круга
+      for (i = 0; i <= 24; i++) { var u = i / 24, mx = (a.x + e0.x) / 2 - dir * rx * .9, my = (a.y + e0.y) / 2 + ry;
+        pts.push({ x: (1 - u) * (1 - u) * a.x + 2 * u * (1 - u) * mx + u * u * e0.x, y: (1 - u) * (1 - u) * a.y + 2 * u * (1 - u) * my + u * u * e0.y, b: 1 }); }
+      // оборот с четвертью вокруг огня
+      n = 120; for (i = 1; i <= n; i++) { th = th0 + (th1 - th0) * i / n; var sn = Math.sin(th); pts.push({ x: cx + Math.cos(th) * rx * (1 - .12 * i / n), y: cy + sn * ry * (1 - .12 * i / n) - 18 * fp.s * i / n, b: sn < 0 ? .35 + .65 * (1 + sn) : 1 }); }
+      // вверх змейкой
+      var xe = pts[pts.length - 1].x, ye = pts[pts.length - 1].y, top = -60, sd = Math.cos(th1) < 0 ? -1 : 1;
+      n = 90; for (i = 1; i <= n; i++) { var v = i / n; pts.push({ x: xe - sd * Math.sin(v * Math.PI * 5) * (10 + 46 * v) * Math.min(1.4, fp.s * 1.2), y: ye + (top - ye) * v, b: 1 }); }
+      var L = [0]; for (i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.sqrt(Math.pow(pts[i].x - pts[i - 1].x, 2) + Math.pow(pts[i].y - pts[i - 1].y, 2)));
+      return { p: pts, L: L };
     }
     function stepSpark(dt) {
       if (!spark) return;
       var s = spark; s.t += dt;
-      var u = Math.min(1, s.t / s.L), e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
-      var x = s.a.x + (s.b.x - s.a.x) * e + Math.sin(e * Math.PI) * s.bend + Math.sin(s.t * 9) * 4 * (1 - u);
-      var y = s.a.y + (s.b.y - s.a.y) * e;
+      var u = Math.min(1, s.t / s.L), e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2, x, y;
+      if (s.path) {   // по готовому пути: трогается мягко, дальше ровно
+        var P = s.path, d = P.L[P.L.length - 1] * (u < .12 ? u * u / .24 : u - .06) / .94, j = 1;
+        while (j < P.L.length - 1 && P.L[j] < d) j++;
+        var f = Math.max(0, Math.min(1, (d - P.L[j - 1]) / ((P.L[j] - P.L[j - 1]) || 1)));
+        x = P.p[j - 1].x + (P.p[j].x - P.p[j - 1].x) * f; y = P.p[j - 1].y + (P.p[j].y - P.p[j - 1].y) * f; s.al = P.p[j - 1].b + (P.p[j].b - P.p[j - 1].b) * f;
+      } else {
+        x = s.a.x + (s.b.x - s.a.x) * e + Math.sin(e * Math.PI) * s.bend + Math.sin(s.t * 9) * 4 * (1 - u);
+        y = s.a.y + (s.b.y - s.a.y) * e;
+      }
       s.x = x; s.y = y; s.tail.push({ x: x, y: y }); if (s.tail.length > 26) s.tail.shift();
-      if (Math.random() < .5) ember(x, y, .4);
+      if (Math.random() < .5 * (s.al == null ? 1 : s.al)) ember(x, y, .4);
       if (u >= 1) { spark = null; if (s.done) s.done(x, y); }
     }
     function drawSpark() {
       if (!spark || spark.x == null) return;
-      var s = spark, n = s.tail.length;
+      var s = spark, n = s.tail.length, al = s.al == null ? 1 : s.al;
+      g.save(); g.globalAlpha = al;
       for (var i = 1; i < n; i++) {
         g.strokeStyle = 'rgba(255,214,150,' + (i / n * .7) + ')'; g.lineWidth = 1 + i / n * 3; g.lineCap = 'round';
         g.beginPath(); g.moveTo(s.tail[i - 1].x, s.tail[i - 1].y); g.lineTo(s.tail[i].x, s.tail[i].y); g.stroke();
@@ -423,6 +455,7 @@
       var gr = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, 26);
       gr.addColorStop(0, 'rgba(255,255,240,1)'); gr.addColorStop(.2, 'rgba(255,220,150,.8)'); gr.addColorStop(1, 'rgba(255,170,90,0)');
       g.fillStyle = gr; g.beginPath(); g.arc(s.x, s.y, 26, 0, 6.283); g.fill();
+      g.restore();
     }
 
     /* ---------- листок сгорает: края темнеют, кромка тлеет, сгоревшее исчезает, летят искры и пепел ---------- */
@@ -554,7 +587,7 @@
       if (!reduce) stepLife(dt);
       fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
-      drawStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark();
+      placeStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark();
       requestAnimationFrame(frame);
     }
     layout();
@@ -713,9 +746,9 @@
         wrap.hidden = true; wish.value = '';
         var x = r.left + r.width / 2, y = r.top + r.height / 2;
         flash = { x: x, y: y, t: 0, L: .7 };
-        flySpark({ x: x, y: y }, { x: x + (Math.random() - .5) * W * .3, y: -40 }, reduce ? .3 : 2.4, (Math.random() < .5 ? -1 : 1) * W * .1, function () {
+        flySpark({ x: x, y: y }, { x: x + (Math.random() - .5) * W * .3, y: -40 }, reduce ? .3 : 5.2, (Math.random() < .5 ? -1 : 1) * W * .1, function () {
           showAfter(T('kAfter', 'Искра унесла твоё желание. Возвращайся к огню завтра.'));
-        });
+        }, reduce ? null : wishPath({ x: x, y: y }));
       }, reduce ? 50 : 900);
     };
 
