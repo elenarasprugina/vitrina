@@ -278,101 +278,125 @@
       }
     }
 
-    /* ---------- знак тона бенгальским огнём (её решение 31.10): листок сгорел — из огня выскакивает яркая искорка и быстро
-       прочерчивает знак тона тонкой светящейся линией (черта — 5, точка — 1; точки сверху, черты под ними), сыплет мелкими искрами;
-       знак держится миг и осыпается вниз искрами; одна искра падает на камень этого дня — камень загорается ---------- */
-    var sign = null, crackle = [];
-    var CORE = DCOL.map(function (v) { return Math.round(v + (255 - v) * .5); });   // линия — светлая, с отливом цвета печати
+    /* ---------- знак тона бенгальским огнём (её слова 31.10): бенгальский огонь не рисует, как мелок, — он выжигает.
+       Яркая головка вылетает из огня и ведёт знак: сначала черты (снизу вверх), потом точки. Там, где она прошла,
+       остаются мельчайшие огоньки — они мерцают и тают за доли секунды, поэтому знак виден только по следу движения;
+       линий и нарисованных точек нет. Искры летят во все стороны и ветвятся, как у настоящего бенгальского огня;
+       в конце головка вспыхивает, и одна искра по дуге падает на камень этого дня — камень загорается ---------- */
+    var sign = null, crackle = [], specks = [];
+    var CORE = DCOL.map(function (v) { return Math.round(v + (255 - v) * .55); });   // огоньки — светлые, с отливом цвета печати
     function startSign(done) {
       if (K.toneSign === false || !TONE || reduce) { done(); return; }
       var fp = firePt(), k = Math.max(.8, Math.min(1.25, Math.min(W, 700) / 390)) * 1.45, cx = fp.x, cy = Math.max(H * .2, fp.y - 230 * fp.s);
-      var bars = Math.floor(TONE / 5), dots = TONE % 5, bw = 116 * k, gap = 24 * k, segs = [], i;
+      var bars = Math.floor(TONE / 5), dots = TONE % 5, bw = 116 * k, gap = 26 * k, i;
       var hgt = (dots ? 1 : 0) * gap + bars * gap, y0 = cy - hgt / 2 + (dots ? 0 : gap / 2);
-      for (i = 0; i < dots; i++) segs.push({ dot: 1, x: cx + (i - (dots - 1) / 2) * 30 * k, y: y0 });
-      for (i = 0; i < bars; i++) { var by = y0 + (dots ? gap : 0) + i * gap; segs.push({ x: cx - bw / 2, y: by, x2: cx + bw / 2 }); }
-      // путь головы: из огня — к первому элементу, по элементам, между ними — быстрый невидимый перелёт
+      // путь головки: из огня — к нижней черте; черты снизу вверх, змейкой; потом точки слева направо
       var path = [], t = 0, hx = fp.x, hy = fp.y - 40 * fp.s;
-      function go(x, y, dur, draw) { path.push({ t0: t, t1: t + dur, ax: hx, ay: hy, bx: x, by: y, draw: draw }); t += dur; hx = x; hy = y; }
-      segs.forEach(function (sg2, n) {
-        go(sg2.x, sg2.y, n ? .16 : .55, false);
-        if (sg2.dot) { path.push({ t0: t, t1: t + .22, ax: hx, ay: hy, bx: hx, by: hy, dot: 1 }); t += .22; }
-        else go(sg2.x2, sg2.y, .5, true);
-      });
-      sign = { t: 0, k: k, path: path, T: t, segs: segs, drawn: [], stars: [], done: done, phase: 0 };
+      function go(x, y, dur, burn) { path.push({ t0: t, t1: t + dur, ax: hx, ay: hy, bx: x, by: y, burn: burn }); t += dur; hx = x; hy = y; }
+      for (i = bars - 1; i >= 0; i--) {
+        var by = y0 + (dots ? gap : 0) + i * gap, ltr = (bars - 1 - i) % 2 === 0, xa = cx + (ltr ? -bw / 2 : bw / 2), xb = cx + (ltr ? bw / 2 : -bw / 2);
+        go(xa, by, i === bars - 1 ? .6 : .2, false); go(xb, by, .55, true);
+      }
+      for (i = 0; i < dots; i++) {
+        var dx = cx + (i - (dots - 1) / 2) * 32 * k;
+        go(dx, y0, path.length ? .2 : .6, false);
+        path.push({ t0: t, t1: t + .3, ax: dx, ay: y0, bx: dx, by: y0, dot: 4 * k, burn: true }); t += .3;
+      }
+      sign = { t: 0, k: k, path: path, T: t, done: done, lx: null, ly: null };
     }
-    var SG_HOLD = 1.2, SG_OUT = 1.1;
-    function crack(x, y, k, down) {   // искорка бенгальского огня: тонкий штрих, гаснет за доли секунды
-      var a = down ? Math.PI / 2 + (Math.random() - .5) * 1.4 : Math.random() * 6.283, v = (down ? 30 : 60) + Math.random() * (down ? 90 : 160);
-      crackle.push({ x: x, y: y, vx: Math.cos(a) * v * k, vy: Math.sin(a) * v * k, l: 0, L: down ? .5 + Math.random() * .9 : .12 + Math.random() * .25, g: down ? 260 : 120 });
+    function crack(x, y, k, vx0, vy0) {   // искра бенгальского огня: во все стороны, быстрая, ветвится
+      var a = Math.random() * 6.283, v = (90 + Math.random() * 230) * k;
+      crackle.push({ x: x, y: y, vx: Math.cos(a) * v + (vx0 || 0), vy: Math.sin(a) * v + (vy0 || 0), l: 0, L: .16 + Math.random() * .34, br: Math.random() < .45 ? 1 : 0 });
+    }
+    function speck(x, y, k) {   // огонёк следа: мерцает и тает
+      var rr = Math.random() * Math.random() * 5.5 * k, aa = Math.random() * 6.283;   // огоньки — облачком вокруг пути, гуще к середине
+      specks.push({ x: x + Math.cos(aa) * rr, y: y + Math.sin(aa) * rr, l: 0, L: .4 + Math.random() * .45, r: (.5 + Math.random() * 1.1) * Math.min(1.4, k * .7), gl: Math.random() < .18 });
     }
     function stepSign(dt) {
-      if (crackle.length) {
-        g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
-        crackle = crackle.filter(function (c) {
-          c.l += dt; if (c.l > c.L) return false;
-          c.vy += c.g * dt; c.x += c.vx * dt; c.y += c.vy * dt;
-          var o = 1 - c.l / c.L, vl = Math.sqrt(c.vx * c.vx + c.vy * c.vy) || 1, ln = Math.min(10, 2 + vl * .03);
-          g.strokeStyle = rgba(c.l < c.L * .3 ? [255, 250, 235] : CORE, o); g.lineWidth = .9;
-          g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(c.x - c.vx / vl * ln, c.y - c.vy / vl * ln); g.stroke();
-          return true;
-        });
-        g.restore();
-      }
-      if (!sign) return;
-      var S = sign; S.t += dt;
-      var t = S.t, k = S.k, out = Math.max(0, (t - S.T - SG_HOLD) / SG_OUT), hx = null, hy = null;
-      // голова: где сейчас, что уже прочерчено
-      S.path.forEach(function (sgm) {
-        if (t < sgm.t0) return;
-        var u = Math.min(1, (t - sgm.t0) / (sgm.t1 - sgm.t0)), x = sgm.ax + (sgm.bx - sgm.ax) * u, y = sgm.ay + (sgm.by - sgm.ay) * u;
-        if (t <= sgm.t1) { hx = x; hy = y; }
-        if (sgm.draw) sgm.u = u;
-        if (sgm.dot && !sgm.lit && u > .3) { sgm.lit = 1; S.stars.push({ x: sgm.bx, y: sgm.by }); for (var n = 0; n < 10; n++) crack(sgm.bx, sgm.by, k * .8); }
-      });
-      if (hx != null && Math.random() < .9) { crack(hx, hy, k * .7); crack(hx, hy, k * .7); }
-      var fade = 1 - Math.min(1, out * 1.15), fl = .85 + .15 * Math.sin(t * 23) * Math.sin(t * 7);
-      g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
-      if (fade > 0) {
-        // черты: тонкая светлая линия с узким свечением
+      var S = sign;
+      if (S) {
+        S.t += dt;
+        var t = S.t, k = S.k, hx = null, hy = null, burning = false;
         S.path.forEach(function (sgm) {
-          if (!sgm.draw || !sgm.u) return;
-          var x2 = sgm.ax + (sgm.bx - sgm.ax) * sgm.u, wob = out > 0 ? 1 - out : 1;
-          g.strokeStyle = rgba(DCOL, .22 * fade * fl); g.lineWidth = 4.5 * k * .6;
-          g.beginPath(); g.moveTo(sgm.ax, sgm.ay); g.lineTo(x2, sgm.by); g.stroke();
-          g.strokeStyle = rgba(CORE, .95 * fade * fl * wob + .4 * fade); g.lineWidth = 1.6 * k * .6;
-          g.beginPath(); g.moveTo(sgm.ax, sgm.ay); g.lineTo(x2, sgm.by); g.stroke();
-          if (out > 0 && Math.random() < .7) crack(sgm.ax + Math.random() * (x2 - sgm.ax), sgm.by, k * .7, true);   // осыпается вниз
-          else if (!out && Math.random() < .12) crack(sgm.ax + Math.random() * (x2 - sgm.ax), sgm.by, k * .5);   // потрескивает
+          if (t < sgm.t0 || t > sgm.t1 + dt) return;
+          var u = Math.min(1, (t - sgm.t0) / (sgm.t1 - sgm.t0));
+          if (sgm.dot) { var a = u * 6.283 * 1.15; hx = sgm.bx + Math.cos(a) * sgm.dot * (.4 + .6 * u); hy = sgm.by + Math.sin(a) * sgm.dot * (.4 + .6 * u); }
+          else { var e = sgm.burn ? u : u * u * (3 - 2 * u); hx = sgm.ax + (sgm.bx - sgm.ax) * e; hy = sgm.ay + (sgm.by - sgm.ay) * e + (sgm.burn ? Math.sin(t * 13) * .8 * k : 0); }
+          burning = sgm.burn;
         });
-        // точки: звёздочка из тонких лучей и светлая сердцевинка
-        S.stars.forEach(function (st) {
-          var R = 6 * k * .8 * (.8 + .2 * Math.sin(t * 17 + st.x));
-          g.strokeStyle = rgba(CORE, .9 * fade); g.lineWidth = 1.1;
-          g.beginPath(); for (var n = 0; n < 4; n++) { var a = n * Math.PI / 4 + t * .6; g.moveTo(st.x - Math.cos(a) * R, st.y - Math.sin(a) * R); g.lineTo(st.x + Math.cos(a) * R, st.y + Math.sin(a) * R); } g.stroke();
-          g.fillStyle = rgba([255, 252, 240], fade); g.beginPath(); g.arc(st.x, st.y, 1.7 * k * .7, 0, 6.283); g.fill();
-          if (out > 0 && Math.random() < .5) crack(st.x, st.y, k * .7, true);
-        });
-      }
-      // голова — яркая искорка
-      if (hx != null) { g.fillStyle = 'rgba(255,253,245,1)'; g.beginPath(); g.arc(hx, hy, 2.2 * k * .7, 0, 6.283); g.fill(); }
-      g.restore();
-      if (out > 0 && !S.fell) {   // одна искра падает на камень этого дня
-        S.fell = 1;
-        var from = S.segs[S.segs.length - 1], fx2 = from.dot ? from.x : (from.x + from.x2) / 2;
-        if (STONES_ON && STONE_XY[DAY_I] && !(K.video && !/ogon-7/.test(K.video))) {
-          var q = STONE_XY[DAY_I], to = vidPt(q[0], q[1]);
-          S.drop = { ax: fx2, ay: from.y, bx: to.x, by: to.y - 4, t: 0, L: 1.3, bend: (to.x - fx2) * .25 };
+        if (hx != null) {
+          if (burning && S.lx != null) {   // след — частые огоньки вдоль пути головки
+            var d = Math.sqrt((hx - S.lx) * (hx - S.lx) + (hy - S.ly) * (hy - S.ly)), n = Math.max(1, Math.ceil(d / 1.4));
+            for (var j = 0; j < n; j++) speck(S.lx + (hx - S.lx) * j / n, S.ly + (hy - S.ly) * j / n, k);
+          }
+          S.lx = hx; S.ly = hy;
+          var vx = (hx - (S.px == null ? hx : S.px)) / (dt || .016), vy = (hy - (S.py == null ? hy : S.py)) / (dt || .016);
+          S.px = hx; S.py = hy;
+          for (var m = 0; m < (burning ? 5 : 3); m++) crack(hx, hy, k * .6, vx * .1, vy * .1);
         }
+        if (t >= S.T && !S.end) {   // знак выжжен: головка вспыхивает и гаснет
+          S.end = 1; S.lx = null;
+          var last = S.path[S.path.length - 1];
+          for (var b = 0; b < 34; b++) crack(last.bx, last.by, k * .8);
+          if (STONES_ON && STONE_XY[DAY_I] && !(K.video && !/ogon-7/.test(K.video))) {   // одна искра — на камень дня
+            var q = STONE_XY[DAY_I], to = vidPt(q[0], q[1]), T2 = 1.25, G = 340;
+            S.drop = { x: last.bx, y: last.by, vx: (to.x - last.bx) / T2, vy: (to.y - 4 - last.by - .5 * G * T2 * T2) / T2, G: G, t: 0, L: T2, bx: to.x, by: to.y - 4, tail: [] };
+          }
+        }
+        if (S.end && !S.endT) S.endT = t;
       }
-      if (S.drop) {
-        var d = S.drop; d.t += dt;
-        var u = Math.min(1, d.t / d.L), e = u * u, x = d.ax + (d.bx - d.ax) * e + Math.sin(u * Math.PI) * d.bend, y = d.ay + (d.by - d.ay) * e;
-        if (u < 1) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,250,235,1)'; g.beginPath(); g.arc(x, y, 1.8, 0, 6.283); g.fill(); g.restore(); if (Math.random() < .8) crack(x, y, .5, true); }
-        else if (!d.hit) { d.hit = 1; lightStone(); for (var n2 = 0; n2 < 14; n2++) crack(d.bx, d.by, .7); }
+      // огоньки следа
+      g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      specks = specks.filter(function (p) {
+        p.l += dt; if (p.l > p.L) return false;
+        var u = p.l / p.L, o = (1 - u) * (1 - u) * (.55 + .45 * Math.random());
+        g.fillStyle = rgba(u < .18 ? [255, 252, 240] : CORE, o);
+        g.beginPath(); g.arc(p.x, p.y, p.r * (1 - u * .5), 0, 6.283); g.fill();
+        if (p.gl) { g.fillStyle = rgba(DCOL, o * .22); g.beginPath(); g.arc(p.x, p.y, p.r * 3.2, 0, 6.283); g.fill(); }
+        if (Math.random() < .015) crackle.push({ x: p.x, y: p.y, vx: (Math.random() - .5) * 120, vy: (Math.random() - .5) * 120, l: 0, L: .1 + Math.random() * .12, br: 0 });
+        return true;
+      });
+      // искры: тонкие штрихи, разлетаются, тормозят, часть ветвится на 2–3 искорки
+      var born = [];
+      crackle = crackle.filter(function (c) {
+        c.l += dt; if (c.l > c.L) return false;
+        var f = Math.max(0, 1 - 3.2 * dt); c.vx *= f; c.vy *= f; c.vy += 70 * dt; c.x += c.vx * dt; c.y += c.vy * dt;
+        if (c.br && c.l > c.L * .55) {
+          c.br = 0;
+          var sp = Math.sqrt(c.vx * c.vx + c.vy * c.vy) * .8, a0 = Math.atan2(c.vy, c.vx), nb = 2 + (Math.random() < .4 ? 1 : 0);
+          for (var i = 0; i < nb; i++) { var a = a0 + (Math.random() - .5) * 1.8; born.push({ x: c.x, y: c.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, l: 0, L: .08 + Math.random() * .14, br: 0 }); }
+          return false;
+        }
+        var o = 1 - c.l / c.L, vl = Math.sqrt(c.vx * c.vx + c.vy * c.vy) || 1, ln = Math.min(9, 1.5 + vl * .035);
+        g.strokeStyle = rgba(c.l < c.L * .4 ? [255, 250, 235] : CORE, o); g.lineWidth = .8;
+        g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(c.x - c.vx / vl * ln, c.y - c.vy / vl * ln); g.stroke();
+        return true;
+      });
+      if (born.length) crackle = crackle.concat(born);
+      // головка — горящий шарик бенгальского огня
+      if (S && !S.end && S.lx != null) {
+        var R = 7 * S.k * .7, gr = g.createRadialGradient(S.lx, S.ly, 0, S.lx, S.ly, R * 3);
+        gr.addColorStop(0, 'rgba(255,255,248,1)'); gr.addColorStop(.18, rgba(CORE, .85)); gr.addColorStop(1, rgba(DCOL, 0));
+        g.fillStyle = gr; g.beginPath(); g.arc(S.lx, S.ly, R * 3, 0, 6.283); g.fill();
       }
-      var ready = out >= 1 && (!S.drop || S.drop.hit);
-      if (ready && S.done) { var dn = S.done; S.done = null; dn(); }
-      if (ready) sign = null;
+      // искра, летящая на камень
+      if (S && S.drop) {
+        var d2 = S.drop; d2.t += dt;
+        if (d2.t < d2.L) {
+          var tt = d2.t, x = d2.x + d2.vx * tt, y = d2.y + d2.vy * tt + .5 * d2.G * tt * tt;
+          d2.tail.push({ x: x, y: y }); if (d2.tail.length > 14) d2.tail.shift();
+          for (var i2 = 1; i2 < d2.tail.length; i2++) {
+            g.strokeStyle = rgba(CORE, i2 / d2.tail.length * .6); g.lineWidth = .6 + i2 / d2.tail.length * 1.4;
+            g.beginPath(); g.moveTo(d2.tail[i2 - 1].x, d2.tail[i2 - 1].y); g.lineTo(d2.tail[i2].x, d2.tail[i2].y); g.stroke();
+          }
+          g.fillStyle = 'rgba(255,252,240,1)'; g.beginPath(); g.arc(x, y, 1.9, 0, 6.283); g.fill();
+          if (Math.random() < .6) crack(x, y, .35);
+        } else if (!d2.hit) { d2.hit = 1; lightStone(); for (var n2 = 0; n2 < 22; n2++) crack(d2.bx, d2.by, .55); }
+      }
+      g.restore();
+      if (S && S.end && !specks.length && (!S.drop || S.drop.hit) && S.t - S.endT > .4) {
+        sign = null; if (S.done) { var dn = S.done; S.done = null; dn(); }
+      }
     }
 
     /* ---------- искра: летит по дуге от a к b, за ней — хвост ---------- */
