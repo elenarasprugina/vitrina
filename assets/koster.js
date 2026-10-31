@@ -408,38 +408,15 @@
     }
 
     /* ---------- искра: летит по дуге от a к b, за ней — хвост ---------- */
-    function flySpark(a, b, dur, bend, done, path) {
-      spark = { a: a, b: b, t: 0, L: dur, bend: bend, tail: [], done: done, path: path || null };
-    }
-    /* искра желания (её слова 31.10): от карты — к огню, оборот вокруг пламени (позади огня она тускнеет — как будто за ним),
-       потом поднимается вверх змейкой, чем выше — тем шире и легче. Путь — заранее точками, летит по нему ровно */
-    function wishPath(a) {
-      var fp = firePt(), cx = fp.x, cy = fp.y + 55 * fp.s, rx = Math.min(W * .36, 175 * fp.s), ry = rx * .32, dir = Math.random() < .5 ? 1 : -1,
-        pts = [], i, n, th, th0 = Math.PI / 2, th1 = th0 + dir * Math.PI * 2.5, e0 = { x: cx, y: cy + ry };
-      // к огню — мягкой дугой, приходим на передний край круга
-      for (i = 0; i <= 24; i++) { var u = i / 24, mx = (a.x + e0.x) / 2 - dir * rx * .9, my = (a.y + e0.y) / 2 + ry;
-        pts.push({ x: (1 - u) * (1 - u) * a.x + 2 * u * (1 - u) * mx + u * u * e0.x, y: (1 - u) * (1 - u) * a.y + 2 * u * (1 - u) * my + u * u * e0.y, b: 1 }); }
-      // оборот с четвертью вокруг огня
-      n = 120; for (i = 1; i <= n; i++) { th = th0 + (th1 - th0) * i / n; var sn = Math.sin(th); pts.push({ x: cx + Math.cos(th) * rx * (1 - .12 * i / n), y: cy + sn * ry * (1 - .12 * i / n) - 18 * fp.s * i / n, b: sn < 0 ? .35 + .65 * (1 + sn) : 1 }); }
-      // вверх змейкой
-      var xe = pts[pts.length - 1].x, ye = pts[pts.length - 1].y, top = -60, sd = Math.cos(th1) < 0 ? -1 : 1;
-      n = 90; for (i = 1; i <= n; i++) { var v = i / n; pts.push({ x: xe - sd * Math.sin(v * Math.PI * 5) * (10 + 46 * v) * Math.min(1.4, fp.s * 1.2), y: ye + (top - ye) * v, b: 1 }); }
-      var L = [0]; for (i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.sqrt(Math.pow(pts[i].x - pts[i - 1].x, 2) + Math.pow(pts[i].y - pts[i - 1].y, 2)));
-      return { p: pts, L: L };
+    function flySpark(a, b, dur, bend, done) {
+      spark = { a: a, b: b, t: 0, L: dur, bend: bend, tail: [], done: done };
     }
     function stepSpark(dt) {
       if (!spark) return;
       var s = spark; s.t += dt;
       var u = Math.min(1, s.t / s.L), e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2, x, y;
-      if (s.path) {   // по готовому пути: трогается мягко, дальше ровно
-        var P = s.path, d = P.L[P.L.length - 1] * (u < .12 ? u * u / .24 : u - .06) / .94, j = 1;
-        while (j < P.L.length - 1 && P.L[j] < d) j++;
-        var f = Math.max(0, Math.min(1, (d - P.L[j - 1]) / ((P.L[j] - P.L[j - 1]) || 1)));
-        x = P.p[j - 1].x + (P.p[j].x - P.p[j - 1].x) * f; y = P.p[j - 1].y + (P.p[j].y - P.p[j - 1].y) * f; s.al = P.p[j - 1].b + (P.p[j].b - P.p[j - 1].b) * f;
-      } else {
-        x = s.a.x + (s.b.x - s.a.x) * e + Math.sin(e * Math.PI) * s.bend + Math.sin(s.t * 9) * 4 * (1 - u);
-        y = s.a.y + (s.b.y - s.a.y) * e;
-      }
+      x = s.a.x + (s.b.x - s.a.x) * e + Math.sin(e * Math.PI) * s.bend + Math.sin(s.t * 9) * 4 * (1 - u);
+      y = s.a.y + (s.b.y - s.a.y) * e;
       s.x = x; s.y = y; s.tail.push({ x: x, y: y }); if (s.tail.length > 26) s.tail.shift();
       if (Math.random() < .5 * (s.al == null ? 1 : s.al)) ember(x, y, .4);
       if (u >= 1) { spark = null; if (s.done) s.done(x, y); }
@@ -623,12 +600,22 @@
       }
       mark();
       function start() {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (FILE && AC) {   // своя запись — по кругу без шва (её слова 31.10: «склейка обрубается»)
+          try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+          if (!ac) fileBuild(new AC());
+          if (ac.resume) { var rf = ac.resume(); if (rf && rf.then) rf.then(function () { if (ac.state === 'running') unlocked(); }, function () {}); }
+          if (ac.state === 'running') unlocked();
+          out.gain.cancelScheduledValues(ac.currentTime); out.gain.setTargetAtTime(VOL, ac.currentTime, .1);
+          if (!timer) { timer = setInterval(fileTick, 400); fileNext = 0; fileTick(); }
+          return;
+        }
         if (FILE) {
           if (!el) { el = new Audio(FILE); el.loop = true; el.volume = VOL; }
           var pr = el.play(); if (pr && pr.then) pr.then(unlocked, function () {}); else unlocked();
           return;
         }
-        var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+        if (!AC) return;
         // айфон с выключенным звонком глушит такой звук — просим играть как музыку
         try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
         if (!ac) build(new AC());
@@ -643,7 +630,46 @@
         if (!ac) return;
         out.gain.setTargetAtTime(0, ac.currentTime, .15);
         clearInterval(timer); timer = 0;
+        var tEnd = ac.currentTime + .7; fileSrc.forEach(function (x) { try { x.stop(tEnd); } catch (e) {} }); fileSrc = [];
         setTimeout(function () { if (!timer && ac.suspend) ac.suspend(); }, 700);
+      }
+      /* своя запись по кругу: обычный повтор у MP3 рвётся (тишина-«заплатка» на краях файла, и конец не похож на начало).
+         Поэтому запись играет через Web Audio: края без тишины, а каждый новый круг начинается за 4 с до конца прежнего —
+         конец мягко тает, начало мягко нарастает (равная громкость на стыке), шва не слышно */
+      var fileBuf = null, fileNext = 0, fileSrc = [], fileLoad = false;
+      function fileBuild(c) {
+        ac = c; out = ac.createGain(); out.gain.value = 0; out.connect(ac.destination);
+        if (fileLoad) return; fileLoad = true;
+        var x = new XMLHttpRequest(); x.open('GET', FILE); x.responseType = 'arraybuffer';
+        x.onload = function () {
+          ac.decodeAudioData(x.response, function (b) { fileBuf = trimBuf(b); if (timer) fileTick(); }, function () { FILE = ''; fallback(); });
+        };
+        x.onerror = function () { FILE = ''; fallback(); };
+        x.send();
+      }
+      function fallback() { if (!timer) return; clearInterval(timer); timer = 0; if (on) start(); }   // запись не открылась — костёр звучит сам (собранным звуком)
+      function trimBuf(b) {   // срезаем тишину по краям (у MP3 она всегда есть)
+        var d = b.getChannelData(0), n = d.length, a = 0, z = n - 1;
+        while (a < n && Math.abs(d[a]) < .002) a++;
+        while (z > a && Math.abs(d[z]) < .002) z--;
+        if (z - a < b.sampleRate * 2) return b;
+        var r = ac.createBuffer(b.numberOfChannels, z - a + 1, b.sampleRate);
+        for (var ch = 0; ch < b.numberOfChannels; ch++) r.getChannelData(ch).set(b.getChannelData(ch).subarray(a, z + 1));
+        return r;
+      }
+      var CURV = 64, FIN = new Float32Array(CURV), FOUT = new Float32Array(CURV);
+      for (var ci = 0; ci < CURV; ci++) { FIN[ci] = Math.sin(ci / (CURV - 1) * Math.PI / 2); FOUT[ci] = Math.cos(ci / (CURV - 1) * Math.PI / 2); }
+      function fileTick() {
+        if (!fileBuf || !ac) return;
+        var t = ac.currentTime, D = fileBuf.duration, XF = Math.min(4, D / 4);
+        if (fileNext && fileNext > t + 1.5) return;
+        var first = !fileNext || fileNext < t, at = first ? t + .05 : fileNext, inL = first ? .4 : XF;
+        var s = ac.createBufferSource(), g = ac.createGain(); s.buffer = fileBuf; s.connect(g); g.connect(out);
+        g.gain.setValueCurveAtTime(FIN, at, inL);
+        g.gain.setValueCurveAtTime(FOUT, at + D - XF, XF - .01);
+        s.start(at); s.stop(at + D);
+        fileSrc.push(s); s.onended = function () { var i = fileSrc.indexOf(s); if (i >= 0) fileSrc.splice(i, 1); };
+        fileNext = at + D - XF;
       }
       var noise, roarG, hissG, roarF, until = 0, next = 0;
       function build(c) {
@@ -746,9 +772,9 @@
         wrap.hidden = true; wish.value = '';
         var x = r.left + r.width / 2, y = r.top + r.height / 2;
         flash = { x: x, y: y, t: 0, L: .7 };
-        flySpark({ x: x, y: y }, { x: x + (Math.random() - .5) * W * .3, y: -40 }, reduce ? .3 : 5.2, (Math.random() < .5 ? -1 : 1) * W * .1, function () {
+        flySpark({ x: x, y: y }, { x: x + (Math.random() - .5) * W * .3, y: -40 }, reduce ? .3 : 2.4, (Math.random() < .5 ? -1 : 1) * W * .1, function () {
           showAfter(T('kAfter', 'Искра унесла твоё желание. Возвращайся к огню завтра.'));
-        }, reduce ? null : wishPath({ x: x, y: y }));
+        });
       }, reduce ? 50 : 900);
     };
 
