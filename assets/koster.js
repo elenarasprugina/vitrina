@@ -3,7 +3,7 @@
    Ход: листок «Что ты оставишь огню?» → человек пишет → «Отдать огню» — листок летит в огонь и сгорает
    (текст никуда не уходит и нигде не сохраняется) → из огня вылетает искра и раскрывается стеклянной картой →
    на карте человек пишет своё желание → «Отпустить искрой» (карта гаснет искрой и улетает вверх) / «Сохранить себе» (картинка на устройство).
-   Раз в день (устройство помнит только дату, без текстов). Днём — пара бабочек, ночью — светлячки (по часам человека). */
+   Раз в день (устройство помнит только дату, без текстов). У огня летают светлячки (бабочек убрали по её слову 31.10; панель: «Кто летает у огня» — светлячки / никого). */
 (function () {
   'use strict';
   // 13 дней волны Белого Соединителя Миров — её тексты 31.10 (docs/koster-iskry.md): подпись и вопрос дня — в живом окошке на витрине,
@@ -36,6 +36,8 @@
     var SPARKS = { off: 0, few: 5, mid: 12, many: 24, lots: 40 }[K.sparks || 'mid'];
     if (SPARKS == null) SPARKS = 12;
     var FF_N = Math.max(0, Math.min(40, K.ffN == null || K.ffN === '' ? 12 : +K.ffN));
+    // светлячки: размер (панель «Светлячки: размер», 50–250 %); на телефоне чуть крупнее — иначе теряются на огне
+    var FF_SZ = Math.max(.5, Math.min(2.5, (K.ffSize == null || K.ffSize === '' ? 100 : +K.ffSize) / 100)) * (Math.min(window.innerWidth, window.innerHeight) < 600 ? 1.25 : 1);
 
     document.body.className = 'uz-body ks-body' + (OKNO ? ' uz-okno' : '');
     document.title = str((U.SET || {}).siteTitle, '13 MIRRORS') + ' · ' + T('kTitle', 'Костёр');
@@ -76,9 +78,8 @@
     if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
     var W = 0, H = 0, DPR = 1, last = performance.now(), now = 0, paused = false;
     var life = [], parts = [], spark = null, burn = null, flash = null;
-    var tq = (location.search.match(/[?&]t=(\w+)/) || [])[1], hr = new Date().getHours();
-    var night = tq ? tq !== 'day' && tq !== 'morning' : hr >= 17 || hr < 7;   // светлячки — с вечера до рассвета (по часам человека; проверка — ?t=day / ?t=night)
-    var lifeKind = K.life === 'off' ? '' : K.life === 'fireflies' ? 'ff' : K.life === 'moths' ? 'bf' : night ? 'ff' : 'bf';
+    // бабочек больше нет (её слово 31.10): прежние «По часам» и «Всегда бабочки» — тоже светлячки
+    var lifeKind = K.life === 'off' ? '' : 'ff';
 
     function dayNow() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
     function iso() { var q = /[?&]den=(\d{4}-\d\d-\d\d)/.exec(location.search); if (q) return q[1]; var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
@@ -100,42 +101,35 @@
       if (!life.length) seedLife();
     }
 
-    /* ---------- живность: днём пара бабочек, ночью светлячки ---------- */
+    /* ---------- светлячки ---------- */
     function seedLife() {
-      var n = lifeKind === 'ff' ? FF_N : lifeKind === 'bf' ? 2 : 0;
+      var n = lifeKind ? FF_N : 0;
       for (var i = 0; i < n; i++) life.push({ x: W * (i % 2 ? .62 + Math.random() * .34 : .04 + Math.random() * .34), y: H * (.1 + Math.random() * .58), a: Math.random() * 6.28,
-        v: lifeKind === 'ff' ? 7 + Math.random() * 10 : 34 + Math.random() * 16, ph: Math.random() * 6.28, bl: .3 + Math.random() * .6,
-        sz: lifeKind === 'ff' ? .55 + Math.random() * .6 : 1, c: ['#f6f1e4', '#f3d65a', '#e9965a'][i % 3] });
+        v: 7 + Math.random() * 10, ph: Math.random() * 6.28, bl: .3 + Math.random() * .6, sz: .7 + Math.random() * .5 });
     }
     function stepLife(dt) {
       life.forEach(function (b) {
         // держатся по краям, над огнём не летают — там жарко
         var fp = firePt(), dx = b.x - fp.x, away = Math.abs(dx) < Math.min(W * .2, 150 * fp.s) && b.y > H * .12 ? (dx < 0 ? -1 : 1) : 0;
-        b.a += (Math.sin(now * (lifeKind === 'ff' ? .5 : 1.3) + b.ph) * .9 + (Math.random() - .5) * .6) * dt;
+        b.a += (Math.sin(now * .5 + b.ph) * .9 + (Math.random() - .5) * .6) * dt;
         if (away) b.a += (Math.atan2(0, away) - b.a) * Math.min(1, dt * .8);
         if (b.x < 20) b.a = 0; if (b.x > W - 20) b.a = Math.PI; if (b.y < 40) b.a = Math.PI / 2; if (b.y > H * .7) b.a = -Math.PI / 2;
-        b.x += Math.cos(b.a) * b.v * dt; b.y += Math.sin(b.a) * b.v * dt * (lifeKind === 'bf' ? .6 : 1) + (lifeKind === 'bf' ? Math.sin(now * 6 + b.ph) * 12 * dt : 0);
+        b.x += Math.cos(b.a) * b.v * dt; b.y += Math.sin(b.a) * b.v * dt;
       });
     }
     function drawLife() {
+      if (!life.length) return;
+      // ярче на огне: ядрышко светится всегда, ореол дышит (не гаснет до конца), свет складывается с огнём
+      g.save(); g.globalCompositeOperation = 'lighter';
       life.forEach(function (b) {
-        if (lifeKind === 'ff') {
-          var on = Math.max(0, Math.sin(now * b.bl * 2 + b.ph)), r = (14 * on + 2) * b.sz, gr = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-          gr.addColorStop(0, 'rgba(232,255,170,' + (.25 + .7 * on) + ')'); gr.addColorStop(.3, 'rgba(190,240,120,' + (.25 * on) + ')'); gr.addColorStop(1, 'rgba(190,240,120,0)');
-          g.fillStyle = gr; g.beginPath(); g.arc(b.x, b.y, r, 0, 6.283); g.fill();
-        } else {
-          var f = Math.abs(Math.sin(now * 11 + b.ph)), s = 7, dir = Math.cos(b.a) < 0 ? -1 : 1;
-          g.save(); g.translate(b.x, b.y); g.scale(dir, 1); g.rotate(-.25);
-          g.fillStyle = b.c; g.globalAlpha = .92;
-          [-1, 1].forEach(function (k) {
-            g.save(); g.scale(1, .25 + .75 * f * (k > 0 ? 1 : .85));
-            g.beginPath(); g.ellipse(-1, -s * .7 * k, s * .55, s * .8, k * .5, 0, 6.283); g.fill();
-            g.beginPath(); g.ellipse(2, -s * .45 * k, s * .4, s * .5, -k * .4, 0, 6.283); g.fill();
-            g.restore();
-          });
-          g.globalAlpha = 1; g.fillStyle = '#2b2018'; g.fillRect(-s * .5, -.8, s, 1.6); g.restore();
-        }
+        var w = Math.sin(now * b.bl * 2 + b.ph), on = .3 + .7 * (w > 0 ? w * w : 0), k = b.sz * FF_SZ, r = (9 + 17 * on) * k,
+          gr = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+        gr.addColorStop(0, 'rgba(250,255,215,' + (.55 + .45 * on) + ')'); gr.addColorStop(.18, 'rgba(215,255,130,' + (.5 * on + .15) + ')');
+        gr.addColorStop(.5, 'rgba(170,235,90,' + (.18 * on) + ')'); gr.addColorStop(1, 'rgba(170,235,90,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(b.x, b.y, r, 0, 6.283); g.fill();
+        g.fillStyle = 'rgba(255,255,235,' + (.7 + .3 * on) + ')'; g.beginPath(); g.arc(b.x, b.y, 1.7 * k, 0, 6.283); g.fill();
       });
+      g.restore();
     }
 
     /* ---------- искорки, пепел, вспышка ---------- */
