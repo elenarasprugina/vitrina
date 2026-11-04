@@ -1494,7 +1494,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['space', 'Пространство'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1551,6 +1551,7 @@
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
     else if (s === 'uzory') add(m, viewUzory());
+    else if (s === 'space') add(m, viewSpace());
     else if (s === 'zapis') add(m, viewZapis());
     else if (s === 'psypoint') add(m, viewPsypoint());
     else add(m, viewSettings());
@@ -9547,6 +9548,118 @@
         textIn(sb, 'signatureText', 'Текст подписи под отзывом', { multi: true, rows: 2 })
       ], { open: false })
     ];
+  }
+
+  /* ================= ПРОСТРАНСТВО 13 MIRRORS (живая комната-оранжерея, docs/prostranstvo.md, шаг 2) =================
+     DATA.settings.space = { pic: '2'|'1'|'own', image, imageW, imageH, title, back, hint, hintPan, splash: { on, text, sec },
+       fx: { dust, glints, floor, candles, call }, door: { on, text }, items: [{ id, name, sub, url, visible, pos: { '1'|'2'|'own': { x, y, w, h } } }] }.
+     Заготовка и встроенные картинки — assets/space.js (window.M13SP); страница — prostranstvo/. */
+  function spRoot() {
+    var st = DATA.settings, S = st.space = st.space || {}, SP = window.M13SP;
+    if (!S.items || !S.items.length) S.items = SP ? clone(SP.DEF.items) : [];
+    S.splash = S.splash || {}; S.fx = S.fx || {}; S.door = S.door || {};
+    return S;
+  }
+  window.M13_SP_DRAFT = function () { return { settings: DATA.settings }; };
+  function spPreview(phone) {
+    var pv = document.getElementById('a-preview');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: 'Пространство', src: '../prostranstvo/?draft=1&f=' + Date.now() });
+    if (phone) fr.style.width = '390px';
+    var bar = el('div', { class: 'a-pbar' }, [
+      el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: closePreview }),
+      el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', onclick: function () { spPreview(phone); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { spPreview(!phone); } })]);
+    pv.classList.toggle('is-phone', phone);
+    pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
+    pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
+  }
+  // Зоны предметов на картинке: тянуть зону — передвинуть, уголок — размер. У каждой картинки свои зоны.
+  function spZones(S, key, src) {
+    var box = el('div', { class: 'a-spz' }), pic = el('img', { class: 'a-spz-img', src: src, alt: '', draggable: 'false' });
+    box.appendChild(pic);
+    function draw() {
+      box.querySelectorAll('.a-spz-z').forEach(function (n) { n.remove(); });
+      S.items.forEach(function (it) {
+        var p = it.pos && it.pos[key];
+        if (!p || it.visible === false) return;
+        var live = !!String(it.url || '').trim();
+        var z = el('div', { class: 'a-spz-z' + (live ? ' is-live' : '') + (ST.spItem === it.id ? ' is-sel' : ''), title: it.name || '' }, [
+          el('span', { class: 'a-spz-name', text: (it.name || 'Предмет') + (live ? '' : ' · тихо') }), el('span', { class: 'a-spz-h' })]);
+        function place() { z.style.left = (p.x - p.w / 2) + '%'; z.style.top = (p.y - p.h / 2) + '%'; z.style.width = p.w + '%'; z.style.height = p.h + '%'; }
+        place();
+        z.addEventListener('pointerdown', function (e) {
+          e.preventDefault(); ST.spItem = it.id;
+          box.querySelectorAll('.a-spz-z').forEach(function (n) { n.classList.toggle('is-sel', n === z); });
+          var r = box.getBoundingClientRect(), sx = e.clientX, sy = e.clientY, o = { x: p.x, y: p.y, w: p.w, h: p.h }, size = e.target.classList.contains('a-spz-h');
+          function mv(ev) {
+            var dx = (ev.clientX - sx) / r.width * 100, dy = (ev.clientY - sy) / r.height * 100;
+            if (size) { p.w = Math.max(2, Math.min(100, Math.round((o.w + dx * 2) * 10) / 10)); p.h = Math.max(2, Math.min(100, Math.round((o.h + dy * 2) * 10) / 10)); }
+            else { p.x = Math.max(0, Math.min(100, Math.round((o.x + dx) * 10) / 10)); p.y = Math.max(0, Math.min(100, Math.round((o.y + dy) * 10) / 10)); }
+            place();
+          }
+          function up() { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); changed(); }
+          window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+        });
+        box.appendChild(z);
+      });
+    }
+    draw();
+    return box;
+  }
+  function viewSpace() {
+    var S = spRoot(), SP = window.M13SP;
+    if (!SP) return [el('h1', { class: 'a-h1', text: 'Пространство' }), el('p', { class: 'a-note', text: 'Не загрузилась заготовка пространства (assets/space.js). Обновите страницу панели.' })];
+    var P = SP.picOf(SP.merged(S)), key = P.key, src = /^(data:|https?:)/.test(P.src) ? P.src : '../' + P.src;
+    var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Пространство 13 MIRRORS' }),
+      el('p', { class: 'a-lead', text: 'Живая комната-оранжерея: каждый предмет открывает своё место. Страница — 13mirrors.ru/vitrina/prostranstvo/. На сайт попадает с «Опубликовать».' }),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть', onclick: function () { spPreview(false); } }),
+        el('button', { type: 'button', text: '📱 На телефоне', onclick: function () { spPreview(true); } })])]);
+    var picBlock = block('Картинка комнаты', [
+      selectIn(S, 'pic', 'Какая картинка', [['2', 'Оранжерея 2 — радужная'], ['1', 'Оранжерея 1 — тёплая'], ['own', 'Своя картинка (загрузить ниже)']], { def: '2', onChange: renderMain,
+        hint: 'У каждой картинки свои зоны предметов: поменяли картинку — зоны прежней сохраняются, можно вернуться.' }),
+      S.pic === 'own' ? imageIn(S, 'image', 'Своя картинка', { max: 2400, size: { w: 2400, h: 1350, note: 'горизонтальная 16:9; на телефоне — панорама пальцем' },
+        onChange: function () {
+          if (!S.image) { renderMain(); return; }
+          var im = new Image(); im.onload = function () { S.imageW = im.naturalWidth; S.imageH = im.naturalHeight; changed(); renderMain(); }; im.src = S.image;
+        } }) : null,
+      S.pic === 'own' && !S.image ? el('p', { class: 'a-note', text: 'Своя картинка не загружена — на сайте пока будет «Оранжерея 2».' }) : null]);
+    var zoneBlock = block('Предметы — где стоят и куда ведут', [
+      el('p', { class: 'a-hint', text: 'Тяните зону мышкой — она переедет; уголок справа внизу — размер. Предмет со ссылкой светится при наведении и ведёт по ссылке; без ссылки — стоит тихо, без подписи («сад растёт»).' }),
+      spZones(S, key, src),
+      collection(S.items, { visible: true, max: 20,
+        title: function (it) { return (it.name || 'Предмет') + (String(it.url || '').trim() ? ' → ' + it.url : ' · тихо') + (it.pos && it.pos[key] ? '' : ' · не на картинке'); },
+        make: function () { var o = { id: uid('sp'), name: 'Новый предмет', sub: '', url: '', visible: true, pos: {} }; o.pos[key] = { x: 50, y: 50, w: 14, h: 14 }; return o; },
+        addLabel: '+ Добавить предмет',
+        onChange: renderMain,
+        body: function (it) {
+          return [
+            el('div', { class: 'a-row' }, [textIn(it, 'name', 'Подпись', { ph: 'Узоры' }), textIn(it, 'sub', 'Строка под подписью', { ph: 'Найди свой узор' })]),
+            textIn(it, 'url', 'Куда ведёт (пусто — предмет стоит тихо)', { ph: 'uzory/', hint: 'Адрес внутри витрины: ./ — сама витрина, uzory/ — Узоры, uzory/cvetok/ — костёр. Или полная ссылка https://…', onInput: function () {} }),
+            it.pos && it.pos[key] ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Убрать с этой картинки', onclick: function () { delete it.pos[key]; changed(); renderMain(); } })
+              : el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Поставить на картинку', onclick: function () { it.pos = it.pos || {}; it.pos[key] = { x: 50, y: 50, w: 14, h: 14 }; ST.spItem = it.id; changed(); renderMain(); } })
+          ];
+        } }),
+      el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть предметы как в заготовке', onclick: function () {
+        if (!confirm('Вернуть предметы, подписи, ссылки и зоны как в заготовке? Ваши правки предметов пропадут.')) return;
+        S.items = clone(SP.DEF.items); changed(); renderMain(); } })]);
+    var splashBlock = block('Заставка при входе', [
+      switchIn(S.splash, 'on', 'Пятно света с фразой перед комнатой', { defTrue: true, hint: 'Свет раскрывается в оранжерею; касание — пропустить. Показывается один раз за посещение.' }),
+      textIn(S.splash, 'text', 'Фраза', { ph: SP.DEF.splash.text }),
+      rangeIn(S.splash, 'sec', 'Сколько секунд', { min: 1.5, max: 8, step: 0.5, def: SP.DEF.splash.sec, unit: ' с' })], { open: false });
+    var fxBlock = block('Движение', [
+      switchIn(S.fx, 'glints', 'Искорки на подвесках-стёклышках', { defTrue: true }),
+      switchIn(S.fx, 'floor', 'Радужные блики плывут по мозаичному кругу', { defTrue: true, hint: 'Круг — зона предмета «Моё».' }),
+      switchIn(S.fx, 'candles', 'Свечи мерцают', { defTrue: true, hint: 'На встроенных картинках — у каждой свечи; на своей картинке — пока нет.' }),
+      switchIn(S.fx, 'dust', 'Пылинки в луче света', { defTrue: true }),
+      switchIn(S.fx, 'call', 'Предметы со ссылкой по очереди мягко светятся', { defTrue: true, hint: 'Чтобы было видно, что их можно коснуться.' })], { open: false });
+    var textBlock = block('Надписи', [
+      el('div', { class: 'a-row' }, [textIn(S, 'title', 'Название вверху', { ph: SP.DEF.title }), textIn(S, 'back', 'Ссылка назад', { ph: SP.DEF.back })]),
+      textIn(S, 'hint', 'Подсказка внизу (компьютер)', { ph: SP.DEF.hint }),
+      textIn(S, 'hintPan', 'Подсказка внизу (телефон)', { ph: SP.DEF.hintPan })], { open: false });
+    var doorBlock = block('Дверка на витрине', [
+      switchIn(S.door, 'on', 'Показывать дверку в пространство на витрине (каждый месяц)', { hint: 'Маленькая светящаяся дверка в правом верхнем углу. Включите, когда комната готова, — и «Опубликовать».' }),
+      textIn(S.door, 'text', 'Подпись у дверки', { ph: SP.DEF.door.text })]);
+    return [head, picBlock, zoneBlock, doorBlock, splashBlock, fxBlock, textBlock];
   }
 
   /* ================= УЗОРЫ (образные опросники, docs/uzory.md) =================

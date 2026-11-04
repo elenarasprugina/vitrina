@@ -558,6 +558,17 @@
       '</main></div>' + modalHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
     bindModal(); bindActs(S.root);
   }
+  // Дверка в «Пространство 13 MIRRORS» (docs/prostranstvo.md): маленькая светящаяся арка в правом верхнем углу каждого месяца.
+  // Включается в панели: «Пространство» → «Дверка на витрине» (settings.space.door.on).
+  function spDoorHTML() {
+    var sp = (S.D.settings || {}).space || {}, d = sp.door || {};
+    if (!d.on) return '';
+    var t = String(d.text || '').trim() || 'Пространство';
+    return '<a class="m13-spdoor" href="' + esc(S.base + 'prostranstvo/') + '" data-m13-spdoor aria-label="' + esc(t) + '">' +
+      '<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M3 31V12a9 9 0 0 1 18 0v19z" fill="rgba(255,226,170,.28)" stroke="currentColor" stroke-width="1.4"/>' +
+      '<path d="M7 31V13a5 5 0 0 1 10 0v18" fill="none" stroke="currentColor" stroke-width="1" opacity=".7"/><circle cx="15" cy="22" r="1" fill="currentColor"/></svg>' +
+      '<span>' + txt(t) + '</span></a>';
+  }
   function renderShowcase() {
     var sc = S.D.showcase;
     if (!sc) throw new Error('Нет данных витрины');
@@ -599,7 +610,7 @@
       (intro ? '<p class="m13-intro">' + txt(intro) + '</p>' : '') + (low ? '' : navs) + '</header>' +
       '<div class="m13-stage"><section class="m13-grid" aria-label="Карточки месяца">' +
       (sc.cards || []).slice(0, 9).map(thumbHTML).join('') +
-      '</section></div>' + below + foot + legal + '</main>' +
+      '</section></div>' + below + foot + legal + '</main>' + spDoorHTML() +
       overlayHTML() + internalHTML() + zpModalHTML() + modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div></div>';
     S.root.innerHTML = html;
     bgWatch(S.root);
@@ -610,6 +621,9 @@
     // В предпросмотре панели окошко открывает сад в новой вкладке (панель не закрывается)
     if (S.onBack) S.root.querySelectorAll('[data-m13-okno]').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); window.open(a.href, '_blank'); }); });
     oknoMount();
+    // Дверка в пространство: в предпросмотре панели — в новой вкладке
+    var spd = S.root.querySelector('[data-m13-spdoor]');
+    if (spd && S.onBack) spd.addEventListener('click', function (e) { e.preventDefault(); window.open(spd.href, '_blank'); });
     // Нажатие на закрытую обложку раскрывает её сразу; на всякий случай все обложки раскрываются не позже чем через 10 с
     var lids = S.root.querySelectorAll('.m13-lid');
     lids.forEach(function (l) { l.addEventListener('click', function (e) { e.stopPropagation(); lidOpen(l); }); });
