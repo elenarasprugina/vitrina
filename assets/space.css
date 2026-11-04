@@ -1,0 +1,68 @@
+/* «Пространство 13 MIRRORS» — живая комната (assets/space.js, docs/prostranstvo.md) */
+:root { --sp-gold: #f3d79a; --sp-ink: #1b120a; --sp-mist: #fbf1dc; --sp-head: 'Cormorant Garamond', Georgia, serif; }
+html, body.sp-body { margin: 0; height: 100%; background: #140d07; color: var(--sp-mist); overflow: hidden; -webkit-tap-highlight-color: transparent; }
+.sp-body { font-family: var(--sp-head); }
+#sp { position: fixed; inset: 0; }
+.sp-view { position: absolute; inset: 0; overflow: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.sp-view::-webkit-scrollbar { display: none; }
+.sp-stage { position: relative; opacity: 0; transition: opacity 1.2s ease; }
+#sp.is-ready .sp-stage { opacity: 1; }
+.sp-img, .sp-fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-select: none; pointer-events: none; }
+.sp-fx { mix-blend-mode: screen; }
+
+/* Предметы */
+.sp-zone { position: absolute; display: block; border-radius: 50%; text-decoration: none; color: inherit; outline: none; }
+.sp-zone--live { cursor: pointer; }
+.sp-glow { position: absolute; inset: -18%; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .6s ease, transform .6s ease; transform: scale(.92);
+  background: radial-gradient(closest-side, rgba(255, 238, 196, .42), rgba(255, 214, 150, .16) 55%, rgba(255, 200, 120, 0) 100%); mix-blend-mode: screen; }
+.sp-zone.is-call .sp-glow { opacity: .55; transform: scale(1); }
+.sp-zone.is-on .sp-glow, .sp-zone--live:focus-visible .sp-glow { opacity: 1; transform: scale(1.02); }
+.sp-label { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, 6px); margin-bottom: 4px; pointer-events: none; opacity: 0; transition: opacity .45s ease, transform .45s ease;
+  min-width: 150px; max-width: 260px; padding: 10px 16px 11px; border-radius: 16px; text-align: center; white-space: normal;
+  background: rgba(30, 20, 10, .62); border: 1px solid rgba(243, 215, 154, .45); box-shadow: 0 6px 26px rgba(0, 0, 0, .35), inset 0 0 18px rgba(243, 215, 154, .12);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.sp-zone--low .sp-label { bottom: auto; top: 100%; margin: 4px 0 0; transform: translate(-50%, -6px); }
+.sp-label b { display: block; font-weight: 500; font-size: 22px; line-height: 1.1; color: var(--sp-gold); letter-spacing: .02em; }
+.sp-label small { display: block; margin-top: 4px; font-size: 15px; line-height: 1.25; font-style: italic; color: var(--sp-mist); opacity: .9; }
+.sp-label i { display: block; margin-top: 6px; font-style: normal; font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--sp-gold); opacity: .85; }
+.sp-zone.is-on .sp-label, .sp-zone--live:focus-visible .sp-label { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+/* Верх: назад и название */
+.sp-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: max(14px, env(safe-area-inset-top)) 18px 22px; pointer-events: none; opacity: 0; transition: opacity 1s ease .3s;
+  background: linear-gradient(rgba(20, 13, 7, .55), rgba(20, 13, 7, 0)); }
+#sp.is-open .sp-top { opacity: 1; }
+.sp-back { pointer-events: auto; color: var(--sp-mist); text-decoration: none; font-size: 18px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(30, 20, 10, .45); border: 1px solid rgba(243, 215, 154, .35); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.sp-back:hover { border-color: rgba(243, 215, 154, .8); }
+.sp-title { margin: 0; font-weight: 400; font-size: 20px; letter-spacing: .14em; text-transform: uppercase; color: var(--sp-gold); text-shadow: 0 1px 12px rgba(0, 0, 0, .6); text-align: right; }
+
+.sp-hint, .sp-note { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 8px); opacity: 0; transition: opacity .8s ease, transform .8s ease;
+  pointer-events: none; padding: 8px 18px; border-radius: 999px; font-size: 17px; font-style: italic; white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis;
+  background: rgba(30, 20, 10, .55); border: 1px solid rgba(243, 215, 154, .3); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.sp-note { white-space: normal; text-align: center; font-style: normal; font-size: 15px; }
+.sp-hint.is-on, .sp-note.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* Заставка: пятно света с фразой */
+.sp-splash { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: #1a110a; cursor: pointer; transition: opacity 1.3s ease; }
+.sp-sun { position: absolute; left: 50%; top: 50%; width: min(78vw, 560px); aspect-ratio: 1; transform: translate(-50%, -50%) scale(.6); opacity: 0; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 226, 170, .55), rgba(240, 180, 110, .26) 45%, rgba(220, 140, 80, .08) 72%, rgba(220, 140, 80, 0)),
+    repeating-conic-gradient(from 0deg, rgba(255, 230, 180, .07) 0 5deg, rgba(255, 230, 180, 0) 5deg 15deg);
+  -webkit-mask: radial-gradient(closest-side, #000 60%, transparent); mask: radial-gradient(closest-side, #000 60%, transparent);
+  transition: transform 2.4s cubic-bezier(.2, .7, .2, 1), opacity 1.4s ease; animation: sp-turn 40s linear infinite; }
+.sp-splash p { position: relative; margin: 0 24px; max-width: 520px; text-align: center; font-size: clamp(24px, 4.4vw, 38px); line-height: 1.25; font-style: italic; font-weight: 400; color: #fff3da;
+  opacity: 0; transform: translateY(8px); transition: opacity 1.2s ease .5s, transform 1.2s ease .5s; text-shadow: 0 1px 3px rgba(40, 20, 5, .9), 0 0 24px rgba(40, 20, 5, .7); }
+.sp-splash.is-in .sp-sun { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.sp-splash.is-in p { opacity: 1; transform: none; }
+.sp-splash.is-open { opacity: 0; pointer-events: none; }
+.sp-splash.is-open .sp-sun { transform: translate(-50%, -50%) scale(4); transition: transform 1.4s ease-in, opacity 1.3s ease; }
+@keyframes sp-turn { to { rotate: 360deg; } }
+
+@media (max-width: 640px) {
+  .sp-title { font-size: 14px; letter-spacing: .1em; }
+  .sp-back { font-size: 16px; }
+  .sp-label { min-width: 130px; padding: 9px 13px 10px; }
+  .sp-label b { font-size: 20px; }
+  .sp-hint { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) { .sp-sun { animation: none; } }

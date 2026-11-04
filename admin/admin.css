@@ -895,3 +895,11 @@ body.a-noscroll{overflow:hidden}
 .a-ak-opt-boxes{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px}
 .a-ak-more summary{cursor:pointer;font-size:12.5px;color:var(--a-muted)}
 .a-ak-more[open] summary{margin-bottom:8px}
+/* Пространство: зоны предметов на картинке (viewSpace) */
+.a-spz{position:relative;margin:8px 0 14px;border-radius:10px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none;background:#1a120a}
+.a-spz-img{display:block;width:100%;height:auto;pointer-events:none}
+.a-spz-z{position:absolute;border:2px dashed rgba(255,255,255,.75);border-radius:50%;background:rgba(255,255,255,.08);cursor:move;box-sizing:border-box}
+.a-spz-z.is-live{border-style:solid;border-color:rgba(255,214,140,.95);background:rgba(255,214,140,.14)}
+.a-spz-z.is-sel{box-shadow:0 0 0 3px #3b82f6;z-index:2}
+.a-spz-name{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:2px 7px;border-radius:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;white-space:nowrap;pointer-events:none}
+.a-spz-h{position:absolute;right:6%;bottom:6%;width:14px;height:14px;border-radius:3px;background:#fff;border:2px solid #3b82f6;cursor:nwse-resize}
