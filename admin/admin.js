@@ -1494,7 +1494,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['storm', 'Глаз бури'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['space', 'Пространство'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['space', 'Пространство'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1551,7 +1551,6 @@
     else if (s === 'reflection') add(m, viewReflection());
     else if (s === 'events') add(m, viewEvents());
     else if (s === 'uzory') add(m, viewUzory());
-    else if (s === 'storm') add(m, viewStorm());
     else if (s === 'space') add(m, viewSpace());
     else if (s === 'zapis') add(m, viewZapis());
     else if (s === 'psypoint') add(m, viewPsypoint());
@@ -3672,21 +3671,31 @@
       '<script>window.M13_DATA=' + JSON.stringify(D).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';</script>\n' +
       '<script src="' + base + 'assets/vitrina.js?v=' + ASSET_V + '"></script>\n<script>M13.boot();</script>\n</body>\n</html>\n';
   }
-  // «Глаз бури» — живая страница волны routes/<id>/ (docs/glaz-buri.md): создаёт публикация; превью ссылки — как у заглушки (название и даты маршрута,
-  // его картинка или картинка месяца). Рисует assets/storm.js, тексты — data/storm.json.
-  function stormPageHTML(w, P) {
+  // «Глаз бури» — с 13.11 (вечер) пространство «Узоров» (uzory/<uzId>/, space.storm). Адрес маршрута routes/<id>/ (туда ведёт «Подробнее»)
+  // публикация делает переходом в это пространство; превью ссылки — как у заглушки (название и даты маршрута, его картинка или картинка месяца).
+  function stormPageHTML(w, P, uzId, force) {
     var st = P.settings, site = st.siteTitle || '13 MIRRORS', ms = P.showcases[st.currentShowcase] || P.showcases[Object.keys(P.showcases).sort().pop()] || {};
     var r = ((P.routes || {}).routes || []).filter(function (x) { return x && x.id === w.id; })[0] || {};
     var dd = r.dates || {}, dt = [dd.from, dd.to].filter(Boolean).map(function (x) { var p = x.split('-'); return p[2] + '.' + p[1]; }).join('–');
-    var name = r.title || w.title || 'Глаз бури', desc = String(r.description || '').trim() || 'Маршрут 13 MIRRORS', img = absImg(r.image || shareOf(ms, P).image, P), base = '../../';
+    var name = r.title || w.title || 'Глаз бури', desc = String(r.description || '').trim() || 'Маршрут 13 MIRRORS', img = absImg(r.image || shareOf(ms, P).image, P);
+    var to = '../../uzory/' + encodeURIComponent(uzId) + '/' + (force ? '?buria=1' : '');
     return '<!DOCTYPE html>\n<html lang="ru">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">\n' + ICON_LINKS +
       '<title>' + escAttr(site + ' · ' + name + (w.title && w.title !== name ? ' · ' + w.title : '')) + '</title>\n' + metaTags({ url: siteUrl(P) + 'routes/' + w.id + '/', title: name + (dt ? ' · ' + dt : ''), description: desc, image: img, sized: !r.image }, P) + '\n' +
       '<meta name="theme-color" content="#050916">\n' +
-      '<!-- «Глаз бури» — создана панелью при публикации (docs/glaz-buri.md). Тексты — ../../data/storm.json (панель → «Глаз бури»). -->\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/fonts/cormorant-garamond.css">\n<link rel="stylesheet" href="' + base + 'assets/fonts/montserrat.css">\n' +
-      '<link rel="stylesheet" href="' + base + 'assets/storm.css?v=' + ASSET_V + '">\n<style>html,body{margin:0;background:#050916}</style>\n</head>\n<body class="gb-body">\n' +
-      '<div id="gb" data-base="' + base + '" data-route="' + escAttr(w.id) + '"></div>\n' +
-      '<script src="' + base + 'assets/storm.js?v=' + ASSET_V + '"></script>\n</body>\n</html>\n';
+      '<!-- «Глаз бури» — пространство «Узоров» (docs/glaz-buri.md); эта страница — переход туда, её пишет публикация. -->\n' +
+      '<style>html,body{margin:0;background:#050916;color:#cfe2ff;font:16px/1.5 system-ui,sans-serif}a{color:#cfe2ff}p{padding:40px 16px;text-align:center}</style>\n' +
+      '<script>(function(){var u=' + JSON.stringify(to) + ',q=location.search.slice(1);location.replace(u+(q?(u.indexOf("?")<0?"?":"&")+q:""));})();</script>\n' +
+      '</head>\n<body>\n<p><a href="' + escAttr(to) + '">' + escAttr(w.title || 'Глаз бури') + ' →</a></p>\n</body>\n</html>\n';
+  }
+  // Буря в пространствах «Узоров»: [{ w (волна), uz (id узора), force (в пространстве сейчас не буря — переход с ?buria=1) }]
+  function stormSpaces(P) {
+    var out = [];
+    ((P.uzory || {}).items || []).forEach(function (it) {
+      var S = it && it.visible !== false && it.space, w = S && S.storm;
+      if (w && w.visible !== false && /^[a-z0-9][a-z0-9-]*$/.test(w.id || '') && w.id !== 'preview' && w.id !== 'yellow-sun' && /^[\w-]+$/.test(it.id))
+        out.push({ w: w, uz: it.id, force: S.scene !== 'storm' });
+    });
+    return out;
   }
   // Каким маршрутам нужна заглушка: карточка на опубликованной витрине, маршрут ещё не закончился, своей страницы по дням нет
   function routeSoonIds(P) {
@@ -3694,7 +3703,7 @@
     Object.keys(P.showcases).forEach(function (id) { (P.showcases[id].cards || []).forEach(function (c) { if (c && c.visible !== false && c.back && c.back.routeId) want[c.back.routeId] = true; }); });
     ((P.journeys || {}).items || []).forEach(function (j) { if (j) { delete want[j.id]; delete want[j.routeId]; } });
     // «Глаз бури» — своя страница routes/<id>/ (как у Жёлтого Солнца): заглушка её не заменяет. Выключена («Показывать на сайте») — снова заглушка.
-    ((P.storm || {}).items || []).forEach(function (w) { if (w && w.id) delete want[w.id]; });
+    stormSpaces(P).forEach(function (x) { delete want[x.w.id]; });
     return ((P.routes || {}).routes || []).filter(function (r) {
       return r && want[r.id] && /^[a-z0-9][a-z0-9-]*$/.test(r.id) && r.id !== 'preview' && r.id !== 'yellow-sun' && !String(r.routeUrl || '').trim() &&
         !(r.dates && r.dates.to && r.dates.to < today);
@@ -9691,14 +9700,14 @@
   function stCur() { var S = stRoot(); return S.items.filter(function (x) { return x.id === ST.stItem; })[0] || S.items[0] || null; }
   // Предпросмотр: страница в окне панели берёт черновик отсюда (assets/storm.js → window.parent.M13_STORM_DRAFT)
   window.M13_STORM_DRAFT = function (id) { return stRoot().items.filter(function (x) { return x.id === id; })[0] || null; };
-  function stPreview(w, phone) {
-    var pv = document.getElementById('a-preview'), q = '?draft=1&debug=1' + (ST.stDen ? '&den=' + ST.stDen : '');
-    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: w.title || 'Глаз бури', src: '../routes/' + encodeURIComponent(w.id) + '/' + q });
+  function stPreview(w, phone, uz) {
+    var pv = document.getElementById('a-preview'), q = '?draft=1&buria=1&debug=1' + (ST.stDen ? '&den=' + ST.stDen : '');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: w.title || 'Глаз бури', src: '../uzory/' + encodeURIComponent(uz.id) + '/' + q });
     if (phone) fr.style.width = '390px';
     var bar = el('div', { class: 'a-pbar' }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: closePreview }),
-      el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', onclick: function () { stPreview(w, phone); } }),
-      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { stPreview(w, !phone); } })]);
+      el('button', { type: 'button', class: 'a-preplay', text: '↻ Ещё раз', onclick: function () { stPreview(w, phone, uz); } }),
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { stPreview(w, !phone, uz); } })]);
     pv.classList.toggle('is-phone', phone);
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
@@ -9729,25 +9738,22 @@
     sl.addEventListener('change', function () { ST[key] = sl.value; if (onChange) onChange(); });
     return field(label, sl);
   }
-  function viewStorm() {
-    var S = stRoot(), w = stCur(), TXT = window.M13_STORM_TEXTS || [];
-    var head = el('div', {}, [el('h1', { class: 'a-h1', text: 'Глаз бури' }),
-      el('p', { class: 'a-lead', text: 'Живая страница волны вместо маршрута по дням: вихрь, человек держит палец на глазу бури и дышит, отпускает — огонёк дня уходит в глаз и открывается Карта дня. ' +
-        'Карта открывается на устройстве один раз в день; повторно — «Подыши вместе с бурей». 13-й день: карта, потом финал. Адрес — 13mirrors.ru/vitrina/routes/' + (w ? w.id : 'blue-storm') + '/ (туда ведёт «Подробнее» на карточке). На сайт — с «Опубликовать».' })]);
-    if (!w) return [head, el('p', { class: 'a-empty', text: 'Волны пока нет.' }), el('button', { type: 'button', class: 'a-btn', text: '＋ Создать «Глаз бури» для Синей Бури', onclick: function () {
-      var d = clone(window.M13_STORM_DEFAULT || { id: 'blue-storm', start: '2026-11-13', days: [] }); d.texts = {}; d.visible = true; S.items.push(d); ST.stItem = d.id; changed(); renderMain(); } })];
+  // Настройки бури — в «Узоры» → «Пространство» (её решение 13.11: буря — одно из пространств, как сад и костёр)
+  function uzStorm(it) {
+    var S = it.space = it.space || {}, TXT = window.M13_STORM_TEXTS || [];
+    if (!S.storm) { S.storm = clone(stRoot().items[0] || window.M13_STORM_DEFAULT || { id: 'blue-storm', start: '2026-11-13', days: [] }); S.storm.texts = S.storm.texts || {}; if (S.storm.visible == null) S.storm.visible = true; }
+    var w = S.storm, uz = it;
     w.texts = w.texts || {}; w.days = w.days || [];
-    var pick = S.items.length > 1 ? stSel('stItem', 'Волна', S.items.map(function (x) { return [x.id, (x.tag || x.title || x.id)]; }), renderMain) : null;
     var dens = [['', 'Сегодня (как увидит человек)']];
     for (var k = 0; k < 13; k++) { var dd = /^(\d{4})-(\d\d)-(\d\d)$/.exec(w.start || '') ? new Date(Date.UTC(+w.start.slice(0, 4), +w.start.slice(5, 7) - 1, +w.start.slice(8, 10)) + k * 864e5).toISOString().slice(0, 10) : ''; if (dd) dens.push([dd, 'День ' + (k + 1) + ' · ' + stDate(w.start, k)]); }
     if (w.start) { var aft = new Date(Date.UTC(+w.start.slice(0, 4), +w.start.slice(5, 7) - 1, +w.start.slice(8, 10)) + 14 * 864e5).toISOString().slice(0, 10); dens.push([aft, 'После волны (финал)']); }
     var look = el('div', { class: 'a-theme' }, [
       stSel('stDen', 'Какой день показать', dens),
-      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть', onclick: function () { stPreview(w, false); } }),
-        el('button', { type: 'button', text: '📱 На телефоне', onclick: function () { stPreview(w, true); } })]),
+      el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть бурю', onclick: function () { stPreview(w, false, uz); } }),
+        el('button', { type: 'button', text: '📱 На телефоне', onclick: function () { stPreview(w, true, uz); } })]),
       el('p', { class: 'a-hint', text: 'В просмотре внизу — кружки дней и «↺ звёзды» (их видите только вы): можно пройти любой день и финал. Ваша проверка не мешает настоящей странице на этом устройстве.' })]);
     var main = block('Основное', [
-      switchIn(w, 'visible', 'Показывать на сайте', { defTrue: true, hint: 'Выключено — по адресу снова заглушка «Маршрут начнётся…».' }),
+      switchIn(w, 'visible', 'Маршрут ведёт в бурю', { defTrue: true, hint: 'Включено — «Подробнее» у маршрута (13mirrors.ru/vitrina/routes/' + (w.id || 'blue-storm') + '/) открывает бурю в этом пространстве, даже если сейчас здесь выбран сад или костёр. Выключено — там снова заглушка «Маршрут начнётся…».' }),
       el('div', { class: 'a-row' }, [
         textIn(w, 'start', 'Первый день волны', { type: 'date', hint: 'День меняется в полночь по Москве. 13 дней подряд.', onInput: function () { changed(); } }),
         textIn(w, 'title', 'Название вверху', { ph: 'Глаз бури' })]),
@@ -9771,7 +9777,8 @@
     var texts = block('Надписи', TXT.map(function (t) {
       return textIn(w.texts, t[0], t[1], { ph: t[2] });
     }).concat([el('p', { class: 'a-hint', text: 'Пусто — надпись по умолчанию (серым в поле). В {фигурных скобках} — то, что подставится само.' })]), { open: false });
-    return [head, pick, look, main, daysBox, snd, texts];
+    return [el('p', { class: 'a-hint', text: 'Вихрь, человек идёт в центр бури — держит палец на глазу и дышит, отпускает — огонёк дня уходит в глаз и открывается Карта дня. Карта открывается на устройстве один раз в день; повторно — «Подыши вместе с бурей». 13-й день: карта, потом финал.' }),
+      look, main, daysBox, snd, texts];
   }
 
   /* ================= УЗОРЫ (образные опросники, docs/uzory.md) =================
@@ -10010,13 +10017,13 @@
     // 13 дней — сразу её черновик (assets/koster.js), чтобы править, а не набирать
     if (!KS.days) KS.days = JSON.parse(JSON.stringify(window.M13_KOSTER_DAYS || []));
     return [
-      selectIn(S, 'scene', 'Что в пространстве', [['garden', 'Сад (цветы хороводом)'], ['koster', 'Костёр Самайна']], { def: 'garden',
-        hint: 'Костёр — вместо сада на той же странице: листок «Что ты оставишь огню?» сгорает, искра выдаёт стеклянную карту, на ней человек пишет своё желание. Ничего никуда не уходит. Надписи — «Надписи и кнопки» → «Костёр». Вернуть сад — выбрать «Сад».' }),
+      selectIn(S, 'scene', 'Что в пространстве', [['garden', 'Сад (цветы хороводом)'], ['koster', 'Костёр Самайна'], ['storm', 'Глаз бури (Синяя Буря)']], { def: 'garden', onChange: function () { renderMain(); },
+        hint: 'Костёр — вместо сада на той же странице: листок «Что ты оставишь огню?» сгорает, искра выдаёт стеклянную карту, на ней человек пишет своё желание. Ничего никуда не уходит. Надписи — «Надписи и кнопки» → «Костёр». Глаз бури — вихрь Синей Бури, человек идёт в центр бури и дышит, открывается Карта дня (настройки — в блоке «Глаз бури» ниже). Вернуть сад — выбрать «Сад».' }),
       block('Костёр Самайна', [
         // Тихий костёр — сверху блока, не в свёрнутой группе (её «не вижу эту настройку», 13.11)
         el('div', {}, [
           selectIn(KS, 'quiet', 'После 13 дней волны — тихий костёр', [['', 'Сам, когда дни из списка закончились'], ['on', 'Тихий всегда (уже сейчас)'], ['off', 'Никогда — листок и желание как в дни волны']], { def: '',
-          hint: 'Тихий костёр: ни вопросов, ни листка, ни пожеланий — огонь горит, «Маршрут завершён. Увидимся за поворотом…» (многоточие — три искры из огня); держишь палец на экране — «вдох / выдох», огонь на вдохе разгорается. Надписи — здесь же, ниже. Проверить день после волны — ?den=2026-11-13 в адресе.' }),
+          hint: 'Тихий костёр: ни вопросов, ни листка, ни пожеланий — огонь горит, «Маршрут завершён. Увидимся за поворотом…» (многоточие — три искры из огня); держишь палец на экране — «вдох / выдох», огонь притихает, вдох 4 с — пламя поднимается и разгорается, выдох 6 с — оседает, уходят искры. Надписи — здесь же, ниже. Проверить день после волны — ?den=2026-11-13 в адресе.' }),
           textIn(it.ui = it.ui || {}, 'kQuiet', 'Тихий костёр: первая строка', { ph: 'Маршрут завершён' }),
           textIn(it.ui, 'kQuietBye', 'Тихий костёр: вторая строка (многоточие в конце — три искры из огня; «-» — без строки)', { ph: 'Увидимся за поворотом' }),
           textIn(it.ui, 'kQuietHint', 'Тихий костёр: подсказка', { ph: 'Держи палец на экране — и подыши вместе с огнём' }),
@@ -10026,6 +10033,7 @@
           rangeIn(KS, 'vol', 'Громкость', { min: 10, max: 100, step: 5, def: 70, unit: ' %' })]),
         mediaIn(KS, 'soundFile', 'Звук: своя запись (необязательно)', { kind: 'audio', maxMB: 6, hint: 'MP3 или M4A, до 6 МБ, лучше стерео и 1–3 минуты: играет по кругу, конец должен незаметно переходить в начало. Пусто — звук собирается сам: гул, треск и щелчки слева-справа.' }),
         el('div', { class: 'a-row' }, [textIn(KS, 'video', 'Видео огня (файл на сайте)', { ph: 'assets/koster/ogon-7.mp4', hint: 'Обычно менять не нужно.' }),
+          rangeIn(KS, 'rate', 'Огонь: скорость', { min: 40, max: 100, step: 5, def: 70, unit: ' %', hint: '100 % — как снято в видео. Меньше — пламя медленнее и мягче. Когда человек дышит с огнём, огонь притихает ещё вдвое.' }),
           selectIn(KS, 'life', 'Кто летает у огня', [['fireflies', 'Светлячки'], ['off', 'Никого']], { def: 'fireflies', hint: 'Бабочек убрали — днём и ночью светлячки.' })]),
         el('div', { class: 'a-row3' }, [
           rangeIn(KS, 'far', 'Огонь: размер на экране', { min: 40, max: 100, step: 2, def: 100, unit: ' %', hint: 'Меньше — огонь дальше, вокруг больше ночи (края тают в темноту). 100 % — во весь экран, как было сначала.' }),
@@ -10054,6 +10062,7 @@
         switchIn(KS, 'stones', '13 камушков — память', { defTrue: true, hint: 'Рядок из 13 камушков на верхнем краю нижней карточки, слева направо — дни из списка. Знак тона растаял — искра падает на камушек этого дня, и он светится цветом печати дня. Сегодняшний камушек чуть обведён. Помнит только телефон человека (даты, без текстов). Только в дни из списка.' }),
         switchIn(KS, 'daily', 'Огонь отвечает раз в день', { defTrue: true, hint: 'Включено — после карты до завтра: «Огонь уже ответил тебе сегодня…». Телефон помнит только дату, не тексты. В окне панели не действует. Проверить на сайте ещё раз — добавить к адресу ?snova=1.' })
       ], { open: S.scene === 'koster' }),
+      block('Глаз бури', uzStorm(it), { open: S.scene === 'storm' }),
       el('div', { class: 'a-row' }, [textIn(it.ui = it.ui || {}, 'caption', 'Надпись у света', { ph: 'Ты Здесь' }),
         selectIn(S, 'breath', 'Дыхание света', [['calm', 'Спокойное: вдох 4 с, выдох 6 с'], ['soft', 'Тихое мерцание']], { def: 'calm' })]),
       el('div', { class: 'a-row3' }, [
@@ -11828,6 +11837,11 @@
     if (!D.uzory || !D.uzory.items) D.uzory = clone((ORIGINAL && ORIGINAL.uzory) || { title: 'Узоры', items: [] });
     // «Глаз бури» (с 13.11.2026): в старом черновике его нет — берём с сайта
     if (!D.storm || !D.storm.items) D.storm = clone((ORIGINAL && ORIGINAL.storm && ORIGINAL.storm.items) ? ORIGINAL.storm : { items: [] });
+    // С 13.11 (вечер) буря — пространство «Узоров» (space.storm у узора; её решение): переносим волну из прежнего раздела в первый узор
+    if (!(D.uzory.items || []).some(function (x) { return x && x.space && x.space.storm; }) && D.uzory.items && D.uzory.items[0]) {
+      var u0 = D.uzory.items[0], w0 = D.storm.items[0] || (window.M13_STORM_DEFAULT ? clone(window.M13_STORM_DEFAULT) : null);
+      if (w0) { u0.space = u0.space || {}; u0.space.storm = clone(w0); u0.space.storm.texts = u0.space.storm.texts || {}; if (u0.space.storm.visible == null) u0.space.storm.visible = true; }
+    }
     // Страницы маршрутов (с 02.10.2026): в старом черновике их нет — берём заготовку с сайта
     if (!D.journeys || !D.journeys.items) D.journeys = clone((ORIGINAL && ORIGINAL.journeys) || { items: [] });
     // Разметка кирпичей (с шага 2): в черновике её нет — берём с сайта
@@ -13001,10 +13015,8 @@
         if (it && it.visible !== false && /^[\w-]+$/.test(it.id)) files['sandbox/' + it.id + '/index.html'] = { text: pageHTML('sbitem', null, P, it.id) };
       });
     });
-    // «Глаз бури» — живые страницы волн (выключена «Показывать на сайте» — на её месте снова заглушка)
-    ((P.storm || {}).items || []).forEach(function (w) {
-      if (w && /^[a-z0-9][a-z0-9-]*$/.test(w.id) && w.id !== 'preview' && w.id !== 'yellow-sun') files['routes/' + w.id + '/index.html'] = { text: stormPageHTML(w, P) };
-    });
+    // «Глаз бури» — адрес маршрута ведёт в пространство «Узоров» (выключена «Показывать на сайте» — на его месте снова заглушка)
+    stormSpaces(P).forEach(function (x) { files['routes/' + x.w.id + '/index.html'] = { text: stormPageHTML(x.w, P, x.uz, x.force) }; });
     // Заглушки маршрутов без страницы по дням (её «делаем» 26.10)
     routeSoonIds(P).forEach(function (r) { var p = 'routes/' + r.id + '/index.html'; if (!files[p]) files[p] = { text: routeSoonPageHTML(r, P) }; });
     Object.keys(P.showcases).forEach(function (id) {

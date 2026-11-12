@@ -217,16 +217,28 @@
   }
   // Костёр Самайна вместо сада (её решение 30.10; panel: «Пространство» → «Что в пространстве»; проверка — ?koster=1 / ?sad=1)
   function koster(root, OKNO) {
-    var v = '20261113b', sc = document.createElement('script');
+    var v = '20261113c', sc = document.createElement('script');
     ['assets/fonts/marck-script.css', 'assets/koster.css?v=' + v].forEach(function (h) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = BASE + h; document.head.appendChild(l); });
     sc.src = BASE + 'assets/koster.js?v=' + v;
     sc.onload = function () { window.M13_KOSTER(root, { IT: IT, SET: SET, T: T, esc: esc, str: str, imgUrl: imgUrl, PANEL: PANEL, OKNO: OKNO }); };
     document.head.appendChild(sc);
   }
+  // «Глаз бури» вместо сада (её решение 13.11: буря — одно из пространств «Узоров»; panel: «Пространство» → «Что в пространстве»;
+  // проверка — ?buria=1). Волна — IT.space.storm (нет — её тексты 12.11 из assets/storm.js). Память открытых карт — та же, что была на routes/blue-storm/.
+  function storm(root, OKNO) {
+    var v = '20261113c', sc = document.createElement('script');
+    ['assets/fonts/cormorant-garamond.css', 'assets/fonts/montserrat.css', 'assets/storm.css?v=' + v].forEach(function (h) { var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = BASE + h; document.head.appendChild(l); });
+    document.documentElement.style.background = '#050916';
+    sc.src = BASE + 'assets/storm.js?v=' + v;
+    sc.onload = function () { window.M13_STORM_RUN(root, (IT.space || {}).storm || null, BASE, { okno: OKNO }); };
+    document.head.appendChild(sc);
+  }
   function garden(root) {
     // окошко (живое окошко на карте витрины, её решение 29.10): только сад, без надписей и кнопок; нажатие — у витрины
     var OKNO = /[?&]okno=1/.test(location.search);
-    if (/[?&]koster=1/.test(location.search) || ((IT.space || {}).scene === 'koster' && !/[?&]sad=1/.test(location.search))) { koster(root, OKNO); return; }
+    var Qs = location.search, SCN = /[?&]sad=1/.test(Qs) ? 'garden' : /[?&]koster=1/.test(Qs) ? 'koster' : /[?&]buria=1/.test(Qs) ? 'storm' : (IT.space || {}).scene;
+    if (SCN === 'storm') { storm(root, OKNO); return; }
+    if (SCN === 'koster') { koster(root, OKNO); return; }
     var SP = IT.space || {}, UIt = IT.ui || {};
     // пока — просто сад, без вопросов (её решение 29.10); вопросы вернёт «Вопросы в саду» в панели (space.quiz)
     var WALK = SP.quiz !== true;

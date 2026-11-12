@@ -71,3 +71,6 @@ html.gb-html{height:100%;background:#050916}
 @media (max-width:520px){.gb-top{padding-top:calc(env(safe-area-inset-top,0px) + 52px)}}
 .gb-debug .gb-hint{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
 .gb-err{padding:40px;font:16px/1.5 system-ui,sans-serif;color:#cfe2ff}
+/* Живое окошко на карточке витрины (буря в пространстве «Узоров»): только вихрь */
+.gb-okno .gb-top,.gb-okno .gb-hint,.gb-okno .gb-wind,.gb-okno .gb-home,.gb-okno .gb-days,.gb-okno .gb-card,.gb-okno .gb-fare{display:none}
+.gb-okno #gb-fx{pointer-events:none}
