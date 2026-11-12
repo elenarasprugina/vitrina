@@ -222,7 +222,17 @@ function drawFx(dt){
   g.addColorStop(1,'rgba(95,157,255,0)');
   fx.fillStyle=g;fx.beginPath();fx.arc(cx,cy,eyeR*2.4*br,0,6.29);fx.fill();
   var core=eyeR*(0.62+breathe*0.12);
-  fx.fillStyle='rgba(5,9,22,'+(0.6-calm*0.25)+')';fx.beginPath();fx.arc(cx,cy,core,0,6.29);fx.fill();
+  // глаз без чёткой границы: несколько мягких пятен, край неровный и медленно дышит
+  var da=0.5-calm*0.2;
+  for(var e5=0;e5<5;e5++){var ea=e5*1.257+time*0.07,eo=core*0.16*(0.6+0.4*Math.sin(time*0.31+e5*2.1)),
+    ex=cx+Math.cos(ea)*eo,ey=cy+Math.sin(ea)*eo*0.85,er=core*(1.05+0.12*Math.sin(time*0.23+e5*1.3));
+    var eg=fx.createRadialGradient(ex,ey,0,ex,ey,er);
+    eg.addColorStop(0,'rgba(8,16,40,'+(da*0.42)+')');eg.addColorStop(0.55,'rgba(8,16,40,'+(da*0.3)+')');eg.addColorStop(1,'rgba(8,16,40,0)');
+    fx.fillStyle=eg;fx.beginPath();fx.arc(ex,ey,er,0,6.29);fx.fill();}
+  // в самой середине — чуть светлее, как чистое небо в глазу
+  var sk=fx.createRadialGradient(cx,cy,0,cx,cy,core*0.6);
+  sk.addColorStop(0,'rgba(150,185,240,'+(0.10+calm*0.08)+')');sk.addColorStop(1,'rgba(150,185,240,0)');
+  fx.fillStyle=sk;fx.beginPath();fx.arc(cx,cy,core*0.6,0,6.29);fx.fill();
 
   // стена глаза: кольцо и бегущие искры
   var wr=eyeR*1.25*(1+breathe*0.15);
