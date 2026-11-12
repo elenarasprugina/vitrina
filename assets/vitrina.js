@@ -2831,7 +2831,7 @@
     contactNow = {
       message: message,
       telegram: action.telegram || def.telegram || '',
-      host: hostUrl(action.host, def.host),
+      host: def.hostOff ? '' : hostUrl(action.host, def.host),  // бот Host не работает — в её личный Telegram
       vk: action.vk || def.vk || ''
     };
     var title = [ctx.format || ctx.item || (ctx.tplKey === 'offer' ? action.label : ''), ctx.route || ctx.card]
@@ -3334,7 +3334,7 @@
   // или в её личный Telegram («Окошко на сайте» → «Куда ведёт Telegram»); VK — текст копируется
   function zpTell(ch) {
     var def = (S.D.settings || {}).contacts || {}, msg = zpFill('message'), st = ZP.st;
-    var bot = hostUrl(st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
+    var bot = def.hostOff ? '' : hostUrl(st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
     var url = ch === 'telegram' ? (zpSet().tell === 'me' ? me || bot : bot || me) : contactUrl('vk', def.vk, '');
     var ok = copyText(msg), hint = S.root.querySelector('[data-zp-hint]');
     if (url) window.open(url, '_blank', 'noopener');
