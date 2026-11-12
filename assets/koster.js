@@ -49,6 +49,11 @@
     var DAYS = (K.days || window.M13_KOSTER_DAYS || []).filter(function (x) { return x && /^\d{4}-\d\d-\d\d$/.test(x.date); })
       .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
     var DAY_I = -1; DAYS.forEach(function (x, i) { if (x.date === iso()) DAY_I = i; });
+    /* Тихий костёр (её решение 13.11): дни волны прошли — ни вопросов, ни пожеланий; огонь горит, «Посиди у огня»,
+       держишь палец — «вдох / выдох» вместе с огнём (на вдохе разгорается, искр больше; на выдохе оседает). Без записки, карты и памяти дней.
+       Панель: «Костёр Самайна» → «После 13 дней» (K.quiet: '' — сам после последнего дня | 'on' — всегда тихий | 'off' — никогда). */
+    var QUIET = !OKNO && (K.quiet === 'on' || (K.quiet !== 'off' && DAYS.length > 0 && DAY_I < 0 && iso() > DAYS[DAYS.length - 1].date));
+    var BR = { on: false, t: 0, k: 0 };   // дыхание с огнём: держат ли, сколько, сила вдоха 0…1
     var KIN = parseInt(dayText.kin, 10) || 0;
     var TONE = +dayText.tone || (KIN > 0 ? (KIN - 1) % 13 + 1 : DAY_I >= 0 ? DAY_I % 13 + 1 : 0);
     var TONE_FX = K.toneFire !== false && TONE ? TONE : 0;   // характер огня по тону (0 — обычный огонь)
@@ -77,6 +82,8 @@
       (K.sound === 'off' ? '' : '<button class="ks-snd" id="ks-snd" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l5-4v14l-5-4H4z"/>' +
         '<path class="ks-snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="ks-snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>') +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
+        (QUIET ? '<div class="uz-sheet ks-quiet" id="ks-quiet"><p class="uz-q">' + esc(T('kQuiet', 'Посиди у огня')) + '</p>' +
+          '<p class="uz-p is-dim ks-quiet-h" id="ks-quiet-h">' + esc(T('kQuietHint', 'Держи палец на экране — и подыши вместе с огнём')) + '</p></div>' : '') +
         '<div class="uz-sheet" id="ks-ask"><p class="uz-q">' + esc(T('kAsk', 'Здесь ты можешь написать то, что хочешь отдать огню')) + '</p>' +
           '<div class="ks-paper-sh"><div class="ks-paper" id="ks-paper"><textarea id="ks-text" rows="4" maxlength="400" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kPaperPh', 'Напиши здесь…')) + '"></textarea></div></div>' +
           '<p class="uz-p is-dim">' + esc(T('kNote', 'Никто, кроме огня, это не прочтёт.')) + '</p>' +
@@ -216,7 +223,7 @@
     var TM = TONE_FX;
     function fireSparks(dt) {
       if (!SPARKS || reduce) return;
-      var rate = SPARKS;
+      var rate = SPARKS * (QUIET ? .7 + 1.3 * BR.k : 1);
       if (TM === 6) rate *= Math.sin(now * 2.4) > .35 ? 2.6 : .15;
       sparkAcc += dt * rate;
       if (TM === 3 && Math.random() < dt * .7) sparkAcc += 5 + Math.random() * 4;
@@ -555,6 +562,22 @@
       if (p >= 1) { b.ov.remove(); burn = null; if (b.done) b.done(); }
     }
 
+    /* ---------- тихий костёр: дыхание с огнём (4 с вдох, 4 с выдох) ---------- */
+    function stepBreath(dt) {
+      if (!QUIET) return;
+      var want = 0;
+      if (BR.on) { BR.t += dt; var ph = (BR.t % 8) / 8; want = .5 - .5 * Math.cos(ph * 6.283); }
+      BR.k += (want - BR.k) * Math.min(1, dt * 3);
+      var bh = $('#ks-quiet-h');
+      if (bh) {
+        var tx = BR.on ? ((BR.t % 8) < 4 ? T('kQuietIn', 'вдох') : T('kQuietOut', 'выдох')) : T('kQuietHint', 'Держи палец на экране — и подыши вместе с огнём');
+        if (bh.textContent !== tx) bh.textContent = tx;
+        bh.classList.toggle('is-breath', BR.on);
+      }
+      var f = 'brightness(' + (1 + .28 * BR.k).toFixed(3) + ') saturate(' + (1 + .15 * BR.k).toFixed(3) + ')';
+      if (video.style.filter !== f && (BR.on || BR.k > .002)) video.style.filter = f;
+    }
+
     /* ---------- кадр ---------- */
     function frame(ts) {
       if (paused) return;
@@ -562,7 +585,7 @@
       if (W !== scene.clientWidth || H !== scene.clientHeight) layout();
       g.clearRect(0, 0, W, H);
       if (!reduce) stepLife(dt);
-      fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
+      stepBreath(dt); fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
       placeStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark();
       requestAnimationFrame(frame);
@@ -733,6 +756,19 @@
       };
       // ушли со страницы — тишина, вернулись — снова огонь
       document.addEventListener('visibilitychange', function () { if (!on || (!ac && !el)) return; if (document.hidden) stop(); else start(); });
+    }
+
+    if (QUIET) {
+      $('#ks-ask').hidden = true;
+      var hold = function (e) {
+        if (e.target && e.target.closest && e.target.closest('a,button,textarea,input')) return;
+        BR.on = true; BR.t = 0;
+      };
+      var letGo = function () { BR.on = false; };
+      document.addEventListener('pointerdown', hold);
+      ['pointerup', 'pointercancel'].forEach(function (n) { document.addEventListener(n, letGo); });
+      document.addEventListener('contextmenu', function (e) { if (BR.on) e.preventDefault(); });
+      return;
     }
 
     /* ---------- ход: листок → огонь → искра → карта → желание ---------- */
