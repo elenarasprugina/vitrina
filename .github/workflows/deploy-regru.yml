@@ -5,9 +5,7 @@
 # Вход — отдельный FTP-аккаунт REG.RU, у которого домашняя папка = папка сайта (www/13mirrors.ru),
 # а не весь хостинг. Соединение шифрованное (FTP + TLS), пароль в журнал не выводится.
 # Нужно в Settings → Secrets and variables → Actions:
-#   Secrets   → REGRU_PASSWORD — пароль этого FTP-аккаунта;
-#   Variables → REGRU_HOST     — адрес сервера из письма/панели REG.RU (вида server123.hosting.reg.ru);
-#   Variables → REGRU_USER     — имя FTP-аккаунта.
+#   Secrets   → REGRU_PASSWORD — пароль этого FTP-аккаунта (u3722421_github, папка /www/13mirrors.ru/).
 # В папке сайта на REG.RU должен лежать пустой файл-метка .13mirrors-deploy-root.
 name: Пересылка на REG.RU
 
@@ -24,8 +22,8 @@ permissions:
   contents: read
 
 env:
-  REGRU_HOST: ${{ vars.REGRU_HOST }}
-  REGRU_USER: ${{ vars.REGRU_USER }}
+  REGRU_HOST: server162.hosting.reg.ru   # сервер хостинга «Хост-0» u3722421
+  REGRU_USER: u3722421_github           # FTP-аккаунт только на папку сайта (создан 12.11.2026)
   TARGET: vitrina           # единственная папка на сервере, в которую пишет эта пересылка
   MARKER: .13mirrors-deploy-root
 
@@ -40,12 +38,8 @@ jobs:
         env:
           LFTP_PASSWORD: ${{ secrets.REGRU_PASSWORD }}
         run: |
-          miss=""
-          [ -n "$REGRU_HOST" ]    || miss="$miss REGRU_HOST (Variables)"
-          [ -n "$REGRU_USER" ]    || miss="$miss REGRU_USER (Variables)"
-          [ -n "$LFTP_PASSWORD" ] || miss="$miss REGRU_PASSWORD (Secrets)"
-          if [ -n "$miss" ]; then
-            echo "::error::Не заполнено:$miss. Settings → Secrets and variables → Actions. Ничего не скопировано."
+          if [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::Нет пароля: добавьте REGRU_PASSWORD в Settings → Secrets and variables → Actions → Secrets. Ничего не скопировано."
             exit 1
           fi
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp > /dev/null
