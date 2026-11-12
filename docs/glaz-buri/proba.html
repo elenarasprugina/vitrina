@@ -127,7 +127,7 @@ function saveGot(){try{localStorage.setItem(KEY,JSON.stringify(got))}catch(e){}}
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var sc=document.getElementById('storm'),sx=sc.getContext('2d');
 var fc=document.getElementById('fx'),fx=fc.getContext('2d');
-var W,H,R,cx,cy,dpr,eyeR,parts=[],lights=[];
+var W,H,R,cx,cy,dpr,eyeR,parts=[],lights=[],ring=[],ringR;
 
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,2);
@@ -139,11 +139,12 @@ function resize(){
   sx.fillStyle='#050916';sx.fillRect(0,0,W,H);
   var N=W<520?900:1600;parts=[];for(var i=0;i<N;i++)parts.push(spawn(true));
   lights=[];
-  for(var k=0;k<12;k++){var t=k/11,r=R*(0.93-0.68*t),a=-2.2+t*Math.PI*2.3;
+  for(var k=0;k<13;k++){var t=k/12,r=R*(0.93-0.68*t),a=-2.2+t*Math.PI*2.3;
     lights.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*0.82});}
-  lights.push({x:cx,y:cy});
-  var lo=0;for(var m=0;m<12;m++)lo=Math.max(lo,lights[m].y);
-  fare.style.top=Math.min(lo+30,H-150)+'px';
+  // кольцо финала: огоньки дней встают среди мерцающих точек вокруг глаза, день 1 — сверху, по часовой
+  ring=[];ringR=eyeR*1.3;
+  for(var q=0;q<13;q++){var qa=-Math.PI/2+q/13*6.283;ring.push({x:cx+Math.cos(qa)*ringR,y:cy+Math.sin(qa)*ringR*0.82,a:qa})}
+  fare.style.top=Math.min(cy+eyeR*2.5,H-150)+'px';
 }
 var TW=1.9;
 function spawn(any){
@@ -155,7 +156,7 @@ function spawn(any){
 
 // состояние: idle → breath (держат) → sign (огонёк летит, знак тона) → card → rain → idle
 var state='idle',holdT=0,calm=0,signT=0,rainT=0,rot=0,boost=0,boostT=0,time=0,last=performance.now();
-var FLY=3.6,GAP=0.45,FIN=11*0.45+3.6,OUT0=11*0.45+3.6+1.6,OUTD=5,CON0=OUT0+12*0.18+5,LINED=3.6,TXT0=CON0+LINED,finT=0,still=0,finished=false,ftr=[],tint=0,trail=[],RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
+var FLY=3.6,GAP=0.45,FIN=12*0.45+3.6,OUT0=12*0.45+3.6+1.6,OUTD=3.6,CON0=OUT0+12*0.22+3.6,LINED=3.6,TXT0=CON0+LINED,finT=0,still=0,finished=false,ftr=[],tint=0,trail=[],RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
 var hint=document.getElementById('hint'),fare=document.getElementById('fare'),card=document.getElementById('card');
 var HINT0='Держите палец на глазу бури и дышите';
 function setHint(t,big){hint.textContent=t;hint.classList.toggle('breath',!!big);hint.style.opacity=t?1:0}
@@ -167,7 +168,7 @@ function frame(now){
   if(state==='breath'){holdT+=dt;calm+=(Math.min(1,holdT/7)-calm)*Math.min(1,dt*1.5)}
   else if(state==='sign'||state==='card'||state==='final'){calm+=((state==='final'?1:0.85)-calm)*Math.min(1,dt*0.6)}
   else calm+=(0-calm)*Math.min(1,dt*0.35);
-  if(state==='final'){finT+=dt;if(finT>FIN-1)still+=(1-still)*Math.min(1,dt*0.5);if(finT>TXT0+3.5)openCard()}
+  if(state==='final'){finT+=dt;if(finT>FIN-1)still+=(1-still)*Math.min(1,dt*0.5);if(finT>TXT0+1){state='idle';finished=true;for(var a=0;a<13;a++)got[a]=1;saveGot();marks()}}
   else if(!finished)still+=(0-still)*Math.min(1,dt*0.5);
   var sp=(reduce?0.25:1)*((1-calm*0.85)+boost*2.5)*(1-still*0.96);
   rot+=dt*0.22*sp;
@@ -271,36 +272,33 @@ function drawFx(dt){
 
 
   if(state==='final'||finished){
-    for(var fd=0;fd<12;fd++){var fdt=state==='final'?(finT-fd*GAP)/FLY:2;if(fdt<=0)continue;
+    for(var fd=0;fd<13;fd++){var fdt=state==='final'?(finT-fd*GAP)/FLY:2;if(fdt<=0)continue;
       var fc2=COL[DAYS[fd].c],T=ftr[fd]||(ftr[fd]=[]);
       if(fdt<1){var fp=flyPos(fd,fdt);T.push(fp);if(T.length>22)T.shift();glow(fp[0],fp[1],4.5,fc2,1)}else if(T.length)T.shift();
       for(var q=0;q<T.length;q++)glow(T[q][0],T[q][1],1.2+q/T.length*1.6,fc2,(q/T.length)*0.5);}
-    // вылет: огоньки раскручиваются из глаза по своим дугам и встают на места дней — буря ушла, путь волны остался созвездием
+    // вылет: все 13 раскручиваются из глаза и встают кольцом среди мерцающих точек вокруг глаза; нить соединяет 1→13 и замыкает круг
     var built=!(state==='final'),lk=built?1:Math.max(0,Math.min(1,(finT-CON0)/LINED));
-    // линии созвездия: тонкая нить по порядку дней 1→13, тянется постепенно
-    if(lk>0){var segs=lk*12;fx.save();fx.lineWidth=0.9;fx.lineCap='round';
-      fx.strokeStyle='rgba(207,226,255,'+(0.30+0.04*Math.sin(time*0.9))+')';fx.shadowColor='rgba(140,185,255,.6)';fx.shadowBlur=6;
-      fx.beginPath();fx.moveTo(lights[0].x,lights[0].y);
-      for(var sg2=0;sg2<12&&sg2<segs;sg2++){var A=lights[sg2],B=lights[sg2+1],sf=Math.min(1,segs-sg2);
+    if(lk>0){var segs=lk*13;fx.save();fx.lineWidth=0.9;fx.lineCap='round';fx.lineJoin='round';
+      fx.strokeStyle='rgba(207,226,255,'+(0.34+0.05*Math.sin(time*0.9))+')';fx.shadowColor='rgba(140,185,255,.7)';fx.shadowBlur=6;
+      fx.beginPath();fx.moveTo(ring[0].x,ring[0].y);
+      for(var sg2=0;sg2<13&&sg2<segs;sg2++){var A=ring[sg2],B=ring[(sg2+1)%13],sf=Math.min(1,segs-sg2);
         fx.lineTo(A.x+(B.x-A.x)*sf,A.y+(B.y-A.y)*sf)}
       fx.stroke();fx.restore();}
-    for(var od=0;od<13;od++){var ot=built?2:(finT-OUT0-od*0.18)/OUTD;if(ot<=0)continue;
-      var oc=COL[DAYS[od].c],OT=ftr[20+od]||(ftr[20+od]=[]),Lo=lights[od],tw=1+0.18*Math.sin(time*(1.3+od*0.17)+od*2.1);
-      if(od===12){glow(cx,cy,(4+3*Math.min(1,ot))*tw,oc,Math.min(1,ot*2));if(ot>=1)star(cx,cy,2.2*tw,'#f4f8ff',0.9);continue}
-      if(ot<1){var op=flyPos(od,1-ot);OT.push(op);if(OT.length>18)OT.shift();glow(op[0],op[1],4.5,oc,Math.min(1,ot*6))}
-      else{if(OT.length)OT.shift();glow(Lo.x,Lo.y,3.6*tw,oc,1);star(Lo.x,Lo.y,1.3*tw,'#f4f8ff',0.8)}
-      for(var oq=0;oq<OT.length;oq++)glow(OT[oq][0],OT[oq][1],1.2+oq/OT.length*1.8,oc,(oq/OT.length)*0.55);}
+    for(var od=0;od<13;od++){var ot=built?2:(finT-OUT0-od*0.22)/OUTD;if(ot<=0)continue;
+      var oc=COL[DAYS[od].c],OT=ftr[20+od]||(ftr[20+od]=[]),Lo=ring[od],tw=1+0.18*Math.sin(time*(1.3+od*0.17)+od*2.1);
+      if(ot<1){var oe=ot*ot*(3-2*ot),orr=ringR*oe,oa=Lo.a-(1-oe)*3.4,op=[cx+Math.cos(oa)*orr,cy+Math.sin(oa)*orr*0.82];
+        OT.push(op);if(OT.length>16)OT.shift();glow(op[0],op[1],4,oc,Math.min(1,ot*6))}
+      else{if(OT.length)OT.shift();glow(Lo.x,Lo.y,3.4*tw,oc,1);star(Lo.x,Lo.y,1.2*tw,'#f4f8ff',0.8)}
+      for(var oq=0;oq<OT.length;oq++)glow(OT[oq][0],OT[oq][1],1.1+oq/OT.length*1.6,oc,(oq/OT.length)*0.5);}
   }
-  fare.classList.toggle('on',(finished||state==='final'&&finT>TXT0)&&state!=='card');
+  fare.classList.toggle('on',(finished&&state!=='breath'||state==='final'&&finT>TXT0)&&state!=='card'&&state!=='sign');
   // спираль 13 огоньков дней: пройденные — ярко, сегодняшний пульсирует (пока не улетел), будущие — едва
   for(var d=0;d<13;d++){
     var Ld=lights[d],c=COL[DAYS[d].c],on=d===sel;
-    if(finished||state==='final'&&(d===12||finT>d*GAP))continue;
-    if(d===12&&!on)continue;
+    if(finished||state==='final'&&finT>d*GAP)continue;
     var past=d<sel||got[d];
     var opened=on&&(state==='sign'||state==='card'||got[d]);
     var pr=on&&!opened?(4.5+Math.sin(time*2.4)*1.5):opened?3.8:(past?3.4+Math.sin(time*1.6+d)*0.5:2.2);
-    if(d===12)pr=6+Math.sin(time*2.4)*1.5;
     glow(Ld.x,Ld.y,pr*0.8,c,(on||past?1:0.5)*(1-calm*0.4));
   }
 
@@ -386,7 +384,6 @@ function release(){
   if(state!=='breath')return;
   if(holdT<2.5){state='idle';setHint('Подержите подольше — сделайте хотя бы один вдох и выдох');
     setTimeout(function(){if(state==='idle')setHint(HINT0)},3200);return}
-  if(sel===12){state='final';finT=0;ftr=[];setHint('');return}
   state='sign';signT=0;trail=[];setHint('');
 }
 fc.addEventListener('pointerup',release);fc.addEventListener('pointercancel',release);
@@ -399,10 +396,13 @@ function fill(i){var d=DAYS[i];
   document.getElementById('cWord').textContent=d.w;
   document.getElementById('cTone').textContent='Тон '+(i+1)+' · '+d.t;
   document.getElementById('cQ').textContent=d.q;}
-function openCard(){if(state==='final'){finished=true;for(var a=0;a<13;a++)got[a]=1}state='card';fill(sel);got[sel]=1;saveGot();marks();
+function openCard(){state='card';fill(sel);got[sel]=1;saveGot();marks();
   card.classList.add('open');setTimeout(function(){try{document.getElementById('back').focus({preventScroll:true})}catch(e){}},900)}
 document.getElementById('back').addEventListener('click',function(){
-  card.classList.remove('open');state='rain';rainT=RAIN;dropAcc=0;setHint('');
+  card.classList.remove('open');setHint('');
+  // 13-й день: после его карты — финал (все огоньки уходят в глаз, буря стихает, выходят кольцом)
+  if(sel===12&&!finished){state='final';finT=0;ftr=[];return}
+  state='rain';rainT=RAIN;dropAcc=0;
 });
 
 var days=document.getElementById('days');
