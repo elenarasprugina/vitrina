@@ -147,7 +147,7 @@ function spawn(any){
 
 // состояние: idle → breath (держат) → sign (огонёк летит, знак тона) → card → rain → idle
 var state='idle',holdT=0,calm=0,signT=0,rainT=0,rot=0,boost=0,boostT=0,time=0,last=performance.now();
-var FLY=2.4,tint=0,trail=[],RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
+var FLY=3.6,tint=0,trail=[],RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
 var hint=document.getElementById('hint'),card=document.getElementById('card');
 var HINT0='Держите палец на глазу бури и дышите';
 function setHint(t,big){hint.textContent=t;hint.classList.toggle('breath',!!big);hint.style.opacity=t?1:0}
@@ -245,12 +245,14 @@ function drawFx(dt){
     var sxp=cx+Math.cos(sa)*sr,syp=cy+Math.sin(sa)*sr*0.82,tw=0.5+0.5*Math.sin(time*3+s*1.7);
     fx.fillStyle='rgba(225,238,255,'+(0.35+0.5*tw)+')';fx.beginPath();fx.arc(sxp,syp,0.8+tw*1.1,0,6.29);fx.fill();}
 
-  // собранные звёзды внутри глаза
-  var keys=Object.keys(got);
+  // собранные дни внутри глаза: живые огоньки своего цвета (без белой середины), кружат со следом и дышат
   for(var k=0;k<13;k++){if(!got[k])continue;
-    var a=k/13*6.283+time*0.12,rr=core*(0.45+0.25*((k*5)%3)/2);
-    var x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr,tw2=0.6+0.4*Math.sin(time*2+k);
-    star(x,y,1.6+tw2,COL[DAYS[k].c],0.9);}
+    var kc=COL[DAYS[k].c],ph=k*2.39,a0=k/13*6.283+time*(0.16+0.03*Math.sin(ph)),
+      rk=core*(0.62+0.26*((k*5)%3)/2)*(1+0.08*Math.sin(time*0.7+ph)),
+      pulse=0.55+0.45*Math.sin(time*1.3+ph)*Math.sin(time*0.47+ph*1.7);
+    for(var tr=7;tr>=1;tr--){var ta=a0-tr*0.05;
+      glow(cx+Math.cos(ta)*rk,cy+Math.sin(ta)*rk*0.9,(1.3+pulse*0.6)*(1-tr/9),kc,0.3*(1-tr/8))}
+    glow(cx+Math.cos(a0)*rk,cy+Math.sin(a0)*rk*0.9,1.7+pulse*1.0,kc,0.75+0.25*pulse);}
 
   // знак тона светом (точки и черты), пока state = sign
   if(state==='sign'){
@@ -260,9 +262,9 @@ function drawFx(dt){
     var fxp=cx+Math.cos(fa)*rr,fyp=cy+Math.sin(fa)*rr*0.82;
     if(ft<1){trail.push([fxp,fyp]);if(trail.length>26)trail.shift()}else if(trail.length)trail.shift();
     var dcol=COL[DAYS[sel].c];
-    for(var ti=0;ti<trail.length;ti++){fx.globalAlpha=(ti/trail.length)*0.5;star(trail[ti][0],trail[ti][1],1.2+ti/trail.length*1.6,dcol,1)}
+    for(var ti=0;ti<trail.length;ti++){fx.globalAlpha=(ti/trail.length)*0.5;glow(trail[ti][0],trail[ti][1],1.4+ti/trail.length*1.8,dcol,1)}
     fx.globalAlpha=1;
-    if(ft<1)star(fxp,fyp,4.5,dcol,Math.min(1,signT*2));
+    if(ft<1)glow(fxp,fyp,5,dcol,Math.min(1,signT*2));
   }
 
 
@@ -280,6 +282,13 @@ function drawFx(dt){
     fx.save();fx.globalAlpha=ma2;star(D.x,D.y,1.4,D.c,1);fx.restore();}
 }
 function hexA(h){var v=parseInt(h.slice(1),16);return (v>>16&255)+','+(v>>8&255)+','+(v&255)}
+// огонёк одного цвета: плотная середина и мягкий ореол того же цвета
+function glow(x,y,pr,c,al){
+  var t=hexA(c);fx.save();fx.globalAlpha*=al;
+  var gg=fx.createRadialGradient(x,y,0,x,y,pr*3.2);
+  gg.addColorStop(0,'rgba('+t+',1)');gg.addColorStop(0.25,'rgba('+t+',0.75)');gg.addColorStop(0.55,'rgba('+t+',0.22)');gg.addColorStop(1,'rgba('+t+',0)');
+  fx.fillStyle=gg;fx.beginPath();fx.arc(x,y,pr*3.2,0,6.29);fx.fill();fx.restore();
+}
 function star(x,y,pr,c,al){
   fx.save();fx.globalAlpha*=al;
   var gg=fx.createRadialGradient(x,y,0,x,y,pr*4);gg.addColorStop(0,c);gg.addColorStop(1,'rgba(0,0,0,0)');
