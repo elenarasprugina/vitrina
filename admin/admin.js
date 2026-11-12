@@ -10237,9 +10237,9 @@
     ];
   }
 
-  /* ================= ЗАПИСЬ: программа записи клиентов на Beget (шаг 2 плана docs/zapis.md, 28.10) =================
+  /* ================= ЗАПИСЬ: программа записи клиентов (REG.RU; запасной — Beget) (шаг 2 плана docs/zapis.md, 28.10) =================
      Сервер — zapis.13mirrors.ru/panel.php (репозиторий 13mirrors-bot, zapis/). Настройки записи и занятое время живут
-     на Beget, не в черновике витрины: «Сохранить» вверху панели их не сохраняет — только «Сохранить на Beget» здесь.
+     на сервере записи, не в черновике витрины: «Сохранить» вверху панели их не сохраняет — только «Сохранить на сервере» здесь.
      Виды встреч — плашки карточки «Индивидуальная работа» (ключ — кнопка плашки: action.host); цена — с плашки.
      Пароль записи — только в sessionStorage, как ключ GitHub. */
   var ZP_URL = window.M13_ZAPIS_URL || 'https://zapis.13mirrors.ru/';
@@ -10308,7 +10308,7 @@
     });
     return out;
   }
-  // Виды встреч: с плашек (название и цена — оттуда) + сохранённые на Beget (вкл/выкл, длительность)
+  // Виды встреч: с плашек (название и цена — оттуда) + сохранённые на сервере (вкл/выкл, длительность)
   function zpMerge(s) {
     var saved = {}, list = [];
     (s.services || []).forEach(function (x) { saved[x.key] = x; });
@@ -10320,7 +10320,7 @@
     });
     Object.keys(saved).forEach(function (k) { list.push(saved[k]); });
     s.services = list;
-    // Программа записи на Beget старее 29.10 этих настроек не знает — исходные
+    // Программа записи старее 29.10 этих настроек не знает — исходные
     s.offline = Object.assign(clone(ZP_OFF), s.offline || {});
     if (s.freeMaxDay == null) s.freeMaxDay = 2;
     return s;
@@ -10331,7 +10331,7 @@
     delete o.updated;
     return o;
   }
-  // Отличается ли то, что на экране, от сохранённого на Beget (например, на плашке поменяли цену)
+  // Отличается ли то, что на экране, от сохранённого на сервере (например, на плашке поменяли цену)
   function zpDiffers() {
     if (!ZP.srv || !ZP.set) return false;
     var a = zpOut(ZP.set), b = clone(ZP.srv.settings); delete b.updated;
@@ -10343,9 +10343,9 @@
     if (s) { s.textContent = 'Есть несохранённые изменения'; s.classList.add('is-dirty'); }
   }
   function zpSave() {
-    busy('Сохраняем настройки записи на Beget…');
+    busy('Сохраняем настройки записи на сервер…');
     return zpCall('save', { settings: zpOut(ZP.set) }).then(function (d) {
-      busy(null); ZP.dirty = false; zpTake(d); ZP.free = null; zpDraw(); toast('Настройки записи сохранены на Beget.');
+      busy(null); ZP.dirty = false; zpTake(d); ZP.free = null; zpDraw(); toast('Настройки записи сохранены на сервере записи.');
     }).catch(function (e) { busy(null); toast(e.message, true); });
   }
 
@@ -10355,7 +10355,7 @@
     if (ZP.pass && !ZP.srv && !ZP.busy && ZP.tab !== 'site') zpLoad();
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'Запись' }),
-        el('p', { class: 'a-lead', text: 'Запись клиентов на встречи по календарю с оплатой через ЮKassa (программа работает на Beget). Здесь — записи, часы работы, виды встреч и как выглядит окошко записи на сайте.' })]),
+        el('p', { class: 'a-lead', text: 'Запись клиентов на встречи по календарю с оплатой через ЮKassa (программа работает на хостинге REG.RU; запасной — Beget). Здесь — записи, часы работы, виды встреч и как выглядит окошко записи на сайте.' })]),
       ZP.box
     ];
   }
@@ -10373,11 +10373,11 @@
     add(box, [
       tabBar,
       ZP.err ? el('div', { class: 'a-note' }, [ZP.err + ' ', el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Ещё раз', onclick: zpLoad })]) : null,
-      !ZP.srv ? (ZP.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем с Beget…' })]) : null)
+      !ZP.srv ? (ZP.busy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Загружаем с сервера записи…' })]) : null)
         : ZP.tab === 'set' ? zpSetBlocks() : ZP.tab === 'see' ? zpSeeBlock() : ZP.tab === 'state' ? zpStateBlock() : zpListBlocks(),
       el('p', { class: 'a-hint a-pp-foot' }, ['Пароль записи хранится только в этой вкладке. ',
         el('button', { type: 'button', class: 'a-gh-btn', text: 'Выйти из записи', onclick: function () {
-          if (ZP.dirty) dialog({ title: 'Выйти без сохранения?', body: 'Изменения в расписании и встречах ещё не сохранены на Beget — они пропадут.',
+          if (ZP.dirty) dialog({ title: 'Выйти без сохранения?', body: 'Изменения в расписании и встречах ещё не сохранены на сервере — они пропадут.',
             buttons: [['out', 'Выйти', 'danger'], ['cancel', 'Остаться', 'dark']] }).then(function (v) { if (v === 'out') zpLogout(); });
           else zpLogout();
         } })])
@@ -10387,7 +10387,7 @@
     var input = el('input', { class: 'a-input', type: 'password', autocomplete: 'current-password', placeholder: 'Пароль записи' });
     function go() {
       var v = input.value.trim();
-      if (v.length < 10) { toast('Пароль записи — не короче 10 знаков (тот, что в app/config.php на Beget, сайт zapis).', true); return; }
+      if (v.length < 10) { toast('Пароль записи — не короче 10 знаков (тот, что в app/config.php на хостинге, сайт zapis).', true); return; }
       ZP.pass = v;
       try { sessionStorage.setItem(ZP_KEY, v); } catch (e) {}
       zpLoad();
@@ -10397,7 +10397,7 @@
     return el('div', { class: 'a-card a-pp-login' }, [
       el('label', { class: 'a-label', text: 'Пароль записи' }),
       el('div', { class: 'a-pp-row' }, [input, el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Войти', onclick: go })]),
-      el('p', { class: 'a-hint', text: 'Пароль, который вы вписали в app/config.php на Beget (сайт zapis.13mirrors.ru). Хранится только в этой вкладке и забывается, когда вы её закрываете.' })
+      el('p', { class: 'a-hint', text: 'Пароль, который вы вписали в app/config.php на хостинге (сайт zapis.13mirrors.ru). Хранится только в этой вкладке и забывается, когда вы её закрываете.' })
     ]);
   }
 
@@ -10551,8 +10551,8 @@
       field('Когда можно очно', daysSel), dateBox,
       field('Адрес', addr, 'Человек увидит его после записи. Пусто — «Адрес пришлю в сообщении».')]);
     var foot = el('div', { class: 'a-zp-save' }, [
-      el('span', { class: 'a-ak-state' + (ZP.dirty ? ' is-dirty' : ''), text: ZP.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' }),
-      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Сохранить на Beget', onclick: zpSave }),
+      el('span', { class: 'a-ak-state' + (ZP.dirty ? ' is-dirty' : ''), text: ZP.dirty ? 'Есть несохранённые изменения' : 'Сохранено на сервере' }),
+      el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Сохранить на сервере', onclick: zpSave }),
       el('button', { type: 'button', class: 'a-btn', text: 'Отменить изменения', onclick: function () { ZP.dirty = false; zpTake(ZP.srv); zpDraw(); } })]);
     return [
       block('Запись на сайте', [
@@ -10579,7 +10579,7 @@
         el('p', { class: 'a-hint', text: 'Выключено — на сайте записываются только онлайн (встречи «только очно» тогда — как раньше, «Куда написать?»). Включено — у встреч «онлайн и очно» человек сначала выбирает «Онлайн» или «Очно», потом видит свободное время.' }),
         offBody], { open: !!o.on }),
       block('Виды встреч', [svc.childNodes.length ? svc : el('p', { class: 'a-empty', text: 'На витрине нет карточки «Индивидуальная работа» с плашками.' }),
-        el('p', { class: 'a-hint', text: 'Это плашки карточки «Индивидуальная работа» (названия и цены — с них; поменяли на плашке — нажмите здесь «Сохранить на Beget»). Включено — «Записаться» на плашке откроет окошко записи по календарю; выключено — как сейчас, окно «Куда написать?». Свободное время считается по длительности.' })]),
+        el('p', { class: 'a-hint', text: 'Это плашки карточки «Индивидуальная работа» (названия и цены — с них; поменяли на плашке — нажмите здесь «Сохранить на сервере»). Включено — «Записаться» на плашке откроет окошко записи по календарю; выключено — как сейчас, окно «Куда написать?». Свободное время считается по длительности.' })]),
       foot
     ];
   }
@@ -10603,9 +10603,9 @@
     var nFree = days.filter(function (d) { return f.days[d].length; }).length;
     return block('Свободное время', [
       on.length ? el('div', { class: 'a-row' }, [field('Вид встречи', pick), fm ? field('Как встречаемся', fm) : null]) : el('p', { class: 'a-empty', text: 'Ни одна встреча не включена — включите в «Расписании и встречах».' }),
-      ZP.dirty ? el('div', { class: 'a-note', text: 'Здесь — по настройкам, сохранённым на Beget. Ваши несохранённые изменения пока не учтены.' }) : null,
+      ZP.dirty ? el('div', { class: 'a-note', text: 'Здесь — по настройкам, сохранённым на сервере. Ваши несохранённые изменения пока не учтены.' }) : null,
       ZP.freeBusy ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }), el('span', { text: 'Считаем…' })]) : null,
-      f && !f.ok ? el('p', { class: 'a-empty', text: 'Эта встреча на Beget ещё не включена — сохраните «Расписание и встречи».' }) : null,
+      f && !f.ok ? el('p', { class: 'a-empty', text: 'Эта встреча на сервере ещё не включена — сохраните «Расписание и встречи».' }) : null,
       f && f.ok ? el('p', { class: 'a-hint', text: f.service.title + ' · ' + f.service.minutes + ' минут · ' + (f.service.price ? f.service.price.toLocaleString('ru-RU') + ' ₽' : 'без оплаты') + '. Свободных дней: ' + nFree + ' из ' + days.length + (f.mode === 'offline' && ZP.set.offline.days === 'dates' ? ' дат для очных.' : ' рабочих.') }) : null,
       f && f.ok ? el('div', { class: 'a-zp-see' }, days.map(function (d) {
         var t = f.days[d];
@@ -10665,8 +10665,8 @@
     var st = ZP.srv;
     return block('Состояние', [
       el('ul', { class: 'a-pp-checks' }, st.checks.map(function (c) { return el('li', { class: c[0] ? '' : 'is-bad', text: (c[0] ? '✅ ' : '❌ ') + c[1] }); })),
-      el('p', { class: 'a-hint', text: 'Программа записи: ' + ZP_URL.replace(/\/$/, '') + ' (время на Beget: ' + String(st.now || '').replace('T', ' ').slice(0, 16) + ', Мск).' }),
-      el('p', { class: 'a-hint', text: 'ЮKassa: shopId и секретный ключ — в app/config.php на Beget (shop_id, secret_key; в чат и сюда их не вписывать). В личном кабинете ЮKassa → «Интеграция» → «HTTP-уведомления» — адрес ' + ZP_URL + 'kassa.php, события «payment.succeeded» и «payment.canceled».' }),
+      el('p', { class: 'a-hint', text: 'Программа записи: ' + ZP_URL.replace(/\/$/, '') + ' (время на сервере: ' + String(st.now || '').replace('T', ' ').slice(0, 16) + ', Мск).' }),
+      el('p', { class: 'a-hint', text: 'ЮKassa: shopId и секретный ключ — в app/config.php на хостинге (shop_id, secret_key; в чат и сюда их не вписывать). В личном кабинете ЮKassa → «Интеграция» → «HTTP-уведомления» — адрес ' + ZP_URL + 'kassa.php, события «payment.succeeded» и «payment.canceled».' }),
       el('div', { class: 'a-pp-row' }, [el('button', { type: 'button', class: 'a-btn', text: 'Проверить', onclick: zpLoad })])
     ]);
   }
@@ -11348,7 +11348,7 @@
       'Сайт не собирает персональные данные. Здесь нет регистрации, анкет и форм — вам не нужно сообщать о себе ни имя, ни телефон, ни почту.\n\n' +
       'На сайте нет счётчиков посещений, рекламы и систем статистики, сайт не использует cookie. Шрифты и картинки загружаются с самого сайта — без обращения к сторонним сервисам.\n\n' +
       'То, что вы отмечаете и выбираете на маршрутах, хранится только в браузере вашего устройства. Это не передаётся на сервер и не видно никому, кроме вас. Если очистить данные сайта в браузере, это сотрётся.\n\n' +
-      'Запись на встречу. Когда вы записываетесь на встречу на витрине, сайт обращается к своей программе записи (zapis.13mirrors.ru, на хостинге Beget в России). Она хранит только занятое время и вид встречи — без имени, телефона и почты. Номер вашей записи сохраняется в браузере вашего устройства, чтобы после оплаты показать, что вы записаны.\n\n' +
+      'Запись на встречу. Когда вы записываетесь на встречу на витрине, сайт обращается к своей программе записи (zapis.13mirrors.ru, на хостинге в России: REG.RU, запасной — Beget). Она хранит только занятое время и вид встречи — без имени, телефона и почты. Номер вашей записи сохраняется в браузере вашего устройства, чтобы после оплаты показать, что вы записаны.\n\n' +
       'Оплата проходит на странице платёжного сервиса ЮKassa. Данные карты, а также почту или телефон для чека вы вводите там — их видит только ЮKassa, наш сайт их не получает. ЮKassa обрабатывает эти данные по своим правилам.\n\n' +
       'Как и любой сайт в интернете, сервер, на котором размещён 13 MIRRORS, ведёт технические журналы обращений (адрес устройства в сети, время, открытая страница). Они нужны для работы сервера, и мы не используем их, чтобы узнавать, кто заходил.\n\n' +
       'Когда вы пишете нам в Telegram или VK, разговор идёт уже там, по правилам этих сервисов.\n\n' +
