@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+<title>13 MIRRORS · Куб Метатрона</title>
+<meta name="theme-color" content="#0f0c16">
+<link rel="stylesheet" href="../assets/fonts/forum.css">
+<link rel="stylesheet" href="../assets/fonts/commissioner.css">
+<link rel="stylesheet" href="../assets/fonts/caveat.css">
+<link rel="stylesheet" href="../assets/fonts/marck-script.css">
+<link rel="stylesheet" href="../assets/metatron.css?v=20261112a">
+<script src="../assets/three-r128.min.js"></script>
+</head>
+<body>
+
+<div class="app">
+  <main class="stage" id="stage">
+    <canvas id="c" aria-label="Куб Метатрона: рабочее поле"></canvas>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Вид">
+        <button id="bFlat" class="on" type="button">Плоскость</button>
+        <button id="b3d" type="button">Объём</button>
+      </div>
+      <button id="bSpin" class="ib" type="button" title="Медленное вращение" aria-label="Медленное вращение" hidden>
+        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg>
+      </button>
+      <button id="bUndo" class="ib" type="button" title="Отменить" aria-label="Отменить" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+      </button>
+      <span class="grow"></span>
+      <button id="bDraw" class="act ghost" type="button">Прорисовать</button>
+      <button id="bAct" class="act" type="button">Активировать</button>
+    </div>
+    <div class="soltag" id="solTag" hidden><i></i><b></b><span></span></div>
+    <div class="breath" id="breath" hidden>
+      <div class="bw" id="bw">Вдох</div>
+      <div class="bt" id="bt">05:00</div>
+      <button id="bStop" type="button">Завершить</button>
+    </div>
+    <div class="stylename" id="stName"></div>
+    <div class="hint" id="hint"></div>
+  </main>
+
+  <aside class="panel">
+    <nav class="tabs" role="tablist">
+      <button class="on" data-t="lay" type="button" role="tab">Выкладка</button>
+      <button data-t="int" type="button" role="tab">Намерение</button>
+      <button data-t="glass" type="button" role="tab">Стекло</button>
+      <button data-t="save" type="button" role="tab">Сохранить</button>
+    </nav>
+
+    <section class="pane" id="p-lay">
+      <div class="selbox" id="selBox" hidden>
+        <div class="row between"><span class="t" id="selName"></span><button class="btn" id="selClose" type="button">Готово</button></div>
+        <label class="rng">Размер <input type="range" id="selSize" min="0.5" max="2.2" step="0.05"></label>
+        <label class="rng">Поворот <input type="range" id="selRot" min="-180" max="180" step="5"></label>
+        <label class="switch"><input type="checkbox" id="selGroup" checked> Менять всю симметричную группу</label>
+        <div class="row">
+          <button class="btn danger" id="selDel" type="button">Убрать</button>
+          <button class="btn danger" id="selDelG" type="button">Убрать группу</button>
+        </div>
+      </div>
+      <div id="catalog" class="sec"></div>
+      <div class="sec">
+        <h3>Готовые сетки</h3>
+        <div class="row" id="presets"></div>
+        <p class="note" id="exampleNote"></p>
+      </div>
+      <div class="sec">
+        <div class="row between">
+          <h4>Симметрия</h4>
+          <div class="seg small" id="sym">
+            <button data-v="1" type="button">1</button><button data-v="3" type="button">3</button><button data-v="6" class="on" type="button">6</button>
+          </div>
+        </div>
+        <label class="switch"><input type="checkbox" id="snap" checked> Притягивать к точкам сетки</label>
+      </div>
+      <div class="row" id="clearRow">
+        <button class="btn danger" id="bClear" type="button">Очистить сетку</button>
+      </div>
+    </section>
+
+    <section class="pane" id="p-int" hidden>
+      <div class="sec">
+        <h3>Ваше намерение</h3>
+        <textarea id="intent" placeholder="Например: Я открыта новому, и оно приходит легко" maxlength="160"></textarea>
+        <p class="note">Пишите в настоящем времени и от первого лица, как будто это уже происходит.</p>
+      </div>
+      <div class="sec">
+        <h4>Где написать</h4>
+        <div class="seg small" id="tmode">
+          <button data-v="ring" class="on" type="button">По кругу</button><button data-v="below" type="button">Под сеткой</button><button data-v="hide" type="button">Не показывать</button>
+        </div>
+      </div>
+      <div class="sec">
+        <h4>Дата начала</h4>
+        <input type="date" id="sdate">
+        <div class="moon"><canvas id="moonC" width="56" height="56"></canvas><span id="moonT"></span></div>
+      </div>
+      <div class="sec">
+        <h3>Активация</h3>
+        <p class="note">Линии зажигаются от центра к краю, затем сетка дышит в ритме 4 счёта на вдох и 4 на выдох.</p>
+        <div class="row between">
+          <h4>Длительность</h4>
+          <div class="seg small" id="adur">
+            <button data-v="1" type="button">1</button><button data-v="3" class="on" type="button">3</button><button data-v="5" type="button">5</button><button data-v="11" type="button">11 мин</button>
+          </div>
+        </div>
+        <h4>Звук</h4>
+        <div class="row" id="voices"></div>
+        <label class="switch"><input type="checkbox" id="drone" checked> Фоновый звук «Ом» во время активации</label>
+      </div>
+    </section>
+
+    <section class="pane" id="p-glass" hidden>
+      <div class="sec">
+        <h3>Стёкла</h3>
+        <p class="note">Наведите стекло на свою сетку, и она заново прорисуется в выбранной технике. Объём и поворот сохраняются.</p>
+        <div class="styles" id="styles"></div>
+      </div>
+      <div class="sec">
+        <h4>Подложка для «Сияния»</h4>
+        <div class="row" id="bgs"></div>
+      </div>
+      <div class="sec">
+        <h4>Геометрия</h4>
+        <label class="switch"><input type="checkbox" id="showC" checked> Круги Плода Жизни</label>
+        <div class="row between">
+          <span style="font-size:13px">Линии куба</span>
+          <div class="seg small" id="lines">
+            <button data-v="all" class="on" type="button">Все 78</button><button data-v="main" type="button">Основные</button><button data-v="none" type="button">Без линий</button>
+          </div>
+        </div>
+        <h4 style="margin-top:6px">Разобраться в линиях</h4>
+        <p class="note">Все 78 линий складываются из восьми семейств. Нажмите на семейство, и на сетке загорятся только его линии.</p>
+        <div class="row" id="fams"></div>
+        <p class="note" id="famNote"></p>
+        <h4 style="margin-top:6px">Платоново тело</h4>
+        <div class="row" id="solids"></div>
+        <p class="note" id="solidNote"></p>
+      </div>
+    </section>
+
+    <section class="pane" id="p-save" hidden>
+      <div class="sec">
+        <h3>Картинка</h3>
+        <p class="note" id="saveStyle"></p>
+        <div class="fmt" id="fmts"></div>
+        <button class="btn gold big" id="bMake" type="button">Создать изображение</button>
+      </div>
+      <div class="sec">
+        <h3>Мои сетки</h3>
+        <div class="row" style="flex-wrap:nowrap">
+          <input type="text" id="gname" placeholder="Название сетки" maxlength="60">
+          <button class="btn gold" id="bSaveGrid" type="button">Сохранить</button>
+        </div>
+        <p class="note" id="storeNote"></p>
+        <div class="saved" id="saved"></div>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="mbox" role="dialog" aria-label="Готовое изображение">
+    <div class="mimg"><img id="mImg" alt="Готовое изображение сетки"></div>
+    <div class="mfoot">
+      <div class="prog" id="mProg"><i></i></div>
+      <p class="note" id="mNote"></p>
+      <div class="row">
+        <button class="btn gold" id="mSave" type="button">Сохранить PNG</button>
+        <button class="btn" id="mClose" type="button">Закрыть</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/metatron.js?v=20261112a"></script>
+</body>
+</html>
