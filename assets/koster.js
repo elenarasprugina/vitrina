@@ -82,7 +82,9 @@
       (K.sound === 'off' ? '' : '<button class="ks-snd" id="ks-snd" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l5-4v14l-5-4H4z"/>' +
         '<path class="ks-snd-on" d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12"/><path class="ks-snd-off" d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button>') +
       '<div class="uz-ui uz-bottom ks-bottom" id="ks-bottom">' +
-        (QUIET ? '<div class="uz-sheet ks-quiet" id="ks-quiet"><p class="uz-q">' + esc(T('kQuiet', 'Посиди у огня')) + '</p>' +
+        (QUIET ? '<div class="uz-sheet ks-quiet" id="ks-quiet"><p class="uz-q">' + esc(T('kQuiet', 'Маршрут завершён')) + '</p>' +
+          (T('kQuietBye', 'Увидимся за поворотом') !== '-' ? '<p class="ks-bye">' + esc(T('kQuietBye', 'Увидимся за поворотом')) +
+            '<span class="ks-dots" aria-label="…"><i></i><i></i><i></i></span></p>' : '') +
           '<p class="uz-p is-dim ks-quiet-h" id="ks-quiet-h">' + esc(T('kQuietHint', 'Держи палец на экране — и подыши вместе с огнём')) + '</p></div>' : '') +
         '<div class="uz-sheet" id="ks-ask"><p class="uz-q">' + esc(T('kAsk', 'Здесь ты можешь написать то, что хочешь отдать огню')) + '</p>' +
           '<div class="ks-paper-sh"><div class="ks-paper" id="ks-paper"><textarea id="ks-text" rows="4" maxlength="400" autocomplete="off" spellcheck="false" placeholder="' + esc(T('kPaperPh', 'Напиши здесь…')) + '"></textarea></div></div>' +
@@ -562,6 +564,51 @@
       if (p >= 1) { b.ov.remove(); burn = null; if (b.done) b.done(); }
     }
 
+    /* ---------- тихий костёр: три искры вылетают из огня и становятся многоточием «Увидимся за поворотом…» (её слова 13.11) ---------- */
+    var qs = [], qsT = 0, qsGo = QUIET && !!document.querySelector('.ks-dots');
+    function stepDots(dt) {
+      if (!qsGo) return;
+      qsT += dt;
+      var dots = root.querySelectorAll('.ks-dots i');
+      if (reduce) { [].forEach.call(dots, function (d) { d.classList.add('is-on'); }); qsGo = false; return; }
+      for (var i = 0; i < 3; i++) {
+        if (!qs[i] && qsT > 1.4 + i * .75) {
+          var fp = firePt();
+          qs[i] = { i: i, a: { x: fp.x + (i - 1) * 30 * fp.s, y: fp.y - 40 * fp.s }, t: 0, L: 2.1, bend: (i - 1) * W * .08 + (Math.random() - .5) * 40, tail: [] };
+        }
+      }
+      qs.forEach(function (q) {
+        if (!q || q.done) return;
+        var r = dots[q.i] && dots[q.i].getBoundingClientRect(); if (!r) { q.done = true; return; }
+        var b = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        q.t += dt;
+        var u = Math.min(1, q.t / q.L), e = u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+        q.x = q.a.x + (b.x - q.a.x) * e + Math.sin(e * Math.PI) * q.bend + Math.sin(q.t * 9) * 3 * (1 - u);
+        q.y = q.a.y + (b.y - q.a.y) * e - Math.sin(e * Math.PI) * H * .12;
+        q.tail.push({ x: q.x, y: q.y }); if (q.tail.length > 18) q.tail.shift();
+        if (Math.random() < .35) ember(q.x, q.y, .3);
+        if (u >= 1) { q.done = true; dots[q.i].classList.add('is-on'); for (var k = 0; k < 6; k++) ember(b.x, b.y, .5); }
+      });
+      if (qs.length === 3 && qs.every(function (q) { return q.done; })) qsGo = false;
+    }
+    function drawDots() {
+      qs.forEach(function (q) {
+        if (!q || q.done || q.x == null) return;
+        var n = q.tail.length;
+        g.save();
+        for (var i = 1; i < n; i++) {
+          g.strokeStyle = 'rgba(255,240,205,' + (i / n * .75) + ')'; g.lineWidth = 1 + i / n * 2.4; g.lineCap = 'round';
+          g.beginPath(); g.moveTo(q.tail[i - 1].x, q.tail[i - 1].y); g.lineTo(q.tail[i].x, q.tail[i].y); g.stroke();
+        }
+        // светлее пламени — иначе на огне искру не видно
+        var gr = g.createRadialGradient(q.x, q.y, 0, q.x, q.y, 24);
+        gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.18, 'rgba(255,248,225,.95)'); gr.addColorStop(.45, 'rgba(255,214,150,.35)'); gr.addColorStop(1, 'rgba(255,170,90,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(q.x, q.y, 24, 0, 6.283); g.fill();
+        g.fillStyle = '#fff'; g.beginPath(); g.arc(q.x, q.y, 2.2, 0, 6.283); g.fill();
+        g.restore();
+      });
+    }
+
     /* ---------- тихий костёр: дыхание с огнём (4 с вдох, 4 с выдох) ---------- */
     function stepBreath(dt) {
       if (!QUIET) return;
@@ -585,9 +632,9 @@
       if (W !== scene.clientWidth || H !== scene.clientHeight) layout();
       g.clearRect(0, 0, W, H);
       if (!reduce) stepLife(dt);
-      stepBreath(dt); fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
+      stepBreath(dt); stepDots(dt); fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
-      placeStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark();
+      placeStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark(); drawDots();
       requestAnimationFrame(frame);
     }
     layout();
