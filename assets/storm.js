@@ -1,5 +1,6 @@
 /* «Глаз бури» — живая страница волны Синей Бури (её решения 12.11.2026, docs/glaz-buri.md; проба — docs/glaz-buri/proba.html).
-   Страница: routes/<id>/ (<div id="gb" data-base="../../" data-route="blue-storm">). Данные — data/storm.json = { items: [волна] }
+   С 13.11 (вечер) — пространство «Узоров» (uzory/<id>/, space.scene = 'storm', волна — space.storm в uzory.json; M13_STORM_RUN).
+   Старая страница: routes/<id>/ (<div id="gb" data-base="../../" data-route="blue-storm">). Данные — data/storm.json = { items: [волна] }
    (панель → «Глаз бури»); в предпросмотре панели — её черновик (window.parent.M13_STORM_DRAFT). Нет файла — заготовка ниже (её тексты 12.11).
    Ход: вихрь; держишь палец на глазу — «вдох / выдох», буря стихает → отпустил — огонёк дня по кругу уходит в глаз, глаз в цвет печати →
    прозрачная Карта дня → «Вернуться в бурю» → звёздный дождь. День — сегодняшний по Москве; огоньки не нажимаются.
@@ -33,7 +34,7 @@
   };
   // Надписи по умолчанию (панель → «Глаз бури» → «Надписи»; пусто — эти)
   window.M13_STORM_TEXTS = [
-    ['hint', 'Подсказка внизу', 'Держи палец на глазу бури и дыши'],
+    ['hint', 'Подсказка внизу', 'Иди в центр бури — держи палец и дыши'],
     ['short', 'Если отпустил слишком рано', 'Подержи подольше — сделай хотя бы один вдох и выдох'],
     ['again', 'Подсказка, когда карта дня уже открыта (и в финале)', 'Подыши вместе с бурей'],
     ['inhale', 'Дыхание: вдох', 'вдох'], ['exhale', 'Дыхание: выдох', 'выдох'],
@@ -71,7 +72,17 @@
     });
   }
 
-  function run(root, WAVE) {
+  // Пространство «Узоров» (её решение 13.11: буря — одно из пространств, как сад и костёр): assets/uzory.js зовёт сюда
+  // с волной из uzory.json (space.storm). opts.okno — живое окошко на карточке витрины: только вихрь, без надписей.
+  window.M13_STORM_RUN = function (root, W, base, opts) {
+    BASE = base || BASE;
+    var D = window.M13_STORM_DEFAULT;
+    if (!W || !(W.days && W.days.length)) W = Object.assign({}, D, W || {}, { days: (W && W.days && W.days.length) ? W.days : D.days, id: (W && W.id) || D.id });
+    run(root, W, opts || {});
+  };
+
+  function run(root, WAVE, OPT) {
+    OPT = OPT || {};
     var DEF = window.M13_STORM_DEFAULT, TX = WAVE.texts || {}, TD = {};
     window.M13_STORM_TEXTS.forEach(function (t) { TD[t[0]] = t[2]; });
     function T(k) { var v = str(TX[k], TD[k]); return v === '-' ? '' : v; }
@@ -91,7 +102,7 @@
     var phase = n < 0 ? 'before' : n > 12 ? 'after' : 'wave';
 
     document.documentElement.className += ' gb-html';
-    document.body.className = 'gb-body' + (DEBUG ? ' gb-debug' : '');
+    document.body.className = 'gb-body' + (DEBUG ? ' gb-debug' : '') + (OPT.okno ? ' gb-okno' : '');
     var star = '<i class="gb-fstar" aria-hidden="true"><svg viewBox="-10 -10 20 20"><path class="ry" stroke-width="0.9" d="M0-10V10M-7 0H7"/><path class="ry ry2" stroke-width="0.7" d="M-3.6-3.6L3.6 3.6M3.6-3.6L-3.6 3.6"/><circle r="1.9" fill="currentColor"/></svg></i>';
     function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     root.innerHTML =

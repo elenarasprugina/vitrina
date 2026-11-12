@@ -53,7 +53,9 @@
        держишь палец — «вдох / выдох» вместе с огнём (на вдохе разгорается, искр больше; на выдохе оседает). Без записки, карты и памяти дней.
        Панель: «Костёр Самайна» → «После 13 дней» (K.quiet: '' — сам после последнего дня | 'on' — всегда тихий | 'off' — никогда). */
     var QUIET = !OKNO && (K.quiet === 'on' || (K.quiet !== 'off' && DAYS.length > 0 && DAY_I < 0 && iso() > DAYS[DAYS.length - 1].date));
-    var BR = { on: false, t: 0, k: 0 };   // дыхание с огнём: держат ли, сколько, сила вдоха 0…1
+    var BR = { on: false, t: 0, k: 0, h: 0, ex: 0 };   // дыхание с огнём: держат ли, сколько, сила вдоха 0…1, насколько огонь притих, выдох (искры)
+    // Огонь медленнее (её «горит быстро, некрасиво», 13.11): скорость видео, панель «Огонь: скорость» (K.rate, %; по умолч. 70)
+    var RATE = Math.max(.3, Math.min(1, (+K.rate || 70) / 100)), B_IN = 4, B_OUT = 6;   // дыхание: вдох 4 с, выдох 6 с (её решение 13.11)
     var KIN = parseInt(dayText.kin, 10) || 0;
     var TONE = +dayText.tone || (KIN > 0 ? (KIN - 1) % 13 + 1 : DAY_I >= 0 ? DAY_I % 13 + 1 : 0);
     var TONE_FX = K.toneFire !== false && TONE ? TONE : 0;   // характер огня по тону (0 — обычный огонь)
@@ -107,6 +109,9 @@
     // сила огня по тону: в тихие дни пламя чуть приглушено, в сильные — во весь свет
     if (TONE_FX || dayText.power) video.style.filter = 'brightness(' + (.84 + .16 * Math.min(1.1, POW)).toFixed(3) + ')';
     if (FAR < 1) { video.style.transform = 'translateX(-50%) scale(' + FAR + ')'; scene.classList.add('ks-far'); }
+    var TR0 = video.style.transform || 'translateX(-50%)';
+    function setRate(r) { try { video.defaultPlaybackRate = RATE; if (Math.abs(video.playbackRate - r) > .015) video.playbackRate = r; } catch (e) {} }
+    setRate(RATE); ['loadedmetadata', 'play'].forEach(function (n) { video.addEventListener(n, function () { setRate(RATE * (1 - .5 * BR.h)); }); });
     var W = 0, H = 0, DPR = 1, last = performance.now(), now = 0, paused = false;
     var life = [], parts = [], spark = null, burn = null, flash = null;
     // бабочек больше нет (её слово 31.10): прежние «По часам» и «Всегда бабочки» — тоже светлячки
@@ -225,7 +230,7 @@
     var TM = TONE_FX;
     function fireSparks(dt) {
       if (!SPARKS || reduce) return;
-      var rate = SPARKS * (QUIET ? .7 + 1.3 * BR.k : 1);
+      var rate = SPARKS * (QUIET ? .6 + .9 * BR.k + 3 * BR.ex : 1);
       if (TM === 6) rate *= Math.sin(now * 2.4) > .35 ? 2.6 : .15;
       sparkAcc += dt * rate;
       if (TM === 3 && Math.random() < dt * .7) sparkAcc += 5 + Math.random() * 4;
@@ -609,20 +614,40 @@
       });
     }
 
-    /* ---------- тихий костёр: дыхание с огнём (4 с вдох, 4 с выдох) ---------- */
+    /* ---------- тихий костёр: дыхание с огнём (вдох 4 с, выдох 6 с — её решение 13.11) ----------
+       Держишь палец — огонь притихает (видео замедляется вдвое), на вдохе пламя поднимается и разгорается, свет вокруг шире;
+       на выдохе оседает, свет гаснет, вверх уходит облачко искр. Отпустил — огонь возвращается к своей скорости. */
     function stepBreath(dt) {
       if (!QUIET) return;
-      var want = 0;
-      if (BR.on) { BR.t += dt; var ph = (BR.t % 8) / 8; want = .5 - .5 * Math.cos(ph * 6.283); }
-      BR.k += (want - BR.k) * Math.min(1, dt * 3);
+      var want = 0, cyc = B_IN + B_OUT, ph = BR.t % cyc;
+      BR.ex = 0;
+      if (BR.on) {
+        BR.t += dt; ph = BR.t % cyc;
+        want = ph < B_IN ? .5 - .5 * Math.cos(ph / B_IN * Math.PI) : .5 + .5 * Math.cos((ph - B_IN) / B_OUT * Math.PI);
+        if (ph >= B_IN) BR.ex = Math.max(0, 1 - (ph - B_IN) / 2.5);
+      }
+      BR.k += (want - BR.k) * Math.min(1, dt * 4);
+      BR.h += ((BR.on ? 1 : 0) - BR.h) * Math.min(1, dt * 1.2);
+      setRate(RATE * (1 - .5 * BR.h));
       var bh = $('#ks-quiet-h');
       if (bh) {
-        var tx = BR.on ? ((BR.t % 8) < 4 ? T('kQuietIn', 'вдох') : T('kQuietOut', 'выдох')) : T('kQuietHint', 'Держи палец на экране — и подыши вместе с огнём');
+        var tx = BR.on ? (ph < B_IN ? T('kQuietIn', 'вдох') : T('kQuietOut', 'выдох')) : T('kQuietHint', 'Держи палец на экране — и подыши вместе с огнём');
         if (bh.textContent !== tx) bh.textContent = tx;
         bh.classList.toggle('is-breath', BR.on);
       }
-      var f = 'brightness(' + (1 + .28 * BR.k).toFixed(3) + ') saturate(' + (1 + .15 * BR.k).toFixed(3) + ')';
-      if (video.style.filter !== f && (BR.on || BR.k > .002)) video.style.filter = f;
+      if (BR.on || BR.k > .002 || BR.h > .002) {
+        var f = 'brightness(' + (1 + .4 * BR.k).toFixed(3) + ') saturate(' + (1 + .18 * BR.k).toFixed(3) + ')',
+          tr = reduce ? TR0 : TR0 + ' scale(' + (1 + .03 * BR.k).toFixed(4) + ',' + (1 + .12 * BR.k).toFixed(4) + ')';
+        if (video.style.filter !== f) video.style.filter = f;
+        if (video.style.transform !== tr) { video.style.transformOrigin = '50% ' + (FIRE.y * 100 + 30).toFixed(0) + '%'; video.style.transform = tr; }
+      }
+    }
+    // тёплый свет вокруг огня — дышит вместе с человеком
+    function drawBreathGlow() {
+      if (!QUIET || BR.k < .005) return;
+      var fp = firePt(), r = Math.max(W, H) * (.3 + .22 * BR.k), a = .26 * BR.k, gr = g.createRadialGradient(fp.x, fp.y, 0, fp.x, fp.y, r);
+      gr.addColorStop(0, 'rgba(255,170,90,' + a.toFixed(3) + ')'); gr.addColorStop(.45, 'rgba(255,120,50,' + (a * .4).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(255,120,50,0)');
+      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.fillRect(0, 0, W, H); g.restore();
     }
 
     /* ---------- кадр ---------- */
@@ -634,7 +659,7 @@
       if (!reduce) stepLife(dt);
       stepBreath(dt); stepDots(dt); fireSparks(dt); stepParts(dt); stepSpark(dt); stepBurn(dt);
       if (flash) { flash.t += dt; if (flash.t > flash.L) flash = null; }
-      placeStones(); drawGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark(); drawDots();
+      placeStones(); drawGlow(); drawBreathGlow(); drawLife(); drawParts(); stepSign(dt); drawSpark(); drawDots();
       requestAnimationFrame(frame);
     }
     layout();
