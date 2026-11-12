@@ -1,0 +1,360 @@
+<title>Глаз бури</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Manrope:wght@400;500&display=swap">
+<style>
+/* Одна сцена во весь экран: вихрь на холсте, глаз в центре; держишь глаз — дышишь, буря стихает; отпускаешь — знак тона светом и прозрачная Карта дня. Тёмная по замыслу. */
+:root{
+  --night:#050916; --deep:#0b1633; --ice:#cfe2ff; --storm:#5f9dff; --mist:rgba(207,226,255,.66);
+  --glass:rgba(8,18,44,.30); --line:rgba(170,204,255,.30);
+  --f-disp:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --f-text:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--night);color:var(--ice);font-family:var(--f-text);overflow:hidden;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.scene{position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#fx{cursor:pointer;touch-action:none}
+.top{position:fixed;left:0;right:0;top:0;padding-top:calc(env(safe-area-inset-top,0px) + 18px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  text-align:center;pointer-events:none;display:grid;gap:4px}
+.tag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mist)}
+h1{margin:0;font-family:var(--f-disp);font-weight:400;font-size:clamp(34px,6vw,54px);letter-spacing:.02em;line-height:1}
+.sub{font-family:var(--f-disp);font-style:italic;font-size:clamp(16px,2.4vw,20px);color:var(--mist)}
+.hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);text-align:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  font-family:var(--f-disp);font-style:italic;font-size:19px;color:var(--mist);pointer-events:none;transition:opacity .6s}
+.hint.breath{font-size:30px;color:var(--ice);letter-spacing:.04em}
+.days{position:fixed;left:0;right:0;bottom:0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px}
+.days span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mist);margin-right:4px}
+.days button,.wind{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ice);
+  font:500 12px var(--f-text);cursor:pointer;font-variant-numeric:tabular-nums}
+.days button.on{background:var(--storm);border-color:var(--storm);color:var(--night)}
+.days button.got:not(.on){border-color:rgba(207,226,255,.7)}
+.days .reset{width:auto;padding:0 10px;border-radius:99px;font-size:11px}
+button:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.wind{position:fixed;left:max(12px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 12px);
+  width:auto;height:auto;padding:6px 12px;border-radius:99px;font-size:11px;letter-spacing:.08em;background:rgba(5,9,22,.4)}
+.wind.on{border-color:var(--ice)}
+.card{position:fixed;left:50%;top:50%;width:min(360px,calc(100vw - 40px));transform:translate(-50%,-50%) scale(.12);
+  opacity:0;pointer-events:none;transition:opacity 1.1s ease,transform 1.3s cubic-bezier(.2,.8,.2,1);
+  background:var(--glass);border:1px solid var(--line);border-radius:28px;padding:28px 24px 22px;text-align:center;
+  backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px);display:grid;gap:10px;justify-items:center;
+  box-shadow:0 0 70px rgba(95,157,255,.22), inset 0 0 40px rgba(140,185,255,.08);
+  text-shadow:0 0 12px rgba(5,9,22,.95),0 0 3px rgba(5,9,22,.9)}
+.card.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.c-day{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mist)}
+.c-kin{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ice)}
+.c-kin i{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor;background:currentColor}
+.c-word{font-family:var(--f-disp);font-size:40px;line-height:1.05;margin:6px 0 2px;text-wrap:balance}
+.c-tone{font-size:12px;color:var(--mist)}
+.c-q{font-family:var(--f-disp);font-style:italic;font-size:21px;line-height:1.3;margin:8px 0 6px;text-wrap:balance}
+.card button{border:1px solid var(--line);background:rgba(5,9,22,.35);color:var(--ice);border-radius:99px;padding:9px 18px;
+  font:500 13px var(--f-text);cursor:pointer;margin-top:6px}
+.note{position:fixed;right:max(12px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 12px);
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);border:1px solid var(--line);
+  border-radius:99px;padding:4px 9px;pointer-events:none}
+@media (max-width:520px){.note{display:none}.hint{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
+  .top{padding-top:calc(env(safe-area-inset-top,0px) + 52px)}}
+</style>
+
+<div class="scene">
+  <canvas id="storm"></canvas>
+  <canvas id="fx" aria-label="Вихрь бури. Держите палец на глазу и дышите"></canvas>
+</div>
+<button class="wind" id="wind" type="button" aria-pressed="false">♪ Ветер</button>
+<div class="note">Проба</div>
+<header class="top">
+  <div class="tag">Синяя Буря · 13–25 ноября</div>
+  <h1>Глаз бури</h1>
+  <div class="sub" id="today"></div>
+</header>
+<div class="hint" id="hint">Держите палец на глазу бури и дышите</div>
+<nav class="days" id="days"><span>Проба · день</span></nav>
+<div class="card" id="card" role="dialog" aria-live="polite">
+  <div class="c-day" id="cDay"></div>
+  <div class="c-kin"><i id="cDot"></i><span id="cKin"></span></div>
+  <div class="c-word" id="cWord"></div>
+  <div class="c-tone" id="cTone"></div>
+  <div class="c-q" id="cQ"></div>
+  <button id="back" type="button">Вернуться в бурю</button>
+</div>
+
+<script>
+(function(){
+var COL={red:'#ef6a5a',white:'#eef3fa',blue:'#6aa6ff',yellow:'#f4cd55'};
+var DAYS=[
+ {kin:79,name:'Синяя Магнитная Буря',c:'blue',w:'Самопорождение',t:'цель',q:'Что в моей жизни уже начало меняться само?'},
+ {kin:80,name:'Жёлтое Лунное Солнце',c:'yellow',w:'Свет',t:'вызов',q:'Где мой свет встречает сопротивление?'},
+ {kin:81,name:'Красный Электрический Дракон',c:'red',w:'Забота',t:'служение',q:'Что питает меня сейчас, а что только забирает силы?'},
+ {kin:82,name:'Белый Самосущий Ветер',c:'white',w:'Дыхание',t:'форма',q:'Какие слова просятся наружу и в какой форме их сказать?'},
+ {kin:83,name:'Синяя Обертонная Ночь',c:'blue',w:'Изобилие',t:'сияние',q:'Чего во мне на самом деле достаточно?'},
+ {kin:84,name:'Жёлтое Ритмическое Семя',c:'yellow',w:'Ровный рост',t:'равновесие',q:'Какому ростку нужен спокойный ритм, а не рывок?'},
+ {kin:85,name:'Красный Резонансный Змей',c:'red',w:'Тело',t:'настройка',q:'Что сейчас чувствует моё тело и чему оно отзывается?'},
+ {kin:86,name:'Белый Галактический Соединитель Миров',c:'white',w:'Отпускание',t:'целостность',q:'Что можно отпустить, чтобы стало просторнее?'},
+ {kin:87,name:'Синяя Солнечная Рука',c:'blue',w:'Исцеление',t:'намерение',q:'Какое простое действие сегодня меня лечит?'},
+ {kin:88,name:'Жёлтая Планетарная Звезда',c:'yellow',w:'Красота',t:'проявление',q:'Где красота проявляется в моём обычном дне?'},
+ {kin:89,name:'Красная Спектральная Луна',c:'red',w:'Поток',t:'освобождение',q:'Что во мне просит освободиться и потечь?'},
+ {kin:90,name:'Белая Кристаллическая Собака',c:'white',w:'Сердце',t:'сотрудничество',q:'С кем мне хочется разделить эту бурю?'},
+ {kin:91,name:'Синяя Космическая Обезьяна',c:'blue',w:'Игра',t:'присутствие',q:'Что после бури хочется встретить легко, играя?'}
+];
+function dateOf(i){return (13+i)+' ноября'}
+
+// какой сегодня день волны (по Москве)
+var msk=new Date(Date.now()+(new Date().getTimezoneOffset()+180)*60000);
+var start=new Date(2026,10,13), d0=new Date(msk.getFullYear(),msk.getMonth(),msk.getDate());
+var n=Math.round((d0-start)/864e5);
+var todayEl=document.getElementById('today');
+if(n<0){todayEl.textContent='Буря начнётся 13 ноября';n=0}
+else if(n>12){todayEl.textContent='Буря прошла. Спасибо, что были в ней';n=12}
+else todayEl.textContent='Сегодня — день '+(n+1);
+var sel=n;
+
+// собранные звёзды — только на этом устройстве
+var KEY='glazburi-stars',got={};
+try{got=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){got={}}
+function saveGot(){try{localStorage.setItem(KEY,JSON.stringify(got))}catch(e){}}
+
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var sc=document.getElementById('storm'),sx=sc.getContext('2d');
+var fc=document.getElementById('fx'),fx=fc.getContext('2d');
+var W,H,R,cx,cy,dpr,eyeR,parts=[],lights=[];
+
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  [sc,fc].forEach(function(c){c.width=W*dpr;c.height=H*dpr});
+  sx.setTransform(dpr,0,0,dpr,0,0);fx.setTransform(dpr,0,0,dpr,0,0);
+  cx=W/2;cy=H*0.52;R=Math.min(W,H)*0.58;if(W<520)R=Math.min(W*0.78,H*0.42);
+  eyeR=R*0.17;
+  sx.fillStyle='#050916';sx.fillRect(0,0,W,H);
+  var N=W<520?900:1600;parts=[];for(var i=0;i<N;i++)parts.push(spawn(true));
+  lights=[];
+  for(var k=0;k<12;k++){var t=k/11,r=R*(0.93-0.68*t),a=-2.2+t*Math.PI*2.3;
+    lights.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*0.82});}
+  lights.push({x:cx,y:cy});
+}
+var TW=1.9;
+function spawn(any){
+  var r=any?eyeR+Math.pow(Math.random(),0.7)*(R*1.15-eyeR):R*(1.0+Math.random()*0.18);
+  var col=Math.random()<0.16?'day':(Math.random()<0.5?'ice':'storm');
+  return {r:r,arm:Math.floor(Math.random()*3),j:(Math.random()-0.5)*(0.35+Math.random()*0.6),
+    v:0.12+Math.random()*0.35,s:0.5+Math.random()*1.4,col:col,free:Math.random()<0.25,a:Math.random()*6.28};
+}
+
+// состояние: idle → breath (держат) → sign (огонёк летит, знак тона) → card → rain → idle
+var state='idle',holdT=0,calm=0,signT=0,rainT=0,rot=0,boost=0,boostT=0,time=0,last=performance.now();
+var RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
+var hint=document.getElementById('hint'),card=document.getElementById('card');
+var HINT0='Держите палец на глазу бури и дышите';
+function setHint(t,big){hint.textContent=t;hint.classList.toggle('breath',!!big);hint.style.opacity=t?1:0}
+
+function frame(now){
+  var dt=Math.min(50,now-last)/1000;last=now;time+=dt;
+  if(boostT>0){boostT-=dt;boost+=(1-boost)*Math.min(1,dt*3)}else boost+=(0-boost)*Math.min(1,dt*0.8);
+  // спокойствие: растёт, пока держат; держится, пока открыта карта; потом медленно уходит
+  if(state==='breath'){holdT+=dt;calm+=(Math.min(1,holdT/7)-calm)*Math.min(1,dt*1.5)}
+  else if(state==='sign'||state==='card'){calm+=(0.85-calm)*Math.min(1,dt*0.6)}
+  else calm+=(0-calm)*Math.min(1,dt*0.35);
+  var sp=(reduce?0.25:1)*((1-calm*0.85)+boost*2.5);
+  rot+=dt*0.22*sp;
+
+  if(state==='breath'){
+    var ph=(holdT%8)/8;
+    setHint(ph<0.5?'вдох':'выдох',true);
+  }
+  if(state==='sign'){signT+=dt;if(signT>1.3){openCard()}}
+  if(state==='rain'){rainT-=dt;if(rainT<=0){state='idle';setHint(HINT0)}}
+
+  // молнии — редко и беззвучно
+  if(!reduce&&state!=='breath'&&state!=='sign'){nextBolt-=dt;if(nextBolt<=0){bolt();nextBolt=6+Math.random()*9}}
+  flash=Math.max(0,flash-dt*3);
+
+  sx.globalCompositeOperation='source-over';
+  sx.fillStyle='rgba(5,9,22,'+(reduce?0.3:0.14)+')';sx.fillRect(0,0,W,H);
+  sx.globalCompositeOperation='lighter';
+  var dc=COL[DAYS[sel].c];
+  for(var i=0;i<parts.length;i++){
+    var p=parts[i];
+    p.r-=dt*p.v*R*0.05*sp*(0.6+eyeR*2.2/p.r);
+    if(p.r<eyeR*0.95){parts[i]=spawn(false);continue}
+    var ang;
+    if(p.free){p.a+=dt*sp*0.9*Math.pow(R/p.r,0.75)*0.35;ang=p.a}
+    else ang=p.arm*2.094+TW*Math.log(p.r/R)+rot*(1+0.4*Math.pow(eyeR/p.r,0.5))+p.j;
+    var x=cx+Math.cos(ang)*p.r,y=cy+Math.sin(ang)*p.r*0.82;
+    var fade=Math.min(1,(p.r-eyeR)/(eyeR*1.2))*Math.min(1,(R*1.18-p.r)/(R*0.3));
+    sx.fillStyle=p.col==='day'?dc:(p.col==='ice'?'#cfe2ff':'#5f9dff');
+    sx.globalAlpha=Math.max(0,(0.35+0.4*boost+0.5*flash)*fade*(1-calm*0.35));
+    sx.fillRect(x,y,p.s,p.s);
+  }
+  sx.globalAlpha=1;
+  drawFx(dt);
+  wind();
+  requestAnimationFrame(frame);
+}
+
+// зарница: мягкая вспышка света внутри облака, без линий
+function bolt(){
+  var a=Math.random()*6.28,r=R*(0.45+Math.random()*0.5);
+  bolts.push({a:a,r:r,t:0,s:R*(0.25+Math.random()*0.2)});flash=0.25;
+}
+
+function drawFx(dt){
+  fx.clearRect(0,0,W,H);
+  // молнии
+  for(var b=bolts.length-1;b>=0;b--){var B=bolts[b];B.t+=dt;
+    if(B.t>1.4){bolts.splice(b,1);continue}
+    var al=B.t<0.12?B.t/0.12:(B.t<0.22?0.55+0.45*Math.cos((B.t-0.12)*31):Math.max(0,1-(B.t-0.22)/1.18));
+    var ba=B.a+rot,bx=cx+Math.cos(ba)*B.r,by=cy+Math.sin(ba)*B.r*0.82;
+    var zg=fx.createRadialGradient(bx,by,0,bx,by,B.s);
+    zg.addColorStop(0,'rgba(200,222,255,'+(0.32*al)+')');zg.addColorStop(0.4,'rgba(120,170,255,'+(0.14*al)+')');zg.addColorStop(1,'rgba(95,157,255,0)');
+    fx.fillStyle=zg;fx.beginPath();fx.arc(bx,by,B.s,0,6.29);fx.fill();}
+
+  // дыхание: глаз растёт на вдохе, сжимается на выдохе
+  var breathe=state==='breath'?(0.5-0.5*Math.cos((holdT%8)/8*6.283)):0;
+  var br=1+Math.sin(time*0.9)*0.05+boost*0.3+breathe*0.55+calm*0.25;
+  var g=fx.createRadialGradient(cx,cy,0,cx,cy,eyeR*2.4*br);
+  g.addColorStop(0,'rgba(225,238,255,'+(0.5+boost*0.3+calm*0.3)+')');
+  g.addColorStop(0.35,'rgba(140,185,255,'+(0.2+calm*0.12)+')');
+  g.addColorStop(1,'rgba(95,157,255,0)');
+  fx.fillStyle=g;fx.beginPath();fx.arc(cx,cy,eyeR*2.4*br,0,6.29);fx.fill();
+  var core=eyeR*(0.62+breathe*0.12);
+  fx.fillStyle='rgba(5,9,22,'+(0.6-calm*0.25)+')';fx.beginPath();fx.arc(cx,cy,core,0,6.29);fx.fill();
+
+  // стена глаза: кольцо и бегущие искры
+  var wr=eyeR*1.25*(1+breathe*0.15);
+  for(var s=0;s<22;s++){var sa=s/22*6.283+rot*2.2+Math.sin(s*7.3)*0.3,sr=wr*(1+Math.sin(s*3.1+time)*0.05);
+    var sxp=cx+Math.cos(sa)*sr,syp=cy+Math.sin(sa)*sr*0.82,tw=0.5+0.5*Math.sin(time*3+s*1.7);
+    fx.fillStyle='rgba(225,238,255,'+(0.35+0.5*tw)+')';fx.beginPath();fx.arc(sxp,syp,0.8+tw*1.1,0,6.29);fx.fill();}
+
+  // собранные звёзды внутри глаза
+  var keys=Object.keys(got);
+  for(var k=0;k<13;k++){if(!got[k])continue;
+    var a=k/13*6.283+time*0.12,rr=core*(0.45+0.25*((k*5)%3)/2);
+    var x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr,tw2=0.6+0.4*Math.sin(time*2+k);
+    star(x,y,1.6+tw2,COL[DAYS[k].c],0.9);}
+
+  // знак тона светом (точки и черты), пока state = sign
+  if(state==='sign'){
+    // огонёк дня летит в глаз (первые 1.1 с)
+    var L=lights[sel],ft=Math.min(1,signT/1.1),e=1-Math.pow(1-ft,3);
+    if(ft<1){var fxp=L.x+(cx-L.x)*e,fyp=L.y+(cy-L.y)*e;star(fxp,fyp,4,COL[DAYS[sel].c],1);}
+  }
+
+  // 13 огоньков дней
+  if(state==='idle'||state==='rain'||state==='breath'){
+    for(var d=0;d<13;d++){
+      var Ld=lights[d],c=COL[DAYS[d].c],on=d===sel;
+      if(d===12&&!on)continue;
+      var pr=on?(4.5+Math.sin(time*2.4)*1.5):(got[d]?3.6+Math.sin(time*1.6+d)*0.5:2);
+      if(d===12)pr=7+Math.sin(time*2.4)*1.5;
+      fx.globalAlpha=(on||got[d]?1:0.3)*(1-calm*0.4);
+      star(Ld.x,Ld.y,pr,c,1);
+    }
+    fx.globalAlpha=1;
+  }
+
+  // дождь после карты
+  // звёздный дождь: метеоры редеют постепенно и гаснут каждый сам
+  if(state==='rain'){var kf=Math.pow(Math.max(0,rainT/RAIN),1.6);dropAcc+=dt*(W<520?10:16)*kf;
+    while(dropAcc>=1){dropAcc-=1;var ma=1.95+(Math.random()-0.5)*0.25,mv=260+Math.random()*380;
+      drops.push({x:W*(0.1+Math.random()*1.0),y:H*(Math.random()*0.65)-40,vx:Math.cos(ma)*mv,vy:Math.sin(ma)*mv,
+        age:0,life:0.7+Math.random()*0.9,len:40+Math.random()*90,c:Math.random()<0.22?COL[DAYS[sel].c]:'#e4efff'})}}
+  for(var r=drops.length-1;r>=0;r--){var D=drops[r];D.age+=dt;if(D.age>D.life){drops.splice(r,1);continue}
+    D.x+=D.vx*dt;D.y+=D.vy*dt;var ma2=Math.sin(Math.PI*D.age/D.life),sp2=Math.hypot(D.vx,D.vy);
+    var tx=D.x-D.vx/sp2*D.len,ty=D.y-D.vy/sp2*D.len,lg=fx.createLinearGradient(D.x,D.y,tx,ty);
+    lg.addColorStop(0,'rgba(235,244,255,'+(0.75*ma2)+')');lg.addColorStop(1,'rgba(120,170,255,0)');
+    fx.strokeStyle=lg;fx.lineWidth=1.2;fx.beginPath();fx.moveTo(D.x,D.y);fx.lineTo(tx,ty);fx.stroke();
+    fx.save();fx.globalAlpha=ma2;star(D.x,D.y,1.4,D.c,1);fx.restore();}
+}
+function star(x,y,pr,c,al){
+  fx.save();fx.globalAlpha*=al;
+  var gg=fx.createRadialGradient(x,y,0,x,y,pr*4);gg.addColorStop(0,c);gg.addColorStop(1,'rgba(0,0,0,0)');
+  fx.fillStyle=gg;fx.beginPath();fx.arc(x,y,pr*4,0,6.29);fx.fill();
+  fx.fillStyle='#fff';fx.beginPath();fx.arc(x,y,pr*0.45,0,6.29);fx.fill();fx.restore();
+}
+// знак тона: точки (1–4) над чертами (по 5); проявляется по одному элементу
+function glyph(tone,prog,alpha){
+  var bars=Math.floor(tone/5),dots=tone%5,u=Math.max(6,eyeR*0.14),bw=eyeR*1.15,gap=u*1.25;
+  var items=[];for(var i=0;i<dots;i++)items.push('d'+i);for(var j=0;j<bars;j++)items.push('b'+j);
+  var h=(dots?u*1.2:0)+bars*gap,top=cy-h/2+u*0.5,cnt=items.length;
+  fx.save();fx.shadowColor='#8fbcff';fx.shadowBlur=16;fx.fillStyle='#eef5ff';fx.strokeStyle='#eef5ff';fx.lineCap='round';
+  items.forEach(function(it,ix){
+    var p=Math.max(0,Math.min(1,prog*cnt-ix));if(!p)return;
+    fx.globalAlpha=alpha*p;
+    if(it[0]==='d'){var dx=cx+(ix-(dots-1)/2)*u*1.7;fx.beginPath();fx.arc(dx,top,u*0.42*p,0,6.29);fx.fill()}
+    else{var bi=+it.slice(1),by=top+(dots?u*1.2:0)+bi*gap;fx.lineWidth=u*0.55;
+      fx.beginPath();fx.moveTo(cx-bw/2,by);fx.lineTo(cx-bw/2+bw*p,by);fx.stroke()}
+  });
+  fx.restore();
+}
+
+// звук ветра — рождается в самом браузере, по кнопке
+var AC=null,nGain,bp,lp,windOn=false;
+var wbtn=document.getElementById('wind');
+wbtn.addEventListener('click',function(){
+  if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();
+    var len=AC.sampleRate*3,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0),b=0;
+    for(var i=0;i<len;i++){b=(b+0.04*(Math.random()*2-1))/1.04;d[i]=b*3.2}
+    var src=AC.createBufferSource();src.buffer=buf;src.loop=true;
+    bp=AC.createBiquadFilter();bp.type='bandpass';bp.Q.value=0.9;bp.frequency.value=500;
+    lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;
+    nGain=AC.createGain();nGain.gain.value=0;
+    src.connect(bp);bp.connect(lp);lp.connect(nGain);nGain.connect(AC.destination);src.start();
+  }catch(e){wbtn.textContent='Звук недоступен';return}}
+  windOn=!windOn;if(AC.state==='suspended')AC.resume();
+  wbtn.classList.toggle('on',windOn);wbtn.setAttribute('aria-pressed',windOn);wbtn.textContent=windOn?'♪ Ветер · выкл':'♪ Ветер';
+});
+function wind(){
+  if(!AC)return;var t=AC.currentTime,lvl=Math.max(0,(1-calm*0.85)+boost*0.8);
+  var sway=Math.sin(time*0.37)*0.5+Math.sin(time*0.13)*0.5;
+  nGain.gain.setTargetAtTime(windOn?(0.05+0.13*lvl)*(0.8+0.2*sway):0,t,0.4);
+  bp.frequency.setTargetAtTime(260+380*lvl+140*sway,t,0.5);
+}
+
+// касания
+function onEye(x,y){return Math.hypot(x-cx,y-cy)<eyeR*1.7}
+fc.addEventListener('pointerdown',function(e){
+  if(state==='card'||state==='sign')return;
+  var x=e.clientX,y=e.clientY;
+  for(var k=0;k<12;k++){var L=lights[k];if(Math.hypot(x-L.x,y-L.y)<18){pick(k);return}}
+  if(!onEye(x,y))return;
+  try{fc.setPointerCapture(e.pointerId)}catch(_){}
+  state='breath';holdT=0;
+});
+function release(){
+  if(state!=='breath')return;
+  if(holdT<2.5){state='idle';setHint('Подержите подольше — сделайте хотя бы один вдох и выдох');
+    setTimeout(function(){if(state==='idle')setHint(HINT0)},3200);return}
+  state='sign';signT=0;setHint('');
+}
+fc.addEventListener('pointerup',release);fc.addEventListener('pointercancel',release);
+fc.addEventListener('contextmenu',function(e){e.preventDefault()});
+
+function fill(i){var d=DAYS[i];
+  document.getElementById('cDay').textContent='День '+(i+1)+' · '+dateOf(i);
+  document.getElementById('cKin').textContent='Кин '+d.kin+' · '+d.name;
+  document.getElementById('cDot').style.color=COL[d.c];
+  document.getElementById('cWord').textContent=d.w;
+  document.getElementById('cTone').textContent='Тон '+(i+1)+' · '+d.t;
+  document.getElementById('cQ').textContent=d.q;}
+function openCard(){state='card';fill(sel);got[sel]=1;saveGot();marks();
+  card.classList.add('open');setTimeout(function(){try{document.getElementById('back').focus({preventScroll:true})}catch(e){}},900)}
+document.getElementById('back').addEventListener('click',function(){
+  card.classList.remove('open');state='rain';rainT=RAIN;dropAcc=0;setHint('');
+});
+
+var days=document.getElementById('days');
+DAYS.forEach(function(_,i){var b=document.createElement('button');b.type='button';b.textContent=i+1;
+  b.setAttribute('aria-label','День '+(i+1));b.addEventListener('click',function(){if(state==='card'){card.classList.remove('open');state='idle';setHint(HINT0)}pick(i)});days.appendChild(b)});
+var rs=document.createElement('button');rs.type='button';rs.className='reset';rs.textContent='↺ звёзды';
+rs.addEventListener('click',function(){got={};saveGot();marks()});days.appendChild(rs);
+function marks(){[].forEach.call(days.querySelectorAll('button:not(.reset)'),function(b,j){b.classList.toggle('on',j===sel);b.classList.toggle('got',!!got[j])})}
+function pick(i){sel=i;marks()}
+pick(sel);
+addEventListener('resize',resize);resize();requestAnimationFrame(frame);
+})();
+</script>
