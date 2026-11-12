@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Manrope:wght@400;500&display=swap">
 <style>
-/* Одна сцена во весь экран: вихрь на холсте, глаз в центре; держишь глаз — дышишь, буря стихает; отпускаешь — знак тона светом и прозрачная Карта дня. Тёмная по замыслу. */
+/* Одна сцена во весь экран: вихрь на холсте, глаз в центре; держишь глаз — дышишь, буря стихает; отпускаешь — огонёк дня прилетает из бури, глаз окрашивается в цвет дня, прозрачная Карта дня. Тёмная по замыслу. */
 :root{
   --night:#050916; --deep:#0b1633; --ice:#cfe2ff; --storm:#5f9dff; --mist:rgba(207,226,255,.66);
   --glass:rgba(8,18,44,.30); --line:rgba(170,204,255,.30);
@@ -147,7 +147,7 @@ function spawn(any){
 
 // состояние: idle → breath (держат) → sign (огонёк летит, знак тона) → card → rain → idle
 var state='idle',holdT=0,calm=0,signT=0,rainT=0,rot=0,boost=0,boostT=0,time=0,last=performance.now();
-var RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
+var FLY=2.4,tint=0,trail=[],RAIN=7,dropAcc=0,drops=[],bolts=[],nextBolt=4+Math.random()*5,flash=0;
 var hint=document.getElementById('hint'),card=document.getElementById('card');
 var HINT0='Держите палец на глазу бури и дышите';
 function setHint(t,big){hint.textContent=t;hint.classList.toggle('breath',!!big);hint.style.opacity=t?1:0}
@@ -166,7 +166,9 @@ function frame(now){
     var ph=(holdT%8)/8;
     setHint(ph<0.5?'вдох':'выдох',true);
   }
-  if(state==='sign'){signT+=dt;if(signT>1.3){openCard()}}
+  if(state==='sign'){signT+=dt;if(signT>FLY+0.9){openCard()}}
+  // окраска глаза в цвет дня: приходит с огоньком, держится при карте, уходит после
+  if(state==='sign'&&signT>FLY*0.8||state==='card')tint+=(1-tint)*Math.min(1,dt*1.6);else tint+=(0-tint)*Math.min(1,dt*0.4);
   if(state==='rain'){rainT-=dt;if(rainT<=0){state='idle';setHint(HINT0)}}
 
   // молнии — редко и беззвучно
@@ -233,6 +235,9 @@ function drawFx(dt){
   var sk=fx.createRadialGradient(cx,cy,0,cx,cy,core*0.6);
   sk.addColorStop(0,'rgba(150,185,240,'+(0.10+calm*0.08)+')');sk.addColorStop(1,'rgba(150,185,240,0)');
   fx.fillStyle=sk;fx.beginPath();fx.arc(cx,cy,core*0.6,0,6.29);fx.fill();
+  if(tint>0.01){var tc=hexA(COL[DAYS[sel].c]),tg=fx.createRadialGradient(cx,cy,0,cx,cy,eyeR*2.2*br);
+    tg.addColorStop(0,'rgba('+tc+','+(0.5*tint)+')');tg.addColorStop(0.45,'rgba('+tc+','+(0.22*tint)+')');tg.addColorStop(1,'rgba('+tc+',0)');
+    fx.fillStyle=tg;fx.beginPath();fx.arc(cx,cy,eyeR*2.2*br,0,6.29);fx.fill();}
 
   // стена глаза: кольцо и бегущие искры
   var wr=eyeR*1.25*(1+breathe*0.15);
@@ -249,23 +254,17 @@ function drawFx(dt){
 
   // знак тона светом (точки и черты), пока state = sign
   if(state==='sign'){
-    // огонёк дня летит в глаз (первые 1.1 с)
-    var L=lights[sel],ft=Math.min(1,signT/1.1),e=1-Math.pow(1-ft,3);
-    if(ft<1){var fxp=L.x+(cx-L.x)*e,fyp=L.y+(cy-L.y)*e;star(fxp,fyp,4,COL[DAYS[sel].c],1);}
+    // огонёк дня прилетает с края бури по рукаву спирали, оставляя след
+    var ft=Math.min(1,signT/FLY),e=ft*ft*(3-2*ft),rr=R*1.02*(1-e)+0.5;
+    var fa=TW*Math.log(Math.max(rr,eyeR*0.25)/R)+rot+0.6;
+    var fxp=cx+Math.cos(fa)*rr,fyp=cy+Math.sin(fa)*rr*0.82;
+    if(ft<1){trail.push([fxp,fyp]);if(trail.length>26)trail.shift()}else if(trail.length)trail.shift();
+    var dcol=COL[DAYS[sel].c];
+    for(var ti=0;ti<trail.length;ti++){fx.globalAlpha=(ti/trail.length)*0.5;star(trail[ti][0],trail[ti][1],1.2+ti/trail.length*1.6,dcol,1)}
+    fx.globalAlpha=1;
+    if(ft<1)star(fxp,fyp,4.5,dcol,Math.min(1,signT*2));
   }
 
-  // 13 огоньков дней
-  if(state==='idle'||state==='rain'||state==='breath'){
-    for(var d=0;d<13;d++){
-      var Ld=lights[d],c=COL[DAYS[d].c],on=d===sel;
-      if(d===12&&!on)continue;
-      var pr=on?(4.5+Math.sin(time*2.4)*1.5):(got[d]?3.6+Math.sin(time*1.6+d)*0.5:2);
-      if(d===12)pr=7+Math.sin(time*2.4)*1.5;
-      fx.globalAlpha=(on||got[d]?1:0.3)*(1-calm*0.4);
-      star(Ld.x,Ld.y,pr,c,1);
-    }
-    fx.globalAlpha=1;
-  }
 
   // дождь после карты
   // звёздный дождь: метеоры редеют постепенно и гаснут каждый сам
@@ -280,6 +279,7 @@ function drawFx(dt){
     fx.strokeStyle=lg;fx.lineWidth=1.2;fx.beginPath();fx.moveTo(D.x,D.y);fx.lineTo(tx,ty);fx.stroke();
     fx.save();fx.globalAlpha=ma2;star(D.x,D.y,1.4,D.c,1);fx.restore();}
 }
+function hexA(h){var v=parseInt(h.slice(1),16);return (v>>16&255)+','+(v>>8&255)+','+(v&255)}
 function star(x,y,pr,c,al){
   fx.save();fx.globalAlpha*=al;
   var gg=fx.createRadialGradient(x,y,0,x,y,pr*4);gg.addColorStop(0,c);gg.addColorStop(1,'rgba(0,0,0,0)');
@@ -338,7 +338,7 @@ function release(){
   if(state!=='breath')return;
   if(holdT<2.5){state='idle';setHint('Подержите подольше — сделайте хотя бы один вдох и выдох');
     setTimeout(function(){if(state==='idle')setHint(HINT0)},3200);return}
-  state='sign';signT=0;setHint('');
+  state='sign';signT=0;trail=[];setHint('');
 }
 fc.addEventListener('pointerup',release);fc.addEventListener('pointercancel',release);
 fc.addEventListener('contextmenu',function(e){e.preventDefault()});
