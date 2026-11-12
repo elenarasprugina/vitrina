@@ -1637,7 +1637,7 @@
       return out.join('\n');
     }
     function guideUrl() {
-      var ct = (SET && SET.contacts) || {}, label = str(IT.host), bot = String(ct.host || '').replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '').trim(), tg = String(ct.telegram || '').replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '').trim();
+      var ct = (SET && SET.contacts) || {}, label = str(IT.host), bot = ct.hostOff ? '' : String(ct.host || '').replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '').trim(), tg = String(ct.telegram || '').replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '').trim();
       if (bot && /^[A-Za-z0-9_-]{1,64}$/.test(label)) return 'https://t.me/' + encodeURIComponent(bot) + '?start=' + label;
       return tg ? 'https://t.me/' + encodeURIComponent(tg) : '';
     }

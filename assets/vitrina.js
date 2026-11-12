@@ -2831,7 +2831,7 @@
     contactNow = {
       message: message,
       telegram: action.telegram || def.telegram || '',
-      host: hostUrl(action.host, def.host),
+      host: def.hostOff ? '' : hostUrl(action.host, def.host),  // бот Host не работает — в её личный Telegram
       vk: action.vk || def.vk || ''
     };
     var title = [ctx.format || ctx.item || (ctx.tplKey === 'offer' ? action.label : ''), ctx.route || ctx.card]
@@ -2946,7 +2946,7 @@
   /* ================= ЗАПИСЬ НА ВСТРЕЧУ (шаг 3 плана docs/zapis.md, 28.10) =================
      Плашка, чья метка (action.host) в панели включена «по календарю» («Запись» → «Виды встреч»), и строка-мостик под календарём
      витрины открывают окошко записи: свободные дни → время (Мск) → онлайн / очно → «Оплатить» (страница ЮKassa) → «Вы записаны».
-     Свободное время и оплату ведёт программа записи на Beget (zapis.13mirrors.ru): о человеке туда ничего не уходит.
+     Свободное время и оплату ведёт программа записи (zapis.13mirrors.ru, хостинг REG.RU): о человеке туда ничего не уходит.
      Номер записи (Z-…) хранится только в браузере человека (localStorage m13-zapis) — чтобы после оплаты показать «Вы записаны».
      Запись выключена — у этих плашек «Запись временно через сообщение»; программа не отвечает — как раньше, «Куда написать?».
      settings.zapis = {look: 'calm' (по умолчанию) | 'vitrina' | 'own', own: {font: 'calm' | 'month' | имя шрифта, btn: fill | line | glass | shimmer,
@@ -3334,7 +3334,7 @@
   // или в её личный Telegram («Окошко на сайте» → «Куда ведёт Telegram»); VK — текст копируется
   function zpTell(ch) {
     var def = (S.D.settings || {}).contacts || {}, msg = zpFill('message'), st = ZP.st;
-    var bot = hostUrl(st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
+    var bot = def.hostOff ? '' : hostUrl(st.key, def.host), me = contactUrl('telegram', def.telegram, msg);
     var url = ch === 'telegram' ? (zpSet().tell === 'me' ? me || bot : bot || me) : contactUrl('vk', def.vk, '');
     var ok = copyText(msg), hint = S.root.querySelector('[data-zp-hint]');
     if (url) window.open(url, '_blank', 'noopener');
