@@ -60,9 +60,12 @@ button:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
   text-shadow:0 0 18px rgba(95,157,255,.55),0 0 3px rgba(5,9,22,.9)}
 .farewell.on{opacity:1}
 /* звёздочка у прощания: тихо мерцает и изредка вспыхивает лучиками (как у подписи внизу витрины) */
-.fstar{display:inline-block;width:.62em;height:.62em;margin-right:.4em;vertical-align:.08em;color:#e8f1ff;animation:fst 7s ease-in-out infinite}
-.fstar svg{width:100%;height:100%;fill:currentColor;overflow:visible;filter:drop-shadow(0 0 3px rgba(150,190,255,.9))}
-@keyframes fst{0%,100%{opacity:.6;transform:scale(1) rotate(0)}40%{opacity:.95;transform:scale(1)}48%{opacity:1;transform:scale(1.45) rotate(45deg)}58%{opacity:.85;transform:scale(1) rotate(90deg)}}
+.fstar{display:inline-block;width:.8em;height:.8em;margin-left:.3em;vertical-align:-.02em;color:#eef5ff;animation:fst 6s ease-in-out infinite}
+.fstar svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 2.5px rgba(150,190,255,.95))}
+.fstar .ry{stroke:currentColor;stroke-linecap:round;fill:none}
+.fstar .ry2{animation:fry 6s ease-in-out infinite;transform-origin:0 0}
+@keyframes fst{0%,100%{opacity:.65;transform:scale(.9)}45%{opacity:1;transform:scale(1.15)}55%{opacity:.9;transform:scale(1)}}
+@keyframes fry{0%,100%{opacity:.25;transform:scale(.6)}45%{opacity:.9;transform:scale(1.1)}}
 @media (prefers-reduced-motion:reduce){.fstar{animation:none;opacity:.85}}
 .note{position:fixed;right:max(12px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 12px);
   font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);border:1px solid var(--line);
@@ -82,7 +85,7 @@ button:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
   <h1>Глаз бури</h1>
   <div class="sub" id="today"></div>
 </header>
-<div class="farewell" id="fare" aria-live="polite"><i class="fstar" aria-hidden="true"><svg viewBox="-10 -10 20 20"><path d="M0-10C.9-2.6 2.6-.9 10 0 2.6.9.9 2.6 0 10-.9 2.6-2.6.9-10 0-2.6-.9-.9-2.6 0-10Z"/></svg></i>Увидимся за поворотом…</div>
+<div class="farewell" id="fare" aria-live="polite">Увидимся за поворотом…<i class="fstar" aria-hidden="true"><svg viewBox="-10 -10 20 20"><path class="ry" stroke-width="0.9" d="M0-10V10M-7 0H7"/><path class="ry ry2" stroke-width="0.7" d="M-3.6-3.6L3.6 3.6M3.6-3.6L-3.6 3.6"/><circle r="1.9" fill="currentColor"/></svg></i></div>
 <div class="hint" id="hint">Держите палец на глазу бури и дышите</div>
 <nav class="days" id="days"><span>Проба · день</span></nav>
 <div class="card" id="card" role="dialog" aria-live="polite">
@@ -136,7 +139,7 @@ var W,H,R,cx,cy,dpr,eyeR,parts=[],lights=[],ringR;
 // финал — виток, а не кольцо (её выбор 12.11): огоньки по часовой среди мерцающих точек вокруг глаза, 1 и 13 (синие) — сверху по бокам;
 // виток раскрывается: 13-й чуть дальше от центра, чем 1-й, концы не сходятся, нить идёт дальше и тает — «за поворотом».
 // Живой: чуть покачивается и дышит, по нити бежит огонёк и уходит за поворот.
-var CONT=5.5,LEAD=7;   // нить: начинается в центре глаза (LEAD шагов до 1-го дня) и тянется дальше 13-го (CONT шагов)
+var CONT=5.5,LEAD=7,runT0=null,RUNC=['yellow','red','white','blue'];   // нить: начинается в центре глаза (LEAD шагов до 1-го дня) и тянется дальше 13-го (CONT шагов)
 // одна плавная спираль: u — место на нити в шагах между днями (день d — u = d); из центра раскручивается, у дней — среди мерцающих точек, после 13-го — шире и шире
 function figPos(u){var sway=0.07*Math.sin(time*0.21),br=1+0.025*Math.sin(time*0.8),
   a=-Math.PI/2+(u+0.5)/13*6.283+sway,f=0.84*Math.exp(0.0297*u);
@@ -310,8 +313,9 @@ function drawFx(dt){
         fx.strokeStyle='rgba(207,226,255,'+(al0*fa2*fa2)+')';fx.beginPath();fx.moveTo(pv.x,pv.y);fx.lineTo(pu.x,pu.y);fx.stroke();pv=pu}
       fx.restore();}
     // бегущий огонёк: выходит из ока, идёт по нити через все дни и уходит за поворот, раз в ~9 с
-    var run=-99;if(built||finT>TXT0+2.6){var rp=(time%9)/9;run=-LEAD+rp*(LEAD+12+CONT+1)}
-    if(run>-LEAD&&run<12+CONT){var RP=figPos(run),ra=run>12?1-(run-12)/CONT:Math.min(1,(run+LEAD)/2.5);glow(RP.x,RP.y,1.8,'#e8f1ff',0.9*ra)}
+    // цвет огонька — по кругу цветов печатей, начиная со следующей за Синей Бурей: жёлтый, красный, белый, синий, жёлтый…
+    var run=-99,rc=COL.yellow;if(built||finT>TXT0+2.6){if(runT0===null)runT0=time;var rt=(time-runT0)/9,rp=rt%1;run=-LEAD+rp*(LEAD+12+CONT+1);rc=COL[RUNC[Math.floor(rt)%4]]}
+    if(run>-LEAD&&run<12+CONT){var RP=figPos(run),ra=run>12?1-(run-12)/CONT:Math.min(1,(run+LEAD)/2.5);glow(RP.x,RP.y,2,rc,0.95*ra)}
     for(var od=0;od<13;od++){var ot=built?2:(finT-OUT0-od*0.22)/OUTD;if(ot<=0)continue;
       var oc=COL[DAYS[od].c],OT=ftr[20+od]||(ftr[20+od]=[]),Lo=figPos(od),tw=1+0.18*Math.sin(time*(1.3+od*0.17)+od*2.1)+0.5*Math.exp(-(od-run)*(od-run)/0.5);
       if(ot<1){var oe=ot*ot*(3-2*ot),orr=Lo.r*oe,oa=Lo.a-(1-oe)*3.4,op=[cx+Math.cos(oa)*orr,cy+Math.sin(oa)*orr*0.82];
@@ -429,7 +433,7 @@ function openCard(){state='card';fill(sel);got[sel]=1;saveGot();marks();
 document.getElementById('back').addEventListener('click',function(){
   card.classList.remove('open');setHint('');
   // 13-й день: после его карты — финал (все огоньки уходят в глаз, буря стихает, выходят кольцом)
-  if(sel===12&&!finished){state='final';finT=0;ftr=[];return}
+  if(sel===12&&!finished){state='final';finT=0;ftr=[];runT0=null;return}
   state='rain';rainT=RAIN;dropAcc=0;
 });
 
