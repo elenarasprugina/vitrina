@@ -320,7 +320,6 @@ function onEye(x,y){return Math.hypot(x-cx,y-cy)<eyeR*1.7}
 fc.addEventListener('pointerdown',function(e){
   if(state==='card'||state==='sign')return;
   var x=e.clientX,y=e.clientY;
-  for(var k=0;k<12;k++){var L=lights[k];if(Math.hypot(x-L.x,y-L.y)<18){pick(k);return}}
   if(!onEye(x,y))return;
   try{fc.setPointerCapture(e.pointerId)}catch(_){}
   state='breath';holdT=0;
