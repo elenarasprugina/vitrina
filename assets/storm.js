@@ -103,7 +103,6 @@
 
     document.documentElement.className += ' gb-html';
     document.body.className = 'gb-body' + (DEBUG ? ' gb-debug' : '') + (OPT.okno ? ' gb-okno' : '');
-    var star = '<i class="gb-fstar" aria-hidden="true"><svg viewBox="-10 -10 20 20"><path class="ry" stroke-width="0.9" d="M0-10V10M-7 0H7"/><path class="ry ry2" stroke-width="0.7" d="M-3.6-3.6L3.6 3.6M3.6-3.6L-3.6 3.6"/><circle r="1.9" fill="currentColor"/></svg></i>';
     function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     root.innerHTML =
       '<div class="gb-scene"><canvas id="gb-storm"></canvas><canvas id="gb-fx" aria-label="' + esc(T('hint')) + '"></canvas></div>' +
@@ -112,7 +111,7 @@
       '<header class="gb-top">' + (str(WAVE.tag, DEF.tag) && str(WAVE.tag) !== '-' ? '<div class="gb-tag">' + esc(str(WAVE.tag, WAVE.id === DEF.id ? DEF.tag : '')) + '</div>' : '') +
         '<h1>' + esc(str(WAVE.title, DEF.title)) + '</h1><div class="gb-sub" id="gb-today"></div></header>' +
       '<div class="gb-fare" id="gb-fare" aria-live="polite">' + (T('finalQ') ? '<div class="gb-fq">' + esc(T('finalQ')) + '</div>' : '') +
-        '<div class="gb-fw">' + esc(T('farewell')) + star + '</div></div>' +
+        '<div class="gb-fw">' + esc(T('farewell')) + '</div></div>' +
       '<div class="gb-hint" id="gb-hint"></div>' +
       (DEBUG ? '<nav class="gb-days" id="gb-days"><span>Проверка · день</span></nav>' : '') +
       '<div class="gb-card" id="gb-card" role="dialog" aria-live="polite">' +
@@ -138,7 +137,8 @@
     var W, H, R, cx, cy, dpr, eyeR, parts = [], lights = [], ringR, lastW = 0, lastH = 0;
     // финал — виток, а не кольцо (её выбор 12.11): огоньки по часовой среди мерцающих точек вокруг глаза; нить — одна плавная спираль из центра
     // глаза через все дни и дальше 13-го, раскрывается и тает — «за поворотом»; виток живой, по нити бежит огонёк
-    var CONT = 5.5, LEAD = 7, runT0 = null;
+    var CONT = 5.5, LEAD = 7, runT0 = null, fwA = 0, cubeA = 0, FW_U0 = 12.45;
+    function FWPX() { return W < 520 ? 21 : 27; }
     // цвет бегущего огонька — по кругу цветов печатей, начиная со следующей волны (у Синей Бури: жёлтый, красный, белый, синий…)
     var c0 = ORDER.indexOf(DAYS[0].c), RUNC = [0, 1, 2, 3].map(function (k) { return ORDER[(c0 + 1 + k) % 4]; });
     function figPos(u) {
@@ -173,8 +173,10 @@
         lights.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r * 0.82 });
       }
       ringR = eyeR * 1.3;
-      var fh = fare.offsetHeight || 80;
-      fare.style.top = Math.min(cy + eyeR * 2.3, H - fh - 90) + 'px';
+      // вопрос финала — над спиралью (её решение 13.11), между заголовком и витком; «Увидимся за поворотом…» — по хвосту нити (fwDraw)
+      var fh = fare.offsetHeight || 40, tp = document.querySelector('.gb-top'), hb = tp ? tp.getBoundingClientRect().bottom : 120,
+        spTop = cy - ringR * 1.3 * 0.82 - FWPX() * 1.6;
+      fare.style.top = Math.max(hb + 14, (hb + spTop) / 2 - fh / 2) + 'px';
     }
     var TW = 1.9;
     function spawn(any) {
@@ -342,7 +344,10 @@
           for (var oq = 0; oq < OT.length; oq++) glow(OT[oq][0], OT[oq][1], 1.1 + oq / OT.length * 1.6, oc, (oq / OT.length) * 0.5);
         }
       }
-      fare.classList.toggle('on', (finished && state !== 'breath' || state === 'final' && finT > TXT0) && state !== 'card' && state !== 'sign');
+      var fareOn = (finished && state !== 'breath' || state === 'final' && finT > TXT0) && state !== 'card' && state !== 'sign';
+      fare.classList.toggle('on', fareOn);
+      fwA += ((fareOn ? 1 : 0) - fwA) * 0.03;
+      if ((state === 'final' || finished) && fwA > 0.01 && !OPT.okno) fwDraw(fwA, built ? 1 : ck, runU);
       // спираль 13 огоньков дней: пройденные (по календарю) — ярко, сегодняшний пульсирует, пока карта не открыта; будущие — едва
       for (var dd = 0; dd < 13; dd++) {
         var Ld = lights[dd], c = COL[DAYS[dd].c], on = phase === 'wave' && dd === sel;
@@ -375,6 +380,50 @@
     function flyPos(d, ft) {
       var Ls = lights[d], r0 = Math.hypot(Ls.x - cx, (Ls.y - cy) / 0.82), a0 = Math.atan2((Ls.y - cy) / 0.82, Ls.x - cx);
       var e = ft * ft * (3 - 2 * ft), rr = r0 * (1 - e) + 0.5, fa = a0 + e * 3.4; return [cx + Math.cos(fa) * rr, cy + Math.sin(fa) * rr * 0.82];
+    }
+    // «Увидимся за поворотом…» — по хвосту нити, буквы встают на неё по мере того, как нить раскрывается; в конце — куб Метатрона (её звёздочка, 13.11)
+    function fwDraw(al, prog, runU) {
+      var txt = T('farewell') || '', px = FWPX(), ff = '"Cormorant Garamond",Georgia,serif', pts = [], S = 0, u, p, pv = null, k;
+      for (u = FW_U0; u <= 12 + CONT - 0.15; u += 0.03) { p = figPos(u); if (pv) S += Math.sqrt((p.x - pv.x) * (p.x - pv.x) + (p.y - pv.y) * (p.y - pv.y)); pts.push({ x: p.x, y: p.y, s: S, u: u }); pv = p; }
+      function at(s) {
+        var i = 1; while (i < pts.length - 1 && pts[i].s < s) i++;
+        var A = pts[i - 1], B = pts[i], f = Math.max(0, Math.min(1, (s - A.s) / ((B.s - A.s) || 1)));
+        return { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f, r: Math.atan2(B.y - A.y, B.x - A.x), u: A.u + (B.u - A.u) * f };
+      }
+      fx.save(); fx.font = 'italic ' + px + 'px ' + ff;
+      var sp = px * 0.03, ws = [], tw = 0;
+      for (k = 0; k < txt.length; k++) { ws.push(fx.measureText(txt[k]).width + sp); tw += ws[k]; }
+      var cubeR = px * 0.62, need = tw + px * 0.5 + cubeR * 2;
+      if (need > S * 0.97) { var sc = S * 0.97 / need; px *= sc; sp *= sc; cubeR *= sc; tw *= sc; for (k = 0; k < ws.length; k++) ws[k] *= sc; fx.font = 'italic ' + px + 'px ' + ff; }
+      var off = px * 0.32, s0 = Math.max(0, (S - (tw + px * 0.5 + cubeR * 2)) * 0.12), s = s0, n = txt.length;
+      fx.fillStyle = '#cfe2ff'; fx.textAlign = 'center'; fx.textBaseline = 'alphabetic';
+      fx.shadowColor = 'rgba(95,157,255,.6)'; fx.shadowBlur = 12;
+      for (k = 0; k < n; k++) {
+        var la = Math.max(0, Math.min(1, prog * (n + 6) - k));
+        if (la > 0) {
+          var P = at(s + ws[k] / 2);
+          fx.save(); fx.globalAlpha = al * Math.min(1, la); fx.translate(P.x, P.y); fx.rotate(P.r); fx.fillText(txt[k], 0, -off); fx.restore();
+        }
+        s += ws[k];
+      }
+      fx.restore();
+      // куб Метатрона: 13 кругов (как 13 дней) и линии между всеми их центрами; тихо сияет и медленно поворачивается, вспыхивает, когда до него добегает огонёк
+      cubeA += ((prog >= 1 ? 1 : 0) - cubeA) * 0.02;
+      if (cubeA < 0.01) return;
+      var C = at(s + px * 0.5 + cubeR), nx = Math.sin(C.r), ny = -Math.cos(C.r), cxk = C.x + nx * (off + px * 0.3), cyk = C.y + ny * (off + px * 0.3);
+      var fl = Math.exp(-(runU - C.u) * (runU - C.u) / 0.4), pulse = 0.5 + 0.5 * Math.sin(time * 1.05);
+      starDot(cxk, cyk, cubeR * (0.55 + 0.15 * pulse + 0.35 * fl), 'rgba(150,190,255,.55)', al * cubeA * (0.55 + 0.45 * pulse));
+      var r0 = cubeR / 5, rot = reduce ? 0 : time * 0.12, c = [[0, 0]], j, q;
+      for (j = 0; j < 6; j++) { var a = rot + j * Math.PI / 3 - Math.PI / 2; c.push([Math.cos(a) * 2 * r0, Math.sin(a) * 2 * r0]); }
+      for (j = 0; j < 6; j++) { var b = rot + j * Math.PI / 3 - Math.PI / 2; c.push([Math.cos(b) * 4 * r0, Math.sin(b) * 4 * r0]); }
+      fx.save(); fx.translate(cxk, cyk); fx.globalAlpha = al * cubeA * (0.75 + 0.25 * pulse + 0.3 * fl);
+      fx.strokeStyle = '#eef5ff'; fx.shadowColor = 'rgba(150,190,255,.95)'; fx.shadowBlur = 4; fx.lineCap = 'round';
+      fx.lineWidth = 0.55; fx.globalAlpha *= 0.6; fx.beginPath();
+      for (j = 0; j < 13; j++) for (q = j + 1; q < 13; q++) { fx.moveTo(c[j][0], c[j][1]); fx.lineTo(c[q][0], c[q][1]); }
+      fx.stroke(); fx.globalAlpha /= 0.6;
+      fx.lineWidth = 0.7; fx.beginPath();
+      for (j = 0; j < 13; j++) { fx.moveTo(c[j][0] + r0, c[j][1]); fx.arc(c[j][0], c[j][1], r0, 0, 6.2832); }
+      fx.stroke(); fx.restore();
     }
     function hexA(h) { var v = parseInt(h.slice(1), 16); return (v >> 16 & 255) + ',' + (v >> 8 & 255) + ',' + (v & 255); }
     // огонёк одного цвета: плотная середина и мягкий ореол того же цвета

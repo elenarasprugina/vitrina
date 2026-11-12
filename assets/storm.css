@@ -57,17 +57,10 @@ html.gb-html{height:100%;background:#050916}
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   font-family:var(--f-disp);font-style:italic;color:var(--ice);text-shadow:0 0 18px rgba(95,157,255,.55),0 0 3px rgba(5,9,22,.9)}
 .gb-fare.on{opacity:1}
-.gb-fq{font-size:clamp(19px,3vw,23px);color:var(--mist);margin-bottom:10px;opacity:0;transition:opacity 2.4s ease}
+.gb-fq{font-size:clamp(20px,3.2vw,25px);color:var(--ice);opacity:0;transition:opacity 2.4s ease;text-wrap:balance}
 .gb-fare.on .gb-fq{opacity:1}
-.gb-fw{font-size:clamp(24px,4.2vw,32px);letter-spacing:.03em}
-/* звёздочка у прощания: тихо мерцает, косые лучики то проявляются, то гаснут */
-.gb-fstar{display:inline-block;width:.8em;height:.8em;margin-left:.3em;vertical-align:-.02em;color:#eef5ff;animation:gbst 6s ease-in-out infinite}
-.gb-fstar svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 2.5px rgba(150,190,255,.95))}
-.gb-fstar .ry{stroke:currentColor;stroke-linecap:round;fill:none}
-.gb-fstar .ry2{animation:gbry 6s ease-in-out infinite;transform-origin:0 0}
-@keyframes gbst{0%,100%{opacity:.65;transform:scale(.9)}45%{opacity:1;transform:scale(1.15)}55%{opacity:.9;transform:scale(1)}}
-@keyframes gbry{0%,100%{opacity:.25;transform:scale(.6)}45%{opacity:.9;transform:scale(1.1)}}
-@media (prefers-reduced-motion:reduce){.gb-fstar{animation:none;opacity:.85}}
+/* «Увидимся за поворотом…» рисуется по хвосту нити (storm.js fwDraw), здесь — только для экранного диктора */
+.gb-fw{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (max-width:520px){.gb-top{padding-top:calc(env(safe-area-inset-top,0px) + 52px)}}
 .gb-debug .gb-hint{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
 .gb-err{padding:40px;font:16px/1.5 system-ui,sans-serif;color:#cfe2ff}
