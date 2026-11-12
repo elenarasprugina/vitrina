@@ -1,0 +1,73 @@
+/* «Глаз бури» — живая страница волны (docs/glaz-buri.md). Тёмная по замыслу. Код — assets/storm.js, данные — data/storm.json. */
+.gb-body{
+  --night:#050916; --deep:#0b1633; --ice:#cfe2ff; --storm:#5f9dff; --mist:rgba(207,226,255,.66);
+  --glass:rgba(8,18,44,.30); --line:rgba(170,204,255,.30);
+  --f-disp:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --f-text:"Montserrat",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+  margin:0;height:100%;background:var(--night);color:var(--ice);font-family:var(--f-text);overflow:hidden;-webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html.gb-html{height:100%;background:#050916}
+.gb-scene{position:fixed;inset:0}
+.gb-scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#gb-fx{cursor:pointer;touch-action:none}
+.gb-top{position:fixed;left:0;right:0;top:0;padding-top:calc(env(safe-area-inset-top,0px) + 18px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  text-align:center;pointer-events:none;display:grid;gap:4px}
+.gb-tag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mist)}
+.gb-top h1{margin:0;font-family:var(--f-disp);font-weight:400;font-size:clamp(34px,6vw,54px);letter-spacing:.02em;line-height:1}
+.gb-sub{font-family:var(--f-disp);font-style:italic;font-size:clamp(16px,2.4vw,20px);color:var(--mist)}
+.gb-hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 54px);text-align:center;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  font-family:var(--f-disp);font-style:italic;font-size:19px;color:var(--mist);pointer-events:none;transition:opacity .6s}
+.gb-hint.breath{font-size:30px;color:var(--ice);letter-spacing:.04em}
+.gb-days{position:fixed;left:0;right:0;bottom:0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px}
+.gb-days span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mist);margin-right:4px}
+.gb-days button,.gb-wind{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--ice);
+  font:500 12px var(--f-text);cursor:pointer;font-variant-numeric:tabular-nums}
+.gb-days button.on{background:var(--storm);border-color:var(--storm);color:var(--night)}
+.gb-days button.got:not(.on){border-color:rgba(207,226,255,.7)}
+.gb-days .reset{width:auto;padding:0 10px;border-radius:99px;font-size:11px}
+.gb-body button:focus-visible,.gb-body a:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.gb-wind{position:fixed;left:max(12px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 12px);
+  width:auto;height:auto;padding:6px 12px;border-radius:99px;font-size:11px;letter-spacing:.08em;background:rgba(5,9,22,.4)}
+.gb-wind.on{border-color:var(--ice)}
+.gb-home{position:fixed;right:max(12px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 12px);
+  padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:rgba(5,9,22,.4);color:var(--ice);
+  font:500 11px var(--f-text);letter-spacing:.08em;text-decoration:none}
+.gb-card{position:fixed;left:50%;top:50%;width:min(360px,calc(100vw - 40px));transform:translate(-50%,-50%) scale(.12);box-sizing:border-box;
+  opacity:0;pointer-events:none;transition:opacity 1.1s ease,transform 1.3s cubic-bezier(.2,.8,.2,1);
+  background:var(--glass);border:1px solid var(--line);border-radius:28px;padding:28px 24px 22px;text-align:center;
+  backdrop-filter:blur(1.5px);-webkit-backdrop-filter:blur(1.5px);display:grid;gap:10px;justify-items:center;
+  box-shadow:0 0 70px rgba(95,157,255,.22), inset 0 0 40px rgba(140,185,255,.08);
+  text-shadow:0 0 12px rgba(5,9,22,.95),0 0 3px rgba(5,9,22,.9)}
+.gb-card.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.gb-c-day{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mist)}
+.gb-c-kin{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ice)}
+.gb-c-kin i{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 10px currentColor;background:currentColor}
+.gb-c-word{font-family:var(--f-disp);font-size:40px;line-height:1.05;margin:6px 0 2px;text-wrap:balance}
+.gb-c-tone{font-size:12px;color:var(--mist)}
+.gb-c-q{font-family:var(--f-disp);font-style:italic;font-size:22px;line-height:1.3;margin:8px 0 6px;text-wrap:balance}
+.gb-c-text{font-size:13px;line-height:1.55;color:var(--ice);white-space:pre-line;margin:0 0 4px}
+.gb-card button{border:1px solid var(--line);background:rgba(5,9,22,.35);color:var(--ice);border-radius:99px;padding:9px 18px;
+  font:500 13px var(--f-text);cursor:pointer;margin-top:6px}
+.gb-fare{position:fixed;left:0;right:0;text-align:center;pointer-events:none;opacity:0;transition:opacity 2.4s ease;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  font-family:var(--f-disp);font-style:italic;color:var(--ice);text-shadow:0 0 18px rgba(95,157,255,.55),0 0 3px rgba(5,9,22,.9)}
+.gb-fare.on{opacity:1}
+.gb-fq{font-size:clamp(19px,3vw,23px);color:var(--mist);margin-bottom:10px;opacity:0;transition:opacity 2.4s ease}
+.gb-fare.on .gb-fq{opacity:1}
+.gb-fw{font-size:clamp(24px,4.2vw,32px);letter-spacing:.03em}
+/* звёздочка у прощания: тихо мерцает, косые лучики то проявляются, то гаснут */
+.gb-fstar{display:inline-block;width:.8em;height:.8em;margin-left:.3em;vertical-align:-.02em;color:#eef5ff;animation:gbst 6s ease-in-out infinite}
+.gb-fstar svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 2.5px rgba(150,190,255,.95))}
+.gb-fstar .ry{stroke:currentColor;stroke-linecap:round;fill:none}
+.gb-fstar .ry2{animation:gbry 6s ease-in-out infinite;transform-origin:0 0}
+@keyframes gbst{0%,100%{opacity:.65;transform:scale(.9)}45%{opacity:1;transform:scale(1.15)}55%{opacity:.9;transform:scale(1)}}
+@keyframes gbry{0%,100%{opacity:.25;transform:scale(.6)}45%{opacity:.9;transform:scale(1.1)}}
+@media (prefers-reduced-motion:reduce){.gb-fstar{animation:none;opacity:.85}}
+@media (max-width:520px){.gb-top{padding-top:calc(env(safe-area-inset-top,0px) + 52px)}}
+.gb-debug .gb-hint{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)}
+.gb-err{padding:40px;font:16px/1.5 system-ui,sans-serif;color:#cfe2ff}

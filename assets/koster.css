@@ -77,3 +77,17 @@ body.ks-body { background: #070504; overflow: hidden; }
 @keyframes ks-stone-new { 0% { filter: brightness(2.6); box-shadow: 0 0 18px 6px rgba(var(--c), .95), 0 0 46px 16px rgba(var(--c), .5); } }
 @media (min-width: 900px) { .ks-stones { padding: 0 20px; height: 18px; } .ks-stone { width: 24px; height: 14px; } }
 @media (prefers-reduced-motion: reduce) { .ks-stone.is-lit, .ks-stone.is-new { animation: none; } }
+/* Тихий костёр после волны (13.11): «Посиди у огня», держишь палец — «вдох / выдох» */
+.ks-quiet { text-align: center; }
+.ks-quiet-h { transition: font-size .4s ease, color .4s ease; }
+.ks-quiet-h.is-breath { font-family: var(--uz-head); font-style: italic; font-size: 26px; color: var(--uz-mist, #f3e7d6); letter-spacing: .04em; }
+/* «Увидимся за поворотом…» — многоточие из трёх искр: прилетают из огня по очереди и тихо мерцают */
+.ks-bye { margin: 0; font-family: var(--uz-head); font-style: italic; font-size: 22px; line-height: 1.25; color: var(--uz-mist, #f3e7d6); }
+.ks-dots { display: inline-flex; gap: .2em; margin-left: .12em; vertical-align: baseline; }
+.ks-dots i { display: inline-block; width: .2em; height: .2em; border-radius: 50%; background: #fff3d8; opacity: 0;
+  box-shadow: 0 0 4px 1px rgba(255, 214, 150, .9), 0 0 10px 2px rgba(255, 170, 90, .45); transition: opacity .5s ease; }
+.ks-dots i.is-on { opacity: 1; animation: ks-dot 3.6s ease-in-out infinite; }
+.ks-dots i:nth-child(2).is-on { animation-delay: -1.2s; }
+.ks-dots i:nth-child(3).is-on { animation-delay: -2.4s; }
+@keyframes ks-dot { 0%, 100% { opacity: .55; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .ks-dots i.is-on { animation: none; } }
