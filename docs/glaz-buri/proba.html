@@ -141,9 +141,10 @@ function resize(){
   lights=[];
   for(var k=0;k<13;k++){var t=k/12,r=R*(0.93-0.68*t),a=-2.2+t*Math.PI*2.3;
     lights.push({x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r*0.82});}
-  // кольцо финала: огоньки дней встают среди мерцающих точек вокруг глаза, день 1 — сверху, по часовой
+  // кольцо финала: огоньки дней встают среди мерцающих точек вокруг глаза, по часовой; два синих (1 и 13) — сверху по бокам от середины,
+  // тогда красный 3 напротив красного 11, красный 7 — внизу посередине (её правка 12.11)
   ring=[];ringR=eyeR*1.3;
-  for(var q=0;q<13;q++){var qa=-Math.PI/2+q/13*6.283;ring.push({x:cx+Math.cos(qa)*ringR,y:cy+Math.sin(qa)*ringR*0.82,a:qa})}
+  for(var q=0;q<13;q++){var qa=-Math.PI/2+(q+0.5)/13*6.283;ring.push({x:cx+Math.cos(qa)*ringR,y:cy+Math.sin(qa)*ringR*0.82,a:qa})}
   fare.style.top=Math.min(cy+eyeR*2.5,H-150)+'px';
 }
 var TW=1.9;
