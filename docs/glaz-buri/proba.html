@@ -256,9 +256,9 @@ function drawFx(dt){
 
   // знак тона светом (точки и черты), пока state = sign
   if(state==='sign'){
-    // огонёк дня прилетает с края бури по рукаву спирали, оставляя след
-    var ft=Math.min(1,signT/FLY),e=ft*ft*(3-2*ft),rr=R*1.02*(1-e)+0.5;
-    var fa=TW*Math.log(Math.max(rr,eyeR*0.25)/R)+rot+0.6;
+    // огонёк дня срывается со своего места на спирали и по кругу уходит в глаз, оставляя след
+    var Ls=lights[sel],r0=Math.hypot(Ls.x-cx,(Ls.y-cy)/0.82),a0=Math.atan2((Ls.y-cy)/0.82,Ls.x-cx);
+    var ft=Math.min(1,signT/FLY),e=ft*ft*(3-2*ft),rr=r0*(1-e)+0.5,fa=a0+e*3.4;
     var fxp=cx+Math.cos(fa)*rr,fyp=cy+Math.sin(fa)*rr*0.82;
     if(ft<1){trail.push([fxp,fyp]);if(trail.length>26)trail.shift()}else if(trail.length)trail.shift();
     var dcol=COL[DAYS[sel].c];
@@ -267,6 +267,16 @@ function drawFx(dt){
     if(ft<1)glow(fxp,fyp,5,dcol,Math.min(1,signT*2));
   }
 
+
+  // спираль 13 огоньков дней: пройденные — ярко, сегодняшний пульсирует (пока не улетел), будущие — едва
+  for(var d=0;d<13;d++){
+    var Ld=lights[d],c=COL[DAYS[d].c],on=d===sel;
+    if(on&&(state==='sign'||state==='card'))continue;
+    if(d===12&&!on)continue;
+    var pr=on?(4.5+Math.sin(time*2.4)*1.5):(got[d]?3.4+Math.sin(time*1.6+d)*0.5:2);
+    if(d===12)pr=6+Math.sin(time*2.4)*1.5;
+    glow(Ld.x,Ld.y,pr*0.8,c,(on||got[d]?1:0.3)*(1-calm*0.4));
+  }
 
   // дождь после карты
   // звёздный дождь: метеоры редеют постепенно и гаснут каждый сам
