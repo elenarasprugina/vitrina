@@ -198,7 +198,7 @@
     if (action.kind === 'link') {
       var url = action.url || ctx.routeUrl;
       // страница этого же сайта (например, костёр в «Узорах») — в том же окне (её слова 31.10); чужой сайт и предпросмотр в панели — в новом
-      if (url && !S.onBack && sameSite(url)) location.href = url;
+      if (url && !S.onBack && sameSite(url)) location.href = hereUrl(url);
       else if (url) window.open(url, '_blank', 'noopener');
     } else if (action.kind === 'internal') {
       openInternal(action.target, action.tab);
@@ -1937,8 +1937,16 @@
       setTimeout(function () { p.classList.add('is-gone'); }, 2600);
     }, Math.max(6000, Math.min(11000, 3500 + p.m13n * 60)));
   }
+  // Своя страница? Адрес 13mirrors.ru считаем своим и с www, и без, и по http (её «буря открывается в отдельном окне», 14.11)
   function sameSite(url) {
-    try { var u = new URL(url, location.href), b = new URL(S.base, location.href); return u.origin === location.origin && u.pathname.indexOf(b.pathname) === 0; } catch (e) { return false; }
+    try {
+      var u = new URL(url, location.href), b = new URL(S.base, location.href), h = u.hostname.replace(/^www\./, ''), me = location.hostname.replace(/^www\./, '');
+      return (h === me || h === '13mirrors.ru') && u.pathname.indexOf(b.pathname) === 0;
+    } catch (e) { return false; }
+  }
+  // своя страница — по адресу того сайта, на котором человек сейчас (не перескакивать с www на голый адрес и обратно)
+  function hereUrl(url) {
+    try { var u = new URL(url, location.href); return location.origin + u.pathname + u.search + u.hash; } catch (e) { return url; }
   }
   function openCard(id) {
     var c = findCard(id); if (!c) return;
@@ -2601,7 +2609,8 @@
       else if (x.kind === 'routeButton') {
         var url = String(x.url || '').trim() || (r && r.routeUrl) || '';
         // страница этого же сайта (маршрут, костёр) — в том же окне (её слова 31.10, второй раз); чужой сайт и предпросмотр в панели — в новом
-        if (url) html = '<a class="m13-go" href="' + esc(url) + '"' + (!S.onBack && sameSite(url) ? '' : ' target="_blank" rel="noopener"') + '><span>' +
+        var own = !S.onBack && sameSite(url);
+        if (url) html = '<a class="m13-go" href="' + esc(own ? hereUrl(url) : url) + '"' + (own ? '' : ' target="_blank" rel="noopener"') + '><span>' +
           txt(x.label || 'Пройти маршрут') + '</span><span aria-hidden="true">→</span></a>';
       }
       else if (x.kind === 'formats') {
