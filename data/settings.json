@@ -10,7 +10,8 @@
   "contacts": {
     "telegram": "RaElena",
     "vk": "id267647131",
-    "host": "thirteenmirrors_host_bot"
+    "host": "thirteenmirrors_host_bot",
+    "hostOff": true
   },
   "texts": {
     "kicker": "Витрина",
