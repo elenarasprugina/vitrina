@@ -1,0 +1,265 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Куб Метатрона · проба места</title>
+<style>
+/* Layout: one dark place, the whole screen is the field; controls are quiet words at the edges. */
+:root{
+  color-scheme:dark;
+  --bg:#05060d;
+  --fg:#e9e4f5;
+  --muted:#8d88a3;
+  --gold:#e6c57a;
+  --line:rgba(233,228,245,.16);
+  --display:"Cormorant Garamond","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;-webkit-tap-highlight-color:transparent;position:relative}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible{outline:1px solid var(--gold);outline-offset:4px;border-radius:6px}
+
+.top{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.els{display:flex;gap:6px;pointer-events:auto}
+.els button{width:34px;height:34px;display:grid;place-items:center}
+.els i{width:9px;height:9px;border-radius:50%;background:var(--c);opacity:.55;transition:transform .4s,opacity .4s}
+.els button.on i{opacity:1;transform:scale(1.7)}
+.elname{font-family:var(--display);font-size:17px;letter-spacing:.14em;color:var(--muted);text-transform:lowercase}
+
+.hint{position:absolute;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom,0px));text-align:center;font-family:var(--display);font-size:17px;letter-spacing:.04em;color:var(--muted);pointer-events:none;transition:opacity 1.2s;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar{position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--muted);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar button{padding:8px 4px;letter-spacing:.06em}
+.bar .on{color:var(--fg)}
+.mode{display:flex;gap:14px;font-family:var(--display);font-size:19px;letter-spacing:.1em}
+.mode .on{color:var(--gold)}
+.pair{display:flex;gap:8px;align-items:center}
+.pair span{opacity:.4}
+</style>
+
+<canvas id="c" aria-label="Куб Метатрона: поле"></canvas>
+
+<div class="top">
+  <div class="els" id="els" role="group" aria-label="Стихия"></div>
+  <div class="elname" id="elname"></div>
+</div>
+<div class="hint" id="hint"></div>
+<div class="bar">
+  <div class="pair" role="group" aria-label="Что красит цвет стихии">
+    <button id="tBody" class="on" type="button">тело</button><span>·</span><button id="tScene" type="button">сцена</button>
+  </div>
+  <div class="mode" role="group" aria-label="Место">
+    <button id="mStars" class="on" type="button">звёзды</button>
+    <button id="mSand" type="button">песок</button>
+  </div>
+  <button id="bSound" class="on" type="button">звук</button>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const TAU=Math.PI*2,PI=Math.PI;
+const $=s=>document.querySelector(s);
+const clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v;
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hexRgb=h=>{const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255]};
+const rgba=(h,a)=>{const c=hexRgb(h);return`rgba(${c[0]},${c[1]},${c[2]},${a})`};
+const mixHex=(a,b,t)=>{const A=hexRgb(a),B=hexRgb(b);return'#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('')};
+
+/* ---------- geometry of the Cube ---------- */
+const NODES=[{x:0,y:0,ring:0}];
+for(let r=1;r<=2;r++)for(let k=0;k<6;k++){const a=-PI/2+k*PI/3;NODES.push({x:r*Math.cos(a),y:r*Math.sin(a),ring:r})}
+const EDGES=[];for(let i=0;i<13;i++)for(let j=i+1;j<13;j++)EDGES.push({a:i,b:j,main:false});
+const mainPairs=[];
+for(let k=0;k<6;k++){mainPairs.push([0,7+k],[1+k,1+(k+1)%6],[7+k,7+(k+1)%6],[1+k,1+(k+2)%6],[7+k,7+(k+2)%6])}
+mainPairs.forEach(([a,b])=>{const lo=Math.min(a,b),hi=Math.max(a,b);const e=EDGES.find(e=>e.a===lo&&e.b===hi);if(e)e.main=true});
+const SNAPS=NODES.map(n=>({x:n.x,y:n.y}));
+[[.5,0],[1.5,0],[1/Math.sqrt(3),PI/6],[2/Math.sqrt(3),PI/6],[Math.sqrt(3),PI/6]].forEach(([r,o])=>{for(let k=0;k<6;k++){const a=-PI/2+k*PI/3+o;SNAPS.push({x:r*Math.cos(a),y:r*Math.sin(a)})}});
+
+/* ---------- elements and their bodies ---------- */
+const F=(1+Math.sqrt(5))/2;
+function verts(kind){let v=[];const cyc=(a,b,c)=>[[a,b,c],[b,c,a],[c,a,b]];
+  if(kind==='tetra')v=[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]];
+  if(kind==='cube'||kind==='dodeca')for(const x of[-1,1])for(const y of[-1,1])for(const z of[-1,1])v.push([x,y,z]);
+  if(kind==='octa')v=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  if(kind==='icosa')for(const a of[-1,1])for(const b of[-1,1])v.push(...cyc(0,a,b*F));
+  if(kind==='dodeca')for(const a of[-1,1])for(const b of[-1,1])v.push(...cyc(0,a/F,b*F));
+  const R=Math.hypot(...v[0]);v=v.map(p=>p.map(c=>c/R));
+  let md=9;for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++)md=Math.min(md,Math.hypot(v[i][0]-v[j][0],v[i][1]-v[j][1],v[i][2]-v[j][2]));
+  const e=[];for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++)if(Math.hypot(v[i][0]-v[j][0],v[i][1]-v[j][1],v[i][2]-v[j][2])<md*1.01)e.push([i,j]);
+  return{v,e}}
+const ELS=[
+  {id:'fire',n:'огонь',b:'тетраэдр',c:'#ff7a3c',k:'tetra'},
+  {id:'air',n:'воздух',b:'октаэдр',c:'#d6e8ff',k:'octa'},
+  {id:'water',n:'вода',b:'икосаэдр',c:'#4fb4ff',k:'icosa'},
+  {id:'earth',n:'земля',b:'куб',c:'#5fd08a',k:'cube'},
+  {id:'ether',n:'эфир',b:'додекаэдр',c:'#a884ff',k:'dodeca'},
+];
+ELS.forEach(e=>e.g=verts(e.k));
+/* lights instead of stones: only colour and name */
+const LIGHTS=[
+  {n:'аметист',c:'#a77bff'},{n:'розовый кварц',c:'#ff9ec4'},{n:'цитрин',c:'#ffc85a'},
+  {n:'нефрит',c:'#6fe0a0'},{n:'лазурит',c:'#5b8cff'},{n:'лунный камень',c:'#e3ebff'},
+];
+
+/* ---------- state ---------- */
+const st={mode:'stars',el:4,scene:false,sound:true,pick:0};
+const cv=$('#c'),cx=cv.getContext('2d');
+let W=1,H=1,dpr=1,S=1,CX=0,CY=0;
+let bg=document.createElement('canvas');
+let placed=[],flying=[],ripples=[],nextG=1,touched=false;
+let grains=null,level=0,energy=0,sandDirty=true;
+const NEUTRAL='#cfd6ff';
+
+/* ---------- sprites: a light is a glow, a glint and nothing else ---------- */
+const sprites={};
+function sprite(col){if(sprites[col])return sprites[col];const n=192,c=document.createElement('canvas');c.width=c.height=n;const x=c.getContext('2d'),h=n/2;
+  const g=x.createRadialGradient(h,h,0,h,h,h);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.05,'rgba(255,255,255,.95)');g.addColorStop(.11,rgba(mixHex(col,'#ffffff',.35),.7));g.addColorStop(.24,rgba(col,.26));g.addColorStop(.5,rgba(col,.08));g.addColorStop(1,rgba(col,0));
+  x.fillStyle=g;x.fillRect(0,0,n,n);x.globalCompositeOperation='lighter';
+  const ray=(ang,len,a)=>{x.save();x.translate(h,h);x.rotate(ang);const r=x.createLinearGradient(-len,0,len,0);r.addColorStop(0,'rgba(255,255,255,0)');r.addColorStop(.5,`rgba(255,255,255,${a})`);r.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=r;x.fillRect(-len,-.6,len*2,1.2);x.restore()};
+  ray(0,h*.92,.55);ray(PI/2,h*.92,.55);ray(PI/4,h*.4,.22);ray(-PI/4,h*.4,.22);
+  return sprites[col]=c}
+function glow(x,y,size,col,a){cx.globalAlpha=a;cx.drawImage(sprite(col),x-size/2,y-size/2,size,size)}
+
+/* ---------- background, painted once per change ---------- */
+function elCol(){return ELS[st.el].c}
+function paintBg(){bg.width=W;bg.height=H;const x=bg.getContext('2d');
+  if(st.mode==='stars'){
+    x.fillStyle='#05060d';x.fillRect(0,0,W,H);x.globalCompositeOperation='lighter';
+    const cols=st.scene?[elCol(),mixHex(elCol(),'#10183a',.55),mixHex(elCol(),'#ffffff',.25)]:['#3a2a6e','#16365e','#4a1f52'];
+    let s=7;const rnd=()=>{s=(s*16807)%2147483647;return s/2147483647};
+    for(let i=0;i<5;i++){const px=CX+(rnd()-.5)*W*.9,py=CY+(rnd()-.5)*H*.8,r=(.3+rnd()*.35)*Math.max(W,H);const g=x.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,rgba(cols[i%3],st.scene?.2:.26));g.addColorStop(1,rgba(cols[i%3],0));x.fillStyle=g;x.fillRect(0,0,W,H)}
+    const n=Math.round(W*H/(5200*dpr*dpr));for(let i=0;i<n;i++){const r=(rnd()*rnd()*1.3+.3)*dpr;x.globalAlpha=.2+rnd()*.6;x.fillStyle='#ffffff';x.beginPath();x.arc(rnd()*W,rnd()*H,r,0,TAU);x.fill()}
+  }else{
+    const g=x.createRadialGradient(CX,CY,0,CX,CY,Math.hypot(W,H)*.6);g.addColorStop(0,'#16120d');g.addColorStop(.5,'#0c0a08');g.addColorStop(1,'#050403');x.fillStyle=g;x.fillRect(0,0,W,H);
+    x.globalCompositeOperation='lighter';const lc=st.scene?elCol():'#ffcf8a';const l=x.createRadialGradient(CX,CY,0,CX,CY,S*3.4);l.addColorStop(0,rgba(lc,.22));l.addColorStop(.5,rgba(lc,.07));l.addColorStop(1,rgba(lc,0));x.fillStyle=l;x.fillRect(0,0,W,H)}
+}
+function resize(){const r=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);W=Math.max(1,Math.round(r.width*dpr));H=Math.max(1,Math.round(r.height*dpr));cv.width=W;cv.height=H;
+  S=Math.min(W/5.4,H/7.4);CX=W/2;CY=H*.46;paintBg();if(grains)makeSand();sandDirty=true}
+new ResizeObserver(resize).observe(cv);
+
+/* ---------- stars ---------- */
+const drift=[];for(let i=0;i<170;i++)drift.push({a:Math.random()*TAU,r:Math.random(),v:.05+Math.random()*.09});
+let tun=0,rot=0;
+function P(n){return{x:CX+n.x*S,y:CY+n.y*S}}
+function drawStars(t,dt){
+  cx.globalCompositeOperation='source-over';cx.globalAlpha=1;cx.drawImage(bg,0,0);
+  cx.globalCompositeOperation='lighter';
+  const lineC=st.scene?mixHex(NEUTRAL,elCol(),.6):NEUTRAL;
+  /* tunnel: sparks come from the depth */
+  const R=Math.hypot(W,H)*.55;cx.fillStyle='#ffffff';
+  drift.forEach(d=>{if(!RM)d.r+=d.v*dt*(.25+d.r*1.6);if(d.r>1){d.r=.02;d.a=Math.random()*TAU}const rr=d.r*R,x=CX+Math.cos(d.a)*rr,y=CY+Math.sin(d.a)*rr;cx.globalAlpha=clamp(d.r*1.6)*.55;const s=(.5+d.r*1.5)*dpr;cx.fillRect(x,y,s,s)});
+  /* tunnel: the rings of the Cube, far and farther */
+  if(!RM)tun=(tun+dt/26)%1;
+  cx.lineWidth=dpr;cx.strokeStyle=lineC;
+  for(let i=1;i<=5;i++){const sc=Math.pow(.56,i-tun);const a=clamp((1-sc)*3)*clamp(sc*9)*.15;if(a<.01)continue;cx.globalAlpha=a;cx.beginPath();NODES.forEach(n=>{const x=CX+n.x*S*sc,y=CY+n.y*S*sc,r=.5*S*sc;cx.moveTo(x+r,y);cx.arc(x,y,r,0,TAU)});cx.stroke()}
+  /* the Cube itself breathes */
+  const br=RM?1:.86+.14*Math.sin(t/4000*TAU/2);
+  cx.lineWidth=dpr*.8;cx.globalAlpha=.075*br;cx.beginPath();EDGES.forEach(e=>{if(e.main)return;const a=P(NODES[e.a]),b=P(NODES[e.b]);cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y)});cx.stroke();
+  cx.globalAlpha=.2*br;cx.beginPath();EDGES.forEach(e=>{if(!e.main)return;const a=P(NODES[e.a]),b=P(NODES[e.b]);cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y)});cx.stroke();
+  cx.lineWidth=dpr;cx.globalAlpha=.3*br;cx.beginPath();NODES.forEach(n=>{const p=P(n);cx.moveTo(p.x+S*.5,p.y);cx.arc(p.x,p.y,S*.5,0,TAU)});cx.stroke();
+  NODES.forEach(n=>{const p=P(n);glow(p.x,p.y,S*.22,lineC,.5*br)});
+  /* the body of the element, lit from inside */
+  const el=ELS[st.el],g=el.g;if(!RM)rot+=dt*.16;const cy_=Math.cos(rot),sy=Math.sin(rot),cp=Math.cos(.5),sp=Math.sin(.5),BR=S*.86;
+  const pv=g.v.map(p=>{const x1=p[0]*cy_-p[2]*sy,z1=p[0]*sy+p[2]*cy_;return{x:CX+x1*BR,y:CY+(p[1]*cp-z1*sp)*BR,z:p[1]*sp+z1*cp}});
+  glow(CX,CY,S*2.6,el.c,.42*br);
+  cx.strokeStyle=el.c;cx.lineCap='round';
+  g.e.forEach(([a,b])=>{const A=pv[a],B=pv[b],d=.35+.65*clamp(((A.z+B.z)/2+1)/2);cx.globalAlpha=.1*d;cx.lineWidth=dpr*5;cx.beginPath();cx.moveTo(A.x,A.y);cx.lineTo(B.x,B.y);cx.stroke();cx.globalAlpha=.75*d;cx.lineWidth=dpr;cx.stroke()});
+  pv.forEach(p=>glow(p.x,p.y,S*.16,el.c,.35+.5*clamp((p.z+1)/2)));
+  /* ripples where a light lands */
+  cx.lineWidth=dpr;ripples=ripples.filter(r=>t-r.t0<1600);ripples.forEach(r=>{const k=(t-r.t0)/1600;cx.globalAlpha=(1-k)*.5;cx.strokeStyle=r.c;cx.beginPath();cx.arc(r.x,r.y,S*(.08+k*.5),0,TAU);cx.stroke()});
+  /* the lights */
+  placed=placed.filter(l=>!l.out||t-l.out<700);
+  placed.forEach(l=>{const tw=RM?1:1+.07*Math.sin(t/900+l.ph)+.03*Math.sin(t/230+l.ph*3);let a=clamp((t-l.t0)/500);if(l.out)a*=1-(t-l.out)/700;const x=CX+l.x*S,y=CY+l.y*S;glow(x,y,S*.95*tw,l.c,.55*a);glow(x,y,S*.42*tw,l.c,a)});
+  flying=flying.filter(f=>{const k=(t-f.t0)/f.d;if(k<0)return true;const e=1-Math.pow(1-clamp(k),3);const tx=CX+f.x*S,ty=CY+f.y*S;const mx=(f.sx+tx)/2+f.bend,my=Math.min(f.sy,ty)-S*.6;
+    const q=u=>({x:(1-u)*(1-u)*f.sx+2*(1-u)*u*mx+u*u*tx,y:(1-u)*(1-u)*f.sy+2*(1-u)*u*my+u*u*ty});
+    for(let i=0;i<9;i++){const u=e-i*.035;if(u<0)break;const p=q(u);glow(p.x,p.y,S*(.4-i*.035),f.c,(1-i/9)*.6)}
+    if(k>=1){placed.push({x:f.x,y:f.y,c:f.c,g:f.g,t0:t-500,ph:Math.random()*TAU});ripples.push({x:tx,y:ty,c:f.c,t0:t});if(f.first)bowl(f.note,.11,7);return false}return true});
+  /* the lights you can take: an arc under the thumb */
+  LIGHTS.forEach((l,i)=>{const p=palPos(i);const on=i===st.pick;glow(p.x,p.y,S*(on?.62:.4),l.c,on?1:.6);if(on){cx.globalAlpha=.8;cx.strokeStyle='#e6c57a';cx.lineWidth=dpr;cx.beginPath();cx.arc(p.x,p.y,S*.2,0,TAU);cx.stroke()}});
+  cx.globalAlpha=1;cx.globalCompositeOperation='source-over';
+}
+function palPos(i){const w=Math.min(W*.8,S*4.4),u=(i-2.5)/2.5;return{x:CX+u*w/2,y:H-(132+env.b)*dpr-(1-u*u)*S*.22}}
+const env={b:0};
+function throwLight(sx,sy){const s=nearest(sx,sy,.42);if(!s)return;const L=LIGHTS[st.pick],g=nextG++;const n=(s.x*s.x+s.y*s.y<1e-4)?1:6;const from=palPos(st.pick);const now=performance.now();
+  for(let k=0;k<n;k++){const a=k*TAU/n,x=s.x*Math.cos(a)-s.y*Math.sin(a),y=s.x*Math.sin(a)+s.y*Math.cos(a);
+    if(RM){placed.push({x,y,c:L.c,g,t0:now,ph:Math.random()*TAU});continue}
+    flying.push({sx:from.x,sy:from.y,x,y,c:L.c,g,t0:now+k*70,d:760,bend:(Math.random()-.5)*S,first:k===0,note:[1,9/8,5/4,3/2,5/3,2][st.pick]})}
+  if(RM)bowl([1,9/8,5/4,3/2,5/3,2][st.pick],.11,7)}
+function nearest(px,py,maxD){const x=(px-CX)/S,y=(py-CY)/S;let b=null,bd=maxD*maxD;SNAPS.forEach(s=>{const d=(s.x-x)**2+(s.y-y)**2;if(d<bd){bd=d;b=s}});return b}
+
+/* ---------- sand: grains gather on the lines when the bowl sings ---------- */
+function targets(){const f=[];let sum=0;
+  if(level>=1)NODES.forEach(n=>{sum+=PI*2.2;f.push({c:1,x:n.x,y:n.y,w:sum})});
+  if(level>=2)EDGES.forEach(e=>{if(level===2&&!e.main)return;const A=NODES[e.a],B=NODES[e.b];sum+=Math.hypot(A.x-B.x,A.y-B.y)*(e.main?1:.7);f.push({c:0,x:A.x,y:A.y,x2:B.x,y2:B.y,w:sum})});
+  const n=grains.length/5;
+  for(let i=0;i<n;i++){let tx,ty;
+    if(!f.length||Math.random()<.2){const a=Math.random()*TAU,r=Math.sqrt(Math.random())*3.5;tx=Math.cos(a)*r;ty=Math.sin(a)*r}
+    else{const r=Math.random()*sum;let lo=0,hi=f.length-1;while(lo<hi){const m=(lo+hi)>>1;if(f[m].w<r)lo=m+1;else hi=m}const q=f[lo];
+      if(q.c){const a=Math.random()*TAU;tx=q.x+Math.cos(a)*.5;ty=q.y+Math.sin(a)*.5}else{const u=Math.random();tx=q.x+(q.x2-q.x)*u;ty=q.y+(q.y2-q.y)*u}
+      const sp=(Math.random()+Math.random()+Math.random()-1.5)*.02,sa=Math.random()*TAU;tx+=Math.cos(sa)*sp;ty+=Math.sin(sa)*sp}
+    grains[i*5+3]=tx;grains[i*5+4]=ty}}
+function makeSand(){const n=Math.round(clamp(W*H/(dpr*dpr)/40,7000,16000));grains=new Float32Array(n*5);
+  level=1;targets();for(let i=0;i<n;i++){grains[i*5]=CX+grains[i*5+3]*S;grains[i*5+1]=CY+grains[i*5+4]*S;grains[i*5+2]=Math.random()}
+  energy=0;sandDirty=true}
+function stepSand(e){const n=grains.length/5,k=Math.min(1,e*1.6)*.075,far=.3*S;
+  for(let i=0;i<n;i++){let x=grains[i*5],y=grains[i*5+1];const dx=CX+grains[i*5+3]*S-x,dy=CY+grains[i*5+4]*S-y,d=Math.hypot(dx,dy);
+    const j=e*S*(.004+.05*(d>far?1:d/far));
+    grains[i*5]=x+dx*k+(Math.random()-.5)*2*j;grains[i*5+1]=y+dy*k+(Math.random()-.5)*2*j}}
+function pushSand(px,py){const R=S*.34,n=grains.length/5;for(let i=0;i<n;i++){const dx=grains[i*5]-px,dy=grains[i*5+1]-py,d=Math.hypot(dx,dy);if(d<R&&d>.01){const k=(R-d)/d*.6;grains[i*5]+=dx*k;grains[i*5+1]+=dy*k}}sandDirty=true}
+function drawSand(){cx.globalCompositeOperation='source-over';cx.globalAlpha=1;cx.drawImage(bg,0,0);
+  const base=['#f3e6c2','#d9c594','#b89f6c'].map(c=>st.scene?mixHex(c,elCol(),.3):c);const n=grains.length/5,s=Math.max(1,1.15*dpr);
+  for(let p=0;p<3;p++){cx.fillStyle=base[p];cx.globalAlpha=p===0?.95:p===1?.75:.55;cx.beginPath();for(let i=0;i<n;i++){const sh=grains[i*5+2];if((sh*3|0)!==p)continue;cx.rect(grains[i*5],grains[i*5+1],s,s)}cx.fill()}
+  cx.globalAlpha=1}
+function strike(){level=(level+1)%4;targets();energy=1;bowl([1,1,3/2,2][level]*(level?1:.75),.16,level?9:5);touched=true;setHint()}
+
+/* ---------- sound: one long note in a hall ---------- */
+let AC=null,hall=null;
+function audio(){if(!st.sound)return null;try{if(!AC){AC=new(window.AudioContext||window.webkitAudioContext)();hall=AC.createGain();hall.gain.value=1;hall.connect(AC.destination);
+    [[.19,.34],[.31,.26],[.47,.18]].forEach(([t,g])=>{const d=AC.createDelay(1);d.delayTime.value=t;const fb=AC.createGain();fb.gain.value=g;hall.connect(d);d.connect(fb);fb.connect(d);const o=AC.createGain();o.gain.value=.5;d.connect(o);o.connect(AC.destination)})}
+  if(AC.state==='suspended')AC.resume();return AC}catch(e){return null}}
+function bowl(mul,vol,dur){const a=audio();if(!a)return;const t=a.currentTime,f=174*mul;
+  [[1,1],[2.71,.35],[5.12,.14]].forEach(([r,amp],i)=>[0,1.3].forEach(det=>{const o=a.createOscillator();o.type='sine';o.frequency.value=f*r+det;const g=a.createGain(),d=dur/(1+i*.7);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol*amp*.5,t+.06);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(hall);o.start(t);o.stop(t+d+.1)}))}
+
+/* ---------- pointer ---------- */
+let down=null;
+const pt=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*dpr,y:(e.clientY-r.top)*dpr}};
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const p=pt(e);down={x:p.x,y:p.y,moved:false}});
+cv.addEventListener('pointermove',e=>{if(!down)return;const p=pt(e);if(Math.hypot(p.x-down.x,p.y-down.y)>8*dpr)down.moved=true;if(st.mode==='sand'&&down.moved)pushSand(p.x,p.y)});
+cv.addEventListener('pointerup',e=>{if(!down)return;const d=down;down=null;if(d.moved)return;const p=pt(e);
+  if(st.mode==='sand'){strike();return}
+  for(let i=0;i<LIGHTS.length;i++){const q=palPos(i);if(Math.hypot(p.x-q.x,p.y-q.y)<S*.3){st.pick=i;setHint();return}}
+  const hit=placed.find(l=>!l.out&&Math.hypot(CX+l.x*S-p.x,CY+l.y*S-p.y)<S*.24);
+  if(hit){const now=performance.now();placed.forEach(l=>{if(l.g===hit.g)l.out=now});return}
+  touched=true;throwLight(p.x,p.y);setHint()});
+cv.addEventListener('pointercancel',()=>{down=null});
+
+/* ---------- quiet controls ---------- */
+const els=$('#els');ELS.forEach((e,i)=>{const b=document.createElement('button');b.type='button';b.setAttribute('aria-label',e.n);b.style.setProperty('--c',e.c);b.innerHTML='<i></i>';b.onclick=()=>{st.el=i;sync()};els.appendChild(b)});
+function setHint(){const h=$('#hint');
+  if(st.mode==='stars')h.textContent=touched?LIGHTS[st.pick].n:'коснитесь поля — огонь ляжет в точку';
+  else h.textContent=['песок рассыпан · коснитесь','круги · коснитесь ещё','главные линии · ещё','все 78 линий · ещё раз — рассыпать'][level]+(touched?'':' — зазвучит чаша')}
+function sync(){[...els.children].forEach((b,i)=>b.classList.toggle('on',i===st.el));$('#elname').textContent=ELS[st.el].n+' · '+ELS[st.el].b;
+  $('#tBody').classList.toggle('on',!st.scene);$('#tScene').classList.toggle('on',st.scene);$('#mStars').classList.toggle('on',st.mode==='stars');$('#mSand').classList.toggle('on',st.mode==='sand');$('#bSound').classList.toggle('on',st.sound);
+  paintBg();sandDirty=true;setHint()}
+$('#tBody').onclick=()=>{st.scene=false;sync()};$('#tScene').onclick=()=>{st.scene=true;sync()};
+$('#mStars').onclick=()=>{st.mode='stars';sync()};
+$('#mSand').onclick=()=>{st.mode='sand';if(!grains)makeSand();sync()};
+$('#bSound').onclick=()=>{st.sound=!st.sound;sync()};
+
+/* ---------- a first picture, so the place is not empty ---------- */
+function seed(){const now=performance.now()-600;const put=(x,y,c,g)=>placed.push({x,y,c,g,t0:now,ph:Math.random()*TAU});
+  put(0,0,LIGHTS[5].c,nextG++);let g=nextG++;for(let k=0;k<6;k++){const a=-PI/2+k*PI/3;put(Math.cos(a),Math.sin(a),LIGHTS[0].c,g)}
+  g=nextG++;for(let k=0;k<6;k++){const a=-PI/3+k*PI/3;put(Math.sqrt(3)*Math.cos(a),Math.sqrt(3)*Math.sin(a),LIGHTS[3].c,g)}}
+
+/* ---------- loop: sand sleeps when the sound has faded ---------- */
+let last=0;
+function frame(t){requestAnimationFrame(frame);if(document.hidden||t-last<32)return;const dt=Math.min(.06,(t-last)/1000);last=t;
+  try{env.b=parseFloat(getComputedStyle(document.documentElement).paddingBottom)||0}catch(e){}
+  if(st.mode==='stars'){drawStars(t,dt);return}
+  if(energy>.004){stepSand(energy);energy*=Math.pow(.5,dt/1.8);sandDirty=true}else energy=0;
+  if(sandDirty){drawSand();sandDirty=false}}
+resize();seed();sync();requestAnimationFrame(frame);
+})();
+</script>
