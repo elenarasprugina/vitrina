@@ -10800,7 +10800,7 @@
     ]);
   }
 
-  /* ================= ПСИПОИНТ: бот с тестами на Beget (её просьба 20.10: «я забуду про setup.php») =================
+  /* ================= ПСИПОИНТ: бот с тестами на хостинге (её просьба 20.10: «я забуду про setup.php») =================
      Состояние бота с кнопками «Включить / Выключить» и результаты тестов. Сервер — psypoint.13mirrors.ru/panel.php
      (репозиторий 13mirrors-bot, psypoint/). Пароль ПсиПоинта — только в sessionStorage, как ключ GitHub.
      Результаты живут только здесь, в памяти вкладки: в черновик, в браузер и в GitHub не попадают. */
@@ -10850,7 +10850,7 @@
     if (PP.pass && !PP.results && !PP.resultsBusy) ppLoad();
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'ПсиПоинт' }),
-        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами и анкетами в Телеграме (работает на Beget). Здесь — результаты, тексты анкет и включён ли бот.' })]),
+        el('p', { class: 'a-lead', text: 'Бот с психологическими тестами и анкетами в Телеграме (работает на хостинге REG.RU). Здесь — результаты, тексты анкет и включён ли бот.' })]),
       PP.box
     ];
   }
@@ -10876,7 +10876,7 @@
     var input = el('input', { class: 'a-input', type: 'password', autocomplete: 'current-password', placeholder: 'Пароль ПсиПоинта' });
     function go() {
       var v = input.value.trim();
-      if (v.length < 10) { toast('Пароль ПсиПоинта — не короче 10 знаков (тот, что в config.php на Beget).', true); return; }
+      if (v.length < 10) { toast('Пароль ПсиПоинта — не короче 10 знаков (тот, что в config.php на хостинге).', true); return; }
       PP.pass = v;
       try { sessionStorage.setItem(PP_KEY, v); } catch (e) {}
       ppLoad();
@@ -10886,7 +10886,7 @@
     return el('div', { class: 'a-card a-pp-login' }, [
       el('label', { class: 'a-label', text: 'Пароль ПсиПоинта' }),
       el('div', { class: 'a-pp-row' }, [input, el('button', { type: 'button', class: 'a-btn a-btn--dark', text: 'Войти', onclick: go })]),
-      el('p', { class: 'a-hint', text: 'Тот же пароль, что для страницы-«включателя» setup.php (он записан в app/config.php на Beget). Хранится только в этой вкладке и забывается, когда вы её закрываете.' }),
+      el('p', { class: 'a-hint', text: 'Тот же пароль, что для страницы-«включателя» setup.php (он записан в app/config.php на хостинге). Хранится только в этой вкладке и забывается, когда вы её закрываете.' }),
       el('p', { class: 'a-hint', text: 'Запасной вход: psypoint.13mirrors.ru/setup.php' })
     ]);
   }
@@ -10897,7 +10897,7 @@
       : st.on === false ? '⚪ Бот выключен' : '🔴 Нет связи с Телеграмом';
     return block('Состояние бота', [
       b ? el('div', { class: 'a-pp-wait' }, [el('div', { class: 'a-spinner' }),
-        el('span', { text: (b === 'on' ? 'Включаем' : b === 'off' ? 'Выключаем' : 'Проверяем') + '… Связь Beget с Телеграмом медленная — до 20 секунд.' })]) : null,
+        el('span', { text: (b === 'on' ? 'Включаем' : b === 'off' ? 'Выключаем' : 'Проверяем') + '… Связь хостинга с Телеграмом бывает медленной — до 20 секунд.' })]) : null,
       head ? el('p', { class: 'a-pp-state', text: head }) : null,
       st && !b ? el('ul', { class: 'a-pp-checks' }, st.checks.map(function (c) {
         return el('li', { class: c[0] ? '' : 'is-bad', text: (c[0] ? '✅ ' : '❌ ') + c[1] });
@@ -10909,7 +10909,7 @@
           dialog({ title: 'Выключить бота?', body: 'Бот перестанет отвечать в Телеграме, пока вы снова не нажмёте «Включить». Результаты не пропадут.',
             buttons: [['off', 'Выключить', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) { if (v === 'off') ppStatus('off'); });
         } })]),
-      el('p', { class: 'a-hint', text: '«Включить» — бот работает на Beget круглосуточно. «Выключить» — нужно, только если снова запускать бота на компьютере.' })
+      el('p', { class: 'a-hint', text: '«Включить» — бот работает на хостинге круглосуточно. «Выключить» — нужно, только если снова запускать бота на компьютере.' })
     ], { note: st && !b ? (st.on === true ? 'работает' : st.on === false ? 'выключен' : 'нет связи') : '' });
   }
 
@@ -10951,11 +10951,11 @@
         el('button', { type: 'button', class: 'a-btn', text: 'Обновить', disabled: PP.resultsBusy, onclick: ppResults }),
         el('button', { type: 'button', class: 'a-btn', text: 'Выгрузить в таблицу', title: 'Файл CSV — открывается в Excel и Numbers. Выгружается то, что сейчас в списке (с учётом поиска).',
           onclick: function () { ppExport(ppFiltered()); } }),
-        el('button', { type: 'button', class: 'a-btn a-btn--danger', text: 'Удалить показанные…', title: 'Удалить с Beget все результаты, что сейчас в списке (с учётом поиска). Сначала выгрузите их в таблицу.',
+        el('button', { type: 'button', class: 'a-btn a-btn--danger', text: 'Удалить показанные…', title: 'Удалить с хостинга все результаты, что сейчас в списке (с учётом поиска). Сначала выгрузите их в таблицу.',
           onclick: function () { ppDeleteMany(ppFiltered()); } })]),
       count,
       listBox,
-      el('p', { class: 'a-hint', text: 'Новые — сверху. Нажмите на строку — откроются ответы и кнопка «Удалить». Чтобы удалить сразу несколько: найдите их поиском (или очистите поиск — будут все), «Выгрузить в таблицу», потом «Удалить показанные». Удалённое не вернуть. Сам результат на Beget удаляется, только когда ему больше 30 дней и его уже забрал Компас. Выгруженный файл — с ответами и никами: храните его бережно, не пересылайте.' })
+      el('p', { class: 'a-hint', text: 'Новые — сверху. Нажмите на строку — откроются ответы и кнопка «Удалить». Чтобы удалить сразу несколько: найдите их поиском (или очистите поиск — будут все), «Выгрузить в таблицу», потом «Удалить показанные». Удалённое не вернуть. Сам результат на хостинге удаляется, только когда ему больше 30 дней и его уже забрал Компас. Выгруженный файл — с ответами и никами: храните его бережно, не пересылайте.' })
     ], { note: all.length ? String(all.length) : '' });
   }
   function ppRow(r) {
@@ -10991,18 +10991,18 @@
     ]);
     return row;
   }
-  // Сохранён ли результат где-то, кроме Beget: в выгруженной таблице (в этой вкладке) или в Компасе
+  // Сохранён ли результат где-то, кроме хостинга: в выгруженной таблице (в этой вкладке) или в Компасе
   function ppKept(r) { return !!(r.taken_at || PP.saved[r.code]); }
   function ppDelete(r) {
     dialog({ title: 'Удалить результат ' + r.code + '?',
-      body: 'Результат удалится с Beget навсегда, вернуть его будет нельзя.' + (ppKept(r) ? '' : ' Он ещё не выгружен в таблицу и не забран Компасом — если он нужен, сначала нажмите «Выгрузить в таблицу».'),
+      body: 'Результат удалится с хостинга навсегда, вернуть его будет нельзя.' + (ppKept(r) ? '' : ' Он ещё не выгружен в таблицу и не забран Компасом — если он нужен, сначала нажмите «Выгрузить в таблицу».'),
       buttons: [['del', 'Удалить навсегда', 'danger'], ['cancel', 'Отмена', 'dark']] }).then(function (v) {
       if (v !== 'del') return;
       busy('Удаляем…');
       ppCall('delete', { codes: [r.code] }).then(function (d) {
         busy(null);
         PP.results = PP.results.filter(function (x) { return x.code !== r.code; }); delete PP.open[r.code];
-        ppDraw(); toast(d.deleted ? 'Результат ' + r.code + ' удалён.' : 'Его уже не было на Beget.');
+        ppDraw(); toast(d.deleted ? 'Результат ' + r.code + ' удалён.' : 'Его уже не было на хостинге.');
       }).catch(fail);
     });
   }
@@ -11018,8 +11018,8 @@
       var was = PP.results.length;
       ppCall('delete', { codes: list.map(function (r) { return r.code; }) }).then(function () {
         busy(null); PP.q = '';
-        // список заново с Beget — видно, что осталось на самом деле
-        return ppResults().then(function () { if (PP.results) toast('Удалено с Beget: ' + (was - PP.results.length) + '. Осталось: ' + PP.results.length + '.'); });
+        // список заново с хостинга — видно, что осталось на самом деле
+        return ppResults().then(function () { if (PP.results) toast('Удалено с хостинга: ' + (was - PP.results.length) + '. Осталось: ' + PP.results.length + '.'); });
       }).catch(fail);
     });
   }
@@ -11054,7 +11054,7 @@
   }
 
   /* ---------- Анкеты (ПсиПоинт, 27.10): она сама правит тексты, кнопки и порядок, делает копии ----------
-     Анкеты живут на Beget (data/anketas/<id>.json; первая — из кода бота, app/tests/teen.json), не в черновике и не в GitHub.
+     Анкеты живут на хостинге (data/anketas/<id>.json; первая — из кода бота, app/tests/teen.json), не в черновике и не в GitHub.
      Правка — в памяти вкладки до «Сохранить». Кто уже отвечает в боте, доходит по прежнему тексту (у бота своя копия). */
   var AK_KINDS = [['text', 'Только свои слова'], ['one', 'Кнопки — один ответ'], ['many', 'Кнопки — несколько ответов']];
   function akModel(t) {
@@ -11117,7 +11117,7 @@
   }
   function akSave() {
     var ed = PP.ak.ed, id = ed.m.id;
-    busy('Сохраняем анкету на Beget…');
+    busy('Сохраняем анкету на хостинге…');
     ppCall('anketa_save', { test: akFile(ed.m), isNew: ed.isNew }).then(function (d) {
       busy(null);
       PP.ak.list = d.anketas || [];
@@ -11209,7 +11209,7 @@
       el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
       el('button', { type: 'button', class: 'a-btn a-btn--dark', text: ed.isNew ? 'Сохранить новую анкету' : 'Сохранить', onclick: akSave }),
       el('button', { type: 'button', class: 'a-btn', text: 'Скопировать для Claude', title: 'Все тексты анкеты одним сообщением — вставить в чат с Claude и попросить поправить', onclick: function () { akCopyText(m); } }),
-      el('span', { class: 'a-ak-state' + (ed.dirty ? ' is-dirty' : ''), text: ed.dirty ? 'Есть несохранённые изменения' : 'Сохранено на Beget' })]);
+      el('span', { class: 'a-ak-state' + (ed.dirty ? ' is-dirty' : ''), text: ed.dirty ? 'Есть несохранённые изменения' : 'Сохранено на хостинге' })]);
     return el('div', { class: 'a-ak' }, [
       actions,
       block('Анкета: ' + (m.title || 'без названия'), [
@@ -11249,7 +11249,7 @@
           ed.dirty && !ed.isNew ? el('button', { type: 'button', class: 'a-btn', text: 'Отменить изменения', onclick: function () {
             var a = PP.ak.list.filter(function (x) { return x.test.id === m.id; })[0]; if (a) akOpen(a); } }) : null,
           !ed.isNew && (!ed.builtin || ed.edited) ? el('button', { type: 'button', class: 'a-btn a-btn--danger', text: ed.builtin ? 'Вернуть исходный текст…' : 'Удалить анкету…', onclick: akDelete }) : null]),
-        el('p', { class: 'a-hint', text: 'Анкета хранится на Beget, не в черновике витрины: кнопка «Сохранить» вверху панели её не сохраняет — только «Сохранить» здесь. Кто уже отвечает в боте, дойдёт по тексту, с каким начал.' })
+        el('p', { class: 'a-hint', text: 'Анкета хранится на хостинге, не в черновике витрины: кнопка «Сохранить» вверху панели её не сохраняет — только «Сохранить» здесь. Кто уже отвечает в боте, дойдёт по тексту, с каким начал.' })
       ], { open: false }),
       el('div', { class: 'a-pp-row a-ak-bar' }, [
         el('button', { type: 'button', class: 'a-btn', text: '← Все анкеты', onclick: akClose }),
