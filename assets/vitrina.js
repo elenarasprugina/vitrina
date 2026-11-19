@@ -2052,6 +2052,15 @@
       calUnlight();
       big.classList.add('m13-noanim', 'is-flipped'); void big.offsetWidth; big.classList.remove('m13-noanim');
     } else big.classList.remove('is-flipped');
+    // Нажатие на карточку — сразу оборот (её решение 19.11; панель → «Настройки» → «Нажатие на карточку», settings.cardTap):
+    // карточка вырастает и одним движением поворачивается. Карта дня идущего маршрута и финальный ролик — сначала лицом.
+    var quick = !isCal && (S.D.settings || {}).cardTap !== 'front' && !(live && (live.kind === 'day' || live.kind === 'final'));
+    stage.classList.remove('m13-quick');
+    if (quick) {
+      [].forEach.call(front.querySelectorAll('.m13-flip-hint'), function (n) { n.remove(); });
+      big.classList.add('is-flipped'); backc.scrollTop = 0;
+      void stage.offsetWidth; stage.classList.add('m13-quick');
+    }
     var ov = S.root.querySelector('#m13-overlay');
     ov.classList.remove('m13-veil--light', 'm13-veil--clear');
     if (sty.st.veil === 'light' || sty.st.veil === 'clear') ov.classList.add('m13-veil--' + sty.st.veil);
@@ -2066,6 +2075,7 @@
     }
     lock(true);
     pushLayer('card', closeCardNow, '#' + encodeURIComponent(c.id));
+    if (quick) kaskGo(backc);
   }
   // Квадраты форматов: в каждом ряду название, цена и подпись получают одинаковую высоту (по самой высокой),
   // поэтому в ряду всё стоит на одном уровне, а сами квадраты остаются по центру.
