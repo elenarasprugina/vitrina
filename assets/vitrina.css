@@ -2461,3 +2461,20 @@ body.m13-locked{overflow:hidden}
 @media (max-width:640px){.m13-spdoor{top:max(10px,env(safe-area-inset-top));right:10px;padding:6px 9px}.m13-spdoor span{display:none}.m13-spdoor svg{width:15px;height:20px}}
 @keyframes m13-spdoor{50%{box-shadow:0 0 28px rgba(255,214,140,.6)}}
 @media (prefers-reduced-motion:reduce){.m13-spdoor{animation:none}}
+
+/* ================= Мелкий текст плотнее (Песочница, Примеры, События; look.smallText, класс m13-dense — её решение 20.11) ================= */
+/* Тонкий шрифт (Cormorant) на кнопках-фильтрах, под картинками и в стекле был еле виден — плотнее, чуть крупнее, полным цветом текста */
+.m13-standalone.m13-dense .m13-chip{font-weight:600;font-size:calc(15.5px * var(--m13-tk,1))}
+.m13-standalone.m13-dense :is(.m13-cover-sub,.m13-cover-line){font-weight:500;font-size:calc(14.5px * var(--m13-tk,1));color:#2f2f2f}
+.m13-standalone.m13-dense.m13-look :is(.m13-cover-sub,.m13-cover-line){color:var(--lk-tx)}
+.m13-standalone.m13-dense :is(.m13-sb-item-sub,.m13-sb-item-day,.m13-rv-text,.m13-tab){font-weight:500}
+.m13-standalone.m13-dense .m13-gl-top{font-size:clamp(9.5px,calc(2.6 * var(--u) * var(--gl-k)),14px);opacity:1}
+.m13-standalone.m13-dense .m13-gl-d{font-size:clamp(11px,calc(3.3 * var(--u) * var(--gl-k)),19px);font-weight:600;opacity:1}
+@media (min-width:681px){
+  .m13-standalone.m13-dense .m13-gl-top{font-size:clamp(10.5px,calc(2.6 * var(--u) * var(--gl-k)),14px)}
+  .m13-standalone.m13-dense .m13-gl-d{font-size:clamp(13px,calc(3.3 * var(--u) * var(--gl-k)),19px)}
+}
+@media (max-width:680px){
+  .m13-standalone.m13-dense .m13-chip{font-size:calc(15px * var(--m13-tk,1))}
+  .m13-standalone.m13-dense :is(.m13-cover-sub,.m13-cover-line){font-size:calc(14px * var(--m13-tk,1))}
+}
