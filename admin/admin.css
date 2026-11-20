@@ -903,3 +903,11 @@ body.a-noscroll{overflow:hidden}
 .a-spz-z.is-sel{box-shadow:0 0 0 3px #3b82f6;z-index:2}
 .a-spz-name{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:2px 7px;border-radius:8px;background:rgba(0,0,0,.62);color:#fff;font-size:12px;white-space:nowrap;pointer-events:none}
 .a-spz-h{position:absolute;right:6%;bottom:6%;width:14px;height:14px;border-radius:3px;background:#fff;border:2px solid #3b82f6;cursor:nwse-resize}
+
+/* Шрифты и надписи (20.11) */
+.a-typo{padding:12px 0 16px;border-bottom:1px solid var(--a-line)}
+.a-typo:last-child{border-bottom:0}
+.a-typo-head{display:flex;flex-direction:column;gap:2px;margin-bottom:4px}
+.a-typo-head b{font-size:16px}
+.a-typo-head small{color:var(--a-muted,#777);font-size:12.5px;line-height:1.35}
+.a-typo .a-btn--ghost{margin-top:8px}

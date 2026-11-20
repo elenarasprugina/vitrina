@@ -171,6 +171,7 @@
     var p = opts.data ? Promise.resolve(opts.data) : M13.load(S.base, opts.showcase);
     return p.then(function (D) {
       S.D = D;
+      applyTypo(el, D.settings);
       if (S.view === 'sandbox') renderStandalone('sandbox');
       else if (S.view === 'reflection') renderStandalone('reflection');
       else if (S.view === 'events') renderStandalone('events');
@@ -1212,7 +1213,7 @@
   // Браузер скачивает только те начертания и буквы, что реально есть на странице, поэтому курсив и тонкие подключены сразу
   var FONTS = {
     'Cormorant Garamond': 'cormorant-garamond', 'Playfair Display': 'playfair-display', 'Philosopher': 'philosopher', 'Lora': 'lora',
-    'Montserrat': 'montserrat', 'Comfortaa': 'comfortaa', 'Marck Script': 'marck-script'
+    'Montserrat': 'montserrat', 'Comfortaa': 'comfortaa', 'Marck Script': 'marck-script', 'Jost': 'jost'
   };
   // Папка шрифтов — рядом с этим файлом (страницы витрины, маршрута и панель лежат на разной глубине)
   var FONT_DIR = (function () {
@@ -1225,11 +1226,14 @@
   M13.FONT_CAPS = {
     'Cormorant Garamond': { w: [300, 400, 600, 700], it: true }, 'Playfair Display': { w: [400, 600, 700], it: true },
     'Philosopher': { w: [400, 700], it: true }, 'Lora': { w: [400, 600, 700], it: true }, 'Montserrat': { w: [300, 400, 600, 700], it: true },
-    'Comfortaa': { w: [300, 400, 600, 700], it: false }, 'Marck Script': { w: [400], it: false }
+    'Comfortaa': { w: [300, 400, 600, 700], it: false }, 'Marck Script': { w: [400], it: false }, 'Jost': { w: [400, 500], it: false }
   };
+  // Шрифты без засечек — запасной шрифт устройства тоже без засечек
+  var SANS = { 'Montserrat': 1, 'Comfortaa': 1, 'Jost': 1 };
+  function fontStack(name) { return "'" + name + "'," + (SANS[name] ? 'system-ui,sans-serif' : 'Georgia,serif'); }
   M13.fontCaps = function (name) { return M13.FONT_CAPS[name] || { w: [300, 400, 600, 700], it: true }; };
   // Толщина и курсив надписи: только то, что есть у шрифта (иначе браузер «подделает» — выйдет грубо)
-  var FW = { light: 300, normal: 400, semi: 600, bold: 700 };
+  var FW = { light: 300, normal: 400, medium: 500, semi: 600, bold: 700 };
   function typeCss(font, w, it) {
     var caps = M13.fontCaps(font), out = [];
     if (FW[w] && caps.w.indexOf(FW[w]) >= 0) out.push('font-weight:' + FW[w]);
@@ -1246,6 +1250,51 @@
     document.head.appendChild(l);
   }
   M13.ensureFont = ensureFont;
+
+  /* ---------- Шрифты и надписи (её решение 20.11; docs/shrifty.md) ----------
+     Одно место для надписей всего сайта: настраиваются не страницы, а ВИДЫ надписей (роли).
+     settings.typo = { title | label | text | btn | glass: { font, size, weight, spacing, color } }
+       font    — '' как у страницы (не менять) | имя шрифта из FONTS;
+       size    — % (100 — как есть; 60–200);
+       weight  — '' не менять | light | normal | medium | semi | bold (берётся ближайшая, что есть у шрифта);
+       spacing — '' не менять | normal | wide (разрядка; у строчек заглавными — шире);
+       color   — '' как у страницы | #hex.
+     Поля нет (undefined) — берётся стартовый набор TYPO_DEF (её выбор «Б» 20.11: подписи и кнопки — Jost).
+     Применяется к корню .m13: переменные --ty-<роль>-<свойство> и классы ty-<роль>-<свойство>;
+     какие надписи к какой роли относятся — vitrina.css, раздел «Шрифты и надписи» (новая страница помечает свои надписи там). */
+  var TYPO_ROLES = ['title', 'label', 'text', 'btn', 'glass'];
+  var TYPO_KEY = { title: 'tt', label: 'lb', text: 'tx', btn: 'bt', glass: 'gs' };
+  var TYPO_DEF = { label: { font: 'Jost', weight: 'medium', spacing: 'wide' }, btn: { font: 'Jost', weight: 'medium' } };
+  function typoOf(st) {
+    var t = (st && st.typo) || {}, out = {};
+    TYPO_ROLES.forEach(function (r) {
+      var o = t[r] || {}, d = TYPO_DEF[r] || {}, x = {};
+      ['font', 'size', 'weight', 'spacing', 'color'].forEach(function (k) { x[k] = o[k] !== undefined ? o[k] : d[k] !== undefined ? d[k] : ''; });
+      out[r] = x;
+    });
+    return out;
+  }
+  function nearW(font, w) {
+    var caps = M13.fontCaps(font).w, best = caps[0];
+    caps.forEach(function (c) { if (Math.abs(c - w) < Math.abs(best - w)) best = c; });
+    return best;
+  }
+  function applyTypo(el, st) {
+    var ty = typoOf(st);
+    el.className = el.className.replace(/(^|\s)ty-[a-z]{2}-[a-z]{2}(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+    TYPO_ROLES.forEach(function (r) {
+      var k = TYPO_KEY[r], o = ty[r];
+      ['ff', 'fw', 'fs', 'co'].forEach(function (p) { el.style.removeProperty('--ty-' + k + '-' + p); });
+      function on(p, v) { if (v != null) el.style.setProperty('--ty-' + k + '-' + p, v); el.classList.add('ty-' + k + '-' + p); }
+      var font = FONTS[o.font] ? o.font : '';
+      if (font) { ensureFont(font); on('ff', fontStack(font)); if (SANS[font]) on('wd'); }   // wd — простой (широкий) шрифт: на телефоне чуть компактнее
+      if (FW[o.weight]) on('fw', String(font ? nearW(font, FW[o.weight]) : FW[o.weight]));
+      if (o.spacing === 'wide') on('lw'); else if (o.spacing === 'normal') on('ln');
+      var sz = +o.size; if (sz && sz !== 100) on('fs', String(Math.max(60, Math.min(200, sz)) / 100));
+      if (/^#[0-9a-f]{3,8}$/i.test(o.color || '')) on('co', o.color);
+    });
+  }
+  M13.TYPO_ROLES = TYPO_ROLES; M13.TYPO_DEF = TYPO_DEF; M13.typoOf = typoOf; M13.applyTypo = applyTypo;
   /* ---------- Метка по датам: «до / идёт / после» ----------
      front.phase = {on, from?, to?, before{value,show}, during{…}, after{…}, glow}.
      Даты — свои (from/to) или, если пусто, даты маршрута карточки. */
@@ -3645,10 +3694,10 @@
     });
   }
   // Мелкий текст плотнее (её решение 20.11: тонкий Cormorant на кнопках-фильтрах, под картинками и в стекле еле виден):
-  // look.smallText — '' (плотнее, по умолчанию) | 'thin' (как было). Класс m13-dense, правила — vitrina.css «Мелкий текст плотнее».
+  // класс m13-dense всегда (переключатель look.smallText убран 20.11 — она против «как было»; дальше всё — в «Шрифтах и надписях»).
   function pageLook(lk) {
     var r = pageLook0(lk);
-    if (!lk || lk.smallText !== 'thin') r.cls += ' m13-dense';
+    r.cls += ' m13-dense';
     return r;
   }
   function pageLook0(lk) {
