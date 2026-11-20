@@ -2478,3 +2478,7 @@ body.m13-locked{overflow:hidden}
   .m13-standalone.m13-dense .m13-chip{font-size:calc(15px * var(--m13-tk,1))}
   .m13-standalone.m13-dense :is(.m13-cover-sub,.m13-cover-line){font-size:calc(14px * var(--m13-tk,1))}
 }
+/* Строчка над заголовком («13 MIRRORS · общий раздел») на светлом фоне терялась — цветом заголовка, плотнее и крупнее */
+.m13-standalone.m13-dense .m13-ihead .m13-eyebrow{font-weight:600;opacity:1;font-size:calc(13px * var(--m13-tk,1));letter-spacing:.08em}
+.m13-standalone.m13-dense.m13-look .m13-ihead .m13-eyebrow{color:var(--lk-hd,var(--lk-tx))}
+.m13-standalone.m13-dense.m13-look .m13-ihead :is(.m13-eyebrow,p){text-shadow:var(--lk-tsh),var(--lk-tsh),var(--lk-tsh)}
