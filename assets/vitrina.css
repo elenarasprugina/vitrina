@@ -2563,3 +2563,8 @@ body.m13-locked{overflow:hidden}
   .m13-page:not(.m13-soon-page):not(.m13-legal-page) > .m13-stage{flex:0 0 auto}
   .m13-page:not(.m13-soon-page):not(.m13-legal-page) > .m13-below{margin-bottom:auto}
 }
+
+/* «идёт сейчас», «завершён», «скоро» внизу карточки — всегда в одну строку (её просьба 20.11, шрифт Philosopher):
+   без разрядки, чуть меньше промежуток до «открыть» */
+.m13-mini-foot .m13-phase{white-space:nowrap;letter-spacing:0!important;min-width:0}
+.m13-mini-foot:has(.m13-phase){gap:4px}

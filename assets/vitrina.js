@@ -1260,14 +1260,14 @@
        weight  — '' не менять | light | normal | medium | semi | bold (берётся ближайшая, что есть у шрифта);
        spacing — '' не менять | normal | wide (разрядка; у строчек заглавными — шире);
        color   — '' как у страницы | #hex.
-     Поля нет (undefined) — берётся стартовый набор TYPO_DEF (её выбор «Б» 20.11: подписи и кнопки — Jost).
+     Поля нет (undefined) — берётся стартовый набор TYPO_DEF (её выбор 20.11 (5): подписи и кнопки — Philosopher; Jost, вариант «Б», ей показался рубленым).
      «Своё» у месяца (showcases/<id>.json → typo) и у страницы (sandbox|events|reflection.look.typo): {own: true, <роль>: {…те же поля}} —
      заданное там сильнее общего; пусто ('' или поля нет) — как у всего сайта. own: false — выключено (настройки хранятся).
      Применяется к корню .m13: переменные --ty-<роль>-<свойство> и классы ty-<роль>-<свойство>;
      какие надписи к какой роли относятся — vitrina.css, раздел «Шрифты и надписи» (новая страница помечает свои надписи там). */
   var TYPO_ROLES = ['title', 'label', 'text', 'btn', 'glass'];
   var TYPO_KEY = { title: 'tt', label: 'lb', text: 'tx', btn: 'bt', glass: 'gs' };
-  var TYPO_DEF = { label: { font: 'Jost', weight: 'medium', spacing: 'wide' }, btn: { font: 'Jost', weight: 'medium' } };
+  var TYPO_DEF = { label: { font: 'Philosopher', weight: 'normal', spacing: 'wide' }, btn: { font: 'Philosopher', weight: 'normal' } };
   function typoOf(st, own) {
     var t = (st && st.typo) || {}, out = {};
     own = own && own.own ? own : null;
