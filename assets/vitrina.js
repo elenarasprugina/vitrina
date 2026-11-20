@@ -3644,9 +3644,16 @@
       setTimeout(show, 5000);
     });
   }
+  // Мелкий текст плотнее (её решение 20.11: тонкий Cormorant на кнопках-фильтрах, под картинками и в стекле еле виден):
+  // look.smallText — '' (плотнее, по умолчанию) | 'thin' (как было). Класс m13-dense, правила — vitrina.css «Мелкий текст плотнее».
   function pageLook(lk) {
+    var r = pageLook0(lk);
+    if (!lk || lk.smallText !== 'thin') r.cls += ' m13-dense';
+    return r;
+  }
+  function pageLook0(lk) {
     if (!lk) return { cls: '', css: '' };
-    if (lk.titleLine === false) { var r0 = pageLook(Object.assign({}, lk, { titleLine: true })); r0.cls += ' m13-noline'; return r0; }
+    if (lk.titleLine === false) { var r0 = pageLook0(Object.assign({}, lk, { titleLine: true })); r0.cls += ' m13-noline'; return r0; }
     var bg = lk.background || {}, css = [], cls = '';
     if (bg.color) css.push('--m13-bgc:' + bg.color);
     if (bg.image) {
