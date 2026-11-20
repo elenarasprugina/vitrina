@@ -652,3 +652,40 @@ a.ys-sp-btn{text-decoration:none;display:inline-block}
 }
 .ysg :target > summary h2,.ysg :target > summary h3,.ysg :target > h2{animation:ysg-hl 2s ease}
 @keyframes ysg-hl{from{color:#fff}to{}}
+
+/* ================= Шрифты и надписи (settings.typo — её решение 20.11; docs/shrifty.md) =================
+   Те же виды надписей, что на витрине (панель → «Шрифты и надписи»). Классы ty-<роль>-<свойство> и переменные --ty-… ставит applyTypo (route.js) на <body>.
+   Роли: tt — заголовки, lb — строчки-подписи, tx — основной текст, bt — кнопки. Цвет и «Надписи на стекле» здесь не действуют (у маршрута тёмный фон и своё стекло).
+   Свой шрифт, заданный у маршрута в панели (например, «С чем вы выходите?» — final.exitFont), сильнее: он стоит прямо на надписи.
+   НОВАЯ НАДПИСЬ МАРШРУТА: впиши её класс в нужную роль ниже (во все правила роли). */
+/* — Заголовки: «Маршрут пройден», название дня, фокус дня, заголовки окон (ключ, код, веер, пространство дня, финал) — */
+body.ty-tt-ff :is(.ys-h,.ys-c-title,.ys-c-sub,.ys-key-t,.ys-fan-t,.ys-fin-t,.ys-sp-title,.ys-exit-t,.ys-sp-fold>summary){font-family:var(--ty-tt-ff)}
+body.ty-tt-fw :is(.ys-h,.ys-c-title,.ys-c-sub,.ys-key-t,.ys-fan-t,.ys-fin-t,.ys-sp-title,.ys-exit-t,.ys-sp-fold>summary){font-weight:var(--ty-tt-fw)}
+body.ty-tt-fs :is(.ys-h,.ys-c-title,.ys-c-sub,.ys-key-t,.ys-fan-t,.ys-fin-t,.ys-sp-title,.ys-exit-t,.ys-sp-fold>summary){zoom:var(--ty-tt-fs)}
+body.ty-tt-lw :is(.ys-h,.ys-c-title,.ys-c-sub,.ys-key-t,.ys-fan-t,.ys-fin-t,.ys-sp-title,.ys-exit-t,.ys-sp-fold>summary){letter-spacing:.05em}
+body.ty-tt-ln :is(.ys-h,.ys-c-title,.ys-c-sub,.ys-key-t,.ys-fan-t,.ys-fin-t,.ys-sp-title,.ys-exit-t,.ys-sp-fold>summary){letter-spacing:normal}
+/* — Строчки-подписи: строчка под заголовком страницы, «ДЕНЬ 5 · KIN 44», «ПЕЧАТЬ …», «ФОКУС ДНЯ», «ГЛАВНЫЙ ВОПРОС», «ВАШ КОД», подписи в веере и пространстве дня — */
+body.ty-lb-ff :is(.ys-sub,.ys-c-small,.ys-c-label,.ys-key-mode,.ys-code-l,.ys-fan-small,.ys-sp-small,.ys-st-n,.ys-c-up-t){font-family:var(--ty-lb-ff)}
+body.ty-lb-fw :is(.ys-sub,.ys-c-small,.ys-c-label,.ys-key-mode,.ys-code-l,.ys-fan-small,.ys-sp-small,.ys-st-n,.ys-c-up-t){font-weight:var(--ty-lb-fw)}
+body.ty-lb-fs :is(.ys-sub,.ys-c-small,.ys-c-label,.ys-key-mode,.ys-code-l,.ys-fan-small,.ys-sp-small,.ys-st-n,.ys-c-up-t){zoom:var(--ty-lb-fs)}
+/* строчки заглавными у маршрутов и так разреженные — «Шире» оставляет их как есть, «Обычное» — плотнее */
+body.ty-lb-lw :is(.ys-st-n,.ys-c-up-t){letter-spacing:.08em}
+body.ty-lb-ln :is(.ys-sub,.ys-c-small,.ys-c-label,.ys-key-mode,.ys-code-l,.ys-fan-small,.ys-sp-small){letter-spacing:.06em}
+body.ty-lb-ln :is(.ys-st-n,.ys-c-up-t){letter-spacing:normal}
+/* — Основной текст: текст дня, вопрос дня, пояснения в окнах ключа и кода, подсказки, текст пространства дня, отзыв — */
+body.ty-tx-ff :is(.ys-c-body p,.ys-c-note p,.ys-d-q p,.ys-key-lead,.ys-code-n,.ys-key-note,.ys-code-st,.ys-fan-n,.ys-exit-lead,.ys-d-hint,.ys-d-note,.ys-w-uq,
+  .ys-rv-qt,.ys-rv-ok,.ys-rv-oknote,.ys-sp-text,.ys-toast,.ys-fin-n,.ys-tap){font-family:var(--ty-tx-ff)}
+body.ty-tx-fw :is(.ys-c-body p,.ys-c-note p,.ys-d-q p,.ys-key-lead,.ys-code-n,.ys-key-note,.ys-code-st,.ys-fan-n,.ys-exit-lead,.ys-d-hint,.ys-d-note,.ys-w-uq,
+  .ys-rv-qt,.ys-rv-ok,.ys-rv-oknote,.ys-sp-text,.ys-toast,.ys-fin-n,.ys-tap){font-weight:var(--ty-tx-fw)}
+body.ty-tx-fs :is(.ys-c-body p,.ys-c-note p,.ys-d-q p,.ys-key-lead,.ys-code-n,.ys-key-note,.ys-code-st,.ys-fan-n,.ys-exit-lead,.ys-d-hint,.ys-d-note,.ys-w-uq,
+  .ys-rv-qt,.ys-rv-ok,.ys-rv-oknote,.ys-sp-text,.ys-toast,.ys-fin-n,.ys-tap){zoom:var(--ty-tx-fs)}
+body.ty-tx-lw :is(.ys-c-body p,.ys-c-note p,.ys-d-q p,.ys-key-lead,.ys-code-n,.ys-key-note,.ys-code-st,.ys-fan-n,.ys-exit-lead,.ys-d-hint,.ys-d-note,.ys-w-uq,
+  .ys-rv-qt,.ys-rv-ok,.ys-rv-oknote,.ys-sp-text,.ys-toast,.ys-fin-n,.ys-tap){letter-spacing:.03em}
+body.ty-tx-ln :is(.ys-c-body p,.ys-c-note p,.ys-d-q p,.ys-key-lead,.ys-code-n,.ys-key-note,.ys-code-st,.ys-fan-n,.ys-exit-lead,.ys-d-hint,.ys-d-note,.ys-w-uq,
+  .ys-rv-qt,.ys-rv-ok,.ys-rv-oknote,.ys-sp-text,.ys-toast,.ys-fin-n,.ys-tap){letter-spacing:normal}
+/* — Кнопки: «← Вернуться на витрину», «Мой код», золотые кнопки, «Оставить отзыв», «К дверям», «Сохранить картинку», состояния, «Собрать» — */
+body.ty-bt-ff :is(.ys-back,.ys-me:not(.ys-ic),.ys-go,.ys-key-go,.ys-sp-btn,.ys-code-b,.ys-key-alt,.ys-c-back,.ys-c-key,.ys-st,.ys-space-back,.ys-gbtn-t,.ys-fin-snd,.ys-fin-save,.ys-kal-btn){font-family:var(--ty-bt-ff)}
+body.ty-bt-fw :is(.ys-back,.ys-me:not(.ys-ic),.ys-go,.ys-key-go,.ys-sp-btn,.ys-code-b,.ys-key-alt,.ys-c-back,.ys-c-key,.ys-st,.ys-space-back,.ys-gbtn-t,.ys-fin-snd,.ys-fin-save,.ys-kal-btn){font-weight:var(--ty-bt-fw)}
+body.ty-bt-fs :is(.ys-back,.ys-me:not(.ys-ic),.ys-go,.ys-key-go,.ys-sp-btn,.ys-code-b,.ys-key-alt,.ys-c-back,.ys-c-key,.ys-st,.ys-space-back,.ys-gbtn-t,.ys-fin-snd,.ys-fin-save,.ys-kal-btn){zoom:var(--ty-bt-fs)}
+body.ty-bt-lw :is(.ys-back,.ys-me:not(.ys-ic),.ys-go,.ys-key-go,.ys-sp-btn,.ys-code-b,.ys-key-alt,.ys-c-back,.ys-c-key,.ys-st,.ys-space-back,.ys-gbtn-t,.ys-fin-snd,.ys-fin-save,.ys-kal-btn){letter-spacing:.06em}
+body.ty-bt-ln :is(.ys-back,.ys-me:not(.ys-ic),.ys-go,.ys-key-go,.ys-sp-btn,.ys-code-b,.ys-key-alt,.ys-c-back,.ys-c-key,.ys-st,.ys-space-back,.ys-gbtn-t,.ys-fin-snd,.ys-fin-save,.ys-kal-btn){letter-spacing:normal}
