@@ -1494,7 +1494,7 @@
   }
 
   /* ---------- Каркас ---------- */
-  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['space', 'Пространство'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['settings', 'Настройки']];
+  var SECTIONS = [['showcases', 'Витрины'], ['home', 'Главная страница'], ['grimoire', 'Гримуар'], ['routes', 'Маршруты'], ['journeys', 'Страницы маршрутов'], ['library', 'Библиотека'], ['events', 'События'], ['sandbox', 'Песочница'], ['reflection', 'Карты-Отражения'], ['uzory', 'Узоры'], ['space', 'Пространство'], ['zapis', 'Запись'], ['psypoint', 'ПсиПоинт'], ['typo', 'Шрифты и надписи'], ['settings', 'Настройки']];
 
   function renderShell() {
     APP.replaceChildren();
@@ -1554,6 +1554,7 @@
     else if (s === 'space') add(m, viewSpace());
     else if (s === 'zapis') add(m, viewZapis());
     else if (s === 'psypoint') add(m, viewPsypoint());
+    else if (s === 'typo') add(m, viewTypo());
     else add(m, viewSettings());
   }
 
@@ -9312,8 +9313,6 @@
         fontIn(lk, 'font', 'Шрифт', fontOptions(false), null, 'Примеры практик · День 3 · Мысль дня'),
         selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
           hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
-      selectIn(lk, 'smallText', 'Мелкий текст', [['', 'Плотнее — лучше читается'], ['thin', 'Тонкий, как было']], { def: '',
-        hint: 'Кнопки-фильтры, текст под картинками, строчки «Маршрут · даты» и «День …» на картинке. Заголовок страницы и вкладки не меняются.' }),
       selectIn(lk, 'lineH', 'Межстрочный интервал', [['', 'Обычный'], ['tight', 'Плотнее'], ['loose', 'Свободнее']], { def: '',
         hint: 'Расстояние между строками в текстах разделов. «Плотнее» — текст компактнее, меньше пустоты.' }),
       el('div', { class: 'a-row' }, [
@@ -11402,6 +11401,64 @@
       el('div', { class: 'a-tabs' }, [el('button', { type: 'button', text: 'Посмотреть страницу', onclick: function () { openPreview('oferta'); } })])
     ], { open: false, note: 'для ЮKassa' });
   }
+  /* ================= ШРИФТЫ И НАДПИСИ (её решение 20.11; docs/shrifty.md) =================
+     Одно место для надписей всего сайта: витрина, Песочница, Примеры, События (и всё новое — само).
+     settings.typo = { title | label | text | btn | glass: { font, size, weight, spacing, color } }; поля нет — стартовый набор
+     (M13.TYPO_DEF: подписи и кнопки — Jost, её выбор «Б»). Какие надписи к какой роли относятся — vitrina.css, раздел «Шрифты и надписи». */
+  var TYPO_INFO = [
+    ['title', 'Заголовки', '«Ноябрь 2026», «Как устроены маршруты», названия карточек и маршрутов', 'Ноябрь 2026 · Синяя Буря'],
+    ['label', 'Строчки-подписи', '«МАРШРУТ», даты, «Маршрут завершён», «идёт сейчас», дни недели в календаре, подписи под отзывами, строчка над заголовком, «Условия и цены»', 'Маршрут · 13–25.11 · идёт сейчас', true],
+    ['text', 'Основной текст', 'описания, вступления, тексты под картинками, отзывы', 'Каждый день маршрута — маленькая дверь к себе.'],
+    ['btn', 'Кнопки', '«открыть», вкладки, фильтры, «События и архив», стрелки «← Октябрь», кнопки на обороте карточки', 'открыть · События и архив →'],
+    ['glass', 'Надписи на стекле картинок', '«Маршрут · даты», название и «День …» на картинках в Песочнице и Примерах', 'Синяя Рука · День 10']
+  ];
+  var TYPO_W = [['light', 'Тонкая', 300], ['normal', 'Обычная', 400], ['medium', 'Плотная', 500], ['semi', 'Полужирная', 600], ['bold', 'Жирная', 700]];
+  function viewTypo() {
+    var M = window.M13, st = DATA.settings, ty = st.typo = st.typo || {};
+    function roleBox(info) {
+      var r = info[0], box = el('div', { class: 'a-typo' });
+      function draw() {
+        var o = ty[r] = ty[r] || {}, def = M.TYPO_DEF[r] || {}, cur = M.typoOf(st)[r];
+        var font = cur.font, caps = M.fontCaps(font || ''), fw = (TYPO_W.filter(function (w) { return w[0] === cur.weight; })[0] || [])[2];
+        if (fw && caps.w.indexOf(fw) < 0) fw = caps.w.reduce(function (a, b) { return Math.abs(b - fw) < Math.abs(a - fw) ? b : a; });
+        M.ensureFont(font || 'Cormorant Garamond');
+        // «как у страницы» — в образце Cormorant Garamond: так набраны страницы сайта, если в их оформлении не выбран другой
+        var sample = el('div', { class: 'a-font-sample', text: info[3], style: "font-family:'" + (font || 'Cormorant Garamond') + "',Georgia,serif;" + (fw ? 'font-weight:' + fw + ';' : '') +
+          (info[4] ? 'text-transform:uppercase;font-size:13px;letter-spacing:' + (cur.spacing === 'normal' ? '.06em' : cur.spacing === 'wide' ? '.16em' : '.08em') + ';' : cur.spacing === 'wide' ? 'letter-spacing:.04em;' : '') +
+          (cur.size && +cur.size !== 100 ? 'zoom:' + (+cur.size / 100) + ';' : '') + (cur.color ? 'color:' + cur.color + ';' : '') });
+        var wOpts = [['', 'Не менять']].concat(TYPO_W.filter(function (w) { return !font || caps.w.indexOf(w[2]) >= 0; }).map(function (w) { return [w[0], w[1]]; }));
+        // у нового шрифта нет такой толщины — показываем ближайшую (так и будет на сайте)
+        var wKey = fw ? TYPO_W.filter(function (w) { return w[2] === fw; })[0][0] : '';
+        if (o.weight && o.weight !== wKey) o.weight = wKey;
+        var changedRole = Object.keys(o).length > 0;
+        box.replaceChildren.apply(box, [
+          el('div', { class: 'a-typo-head' }, [el('b', { text: info[1] }), el('small', { text: info[2] })]),
+          sample,
+          el('div', { class: 'a-row' }, [
+            fontLook(selectIn(o, 'font', 'Шрифт', [['', 'Как у страницы (не менять)']].concat((M.FONTS || []).map(function (f) { return [f, f]; })), { def: def.font || '', onChange: function () { draw(); } })),
+            selectIn(o, 'weight', 'Толщина букв', wOpts, { def: wKey, onChange: function () { draw(); },
+              hint: font && caps.w.length < 3 ? 'У шрифта «' + font + '» есть только эти варианты.' : '' })]),
+          el('div', { class: 'a-row' }, [
+            rangeIn(o, 'size', 'Размер', { min: 60, max: 160, step: 5, def: def.size || 100, unit: ' %', onChange: function () { draw(); }, hint: '100 % — как сейчас.' }),
+            selectIn(o, 'spacing', 'Расстояние между буквами', [['', 'Не менять'], ['normal', 'Обычное'], ['wide', 'Шире']], { def: def.spacing || '', onChange: function () { draw(); } })]),
+          colorOptIn(o, 'color', 'Цвет', { none: 'как у страницы', pick: '#5a3a10', onChange: function () { draw(); } }),
+          changedRole ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть как было по умолчанию', onclick: function () {
+            delete ty[r]; changed(); draw(); } }) : null].filter(Boolean));
+        // ползунок размера меняет образец сразу, не дожидаясь отпускания
+        var rg = box.querySelector('.a-range'); if (rg) rg.addEventListener('input', function () { sample.style.zoom = (+rg.value / 100); });
+      }
+      draw();
+      return box;
+    }
+    return [
+      el('div', {}, [el('h1', { class: 'a-h1', text: 'Шрифты и надписи' }),
+        el('p', { class: 'a-hint', text: 'Одно место для надписей всего сайта: витрины всех месяцев, «Как устроены маршруты», «Примеры», «События». Настраиваются не страницы, а виды надписей — новая страница сама возьмёт то, что выставлено здесь.' }),
+        el('p', { class: 'a-hint', text: '«Не менять» и «как у страницы» — надпись остаётся такой, как задано в оформлении месяца или страницы.' }),
+        el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть на витрине', onclick: function () { openPreview('showcase'); } })]),
+      block('Виды надписей', TYPO_INFO.map(roleBox), { note: 'шрифт, толщина, размер, разрядка, цвет' })
+    ];
+  }
+
   function viewSettings() {
     var st = DATA.settings;
     st.contacts = st.contacts || {}; st.texts = st.texts || {}; st.messages = st.messages || {};
