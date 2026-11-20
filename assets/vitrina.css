@@ -846,15 +846,14 @@ body.m13-locked{overflow:hidden}
 }
 
 /* ================= Размер текста на карточке ================= */
-/* zoom увеличивает надпись вместе с её отступами и рамкой; на телефоне — мягче, там мало места */
-.m13-tt-sm :is(.m13-mini-title,.m13-hero-title){zoom:.88}
-.m13-tt-lg :is(.m13-mini-title,.m13-hero-title){zoom:1.15}
-.m13-ts-lg :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,.m13-flip-hint){zoom:1.18}
-.m13-ts-xl :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,.m13-flip-hint){zoom:1.36}
+/* zoom увеличивает надпись вместе с её отступами и рамкой; на телефоне — мягче, там мало места.
+   Её решение 20.11: настройки «Размер названия / мелких надписей / текста на обороте» убраны; «Крупнее» (так было у всех месяцев) —
+   теперь всегда (класс m13-ts-lg ставит styleOf, m13-bs-lg — оборот). Размер надписи из «Шрифтов и надписей» УМНОЖАЕТСЯ на эту основу:
+   основа — в --m13-zk (не наследуется, чтобы не умножать дважды у вложенных надписей), см. правила ty-*-fs в конце файла. */
+@property --m13-zk{syntax:'<number>';inherits:false;initial-value:1}
+.m13-ts-lg :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,.m13-flip-hint){--m13-zk:1.18;zoom:var(--m13-zk)}
 @media (max-width:680px){
-  .m13-tt-lg .m13-mini-title{zoom:1.08}
-  .m13-ts-lg :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot){zoom:1.1}
-  .m13-ts-xl :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot){zoom:1.2}
+  .m13-ts-lg :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot){--m13-zk:1.1}
 }
 
 /* Выравнивание по правому краю */
@@ -922,7 +921,9 @@ body.m13-locked{overflow:hidden}
 @media (max-width:680px){ .m13-stub{padding:12px 13px;font-size:12.5px} }
 
 /* ================= Размер текста на отдельных страницах (Песочница, Примеры) ================= */
-/* --m13-tk — множитель из «Размер текста» (1 / 1.12 / 1.25). Приписка под отзывом остаётся мелкой. */
+/* --m13-tk — множитель размера текста страниц. Настройку «Размер текста» убрали (её решение 20.11): «Крупнее» (1.12, было у всех страниц) — теперь всегда.
+   Приписка под отзывом остаётся мелкой. */
+.m13-standalone{--m13-tk:1.12}
 .m13-standalone .m13-iback{font-size:calc(13.5px * var(--m13-tk,1))}
 .m13-standalone .m13-ihead .m13-eyebrow{font-size:calc(11.5px * var(--m13-tk,1))}
 .m13-standalone .m13-ihead h2{font-size:calc(clamp(30px,6vw,52px) * var(--m13-tk,1));line-height:1.06;margin-bottom:14px}
@@ -974,11 +975,9 @@ body.m13-locked{overflow:hidden}
 .m13-back-tx .m13-back :is(.m13-day,.m13-format,.m13-item,.m13-price-line,.m13-dates,.m13-soft,.m13-fact,.m13-item-cal,.m13-action:not(.m13-action--primary)){color:inherit}
 .m13-back-tx .m13-head{border-bottom-color:color-mix(in srgb,var(--m13-btx) 18%,transparent)}
 /* Размер текста на обороте: описание, плашки, даты, подписи (кнопки остаются как есть) */
-.m13-bs-lg .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){zoom:1.14}
-.m13-bs-xl .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){zoom:1.28}
+.m13-bs-lg .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){--m13-zk:1.14;zoom:var(--m13-zk)}
 @media (max-width:680px){
-  .m13-bs-lg .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){zoom:1.12}
-  .m13-bs-xl .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){zoom:1.24}
+  .m13-bs-lg .m13-back :is(.m13-eyebrow,.m13-meta,.m13-desc,.m13-day,.m13-info,.m13-dates,.m13-more,.m13-fact,.m13-price-line,.m13-block-title,.m13-item-text,.m13-item-meta,.m13-item-title,.m13-item-date,.m13-format-name,.m13-format-price,.m13-format-note){--m13-zk:1.12}
 }
 
 /* Градиент на кнопке тянется и под рамку — иначе у края видна тонкая полоска другого конца градиента */
@@ -1360,7 +1359,7 @@ body.m13-locked{overflow:hidden}
 .m13-cal-free-l{opacity:.75;margin-right:2px}
 .m13-cal-chip{border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:999px;background:transparent;color:inherit;font:inherit;padding:5px 11px;cursor:pointer}
 .m13-cal-chip:hover{border-color:currentColor}
-.m13-bs-lg .m13-cal{zoom:1.08}.m13-bs-xl .m13-cal{zoom:1.16}
+.m13-bs-lg .m13-cal{zoom:1.08}
 /* Мини-календарь на лицевой стороне маленькой карточки — только для вида, нажатие открывает большой */
 .m13-thumb--cal{justify-content:flex-start;align-items:stretch;padding:11px 10px 8px}
 .m13-calmini{position:relative;z-index:2;display:flex;flex-direction:column;width:100%;height:100%;min-height:0}
@@ -2037,7 +2036,7 @@ body.m13-locked{overflow:hidden}
 /* Страница кина: колесо — целиком на экране вместе с заголовком (не больше высоты окна) */
 .m13-kin-page .m13-kw-stage{max-width:max(300px,min(560px,calc(100vh - 320px)));max-width:max(300px,min(560px,calc(100svh - 320px)))}
 /* «Размер текста оборота» у месяца — и для ответа кина */
-.m13-bs-lg .m13-back .m13-kin-out{zoom:1.12}.m13-bs-xl .m13-back .m13-kin-out{zoom:1.24}
+.m13-bs-lg .m13-back .m13-kin-out{zoom:1.12}
 /* Свои плашки месяца (kinLook: фон под текстами) */
 .m13-kin.m13-kin--own :is(.m13-kin-sig,.m13-kin-sec,.m13-kin-arch,.m13-kin-hunab){background:var(--kin-pan);border:1px solid var(--kin-line);color:var(--kin-tx);
   border-radius:14px;-webkit-backdrop-filter:none;backdrop-filter:none;text-shadow:none}
@@ -2485,74 +2484,75 @@ body.m13-locked{overflow:hidden}
 
 /* ================= Шрифты и надписи (settings.typo — её решение 20.11; docs/shrifty.md) =================
    Роли надписей: tt — заголовки, lb — строчки-подписи, tx — основной текст, bt — кнопки, gs — надписи на стекле картинок.
-   Классы ty-<роль>-<свойство> и переменные ставит applyTypo (vitrina.js) на корень .m13 — только для заданных свойств.
+   Классы ty-<роль>-<свойство> и переменные ставит applyTypo (vitrina.js) на корень .m13 — только для заданных свойств;
+   «Своё» у страницы — на её обёртку .m13-standalone. Размер умножается на основу --m13-zk (раздел «Размер текста на карточке»).
    НОВАЯ СТРАНИЦА: впиши классы её надписей в нужную роль ниже — и она сама возьмёт настройки из панели. */
 /* — Строчки-подписи: «МАРШРУТ», даты, статусы, «завершён», дни недели, подписи под отзывами, строчка над заголовком — */
-.m13.ty-lb-ff :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,
+:is(.m13,.m13-standalone).ty-lb-ff :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,
   .m13-cal-wd,.m13-cal-n,.m13-eyebrow,.m13-meta,.m13-dates-label,.m13-dates-note,.m13-format-note,.m13-item-meta,.m13-item-date,.m13-panel-meta,
   .m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-legal-links,.m13-sb-item-top,.m13-sb-item-day){font-family:var(--ty-lb-ff)}
-.m13.ty-lb-fw :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,
+:is(.m13,.m13-standalone).ty-lb-fw :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,
   .m13-cal-wd,.m13-eyebrow,.m13-meta,.m13-dates-label,.m13-dates-note,.m13-format-note,.m13-item-meta,.m13-item-date,.m13-panel-meta,
   .m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-legal-links,.m13-sb-item-top,.m13-sb-item-day){font-weight:var(--ty-lb-fw)}
-.m13.ty-lb-co :is(.m13-kicker,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,
+:is(.m13,.m13-standalone).ty-lb-co :is(.m13-kicker,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-type,.m13-hero-date,.m13-hero-status,
   .m13-cal-wd,.m13-eyebrow,.m13-meta,.m13-dates-label,.m13-dates-note,.m13-format-note,.m13-item-meta,.m13-item-date,.m13-panel-meta,
   .m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-legal-links,.m13-sb-item-top,.m13-sb-item-day){color:var(--ty-lb-co);opacity:1}
-.m13.ty-lb-fs :is(.m13-kicker,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot > :not(.m13-mini-cta),.m13-hero-type,.m13-hero-date,.m13-hero-status,
+:is(.m13,.m13-standalone).ty-lb-fs :is(.m13-kicker,.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot > :not(.m13-mini-cta),.m13-hero-type,.m13-hero-date,.m13-hero-status,
   .m13-cal-wd,.m13-eyebrow,.m13-meta,.m13-dates-label,.m13-dates-note,.m13-format-note,.m13-item-meta,.m13-item-date,.m13-panel-meta,
-  .m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-legal-links,.m13-sb-item-top,.m13-sb-item-day){zoom:var(--ty-lb-fs)}
-.m13.ty-lb-lw :is(.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-date,.m13-hero-status,.m13-meta,.m13-dates-note,.m13-format-note,.m13-item-meta,
+  .m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-legal-links,.m13-sb-item-top,.m13-sb-item-day){zoom:calc(var(--ty-lb-fs) * var(--m13-zk,1))}
+:is(.m13,.m13-standalone).ty-lb-lw :is(.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-date,.m13-hero-status,.m13-meta,.m13-dates-note,.m13-format-note,.m13-item-meta,
   .m13-item-date,.m13-panel-meta,.m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-sb-item-top,.m13-sb-item-day){letter-spacing:.03em}
-.m13.ty-lb-lw :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-hero-type,.m13-eyebrow,.m13-dates-label,.m13-legal-links){letter-spacing:.16em}
-.m13.ty-lb-ln :is(.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-date,.m13-hero-status,.m13-meta,.m13-dates-note,.m13-format-note,.m13-item-meta,
+:is(.m13,.m13-standalone).ty-lb-lw :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-hero-type,.m13-eyebrow,.m13-dates-label,.m13-legal-links){letter-spacing:.16em}
+:is(.m13,.m13-standalone).ty-lb-ln :is(.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-date,.m13-hero-status,.m13-meta,.m13-dates-note,.m13-format-note,.m13-item-meta,
   .m13-item-date,.m13-panel-meta,.m13-rv-who,.m13-rv-meta,.m13-example-meta,.m13-tilem-meta,.m13-cal-legend,.m13-cal-hint,.m13-sb-item-top,.m13-sb-item-day){letter-spacing:normal}
-.m13.ty-lb-ln :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-hero-type,.m13-eyebrow,.m13-dates-label,.m13-legal-links){letter-spacing:.06em}
+:is(.m13,.m13-standalone).ty-lb-ln :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-hero-type,.m13-eyebrow,.m13-dates-label,.m13-legal-links){letter-spacing:.06em}
 /* Jost и другие простые шрифты на месте Cormorant крупнее на глаз — дни недели в маленьком календаре чуть мельче */
-.m13.ty-lb-ff .m13-calmini :is(.m13-cal-wd,.m13-cal-n){letter-spacing:0}
+:is(.m13,.m13-standalone).ty-lb-ff .m13-calmini :is(.m13-cal-wd,.m13-cal-n){letter-spacing:0}
 
 /* — Кнопки: «открыть», вкладки, фильтры, «События и архив», стрелки месяцев, кнопки на обороте — */
-.m13.ty-bt-ff :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
+:is(.m13,.m13-standalone).ty-bt-ff :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
   .m13-item-action,.m13-go,.m13-rs-btn,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){font-family:var(--ty-bt-ff)}
-.m13.ty-bt-fw :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
+:is(.m13,.m13-standalone).ty-bt-fw :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
   .m13-item-action,.m13-go,.m13-rs-btn,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){font-weight:var(--ty-bt-fw)}
-.m13.ty-bt-co :is(.m13-mini-cta,.m13-flip-hint,.m13-chip:not(.is-active),.m13-tab:not(.is-active),.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
+:is(.m13,.m13-standalone).ty-bt-co :is(.m13-mini-cta,.m13-flip-hint,.m13-chip:not(.is-active),.m13-tab:not(.is-active),.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
   .m13-item-action,.m13-go,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){color:var(--ty-bt-co)}
-.m13.ty-bt-fs :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
-  .m13-item-action,.m13-go,.m13-rs-btn,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){zoom:var(--ty-bt-fs)}
-.m13.ty-bt-lw :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
+:is(.m13,.m13-standalone).ty-bt-fs :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
+  .m13-item-action,.m13-go,.m13-rs-btn,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){zoom:calc(var(--ty-bt-fs) * var(--m13-zk,1))}
+:is(.m13,.m13-standalone).ty-bt-lw :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
   .m13-item-action,.m13-go,.m13-rs-btn,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){letter-spacing:.06em}
-.m13.ty-bt-ln :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
+:is(.m13,.m13-standalone).ty-bt-ln :is(.m13-mini-cta,.m13-flip-hint,.m13-chip,.m13-tab,.m13-action,.m13-evlink,.m13-more-open,.m13-more-close,.m13-iback,.m13-mnav a,
   .m13-item-action,.m13-go,.m13-rs-btn,.m13-examples-cta,.m13-read-go,.m13-kin-link,.m13-howto,.m13-rv-more){letter-spacing:normal}
 
 /* — Заголовки: «Ноябрь 2026», «Как устроены маршруты», названия карточек и маршрутов — */
-.m13.ty-tt-ff :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){font-family:var(--ty-tt-ff)}
-.m13.ty-tt-fw :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){font-weight:var(--ty-tt-fw)}
-.m13.ty-tt-co :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){color:var(--ty-tt-co)}
-.m13.ty-tt-fs :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){zoom:var(--ty-tt-fs)}
-.m13.ty-tt-lw :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){letter-spacing:.05em}
-.m13.ty-tt-ln :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){letter-spacing:normal}
+:is(.m13,.m13-standalone).ty-tt-ff :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){font-family:var(--ty-tt-ff)}
+:is(.m13,.m13-standalone).ty-tt-fw :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){font-weight:var(--ty-tt-fw)}
+:is(.m13,.m13-standalone).ty-tt-co :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){color:var(--ty-tt-co)}
+:is(.m13,.m13-standalone).ty-tt-fs :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){zoom:calc(var(--ty-tt-fs) * var(--m13-zk,1))}
+:is(.m13,.m13-standalone).ty-tt-lw :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){letter-spacing:.05em}
+:is(.m13,.m13-standalone).ty-tt-ln :is(.m13-header h1,.m13-ihead h2,.m13-mini-title,.m13-hero-title,.m13-calmini-t,.m13-item-title,.m13-format-name,.m13-block-title,.m13-cover-title,.m13-tile-t,.m13-rs-title){letter-spacing:normal}
 
 /* — Основной текст: описания, тексты дней, отзывы, вступления — */
-.m13.ty-tx-ff :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){font-family:var(--ty-tx-ff)}
-.m13.ty-tx-fw :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){font-weight:var(--ty-tx-fw)}
-.m13.ty-tx-co :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){color:var(--ty-tx-co);opacity:1}
-.m13.ty-tx-fs :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){zoom:var(--ty-tx-fs)}
-.m13.ty-tx-lw :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){letter-spacing:.03em}
-.m13.ty-tx-ln :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){letter-spacing:normal}
+:is(.m13,.m13-standalone).ty-tx-ff :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){font-family:var(--ty-tx-ff)}
+:is(.m13,.m13-standalone).ty-tx-fw :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){font-weight:var(--ty-tx-fw)}
+:is(.m13,.m13-standalone).ty-tx-co :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){color:var(--ty-tx-co);opacity:1}
+:is(.m13,.m13-standalone).ty-tx-fs :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){zoom:calc(var(--ty-tx-fs) * var(--m13-zk,1))}
+:is(.m13,.m13-standalone).ty-tx-lw :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){letter-spacing:.03em}
+:is(.m13,.m13-standalone).ty-tx-ln :is(.m13-intro,.m13-ihead p,.m13-desc,.m13-rich,.m13-cover-sub,.m13-cover-line,.m13-more-text,.m13-rv-text,.m13-sb-intro,.m13-sb-item-sub,.m13-quote){letter-spacing:normal}
 
 /* — Надписи на стекле картинок: «Маршрут · даты», название, «День …» — */
-.m13.ty-gs-ff :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){font-family:var(--ty-gs-ff)}
-.m13.ty-gs-fw :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){font-weight:var(--ty-gs-fw)}
-.m13.ty-gs-co :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){color:var(--ty-gs-co)}
-.m13.ty-gs-fs :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){zoom:var(--ty-gs-fs)}
-.m13.ty-gs-lw :is(.m13-gl-top,.m13-gl-d){letter-spacing:.12em}
-.m13.ty-gs-ln :is(.m13-gl-top,.m13-gl-d){letter-spacing:normal}
+:is(.m13,.m13-standalone).ty-gs-ff :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){font-family:var(--ty-gs-ff)}
+:is(.m13,.m13-standalone).ty-gs-fw :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){font-weight:var(--ty-gs-fw)}
+:is(.m13,.m13-standalone).ty-gs-co :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){color:var(--ty-gs-co)}
+:is(.m13,.m13-standalone).ty-gs-fs :is(.m13-gl-top,.m13-gl-t,.m13-gl-d){zoom:calc(var(--ty-gs-fs) * var(--m13-zk,1))}
+:is(.m13,.m13-standalone).ty-gs-lw :is(.m13-gl-top,.m13-gl-d){letter-spacing:.12em}
+:is(.m13,.m13-standalone).ty-gs-ln :is(.m13-gl-top,.m13-gl-d){letter-spacing:normal}
 
 /* Телефон: карточки узкие — разрядка меньше, простые (широкие) шрифты чуть компактнее */
 @media (max-width:680px){
-  .m13.ty-lb-lw :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-hero-type,.m13-eyebrow,.m13-dates-label,.m13-legal-links){letter-spacing:.08em}
-  .m13.ty-lb-lw :is(.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-date,.m13-hero-status){letter-spacing:0}
-  .m13.ty-lb-wd .m13-grid :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot > :not(.m13-mini-cta)){zoom:calc(var(--ty-lb-fs,1) * .9)}
-  .m13.ty-bt-wd .m13-grid .m13-mini-cta{zoom:calc(var(--ty-bt-fs,1) * .9)}
+  :is(.m13,.m13-standalone).ty-lb-lw :is(.m13-kicker,.m13-kicker .m13-gt,.m13-mini-type,.m13-hero-type,.m13-eyebrow,.m13-dates-label,.m13-legal-links){letter-spacing:.08em}
+  :is(.m13,.m13-standalone).ty-lb-lw :is(.m13-mini-date,.m13-mini-status,.m13-mini-foot,.m13-hero-date,.m13-hero-status){letter-spacing:0}
+  :is(.m13,.m13-standalone).ty-lb-wd .m13-grid :is(.m13-mini-type,.m13-mini-date,.m13-mini-status,.m13-mini-foot > :not(.m13-mini-cta)){zoom:calc(var(--ty-lb-fs,1) * .9)}
+  :is(.m13,.m13-standalone).ty-bt-wd .m13-grid .m13-mini-cta{zoom:calc(var(--ty-bt-fs,1) * .9)}
 }
 
 /* ================= Шапка витрины — вместе с сеткой (её «делаем» 20.11) =================

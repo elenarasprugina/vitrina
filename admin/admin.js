@@ -333,12 +333,6 @@
         selectIn(stl, 'textAlign', 'Выравнивание текста', inh.concat([['left', 'По левому краю'], ['center', 'По центру'], ['right', 'По правому краю']]),
           { def: forCard ? 'inherit' : 'left', onChange: onChange })]),
       el('div', { class: 'a-row' }, [
-        selectIn(stl, 'titleSize', 'Размер названия', inh.concat([['sm', 'Меньше'], ['md', 'Обычный'], ['lg', 'Крупнее']]),
-          { def: forCard ? 'inherit' : 'md', onChange: onChange }),
-        selectIn(stl, 'smallSize', 'Размер мелких надписей', inh.concat([['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']]),
-          { def: forCard ? 'inherit' : 'md', onChange: onChange,
-            hint: 'Тип, даты, «Вход открыт», «открыть», «Нажать — открыть оборот». На телефоне увеличиваются мягче — там мало места.' })]),
-      el('div', { class: 'a-row' }, [
         selectIn(stl, 'ctaLook', 'Кнопка «открыть» — вид', inh.concat([['none', 'Как было — рамка'], ['pale', 'Тонкая бледная рамка'], ['glass', 'Стёклышко без рамки'], ['word', 'Только слово'], ['fill', 'Заливка цветом']]),
           { def: forCard ? 'inherit' : 'none', onChange: onChange, hint: 'И «открыть» на маленьких карточках, и «Нажать — открыть оборот» на большой.' }),
         colorOptIn(stl, 'ctaColor', 'Кнопка «открыть» — цвет рамки и надписи', { none: forCard ? 'как у всей витрины' : 'как у текста и акцента', pick: '#960c0d', inh: inhOf(d, forCard, 'ctaColor'), onChange: onChange,
@@ -491,8 +485,6 @@
           rangeOptIn(stl, 'backBlur', 'Размытие за оборотом', { max: 20, step: 1, unit: ' px', def: 8, onChange: onChange,
             hint: 'Работает, когда оборот прозрачный. 0 — витрина за ним чёткая, 8–12 — матовое стекло.' }, forCard)]),
         el('div', { class: 'a-row' }, [
-          selectIn(stl, 'backSize', 'Размер текста на обороте', inh.concat([['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']]),
-            { def: forCard ? 'inherit' : 'md', onChange: onChange, hint: 'Описание, плашки, даты, подписи. Кнопки остаются как есть.' }),
           el('p', { class: 'a-hint', style: 'align-self:end', text: 'Узор и контур появляются и на обороте открытой карточки.' })])
       ]);
     }
@@ -2245,6 +2237,8 @@
         sub('Оформление всех карточек'),
         el('p', { class: 'a-hint', text: 'Задаётся один раз для всего месяца. У любой карточки можно поменять отдельно — в её форме, раздел «Оформление».' })
       ].concat(styleFields(sc.cardStyle = sc.cardStyle || {}, false, function () { drawGrid(); }), [
+        sub('Шрифты и надписи этого месяца'),
+        ownTypoFields(sc, 'этого месяца'),
         sub('Окна и сообщения'),
         winFields(sc.cardStyle, false, function () {
           var c0 = (sc.cards || []).filter(function (c) { return c && c.visible !== false && c.interactive !== false && c.back && c.back.type !== 'static' && !(c.monthCal && c.monthCal.on); })[0];
@@ -3006,10 +3000,10 @@
   /* ---------- Копирование карточки из любого месяца ---------- */
   // Скопировать только оформление (без текстов) с другой карточки: лицевую сторону, оборот или всё; сюда или всем карточкам месяца
   var STYLE_FRONT = ['font', 'textColor', 'overlay', 'bg', 'textPos', 'textAlign', 'accent', 'glow', 'glowColor', 'glowStrength', 'glowDir',
-    'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp', 'titleSize', 'smallSize',
+    'glass', 'glassBlur', 'rim', 'pattern', 'patternImage', 'patternPlace', 'patternColor', 'patternOpacity', 'textHelp',
     'hazeStrength', 'rimPlace', 'rimColor', 'rimLive', 'rimRunColor', 'glowTempo', 'rimSpeed',
     'rimWidth', 'rimShape', 'sheen', 'patternSize', 'patternTilt', 'patternMirror', 'patternShadow', 'ctaLook', 'ctaColor', 'ctaShadow'];
-  var STYLE_BACK = ['backBg', 'backText', 'backSize', 'backGlass', 'backBlur', 'btnSpeed'].concat(BTN_KEYS);
+  var STYLE_BACK = ['backBg', 'backText', 'backGlass', 'backBlur', 'btnSpeed'].concat(BTN_KEYS);
   function copyStyle(src, dst, what) {
     var fs = (src.front || {}).style || {}, df = dst.front = dst.front || {}, ds = df.style = df.style || {};
     var keys = what === 'front' ? STYLE_FRONT : what === 'back' ? STYLE_BACK : STYLE_FRONT.concat(STYLE_BACK);
@@ -9287,8 +9281,7 @@
       // Панели — цветом оборота карточек, текст в них — цветом текста оборота (пусто — подберётся по панели);
       // заголовок стоит на картинке — цветом надписей над сеткой витрины
       sb.look = { background: bg, font: cs.font || '', textColor: cs.backText || '', headColor: (sc.head || {}).color || cs.textColor || '',
-        accent: cs.accent || (sc.head || {}).color || '', panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8,
-        textSize: cs.font === 'Cormorant Garamond' ? 'lg' : 'md' };
+        accent: cs.accent || (sc.head || {}).color || '', panelBg: cs.backBg || cs.bg || '', glass: 25, glassBlur: 8 };
       toast('Оформление взято у витрины «' + (sc.title || id) + '». Можно подправить ниже.');
       redraw();
     }
@@ -9311,8 +9304,7 @@
       sub('Текст и панели'),
       el('div', { class: 'a-row' }, [
         fontIn(lk, 'font', 'Шрифт', fontOptions(false), null, 'Примеры практик · День 3 · Мысль дня'),
-        selectIn(lk, 'textSize', 'Размер текста', [['md', 'Обычный'], ['lg', 'Крупнее'], ['xl', 'Ещё крупнее']], { def: 'md',
-          hint: 'Для шрифта Cormorant Garamond обычно лучше «Крупнее» — он сам по себе мелковат.' })]),
+        el('p', { class: 'a-hint', style: 'align-self:end', text: 'Размер, толщина и цвет надписей — в разделе «Шрифты и надписи» (для всего сайта) или ниже, «Своё у этой страницы».' })]),
       selectIn(lk, 'lineH', 'Межстрочный интервал', [['', 'Обычный'], ['tight', 'Плотнее'], ['loose', 'Свободнее']], { def: '',
         hint: 'Расстояние между строками в текстах разделов. «Плотнее» — текст компактнее, меньше пустоты.' }),
       el('div', { class: 'a-row' }, [
@@ -9327,6 +9319,8 @@
       el('div', { class: 'a-row' }, [
         rangeIn(lk, 'glass', 'Прозрачность панелей', { max: 90, step: 5, unit: '%', hint: '0% — сплошные. 20–40% — сквозь панели чуть видна картинка, текст читается.' }),
         rangeIn(lk, 'glassBlur', 'Размытие за панелями', { max: 20, unit: ' px', def: 8 })]),
+      sub('Шрифты и надписи этой страницы'),
+      ownTypoFields(lk, 'этой страницы'),
       which === 'events' ? sub('Стекло на картинке') : which === 'sandbox' ? sub('Стекло на картинках маршрутов') : sub('Стекло на картинке'),
       glassPatternFields(which === 'events' ? 'event' : which === 'sandbox' ? 'route' : 'kin'),
       which === 'reflection' ? null : sub('Вкладки'),
@@ -11413,12 +11407,15 @@
     ['glass', 'Надписи на стекле картинок', '«Маршрут · даты», название и «День …» на картинках в Песочнице и Примерах', 'Синяя Рука · День 10']
   ];
   var TYPO_W = [['light', 'Тонкая', 300], ['normal', 'Обычная', 400], ['medium', 'Плотная', 500], ['semi', 'Полужирная', 600], ['bold', 'Жирная', 700]];
-  function viewTypo() {
-    var M = window.M13, st = DATA.settings, ty = st.typo = st.typo || {};
+  // Виды надписей: ty — settings.typo (весь сайт) или «Своё» месяца/страницы (own = true: пусто — как у всего сайта)
+  function typoRoles(ty, own) {
+    var M = window.M13, st = DATA.settings;
+    var ASIS = own ? 'Как у всего сайта' : 'Не менять';
     function roleBox(info) {
       var r = info[0], box = el('div', { class: 'a-typo' });
       function draw() {
-        var o = ty[r] = ty[r] || {}, def = M.TYPO_DEF[r] || {}, cur = M.typoOf(st)[r];
+        var base = M.typoOf(st)[r];
+        var o = ty[r] = ty[r] || {}, def = own ? base : (M.TYPO_DEF[r] || {}), cur = M.typoOf(st, own ? Object.assign({}, ty, { own: true }) : null)[r];
         var font = cur.font, caps = M.fontCaps(font || ''), fw = (TYPO_W.filter(function (w) { return w[0] === cur.weight; })[0] || [])[2];
         if (fw && caps.w.indexOf(fw) < 0) fw = caps.w.reduce(function (a, b) { return Math.abs(b - fw) < Math.abs(a - fw) ? b : a; });
         M.ensureFont(font || 'Cormorant Garamond');
@@ -11426,23 +11423,25 @@
         var sample = el('div', { class: 'a-font-sample', text: info[3], style: "font-family:'" + (font || 'Cormorant Garamond') + "',Georgia,serif;" + (fw ? 'font-weight:' + fw + ';' : '') +
           (info[4] ? 'text-transform:uppercase;font-size:13px;letter-spacing:' + (cur.spacing === 'normal' ? '.06em' : cur.spacing === 'wide' ? '.16em' : '.08em') + ';' : cur.spacing === 'wide' ? 'letter-spacing:.04em;' : '') +
           (cur.size && +cur.size !== 100 ? 'zoom:' + (+cur.size / 100) + ';' : '') + (cur.color ? 'color:' + cur.color + ';' : '') });
-        var wOpts = [['', 'Не менять']].concat(TYPO_W.filter(function (w) { return !font || caps.w.indexOf(w[2]) >= 0; }).map(function (w) { return [w[0], w[1]]; }));
+        var wOpts = [['', ASIS]].concat(TYPO_W.filter(function (w) { return !font || caps.w.indexOf(w[2]) >= 0; }).map(function (w) { return [w[0], w[1]]; }));
         // у нового шрифта нет такой толщины — показываем ближайшую (так и будет на сайте)
         var wKey = fw ? TYPO_W.filter(function (w) { return w[2] === fw; })[0][0] : '';
         if (o.weight && o.weight !== wKey) o.weight = wKey;
-        var changedRole = Object.keys(o).length > 0;
+        var changedRole = own ? Object.keys(o).some(function (k) { return o[k] != null && o[k] !== ''; }) : Object.keys(o).length > 0;
         box.replaceChildren.apply(box, [
           el('div', { class: 'a-typo-head' }, [el('b', { text: info[1] }), el('small', { text: info[2] })]),
           sample,
           el('div', { class: 'a-row' }, [
-            fontLook(selectIn(o, 'font', 'Шрифт', [['', 'Как у страницы (не менять)']].concat((M.FONTS || []).map(function (f) { return [f, f]; })), { def: def.font || '', onChange: function () { draw(); } })),
-            selectIn(o, 'weight', 'Толщина букв', wOpts, { def: wKey, onChange: function () { draw(); },
+            fontLook(selectIn(o, 'font', 'Шрифт', [['', own ? 'Как у всего сайта' : 'Как у страницы (не менять)']].concat((M.FONTS || []).map(function (f) { return [f, f]; })),
+              { def: own ? '' : def.font || '', onChange: function () { draw(); } })),
+            selectIn(o, 'weight', 'Толщина букв', wOpts, { def: own ? '' : wKey, onChange: function () { draw(); },
               hint: font && caps.w.length < 3 ? 'У шрифта «' + font + '» есть только эти варианты.' : '' })]),
           el('div', { class: 'a-row' }, [
-            rangeIn(o, 'size', 'Размер', { min: 60, max: 160, step: 5, def: def.size || 100, unit: ' %', onChange: function () { draw(); }, hint: '100 % — как сейчас.' }),
-            selectIn(o, 'spacing', 'Расстояние между буквами', [['', 'Не менять'], ['normal', 'Обычное'], ['wide', 'Шире']], { def: def.spacing || '', onChange: function () { draw(); } })]),
-          colorOptIn(o, 'color', 'Цвет', { none: 'как у страницы', pick: '#5a3a10', onChange: function () { draw(); } }),
-          changedRole ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: 'Вернуть как было по умолчанию', onclick: function () {
+            rangeIn(o, 'size', 'Размер', { min: 60, max: 160, step: 5, def: +def.size || 100, unit: ' %', onChange: function () { draw(); },
+              hint: own ? 'Сначала стоит размер всего сайта.' : '100 % — как сейчас.' }),
+            selectIn(o, 'spacing', 'Расстояние между буквами', [['', ASIS], ['normal', 'Обычное'], ['wide', 'Шире']], { def: own ? '' : def.spacing || '', onChange: function () { draw(); } })]),
+          colorOptIn(o, 'color', 'Цвет', { none: own ? 'как у всего сайта' : 'как у страницы', inh: own ? base.color : '', pick: '#5a3a10', onChange: function () { draw(); } }),
+          changedRole ? el('button', { type: 'button', class: 'a-btn a-btn--small a-btn--ghost', text: own ? 'Вернуть как у всего сайта' : 'Вернуть как было по умолчанию', onclick: function () {
             delete ty[r]; changed(); draw(); } }) : null].filter(Boolean));
         // ползунок размера меняет образец сразу, не дожидаясь отпускания
         var rg = box.querySelector('.a-range'); if (rg) rg.addEventListener('input', function () { sample.style.zoom = (+rg.value / 100); });
@@ -11450,12 +11449,34 @@
       draw();
       return box;
     }
+    return TYPO_INFO.map(roleBox);
+  }
+  // «Своё у месяца / страницы» (её решение 20.11): holder — месяц (sc) или оформление страницы (look); holder.typo = {own, <роль>: {…}}
+  function ownTypoFields(holder, what) {
+    var box = el('div');
+    function draw() {
+      var on = !!(holder.typo && holder.typo.own);
+      var sw = selectIn({ v: on ? 'own' : '' }, 'v', 'Как набраны надписи ' + what, [['', 'Как у всего сайта'], ['own', 'Своё']], {
+        hint: on ? 'Меняйте только то, что должно отличаться, — остальное берётся из раздела «Шрифты и надписи».'
+          : 'Шрифт, размер, толщина и цвет надписей — из раздела «Шрифты и надписи». «Своё» — если здесь надписи должны быть другими.',
+        onChange: function (v) {
+          holder.typo = holder.typo || {}; holder.typo.own = v === 'own';
+          if (!holder.typo.own && Object.keys(holder.typo).length === 1) delete holder.typo;
+          draw();
+        } });
+      box.replaceChildren.apply(box, [sw].concat(on ? typoRoles(holder.typo, true) : []));
+    }
+    draw();
+    return box;
+  }
+  function viewTypo() {
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'Шрифты и надписи' }),
         el('p', { class: 'a-hint', text: 'Одно место для надписей всего сайта: витрины всех месяцев, «Как устроены маршруты», «Примеры», «События». Настраиваются не страницы, а виды надписей — новая страница сама возьмёт то, что выставлено здесь.' }),
         el('p', { class: 'a-hint', text: '«Не менять» и «как у страницы» — надпись остаётся такой, как задано в оформлении месяца или страницы.' }),
+        el('p', { class: 'a-hint', text: 'Если какой-то месяц или страница должны выглядеть иначе — там, в оформлении, есть «Шрифты и надписи: Своё».' }),
         el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть на витрине', onclick: function () { openPreview('showcase'); } })]),
-      block('Виды надписей', TYPO_INFO.map(roleBox), { note: 'шрифт, толщина, размер, разрядка, цвет' })
+      block('Виды надписей', typoRoles(DATA.settings.typo = DATA.settings.typo || {}, false), { note: 'шрифт, толщина, размер, разрядка, цвет' })
     ];
   }
 
@@ -11890,6 +11911,14 @@
 
   // Приводит данные к нынешнему виду (старые обороты → блоки).
   function migrate(D) {
+    // «Шрифты и надписи», шаг 2 (её решение 20.11): размеры надписей — только там. «Крупнее» (было у всех месяцев и страниц) стало обычным
+    // на сайте, старые поля убираем: titleSize, smallSize, backSize у месяца и карточек, textSize и smallText у страниц
+    Object.keys(D.showcases || {}).forEach(function (id) {
+      var sc = D.showcases[id] || {};
+      [sc.cardStyle].concat((sc.cards || []).map(function (c) { return c && c.front && c.front.style; })).forEach(function (x) {
+        if (x) { delete x.titleSize; delete x.smallSize; delete x.backSize; } });
+    });
+    [D.sandbox, D.events, D.reflection].forEach(function (x) { if (x && x.look) { delete x.look.textSize; delete x.look.smallText; } });
     // Бот Host (с 05.10.2026): в старом черновике поля нет — берём с сайта; если она его очистила (''), не трогаем
     var stc = (D.settings || {}).contacts;
     if (stc && stc.host === undefined) stc.host = ((((ORIGINAL || {}).settings || {}).contacts || {}).host) || '';
