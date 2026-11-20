@@ -171,7 +171,8 @@
     var p = opts.data ? Promise.resolve(opts.data) : M13.load(S.base, opts.showcase);
     return p.then(function (D) {
       S.D = D;
-      applyTypo(el, D.settings);
+      // «Своё» у месяца — на всю витрину месяца; у страниц — на их обёртке (pageTypo)
+      applyTypo(el, D.settings, /^(sandbox|reflection|events|kin)$/.test(S.view) ? null : (D.showcase || {}).typo);
       if (S.view === 'sandbox') renderStandalone('sandbox');
       else if (S.view === 'reflection') renderStandalone('reflection');
       else if (S.view === 'events') renderStandalone('events');
@@ -1259,28 +1260,38 @@
        weight  — '' не менять | light | normal | medium | semi | bold (берётся ближайшая, что есть у шрифта);
        spacing — '' не менять | normal | wide (разрядка; у строчек заглавными — шире);
        color   — '' как у страницы | #hex.
-     Поля нет (undefined) — берётся стартовый набор TYPO_DEF (её выбор «Б» 20.11: подписи и кнопки — Jost).
+     Поля нет (undefined) — берётся стартовый набор TYPO_DEF (её выбор 20.11 (5): подписи и кнопки — Philosopher; Jost, вариант «Б», ей показался рубленым).
+     «Своё» у месяца (showcases/<id>.json → typo) и у страницы (sandbox|events|reflection.look.typo): {own: true, <роль>: {…те же поля}} —
+     заданное там сильнее общего; пусто ('' или поля нет) — как у всего сайта. own: false — выключено (настройки хранятся).
      Применяется к корню .m13: переменные --ty-<роль>-<свойство> и классы ty-<роль>-<свойство>;
      какие надписи к какой роли относятся — vitrina.css, раздел «Шрифты и надписи» (новая страница помечает свои надписи там). */
   var TYPO_ROLES = ['title', 'label', 'text', 'btn', 'glass'];
   var TYPO_KEY = { title: 'tt', label: 'lb', text: 'tx', btn: 'bt', glass: 'gs' };
-  var TYPO_DEF = { label: { font: 'Jost', weight: 'medium', spacing: 'wide' }, btn: { font: 'Jost', weight: 'medium' } };
-  function typoOf(st) {
+  var TYPO_DEF = { label: { font: 'Philosopher', weight: 'normal', spacing: 'wide' }, btn: { font: 'Philosopher', weight: 'normal' } };
+  function typoOf(st, own) {
     var t = (st && st.typo) || {}, out = {};
+    own = own && own.own ? own : null;
     TYPO_ROLES.forEach(function (r) {
-      var o = t[r] || {}, d = TYPO_DEF[r] || {}, x = {};
-      ['font', 'size', 'weight', 'spacing', 'color'].forEach(function (k) { x[k] = o[k] !== undefined ? o[k] : d[k] !== undefined ? d[k] : ''; });
+      var o = t[r] || {}, d = TYPO_DEF[r] || {}, w = (own && own[r]) || {}, x = {};
+      ['font', 'size', 'weight', 'spacing', 'color'].forEach(function (k) {
+        x[k] = w[k] != null && w[k] !== '' ? w[k] : o[k] !== undefined ? o[k] : d[k] !== undefined ? d[k] : '';
+      });
       out[r] = x;
     });
     return out;
+  }
+  // «Своё» у страницы — на её обёртке .m13-standalone (и отдельной страницы, и открытой поверх витрины)
+  function pageTypo(box, which) {
+    var w = box && box.querySelector('.m13-standalone'), lk = pageLookOf(which);
+    if (w && lk.typo && lk.typo.own) applyTypo(w, S.D.settings, lk.typo);
   }
   function nearW(font, w) {
     var caps = M13.fontCaps(font).w, best = caps[0];
     caps.forEach(function (c) { if (Math.abs(c - w) < Math.abs(best - w)) best = c; });
     return best;
   }
-  function applyTypo(el, st) {
-    var ty = typoOf(st);
+  function applyTypo(el, st, own) {
+    var ty = typoOf(st, own);
     el.className = el.className.replace(/(^|\s)ty-[a-z]{2}-[a-z]{2}(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
     TYPO_ROLES.forEach(function (r) {
       var k = TYPO_KEY[r], o = ty[r];
@@ -1609,7 +1620,7 @@
       glowStrength: pick('glowStrength', 'medium'), glowDir: pick('glowDir', 'around'),
       glass: num('glass', 0, 0, 100),
       glassBlur: num('glassBlur', 10, 0, 20),
-      backBg: f.backBg || d.backBg || '', backText: f.backText || d.backText || '', backSize: pick('backSize', 'md'),
+      backBg: f.backBg || d.backBg || '', backText: f.backText || d.backText || '',
       // Прозрачность оборота (0 — сплошной) и размытие того, что за ним
       backGlass: num('backGlass', 0, 0, 90), backBlur: num('backBlur', 8, 0, 20),
       // Стекло и узор: кромка, узор (готовый или своя картинка), где он лежит, цвет, заметность; помощь тексту
@@ -1632,8 +1643,6 @@
       rimRunColor: f.rimRunColor || d.rimRunColor || '', glowTempo: pick('glowTempo', 'calm'),
       // Скорость бегущего блика по контуру и блика по кнопке: fast | normal | slow (по умолчанию) | vslow
       rimSpeed: pick('rimSpeed', 'slow'), btnSpeed: pick('btnSpeed', 'slow'),
-      // Размер текста: название и мелкие надписи
-      titleSize: pick('titleSize', 'md'), smallSize: pick('smallSize', 'md'),
       // Кнопки на обороте: вид главной, цвета, остальные кнопки, «живость»
       btnStyle: none(pick('btnStyle', '')), btnColor: f.btnColor || d.btnColor || '', btnColor2: f.btnColor2 || d.btnColor2 || '',
       btnDir: pick('btnDir', 'diag'), btnInk: f.btnInk || d.btnInk || '', btnOther: pick('btnOther', 'outline'),
@@ -1670,8 +1679,8 @@
     if (hasImg) cls.push('m13-ov-' + st.overlay);
     if (st.accent) { cls.push('m13-accent'); css.push(accentVars(st)); }
     if (st.textPos) cls.push('m13-pos-' + st.textPos);
-    if (st.titleSize !== 'md') cls.push('m13-tt-' + st.titleSize);
-    if (st.smallSize !== 'md') cls.push('m13-ts-' + st.smallSize);
+    // Мелкие надписи карточки — «Крупнее» (так было у всех месяцев); дальше их размер — в «Шрифтах и надписях» (её решение 20.11)
+    cls.push('m13-ts-lg');
     if (st.textAlign) cls.push('m13-align-' + st.textAlign);
     if (st.glow === 'soft' || st.glow === 'live') { cls.push('m13-glow-' + st.glow); css.push(glowVars(st)); }
     if (st.glow === 'live' && TEMPO[st.glowTempo]) cls.push(TEMPO[st.glowTempo]);
@@ -2019,8 +2028,8 @@
     // Свой цвет и размер текста на обороте
     var btx = sty.st.backText;
     big.classList.toggle('m13-back-tx', !!btx);
-    big.classList.remove('m13-bs-lg', 'm13-bs-xl');
-    if (sty.st.backSize === 'lg' || sty.st.backSize === 'xl') big.classList.add('m13-bs-' + sty.st.backSize);
+    // Текст на обороте — «Крупнее» (так было у всех месяцев); дальше размер — в «Шрифтах и надписях»
+    big.classList.add('m13-bs-lg');
     var bl = buttonLook(sty.st, btx ? lum(hexRgb(btx)) > 128 : !!dark);
     if (btx) bl.css.push('--m13-btx:' + btx);
     big.className = big.className.replace(/\s*m13-btn-[\w-]+/g, '');
@@ -3614,7 +3623,7 @@
     var lk = pageLook(target === 'sandbox' ? S.D.sandbox.look : target === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     box.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + target + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' +
       (target === 'sandbox' ? sandboxHTML(back) : target === 'events' ? eventsHTML(back) : target === 'kin' ? kinPage(back) : reflectionHTML(back)) + '</div>';
-    bgWatch(box);
+    bgWatch(box); pageTypo(box, target);
     if (target === 'sandbox') bindSandbox(box, tab || 'days', null, false);
     else if (target === 'events') bindEvents(box, tab || null, false);
     else if (target === 'kin') { kinBind(box, S.kinPre); S.kinPre = null; }
@@ -3637,7 +3646,7 @@
     var lk = pageLook(which === 'sandbox' ? S.D.sandbox.look : which === 'events' ? (S.D.events || {}).look : (S.D.reflection || {}).look);
     S.root.innerHTML = '<div class="m13-standalone' + lk.cls + '" data-m13-page="' + which + '"' + (lk.css ? ' style="' + esc(lk.css) + '"' : '') + '>' + inner + '</div>' +
       modalHTML() + calModalHTML() + lightboxHTML() + '<div class="m13-toast" id="m13-toast" role="status" aria-live="polite"></div>';
-    bgWatch(S.root);
+    bgWatch(S.root); pageTypo(S.root, which);
     bindModal();
     var home = S.root.querySelector('[data-m13-home]');
     if (home) home.addEventListener('click', function () { S.onBack(); });
@@ -3658,7 +3667,7 @@
   }
 
   // Оформление отдельной страницы (Песочница, Примеры Карт-Отражений): фон как у месяца, шрифт, цвета, стеклянные панели.
-  // look = {background:{image,imageTall,color,dim,blur,fit}, font, textColor, accent, panelBg, glass, glassBlur, textSize}
+  // look = {background:{image,imageTall,color,dim,blur,fit}, font, textColor, accent, panelBg, glass, glassBlur, typo}
   // Как лежит картинка фона: на весь экран (обрезается), целиком по центру, крупно (по высоте экрана с запасом)
   var BG_SIZE = { contain: 'contain', big: 'auto 135vh' };
   function bgSize(bg) { return BG_SIZE[bg.fit] ? ';--m13-bgsize:' + BG_SIZE[bg.fit] : ''; }
@@ -3710,8 +3719,8 @@
       css.push("--m13-bgimg:url('" + media(bg.image) + "')", "--m13-bgimg-t:url('" + media(bg.imageTall || bg.image) + "')",
         '--m13-dim:' + (Math.max(0, Math.min(90, +bg.dim || 0)) / 100), '--m13-blur:' + Math.max(0, Math.min(20, +bg.blur || 0)) + 'px' + bgSize(bg) + bgFx(bg));
     } else if (bg.color) cls += ' m13-root';
-    var TK = { lg: 1.12, xl: 1.25 }, LH = { tight: 1.42, loose: 1.78 };
-    if (TK[lk.textSize]) css.push('--m13-tk:' + TK[lk.textSize]);
+    // «Размер текста» страницы убран (её решение 20.11): «Крупнее» стало обычным (--m13-tk:1.12 в vitrina.css), дальше — «Шрифты и надписи»
+    var LH = { tight: 1.42, loose: 1.78 };
     if (LH[lk.lineH]) css.push('--m13-lh:' + LH[lk.lineH]);
     if (lk.glass && typeof lk.glass === 'object') lk = Object.assign({}, lk, { glass: '' });
     var styled = lk.panelBg || lk.textColor || lk.accent || lk.glass || lk.font;
