@@ -2034,7 +2034,10 @@
     if (btx) bl.css.push('--m13-btx:' + btx);
     big.className = big.className.replace(/\s*m13-btn-[\w-]+/g, '');
     bl.cls.forEach(function (k) { big.classList.add(k); });
-    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : '', bg ? '--m13-bb:' + sty.st.backBlur + 'px' : ''].concat(bl.css).filter(Boolean).join(';'));
+    // Шрифт карточки — и на обороте: заголовок оборота им же, как название на лицевой стороне (её решение 20.11; раньше — шрифт устройства).
+    // «Шрифты и надписи» → «Заголовки» / «Основной текст» сильнее.
+    var cf = FONTS[sty.st.font] ? "--m13-cfont:'" + sty.st.font + "',Georgia,serif" : '';
+    big.setAttribute('style', [accentVars(sty.st), bb ? '--m13-back:' + bb : '', bg ? '--m13-bb:' + sty.st.backBlur + 'px' : '', cf].concat(bl.css).filter(Boolean).join(';'));
     front.setAttribute('style', sty.css);
     front.style.backgroundImage = f.image ? "url('" + media(f.image) + "')" : '';
     var stage = S.root.querySelector('.m13-big-stage');
@@ -4391,27 +4394,30 @@
     var free = MKS.filter(function (m) { return m.at === 'free'; }).map(function (m) { return markHTML(m, col, true); }).join('');
     if (rows ? !rows.length && !mark : !Ls.top && !Ls.title && !Ls.meta.length && !Ls.extra && !mark) return free;
     if (FONTS[font]) ensureFont(font);
-    var ty = (FONTS[font] ? ["font-family:'" + font + "',Georgia,serif"] : []).concat(typeCss(font, glv(g, 'weight')));
+    // Шрифт и толщина надписи — переменными на стекле (--gl-ff, --gl-fw), чтобы «Шрифты и надписи → Надписи на стекле» могли их заменить
+    // (её решение 20.11: в формах стекла этих полей больше нет; старые g.font / g.weight из данных ещё читаются)
+    var ty = (FONTS[font] ? ["--gl-ff:'" + font + "',Georgia,serif"] : []).concat(typeCss(font, glv(g, 'weight')).map(function (x) { return x.replace('font-weight:', '--gl-fw:'); }));
     var rc = /^#[0-9a-f]{6}$/i.test(g.rimColor || '') ? g.rimColor : '';
     // Тень у букв: под тёмным текстом — светлая дымка, под светлым — тёмная
     var sh = lum(hexRgb(/^#[0-9a-f]{6}$/i.test(col) ? col : GL_DEF.color)) < 110 ? 'rgba(255,248,235,.6)' : 'rgba(0,0,0,.34)';
-    var css = '--gl-bg:rgba(' + rgb + ',' + ((100 - a) / 100).toFixed(2) + ');--gl-b:' + bl + 'px;--gl-c:' + col + ';--gl-sh:' + sh +
+    var css = '--gl-bg:rgba(' + rgb + ',' + ((100 - a) / 100).toFixed(2) + ');--gl-b:' + bl + 'px;--gl-c:' + col + ';--gl-sh:' + sh + (ty.length ? ';' + ty.join(';') : '') +
       (rc ? ';--gl-rc:' + rc : '') + (pt && GL_WIDTH[g.width] ? ';--gl-w:' + GL_WIDTH[g.width] : '');
     var cls = 'm13-gl m13-gl--' + pos + ' m13-gl-al-' + al + ' m13-gl-rim-' + rim + ' m13-gl-sz-' + sz + (g.fit === 'even' ? ' m13-gl-even' : '') +
       (back !== 'glass' ? ' m13-gl-bk-' + back : '') + (rc ? ' m13-gl-rcs' : '') + (g.shadow === 'none' || g.shadow === 'strong' ? ' m13-gl-sh-' + g.shadow : '') + (rows ? ' m13-gl--own' : '');
     // fit 'even' — «одинаковая высота у всех»: плашки в одном ряду обложек/карт выравниваются по самой высокой (evenGlass)
     if (rows) return '<span class="' + cls + '" style="' + esc(css) + '">' + rows.map(function (r, i) {
-      var f = r.font || font; if (FONTS[f]) ensureFont(f);
-      var st = (FONTS[f] ? ["font-family:'" + f + "',Georgia,serif"] : []).concat(typeCss(f, r.weight || 'normal', !!r.italic));
+      // свой шрифт строки (её «Свои строки») — прямо на строке; без него — шрифт стекла (--gl-ff) или «Надписи на стекле»
+      var f = FONTS[r.font] ? r.font : font; if (FONTS[f]) ensureFont(f);
+      var st = (FONTS[r.font] ? ["font-family:'" + f + "',Georgia,serif"] : []).concat(typeCss(f, r.weight || 'normal', !!r.italic).filter(function (x) { return r.weight || x.indexOf('font-weight') < 0; }));
       if (/^#[0-9a-f]{6}$/i.test(r.color || '')) st.push('color:' + r.color);
       return '<span class="m13-gl-r m13-gl-r--' + (GL_ROW[r.size] ? r.size : 'm') + (r.caps ? ' m13-gl-r--caps' : '') +
         (r.line && i ? ' m13-gl-r--line' : '') + (i && GL_GAP[r.gap] ? ' m13-gl-g-' + r.gap : '') + '" style="' + esc(st.join(';')) + '">' + txt(r.text) + '</span>';
     }).join('') + (mark ? '<span class="m13-gl-row m13-gl-r-mk">' + mark + '</span>' : '') + '</span>' + free;
     return '<span class="' + cls + '" style="' + esc(css) + '">' +
       (Ls.top ? '<span class="m13-gl-top">' + txt(Ls.top) + '</span>' : '') +
-      (Ls.title ? '<span class="m13-gl-t" style="' + esc(ty.join(';')) + '">' + txt(Ls.title) + '</span>' : '') +
+      (Ls.title ? '<span class="m13-gl-t">' + txt(Ls.title) + '</span>' : '') +
       (Ls.meta.length || mark ? '<span class="m13-gl-row">' + (Ls.meta.length ? '<span class="m13-gl-d">' + txt(Ls.meta.join(' · ')) + '</span>' : '') + mark + '</span>' : '') +
-      (Ls.extra ? '<span class="m13-gl-x" style="' + esc(ty.slice(0, 1).join(';')) + '">' + txt(Ls.extra) + '</span>' : '') + '</span>' + free;
+      (Ls.extra ? '<span class="m13-gl-x">' + txt(Ls.extra) + '</span>' : '') + '</span>' + free;
   }
   // Стекло целиком (строки само из полей или свои)
   function glassMake(kind, x, g) { return glassBox(glassLinesOf(kind, x, g), g, kind, glassRowsOf(kind, x, g)); }
