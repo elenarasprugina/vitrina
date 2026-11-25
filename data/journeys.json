@@ -9124,7 +9124,7 @@
       "start": "2026-11-26",
       "masterDesktop": "media/b338302788f2626007f4.webp",
       "masterMobile": "media/a83e0252949cff5b6fbb.webp",
-      "dimTop": 15,
+      "dimTop": 0,
       "glow": {
         "color": "#f4b416",
         "today": 100,
