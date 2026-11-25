@@ -1061,6 +1061,7 @@
     }
     B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route); B.sparkSpd = sparkSpeed(route);
     B.thinTrail = !!marks;
+    B.dustTrail = (route.glow || {}).sparkTrail === 'dust';
     B.run = function (d, done) { pulse(B, d, done || function () {}); };
     return B;
   }
@@ -1079,6 +1080,37 @@
   function sparkPower(route) { var g = route.glow || {}; return Math.max(20, Math.min(200, g.spark == null || g.spark === '' ? 100 : +g.spark)) / 100; }
   // Огонёк к центру — скорость (glow.sparkSpeed, 30–250 %, по умолчанию 100 %: от последнего камня ~0,65 с, от первого ~1,9 с)
   function sparkSpeed(route) { var g = route.glow || {}, v = g.sparkSpeed; return Math.max(30, Math.min(250, v == null || v === '' || isNaN(+v) ? 100 : +v)) / 100; }
+  // Крупинки распределяются по пройденной части пути, расходятся в стороны и затухают.
+  function dustTrail(group, iw, opacity) {
+    var step = iw * .0038, grains = [], colors = ['#eab34f', '#ffd681', '#ffedb9'];
+    for (var i = 0; i < 42; i++) {
+      var grain = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      grain.setAttribute('opacity', '0');
+      group.appendChild(grain);
+      grains.push(grain);
+    }
+    function noise(n, salt) {
+      var v = Math.sin(n * 17.13 + salt * 47.7) * 43758.5453;
+      return v - Math.floor(v);
+    }
+    return function (pts, acc, distance, end) {
+      var last = Math.floor(distance / step), j = end;
+      grains.forEach(function (grain, i) {
+        var n = last - i, s = (n + .12 + .68 * noise(n, 1)) * step;
+        if (n < 0 || s > distance) { grain.setAttribute('opacity', '0'); return; }
+        while (j > 1 && acc[j - 1] > s) j--;
+        var a = pts[j - 1], b = pts[j], span = acc[j] - acc[j - 1] || 1;
+        var f = (s - acc[j - 1]) / span, age = (distance - s) / (step * grains.length);
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var spread = iw * (.0025 + .018 * age) * (noise(n, 2) - .5);
+        grain.setAttribute('cx', r1(a.x + dx * f - dy / span * spread));
+        grain.setAttribute('cy', r1(a.y + dy * f + dx / span * spread + iw * .007 * age));
+        grain.setAttribute('r', r1(iw * (.00075 + .0014 * noise(n, 3))));
+        grain.setAttribute('fill', colors[Math.floor(noise(n, 4) * colors.length)]);
+        grain.setAttribute('opacity', opacity((1 - age) * (1 - age) * (.36 + .64 * noise(n, 5))));
+      });
+    };
+  }
   // Световой импульс: от середины кирпича дня d по спирали к центру, вспышка в центре, затем done().
   // Огонёк — цветом дня, прозрачный и насыщенный, без белой серединки (как огоньки финала); в центре — мягкая цветная вспышка.
   function pulse(B, d, done) {
@@ -1092,29 +1124,36 @@
     svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * (B.thinTrail ? .0009 : .005)) + '"/></filter>' +
       '<radialGradient id="' + fid + 'g"><stop offset="0" stop-color="' + col + '" stop-opacity="' + op(1) + '"/><stop offset=".35" stop-color="' + col + '" stop-opacity="' + op(.62) + '"/>' +
       '<stop offset=".7" stop-color="' + col + '" stop-opacity="' + op(.2) + '"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient></defs>' +
-      '<path fill="none" stroke="' + col + '" stroke-opacity="' + op(.6) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>' +
+      (B.dustTrail ? '<g class="ys-pulse-dust"></g>' : '<path fill="none" stroke="' + col + '" stroke-opacity="' + op(.6) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>') +
       '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * 1.35) + '" ry="' + r1(C.ry * 1.35) + '" fill="url(#' + fid + 'g)" opacity="0"/>' +
       '<circle fill="url(#' + fid + 'g)"/>';
     var trail = svg.childNodes[1], flash = svg.childNodes[2], halo = svg.childNodes[3];
+    var paintDust = B.dustTrail ? dustTrail(trail, iw, op) : null;
     function step(ts) {
+      if (trail.parentNode !== svg) return;
       if (!t0) t0 = ts;
       var k = dur ? Math.min(1, (ts - t0) / dur) : 1, e = k < .5 ? 2 * k * k : 1 - Math.pow(2 - 2 * k, 2) / 2, s = e * L, j = 1;
       while (j < pts.length - 1 && acc[j] < s) j++;
       var a = pts[j - 1] || pts[0], b = pts[j] || pts[0], f = acc[j] > acc[j - 1] ? (s - acc[j - 1]) / (acc[j] - acc[j - 1]) : 1;
       var h = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, w = a.w + (b.w - a.w) * f;
-      trail.setAttribute('d', 'M' + pts.slice(0, j).map(xy).join('L') + 'L' + xy(h));
-      trail.setAttribute('stroke-width', r1(B.thinTrail ? iw * .0014 : Math.max(w * .22, iw * .004)));
+      if (paintDust && L) paintDust(pts, acc, s, j);
+      if (!paintDust) {
+        trail.setAttribute('d', 'M' + pts.slice(0, j).map(xy).join('L') + 'L' + xy(h));
+        trail.setAttribute('stroke-width', r1(B.thinTrail ? iw * .0014 : Math.max(w * .22, iw * .004)));
+      }
       halo.setAttribute('cx', r1(h.x)); halo.setAttribute('cy', r1(h.y)); halo.setAttribute('r', r1(Math.max(w * .5, iw * .016)));
       if (k < 1) { requestAnimationFrame(step); return; }
       var f0 = 0;
       (function fl(ts2) {
+        if (trail.parentNode !== svg) return;
         if (!f0) f0 = ts2;
         var q = Math.min(1, (ts2 - f0) / 320);
+        if (paintDust) trail.setAttribute('opacity', (1 - q).toFixed(2));
         flash.setAttribute('opacity', q.toFixed(2)); halo.setAttribute('opacity', (1 - q).toFixed(2));
         if (q < 1) { requestAnimationFrame(fl); return; }
         done();
         svg.classList.add('is-fade');
-        setTimeout(function () { if (svg.classList.contains('is-fade')) { svg.innerHTML = ''; svg.classList.remove('is-fade'); } }, 1100);
+        setTimeout(function () { if (trail.parentNode === svg && svg.classList.contains('is-fade')) { svg.innerHTML = ''; svg.classList.remove('is-fade'); } }, 1100);
       })(ts);
     }
     requestAnimationFrame(step);
