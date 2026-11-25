@@ -240,10 +240,11 @@
   function rangeIn(obj, key, label, o) {
     function show(x) { return String(x).replace('.', ',') + (o.unit || ''); }
     o = o || {};
-    var v = obj[key] == null || obj[key] === '' ? (o.def || 0) : +obj[key];
-    var out = el('span', { class: 'a-range-val', text: show(v) });
+    function value() { return obj[key] == null || obj[key] === '' ? (o.def || 0) : +obj[key]; }
+    var v = value(), out = el('span', { class: 'a-range-val', text: show(v) });
     var r = el('input', { type: 'range', class: 'a-range', min: o.min || 0, max: o.max || 100, step: o.step || 1, value: v });
     r.addEventListener('input', function () { obj[key] = +r.value; out.textContent = show(r.value); changed(); if (o.onChange) o.onChange(+r.value); });
+    if (o.sync) LIVE.push({ node: r, run: function () { r.value = value(); out.textContent = show(r.value); } });
     return field(label, el('div', { class: 'a-range-row' }, [r, out]), o.hint);
   }
   function selectIn(obj, key, label, options, o) {
@@ -3310,7 +3311,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261126d';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261126e';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3886,23 +3887,56 @@
     }));
     dialog({ title: 'День ' + n + ' со всеми картами', body: body });
   }
-  // extra — что открыть сразу: { mode, q: '&sim=13&card=final', hud: true для настройки положения надписей }
+  function jHudRange(obj, key, label, onChange, sync) {
+    return rangeIn(obj, key, label, { min: -5, max: 45, step: .5, def: 0, unit: ' %', onChange: onChange, sync: sync });
+  }
+  // extra — что открыть сразу: { mode, q: '&sim=13&card=final' } или { mode, hudDay: номер дня для настройки надписей }
   function openJourneyPage(r, phone, extra) {
-    var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' }, hud = extra && extra.hud;
-    var query = '&mode=' + (extra ? extra.mode : st.mode) + (extra ? extra.q : '');
-    if (hud) query += '&hudDevice=' + (phone ? 'mobile' : 'desktop');
-    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../routes/preview/?preview=1&debug=1' + query });
+    var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' }, n = extra && extra.hudDay;
+    var query = '&mode=' + (extra ? extra.mode : st.mode);
+    if (n) query += '&sim=' + n + '&hudDevice=' + (phone ? 'mobile' : 'desktop');
+    else query += '&debug=1' + ((extra && extra.q) || '');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../routes/preview/?preview=1' + query });
     if (phone) fr.style.width = '375px';
     function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.source === fr.contentWindow && e.data && e.data.m13journeyReady) send(); }
     window.addEventListener('message', onMsg);
-    var bar = el('div', { class: 'a-pbar' + (hud ? ' a-pbar--hud' : '') }, [
+    function reopen(tall, options) {
+      window.removeEventListener('message', onMsg);
+      openJourneyPage(r, tall, options);
+    }
+    var bar = el('div', { class: 'a-pbar' + (n ? ' a-pbar--hud' : '') }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
-      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openJourneyPage(r, !phone, extra); } }),
-      hud ? rangeIn(r.stage, phone ? 'hudOffsetMobile' : 'hudOffsetDesktop', 'Сдвиг надписей вниз', { min: -5, max: 45, step: .5, def: 0, unit: ' %', onChange: function () {
-        var node = fr.contentDocument.querySelector('.ys-hud');
-        if (node) fr.contentWindow.M13R.stageHud(r, node);
-      } }) : null]);
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { reopen(!phone, extra); } })]);
+    if (n) {
+      var day = r.days[n - 1], key = phone ? 'hudOffsetMobile' : 'hudOffsetDesktop';
+      var slot = el('div', { class: 'a-hud-range' });
+      function updateStage() {
+        var doc = fr.contentDocument, node = doc && doc.querySelector('.ys-hud');
+        if (node) fr.contentWindow.M13R.stageHud(r, n, node);
+      }
+      function updateRange() {
+        var own = day && day[key] != null && day[key] !== '';
+        var label = own ? 'Сдвиг для дня ' + n : 'Общий сдвиг надписей';
+        slot.replaceChildren(jHudRange(own ? day : r.stage, key, label, updateStage));
+      }
+      if (day) {
+        var select = el('select', { class: 'a-input' }, r.days.map(function (_, i) { return el('option', { value: i + 1, text: 'День ' + (i + 1) }); }));
+        select.value = n;
+        select.addEventListener('change', function () { reopen(phone, { mode: extra.mode, hudDay: +select.value }); });
+        var scope = el('select', { class: 'a-input' }, [
+          el('option', { value: 'common', text: 'Общее положение' }), el('option', { value: 'own', text: 'Своё для этого дня' })]);
+        scope.value = day[key] == null || day[key] === '' ? 'common' : 'own';
+        scope.addEventListener('change', function () {
+          if (scope.value === 'common') delete day[key];
+          else if (day[key] == null || day[key] === '') day[key] = +r.stage[key] || 0;
+          changed(); updateRange(); updateStage();
+        });
+        add(bar, [field('День маршрута', select), field('Положение надписей', scope)]);
+      }
+      updateRange();
+      bar.appendChild(slot);
+    }
     pv.classList.toggle('is-phone', phone);
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
@@ -4951,10 +4985,13 @@
         textIn(tx, 'trace', 'Надпись на кнопке', { ph: 'Оставить след' })
       ], { open: false }),
       block('Надписи на странице', [
-        el('p', { class: 'a-hint', text: 'Положение надписей на сцене. Подвиньте их ползунком в предпросмотре и сохраните маршрут в панели. Для компьютера и телефона положение своё. Ноль возвращает исходное положение.' }),
+        el('p', { class: 'a-hint', text: 'Задайте общее положение надписей для всех дней. Для отдельного дня откройте предпросмотр и выберите «Своё для этого дня». Ноль возвращает исходную высоту, а «Общее положение» возвращает день к настройке маршрута.' }),
+        el('div', { class: 'a-row' }, [
+          jHudRange(r.stage, 'hudOffsetDesktop', 'Общий сдвиг · Компьютер', null, true),
+          jHudRange(r.stage, 'hudOffsetMobile', 'Общий сдвиг · Телефон', null, true)]),
         el('div', { class: 'a-tabs' }, [
-          el('button', { type: 'button', text: 'Расположить надписи · Сегодня', onclick: function () { openJourneyPage(r, false, { mode: 'observation', q: '&sim=1', hud: true }); } }),
-          el('button', { type: 'button', text: 'После завершения', onclick: function () { openJourneyPage(r, false, { mode: 'observation', q: '&sim=' + (r.days.length + 1), hud: true }); } })]),
+          el('button', { type: 'button', text: 'Расположить надписи · По дням', onclick: function () { openJourneyPage(r, false, { mode: 'observation', hudDay: 1 }); } }),
+          el('button', { type: 'button', text: 'После завершения', onclick: function () { openJourneyPage(r, false, { mode: 'observation', hudDay: r.days.length + 1 }); } })]),
         textIn(tx, 'back', 'Ссылка назад', { ph: '← Вернуться на витрину' }),
         el('div', { class: 'a-row' }, [textIn(tx, 'before', 'До начала — крупно', { ph: 'Маршрут скоро начнётся' }), textIn(tx, 'beforeNote', 'До начала — строка ниже')]),
         el('div', { class: 'a-row' }, [textIn(tx, 'after', 'После конца — крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'afterNote', 'После конца — строка ниже')]),

@@ -3600,7 +3600,7 @@
     dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, D.dim == null || D.dim === '' ? 45 : +D.dim)) / 100);
     page.appendChild(dim);
     topLinks(page);
-    var hud = stageHud(r), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
+    var hud = stageHud(r, n), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
     if (n === 0) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
       if (tx.beforeNote) hud.appendChild(el('p', 'ys-sub', fill(tx.beforeNote, ctx)));
@@ -3827,11 +3827,12 @@
     } else if (kind === 'final') openDoorsFinal();
     else if (kind === 'figure') saveFigure();
   }
-  function stageHud(r, hud) {
-    var stage = r.stage || {};
+  function stageHud(r, n, hud) {
+    var stage = r.stage || {}, day = (r.days || [])[n - 1] || {};
+    function offset(key) { return numIn(day[key], numIn(stage[key], 0, -5, 45), -5, 45) + '%'; }
     hud = hud || el('div', 'ys-hud');
-    hud.style.setProperty('--ys-hud-desktop', numIn(stage.hudOffsetDesktop, 0, -5, 45) + '%');
-    hud.style.setProperty('--ys-hud-mobile', numIn(stage.hudOffsetMobile, 0, -5, 45) + '%');
+    hud.style.setProperty('--ys-hud-desktop', offset('hudOffsetDesktop'));
+    hud.style.setProperty('--ys-hud-mobile', offset('hudOffsetMobile'));
     if (S.hudDevice) hud.style.setProperty('--ys-hud-offset', 'var(--ys-hud-' + S.hudDevice + ')');
     return hud;
   }
@@ -3858,7 +3859,7 @@
     var lightStyle = spiralGlowStyle(r), mirror = lightStyle === 'mirror';
     var lit = n === last && lightStyle !== 'points' && !mirror && finDone() ? last + 1 : n;
     var bricks = !!M.zone && n >= 1;
-    var hud = stageHud(r);
+    var hud = stageHud(r, n);
     var ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
     if (n === 0) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
