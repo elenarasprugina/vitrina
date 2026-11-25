@@ -3310,7 +3310,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261125c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261125d';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3764,7 +3764,11 @@
     var others = DATA.journeys.items.filter(function (x) { return x !== r && x.cardLook && x.cardLook.bg !== undefined; });
     var from = el('select', { class: 'a-input' }, others.map(function (x, i) { return el('option', { value: String(i), text: x.title || x.id }); }));
     var out = [
-      el('p', { class: 'a-hint', text: 'Одно на Карту дня и личную карту. Сразу видно в предпросмотре справа; на сайте — после «Опубликовать».' }),
+      selectIn(r.dayCard, 'preset', 'Вид Карты дня', [['clear', 'Прозрачная — как в «Глазе бури»'], ['route', 'Оформление маршрута — как у личной карты']], {
+        def: window.M13R ? window.M13R.dayCardPreset(r) : 'route', onChange: again,
+        hint: 'На прозрачной карте видна сцена, картинка дня скрыта. Оформление маршрута и картинку можно вернуть в любой момент.'
+      }),
+      el('p', { class: 'a-hint', text: 'Настройки ниже действуют на оформление маршрута. Сразу видно в предпросмотре справа; на сайте — после «Опубликовать».' }),
       selectIn(L, 'bg', 'Фон карты', [['', 'Как задумано — тёплый коричневый'], ['color', 'Цвет — один или переход из двух'], ['glass', 'Стекло — сквозь карту видна сцена'], ['texture', 'Фактура — картинка']], { def: '', onChange: again })];
     if (bg) out.push(el('div', { class: 'a-row' }, [
       colorOptIn(L, 'c1', bg === 'texture' ? 'Цвет приглушения' : bg === 'glass' ? 'Цвет стекла — сверху' : 'Цвет — сверху', { base: bg === 'glass' ? '#140c05' : '#2e1e0a', none: 'тёмно-коричневый' }),

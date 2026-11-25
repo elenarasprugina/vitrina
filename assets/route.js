@@ -777,15 +777,23 @@
       root.setAttribute('data-back-blur', numIn(L.backBlur, 24, 0, 60));
     }
   }
+  function dayCardPreset(route) {
+    var preset = (route.dayCard || {}).preset;
+    return preset == null ? (route.id === 'yellow-human' ? 'clear' : 'route') : preset;
+  }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
     var cfg = (kind === 'personal' ? route.personalCard : route.dayCard) || {}, list = cfg.blocks || [];
     var ctx = ctxOf(route, n, kind === 'personal' ? perm : null), fin = kind === 'day' && n === daysCount(route);
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
-    cardLook(route, n, root, o.base);
+    var clear = kind === 'day' && dayCardPreset(route) === 'clear';
+    if (clear) {
+      root.classList.add('ys-card--clear');
+      root.setAttribute('data-scene', '0.16');
+    } else cardLook(route, n, root, o.base);
     var inner = el('div', 'ys-card-in');
     list.forEach(function (b) {
-      if (!b || b.visible === false) return;
+      if (!b || b.visible === false || (clear && b.kind === 'image')) return;
       if (b.who && b.who[mode] === false) return;
       if (fin && !finBlock(route, b)) return;
       var node = blockNode(b, route, n, perm, ctx, o), al = blockAlign(b, cfg.align);
@@ -1589,6 +1597,7 @@
     if (sc) ov.style.background = 'rgba(5,3,1,' + sc + ')';
     var bk = node.getAttribute && node.getAttribute('data-back');
     if (bk) ov.appendChild(backNode(node, sc));
+    if (node.classList.contains('ys-card--clear')) ov.classList.add('ys-layer--clear');
     ov.appendChild(node);
     ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);
@@ -3713,7 +3722,7 @@
   }
 
   window.M13R = { howto: howtoBoot, howtoNode: howtoNode, howtoOf: howtoOf, howtoUrl: howtoUrl, reviewOf: reviewOf, reviewTg: reviewTg, reviewText: reviewText,
-    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
+    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, dayCardPreset: dayCardPreset, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, spiralGlowStyle: spiralGlowStyle, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
