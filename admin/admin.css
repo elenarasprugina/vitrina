@@ -248,7 +248,10 @@ select.a-input{padding-right:28px}
 .a-phone-note{font-size:12px;color:#6b6b68}
 .a-pbar .a-pphone{border:1px solid rgba(255,255,255,.35)}
 .a-pbar--hud{width:max-content;max-width:calc(100vw - 24px);flex-wrap:wrap;justify-content:center}
-.a-pbar--hud .a-field{margin:0 6px;min-width:150px;max-width:100%}
+.a-pbar--hud .a-field{margin:0 6px;min-width:125px;max-width:100%}
+.a-pbar--hud .a-input{padding:4px 8px}
+.a-pbar--hud .a-hud-range{min-width:160px;max-width:100%}
+@media (max-width:520px){.a-pbar--hud{border-radius:16px}}
 .a-pbar--hud .a-label,.a-pbar--hud .a-range-val{color:#fff}
 
 /* Кнопки вверху панели на узком телефоне — в одну строку на всю ширину */
