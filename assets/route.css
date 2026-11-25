@@ -313,6 +313,8 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 @media (max-width:560px){
   .ys-layer{padding:0;align-items:stretch;background:#0d0804}
   .ys-layer .ys-card{width:100%;min-height:100%;border-radius:0;box-shadow:none;display:flex}
+  .ys-layer.ys-layer--clear{padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+  .ys-layer--clear .ys-card--clear{min-height:0}
   .ys-layer .ys-card-in{flex:1}
   .ys-layer .ys-c-foot{margin-top:auto;padding-top:10px}
   .ys-card-in{padding:0 20px calc(26px + env(safe-area-inset-bottom))}
@@ -327,6 +329,13 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
   .ys-l-today{animation:none;opacity:.85}
   .ys-layer .ys-card{transition:opacity .2s}
 }
+
+/* Прозрачная Карта дня — стекло, лёгкое размытие и тонкий контур из «Глаза бури». */
+.ys-card.ys-card--clear{width:min(360px,100%);border-radius:28px;border:1px solid rgba(170,204,255,.30);box-sizing:border-box;
+  background:rgba(8,18,44,.30);-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);
+  box-shadow:0 0 70px rgba(95,157,255,.22),inset 0 0 40px rgba(140,185,255,.08);
+  text-shadow:0 0 12px rgba(5,9,22,.95),0 0 3px rgba(5,9,22,.9)}
+.ys-card--clear .ys-c-q{background:rgba(5,9,22,.22)}
 
 /* ---------- «Мой код» (справа сверху) ---------- */
 .ys-me{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:3;font:inherit;color:#f6ead2;font-size:14px;letter-spacing:.02em;padding:8px 14px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.38);border:1px solid rgba(255,214,140,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
