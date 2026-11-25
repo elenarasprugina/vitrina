@@ -1071,8 +1071,6 @@
     "pattern": "none",
     "patternPlace": "corners",
     "patternOpacity": 55,
-    "smallSize": "lg",
-    "backSize": "lg",
     "backGlass": 60,
     "backBlur": 4,
     "btnStyle": "gradient",
