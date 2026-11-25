@@ -4862,8 +4862,8 @@
           title: 'Kin, имя кина, печать и тон каждого дня — по первому дню' })])]),
       block('Слова маршрута', jWords(r), { open: false }),
       block('Фоновая музыка', [
-        mediaIn(r, 'stageMusic', 'Музыка на основной сцене', { kind: 'audio', uploadOnly: true, maxMB: 6,
-          hint: 'MP3 или M4A до 6 МБ. Играет по кругу, при открытии Карты дня становится тише. Участник может выключить звук.' }),
+        mediaIn(r, 'stageMusic', 'Музыка на основной сцене', { kind: 'audio', uploadOnly: true, maxMB: 10,
+          hint: 'MP3 или M4A до 10 МБ. Играет по кругу, при открытии Карты дня становится тише. Участник может выключить звук.' }),
         rangeIn(r, 'stageVolume', 'Громкость', { min: 5, max: 100, step: 5, def: 35, unit: ' %' })
       ], { open: false }),
       r.scene === 'doors' ? null : block('Спираль (фон страницы)', [
