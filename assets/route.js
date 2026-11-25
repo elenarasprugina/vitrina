@@ -973,6 +973,19 @@
     var style = (route.glow || {}).style;
     return style || (route.id === 'yellow-human' ? 'points' : 'ribbon');
   }
+  function mirrorGlint(id, x, y, unit, glow, strength, calling) {
+    var rx = unit * 6 * numIn(glow.mirrorSize, 100, 50, 150) / 100, ry = rx * .225;
+    return '<defs><radialGradient id="' + id + '"><stop stop-color="#fff9dd"/>' +
+      '<stop offset=".25" stop-color="#fff2bd" stop-opacity=".91"/>' +
+      '<stop offset=".62" stop-color="#ffdd87" stop-opacity=".4"/>' +
+      '<stop offset="1" stop-color="#ffc068" stop-opacity="0"/></radialGradient></defs>' +
+      '<g class="ys-mirror-glint" transform="rotate(-16 ' + r1(x) + ' ' + r1(y) + ')" opacity="' + Math.min(1, strength).toFixed(2) + '">' +
+      '<ellipse' + (calling ? ' class="ys-mirror-breath" style="animation-duration:' + numIn(glow.mirrorBreath, 2.8, 1.5, 6) + 's"' : '') +
+      ' cx="' + r1(x) + '" cy="' + r1(y) + '" rx="' + r1(rx) + '" ry="' + r1(ry) + '" fill="url(#' + id + ')"/></g>';
+  }
+  function dustColor(route, d, fallback) {
+    return sealColor((route.days || [])[d - 1]) || dayColor(route, d, fallback);
+  }
   // Отблески лежат в серединах дней и вытянуты по касательной к пути.
   // Размер ограничен ближайшим огнём, чтобы даже у больших отблесков оставались промежутки.
   function reflections(tr, last, iw, ih, size, small, center) {
@@ -996,7 +1009,7 @@
     var B = { id: id, iw: iw, ih: ih, trace: tr, color: hexOk(o.color) ? o.color : '#ffcf5a', center: { cx: c.x * iw, cy: c.y * ih, rx: c.rx * iw, ry: c.ry * ih } };
     var vb = ' viewBox="0 0 ' + iw + ' ' + ih + '" preserveAspectRatio="none" aria-hidden="true"';
     var soft = r1(iw * .006), halo = r1(iw * .012), last = daysCount(route), shapes = [];
-    var g = route.glow || {}, style = spiralGlowStyle(route), small = style === 'points';
+    var g = route.glow || {}, style = spiralGlowStyle(route), small = style === 'points', mirror = style === 'mirror';
     var size = small ? numIn(g.pointSize, 100, 50, 150) : numIn(g.reflectionSize, 100, 40, 160);
     var marks = small || style === 'reflection' ? reflections(tr, last, iw, ih, size / 100, small, B.center) : null;
     var shimmer = small ? numIn(g.pointShimmer, 35, 0, 100) / 100 : 0;
@@ -1005,7 +1018,9 @@
       box.insertAdjacentHTML('beforeend', '<svg class="' + cls + '"' + vb + '></svg>');
       return box.lastChild;
     });
-    for (var d = 1; d <= last; d++) shapes[d] = d === last ? null : ribbonPath(daySlice(tr, d), 1);
+    var d, mirrorUnit = Math.min(iw / 430, ih / 480);
+    if (!mirror || o.zones) for (d = 1; d < last; d++) shapes[d] = ribbonPath(daySlice(tr, d), 1);
+    svgs[2].classList.toggle('ys-l-mirror', mirror);
     var NS = neonOf(route, 'spiral');
     B.colorOf = function (d) {
       var base = small ? sealColor((route.days || [])[d - 1]) || B.color : B.color;
@@ -1014,6 +1029,7 @@
     if (NS) { halo = r1(iw * .012 * (1 + NS * .7)); }
     var P = (o.power == null ? glowPower(route) : o.power) * (1 + NS * .35), bloom = r1(iw * .03 * (1 + NS * .5));
     var reflectionLight = (numIn(P, 1.5, .5, 3) - .5) / 2.5;
+    var mirrorStrength = Math.sqrt(numIn(g.today, 100, 0, 100) / 100) * (.32 + .68 * reflectionLight);
     function shape(d, attrs, grow) {
       var C = B.center, g = grow || 1;
       return d === last ? '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * g) + '" ry="' + r1(C.ry * g) + '" ' + attrs + '/>' : '<path d="' + shapes[d] + '" ' + attrs + '/>';
@@ -1028,6 +1044,13 @@
       var holes = '', glow = '', wide = '', today = '', todayWide = '', col, d, lv, pb = Math.max(0, P - 1);
       var reflectionsGlow = '', reflectionDefs = '', reflectionToday = '', reflectionHoles = '', maskStops = '';
       for (d = 1; d <= last; d++) {
+        if (mirror) {
+          if (d === st.today && mirrorStrength > 0) {
+            var at = d === last ? { x: B.center.cx, y: B.center.cy } : tr[(2 * d - 1) * SPAN];
+            reflectionToday = mirrorGlint(id + 'mirror', at.x, at.y, mirrorUnit, g, mirrorStrength, st.calling);
+          }
+          continue;
+        }
         lv = st.lv[d] || 0; col = B.colorOf(d);
         if (marks && (d < last || small && !st.after)) {
           if (lv > 0) {
@@ -1089,7 +1112,7 @@
       svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + reflectionDefs + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') +
         '<g filter="url(#' + id + 'h)">' + glow + '</g>' + reflectionsGlow;
       // Центр (день 13): плоский эллипс — область фильтра на всю картинку, иначе свечение обрезается квадратом
-      svgs[2].classList.toggle('ys-l-reflection', !!reflectionToday && !small);
+      svgs[2].classList.toggle('ys-l-reflection', !!reflectionToday && !small && !mirror);
       svgs[2].classList.toggle('ys-l-points', !!reflectionToday && small);
       svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : reflectionToday;
     };
@@ -1104,8 +1127,13 @@
     }
     B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route); B.sparkSpd = sparkSpeed(route);
     B.thinTrail = !!marks;
-    B.dustTrail = (route.glow || {}).sparkTrail === 'dust';
-    if (small) {
+    B.dustTrail = g.sparkTrail === 'dust';
+    if (mirror) {
+      B.mirrorFlight = numIn(g.mirrorFlight, 2.2, 1, 5);
+      B.mirrorUnit = mirrorUnit;
+      B.dustColor = function (d) { return dustColor(route, d, B.color); };
+    }
+    if (small || mirror) {
       var sunId = id + 'cs';
       box.insertAdjacentHTML('beforeend', '<svg class="ys-l-center-sun"' + vb + '><defs><radialGradient id="' + sunId +
         '"><stop stop-color="#fff4cf"/><stop offset=".36" stop-color="' + B.colorOf(last) +
@@ -1169,9 +1197,82 @@
       });
     };
   }
+  // Песчинки рождаются в воздухе, расходятся и недолго держатся после пролёта.
+  var DUST_RATE = 115, DUST_LIFE = .31, DUST_COUNT = Math.ceil(DUST_RATE * DUST_LIFE) + 1;
+  var DUST_GRAINS = (function () {
+    var grains = [];
+    for (var i = 0; i < 127; i++) {
+      grains.push({ x: (Math.random() + Math.random() - 1) * 4.4, y: (Math.random() + Math.random() - 1) * 3.5,
+        r: .48 + Math.random() * .47, a: .56 + Math.random() * .44, shade: Math.floor(Math.random() * 3) });
+    }
+    return grains;
+  })();
+  function dustShades(c) {
+    return [toWhite(c, .18), toWhite(c, .36), toWhite(c, .61)];
+  }
+  function flightDust(t, duration, unit, seed, at, draw) {
+    var n = Math.floor(Math.min(duration, t) * DUST_RATE);
+    for (var i = 0; i < DUST_COUNT && n >= 0; i++, n--) {
+      var emitted = n / DUST_RATE, age = t - emitted;
+      if (age >= DUST_LIFE) break;
+      var grain = DUST_GRAINS[(n + seed) % DUST_GRAINS.length], p = at(emitted / duration), drift = 1 + 6.5 * age;
+      draw(i, p.x + unit * grain.x * drift, p.y + unit * (grain.y * drift + 24 * age * age), grain.r * unit,
+        Math.pow(Math.min(1, (DUST_LIFE - age) / .16), 1.6) * grain.a, grain.shade);
+    }
+  }
+  function mirrorDust(B, d, done) {
+    if (REDUCED) { done(); return; }
+    var a = B.trace[(2 * d - 1) * SPAN], c = B.center, svg = B.pulse;
+    var unit = B.mirrorUnit, duration = B.mirrorFlight, first, col = hexRgb(B.dustColor(d)), id = B.id + 'dust';
+    var rise = Math.min(B.ih * .17, Math.max(B.ih * .045, a.y * .48)), dx = c.cx - a.x;
+    var defs = dustShades(col).map(function (shade, i) {
+      var h = rgbHex(shade);
+      return '<radialGradient id="' + id + i + '"><stop stop-color="' + h + '"/>' +
+        '<stop offset=".37" stop-color="' + h + '" stop-opacity=".7"/>' +
+        '<stop offset="1" stop-color="' + h + '" stop-opacity="0"/></radialGradient>';
+    }).join('');
+    svg.classList.remove('is-fade');
+    svg.innerHTML = '<defs>' + defs + '</defs><g class="ys-mirror-dust">' +
+      new Array(DUST_COUNT + 1).join('<ellipse opacity="0"/>') + '</g>';
+    var group = svg.lastChild, grains = group.children;
+    B.today.classList.add('is-mirror-flying');
+    function at(k) {
+      var u = 1 - Math.pow(1 - k, 1.22), v = 1 - u;
+      return { x: v * v * v * a.x + 3 * v * v * u * (a.x - dx * .1) +
+        3 * v * u * u * (c.cx - dx * .37) + u * u * u * c.cx,
+        y: v * v * v * a.y + 3 * v * v * u * (a.y - rise) +
+        3 * v * u * u * (c.cy - rise * .31) + u * u * u * c.cy };
+    }
+    function draw(i, x, y, r, alpha, shade) {
+      var grain = grains[i];
+      grain.setAttribute('cx', r1(x)); grain.setAttribute('cy', r1(y));
+      grain.setAttribute('rx', r1(r * 1.8)); grain.setAttribute('ry', r1(r * 1.45));
+      grain.setAttribute('opacity', Math.min(1, alpha * B.spark).toFixed(2));
+      grain.setAttribute('fill', 'url(#' + id + shade + ')');
+      visible = i + 1;
+    }
+    var visible;
+    function step(ts) {
+      if (group.parentNode !== svg) return;
+      if (first == null) first = ts;
+      var time = (ts - first) / 1000, i;
+      if (time >= duration + DUST_LIFE) {
+        svg.innerHTML = '';
+        B.today.classList.remove('is-mirror-flying');
+        done();
+        return;
+      }
+      visible = 0;
+      flightDust(time, duration, unit, d * 7, at, draw);
+      for (i = visible; i < DUST_COUNT; i++) grains[i].setAttribute('opacity', '0');
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
   // Световой импульс: от середины кирпича дня d по спирали к центру, вспышка в центре, затем done().
   // Огонёк — цветом дня, прозрачный и насыщенный, без белой серединки (как огоньки финала); в центре — мягкая цветная вспышка.
   function pulse(B, d, done) {
+    if (B.mirrorFlight) { mirrorDust(B, d, done); return; }
     var tr = B.trace, C = B.center, svg = B.pulse, iw = B.iw, col = B.colorOf ? B.colorOf(d) : B.color, fid = B.id + 'p', k1 = B.spark || 1;
     var pts = (d <= PATH_DAYS ? tr.slice((2 * d - 1) * SPAN) : []).concat([{ x: C.cx, y: C.cy, w: C.ry * 1.4 }]);
     var acc = [0], L = 0, i, t0 = 0;
@@ -1705,7 +1806,7 @@
       s = Math.max(W / iw, H / ih) * z / 100;
       var shift = num(sc.shiftX, 0, -15, 15);
       var lightStyle = spiralGlowStyle(S.route);
-      if (!tall && zoneOk(zone) && (lightStyle === 'reflection' || lightStyle === 'points')) {
+      if (!tall && zoneOk(zone) && (lightStyle === 'reflection' || lightStyle === 'points' || lightStyle === 'mirror')) {
         var fit = fitReflectionPath(zone, iw, W, s, shift);
         s = fit.s; x = fit.x;
         pathFit = z >= 100 && H > ih * s;
@@ -2654,7 +2755,7 @@
     sun.classList.toggle('is-fili', sunSt !== 'kaleido');
 
     // Сгустки света: { c, s0 — откуда по пути, t0 — когда, k — вид }
-    var lights = [], d, i, GOLD0 = [255, 214, 140];
+    var lights = [], d, i, GOLD0 = [255, 214, 140], flyDust = f.flightStyle === 'dust', sprC = {};
     function at(ix) { return G.L[Math.max(0, Math.min(G.L.length - 2, ix))]; }
     if (G.pts.length > 2) {
       if (per) S.code.states.forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(j * 3), t0: 1.3 + j * .38, k: 'state' }); });
@@ -2666,16 +2767,24 @@
       if (per) exitList(S.code).forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(22 * SPAN + j * 4), t0: 7.1 + j * .34, k: 'state' }); });
     }
     var TA = 2;
-    // Огоньки — неоновым цветом своего стёклышка (route.neon.lights), яркость — final.lightsPower (%), свет камней — final.stoneLight (%)
+    // Сгустки берут цвет стёклышка и неон; пыль дней — цвет печати. Яркость полёта — final.lightsPower (%).
     var NL = neonOf(r, 'lights'), ND = neonOf(r, 'disk'), LP = numIn(f.lightsPower, 100, 20, 200) / 100, SP = numIn(f.stoneLight, 100, 0, 200) / 100;
-    lights.forEach(function (L) { L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr); L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; L.c = neonRgb(L.c, NL); });
+    lights.forEach(function (L, index) {
+      L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr);
+      L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; L.c = neonRgb(L.c, NL);
+      if (flyDust) {
+        var color = L.k === 'day' ? hexRgb(dustColor(r, L.d, rgbHex(L.c))) : L.c;
+        L.dust = dustShades(color).map(sparkSprite);
+        L.dustSeed = index * 17;
+      }
+    });
     /* Сбор света (final.gather): 'fire' — «Костёр» (по умолчанию): огни тихо кружат по диску и гаснут, над печатью поднимаются искры
        (их цветами и тёплые; размер — final.sparkSize, %) и складываются в луч; 'swirl' — «Медленный водоворот»: ровно, без разгона,
        огни по спирали тают к центру. Потом луч; Солнце рождается из печати (sunT), тёплый свет заливает экран (fl0). */
     var mode = f.gather === 'swirl' ? 'swirl' : 'fire';
     var tw0 = TA + .3, tw1 = tw0 + (mode === 'fire' ? 2.6 : 3), b0 = tw1, sunT = b0 + 1.7, fl0 = sunT + 1.7, txtT = sunT + 4.4, btnT = txtT + .9, endT = btnT + .7;
     // Искры «Костра»: рождаются над печатью, поднимаются, покачиваясь, и стягиваются к середине — в луч
-    var sparks = [], SK = numIn(f.sparkSize, 100, 40, 250) / 100, sprC = {};
+    var sparks = [], SK = numIn(f.sparkSize, 100, 40, 250) / 100;
     if (mode === 'fire') for (i = 0; i < 230; i++) {
       var u = (Math.random() + Math.random() - 1), Lc = lights.length ? lights[Math.floor(Math.random() * lights.length)].c : GOLD0;
       sparks.push({ tb: tw0 - .3 + (b0 + 1.3 - tw0) * Math.pow(Math.random(), .8), u: u, v: Math.random() * 2 - 1, vy: .22 + Math.random() * .3, ac: .1 + Math.random() * .25,
@@ -2690,6 +2799,21 @@
       g.addColorStop(0, rgba(toWhite(c, .55), 1)); g.addColorStop(.18, rgba(c, .75)); g.addColorStop(.5, rgba(c, .16)); g.addColorStop(1, rgba(c, 0));
       y.fillStyle = g; y.fillRect(0, 0, z, z);
       return (sprC[k] = q);
+    }
+    var dustUnit = Math.max(.85, Math.min(1.85, Math.min(G.W / 430, G.H / 480)));
+    function drawFinalDust(L, t) {
+      function at(k) {
+        var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        var p = finAt(G, L.s0 + (G.Lt - L.s0) * e);
+        return { x: p.x, y: p.y - Math.sin(Math.PI * k) * 19 * dustUnit };
+      }
+      function draw(i, px, py, rad, alpha, shade) {
+        var size = rad * 5.2;
+        x.globalAlpha = Math.min(1, alpha * LP);
+        x.drawImage(L.dust[shade], px - size / 2, py - size / 2, size, size);
+      }
+      flightDust(t, L.dur, dustUnit, L.dustSeed, at, draw);
+      x.globalAlpha = 1;
     }
     // Свет на камнях дней
     var stones = [];
@@ -2775,9 +2899,14 @@
         g0.addColorStop(0, rgba(toWhite(cg, .3), .55 * cm)); g0.addColorStop(.35, rgba(cg, .3 * cm)); g0.addColorStop(1, rgba(cg, 0));
         x.fillStyle = g0; x.fillRect(C.x - cr, C.y - C.ry * .3 - cr, cr * 2, cr * 2);
       }
-      // Летящие сгустки — по камням к центру, с мягким следом
+      // Огоньки по спирали: сгустки света или цветная пыль.
       lights.forEach(function (L) {
-        if (T < L.t0 || T >= L.arr) return;
+        if (T < L.t0) return;
+        if (flyDust) {
+          if (T < L.arr + DUST_LIFE) drawFinalDust(L, T - L.t0);
+          return;
+        }
+        if (T >= L.arr) return;
         var k = (T - L.t0) / L.dur, e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, s = L.s0 + (G.Lt - L.s0) * e, p = finAt(G, s);
         var rad = Math.max(4, Math.min(26, p.w * (L.k === 'day' ? .3 : .22))), a = sm(k / .1) * (1 - sm((k - .9) / .1) * .5), j;
         for (j = 6; j >= 1; j--) { var qq = finAt(G, s - j * rad * .5); blob(qq.x, qq.y, rad * (1 - j * .08), L.c, a * (.42 - j * .055)); }
@@ -3689,8 +3818,9 @@
     topLinks(page);
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
-    // В режиме точек центр остаётся точкой весь день 13, даже после просмотра финала.
-    var lit = n === last && spiralGlowStyle(r) !== 'points' && finDone() ? last + 1 : n;
+    // Точка или блик остаются в центре весь день 13, даже после просмотра финала.
+    var lightStyle = spiralGlowStyle(r), mirror = lightStyle === 'mirror';
+    var lit = n === last && lightStyle !== 'points' && !mirror && finDone() ? last + 1 : n;
     var bricks = !!M.zone && n >= 1;
     var hud = el('div', 'ys-hud');
     var ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
@@ -3702,8 +3832,11 @@
       if (tx.afterNote) hud.appendChild(el('p', 'ys-sub', fill(tx.afterNote, ctx)));
     } else {
       hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
-      if (bricks) { if (!opened) hud.appendChild(el('p', 'ys-tap', fill(n === last ? tx.tapLast || 'Коснитесь центра спирали' : tx.tap || 'Коснитесь светящегося камня', ctx))); }
-      else {
+      if (bricks) {
+        var tap = n === last ? tx.tapLast || (mirror ? 'Коснитесь блика в центре' : 'Коснитесь центра спирали') :
+          tx.tap || (mirror ? 'Коснитесь блика на песке' : 'Коснитесь светящегося камня');
+        if (!opened) hud.appendChild(el('p', 'ys-tap', fill(tap, ctx)));
+      } else {
         // Нет разметки кирпичей для этой картинки — Карта дня открывается кнопкой
         var go = el('button', 'ys-go', tx.openDay || 'Карта дня');
         go.type = 'button';
