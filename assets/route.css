@@ -357,10 +357,12 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 }
 
 /* Прозрачная Карта дня — стекло, лёгкое размытие и тонкий контур из «Глаза бури». */
-.ys-card.ys-card--clear{width:min(360px,100%);border-radius:28px;border:1px solid rgba(170,204,255,.30);box-sizing:border-box;
+.ys-card.ys-card--clear{width:min(360px,100%);border-radius:28px;border:1px solid rgba(var(--ys-clear-rim,170,204,255),.30);box-sizing:border-box;
   background:rgba(8,18,44,.30);-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);
-  box-shadow:0 0 70px rgba(95,157,255,.22),inset 0 0 40px rgba(140,185,255,.08);
+  box-shadow:0 0 70px rgba(var(--ys-clear-rim,95,157,255),.22),inset 0 0 40px rgba(var(--ys-clear-rim,140,185,255),.08);
   text-shadow:0 0 12px rgba(5,9,22,.95),0 0 3px rgba(5,9,22,.9)}
+.ys-card.ys-card--clear.ys-card--no-rim{border-color:transparent;box-shadow:none}
+.ys-card--clear.ys-card--no-rim::before{box-shadow:none}
 .ys-card--clear .ys-c-q{background:rgba(5,9,22,.22)}
 
 /* ---------- «Мой код» (справа сверху) ---------- */

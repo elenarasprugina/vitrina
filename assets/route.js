@@ -788,7 +788,13 @@
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
     var clear = kind === 'day' && dayCardPreset(route) === 'clear';
     if (clear) {
+      var look = route.cardLook || {};
       root.classList.add('ys-card--clear');
+      root.classList.toggle('ys-card--no-rim', look.rim === 'none');
+      if (look.rim === 'own') {
+        var rim = hexOk(look.rimColor) ? look.rimColor : '#ffd68c';
+        root.style.setProperty('--ys-clear-rim', hexRgb(rim).join(','));
+      }
       root.setAttribute('data-scene', '0.16');
     } else cardLook(route, n, root, o.base);
     var inner = el('div', 'ys-card-in');
