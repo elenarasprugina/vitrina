@@ -965,18 +965,18 @@
   }
   function spiralGlowStyle(route) {
     var style = (route.glow || {}).style;
-    return style || (route.id === 'yellow-human' ? 'reflection' : 'ribbon');
+    return style || (route.id === 'yellow-human' ? 'points' : 'ribbon');
   }
   // Отблески лежат в серединах дней и вытянуты по касательной к пути.
   // Размер ограничен ближайшим огнём, чтобы даже у больших отблесков оставались промежутки.
-  function reflections(tr, last, iw, ih, size) {
-    var points = [], d;
+  function reflections(tr, last, iw, ih, size, small) {
+    var points = [], d, base = small ? Math.min(iw * .025, ih * .014) : Math.min(iw * .11, ih * .085);
     for (d = 1; d < last; d++) points.push(tr[(2 * d - 1) * SPAN]);
     return points.map(function (p, i) {
       var index = (2 * i + 1) * SPAN, a = tr[index - 2], b = tr[index + 2];
       var nearest = points.reduce(function (min, q) { return q === p ? min : Math.min(min, dist(p, q)); }, Infinity);
-      var diameter = Math.min(Math.min(iw * .11, ih * .085, nearest * .82) * size, nearest * .94);
-      return 'cx="' + r1(p.x) + '" cy="' + r1(p.y) + '" rx="' + r1(diameter / 2) + '" ry="' + r1(diameter * .28) +
+      var diameter = Math.min(Math.min(base, nearest * .82) * size, nearest * .94);
+      return 'cx="' + r1(p.x) + '" cy="' + r1(p.y) + '" rx="' + r1(diameter / 2) + '" ry="' + r1(diameter * (small ? .38 : .28)) +
         '" transform="rotate(' + r1(Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI) + ' ' + r1(p.x) + ' ' + r1(p.y) + ')"';
     });
   }
@@ -988,7 +988,10 @@
     var B = { id: id, iw: iw, ih: ih, trace: tr, color: hexOk(o.color) ? o.color : '#ffcf5a', center: { cx: c.x * iw, cy: c.y * ih, rx: c.rx * iw, ry: c.ry * ih } };
     var vb = ' viewBox="0 0 ' + iw + ' ' + ih + '" preserveAspectRatio="none" aria-hidden="true"';
     var soft = r1(iw * .006), halo = r1(iw * .012), last = daysCount(route), shapes = [];
-    var marks = spiralGlowStyle(route) === 'reflection' ? reflections(tr, last, iw, ih, numIn((route.glow || {}).reflectionSize, 100, 40, 160) / 100) : null;
+    var g = route.glow || {}, style = spiralGlowStyle(route), small = style === 'points';
+    var size = small ? numIn(g.pointSize, 100, 50, 150) : numIn(g.reflectionSize, 100, 40, 160);
+    var marks = small || style === 'reflection' ? reflections(tr, last, iw, ih, size / 100, small) : null;
+    var shimmer = small ? numIn(g.pointShimmer, 35, 0, 100) / 100 : 0;
     var box = el('div', 'ys-bricks');
     var svgs = ['ys-l-dusk', 'ys-l-glow', 'ys-l-today', 'ys-l-pulse', 'ys-l-zones'].map(function (cls) {
       box.insertAdjacentHTML('beforeend', '<svg class="' + cls + '"' + vb + '></svg>');
@@ -996,7 +999,10 @@
     });
     for (var d = 1; d <= last; d++) shapes[d] = d === last ? null : ribbonPath(daySlice(tr, d), 1);
     var NS = neonOf(route, 'spiral');
-    B.colorOf = function (d) { return neonHex(dayColor(route, d, B.color), NS); };
+    B.colorOf = function (d) {
+      var base = small && d < last ? sealColor((route.days || [])[d - 1]) || B.color : B.color;
+      return neonHex(dayColor(route, d, base), NS);
+    };
     if (NS) { halo = r1(iw * .012 * (1 + NS * .7)); }
     var P = (o.power == null ? glowPower(route) : o.power) * (1 + NS * .35), bloom = r1(iw * .03 * (1 + NS * .5));
     var reflectionLight = (numIn(P, 1.5, .5, 3) - .5) / 2.5;
@@ -1018,13 +1024,22 @@
         if (marks && d < last) {
           if (lv > 0) {
             var mark = marks[d - 1], gid = id + 'r' + d, core = rgbHex(toWhite(hexRgb(col), .58));
-            var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + core + '"/>' +
-              '<stop offset=".28" stop-color="' + core + '" stop-opacity="' + op(.45 + .55 * reflectionLight) + '"/>' +
+            var calling = d === st.today && st.calling, innerColor = small ? col : core;
+            var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + innerColor + '"/>' +
+              '<stop offset=".28" stop-color="' + innerColor + '" stop-opacity="' + op(.45 + .55 * reflectionLight) + '"/>' +
               '<stop offset=".64" stop-color="' + col + '" stop-opacity="' + op(.08 + .55 * reflectionLight) + '"/>' +
               '<stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
             var ellipse = '<ellipse ' + mark + ' fill="url(#' + gid + ')" opacity="' + op(Math.sqrt(lv) * (.14 + .86 * reflectionLight)) + '"/>';
             reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * .64 * reflectionLight) + '"/>';
-            if (d === st.today && st.calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
+            if (shimmer) {
+              // Блик занимает только четверть точки и меняет прозрачность внутри её границ.
+              var shineId = gid + 's', peak = Math.sqrt(lv) * shimmer * (calling ? .38 : .23);
+              gradient += '<radialGradient id="' + shineId + '" cx="57%" cy="35%" r="20%">' +
+                '<stop stop-color="#fff3d0"/><stop offset="1" stop-color="#fff3d0" stop-opacity="0"/></radialGradient>';
+              ellipse += '<ellipse class="ys-point-shine" ' + mark + ' fill="url(#' + shineId + ')" opacity="0" style="--ys-shine:' + peak.toFixed(3) +
+                ';animation-duration:' + (calling ? 5.8 : 7 + d % 4) + 's;animation-delay:-' + (d * 1.31 % 7).toFixed(2) + 's"/>';
+            }
+            if (calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
             else { reflectionDefs += gradient; reflectionsGlow += ellipse; }
           }
           continue;
@@ -1047,7 +1062,8 @@
       svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + reflectionDefs + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') +
         '<g filter="url(#' + id + 'h)">' + glow + '</g>' + reflectionsGlow;
       // Центр (день 13): плоский эллипс — область фильтра на всю картинку, иначе свечение обрезается квадратом
-      svgs[2].classList.toggle('ys-l-reflection', !!reflectionToday);
+      svgs[2].classList.toggle('ys-l-reflection', !!reflectionToday && !small);
+      svgs[2].classList.toggle('ys-l-points', !!reflectionToday && small);
       svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : reflectionToday;
     };
     if (o.zones) {
@@ -1631,7 +1647,8 @@
       var z = tall ? 100 : num(sc.zoom, 100, 50, 100);
       s = Math.max(W / iw, H / ih) * z / 100;
       var shift = num(sc.shiftX, 0, -15, 15);
-      if (!tall && zoneOk(zone) && spiralGlowStyle(S.route) === 'reflection') {
+      var lightStyle = spiralGlowStyle(S.route);
+      if (!tall && zoneOk(zone) && (lightStyle === 'reflection' || lightStyle === 'points')) {
         var fit = fitReflectionPath(zone, iw, W, s, shift);
         s = fit.s; x = fit.x;
         pathFit = z >= 100 && H > ih * s;

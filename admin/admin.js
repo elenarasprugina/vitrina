@@ -3310,7 +3310,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261125f';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261125g';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4839,7 +4839,7 @@
     }
     showWhen();
     var linked = {}; DATA.journeys.items.forEach(function (x) { if (x.routeId && x !== r) linked[x.routeId] = x.title; });
-    var reflection = window.M13R.spiralGlowStyle(r) === 'reflection';
+    var glowStyle = window.M13R.spiralGlowStyle(r), reflection = glowStyle === 'reflection', points = glowStyle === 'points';
     return [
       jTodoBox(r),
       block('Маршрут', [
@@ -4898,13 +4898,17 @@
       r.scene === 'doors' ? null : block('Свет кирпичей', [
         el('p', { class: 'a-hint', text: 'Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, после нажатия светится ровно; пройденные светятся спокойно, будущие — в тени. Где лежат кирпичи — вкладка «Кирпичи на спирали», там же видно, как светится каждый день.' }),
         jGlowLive(r),
-        selectIn(r.glow, 'style', 'Вид подсветки пути', [['ribbon', 'По разметке'], ['reflection', 'Мягкий отблеск']],
-          { def: window.M13R.spiralGlowStyle(r), onChange: function () { renderMain(); } }),
+        selectIn(r.glow, 'style', 'Вид подсветки пути', [['ribbon', 'По разметке'], ['reflection', 'Мягкий отблеск'], ['points', 'Точки в песке']],
+          { def: glowStyle, onChange: function () { renderMain(); } }),
         reflection ? rangeIn(r.glow, 'reflectionSize', 'Размер отблесков', { min: 40, max: 160, step: 5, def: 100, unit: ' %',
           hint: 'Размер светового пятна. Там, где дни близко друг к другу, между отблесками остаётся промежуток.' }) : null,
-        colorIn(r.glow, 'color', 'Цвет свечения — общий'),
+        points ? rangeIn(r.glow, 'pointSize', 'Размер точек', { min: 50, max: 150, step: 5, def: 100, unit: ' %' }) : null,
+        points ? rangeIn(r.glow, 'pointShimmer', 'Перелив', { min: 0, max: 100, step: 5, def: 35, unit: ' %',
+          hint: 'Сила редкого блика внутри точки. 0 % — точка светится ровно.' }) : null,
+        points ? el('p', { class: 'a-hint', text: 'Точки берут цвет печати. Свой цвет для каждого дня можно задать ниже.' }) : null,
+        colorIn(r.glow, 'color', points ? 'Цвет центра и запасной цвет точек' : 'Цвет свечения — общий'),
         rangeIn(r.glow, 'power', 'Сила свечения', { min: 50, max: 300, step: 10, def: 150, unit: ' %',
-          hint: reflection ? 'Яркость отблесков. Размер меняется отдельно.' : 'Насколько ярко и широко светятся камни. 100 % — как было в первом варианте; больше — ярче, вокруг камня появляется широкий ореол.' }),
+          hint: points ? 'Яркость точек. Размер и перелив меняются отдельно.' : reflection ? 'Яркость отблесков. Размер меняется отдельно.' : 'Насколько ярко и широко светятся камни. 100 % — как было в первом варианте; больше — ярче, вокруг камня появляется широкий ореол.' }),
         selectIn(r.glow, 'sparkTrail', 'След огонька к центру', [['line', 'Световая линия'], ['dust', 'Золотая пыль']],
           { def: 'line', hint: 'Песчинки разлетаются за огоньком и затухают. Посмотреть — «Пустить огонёк» над картинками.' }),
         rangeIn(r.glow, 'spark', 'Огонёк к центру — яркость', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: 'Огонёк бежит от камня дня в центр, когда человек нажимает на сегодняшний камень. Он цветом дня, прозрачный, без белой серединки. Посмотреть — кнопка «Пустить огонёк» над картинками.' }),
