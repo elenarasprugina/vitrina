@@ -2317,7 +2317,7 @@
       if (prev.context) prev.context.close().catch(function () {});
       S.stageMusic = null;
     }
-    if (!route.stageMusic || S.film) return;
+    if (!route.stageMusic || (S.film && !S.filmSound)) return;
 
     var audio = new Audio(imgSrc(S.base, route.stageMusic)), volume = route.stageVolume;
     audio.loop = true;
@@ -4040,6 +4040,7 @@
     var app = document.getElementById('ys'); if (!app) return;
     S.base = app.getAttribute('data-base') || '../../';
     S.debug = q('debug') === '1'; S.debugNow = q('debugNow'); S.preview = q('preview') === '1'; S.film = S.preview && q('film') === '1';
+    S.filmSound = S.film && q('filmSound') === '1';
     var hudDevice = S.preview && q('hudDevice');
     S.hudDevice = hudDevice === 'mobile' || hudDevice === 'desktop' ? hudDevice : '';
     var sim = q('sim'); if (sim != null && sim !== '' && !isNaN(+sim)) S.sim = +sim;

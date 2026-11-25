@@ -3311,7 +3311,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261126e';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261126f';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3946,7 +3946,7 @@
   // с подписями поверх и сжимаются в MP4 (VideoEncoder + mp4-muxer, как «● Записать» узора). У ролика своё время:
   // ускорение, пауза, смена дня без загрузки страницы в кадре (последний кадр плавно перетекает в новый день).
   // Автопилот (её «панель ведёт сама», 19.10): сам касается в окне по сценарию — дверь/камень → Карта дня → глубже → следующий день.
-  // Звук не пишем, файл никуда не уходит.
+  // По выбору записывает звук вкладки. Файл никуда не уходит.
   var FILM_W = 1080, FILM_H = 1920, FILM_MAX = 300;
   // Указатель в окне ролика (её выбор 30.10): кончик пера / звёздочка палочки / центр точки — там, где мышка
   var FILM_PTR_OPTS = [['pen', 'Перо'], ['wand', 'Волшебная палочка'], ['dot', 'Светлая точка'], ['none', 'Не показывать (только касания)'], ['mouse', 'Обычная мышка']];
@@ -3977,6 +3977,88 @@
   var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
   function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
   // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
+  function filmAudio(track) {
+    var C = new window.AudioContext({ sampleRate: 48000 });
+    var link = C.createMediaStreamSource(new MediaStream([track])), sink = C.createGain();
+    sink.gain.value = 0;
+    var A = { context: C, rate: C.sampleRate, blocks: [], spans: [], size: 1024, used: 0 };
+    A.buffer = new Float32Array(A.size * 2);
+    var codecs = ['mp4a.40.2', 'opus'];
+    function codec(i) {
+      if (i >= codecs.length) throw new Error('Браузер не умеет сохранять звук в MP4.');
+      var c = { codec: codecs[i], sampleRate: A.rate, numberOfChannels: 2, bitrate: 160000 };
+      return AudioEncoder.isConfigSupported(c).then(function (s) { return s.supported ? c : codec(i + 1); }, function () { return codec(i + 1); });
+    }
+    A.ready = Promise.all([C.resume(), C.audioWorklet.addModule('film-audio-worklet.js?v=' + (window.M13V || 1)), codec(0)]).then(function (results) {
+      if (A.closed) return;
+      A.config = results[2];
+      A.origin = performance.now() - C.currentTime * 1000;
+      var node = A.node = new AudioWorkletNode(C, 'm13-film-audio');
+      node.port.onmessage = function (e) {
+        var b = e.data;
+        b.end = b.start + b.left.length;
+        A.blocks.push(b);
+        if (A.onBlock) A.onBlock();
+        // Храним небольшой запас звука, в том числе пока видео стоит на паузе.
+        while (A.blocks.length > 48) A.blocks.shift();
+      };
+      link.connect(node).connect(sink).connect(C.destination);
+    });
+    return A;
+  }
+  function filmAudioClose(A) {
+    if (!A || A.closed) return;
+    A.closed = true;
+    if (A.node) { A.node.port.onmessage = null; A.node.disconnect(); }
+    A.context.close().catch(function () {});
+  }
+  function filmAudioSpan(A, wallStart, wallEnd, from, to) {
+    if (!A || from === to) return;
+    A.spans.push({ start: (wallStart - A.origin) * A.rate / 1000, end: (wallEnd - A.origin) * A.rate / 1000,
+      from: Math.round(from * A.rate), to: Math.round(to * A.rate) });
+  }
+  function filmAudioFlush(A) {
+    if (!A.used) return;
+    var data = A.buffer;
+    if (A.used < A.size) {
+      data = new Float32Array(A.used * 2);
+      data.set(A.buffer.subarray(0, A.used));
+      data.set(A.buffer.subarray(A.size, A.size + A.used), A.used);
+    }
+    var d = new AudioData({ format: 'f32-planar', sampleRate: A.rate, numberOfFrames: A.used,
+      numberOfChannels: 2, timestamp: Math.round((A.next - A.used - A.first) * 1e6 / A.rate), data: data });
+    try { A.enc.encode(d); } finally { d.close(); }
+    A.used = 0;
+  }
+  // Временная шкала звука та же, что у кадров: в паузах и при загрузке дня интервалов нет.
+  function filmAudioDrain(R, finish) {
+    var A = R.audio;
+    if (!A || R.firstTs == null) return;
+    if (A.first == null) A.first = A.next = Math.round(R.firstTs * A.rate / 1e6);
+    var limit = Math.round((R.firstTs / 1e6 + R.duration) * A.rate);
+    var last = A.blocks.length ? A.blocks[A.blocks.length - 1].end : 0;
+    // Заполняем пропуск тишиной, если источник перестал присылать блоки.
+    var available = Math.max(last, (performance.now() - A.origin - 160) * A.rate / 1000);
+    while (A.spans.length) {
+      var s = A.spans[0];
+      if (s.to <= A.next) { A.spans.shift(); continue; }
+      if (!finish && (s.from >= limit || s.end > available)) break;
+      var end = Math.min(s.to, limit), width = s.to - s.from || 1;
+      if (A.next >= end) break;
+      for (; A.next < end;) {
+        var at = s.start + (A.next - s.from) * (s.end - s.start) / width;
+        while (A.blocks.length && A.blocks[0].end <= at) A.blocks.shift();
+        var b = A.blocks[0], index = b ? Math.floor(at - b.start) : -1;
+        A.buffer[A.used] = index >= 0 ? b.left[index] : 0;
+        A.buffer[A.size + A.used] = index >= 0 ? b.right[index] : 0;
+        A.used++; A.next++;
+        if (A.used === A.size) filmAudioFlush(A);
+      }
+      if (end < s.to) break;
+      A.spans.shift();
+    }
+    if (finish) filmAudioFlush(A);
+  }
   function filmForget() {
     try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('m13film-') === 0) localStorage.removeItem(k); }); } catch (e) {}
   }
@@ -4004,7 +4086,7 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '' };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '', sound: false };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
     var WHAT = filmWhat(r);
     if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
@@ -4014,15 +4096,16 @@
       var o = WHAT.filter(function (x) { return x[0] === st.what; })[0], t = o ? o[1] : '';
       return t.replace(/^(Месяц|Сад) · /, '').replace(/^Витрина — /, '').replace(/ — список$/, '');
     }
-    var REC = null, AP = null, nonce = 0, res = el('div', { class: 'a-film-res' });
+    var REC = null, AP = null, nonce = 0, res = el('div', { class: 'a-film-res' }), sound;
+    var picking = false, active = true;
     var h = Math.max(460, Math.min(800, window.innerHeight - 130)), w = Math.round(h * 9 / 16);
-    var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, style: 'width:' + w + 'px;height:' + h + 'px' });
+    var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, allow: 'autoplay', style: 'width:' + w + 'px;height:' + h + 'px' });
     function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady && e.source === fr.contentWindow) send(); }
     function load(day) {
       if (isR() || /^uz:/.test(st.what)) {
         fr.removeAttribute('srcdoc');
-        fr.src = isR() ? '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (day ? '&sim=' + day : '') + '&f=' + (++nonce)
+        fr.src = isR() ? '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (st.sound ? '&filmSound=1' : '') + (day ? '&sim=' + day : '') + '&f=' + (++nonce)
           : '../uzory/' + (st.what.slice(3) ? encodeURIComponent(st.what.slice(3)) + '/' : '') + '?draft=1&f=' + (++nonce);
       } else fr.srcdoc = phoneHTML() + '<!--' + (++nonce) + '-->';   // витрина, месяц, кин… — черновик из панели, как «Посмотреть»
     }
@@ -4350,7 +4433,8 @@
     var clock = el('span', { class: 'a-film-clock', text: '0:00' }), auto = isR() && st.how !== 'hand';
     function ui() {
       auto = isR() && st.how !== 'hand';
-      bRec.disabled = !!(REC || AP); bPause.disabled = bStop.disabled = !REC || !!REC.finishing;
+      bRec.disabled = !!(REC || AP || picking); bPause.disabled = bStop.disabled = !REC || !!REC.finishing;
+      if (sound) sound.querySelector('input').disabled = !!(REC || AP || picking);
       bTry.hidden = !auto; bTry.disabled = !!REC;
       if (whatSel) whatSel.disabled = !!REC; bTry.textContent = AP && !REC ? '■ Остановить прогон' : '▶ Прогнать без записи';
       bPause.textContent = REC && REC.paused ? '▶ Дальше' : '⏸ Пауза';
@@ -4361,12 +4445,22 @@
     function start() {
       if (!filmCan()) { toast('Запись ролика работает в Chrome (или Edge) на компьютере. В этом браузере её нет.', true); return; }
       if (auto && !st.days.length && !st.fin) { toast('Отметьте хотя бы один день или финал.', true); return; }
-      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false,
+      var withSound = !!st.sound;
+      if (withSound && !(window.AudioContext && window.AudioWorkletNode && window.AudioEncoder && window.AudioData)) {
+        toast('Запись звука вкладки доступна в свежем Chrome или Edge на компьютере.', true); return;
+      }
+      picking = true; ui();
+      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: withSound,
         preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' }).then(function (stream) {
+        if (!active) { stream.getTracks().forEach(function (k) { k.stop(); }); return; }
         var tr = stream.getVideoTracks()[0], ss = tr.getSettings ? tr.getSettings() : {};
         if (ss.displaySurface && ss.displaySurface !== 'browser') {
           stream.getTracks().forEach(function (k) { k.stop(); });
           toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
+        }
+        if (withSound && !stream.getAudioTracks().length) {
+          stream.getTracks().forEach(function (k) { k.stop(); });
+          toast('Chrome не передал звук. При выборе «Эта вкладка» включите «Поделиться звуком вкладки».', true); return;
         }
         // Снимаем только само окно, без слоя пера над ним (Element Capture) — перо и рисунок ролик дорисует сам.
         // Браузер так не умеет — обрезаем вкладку до окна (CropTarget), слой пера снимается вместе с окном, как раньше.
@@ -4375,15 +4469,18 @@
         return (window.RestrictionTarget && tr.restrictTo ? RestrictionTarget.fromElement(fr).then(function (rt) { return tr.restrictTo(rt); }).then(function () { own = true; })
           : Promise.reject()).catch(function () {
           return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); });
-        }).then(function () { begin(stream, own); }, function (e) {
+        }).then(function () {
+          if (active) begin(stream, own, withSound); else stream.getTracks().forEach(function (k) { k.stop(); });
+        }, function (e) {
           stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
         });
       }).catch(function (e) {
+        if (!active) return;
         if (e && e.name === 'NotAllowedError') toast('Запись не началась: браузер не дал доступ к вкладке.');
         else { console.error(e); toast('Не получилось начать запись: ' + (e && e.message || e), true); }
-      });
+      }).finally(function () { picking = false; if (active) ui(); });
     }
-    function begin(stream, own) {
+    function begin(stream, own, withSound) {
       var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
@@ -4395,12 +4492,46 @@
       vidMuxer(function (ok) {
         if (REC !== R) return;
         if (!ok) { fail('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.'); return; }
-        recCodec(FILM_W, FILM_H, 12e6, function (c) {
+        try { if (withSound) R.audio = filmAudio(stream.getAudioTracks()[0]); }
+        catch (e) { fail('Не получилось подготовить звук: ' + e.message); return; }
+        Promise.resolve(R.audio && R.audio.ready).then(function () {
+          if (REC === R) recCodec(FILM_W, FILM_H, 12e6, setup);
+        }).catch(function (e) { if (REC === R) fail('Не получилось подготовить звук: ' + e.message); });
+        function setup(c) {
           if (REC !== R) return;
           if (!c) { fail('Этот браузер не умеет сжимать видео в MP4. Попробуйте свежий Chrome.'); return; }
           var X = window.Mp4Muxer;
-          R.mux = new X.Muxer({ target: new X.ArrayBufferTarget(), video: { codec: c.avc ? 'avc' : 'vp9', width: FILM_W, height: FILM_H, frameRate: VID_FPS }, fastStart: 'in-memory' });
-          R.enc = new VideoEncoder({ output: function (ch, meta) { try { R.mux.addVideoChunk(ch, meta); } catch (e) { R.bad = e; } }, error: function (e) { R.bad = e; } });
+          // Первый полученный кадр может прийти позже нулевого слота. От него и начинается время MP4.
+          var opts = { target: new X.ArrayBufferTarget(), video: { codec: c.avc ? 'avc' : 'vp9', width: FILM_W, height: FILM_H, frameRate: VID_FPS },
+            fastStart: 'in-memory', firstTimestampBehavior: 'offset' };
+          if (R.audio) opts.audio = { codec: R.audio.config.codec === 'opus' ? 'opus' : 'aac', numberOfChannels: 2, sampleRate: R.audio.rate };
+          R.mux = new X.Muxer(opts);
+          if (R.audio) {
+            R.audio.enc = new AudioEncoder({
+              output: function (ch, meta) {
+                if (R.bad) return;
+                try { R.mux.addAudioChunk(ch, meta); } catch (e) { R.bad = e; }
+              },
+              error: function (e) { R.bad = e; }
+            });
+            R.audio.enc.configure(R.audio.config);
+            R.audio.onBlock = function () {
+              if (REC !== R || R.finishing || R.bad) return;
+              try { filmAudioDrain(R, false); } catch (e) { R.bad = e; }
+            };
+          }
+          R.enc = new VideoEncoder({
+            output: function (ch, meta) {
+              if (R.bad) return;
+              try {
+                R.mux.addVideoChunk(ch, meta);
+                if (R.firstTs == null) R.firstTs = ch.timestamp;
+                R.duration = (ch.timestamp - R.firstTs + (ch.duration || 1e6 / VID_FPS)) / 1e6;
+                filmAudioDrain(R, false);
+              } catch (e) { R.bad = e; }
+            },
+            error: function (e) { R.bad = e; }
+          });
           R.enc.configure(c); R.vp9 = !c.avc;
           R.last = performance.now(); clock.textContent = '0:00';
           (function loop() {
@@ -4408,18 +4539,21 @@
             var now = performance.now(), dt = Math.min(.25, (now - R.last) / 1000);
             R.last = now;
             if (!R.paused && !R.cut) {
+              var from = R.t;
               R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
+              filmAudioSpan(R.audio, now - dt * 1000, now, from, R.t);
               var slot = Math.floor(R.t * VID_FPS);
               if (slot > R.slot) { R.slot = slot; paint(R.x, R, R.t); push(R, Math.round(slot * 1e6 / VID_FPS)); }
               clock.textContent = filmTime(R.t);
               if (R.out != null && R.t - R.out > .9) { stop(); return; }
               if (R.t >= FILM_MAX) { toast('Ролик дошёл до 5 минут — запись остановлена.'); stop(); return; }
             }
+            if (R.bad) { stop(); return; }
             R.raf = requestAnimationFrame(loop);
           })();
           ui();
           if (auto) apStart(true);
-        });
+        }
       });
     }
     function push(R, ts) {
@@ -4439,7 +4573,9 @@
     function abort(R) {
       if (!R) return;
       R.finishing = true; cancelAnimationFrame(R.raf);
+      filmAudioClose(R.audio);
       R.stream.getTracks().forEach(function (k) { k.stop(); });
+      if (R.audio && R.audio.enc && R.audio.enc.state !== 'closed') R.audio.enc.close();
       try { if (R.enc && R.enc.state !== 'closed') R.enc.close(); } catch (e) {}
       if (REC === R) REC = null;
       apStop(); ui();
@@ -4452,17 +4588,32 @@
       R.stream.getTracks().forEach(function (k) { k.stop(); });
       apStop(); clock.textContent = 'Сохраняю…'; ui();
       R.enc.flush().then(function () {
+        if (REC !== R) return;
+        if (R.bad) throw R.bad;
+        if (R.firstTs == null) { abort(R); toast('Ролик пустой — запись не успела начаться.', true); return; }
+        if (R.audio) {
+          filmAudioDrain(R, true);
+          return R.audio.enc.flush();
+        }
+      }).then(function () {
+        if (REC !== R) return;
+        if (R.bad) throw R.bad;
         R.mux.finalize();
-        try { R.enc.close(); } catch (e) {}
-        if (REC === R) REC = null; ui();
+        R.enc.close();
+        if (R.audio) R.audio.enc.close();
+        filmAudioClose(R.audio);
         done(R, new Blob([R.mux.target.buffer], { type: 'video/mp4' }));
-      }, function (e) { abort(R); toast('Не получилось записать ролик: ' + (e && e.message || e), true); });
+        REC = null; ui();
+      }).catch(function (e) {
+        if (REC !== R) return;
+        abort(R); toast('Не получилось записать ролик: ' + (e && e.message || e), true);
+      });
     }
     // Готовый ролик живёт только в памяти этой вкладки; «Удалить», новая запись или выход — память освобождается
     var made = '';
     function drop() { if (made) URL.revokeObjectURL(made); made = ''; res.replaceChildren(); }
     function done(R, blob) {
-      var url = made = URL.createObjectURL(blob), dur = (R.slot + 1) / VID_FPS;
+      var url = made = URL.createObjectURL(blob), dur = R.duration;
       clock.textContent = filmTime(dur);
       var name = '13mirrors-' + (isR() ? r.id || 'route' : st.what.replace(':', '-').replace(/-$/, '') || 'site') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(dur).replace(':', 'm') + 's.mp4';
       var vid = el('video', { class: 'a-film-vid', src: url, controls: true, playsinline: true });
@@ -4678,6 +4829,7 @@
 
     function close() {
       if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
+      active = false;
       if (REC) abort(REC);
       apStop(); drop();
       window.removeEventListener('message', onMsg); document.removeEventListener('keydown', inkKey, true); document.removeEventListener('keyup', inkKey, true); closePreview(); pv.classList.remove('is-rec');
@@ -4739,7 +4891,7 @@
     inkBox.hidden = !st.ink;
     var spSel = null, whatSel = null, side = el('div', { class: 'a-film-side' }, [
       el('h2', { class: 'a-film-h', text: '🎬 Ролик' }),
-      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — выберите «Эта вкладка» и «Поделиться».' }),
+      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome или Edge на компьютере. Для записи выберите «Эта вкладка» и «Поделиться».' }),
       field('Что снимать', whatSel = selF(WHAT, 'what', function () { if (AP) apStop(); reload(); how(); }), 'Страница маршрута или любая страница сайта: витрина, месяц, кин, сад «Узоров».'),
       routeBox,
       howBox,
@@ -4751,6 +4903,8 @@
       inkBox,
       el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
+      el('div', { class: 'a-film-opts' }, [sound = chk('sound', 'Записывать звук вкладки', function () { if (isR()) reload(); })]),
+      el('p', { class: 'a-hint', text: 'Для записи с музыкой включите звук маршрута и «Поделиться звуком вкладки» в окне браузера.' }),
       el('div', { class: 'a-film-rec' }, [bTry, bRec, bPause, bStop, clock]),
       res]);
     how();
