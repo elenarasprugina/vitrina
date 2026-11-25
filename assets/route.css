@@ -34,6 +34,14 @@
 .ys-l-glow,.ys-l-today,.ys-l-today.ys-l-points{animation:none;opacity:1}
 @media (prefers-reduced-motion:no-preference){.ys-point-shine{animation:ys-point-shine 8s ease-in-out infinite}}
 @keyframes ys-point-shine{0%,62%,83%,100%{opacity:0}72%{opacity:var(--ys-shine,0)}}
+.ys-l-center-sun{mix-blend-mode:screen;opacity:0;transition:opacity .38s ease}
+.ys-center-awake .ys-l-center-sun{opacity:1}
+.ys-center-awake .ys-center-point{opacity:0}
+.ys-l-center-sun > g{transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:no-preference){
+  .ys-center-awake .ys-l-center-sun > g{animation:ys-center-breathe .93s ease-in-out both}
+}
+@keyframes ys-center-breathe{0%{transform:scale(.1);opacity:0}65%{transform:scale(1.07);opacity:1}100%{transform:scale(1);opacity:.84}}
 .ys-l-pulse{mix-blend-mode:screen}
 .ys-l-today{animation:ys-brick 3.2s ease-in-out infinite;will-change:opacity}
 .ys-l-today.is-go{animation:none;opacity:1}

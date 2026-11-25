@@ -969,15 +969,17 @@
   }
   // Отблески лежат в серединах дней и вытянуты по касательной к пути.
   // Размер ограничен ближайшим огнём, чтобы даже у больших отблесков оставались промежутки.
-  function reflections(tr, last, iw, ih, size, small) {
+  function reflections(tr, last, iw, ih, size, small, center) {
     var points = [], d, base = small ? Math.min(iw * .025, ih * .014) : Math.min(iw * .11, ih * .085);
     for (d = 1; d < last; d++) points.push(tr[(2 * d - 1) * SPAN]);
+    if (small) points.push({ x: center.cx, y: center.cy });
     return points.map(function (p, i) {
       var index = (2 * i + 1) * SPAN, a = tr[index - 2], b = tr[index + 2];
+      var angle = i === last - 1 ? 0 : Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
       var nearest = points.reduce(function (min, q) { return q === p ? min : Math.min(min, dist(p, q)); }, Infinity);
       var diameter = Math.min(Math.min(base, nearest * .82) * size, nearest * .94);
       return 'cx="' + r1(p.x) + '" cy="' + r1(p.y) + '" rx="' + r1(diameter / 2) + '" ry="' + r1(diameter * (small ? .38 : .28)) +
-        '" transform="rotate(' + r1(Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI) + ' ' + r1(p.x) + ' ' + r1(p.y) + ')"';
+        '" transform="rotate(' + r1(angle) + ' ' + r1(p.x) + ' ' + r1(p.y) + ')"';
     });
   }
   // Слои света поверх картинки (все — в пикселях картинки, тянутся вместе с ней):
@@ -990,7 +992,7 @@
     var soft = r1(iw * .006), halo = r1(iw * .012), last = daysCount(route), shapes = [];
     var g = route.glow || {}, style = spiralGlowStyle(route), small = style === 'points';
     var size = small ? numIn(g.pointSize, 100, 50, 150) : numIn(g.reflectionSize, 100, 40, 160);
-    var marks = small || style === 'reflection' ? reflections(tr, last, iw, ih, size / 100, small) : null;
+    var marks = small || style === 'reflection' ? reflections(tr, last, iw, ih, size / 100, small, B.center) : null;
     var shimmer = small ? numIn(g.pointShimmer, 35, 0, 100) / 100 : 0;
     var box = el('div', 'ys-bricks');
     var svgs = ['ys-l-dusk', 'ys-l-glow', 'ys-l-today', 'ys-l-pulse', 'ys-l-zones'].map(function (cls) {
@@ -1000,7 +1002,7 @@
     for (var d = 1; d <= last; d++) shapes[d] = d === last ? null : ribbonPath(daySlice(tr, d), 1);
     var NS = neonOf(route, 'spiral');
     B.colorOf = function (d) {
-      var base = small && d < last ? sealColor((route.days || [])[d - 1]) || B.color : B.color;
+      var base = small ? sealColor((route.days || [])[d - 1]) || B.color : B.color;
       return neonHex(dayColor(route, d, base), NS);
     };
     if (NS) { halo = r1(iw * .012 * (1 + NS * .7)); }
@@ -1021,7 +1023,7 @@
       var reflectionsGlow = '', reflectionDefs = '', reflectionToday = '', reflectionHoles = '', maskStops = '';
       for (d = 1; d <= last; d++) {
         lv = st.lv[d] || 0; col = B.colorOf(d);
-        if (marks && d < last) {
+        if (marks && (d < last || small && !st.after)) {
           if (lv > 0) {
             var mark = marks[d - 1], gid = id + 'r' + d, core = rgbHex(toWhite(hexRgb(col), .58));
             var calling = d === st.today && st.calling, innerColor = small ? col : core;
@@ -1039,6 +1041,7 @@
               ellipse += '<ellipse class="ys-point-shine" ' + mark + ' fill="url(#' + shineId + ')" opacity="0" style="--ys-shine:' + peak.toFixed(3) +
                 ';animation-duration:' + (calling ? 5.8 : 7 + d % 4) + 's;animation-delay:-' + (d * 1.31 % 7).toFixed(2) + 's"/>';
             }
+            if (d === last) ellipse = '<g class="ys-center-point">' + ellipse + '</g>';
             if (calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
             else { reflectionDefs += gradient; reflectionsGlow += ellipse; }
           }
@@ -1078,7 +1081,22 @@
     B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route); B.sparkSpd = sparkSpeed(route);
     B.thinTrail = !!marks;
     B.dustTrail = (route.glow || {}).sparkTrail === 'dust';
-    B.run = function (d, done) { pulse(B, d, done || function () {}); };
+    if (small) {
+      var sunId = id + 'cs';
+      box.insertAdjacentHTML('beforeend', '<svg class="ys-l-center-sun"' + vb + '><defs><radialGradient id="' + sunId +
+        '"><stop stop-color="#fff4cf"/><stop offset=".36" stop-color="' + B.colorOf(last) +
+        '" stop-opacity=".91"/><stop offset=".72" stop-color="' + B.colorOf(last) +
+        '" stop-opacity=".32"/><stop offset="1" stop-color="' + B.colorOf(last) + '" stop-opacity="0"/></radialGradient></defs><g>' +
+        shape(last, 'fill="url(#' + sunId + ')"', 1.32) + '</g></svg>');
+      B.centerShine = function (on) { box.classList.toggle('ys-center-awake', on); };
+    }
+    var previewSun;
+    B.run = function (d, done) {
+      if (d !== last || !B.centerShine) { pulse(B, d, done || function () {}); return; }
+      B.centerShine(true);
+      clearTimeout(previewSun);
+      previewSun = setTimeout(function () { B.centerShine(false); if (done) done(); }, 1550);
+    };
     return B;
   }
   // Какой кирпич под точкой (x, y в пикселях картинки). tol — запас вокруг полосы; у сегодняшнего (prefer) — запас больше (big).
@@ -1685,7 +1703,7 @@
     ov.appendChild(node);
     ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);
-    if (cls === 'ys-layer--day') syncStageMusic();
+    if (ov.classList.contains('ys-layer--day')) syncStageMusic();
     document.body.classList.add('ys-locked');
     slideCalm(750);
     requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('is-in'); }); });
@@ -1724,7 +1742,7 @@
     requestAnimationFrame(function () { t.classList.add('is-in'); });
     setTimeout(function () { t.classList.remove('is-in'); setTimeout(function () { t.remove(); }, 400); }, 3200);
   }
-  function openDay(n, mode, from) {
+  function openDay(n, mode, from, centerLit) {
     var r = S.route;
     closeLayer();
     var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), onGather: function (exit) {
@@ -1744,7 +1762,11 @@
       if (pickedList().indexOf(n) >= 0) openPersonal(n, mode, cardFor(r, S.code, n));
       else openFan(n, mode);
     } });
-    layer(c, 'ys-layer--day', from || centerOffset());
+    var ov = layer(c, 'ys-layer--day' + (centerLit ? ' ys-layer--center-lit' : ''), from || centerOffset());
+    if (centerLit) {
+      if (S.B && S.B.centerShine) S.B.centerShine(true);
+      ov.onclose = function () { if (S.B && S.B.centerShine) S.B.centerShine(false); };
+    }
   }
   function openPersonal(n, mode, perm) {
     closeLayer();
@@ -3046,6 +3068,21 @@
     var first = openedList().indexOf(d) < 0, B = S.B;
     markOpened(d);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
+    if (d === last && B && B.centerShine) {
+      S.busy = true;
+      B.centerShine(true);
+      var openCenterCard = function () {
+        S.busy = false;
+        if (S.route !== r || curDay() !== d || FIN || document.querySelector('.ys-layer:not(.is-out)')) {
+          B.centerShine(false);
+          return;
+        }
+        if (S.B) S.B.paint(lights(r, finDone() ? last + 1 : n, true));
+        openDay(d, S.mode, null, true);
+      };
+      if (REDUCED) openCenterCard(); else setTimeout(openCenterCard, 930);
+      return;
+    }
     if (!B || !first || REDUCED) { if (B) B.paint(lights(r, n, true)); openDay(d, S.mode); return; }
     S.busy = true;
     B.today.classList.add('is-go');
@@ -3634,6 +3671,7 @@
       var iw = img.naturalWidth, ih = img.naturalHeight, g = r.glow || {};
       var B = S.B = bricksLayer(r, M.zone, iw, ih, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100, zones: S.zonesOn });
       B.paint(lights(r, lit, opened));
+      if (B.centerShine && document.querySelector('.ys-layer--center-lit:not(.is-out)')) B.centerShine(true);
       stage.appendChild(B.node);
       // Большая невидимая кнопка на сегодняшнем кирпиче (на телефоне плиты внутренних витков маленькие), после конца — на центре
       var hd = n <= last ? n : last;
