@@ -1558,6 +1558,7 @@
     ov.appendChild(node);
     ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);
+    if (cls === 'ys-layer--day') syncStageMusic();
     document.body.classList.add('ys-locked');
     slideCalm(750);
     requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('is-in'); }); });
@@ -1586,6 +1587,7 @@
     if (!ov) return;
     if (ov.onclose) { ov.onclose(); ov.onclose = null; }
     ov.classList.remove('is-in'); ov.classList.add('is-out');
+    if (ov.classList.contains('ys-layer--day')) syncStageMusic();
     setTimeout(function () { ov.remove(); if (!document.querySelector('.ys-layer')) document.body.classList.remove('ys-locked'); }, 380);
   }
   function note(text) {
@@ -1989,9 +1991,117 @@
   function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
   function toWhite(c, k) { return [c[0] + (255 - c[0]) * k, c[1] + (255 - c[1]) * k, c[2] + (255 - c[2]) * k]; }
   // Музыка финала — только её файл; запускается прямо в нажатии (иначе телефон не даст играть)
-  function soundPref() { try { return localStorage.getItem('m13ys-sound') !== '0'; } catch (e) { return true; } }
+  var stageSoundPref = null;
+  function soundPref() {
+    if (stageSoundPref !== null) return stageSoundPref;
+    try { return localStorage.getItem('m13ys-sound') !== '0'; } catch (e) { return true; }
+  }
+  // Фон сцены: один проигрыватель на весь маршрут, в том числе при перерисовке сцены и открытии карты.
+  function initStageMusic(route) {
+    if (S.stageMusic) {
+      var prev = S.stageMusic;
+      document.removeEventListener('click', stageMusicGesture, true);
+      clearInterval(prev.fade);
+      prev.audio.pause();
+      if (prev.context) prev.context.close().catch(function () {});
+      S.stageMusic = null;
+    }
+    if (!route.stageMusic || S.film) return;
+
+    var audio = new Audio(imgSrc(S.base, route.stageMusic)), volume = route.stageVolume;
+    audio.loop = true;
+    audio.preload = 'none';
+    volume = volume == null || volume === '' || !isFinite(+volume) ? 35 : +volume;
+    var music = S.stageMusic = { audio: audio, volume: Math.max(0, Math.min(100, volume)) / 100 };
+    // Web Audio регулирует громкость и на телефонах, где audio.volume доступна только для чтения.
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      try {
+        music.context = new AudioContext();
+        var gain = music.context.createGain();
+        gain.gain.value = 0;
+        music.context.createMediaElementSource(audio).connect(gain);
+        gain.connect(music.context.destination);
+        music.gain = gain.gain;
+      } catch (e) {
+        if (music.context) music.context.close().catch(function () {});
+        music.context = null;
+      }
+    }
+    if (!music.gain) audio.volume = 0;
+    document.addEventListener('click', stageMusicGesture, true);
+  }
+  function stageMusicGesture(e) {
+    if (!e.target.closest || e.target.closest('.ys-stage-snd')) return;
+    if (e.target.closest('.ys-page,.ys-layer--day,.ys-fin')) syncStageMusic(true);
+  }
+  function syncStageMusic(start) {
+    var music = S.stageMusic;
+    if (!music) return;
+    var audio = music.audio, enabled = soundPref(), gain = music.gain;
+    var cardOpen = document.querySelector('.ys-layer--day:not(.is-out)');
+    var target = !enabled || music.final === 'quiet' || S.spaceDay === 'final' ? 0 : music.volume * (cardOpen ? .6 : 1);
+    if (target !== music.target) {
+      music.target = target;
+      if (gain) {
+        var t = music.context.currentTime;
+        if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(t);
+        else { var from = gain.value; gain.cancelScheduledValues(t); gain.setValueAtTime(from, t); }
+        gain.linearRampToValueAtTime(target, t + .25);
+      } else {
+        clearInterval(music.fade);
+        if (target) audio.muted = false;
+        var initial = audio.volume, since = Date.now();
+        music.fade = setInterval(function () {
+          var k = Math.min(1, (Date.now() - since) / 250);
+          audio.volume = initial + (target - initial) * k;
+          if (k === 1) { clearInterval(music.fade); audio.muted = target === 0; }
+        }, 30);
+      }
+    }
+    if (!enabled) audio.pause();
+    else if (start && target) {
+      if (music.context && music.context.state !== 'running') music.context.resume().catch(function () {});
+      if (audio.paused) {
+        var playing = audio.play();
+        if (playing && playing.catch) playing.catch(function () {});
+      }
+    }
+    [].forEach.call(document.querySelectorAll('.ys-stage-snd'), updateStageSoundButton);
+  }
+  function updateStageSoundButton(button) {
+    var on = soundPref(), label = on ? 'Выключить музыку' : 'Включить музыку';
+    button.classList.toggle('is-on', on);
+    button.setAttribute('aria-pressed', String(on));
+    button.setAttribute('aria-label', button.classList.contains('ys-ic') ? 'Фоновая музыка' : 'Музыка');
+    button.title = label;
+    putText(button, button.classList.contains('ys-ic') ? '♪' : '♪ ' + label);
+  }
+  function stageSoundButton(compact) {
+    var b = el('button', (compact ? 'ys-me ys-ic' : 'ys-fin-snd') + ' ys-stage-snd');
+    b.type = 'button';
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var enabled = !soundPref();
+      try { localStorage.setItem('m13ys-sound', enabled ? '1' : '0'); } catch (err) { stageSoundPref = enabled; }
+      syncStageMusic(enabled);
+    });
+    updateStageSoundButton(b);
+    return b;
+  }
+  function stageMusicFinal(f) {
+    if (!S.stageMusic) return;
+    var different = Boolean(f.music);
+    if (different) {
+      try { different = new URL(imgSrc(S.base, f.music), location.href).href !== S.stageMusic.audio.src; } catch (e) {}
+    }
+    S.stageMusic.final = f.sound === false || different ? 'quiet' : 'continue';
+    syncStageMusic();
+  }
   function musicStart() {
     var f = finCfg();
+    stageMusicFinal(f);
+    if (S.stageMusic && S.stageMusic.final === 'continue') return null;
     if (!f.music || f.sound === false) return null;
     var a = new Audio(imgSrc(S.base, f.music)), vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100;
     a.preload = 'auto'; a.m13vol = vol;
@@ -2274,6 +2384,7 @@
     o = o || {};
     var r = S.route, tx = r.texts || {}, f = finCfg(), last = daysCount(r), per = finPersonal();
     if (FIN) FIN.kill();
+    stageMusicFinal(f);
     if (!o.instant) markFin();
     var G = finGeo(), dpr = Math.min(2, window.devicePixelRatio || 1), C = G.C;
     var root = el('div', 'ys-fin'), cv = el('canvas', 'ys-fin-fx'), x = cv.getContext('2d');
@@ -2311,7 +2422,8 @@
     root.appendChild(cv); root.appendChild(ui);
     // Музыка: кнопка «звук», если есть её файл
     var mus = o.music || null, sb = null;
-    if (!mus && f.music && f.sound !== false) { mus = new Audio(imgSrc(S.base, f.music)); mus.preload = 'auto'; mus.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100; }
+    if (S.stageMusic && S.stageMusic.final === 'continue') root.appendChild(stageSoundButton(false));
+    else if (!mus && f.music && f.sound !== false) { mus = new Audio(imgSrc(S.base, f.music)); mus.preload = 'auto'; mus.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100; }
     if (mus) {
       sb = el('button', 'ys-fin-snd'); sb.type = 'button';
       mus.m13upd = function () { var on = !mus.paused; putText(sb, '♪ ' + (on ? tx.soundOff || 'Выключить звук' : tx.soundOn || 'Включить звук')); sb.classList.toggle('is-on', on); };
@@ -2573,6 +2685,7 @@
       if (mus) fadeAudio(mus, 0, 700);
       window.removeEventListener('resize', onResize);
       root.remove(); FIN = null;
+      if (S.stageMusic) { S.stageMusic.final = null; syncStageMusic(true); }
     }
     function close() {
       root.classList.add('is-out');
@@ -3066,6 +3179,7 @@
       rb.addEventListener('click', openReview);
       tools.appendChild(rb);
     }
+    if (S.stageMusic) tools.appendChild(stageSoundButton(true));
     tools.appendChild(me);
     page.appendChild(tools);
   }
@@ -3301,6 +3415,7 @@
     var sp = spaceNode('final');
     S.busy = true; S.space = sp; S.spaceN = null;
     S.spaceDay = 'final';
+    syncStageMusic();
     window.M13D.go(null, null, sp, { base: S.base }, function () { S.busy = false; });
   }
   function leaveSpace() {
@@ -3310,6 +3425,7 @@
     var day = S.spaceDay;
     M.back(S.spaceN ? S.DS : null, d, sp, { open: d ? M.doorOf(S.route, d).open : null }, function () {
       S.busy = false; S.space = null; S.spaceN = null; S.spaceDay = null;
+      syncStageMusic(true);
       if (S.redraw || (S.sim == null && curDay() !== S.doorDay)) { S.redraw = false; render(); return; }
       // Выбор двери: личный след дня проступает, когда человек возвращается к дверям (если «сразу»; по умолчанию — после конца дня)
       if (isChoice(S.route) && d && S.DS && typeof day === 'number') {
@@ -3499,6 +3615,7 @@
     else S.mode = S.code ? S.code.mode : 'observation';
     if (route.title) document.title = '13 MIRRORS · ' + route.title;
     if (FIN) FIN.kill();
+    initStageMusic(route);
     // Предпросмотр из панели: Путешествие без кода — временный код (только в памяти), чтобы увидеть личное
     // (и «Посмотреть финал» — спираль в 13-й день без карты: она сама касается центра)
     if (S.preview && (/^final/.test(q('card') || '') || S.sim === daysCount(route)) && S.mode !== 'observation' && !S.code) { S.code = newCode(route, S.mode); gate = false; }
@@ -3520,6 +3637,7 @@
     else if (gate) openKey(m);
     // После конца маршрута страница открывается сразу на последнем кадре финала
     else if (curDay() > last && !isDoors(route)) finalScene({ instant: true });
+    syncStageMusic(true);
     if (q('gift') && !S.code) setTimeout(function () { note((route.texts || {}).giftNeed || 'Чтобы положить подарок в узор, сначала войдите своим кодом.'); }, 600);
   }
   // Сцена «Двери» — отдельный файл, грузится только у маршрутов с дверями
