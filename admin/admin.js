@@ -3310,7 +3310,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261125h';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261125i';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4904,7 +4904,7 @@
           hint: 'Размер светового пятна. Там, где дни близко друг к другу, между отблесками остаётся промежуток.' }) : null,
         points ? rangeIn(r.glow, 'pointSize', 'Размер точек', { min: 50, max: 150, step: 5, def: 100, unit: ' %' }) : null,
         points ? rangeIn(r.glow, 'pointShimmer', 'Перелив', { min: 0, max: 100, step: 5, def: 35, unit: ' %',
-          hint: 'Сила редкого блика внутри точки. 0 % — точка светится ровно.' }) : null,
+          hint: '0 % — без блика. При изменении первым переливается сегодняшний день. Крупно видно через «Посмотреть страницу».' }) : null,
         points ? el('p', { class: 'a-hint', text: 'Точки берут цвет печати. Свой цвет для каждого дня можно задать ниже.' }) : null,
         colorIn(r.glow, 'color', points ? 'Цвет центра и запасной цвет точек' : 'Цвет свечения — общий'),
         rangeIn(r.glow, 'power', 'Сила свечения', { min: 50, max: 300, step: 10, def: 150, unit: ' %',

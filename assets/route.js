@@ -970,7 +970,7 @@
   // Отблески лежат в серединах дней и вытянуты по касательной к пути.
   // Размер ограничен ближайшим огнём, чтобы даже у больших отблесков оставались промежутки.
   function reflections(tr, last, iw, ih, size, small, center) {
-    var points = [], d, base = small ? Math.min(iw * .025, ih * .014) : Math.min(iw * .11, ih * .085);
+    var points = [], d, base = small ? Math.min(iw * .021, ih * .012) : Math.min(iw * .11, ih * .085);
     for (d = 1; d < last; d++) points.push(tr[(2 * d - 1) * SPAN]);
     if (small) points.push({ x: center.cx, y: center.cy });
     return points.map(function (p, i) {
@@ -1027,19 +1027,26 @@
           if (lv > 0) {
             var mark = marks[d - 1], gid = id + 'r' + d, core = rgbHex(toWhite(hexRgb(col), .58));
             var calling = d === st.today && st.calling, innerColor = small ? col : core;
-            var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + innerColor + '"/>' +
-              '<stop offset=".28" stop-color="' + innerColor + '" stop-opacity="' + op(.45 + .55 * reflectionLight) + '"/>' +
-              '<stop offset=".64" stop-color="' + col + '" stop-opacity="' + op(.08 + .55 * reflectionLight) + '"/>' +
-              '<stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
+            var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + innerColor + '"/>';
+            if (small) {
+              gradient += '<stop offset=".19" stop-color="' + col + '" stop-opacity=".84"/>' +
+                '<stop offset=".46" stop-color="' + col + '" stop-opacity=".24"/><stop offset=".72" stop-color="' + col + '" stop-opacity=".07"/>';
+            } else {
+              gradient += '<stop offset=".28" stop-color="' + innerColor + '" stop-opacity="' + op(.45 + .55 * reflectionLight) + '"/>' +
+                '<stop offset=".64" stop-color="' + col + '" stop-opacity="' + op(.08 + .55 * reflectionLight) + '"/>';
+            }
+            gradient += '<stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
             var ellipse = '<ellipse ' + mark + ' fill="url(#' + gid + ')" opacity="' + op(Math.sqrt(lv) * (.14 + .86 * reflectionLight)) + '"/>';
-            reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * .64 * reflectionLight) + '"/>';
+            reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * (small ? .22 : .64) * reflectionLight) + '"/>';
             if (shimmer) {
-              // Блик занимает только четверть точки и меняет прозрачность внутри её границ.
-              var shineId = gid + 's', peak = Math.sqrt(lv) * shimmer * (calling ? .38 : .23);
-              gradient += '<radialGradient id="' + shineId + '" cx="57%" cy="35%" r="20%">' +
-                '<stop stop-color="#fff3d0"/><stop offset="1" stop-color="#fff3d0" stop-opacity="0"/></radialGradient>';
-              ellipse += '<ellipse class="ys-point-shine" ' + mark + ' fill="url(#' + shineId + ')" opacity="0" style="--ys-shine:' + peak.toFixed(3) +
-                ';animation-duration:' + (calling ? 5.8 : 7 + d % 4) + 's;animation-delay:-' + (d * 1.31 % 7).toFixed(2) + 's"/>';
+              // Сдвинутый от светлой сердцевины блик виден и на белой точке, но остаётся внутри неё.
+              var shineId = gid + 's', peak = Math.sqrt(lv) * shimmer * (calling ? .94 : .78);
+              gradient += '<radialGradient id="' + shineId + '" cx="67%" cy="36%" r="21%">' +
+                '<stop stop-color="#fff9e6"/><stop offset=".38" stop-color="#fff6da" stop-opacity=".75"/>' +
+                '<stop offset="1" stop-color="#fff3d0" stop-opacity="0"/></radialGradient>';
+              ellipse += '<ellipse class="ys-point-shine" ' + mark + ' fill="url(#' + shineId + ')" opacity="' +
+                (calling ? (peak * .45).toFixed(3) : '0') + '" style="--ys-shine:' + peak.toFixed(3) + ';animation-duration:' +
+                (calling ? 5.2 : 7 + d % 4) + 's;animation-delay:-' + (calling ? '3.2' : (d * 1.31 % 7).toFixed(2)) + 's"/>';
             }
             if (d === last) ellipse = '<g class="ys-center-point">' + ellipse + '</g>';
             if (calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
@@ -3077,7 +3084,7 @@
           B.centerShine(false);
           return;
         }
-        if (S.B) S.B.paint(lights(r, finDone() ? last + 1 : n, true));
+        if (S.B) S.B.paint(lights(r, n, true));
         openDay(d, S.mode, null, true);
       };
       if (REDUCED) openCenterCard(); else setTimeout(openCenterCard, 930);
@@ -3638,8 +3645,8 @@
     topLinks(page);
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
-    // Финал собран (день 13) — спираль уже золотая, как после конца маршрута
-    var lit = n === last && finDone() ? last + 1 : n;
+    // В режиме точек центр остаётся точкой весь день 13, даже после просмотра финала.
+    var lit = n === last && spiralGlowStyle(r) !== 'points' && finDone() ? last + 1 : n;
     var bricks = !!M.zone && n >= 1;
     var hud = el('div', 'ys-hud');
     var ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
