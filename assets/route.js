@@ -830,6 +830,12 @@
       box.appendChild(b);
       foot.appendChild(box);
     }
+    if (fin && o.finalDone) {
+      var result = el('button', 'ys-key-go', (route.texts || {}).finResult || 'Посмотреть итог'); result.type = 'button';
+      result.addEventListener('click', o.onFinalResult);
+      foot.appendChild(result); inner.appendChild(foot); root.appendChild(inner);
+      return root;
+    }
     if (fin) {
       var exit = (o.exit || []).slice(), gb;
       if (mode !== 'observation' && statesOf(route).length >= 3 && (route.final || {}).exitOn !== false) inner.appendChild(exitPicker(route, exit, function (l) { exit = l; if (gb) gb.update(l); }));
@@ -1048,8 +1054,19 @@
                 (calling ? (peak * .45).toFixed(3) : '0') + '" style="--ys-shine:' + peak.toFixed(3) + ';animation-duration:' +
                 (calling ? 5.2 : 7 + d % 4) + 's;animation-delay:-' + (calling ? '3.2' : (d * 1.31 % 7).toFixed(2)) + 's"/>';
             }
+            var beacon = small && d === st.today;
+            if (beacon) {
+              var spot = d === last ? { x: B.center.cx, y: B.center.cy } : tr[(2 * d - 1) * SPAN];
+              var radius = r1(Math.min(iw * .035, ih * .021)), beaconId = gid + 'b';
+              gradient += '<radialGradient id="' + beaconId + '"><stop stop-color="' + core + '" stop-opacity="' + op(calling ? .88 : .55) +
+                '"/><stop offset=".27" stop-color="' + col + '" stop-opacity="' + op(calling ? .75 : .4) +
+                '"/><stop offset=".63" stop-color="' + col + '" stop-opacity="' + op(calling ? .32 : .16) +
+                '"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
+              ellipse = '<circle class="ys-today-beacon" cx="' + r1(spot.x) + '" cy="' + r1(spot.y) + '" r="' + radius +
+                '" fill="url(#' + beaconId + ')" opacity="' + op(Math.sqrt(lv)) + '"/>' + ellipse;
+            }
             if (d === last) ellipse = '<g class="ys-center-point">' + ellipse + '</g>';
-            if (calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
+            if (calling || beacon) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
             else { reflectionDefs += gradient; reflectionsGlow += ellipse; }
           }
           continue;
@@ -1607,7 +1624,10 @@
     try { localStorage.setItem(giftKey(c), JSON.stringify(l)); } catch (e) {}
     return true;
   }
-  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); localStorage.removeItem(markKey(S.code)); } catch (e) {} }
+  function resetGlass() {
+    delete gatheredFinals[finKey()];
+    try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); localStorage.removeItem(markKey(S.code)); } catch (e) {}
+  }
   // Отметки на диске личной карты: [[день, зона], …] — у каждого кода свои, только на этом устройстве (в код не входят)
   function markKey(c) { return storeKey() + '-mark-' + (c ? c.code : ''); }
   function markList(c) { return c ? listOf(markKey(c)).filter(function (m) { return Array.isArray(m) && m.length === 2 && DISK_FAMILY[m[1]]; }) : []; }
@@ -1621,9 +1641,21 @@
   function exitKey(c) { return storeKey() + '-exit-' + (c ? c.code : ''); }
   function exitList(c) { return c ? listOf(exitKey(c)).filter(function (i) { return i === +i && i >= 0 && i < 12; }).slice(0, 3) : []; }
   function saveExit(c, l) { if (c) try { localStorage.setItem(exitKey(c), JSON.stringify(l || [])); } catch (e) {} }
-  function finKey() { return storeKey() + '-final-' + (S.code && S.mode !== 'observation' ? S.code.code : 'obs'); }
-  function finDone() { try { return localStorage.getItem(finKey()) === '1'; } catch (e) { return false; } }
-  function markFin() { try { localStorage.setItem(finKey(), '1'); } catch (e) {} }
+  var gatheredFinals = {};
+  function finKey() {
+    var suffix = S.preview && !S.film ? '-preview-final-' : '-final-';
+    return storeKey() + suffix + (S.code && S.mode !== 'observation' ? S.code.code : 'obs');
+  }
+  function finDone() {
+    var key = finKey();
+    if (gatheredFinals[key]) return true;
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+  }
+  function markFin() {
+    var key = finKey();
+    gatheredFinals[key] = true;
+    try { localStorage.setItem(key, '1'); } catch (e) {}
+  }
   function seenKey() { return storeKey() + '-glass-' + (S.code ? S.code.code : ''); }
   function markSeen(n) { var l = listOf(seenKey()); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(seenKey(), JSON.stringify(l)); } catch (e) {} } }
   // Узор человека сейчас: состояния + стёклышки наступивших дней + подарки на этом устройстве. upto — узор «до дня» (без его стёклышка)
@@ -1712,7 +1744,7 @@
     document.body.appendChild(ov);
     if (ov.classList.contains('ys-layer--day')) syncStageMusic();
     document.body.classList.add('ys-locked');
-    slideCalm(750);
+    slideCalm(ov.classList.contains('ys-layer--day') && !REDUCED ? 1100 : 750);
     requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('is-in'); }); });
     return ov;
   }
@@ -1750,14 +1782,18 @@
     setTimeout(function () { t.classList.remove('is-in'); setTimeout(function () { t.remove(); }, 400); }, 3200);
   }
   function openDay(n, mode, from, centerLit) {
-    var r = S.route;
+    var r = S.route, doors = isDoors(r);
     closeLayer();
-    var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), onGather: function (exit) {
+    var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), finalDone: !doors && n === daysCount(r) && finDone(),
+      onFinalResult: showCollectedFinal, onGather: function (exit) {
+      if (!doors && finDone()) { showCollectedFinal(); return; }
+      if (S.busy) return;
       // «Собрать маршрут»: состояния выхода — на устройство, дальше финал на спирали
       if (mode !== 'observation' && S.code) saveExit(S.code, exit);
-      if (isDoors(r)) { openDoorsFinal(); return; }
+      if (doors) { openDoorsFinal(); return; }
+      S.busy = true;
       var m = musicStart();
-      closeLayer(); setTimeout(function () { finalScene({ music: m }); }, 300);
+      closeLayer(); setTimeout(function () { S.busy = false; finalScene({ music: m }); }, 300);
     }, onKey: deepKey(r) ? function () { goDeep(n); } : doorsCard(r) && !S.code ? function () { openKey(S.mode); } : null,
       keyText: fill(deepKey(r) ? (S.code ? (r.texts || {}).doorKeyIn || 'Поднимайся' : (r.texts || {}).doorKey || 'Есть ключ? Поднимайся') : (r.texts || {}).doorKey || 'Есть ключ? Введи ключ', ctxOf(r, n)),
       backText: deepKey(r) ? (r.texts || {}).doorCardBack || 'К дверям' : null, spiralLabel: doorsCard(r) ? 'Дальше' : null, onSpiral: function () {
@@ -2541,7 +2577,8 @@
     var r = S.route, tx = r.texts || {}, f = finCfg(), last = daysCount(r), per = finPersonal();
     if (FIN) FIN.kill();
     stageMusicFinal(f);
-    if (!o.instant) markFin();
+    var instant = o.instant || finDone();
+    if (!instant) markFin();
     var G = finGeo(), dpr = Math.min(2, window.devicePixelRatio || 1), C = G.C;
     var root = el('div', 'ys-fin'), cv = el('canvas', 'ys-fin-fx'), x = cv.getContext('2d');
     var ui = el('div', 'ys-fin-ui'), sun = el('div', 'ys-fin-sun'), kc = el('canvas', 'ys-fin-kal'), end = el('div', 'ys-fin-end');
@@ -2663,7 +2700,7 @@
 
     // Видео из генератора (необязательно): своё у компьютерной и телефонной картинки, камера неподвижна — ложится ровно на спираль
     var tall = pickMaster(r, window.innerHeight / window.innerWidth > 1.25).tall, vsrc = tall ? f.videoMobile : f.videoDesktop, V = null, vT = 0;
-    if (vsrc && !o.instant && !REDUCED) {
+    if (vsrc && !instant && !REDUCED) {
       var stage = document.querySelector('.ys-stage');
       if (stage) {
         V = el('video', 'ys-fin-video'); V.muted = true; V.setAttribute('muted', ''); V.playsInline = true; V.setAttribute('playsinline', ''); V.preload = 'auto';
@@ -2853,14 +2890,20 @@
     root.addEventListener('click', function () { if (!done) finish(); });
     window.addEventListener('resize', onResize);
     FIN = { kill: kill, finish: finish };
-    if (o.instant || REDUCED) { requestAnimationFrame(function () { root.classList.add('is-in'); finish(); }); return; }
+    if (instant || REDUCED) { requestAnimationFrame(function () { root.classList.add('is-in'); finish(); }); return; }
     requestAnimationFrame(function () { root.classList.add('is-in'); raf = requestAnimationFrame(step); });
   }
-  // Нажали на центр после конца маршрута (или «Финал Солнца» в проверке): финал уже собирали — сразу финал; нет — Карта дня 13
+  function showCollectedFinal() {
+    if (FIN || S.busy) return;
+    closeLayer();
+    finalScene({ instant: true });
+  }
+  // После сбора центр ведёт на готовый итог. Без отметки доступна Карта дня 13.
   function openFinal() {
     var r = S.route, last = daysCount(r);
+    if (FIN || S.busy) return;
     if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
-    if (finDone()) { var m = musicStart(); closeLayer(); finalScene({ music: m }); return; }
+    if (finDone()) { showCollectedFinal(); return; }
     openDay(last, S.mode);
   }
 
@@ -3070,8 +3113,9 @@
     if (n < 1) return;
     if (d < n) { note(fill(tx.past || 'День {день} пройден', ctx)); return; }
     if (d > n) { note(fill(tx.future || 'День {день} откроется {дата}', ctx)); return; }
-    if (S.busy) return;
+    if (S.busy || FIN) return;
     if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
+    if (d === last && finDone()) { showCollectedFinal(); return; }
     var first = openedList().indexOf(d) < 0, B = S.B;
     markOpened(d);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
