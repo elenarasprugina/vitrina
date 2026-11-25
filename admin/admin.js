@@ -1051,14 +1051,20 @@
     o = o || {};
     var box = el('div', { class: 'a-field' });
     function draw() {
-      var v = obj[key] || '', isData = /^data:/.test(v), file = el('input', { type: 'file', accept: o.kind + '/*', style: 'display:none' });
+      var v = obj[key] || '', isData = /^data:/.test(v), file = el('input', { type: 'file', accept: o.uploadOnly ? '.mp3,.m4a' : o.kind + '/*', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
         if (f.size > (o.maxMB || 8) * 1048576) { toast('Файл ' + (f.size / 1048576).toFixed(1).replace('.', ',') + ' МБ — это много для страницы. Нужно до ' + (o.maxMB || 8) + ' МБ: сожмите или укоротите его.', true); return; }
+        var audioType;
+        if (o.uploadOnly) {
+          var ext = /[.](mp3|m4a)$/i.exec(f.name);
+          if (!ext) { toast('Выберите файл MP3 или M4A.', true); return; }
+          audioType = ext[1].toLowerCase() === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
+        }
         var rd = new FileReader();
         rd.onload = function () { obj[key] = rd.result; obj[key + 'Name'] = f.name; changed(); draw(); };
         rd.onerror = function () { toast('Не получилось прочитать файл.', true); };
-        rd.readAsDataURL(f);
+        rd.readAsDataURL(audioType ? new Blob([f], { type: audioType }) : f);
       });
       var url = el('input', { class: 'a-input', type: 'text', placeholder: 'https://… — или загрузите файл' });
       url.value = isData ? '' : v;
@@ -1068,7 +1074,7 @@
       if (play && o.kind === 'video') { play.muted = true; play.playsInline = true; }
       box.replaceChildren();
       add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
-        isData ? el('p', { class: 'a-hint', text: 'Загружен файл' + (obj[key + 'Name'] ? ' «' + obj[key + 'Name'] + '»' : '') + ' · ' + (v.length * .75 / 1048576).toFixed(1).replace('.', ',') + ' МБ' }) : url,
+        isData ? el('p', { class: 'a-hint', text: 'Загружен файл' + (obj[key + 'Name'] ? ' «' + obj[key + 'Name'] + '»' : '') + ' · ' + (v.length * .75 / 1048576).toFixed(1).replace('.', ',') + ' МБ' }) : o.uploadOnly ? null : url,
         play,
         el('div', { class: 'a-img' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить файл' : 'Загрузить файл', onclick: function () { file.click(); } }),
@@ -3304,7 +3310,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261019a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261125a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -4850,6 +4856,11 @@
         r.kind === 'theme' ? null : el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Заполнить кины по календарю', onclick: function () { jKinFill(r, true, function () { renderMain(); }); },
           title: 'Kin, имя кина, печать и тон каждого дня — по первому дню' })])]),
       block('Слова маршрута', jWords(r), { open: false }),
+      block('Фоновая музыка', [
+        mediaIn(r, 'stageMusic', 'Музыка на основной сцене', { kind: 'audio', uploadOnly: true, maxMB: 6,
+          hint: 'MP3 или M4A до 6 МБ. Играет по кругу, при открытии Карты дня становится тише. Участник может выключить звук.' }),
+        rangeIn(r, 'stageVolume', 'Громкость', { min: 5, max: 100, step: 5, def: 35, unit: ' %' })
+      ], { open: false }),
       r.scene === 'doors' ? null : block('Спираль (фон страницы)', [
         el('div', { class: 'a-row' }, [
           imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
@@ -5615,7 +5626,7 @@
         el('p', { class: 'a-hint', text: 'Под кнопками — кнопка-спираль: назад на спираль (она уже золотая, с Солнцем в центре).' })
       ], { open: false }),
       block('Музыка', [
-        el('p', { class: 'a-hint', text: 'Только ваша музыка — с правом использования (или свой фрагмент 15–30 секунд). Без файла финал идёт в тишине. Музыка начинается с нажатия «Собрать маршрут»; справа сверху — кнопка «Выключить звук» (браузер запомнит выбор). Лучше MP3 до 2–3 МБ.' }),
+        el('p', { class: 'a-hint', text: 'Только ваша музыка — с правом использования (или свой фрагмент 15–30 секунд). При включённом звуке без отдельного файла в финале продолжается музыка сцены, если она задана. Если у финала другой файл, он начинается с нажатия «Собрать маршрут». Справа сверху — кнопка звука (браузер запомнит выбор). Лучше MP3 до 2–3 МБ.' }),
         switchIn(F, 'sound', 'Музыка в финале', { defTrue: true }),
         mediaIn(F, 'music', 'Файл музыки', { kind: 'audio', maxMB: 6 }),
         rangeIn(F, 'volume', 'Громкость', { min: 10, max: 100, step: 5, def: 70, unit: ' %', hint: 'На iPhone громкость задаёт сам телефон.' }),

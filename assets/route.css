@@ -334,6 +334,8 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 /* Справа сверху: «?» (как идти по маршруту), ✎ (отзыв), «Мой код» */
 .ys-tools{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:3;display:flex;align-items:center;gap:7px}
 .ys-tools .ys-me{position:static}
+.ys-tools .ys-stage-snd.is-on{border-color:rgba(255,214,140,.65)}
+.ys-tools .ys-stage-snd:not(.is-on){opacity:.65}
 .ys-ic{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;text-decoration:none;font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;font-weight:600;line-height:1}
 .ys-ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .ys-fin-on .ys-tools{opacity:0;pointer-events:none;transition:opacity .6s}
