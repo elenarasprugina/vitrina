@@ -955,6 +955,23 @@
     for (d = 1; d <= last; d++) lv[d] = n > last ? T : d < n ? D : d > n ? F : opened ? (T + D) / 2 : T;
     return { lv: lv, today: n >= 1 && n <= last ? n : 0, calling: n >= 1 && n <= last && !opened, after: n > last, last: last };
   }
+  function spiralGlowStyle(route) {
+    var style = (route.glow || {}).style;
+    return style || (route.id === 'yellow-human' ? 'reflection' : 'ribbon');
+  }
+  // Отблески лежат в серединах дней и вытянуты по касательной к пути.
+  // Размер ограничен ближайшим огнём, чтобы даже у больших отблесков оставались промежутки.
+  function reflections(tr, last, iw, ih, size) {
+    var points = [], d;
+    for (d = 1; d < last; d++) points.push(tr[(2 * d - 1) * SPAN]);
+    return points.map(function (p, i) {
+      var index = (2 * i + 1) * SPAN, a = tr[index - 2], b = tr[index + 2];
+      var nearest = points.reduce(function (min, q) { return q === p ? min : Math.min(min, dist(p, q)); }, Infinity);
+      var diameter = Math.min(Math.min(iw * .11, ih * .085, nearest * .82) * size, nearest * .94);
+      return 'cx="' + r1(p.x) + '" cy="' + r1(p.y) + '" rx="' + r1(diameter / 2) + '" ry="' + r1(diameter * .28) +
+        '" transform="rotate(' + r1(Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI) + ' ' + r1(p.x) + ' ' + r1(p.y) + ')"';
+    });
+  }
   // Слои света поверх картинки (все — в пикселях картинки, тянутся вместе с ней):
   // сумрак с «окнами» на светящихся кирпичах; мягкое свечение (screen); сегодняшний — отдельным слоем, он дышит; импульс; разметка (проверка).
   // o: { color, dusk 0…1, zones — показать контуры и номера ('outline' — только контуры) }
@@ -963,6 +980,7 @@
     var B = { id: id, iw: iw, ih: ih, trace: tr, color: hexOk(o.color) ? o.color : '#ffcf5a', center: { cx: c.x * iw, cy: c.y * ih, rx: c.rx * iw, ry: c.ry * ih } };
     var vb = ' viewBox="0 0 ' + iw + ' ' + ih + '" preserveAspectRatio="none" aria-hidden="true"';
     var soft = r1(iw * .006), halo = r1(iw * .012), last = daysCount(route), shapes = [];
+    var marks = spiralGlowStyle(route) === 'reflection' ? reflections(tr, last, iw, ih, numIn((route.glow || {}).reflectionSize, 100, 40, 160) / 100) : null;
     var box = el('div', 'ys-bricks');
     var svgs = ['ys-l-dusk', 'ys-l-glow', 'ys-l-today', 'ys-l-pulse', 'ys-l-zones'].map(function (cls) {
       box.insertAdjacentHTML('beforeend', '<svg class="' + cls + '"' + vb + '></svg>');
@@ -985,8 +1003,22 @@
     function op(x) { return Math.min(1, x).toFixed(2); }
     B.paint = function (st) {
       var holes = '', glow = '', wide = '', today = '', todayWide = '', col, d, lv, pb = Math.max(0, P - 1);
+      var reflectionsGlow = '', reflectionDefs = '', reflectionToday = '', reflectionHoles = '', maskStops = '';
       for (d = 1; d <= last; d++) {
         lv = st.lv[d] || 0; col = B.colorOf(d);
+        if (marks && d < last) {
+          if (lv > 0) {
+            var mark = marks[d - 1], gid = id + 'r' + d, core = rgbHex(toWhite(hexRgb(col), .58));
+            var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + core + '"/>' +
+              '<stop offset=".28" stop-color="' + col + '" stop-opacity=".76"/><stop offset=".64" stop-color="' + col +
+              '" stop-opacity=".27"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
+            var ellipse = '<ellipse ' + mark + ' fill="url(#' + gid + ')" opacity="' + op(Math.sqrt(lv) * (.22 + .25 * P)) + '"/>';
+            reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * .64) + '"/>';
+            if (d === st.today && st.calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
+            else { reflectionDefs += gradient; reflectionsGlow += ellipse; }
+          }
+          continue;
+        }
         holes += shape(d, 'fill="#000" fill-opacity="' + Math.min(1, lv * 1.5).toFixed(2) + '"');
         if (d === st.today && st.calling) {
           today += shape(d, 'fill="' + col + '"' + (P < 1 ? ' fill-opacity="' + op(P) + '"' : '')) + shape(d, 'fill="#fff4cf" fill-opacity="' + op(.55 * Math.sqrt(P)) + '"', .6);
@@ -998,12 +1030,14 @@
       }
       // После конца маршрута в центре — Солнце (заглушка): большой мягкий диск
       if (st.after) glow += shape(last, 'fill="' + B.color + '" fill-opacity=".55"', 1.9) + shape(last, 'fill="#fff4cf" fill-opacity=".7"', .9);
-      svgs[0].innerHTML = '<defs>' + filt('s', soft) + '<mask id="' + id + 'm" maskUnits="userSpaceOnUse" x="0" y="0" width="' + iw + '" height="' + ih + '">' +
-        '<rect width="' + iw + '" height="' + ih + '" fill="#fff"/><g filter="url(#' + id + 's)">' + holes + '</g></mask></defs>' +
+      if (reflectionHoles) maskStops = '<radialGradient id="' + id + 'rm"><stop stop-color="#000"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>';
+      svgs[0].innerHTML = '<defs>' + filt('s', soft) + maskStops + '<mask id="' + id + 'm" maskUnits="userSpaceOnUse" x="0" y="0" width="' + iw + '" height="' + ih + '">' +
+        '<rect width="' + iw + '" height="' + ih + '" fill="#fff"/><g filter="url(#' + id + 's)">' + holes + '</g>' + reflectionHoles + '</mask></defs>' +
         '<rect width="' + iw + '" height="' + ih + '" fill="#070402" fill-opacity="' + (o.dusk == null ? .35 : o.dusk) + '" mask="url(#' + id + 'm)"/>';
-      svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') + '<g filter="url(#' + id + 'h)">' + glow + '</g>';
+      svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + reflectionDefs + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') +
+        '<g filter="url(#' + id + 'h)">' + glow + '</g>' + reflectionsGlow;
       // Центр (день 13): плоский эллипс — область фильтра на всю картинку, иначе свечение обрезается квадратом
-      svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : '';
+      svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : reflectionToday;
     };
     if (o.zones) {
       var zs = '', fs = r1(iw * .02);
@@ -3681,7 +3715,7 @@
   window.M13R = { howto: howtoBoot, howtoNode: howtoNode, howtoOf: howtoOf, howtoUrl: howtoUrl, reviewOf: reviewOf, reviewTg: reviewTg, reviewText: reviewText,
     putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
+    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, spiralGlowStyle: spiralGlowStyle, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,
