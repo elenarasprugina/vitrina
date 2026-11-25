@@ -1199,16 +1199,17 @@
   }
   // Песчинки рождаются в воздухе, расходятся и недолго держатся после пролёта.
   var DUST_RATE = 115, DUST_LIFE = .31, DUST_COUNT = Math.ceil(DUST_RATE * DUST_LIFE) + 1;
+  var DUST_STOPS = [[0, 1], [.32, .96], [.59, .48], [1, 0]];
   var DUST_GRAINS = (function () {
     var grains = [];
     for (var i = 0; i < 127; i++) {
       grains.push({ x: (Math.random() + Math.random() - 1) * 4.4, y: (Math.random() + Math.random() - 1) * 3.5,
-        r: .48 + Math.random() * .47, a: .56 + Math.random() * .44, shade: Math.floor(Math.random() * 3) });
+        r: .48 + Math.random() * .47, a: .66 + Math.random() * .34 });
     }
     return grains;
   })();
-  function dustShades(c) {
-    return [toWhite(c, .18), toWhite(c, .36), toWhite(c, .61)];
+  function dustOpacity(alpha, power) {
+    return 1 - Math.pow(1 - alpha * .96, power * 1.45);
   }
   function flightDust(t, duration, unit, seed, at, draw) {
     var n = Math.floor(Math.min(duration, t) * DUST_RATE);
@@ -1217,22 +1218,20 @@
       if (age >= DUST_LIFE) break;
       var grain = DUST_GRAINS[(n + seed) % DUST_GRAINS.length], p = at(emitted / duration), drift = 1 + 6.5 * age;
       draw(i, p.x + unit * grain.x * drift, p.y + unit * (grain.y * drift + 24 * age * age), grain.r * unit,
-        Math.pow(Math.min(1, (DUST_LIFE - age) / .16), 1.6) * grain.a, grain.shade);
+        Math.pow(Math.min(1, (DUST_LIFE - age) / .16), 1.6) * grain.a);
     }
   }
   function mirrorDust(B, d, done) {
     if (REDUCED) { done(); return; }
     var a = B.trace[(2 * d - 1) * SPAN], c = B.center, svg = B.pulse;
-    var unit = B.mirrorUnit, duration = B.mirrorFlight, first, col = hexRgb(B.dustColor(d)), id = B.id + 'dust';
+    var unit = B.mirrorUnit, duration = B.mirrorFlight, first, col = B.dustColor(d), id = B.id + 'dust';
     var rise = Math.min(B.ih * .17, Math.max(B.ih * .045, a.y * .48)), dx = c.cx - a.x;
-    var defs = dustShades(col).map(function (shade, i) {
-      var h = rgbHex(shade);
-      return '<radialGradient id="' + id + i + '"><stop stop-color="' + h + '"/>' +
-        '<stop offset=".37" stop-color="' + h + '" stop-opacity=".7"/>' +
-        '<stop offset="1" stop-color="' + h + '" stop-opacity="0"/></radialGradient>';
+    var stops = DUST_STOPS.map(function (stop) {
+      return '<stop offset="' + stop[0] + '" stop-color="' + col + '" stop-opacity="' + stop[1] + '"/>';
     }).join('');
     svg.classList.remove('is-fade');
-    svg.innerHTML = '<defs>' + defs + '</defs><g class="ys-mirror-dust">' +
+    svg.innerHTML = '<defs><radialGradient id="' + id + '">' + stops + '</radialGradient></defs>' +
+      '<g class="ys-mirror-dust" fill="url(#' + id + ')">' +
       new Array(DUST_COUNT + 1).join('<ellipse opacity="0"/>') + '</g>';
     var group = svg.lastChild, grains = group.children;
     B.today.classList.add('is-mirror-flying');
@@ -1243,12 +1242,11 @@
         y: v * v * v * a.y + 3 * v * v * u * (a.y - rise) +
         3 * v * u * u * (c.cy - rise * .31) + u * u * u * c.cy };
     }
-    function draw(i, x, y, r, alpha, shade) {
+    function draw(i, x, y, r, alpha) {
       var grain = grains[i];
       grain.setAttribute('cx', r1(x)); grain.setAttribute('cy', r1(y));
       grain.setAttribute('rx', r1(r * 1.8)); grain.setAttribute('ry', r1(r * 1.45));
-      grain.setAttribute('opacity', Math.min(1, alpha * B.spark).toFixed(2));
-      grain.setAttribute('fill', 'url(#' + id + shade + ')');
+      grain.setAttribute('opacity', dustOpacity(alpha, B.spark).toFixed(2));
       visible = i + 1;
     }
     var visible;
@@ -2774,7 +2772,7 @@
       L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; L.c = neonRgb(L.c, NL);
       if (flyDust) {
         var color = L.k === 'day' ? hexRgb(dustColor(r, L.d, rgbHex(L.c))) : L.c;
-        L.dust = dustShades(color).map(sparkSprite);
+        L.dust = sparkSprite(color, true);
         L.dustSeed = index * 17;
       }
     });
@@ -2791,12 +2789,15 @@
         life: 1.5 + Math.random() * 1.7, s: (.8 + Math.random() * 1.5), p: Math.random() * 6.283, fw: 5 + Math.random() * 9, sw: .6 + Math.random() * 1.2,
         c: Math.random() < .45 ? [255, 206 + Math.random() * 30, 130 + Math.random() * 50] : [Lc[0] + (255 - Lc[0]) * .25, Lc[1] + (220 - Lc[1]) * .25, Lc[2] + (170 - Lc[2]) * .25] });
     }
-    function sparkSprite(c) {
-      var k = Math.round(c[0] / 16) + ',' + Math.round(c[1] / 16) + ',' + Math.round(c[2] / 16);
+    function sparkSprite(c, isDust) {
+      var k = isDust ? 'dust' + rgbHex(c) : Math.round(c[0] / 16) + ',' + Math.round(c[1] / 16) + ',' + Math.round(c[2] / 16);
       if (sprC[k]) return sprC[k];
       var q = document.createElement('canvas'), z = 32, y = q.getContext('2d'), g = y.createRadialGradient(z / 2, z / 2, 0, z / 2, z / 2, z / 2);
       q.width = q.height = z;
-      g.addColorStop(0, rgba(toWhite(c, .55), 1)); g.addColorStop(.18, rgba(c, .75)); g.addColorStop(.5, rgba(c, .16)); g.addColorStop(1, rgba(c, 0));
+      if (isDust) DUST_STOPS.forEach(function (stop) { g.addColorStop(stop[0], rgba(c, stop[1])); });
+      else {
+        g.addColorStop(0, rgba(toWhite(c, .55), 1)); g.addColorStop(.18, rgba(c, .75)); g.addColorStop(.5, rgba(c, .16)); g.addColorStop(1, rgba(c, 0));
+      }
       y.fillStyle = g; y.fillRect(0, 0, z, z);
       return (sprC[k] = q);
     }
@@ -2807,10 +2808,10 @@
         var p = finAt(G, L.s0 + (G.Lt - L.s0) * e);
         return { x: p.x, y: p.y - Math.sin(Math.PI * k) * 19 * dustUnit };
       }
-      function draw(i, px, py, rad, alpha, shade) {
+      function draw(i, px, py, rad, alpha) {
         var size = rad * 5.2;
-        x.globalAlpha = Math.min(1, alpha * LP);
-        x.drawImage(L.dust[shade], px - size / 2, py - size / 2, size, size);
+        x.globalAlpha = dustOpacity(alpha, LP);
+        x.drawImage(L.dust, px - size / 2, py - size / 2, size, size);
       }
       flightDust(t, L.dur, dustUnit, L.dustSeed, at, draw);
       x.globalAlpha = 1;
@@ -2899,7 +2900,8 @@
         g0.addColorStop(0, rgba(toWhite(cg, .3), .55 * cm)); g0.addColorStop(.35, rgba(cg, .3 * cm)); g0.addColorStop(1, rgba(cg, 0));
         x.fillStyle = g0; x.fillRect(C.x - cr, C.y - C.ry * .3 - cr, cr * 2, cr * 2);
       }
-      // Огоньки по спирали: сгустки света или цветная пыль.
+      // Пыль перекрывает фон обычным наложением, чтобы на пересечении песчинки сохраняли цвет.
+      if (flyDust) x.globalCompositeOperation = 'source-over';
       lights.forEach(function (L) {
         if (T < L.t0) return;
         if (flyDust) {
@@ -2912,6 +2914,7 @@
         for (j = 6; j >= 1; j--) { var qq = finAt(G, s - j * rad * .5); blob(qq.x, qq.y, rad * (1 - j * .08), L.c, a * (.42 - j * .055)); }
         blob(p.x, p.y, rad, L.c, a);
       });
+      if (flyDust) x.globalCompositeOperation = 'lighter';
       // Искры «Костра»: поднимаются над печатью, покачиваются и стягиваются к середине — складываются в луч
       if (sparks.length && vfade > .01 && T > tw0 - .4 && T < b0 + 4.6) {
         var top = Math.max(40, C.y), bh = beam.w * .22;
