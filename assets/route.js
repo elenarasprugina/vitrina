@@ -788,7 +788,13 @@
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
     var clear = kind === 'day' && dayCardPreset(route) === 'clear';
     if (clear) {
+      var look = route.cardLook || {};
       root.classList.add('ys-card--clear');
+      root.classList.toggle('ys-card--no-rim', look.rim === 'none');
+      if (look.rim === 'own') {
+        var rim = hexOk(look.rimColor) ? look.rimColor : '#ffd68c';
+        root.style.setProperty('--ys-clear-rim', hexRgb(rim).join(','));
+      }
       root.setAttribute('data-scene', '0.16');
     } else cardLook(route, n, root, o.base);
     var inner = el('div', 'ys-card-in');
@@ -1200,11 +1206,13 @@
   // Песчинки рождаются в воздухе, расходятся и недолго держатся после пролёта.
   var DUST_RATE = 115, DUST_LIFE = .31, DUST_COUNT = Math.ceil(DUST_RATE * DUST_LIFE) + 1;
   var DUST_STOPS = [[0, 1], [.32, .96], [.59, .48], [1, 0]];
+  var DUST_GLINT_STOPS = [[0, '#fff5cd', 1], [.19, '#ffe3a4', .95], [.41, '#ffc272', .45], [1, '#ec8239', 0]];
   var DUST_GRAINS = (function () {
     var grains = [];
     for (var i = 0; i < 127; i++) {
       grains.push({ x: (Math.random() + Math.random() - 1) * 4.4, y: (Math.random() + Math.random() - 1) * 3.5,
-        r: .48 + Math.random() * .47, a: .66 + Math.random() * .34 });
+        r: .48 + Math.random() * .47, a: .66 + Math.random() * .34,
+        flash: Math.random() < .28 ? .04 + Math.random() * .22 : -1 });
     }
     return grains;
   })();
@@ -1217,36 +1225,45 @@
       var emitted = n / DUST_RATE, age = t - emitted;
       if (age >= DUST_LIFE) break;
       var grain = DUST_GRAINS[(n + seed) % DUST_GRAINS.length], p = at(emitted / duration), drift = 1 + 6.5 * age;
+      var glint = Math.max(0, 1 - Math.abs(age - grain.flash) / .045);
       draw(i, p.x + unit * grain.x * drift, p.y + unit * (grain.y * drift + 24 * age * age), grain.r * unit,
-        Math.pow(Math.min(1, (DUST_LIFE - age) / .16), 1.6) * grain.a);
+        Math.pow(Math.min(1, (DUST_LIFE - age) / .16), 1.6) * grain.a, glint * glint);
     }
   }
   function mirrorDust(B, d, done) {
     if (REDUCED) { done(); return; }
-    var a = B.trace[(2 * d - 1) * SPAN], c = B.center, svg = B.pulse;
+    var c = B.center, svg = B.pulse;
     var unit = B.mirrorUnit, duration = B.mirrorFlight, first, col = B.dustColor(d), id = B.id + 'dust';
-    var rise = Math.min(B.ih * .17, Math.max(B.ih * .045, a.y * .48)), dx = c.cx - a.x;
-    var stops = DUST_STOPS.map(function (stop) {
-      return '<stop offset="' + stop[0] + '" stop-color="' + col + '" stop-opacity="' + stop[1] + '"/>';
-    }).join('');
+    var path = { pts: B.trace.slice((2 * d - 1) * SPAN).concat([{ x: c.cx, y: c.cy, w: 0 }]), L: [0], Lt: 0 };
+    for (var j = 1; j < path.pts.length; j++) {
+      path.Lt += dist(path.pts[j - 1], path.pts[j]);
+      path.L.push(path.Lt);
+    }
+    function gradient(name, stops) {
+      return '<radialGradient id="' + name + '">' + stops.map(function (stop) {
+        return '<stop offset="' + stop[0] + '" stop-color="' + stop[1] + '" stop-opacity="' + stop[2] + '"/>';
+      }).join('') + '</radialGradient>';
+    }
+    var grains = new Array(DUST_COUNT + 1).join('<ellipse opacity="0"/>');
     svg.classList.remove('is-fade');
-    svg.innerHTML = '<defs><radialGradient id="' + id + '">' + stops + '</radialGradient></defs>' +
-      '<g class="ys-mirror-dust" fill="url(#' + id + ')">' +
-      new Array(DUST_COUNT + 1).join('<ellipse opacity="0"/>') + '</g>';
-    var group = svg.lastChild, grains = group.children;
+    svg.innerHTML = '<defs>' + gradient(id, DUST_STOPS.map(function (stop) { return [stop[0], col, stop[1]]; })) +
+      gradient(id + 's', DUST_GLINT_STOPS) + '</defs><g class="ys-mirror-dust">' +
+      '<g fill="url(#' + id + ')">' + grains + '</g><g class="ys-dust-glints" fill="url(#' + id + 's)">' + grains + '</g></g>';
+    var group = svg.lastChild, particles = group.firstChild.children, glints = group.lastChild.children;
     B.today.classList.add('is-mirror-flying');
     function at(k) {
-      var u = 1 - Math.pow(1 - k, 1.22), v = 1 - u;
-      return { x: v * v * v * a.x + 3 * v * v * u * (a.x - dx * .1) +
-        3 * v * u * u * (c.cx - dx * .37) + u * u * u * c.cx,
-        y: v * v * v * a.y + 3 * v * v * u * (a.y - rise) +
-        3 * v * u * u * (c.cy - rise * .31) + u * u * u * c.cy };
+      return finAt(path, path.Lt * (k + .029 * Math.sin(2 * Math.PI * k)));
     }
-    function draw(i, x, y, r, alpha) {
-      var grain = grains[i];
+    function setGrain(grain, x, y, rx, ry, alpha) {
+      grain.setAttribute('opacity', alpha.toFixed(2));
+      if (alpha < .005) return;
       grain.setAttribute('cx', r1(x)); grain.setAttribute('cy', r1(y));
-      grain.setAttribute('rx', r1(r * 1.8)); grain.setAttribute('ry', r1(r * 1.45));
-      grain.setAttribute('opacity', dustOpacity(alpha, B.spark).toFixed(2));
+      grain.setAttribute('rx', r1(rx)); grain.setAttribute('ry', r1(ry));
+    }
+    function draw(i, x, y, r, alpha, flash) {
+      var strength = dustOpacity(alpha, B.spark);
+      setGrain(particles[i], x, y, r * 1.8, r * 1.45, strength);
+      setGrain(glints[i], x, y, r * 3.1, r * 2.5, Math.min(1, strength * flash * 1.25));
       visible = i + 1;
     }
     var visible;
@@ -1262,7 +1279,10 @@
       }
       visible = 0;
       flightDust(time, duration, unit, d * 7, at, draw);
-      for (i = visible; i < DUST_COUNT; i++) grains[i].setAttribute('opacity', '0');
+      for (i = visible; i < DUST_COUNT; i++) {
+        particles[i].setAttribute('opacity', '0');
+        glints[i].setAttribute('opacity', '0');
+      }
       requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -2790,11 +2810,12 @@
         c: Math.random() < .45 ? [255, 206 + Math.random() * 30, 130 + Math.random() * 50] : [Lc[0] + (255 - Lc[0]) * .25, Lc[1] + (220 - Lc[1]) * .25, Lc[2] + (170 - Lc[2]) * .25] });
     }
     function sparkSprite(c, isDust) {
-      var k = isDust ? 'dust' + rgbHex(c) : Math.round(c[0] / 16) + ',' + Math.round(c[1] / 16) + ',' + Math.round(c[2] / 16);
+      var k = !c ? 'dustGlint' : isDust ? 'dust' + rgbHex(c) : Math.round(c[0] / 16) + ',' + Math.round(c[1] / 16) + ',' + Math.round(c[2] / 16);
       if (sprC[k]) return sprC[k];
       var q = document.createElement('canvas'), z = 32, y = q.getContext('2d'), g = y.createRadialGradient(z / 2, z / 2, 0, z / 2, z / 2, z / 2);
       q.width = q.height = z;
-      if (isDust) DUST_STOPS.forEach(function (stop) { g.addColorStop(stop[0], rgba(c, stop[1])); });
+      if (!c) DUST_GLINT_STOPS.forEach(function (stop) { g.addColorStop(stop[0], rgba(hexRgb(stop[1]), stop[2])); });
+      else if (isDust) DUST_STOPS.forEach(function (stop) { g.addColorStop(stop[0], rgba(c, stop[1])); });
       else {
         g.addColorStop(0, rgba(toWhite(c, .55), 1)); g.addColorStop(.18, rgba(c, .75)); g.addColorStop(.5, rgba(c, .16)); g.addColorStop(1, rgba(c, 0));
       }
@@ -2802,16 +2823,20 @@
       return (sprC[k] = q);
     }
     var dustUnit = Math.max(.85, Math.min(1.85, Math.min(G.W / 430, G.H / 480)));
+    var dustGlint = flyDust ? sparkSprite(null) : null;
     function drawFinalDust(L, t) {
       function at(k) {
         var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-        var p = finAt(G, L.s0 + (G.Lt - L.s0) * e);
-        return { x: p.x, y: p.y - Math.sin(Math.PI * k) * 19 * dustUnit };
+        return finAt(G, L.s0 + (G.Lt - L.s0) * e);
       }
-      function draw(i, px, py, rad, alpha) {
-        var size = rad * 5.2;
-        x.globalAlpha = dustOpacity(alpha, LP);
+      function draw(i, px, py, rad, alpha, flash) {
+        var size = rad * 5.2, strength = dustOpacity(alpha, LP);
+        x.globalAlpha = strength;
         x.drawImage(L.dust, px - size / 2, py - size / 2, size, size);
+        if (flash > .02) {
+          x.globalAlpha = Math.min(1, strength * flash * 1.25);
+          x.drawImage(dustGlint, px - size * .75, py - size * .75, size * 1.5, size * 1.5);
+        }
       }
       flightDust(t, L.dur, dustUnit, L.dustSeed, at, draw);
       x.globalAlpha = 1;
@@ -3575,7 +3600,7 @@
     dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, D.dim == null || D.dim === '' ? 45 : +D.dim)) / 100);
     page.appendChild(dim);
     topLinks(page);
-    var hud = el('div', 'ys-hud'), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
+    var hud = stageHud(r), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
     if (n === 0) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
       if (tx.beforeNote) hud.appendChild(el('p', 'ys-sub', fill(tx.beforeNote, ctx)));
@@ -3802,6 +3827,14 @@
     } else if (kind === 'final') openDoorsFinal();
     else if (kind === 'figure') saveFigure();
   }
+  function stageHud(r, hud) {
+    var stage = r.stage || {};
+    hud = hud || el('div', 'ys-hud');
+    hud.style.setProperty('--ys-hud-desktop', numIn(stage.hudOffsetDesktop, 0, -5, 45) + '%');
+    hud.style.setProperty('--ys-hud-mobile', numIn(stage.hudOffsetMobile, 0, -5, 45) + '%');
+    if (S.hudDevice) hud.style.setProperty('--ys-hud-offset', 'var(--ys-hud-' + S.hudDevice + ')');
+    return hud;
+  }
   function render() {
     if (isDoors(S.route) && window.M13D) { renderDoors(); return; }
     var r = S.route, app = document.getElementById('ys'), tx = r.texts || {};
@@ -3825,7 +3858,7 @@
     var lightStyle = spiralGlowStyle(r), mirror = lightStyle === 'mirror';
     var lit = n === last && lightStyle !== 'points' && !mirror && finDone() ? last + 1 : n;
     var bricks = !!M.zone && n >= 1;
-    var hud = el('div', 'ys-hud');
+    var hud = stageHud(r);
     var ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
     if (n === 0) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
@@ -4006,6 +4039,8 @@
     var app = document.getElementById('ys'); if (!app) return;
     S.base = app.getAttribute('data-base') || '../../';
     S.debug = q('debug') === '1'; S.debugNow = q('debugNow'); S.preview = q('preview') === '1'; S.film = S.preview && q('film') === '1';
+    var hudDevice = S.preview && q('hudDevice');
+    S.hudDevice = hudDevice === 'mobile' || hudDevice === 'desktop' ? hudDevice : '';
     var sim = q('sim'); if (sim != null && sim !== '' && !isNaN(+sim)) S.sim = +sim;
     S.zonesOn = q('zones') === '1';
     var id = app.getAttribute('data-route');
@@ -4031,7 +4066,7 @@
   }
 
   window.M13R = { howto: howtoBoot, howtoNode: howtoNode, howtoOf: howtoOf, howtoUrl: howtoUrl, reviewOf: reviewOf, reviewTg: reviewTg, reviewText: reviewText,
-    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, dayCardPreset: dayCardPreset, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
+    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, dayCardPreset: dayCardPreset, stageHud: stageHud, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, spiralGlowStyle: spiralGlowStyle, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
