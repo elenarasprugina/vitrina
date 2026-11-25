@@ -999,6 +999,7 @@
     B.colorOf = function (d) { return neonHex(dayColor(route, d, B.color), NS); };
     if (NS) { halo = r1(iw * .012 * (1 + NS * .7)); }
     var P = (o.power == null ? glowPower(route) : o.power) * (1 + NS * .35), bloom = r1(iw * .03 * (1 + NS * .5));
+    var reflectionLight = (numIn(P, 1.5, .5, 3) - .5) / 2.5;
     function shape(d, attrs, grow) {
       var C = B.center, g = grow || 1;
       return d === last ? '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * g) + '" ry="' + r1(C.ry * g) + '" ' + attrs + '/>' : '<path d="' + shapes[d] + '" ' + attrs + '/>';
@@ -1018,10 +1019,11 @@
           if (lv > 0) {
             var mark = marks[d - 1], gid = id + 'r' + d, core = rgbHex(toWhite(hexRgb(col), .58));
             var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + core + '"/>' +
-              '<stop offset=".28" stop-color="' + col + '" stop-opacity=".76"/><stop offset=".64" stop-color="' + col +
-              '" stop-opacity=".27"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
-            var ellipse = '<ellipse ' + mark + ' fill="url(#' + gid + ')" opacity="' + op(Math.sqrt(lv) * (.22 + .25 * P)) + '"/>';
-            reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * .64) + '"/>';
+              '<stop offset=".28" stop-color="' + core + '" stop-opacity="' + op(.45 + .55 * reflectionLight) + '"/>' +
+              '<stop offset=".64" stop-color="' + col + '" stop-opacity="' + op(.08 + .55 * reflectionLight) + '"/>' +
+              '<stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
+            var ellipse = '<ellipse ' + mark + ' fill="url(#' + gid + ')" opacity="' + op(Math.sqrt(lv) * (.14 + .86 * reflectionLight)) + '"/>';
+            reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * .64 * reflectionLight) + '"/>';
             if (d === st.today && st.calling) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
             else { reflectionDefs += gradient; reflectionsGlow += ellipse; }
           }
@@ -1045,6 +1047,7 @@
       svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + reflectionDefs + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') +
         '<g filter="url(#' + id + 'h)">' + glow + '</g>' + reflectionsGlow;
       // Центр (день 13): плоский эллипс — область фильтра на всю картинку, иначе свечение обрезается квадратом
+      svgs[2].classList.toggle('ys-l-reflection', !!reflectionToday);
       svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : reflectionToday;
     };
     if (o.zones) {
@@ -1057,6 +1060,7 @@
       svgs[4].innerHTML = zs;
     }
     B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route); B.sparkSpd = sparkSpeed(route);
+    B.thinTrail = !!marks;
     B.run = function (d, done) { pulse(B, d, done || function () {}); };
     return B;
   }
@@ -1085,7 +1089,7 @@
     var dur = pts.length > 1 ? (650 + 1250 * Math.min(1, (pts.length - 1) / (tr.length - SPAN))) / (B.sparkSpd || 1) : 0;
     function op(x) { return Math.min(1, x * k1).toFixed(2); }
     svg.classList.remove('is-fade');
-    svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * .005) + '"/></filter>' +
+    svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * (B.thinTrail ? .0009 : .005)) + '"/></filter>' +
       '<radialGradient id="' + fid + 'g"><stop offset="0" stop-color="' + col + '" stop-opacity="' + op(1) + '"/><stop offset=".35" stop-color="' + col + '" stop-opacity="' + op(.62) + '"/>' +
       '<stop offset=".7" stop-color="' + col + '" stop-opacity="' + op(.2) + '"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient></defs>' +
       '<path fill="none" stroke="' + col + '" stroke-opacity="' + op(.6) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>' +
@@ -1099,7 +1103,7 @@
       var a = pts[j - 1] || pts[0], b = pts[j] || pts[0], f = acc[j] > acc[j - 1] ? (s - acc[j - 1]) / (acc[j] - acc[j - 1]) : 1;
       var h = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, w = a.w + (b.w - a.w) * f;
       trail.setAttribute('d', 'M' + pts.slice(0, j).map(xy).join('L') + 'L' + xy(h));
-      trail.setAttribute('stroke-width', r1(Math.max(w * .22, iw * .004)));
+      trail.setAttribute('stroke-width', r1(B.thinTrail ? iw * .0014 : Math.max(w * .22, iw * .004)));
       halo.setAttribute('cx', r1(h.x)); halo.setAttribute('cy', r1(h.y)); halo.setAttribute('r', r1(Math.max(w * .5, iw * .016)));
       if (k < 1) { requestAnimationFrame(step); return; }
       var f0 = 0;
@@ -1556,9 +1560,25 @@
      zoom — на компьютере картинка меньше экрана, % (по умолчанию 100 — во весь экран, её решение 02.10; меньше — вокруг темно, края растворяются),
      shiftX / shiftXMobile — подвинуть ещё, % ширины картинки (+ вправо). */
   function stageCfg(route) { return route.stage || {}; }
+  // Держим в кадре середины дней и центр, сохраняя их положение на самой картинке.
+  function fitReflectionPath(zone, iw, width, scale, shift) {
+    var lo = zone.center.x * iw, hi = lo;
+    for (var i = 1; i < PATH_DAYS * 2; i += 2) {
+      var x = zone.path[i][0] * iw;
+      lo = Math.min(lo, x); hi = Math.max(hi, x);
+    }
+    var margin = Math.min(32, width * .06);
+    var s = Math.min(scale, (width - 2 * margin) / Math.max(1, hi - lo));
+    var minX = margin - lo * s, maxX = Math.max(minX, width - margin - hi * s);
+    var left = Math.max(minX, Math.min(0, width - iw * s));
+    var right = Math.min(maxX, Math.max(0, width - iw * s));
+    if (left <= right) { minX = left; maxX = right; }
+    var preferred = width / 2 + (shift / 100 - zone.center.x) * iw * s;
+    return { s: s, x: Math.max(minX, Math.min(maxX, preferred)) };
+  }
   function stageFit(stage, img, zone) {
     var W = window.innerWidth, H = window.innerHeight, iw = img.naturalWidth || 16, ih = img.naturalHeight || 9;
-    var tall = H / W > 1.25, sc = stageCfg(S.route || {}), s, x, y, soft = false;
+    var tall = H / W > 1.25, sc = stageCfg(S.route || {}), s, x, y, soft = false, pathFit = false;
     var cx = (zone && zone.center ? zone.center.x : .5) * iw;
     function num(v, def, lo, hi) { v = v == null || v === '' || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
     if (tall && W / H < iw / ih) {
@@ -1571,14 +1591,22 @@
     } else {
       var z = tall ? 100 : num(sc.zoom, 100, 50, 100);
       s = Math.max(W / iw, H / ih) * z / 100;
-      x = W / 2 - cx * s + num(sc.shiftX, 0, -15, 15) / 100 * iw * s;
-      // Во весь экран — без тёмных полос по краям; меньше экрана — вокруг темнота, края картинки растворяются
-      if (z >= 100) x = Math.min(0, Math.max(W - iw * s, x)); else soft = true;
+      var shift = num(sc.shiftX, 0, -15, 15);
+      if (!tall && zoneOk(zone) && spiralGlowStyle(S.route) === 'reflection') {
+        var fit = fitReflectionPath(zone, iw, W, s, shift);
+        s = fit.s; x = fit.x;
+        pathFit = z >= 100 && H > ih * s;
+      } else {
+        x = W / 2 - cx * s + shift / 100 * iw * s;
+        if (z >= 100) x = Math.min(0, Math.max(W - iw * s, x));
+      }
+      soft = z < 100;
       y = H > ih * s ? (H - ih * s) * .7 : (H - ih * s) / 2;
     }
     stage.style.width = iw * s + 'px'; stage.style.height = ih * s + 'px';
     stage.style.left = x + 'px'; stage.style.top = y + 'px';
-    stage.classList.toggle('is-gap', y > 1 && !soft);
+    stage.classList.toggle('is-gap', y > 1 && !soft && !pathFit);
+    stage.classList.toggle('is-path-fit', pathFit);
     stage.classList.toggle('is-soft', soft);
   }
   // Центр спирали на экране — относительно середины окна (из него появляется Карта дня).
