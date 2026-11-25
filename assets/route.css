@@ -31,7 +31,10 @@
 
 /* ---------- Кирпичи на спирали (слои света в пикселях картинки) ---------- */
 .ys-bricks,.ys-bricks svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.ys-l-glow,.ys-l-today,.ys-l-pulse{mix-blend-mode:screen}
+.ys-l-glow,.ys-l-today,.ys-l-today.ys-l-points{animation:none;opacity:1}
+@media (prefers-reduced-motion:no-preference){.ys-point-shine{animation:ys-point-shine 8s ease-in-out infinite}}
+@keyframes ys-point-shine{0%,62%,83%,100%{opacity:0}72%{opacity:var(--ys-shine,0)}}
+.ys-l-pulse{mix-blend-mode:screen}
 .ys-l-today{animation:ys-brick 3.2s ease-in-out infinite;will-change:opacity}
 .ys-l-today.is-go{animation:none;opacity:1}
 @keyframes ys-brick{0%,100%{opacity:.4}50%{opacity:1}}
@@ -515,7 +518,7 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-glass .ys-key-t{font-size:clamp(25px,3.6vw,34px)}
 @media (prefers-reduced-motion:reduce){.ys-drop{transition:none}}
 /* Пока карта выезжает — анимации на спирали и в карте замирают (без рывков) */
-.ys-sliding .ys-l-today,.ys-sliding .ys-gd,.ys-sliding .ys-tap{animation-play-state:paused}
+.ys-sliding .ys-l-today,.ys-sliding .ys-point-shine,.ys-sliding .ys-gd,.ys-sliding .ys-tap{animation-play-state:paused}
 
 /* Сцена «Двери» (слои, движения, мир, след, блик) — в assets/doors.css: её грузят и страница маршрута, и витрина (живая обложка). */
 /* «Есть ключ? Введи ключ» на Карте дня (двери, сначала Карта дня): живой вход — маленькая спираль вращается */
