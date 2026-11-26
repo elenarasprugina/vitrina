@@ -2304,26 +2304,16 @@
   // Музыка финала — только её файл; запускается прямо в нажатии (иначе телефон не даст играть)
   var stageSoundPref = null;
   function soundPref() {
+    if (S.filmSound && S.stageMusic && S.stageMusic.shared) return S.stageMusic.enabled !== false;
     if (stageSoundPref !== null) return stageSoundPref;
     try { return localStorage.getItem('m13ys-sound') !== '0'; } catch (e) { return true; }
   }
-  // Фон сцены: один проигрыватель на весь маршрут, в том числе при перерисовке сцены и открытии карты.
-  function initStageMusic(route) {
-    if (S.stageMusic) {
-      var prev = S.stageMusic;
-      document.removeEventListener('click', stageMusicGesture, true);
-      clearInterval(prev.fade);
-      prev.audio.pause();
-      if (prev.context) prev.context.close().catch(function () {});
-      S.stageMusic = null;
-    }
-    if (!route.stageMusic || (S.film && !S.filmSound)) return;
-
-    var audio = new Audio(imgSrc(S.base, route.stageMusic)), volume = route.stageVolume;
+  function stageMusicPlayer(src, volume, recording) {
+    var audio = new Audio(src);
     audio.loop = true;
     audio.preload = 'none';
     volume = volume == null || volume === '' || !isFinite(+volume) ? 35 : +volume;
-    var music = S.stageMusic = { audio: audio, volume: Math.max(0, Math.min(100, volume)) / 100 };
+    var music = { audio: audio, volume: Math.max(0, Math.min(100, volume)) / 100, owner: window };
     // Web Audio регулирует громкость и на телефонах, где audio.volume доступна только для чтения.
     var AudioContext = window.AudioContext || window.webkitAudioContext;
     if (AudioContext) {
@@ -2333,13 +2323,46 @@
         gain.gain.value = 0;
         music.context.createMediaElementSource(audio).connect(gain);
         gain.connect(music.context.destination);
+        if (recording) {
+          music.recording = music.context.createMediaStreamDestination();
+          gain.connect(music.recording);
+        }
         music.gain = gain.gain;
       } catch (e) {
         if (music.context) music.context.close().catch(function () {});
-        music.context = null;
+        music.context = music.recording = null;
       }
     }
     if (!music.gain) audio.volume = 0;
+    return music;
+  }
+  function playStageMusic(music) {
+    if (!music || music.enabled === false) return;
+    if (music.context && music.context.state !== 'running') music.context.resume().catch(function () {});
+    if (music.audio.paused) {
+      var playing = music.audio.play();
+      if (playing && playing.catch) playing.catch(function () {});
+    }
+  }
+  function stopStageMusic(music) {
+    if (!music) return;
+    music.owner.clearInterval(music.fade);
+    music.audio.pause();
+    stopRecordedFinal(music);
+    if (music.context) music.context.close().catch(function () {});
+  }
+  // В ролике проигрыватель принадлежит панели: окно дня может перезагрузиться, а музыка продолжает играть.
+  function initStageMusic(route) {
+    if (S.stageMusic) {
+      document.removeEventListener('click', stageMusicGesture, true);
+      if (!S.stageMusic.shared) stopStageMusic(S.stageMusic);
+      S.stageMusic = null;
+    }
+    if (!route.stageMusic || (S.film && !S.filmSound)) return;
+    var shared = S.filmSound && window.frameElement && window.frameElement.m13StageMusic;
+    S.stageMusic = shared || stageMusicPlayer(imgSrc(S.base, route.stageMusic), route.stageVolume);
+    if (shared) stopRecordedFinal(shared);
+    S.stageMusic.final = null;
     document.addEventListener('click', stageMusicGesture, true);
   }
   function stageMusicGesture(e) {
@@ -2349,7 +2372,7 @@
   function syncStageMusic(start) {
     var music = S.stageMusic;
     if (!music) return;
-    var audio = music.audio, enabled = soundPref(), gain = music.gain;
+    var audio = music.audio, enabled = soundPref(), gain = music.gain, owner = music.owner;
     var cardOpen = document.querySelector('.ys-layer--day:not(.is-out)');
     var target = !enabled || music.final === 'quiet' || S.spaceDay === 'final' ? 0 : music.volume * (cardOpen ? .6 : 1);
     if (target !== music.target) {
@@ -2360,24 +2383,18 @@
         else { var from = gain.value; gain.cancelScheduledValues(t); gain.setValueAtTime(from, t); }
         gain.linearRampToValueAtTime(target, t + .25);
       } else {
-        clearInterval(music.fade);
+        owner.clearInterval(music.fade);
         if (target) audio.muted = false;
         var initial = audio.volume, since = Date.now();
-        music.fade = setInterval(function () {
+        music.fade = owner.setInterval(function () {
           var k = Math.min(1, (Date.now() - since) / 250);
           audio.volume = initial + (target - initial) * k;
-          if (k === 1) { clearInterval(music.fade); audio.muted = target === 0; }
+          if (k === 1) { owner.clearInterval(music.fade); audio.muted = target === 0; }
         }, 30);
       }
     }
     if (!enabled) audio.pause();
-    else if (start && target) {
-      if (music.context && music.context.state !== 'running') music.context.resume().catch(function () {});
-      if (audio.paused) {
-        var playing = audio.play();
-        if (playing && playing.catch) playing.catch(function () {});
-      }
-    }
+    else if (start && target) playStageMusic(music);
     [].forEach.call(document.querySelectorAll('.ys-stage-snd'), updateStageSoundButton);
   }
   function updateStageSoundButton(button) {
@@ -2394,7 +2411,8 @@
     b.addEventListener('click', function (e) {
       e.stopPropagation();
       var enabled = !soundPref();
-      try { localStorage.setItem('m13ys-sound', enabled ? '1' : '0'); } catch (err) { stageSoundPref = enabled; }
+      if (S.stageMusic.shared) S.stageMusic.enabled = enabled;
+      else try { localStorage.setItem('m13ys-sound', enabled ? '1' : '0'); } catch (err) { stageSoundPref = enabled; }
       syncStageMusic(enabled);
     });
     updateStageSoundButton(b);
@@ -2414,9 +2432,32 @@
     stageMusicFinal(f);
     if (S.stageMusic && S.stageMusic.final === 'continue') return null;
     if (!f.music || f.sound === false) return null;
-    var a = new Audio(imgSrc(S.base, f.music)), vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100;
-    a.preload = 'auto'; a.m13vol = vol;
-    if (soundPref()) fadeAudio(a, vol, 1800);
+    var a = finalAudio(f);
+    if (soundPref()) fadeAudio(a, a.m13vol, 1800);
+    return a;
+  }
+  function stopRecordedFinal(music) {
+    if (!music.finalAudio) return;
+    music.finalAudio.pause();
+    music.finalSource.disconnect();
+    music.finalAudio = music.finalSource = null;
+  }
+  function finalAudio(f) {
+    var music = S.stageMusic, src = imgSrc(S.base, f.music), a;
+    if (music && music.recording) {
+      stopRecordedFinal(music);
+      try {
+        a = new music.owner.Audio(new URL(src, location.href).href);
+        var source = music.context.createMediaElementSource(a);
+        source.connect(music.context.destination);
+        source.connect(music.recording);
+        music.finalAudio = a;
+        music.finalSource = source;
+      } catch (e) { a = null; }
+    }
+    if (!a) a = new Audio(src);
+    a.preload = 'auto';
+    a.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100;
     return a;
   }
   function fadeAudio(a, to, ms, done) {
@@ -2735,7 +2776,7 @@
     // Музыка: кнопка «звук», если есть её файл
     var mus = o.music || null, sb = null;
     if (S.stageMusic && S.stageMusic.final === 'continue') root.appendChild(stageSoundButton(false));
-    else if (!mus && f.music && f.sound !== false) { mus = new Audio(imgSrc(S.base, f.music)); mus.preload = 'auto'; mus.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100; }
+    else if (!mus && f.music && f.sound !== false) mus = finalAudio(f);
     if (mus) {
       sb = el('button', 'ys-fin-snd'); sb.type = 'button';
       mus.m13upd = function () { var on = !mus.paused; putText(sb, '♪ ' + (on ? tx.soundOff || 'Выключить звук' : tx.soundOn || 'Включить звук')); sb.classList.toggle('is-on', on); };
@@ -4070,6 +4111,7 @@
   window.M13R = { howto: howtoBoot, howtoNode: howtoNode, howtoOf: howtoOf, howtoUrl: howtoUrl, reviewOf: reviewOf, reviewTg: reviewTg, reviewText: reviewText,
     putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, dayCardPreset: dayCardPreset, stageHud: stageHud, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
+    stageMusicPlayer: stageMusicPlayer, playStageMusic: playStageMusic, stopStageMusic: stopStageMusic,
     trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, spiralGlowStyle: spiralGlowStyle, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
