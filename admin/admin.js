@@ -3311,7 +3311,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261127b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261127c';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -5112,16 +5112,23 @@
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
     reload();
   }
-  /* Заставка ролика (её решение 27.11): одуванчик из логотипа распускается крупно в середине кадра, из него разлетаются пушинки,
-     потом он уменьшается и встаёт на своё место в слове MIRRORS, проявляются буквы логотипа, под ними — «МАРШРУТ», название, даты;
-     затем дымка уходит и идёт сам маршрут (пушинки ещё летят поверх). Время — время ролика в секундах, кадр 1080 × 1920.
+  /* Заставка ролика (её решение 27.11): одуванчик из логотипа распускается крупно в середине кадра; 12 пушинок с кончиков 12 лучей
+     (калейдоскоп; 13-й — стебель) по очереди, по кругу, отрываются, делают петлю и садятся каждая на свою букву — буква проявляется
+     светом от места посадки (её слова 27.11 (2): «пушинки полетели, и из них собрались буквы»; лишние, висящие в кадре, убраны).
+     Одуванчик тем временем встаёт на своё место в слове MIRRORS, кончики лучей возвращаются; ниже — «МАРШРУТ», название, даты;
+     затем дымка уходит и идёт сам маршрут. Время — время ролика в секундах, кадр 1080 × 1920.
      Шрифты — из «Шрифтов и надписей»: название — «Заголовки» (пусто — Cormorant Garamond, как на маршрутах), строчки — «Строчки-подписи».
      Длинное название переносится по словам и уменьшается, чтобы встать по центру (не больше трёх строк). */
-  var FI = { stem0: .15, stem1: .7, bloom0: .45, bloom1: 1.45, fly0: 1.05, fly1: 2.6, move0: 1.95, move1: 2.85, letters0: 2.25, txt0: 2.6, out0: 4.3, out1: 5.0, end: 6.8 };
+  var FI = { stem0: .15, stem1: .7, bloom0: .45, bloom1: 1.45, fly0: 1.3, step: .065, fly: 1.2, move0: 1.85, move1: 2.75, txt0: 3.3, out0: 4.8, out1: 5.5, end: 5.5 };
   // Где одуванчик на картинке assets/logo.png (2454 × 545): середина, радиус головки, стебель (x, y, ширина, высота)
-  var FI_LOGO = { src: '../assets/logo.png', cx: 997, cy: 180, r: 140, stem: [988, 248, 22, 150] };
+  var FI_LOGO = { src: '../assets/logo.png', cx: 997, cy: 180, r: 140, stem: [988, 248, 22, 150],
+    // 12 лучей (градусы, 0 — вправо, по часовой) и где на них кончик с точками
+    rays: [14, 42, 70, 104, 133, 164, 195, 226, 257, 286, 317, 349], tip: 118,
+    // Куда садятся пушинки: 8 букв «1 3 M R R O R S» и 4 места строки «калейдоскоп твоих миров» (x, y на картинке; w — строка)
+    spots: [[115, 230], [302, 230], [695, 230], [1277, 230], [1545, 230], [1806, 230], [2086, 230], [2320, 230],
+      [330, 457, 1], [900, 457, 1], [1540, 457, 1], [2150, 457, 1]] };
   function filmIntro() {
-    var I = { ok: false, FI: FI }, img = new Image(), L, Hd, St, seedImg, seeds = [], lay = null;
+    var I = { ok: false, FI: FI }, img = new Image(), L, Hd, St, HT, MK, OL, seedImg, seeds = [], lay = null, landed = 0;
     var M = window.M13 || {}, ty = M.typoOf ? M.typoOf(DATA.settings) : {}, tt = ty.title || {}, lb = ty.label || {};
     var has = function (f) { return f && (M.FONTS || []).indexOf(f) >= 0; };
     var tf = has(tt.font) ? tt.font : 'Cormorant Garamond', lf = has(lb.font) ? lb.font : 'Philosopher';
@@ -5159,14 +5166,17 @@
       }
       x.lineWidth = 2; x.beginPath(); x.moveTo(64, 58); x.lineTo(64, 132); x.stroke();
       x.beginPath(); x.ellipse(64, 145, 4.2, 13, 0, 0, 7); x.fill();
-      // Пушинки — всегда одни и те же (ролик повторяемый)
-      var sd = 13; function rnd() { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; }
-      for (i = 0; i < 30; i++) {
-        var u = i / 29;
-        seeds.push({ t0: FI.fly0 + Math.pow(u, 1.25) * (FI.fly1 - FI.fly0) + rnd() * .12, a: -Math.PI / 2 + (rnd() - .5) * 4.4,
-          v: 260 + rnd() * 420, k: 1.3 + rnd() * .9, wind: 50 + rnd() * 120, rise: 40 + rnd() * 70,
-          A: 10 + rnd() * 26, w: 1.5 + rnd() * 1.9, ph: rnd() * 6.28, s: .5 + rnd() * .62, life: 3.6 + rnd() * 1.8 });
-      }
+      // Холсты на каждый кадр: головка без улетевших кончиков (HT), маска проявления букв (MK) и буквы по маске (OL)
+      HT = cv(g.r * 2, g.r * 2); MK = cv(1280, Math.round(1280 * H / W)); OL = cv(MK.width, MK.height);
+      // 12 пушинок: отрываются по кругу, начиная с верхнего луча; левые лучи летят к левым буквам, правые — к правым
+      var rays = g.rays.slice().sort(function (a, b) { return ((a + 103) % 360) - ((b + 103) % 360); });
+      var byX = g.rays.slice().sort(function (a, b) { return Math.cos(a * Math.PI / 180) - Math.cos(b * Math.PI / 180); });
+      var spots = g.spots.slice().sort(function (a, b) { return a[0] - b[0]; });
+      rays.forEach(function (d, k) {
+        var sp = spots[byX.indexOf(d)], t0 = FI.fly0 + k * FI.step;
+        seeds.push({ d: d, a: d * Math.PI / 180, t0: t0, land: t0 + FI.fly, x: sp[0], y: sp[1], line: !!sp[2], ph: k * 2.4, s: .82 + (k % 3) * .06 });
+      });
+      landed = seeds.reduce(function (m, p) { return Math.max(m, p.land); }, 0);
       I.ok = true;
     }
     function cl(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
@@ -5227,15 +5237,38 @@
         if (sg > 0) x.drawImage(St, 0, s[3] * (1 - sg), s[2], s[3] * sg, sx, sy + s[3] * h.s * (1 - sg), s[2] * h.s, s[3] * h.s * sg);
         var hb = back((t - FI.bloom0) / (FI.bloom1 - FI.bloom0));
         if (hb > 0) {
+          // Улетела пушинка — кончик луча пустеет; логотип собрался — кончики возвращаются
+          var hx = HT.getContext('2d'), back2 = sm((t - landed - .1) / .6);
+          hx.globalCompositeOperation = 'source-over'; hx.clearRect(0, 0, HT.width, HT.height); hx.drawImage(Hd, 0, 0);
+          hx.globalCompositeOperation = 'destination-out';
+          seeds.forEach(function (p) {
+            var e = cl((t - p.t0) / .12) * (1 - back2); if (e <= 0) return;
+            hx.globalAlpha = e; hx.beginPath(); hx.arc(g.r + Math.cos(p.a) * g.tip, g.r + Math.sin(p.a) * g.tip, 17, 0, 7); hx.fill();
+          });
+          hx.globalAlpha = 1;
           x.save(); x.translate(h.x, h.y); x.rotate(-.7 * (1 - b)); x.globalAlpha = vis * cl(b * 2.2);
-          var hs = h.s * hb; x.drawImage(Hd, -g.r * hs, -g.r * hs, g.r * 2 * hs, g.r * 2 * hs); x.restore();
+          var hs = h.s * hb; x.drawImage(HT, -g.r * hs, -g.r * hs, g.r * 2 * hs, g.r * 2 * hs); x.restore();
         }
-        // Буквы логотипа
-        var la = sm((t - FI.letters0) / .7);
-        if (la > 0) { x.globalAlpha = la * vis; x.drawImage(L, (FILM_W - I.lw) / 2, Y.logo + 12 * (1 - la), I.lw, I.lh); }
+        // Буквы логотипа — светом от мест, где сели пушинки; все сели — буквы целиком
+        var lx0 = (FILM_W - I.lw) / 2;
+        if (t >= landed + .9) { x.globalAlpha = vis; x.drawImage(L, lx0, Y.logo, I.lw, I.lh); }
+        else if (t > seeds[0].land) {
+          var mk = MK.getContext('2d'), ol = OL.getContext('2d'), q = MK.width / img.naturalWidth;
+          mk.clearRect(0, 0, MK.width, MK.height); mk.globalCompositeOperation = 'lighter';
+          seeds.forEach(function (p) {
+            var e = t - p.land; if (e <= 0) return;
+            var rr = (p.line ? 330 : 210) * q * (1 - Math.pow(1 - cl(e / .85), 3)); if (rr < 1) return;
+            mk.save(); mk.translate(p.x * q, p.y * q); if (p.line) mk.scale(1, .3);
+            var gm = mk.createRadialGradient(0, 0, 0, 0, 0, rr); gm.addColorStop(0, '#000'); gm.addColorStop(.62, '#000'); gm.addColorStop(1, 'rgba(0,0,0,0)');
+            mk.fillStyle = gm; mk.fillRect(-rr, -rr, rr * 2, rr * 2); mk.restore();
+          });
+          ol.globalCompositeOperation = 'source-over'; ol.clearRect(0, 0, OL.width, OL.height); ol.drawImage(L, 0, 0, OL.width, OL.height);
+          ol.globalCompositeOperation = 'destination-in'; ol.drawImage(MK, 0, 0);
+          x.globalAlpha = vis; x.drawImage(OL, lx0, Y.logo, I.lw, I.lh);
+        }
         x.shadowBlur = 0;
         // Черта, «МАРШРУТ», название, даты — по очереди, чуть поднимаясь
-        var ra = sm((t - FI.letters0 - .3) / .6);
+        var ra = sm((t - landed - .2) / .6);
         if (ra > 0) { x.globalAlpha = ra * vis; x.strokeStyle = 'rgba(239,212,154,.6)'; x.lineWidth = 2; x.beginPath(); x.moveTo(540 - 150 * ra, Y.rule); x.lineTo(540 + 150 * ra, Y.rule); x.stroke(); }
         x.shadowColor = 'rgba(0,0,0,.55)'; x.shadowBlur = 14;
         var a1 = sm((t - FI.txt0) / .6), a2 = sm((t - FI.txt0 - .2) / .6), a3 = sm((t - FI.txt0 - .45) / .6);
@@ -5257,17 +5290,28 @@
         if (dates && a3 > 0) { x.globalAlpha = a3 * vis; x.font = lFont(40); x.fillStyle = 'rgba(241,222,180,.92)'; x.fillText(dates, FILM_W / 2, Y.dates + 14 * (1 - a3)); }
         x.shadowBlur = 0;
       }
-      // Пушинки — от кончиков лучей, разлетаются вверх и по ветру; летят и поверх маршрута, потом тают
+      // Пушинки: с кончика луча — петлёй наружу и вверх — на свою букву; садясь, уменьшаются и вспыхивают
+      var k = I.k, lx = (FILM_W - I.lw) / 2;
+      x.globalAlpha = 1;
       seeds.forEach(function (p) {
-        var tau = t - p.t0; if (tau < 0) return;
-        var tEnd = Math.min(p.t0 + p.life, FI.end), al = Math.min(cl(tau / .25), cl((tEnd - t) / 1.1));
-        if (al <= 0) return;
-        var h0 = head(p.t0, Y), rr = g.r * .9 * h0.s * back((p.t0 - FI.bloom0) / (FI.bloom1 - FI.bloom0));
-        var e = (1 - Math.exp(-p.k * tau)) / p.k, vx = Math.cos(p.a) * p.v, vy = Math.sin(p.a) * p.v - 110;
-        var px = h0.x + Math.cos(p.a) * rr + vx * e + p.wind * tau + p.A * (Math.sin(p.w * tau + p.ph) - Math.sin(p.ph));
-        var py = h0.y + Math.sin(p.a) * rr + vy * e - p.rise * tau + .3 * p.A * (Math.cos(p.w * .8 * tau + p.ph) - Math.cos(p.ph));
-        var sc = p.s * .62 * (.55 + .45 * cl(tau / .5));
-        x.save(); x.globalAlpha = al * .95; x.translate(px, py); x.rotate(.22 + .32 * Math.sin(p.w * tau + p.ph));
+        var tau = t - p.t0, tx = lx + p.x * k, ty = Y.logo + p.y * k;
+        if (tau < 0) return;
+        if (t > p.land) {   // вспышка там, где села
+          var f = (t - p.land) / .45; if (f >= 1 || vis <= 0) return;
+          var fg = x.createRadialGradient(tx, ty, 0, tx, ty, 26 + 40 * f);
+          fg.addColorStop(0, 'rgba(255,240,200,' + (.85 * (1 - f) * vis) + ')'); fg.addColorStop(1, 'rgba(255,220,150,0)');
+          x.fillStyle = fg; x.fillRect(tx - 70, ty - 70, 140, 140); return;
+        }
+        var h0 = head(p.t0, Y), rr = g.tip * h0.s, ca = Math.cos(p.a), sa = Math.sin(p.a);
+        var x0 = h0.x + ca * rr, y0 = h0.y + sa * rr, v = tau / FI.fly, u = v < .5 ? 2 * v * v : 1 - Math.pow(-2 * v + 2, 2) / 2;
+        u = .35 * v + .65 * u;
+        var x1 = x0 + ca * 360, y1 = y0 + sa * 300 - 170, x2 = tx + ca * 170, y2 = ty - 300, iu = 1 - u;
+        var px = iu * iu * iu * x0 + 3 * iu * iu * u * x1 + 3 * iu * u * u * x2 + u * u * u * tx;
+        var py = iu * iu * iu * y0 + 3 * iu * iu * u * y1 + 3 * iu * u * u * y2 + u * u * u * ty;
+        px += 14 * Math.sin(Math.PI * v) * Math.sin(5 * v + p.ph);
+        var vx = 3 * iu * iu * (x1 - x0) + 6 * iu * u * (x2 - x1) + 3 * u * u * (tx - x2);
+        var sc = p.s * .62 * (.6 + .4 * cl(tau / .3)) * (1 - .6 * sm((v - .72) / .28));
+        x.save(); x.globalAlpha = vis * cl(tau / .12) * (1 - sm((v - .86) / .14)); x.translate(px, py); x.rotate(Math.max(-.6, Math.min(.6, vx * .0009)) + .12 * Math.sin(4 * v + p.ph));
         x.drawImage(seedImg, -64 * sc, -58 * sc, 128 * sc, 168 * sc); x.restore();
       });
       x.restore();
