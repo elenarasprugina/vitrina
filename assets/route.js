@@ -2324,13 +2324,13 @@
         music.context.createMediaElementSource(audio).connect(gain);
         gain.connect(music.context.destination);
         if (recording) {
-          music.recording = music.context.createMediaStreamDestination();
-          gain.connect(music.recording);
+          music.recordBus = music.context.createGain();
+          gain.connect(music.recordBus);
         }
         music.gain = gain.gain;
       } catch (e) {
         if (music.context) music.context.close().catch(function () {});
-        music.context = music.recording = null;
+        music.context = music.recordBus = null;
       }
     }
     if (!music.gain) audio.volume = 0;
@@ -2444,13 +2444,13 @@
   }
   function finalAudio(f) {
     var music = S.stageMusic, src = imgSrc(S.base, f.music), a;
-    if (music && music.recording) {
+    if (music && music.recordBus) {
       stopRecordedFinal(music);
       try {
         a = new music.owner.Audio(new URL(src, location.href).href);
         var source = music.context.createMediaElementSource(a);
         source.connect(music.context.destination);
-        source.connect(music.recording);
+        source.connect(music.recordBus);
         music.finalAudio = a;
         music.finalSource = source;
       } catch (e) { a = null; }

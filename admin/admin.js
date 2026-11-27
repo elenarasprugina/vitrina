@@ -3311,7 +3311,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261126g';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261127a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3977,11 +3977,10 @@
   var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
   function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
   // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
-  function filmAudio(track) {
-    var C = new window.AudioContext({ sampleRate: 48000 });
-    var link = C.createMediaStreamSource(new MediaStream([track])), sink = C.createGain();
-    sink.gain.value = 0;
-    var A = { context: C, rate: C.sampleRate, blocks: [], spans: [], size: 1024, used: 0 };
+  function filmAudio(track, music) {
+    var C = music ? music.context : new window.AudioContext({ sampleRate: 48000 });
+    var source = music ? music.recordBus : C.createMediaStreamSource(new MediaStream([track]));
+    var A = { context: C, source: source, shared: !!music, rate: C.sampleRate, blocks: [], recent: [], spans: [], size: 1024, used: 0 };
     A.buffer = new Float32Array(A.size * 2);
     var codecs = ['mp4a.40.2', 'opus'];
     function codec(i) {
@@ -3992,31 +3991,44 @@
     A.ready = Promise.all([C.resume(), C.audioWorklet.addModule('film-audio-worklet.js?v=' + (window.M13V || 1)), codec(0)]).then(function (results) {
       if (A.closed) return;
       A.config = results[2];
-      var node = A.node = new AudioWorkletNode(C, 'm13-film-audio');
+      var node = A.node = new AudioWorkletNode(C, 'm13-film-audio', { numberOfOutputs: 0 });
       node.port.onmessage = function (e) {
         var b = e.data;
+        if (b.flushed) { if (A.tailReady) A.tailReady(); return; }
         b.end = b.start + b.left.length;
-        A.blocks.push(b);
+        // Пока время ролика стоит, держим лишь короткий хвост для возобновления.
+        if (A.clock == null || (A.idleSince != null && b.start >= A.idleSince)) {
+          A.recent.push(b);
+          if (A.recent.length > 4) A.recent.shift();
+        } else A.blocks.push(b);
         if (A.onBlock) A.onBlock();
-        // Храним небольшой запас звука, в том числе пока видео стоит на паузе.
-        while (A.blocks.length > 48) A.blocks.shift();
       };
-      link.connect(node).connect(sink).connect(C.destination);
+      source.connect(node);
     });
     return A;
   }
   function filmAudioClose(A) {
     if (!A || A.closed) return;
     A.closed = true;
-    if (A.node) { A.node.port.onmessage = null; A.node.disconnect(); }
-    A.context.close().catch(function () {});
+    if (A.tailReady) A.tailReady();
+    if (A.node) {
+      A.node.port.postMessage('stop');
+      A.node.port.onmessage = null; A.node.port.close();
+      try { A.source.disconnect(A.node); } catch (e) {}
+    }
+    if (!A.shared) A.context.close().catch(function () {});
   }
   function filmAudioSpan(A, from, to, portion) {
     if (!A) return;
     var end = A.context.currentTime * A.rate;
     var start = A.clock == null ? end : A.clock;
     A.clock = end;
-    if (from === to) return;
+    if (from === to) { if (A.idleSince == null) A.idleSince = end; return; }
+    A.idleSince = null;
+    if (A.recent.length) {
+      A.blocks = A.blocks.concat(A.recent);
+      A.recent = [];
+    }
     A.spans.push({ start: end - (end - start) * portion, end: end,
       from: Math.round(from * A.rate), to: Math.round(to * A.rate) });
   }
@@ -4039,9 +4051,8 @@
     if (!A || R.firstTs == null) return;
     if (A.first == null) A.first = A.next = Math.round(R.firstTs * A.rate / 1e6);
     var limit = Math.round((R.firstTs / 1e6 + R.duration) * A.rate);
-    var last = A.blocks.length ? A.blocks[A.blocks.length - 1].end : 0;
-    // Заполняем пропуск тишиной, если источник перестал присылать блоки.
-    var available = Math.max(last, (A.context.currentTime - .16) * A.rate);
+    // Ждём настоящие отсчёты даже при задержке видео или занятом основном потоке.
+    var available = A.blocks.length ? A.blocks[A.blocks.length - 1].end : 0;
     while (A.spans.length) {
       var s = A.spans[0];
       if (s.to <= A.next) { A.spans.shift(); continue; }
@@ -4061,6 +4072,19 @@
       A.spans.shift();
     }
     if (finish) filmAudioFlush(A);
+  }
+  function filmAudioFinish(R) {
+    var A = R.audio;
+    return new Promise(function (resolve) {
+      var timer = setTimeout(ready, 500);
+      function ready() { clearTimeout(timer); A.tailReady = null; resolve(); }
+      A.tailReady = ready;
+      A.node.port.postMessage('flush');
+    }).then(function () {
+      if (A.closed) return;
+      filmAudioDrain(R, true);
+      return A.enc.flush();
+    });
   }
   function filmForget() {
     try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('m13film-') === 0) localStorage.removeItem(k); }); } catch (e) {}
@@ -4472,9 +4496,9 @@
       }
       if (withSound) playFilmMusic();
       var music = withSound && fr.m13StageMusic;
-      var audioTrack = music && music.recording && music.recording.stream.getAudioTracks()[0];
+      if (!music || !music.recordBus) music = null;
       picking = true; ui();
-      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: withSound && !audioTrack,
+      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: withSound && !music,
         preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' }).then(function (stream) {
         if (!active) { stream.getTracks().forEach(function (k) { k.stop(); }); return; }
         var tr = stream.getVideoTracks()[0], ss = tr.getSettings ? tr.getSettings() : {};
@@ -4482,7 +4506,7 @@
           stream.getTracks().forEach(function (k) { k.stop(); });
           toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
         }
-        if (withSound && !audioTrack && !stream.getAudioTracks().length) {
+        if (withSound && !music && !stream.getAudioTracks().length) {
           stream.getTracks().forEach(function (k) { k.stop(); });
           toast('Chrome не передал звук. При выборе «Эта вкладка» включите «Поделиться звуком вкладки».', true); return;
         }
@@ -4494,10 +4518,8 @@
           : Promise.reject()).catch(function () {
           return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); });
         }).then(function () {
-          if (active) {
-            if (audioTrack) stream.addTrack(audioTrack.clone());
-            begin(stream, own, withSound);
-          } else stream.getTracks().forEach(function (k) { k.stop(); });
+          if (active) begin(stream, own, withSound, music);
+          else stream.getTracks().forEach(function (k) { k.stop(); });
         }, function (e) {
           stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
         });
@@ -4507,7 +4529,7 @@
         else { console.error(e); toast('Не получилось начать запись: ' + (e && e.message || e), true); }
       }).finally(function () { picking = false; if (active) ui(); });
     }
-    function begin(stream, own, withSound) {
+    function begin(stream, own, withSound, music) {
       var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
@@ -4519,7 +4541,7 @@
       vidMuxer(function (ok) {
         if (REC !== R) return;
         if (!ok) { fail('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.'); return; }
-        try { if (withSound) R.audio = filmAudio(stream.getAudioTracks()[0]); }
+        try { if (withSound) R.audio = filmAudio(stream.getAudioTracks()[0], music); }
         catch (e) { fail('Не получилось подготовить звук: ' + e.message); return; }
         Promise.resolve(R.audio && R.audio.ready).then(function () {
           if (REC === R) recCodec(FILM_W, FILM_H, 12e6, setup);
@@ -4613,16 +4635,13 @@
       if (!R.enc || !R.n) { abort(R); toast('Ролик пустой — запись не успела начаться.', true); return; }
       if (R.bad) { abort(R); toast('Не получилось записать ролик: ' + (R.bad.message || R.bad), true); return; }
       R.finishing = true; cancelAnimationFrame(R.raf);
-      R.stream.getTracks().forEach(function (k) { k.stop(); });
+      R.stream.getVideoTracks().forEach(function (k) { k.stop(); });
       apStop(); clock.textContent = 'Сохраняю…'; ui();
       R.enc.flush().then(function () {
         if (REC !== R) return;
         if (R.bad) throw R.bad;
         if (R.firstTs == null) { abort(R); toast('Ролик пустой — запись не успела начаться.', true); return; }
-        if (R.audio) {
-          filmAudioDrain(R, true);
-          return R.audio.enc.flush();
-        }
+        if (R.audio) return filmAudioFinish(R);
       }).then(function () {
         if (REC !== R) return;
         if (R.bad) throw R.bad;
@@ -4630,6 +4649,7 @@
         R.enc.close();
         if (R.audio) R.audio.enc.close();
         filmAudioClose(R.audio);
+        R.stream.getAudioTracks().forEach(function (k) { k.stop(); });
         done(R, new Blob([R.mux.target.buffer], { type: 'video/mp4' }));
         REC = null; ui();
       }).catch(function (e) {
