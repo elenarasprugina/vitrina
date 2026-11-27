@@ -3977,10 +3977,15 @@
   var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
   function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
   // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
+  /* Звук ролика (переделано 27.11 — её жалоба: «то подтормаживает, то торопится»).
+     Было: каждый кадр кусок звука растягивался/сжимался под время кадра по часам звуковой карты, а они идут рывками
+     (по 10–20 мс) — скорость звука прыгала каждый кадр. Стало: звук берётся подряд, как есть, отсчёт в отсчёт
+     (A.cursor — какой отсчёт живого звука идёт следующим в ролик). Пауза и загрузка дня — склейка: после неё звук
+     продолжается с того, что звучит сейчас (с мягким входом). При ускорении ×1,5/×2 музыка играет в своём темпе, не ускоряется. */
   function filmAudio(track, music) {
     var C = music ? music.context : new window.AudioContext({ sampleRate: 48000 });
     var source = music ? music.recordBus : C.createMediaStreamSource(new MediaStream([track]));
-    var A = { context: C, source: source, shared: !!music, rate: C.sampleRate, blocks: [], recent: [], spans: [], size: 1024, used: 0 };
+    var A = { context: C, source: source, shared: !!music, rate: C.sampleRate, blocks: [], spans: [], size: 1024, used: 0, idle: true, plan: 0, fade: 1e9 };
     A.buffer = new Float32Array(A.size * 2);
     var codecs = ['mp4a.40.2', 'opus'];
     function codec(i) {
@@ -3996,11 +4001,9 @@
         var b = e.data;
         if (b.flushed) { if (A.tailReady) A.tailReady(); return; }
         b.end = b.start + b.left.length;
-        // Пока время ролика стоит, держим лишь короткий хвост для возобновления.
-        if (A.clock == null || (A.idleSince != null && b.start >= A.idleSince)) {
-          A.recent.push(b);
-          if (A.recent.length > 4) A.recent.shift();
-        } else A.blocks.push(b);
+        A.blocks.push(b);
+        // Пока время ролика стоит и всё взятое уже в ролике — держим лишь короткий хвост (~0,3 с) для продолжения
+        if (A.idle && !A.spans.length && A.blocks.length > 16) A.blocks.splice(0, A.blocks.length - 16);
         if (A.onBlock) A.onBlock();
       };
       source.connect(node);
@@ -4018,19 +4021,17 @@
     }
     if (!A.shared) A.context.close().catch(function () {});
   }
-  function filmAudioSpan(A, from, to, portion) {
+  // Кусок времени ролика [from, to] (секунды). from === to — время ролика стоит (пауза, загрузка дня).
+  function filmAudioSpan(A, from, to, speed) {
     if (!A) return;
-    var end = A.context.currentTime * A.rate;
-    var start = A.clock == null ? end : A.clock;
-    A.clock = end;
-    if (from === to) { if (A.idleSince == null) A.idleSince = end; return; }
-    A.idleSince = null;
-    if (A.recent.length) {
-      A.blocks = A.blocks.concat(A.recent);
-      A.recent = [];
-    }
-    A.spans.push({ start: end - (end - start) * portion, end: end,
-      from: Math.round(from * A.rate), to: Math.round(to * A.rate) });
+    if (from === to) { A.idle = true; return; }
+    var now = A.context.currentTime * A.rate, len = (to - from) * A.rate, at = null;
+    // После остановки — звук с того, что звучит сейчас; при обычной скорости — и если запись отстала больше чем на 0,15 с
+    // (панель была занята и пропустила время ролика)
+    if (A.idle || (speed === 1 && now - (A.plan + len) > .15 * A.rate)) { at = Math.max(0, Math.round(now - len)); A.plan = at; }
+    A.idle = false;
+    A.plan += len;
+    A.spans.push({ from: Math.round(from * A.rate), to: Math.round(to * A.rate), at: at });
   }
   function filmAudioFlush(A) {
     if (!A.used) return;
@@ -4050,25 +4051,28 @@
     var A = R.audio;
     if (!A || R.firstTs == null) return;
     if (A.first == null) A.first = A.next = Math.round(R.firstTs * A.rate / 1e6);
-    var limit = Math.round((R.firstTs / 1e6 + R.duration) * A.rate);
+    var limit = Math.round((R.firstTs / 1e6 + R.duration) * A.rate), FADE = Math.round(A.rate * .012);
     // Ждём настоящие отсчёты даже при задержке видео или занятом основном потоке.
     var available = A.blocks.length ? A.blocks[A.blocks.length - 1].end : 0;
     while (A.spans.length) {
       var s = A.spans[0];
       if (s.to <= A.next) { A.spans.shift(); continue; }
-      if (!finish && (s.from >= limit || s.end > available)) break;
-      var end = Math.min(s.to, limit), width = s.to - s.from || 1;
-      if (A.next >= end) break;
-      for (; A.next < end;) {
-        var at = s.start + (A.next - s.from) * (s.end - s.start) / width;
-        while (A.blocks.length && A.blocks[0].end <= at) A.blocks.shift();
-        var b = A.blocks[0], index = b ? Math.floor(at - b.start) : -1;
-        A.buffer[A.used] = index >= 0 ? b.left[index] : 0;
-        A.buffer[A.size + A.used] = index >= 0 ? b.right[index] : 0;
-        A.used++; A.next++;
+      if (!finish && s.from >= limit) break;
+      // склейка: звук продолжается с нового места, мягко входя (без щелчка)
+      if (s.at != null && !s.begun) { A.cursor = s.at + Math.max(0, A.next - s.from); A.fade = 0; }
+      s.begun = true;
+      if (A.cursor == null) A.cursor = s.at || 0;
+      var end = finish ? s.to : Math.min(s.to, limit);
+      while (A.next < end) {
+        if (!finish && A.cursor >= available) return;
+        while (A.blocks.length && A.blocks[0].end <= A.cursor) A.blocks.shift();
+        var b = A.blocks[0], k = b && A.cursor >= b.start ? A.cursor - b.start : -1, g = A.fade < FADE ? A.fade++ / FADE : 1;
+        A.buffer[A.used] = k >= 0 ? b.left[k] * g : 0;
+        A.buffer[A.size + A.used] = k >= 0 ? b.right[k] * g : 0;
+        A.used++; A.next++; A.cursor++;
         if (A.used === A.size) filmAudioFlush(A);
       }
-      if (end < s.to) break;
+      if (A.next < s.to) break;
       A.spans.shift();
     }
     if (finish) filmAudioFlush(A);
@@ -4588,8 +4592,7 @@
             var now = performance.now(), elapsed = (now - R.last) / 1000, dt = Math.min(.25, elapsed), from = R.t;
             R.last = now;
             if (!R.paused && !R.cut) R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
-            // Часы аудиоустройства могут идти иначе, чем часы анимации, особенно под нагрузкой.
-            filmAudioSpan(R.audio, from, R.t, elapsed ? dt / elapsed : 1);
+            filmAudioSpan(R.audio, from, R.t, R.speed);
             if (!R.paused && !R.cut) {
               var slot = Math.floor(R.t * VID_FPS);
               if (slot > R.slot) { R.slot = slot; paint(R.x, R, R.t); push(R, Math.round(slot * 1e6 / VID_FPS)); }
