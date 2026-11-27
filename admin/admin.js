@@ -4197,7 +4197,7 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '', sound: false };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, intro: 'gather', mark: true, dayCap: true, caption: '', sound: false };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
     var WHAT = filmWhat(r);
     if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
@@ -4526,7 +4526,7 @@
       }, true);
     });
     // Знак в углу — логотип сайта (свой из «Настроек» или золотой с одуванчиком); заставка — одуванчик, пушинки, название
-    var logo = new Image(), intro = filmIntro();
+    var logo = new Image(), intro = filmIntro(st.intro);
     logo.src = DATA.settings.logo ? imgSrc(DATA.settings.logo) : '../assets/logo.png';
     // «Посмотреть заставку» — без записи, поверх окна (слой панели; в запись не попадает)
     var introCv = null, introRaf = 0;
@@ -5096,7 +5096,8 @@
       field('Указатель', selF(FILM_PTR_OPTS, 'ptr', function () { ptrLook(); }), 'Что видно вместо мышки в окне и в ролике.'),
       el('div', { class: 'a-film-opts' }, [chk('ink', 'Рисовать: зажмите Пробел и ведите мышкой', function () { inkBox.hidden = !st.ink; })]),
       inkBox,
-      el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Заставка в начале: одуванчик, пушинки, логотип и название (~4 секунды)'),
+      el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Заставка в начале: одуванчик, пушинки, логотип и название (~6 секунд)'),
+        field('Пушинки в заставке', selF(FILM_INTRO, 'intro', function () { intro.mode(st.intro); introPlay(); })),
         el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✨ Посмотреть заставку', onclick: introPlay })]),
         chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
@@ -5119,7 +5120,14 @@
      затем дымка уходит и идёт сам маршрут. Время — время ролика в секундах, кадр 1080 × 1920.
      Шрифты — из «Шрифтов и надписей»: название — «Заголовки» (пусто — Cormorant Garamond, как на маршрутах), строчки — «Строчки-подписи».
      Длинное название переносится по словам и уменьшается, чтобы встать по центру (не больше трёх строк). */
-  var FI = { stem0: .15, stem1: .7, bloom0: .45, bloom1: 1.45, fly0: 1.3, step: .065, fly: 1.2, move0: 1.85, move1: 2.75, txt0: 3.3, out0: 4.8, out1: 5.5, end: 5.5 };
+  // Два варианта (её слова 27.11 (8): «скорость чуть-чуть поменьше» и «вариант, где они разлетаются»): gather — пушинки садятся на буквы,
+  // fly — улетают по ветру из кадра, а буквы проявляются светом от одуванчика. FI — тайминги выбранного варианта (меняет intro.mode).
+  var FI_MODES = {
+    gather: { stem0: .15, stem1: .7, bloom0: .45, bloom1: 1.45, fly0: 1.3, step: .085, fly: 1.55, move0: 2, move1: 3.2, txt0: 3.85, out0: 5.4, out1: 6.1, end: 6.1 },
+    fly: { stem0: .15, stem1: .7, bloom0: .45, bloom1: 1.45, fly0: 1.3, step: .1, fly: 2.7, move0: 2.1, move1: 3.3, rev0: 2.5, rev1: 3.9, txt0: 3.9, out0: 5.4, out1: 6.1, end: 6.1 } };
+  var FILM_INTRO = [['gather', 'Пушинки собирают буквы'], ['fly', 'Пушинки разлетаются']];
+  var FI = {};
+  Object.keys(FI_MODES.gather).forEach(function (k) { FI[k] = FI_MODES.gather[k]; });
   // Где одуванчик на картинке assets/logo.png (2454 × 545): середина, радиус головки, стебель (x, y, ширина, высота)
   var FI_LOGO = { src: '../assets/logo.png', cx: 997, cy: 180, r: 140, stem: [988, 248, 22, 150],
     // 12 лучей (градусы, 0 — вправо, по часовой) и где на них кончик с точками
@@ -5127,7 +5135,7 @@
     // Куда садятся пушинки: 8 букв «1 3 M R R O R S» и 4 места строки «калейдоскоп твоих миров» (x, y на картинке; w — строка)
     spots: [[115, 230], [302, 230], [695, 230], [1277, 230], [1545, 230], [1806, 230], [2086, 230], [2320, 230],
       [330, 457, 1], [900, 457, 1], [1540, 457, 1], [2150, 457, 1]] };
-  function filmIntro() {
+  function filmIntro(mode) {
     var I = { ok: false, FI: FI }, img = new Image(), L, Hd, St, HT, MK, OL, seedImg, seeds = [], lay = null, landed = 0;
     var M = window.M13 || {}, ty = M.typoOf ? M.typoOf(DATA.settings) : {}, tt = ty.title || {}, lb = ty.label || {};
     var has = function (f) { return f && (M.FONTS || []).indexOf(f) >= 0; };
@@ -5173,12 +5181,22 @@
       var byX = g.rays.slice().sort(function (a, b) { return Math.cos(a * Math.PI / 180) - Math.cos(b * Math.PI / 180); });
       var spots = g.spots.slice().sort(function (a, b) { return a[0] - b[0]; });
       rays.forEach(function (d, k) {
-        var sp = spots[byX.indexOf(d)], t0 = FI.fly0 + k * FI.step;
-        seeds.push({ d: d, a: d * Math.PI / 180, t0: t0, land: t0 + FI.fly, x: sp[0], y: sp[1], line: !!sp[2], ph: k * 2.4, s: .82 + (k % 3) * .06 });
+        var sp = spots[byX.indexOf(d)];
+        seeds.push({ k: k, d: d, a: d * Math.PI / 180, x: sp[0], y: sp[1], line: !!sp[2], ph: k * 2.4, s: .82 + (k % 3) * .06 });
       });
-      landed = seeds.reduce(function (m, p) { return Math.max(m, p.land); }, 0);
-      I.ok = true;
+      I.ok = true; I.mode(mode);
     }
+    // Вариант заставки: тайминги в FI и время отрыва/посадки каждой пушинки
+    I.mode = function (m) {
+      var src = FI_MODES[m] || FI_MODES.gather;
+      I.kind = FI_MODES[m] ? m : 'gather';
+      Object.keys(FI).forEach(function (k) { delete FI[k]; });
+      Object.keys(src).forEach(function (k) { FI[k] = src[k]; });
+      seeds.forEach(function (p) { p.t0 = FI.fly0 + p.k * FI.step; p.land = p.t0 + FI.fly; });
+      // Когда буквы целиком: сели все пушинки — или свет от одуванчика дошёл до краёв
+      landed = I.kind === 'fly' ? FI.rev1 - .9 : seeds.reduce(function (m, p) { return Math.max(m, p.land); }, 0);
+    };
+    I.mode(mode);
     function cl(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
     function sm(v) { v = cl(v); return v * v * (3 - 2 * v); }
     function back(v) { v = cl(v); var c = 1.5; return 1 + (c + 1) * Math.pow(v - 1, 3) + c * Math.pow(v - 1, 2); }
@@ -5221,7 +5239,7 @@
     // name — название, dates — строка дат, label — «Маршрут» (пусто — без строки)
     I.draw = function (x, t, name, dates, label) {
       if (!I.ok || t > FI.end) return;
-      var out = sm((t - FI.out0) / (FI.out1 - FI.out0)), vis = 1 - out, Y = layout(x, name, dates, label), g = FI_LOGO, h = head(t, Y);
+      var out = sm((t - FI.out0) / (FI.out1 - FI.out0)), vis = 1 - out, Y = layout(x, name, dates, label), g = FI_LOGO, h = head(t, Y), fly = I.kind === 'fly';
       x.save(); x.textAlign = 'center'; x.textBaseline = 'middle'; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
       if (vis > 0) {
         // Дымка: из темноты — в притемнённую сцену; тёплый свет за одуванчиком
@@ -5238,7 +5256,7 @@
         var hb = back((t - FI.bloom0) / (FI.bloom1 - FI.bloom0));
         if (hb > 0) {
           // Улетела пушинка — кончик луча пустеет; логотип собрался — кончики возвращаются
-          var hx = HT.getContext('2d'), back2 = sm((t - landed - .1) / .6);
+          var hx = HT.getContext('2d'), back2 = sm((t - (fly ? FI.rev0 + .4 : landed + .1)) / (fly ? 1.2 : .6));
           hx.globalCompositeOperation = 'source-over'; hx.clearRect(0, 0, HT.width, HT.height); hx.drawImage(Hd, 0, 0);
           hx.globalCompositeOperation = 'destination-out';
           seeds.forEach(function (p) {
@@ -5252,10 +5270,18 @@
         // Буквы логотипа — светом от мест, где сели пушинки; все сели — буквы целиком
         var lx0 = (FILM_W - I.lw) / 2;
         if (t >= landed + .9) { x.globalAlpha = vis; x.drawImage(L, lx0, Y.logo, I.lw, I.lh); }
-        else if (t > seeds[0].land) {
+        else if (fly ? t > FI.rev0 : t > seeds[0].land) {
           var mk = MK.getContext('2d'), ol = OL.getContext('2d'), q = MK.width / img.naturalWidth;
           mk.clearRect(0, 0, MK.width, MK.height); mk.globalCompositeOperation = 'lighter';
-          seeds.forEach(function (p) {
+          if (fly) {   // свет расходится от одуванчика к краям слова и к строке
+            var rv = 1700 * q * sm((t - FI.rev0) / (FI.rev1 - FI.rev0));
+            if (rv > 1) {
+              var gv = mk.createRadialGradient(g.cx * q, g.cy * q, 0, g.cx * q, g.cy * q, rv);
+              gv.addColorStop(0, '#000'); gv.addColorStop(.7, '#000'); gv.addColorStop(1, 'rgba(0,0,0,0)');
+              mk.fillStyle = gv; mk.fillRect(0, 0, MK.width, MK.height);
+            }
+          }
+          else seeds.forEach(function (p) {
             var e = t - p.land; if (e <= 0) return;
             var rr = (p.line ? 330 : 210) * q * (1 - Math.pow(1 - cl(e / .85), 3)); if (rr < 1) return;
             mk.save(); mk.translate(p.x * q, p.y * q); if (p.line) mk.scale(1, .3);
@@ -5293,6 +5319,22 @@
       // Пушинки: с кончика луча — петлёй наружу и вверх — на свою букву; садясь, уменьшаются и вспыхивают
       var k = I.k, lx = (FILM_W - I.lw) / 2;
       x.globalAlpha = 1;
+      if (fly) {   // Пушинки улетают: с кончика луча наружу, ветер подхватывает вверх; одни ближе (крупнее), другие дальше
+        seeds.forEach(function (p) {
+          var tau = t - p.t0; if (tau < 0 || tau > FI.fly) return;
+          var h0 = head(p.t0, Y), rr = g.tip * h0.s, ca = Math.cos(p.a), sa = Math.sin(p.a), v = tau / FI.fly;
+          var x0 = h0.x + ca * rr, y0 = h0.y + sa * rr, u = .45 * v + .55 * sm(v), iu = 1 - u;
+          var x1 = x0 + ca * 260, y1 = y0 + sa * 200 - 60, x3 = x0 + ca * 820 + 160, y3 = y0 + sa * 420 - 1250, x2 = x3 - ca * 120 - 80, y2 = y3 + 420;
+          var px = iu * iu * iu * x0 + 3 * iu * iu * u * x1 + 3 * iu * u * u * x2 + u * u * u * x3;
+          var py = iu * iu * iu * y0 + 3 * iu * iu * u * y1 + 3 * iu * u * u * y2 + u * u * u * y3;
+          px += 26 * Math.sin(Math.PI * v) * Math.sin(4 * v + p.ph);
+          var vx = 3 * iu * iu * (x1 - x0) + 6 * iu * u * (x2 - x1) + 3 * u * u * (x3 - x2);
+          var sc = p.s * .62 * (.6 + .4 * cl(tau / .3)) * (p.k % 2 ? 1 + .45 * v : 1 - .3 * v);
+          x.save(); x.globalAlpha = vis * cl(tau / .12) * (1 - sm((v - .62) / .38)); x.translate(px, py); x.rotate(Math.max(-.6, Math.min(.6, vx * .0012)) + .14 * Math.sin(3 * v + p.ph));
+          x.drawImage(seedImg, -64 * sc, -58 * sc, 128 * sc, 168 * sc); x.restore();
+        });
+        x.restore(); return;
+      }
       seeds.forEach(function (p) {
         var tau = t - p.t0, tx = lx + p.x * k, ty = Y.logo + p.y * k;
         if (tau < 0) return;
