@@ -3311,7 +3311,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261127a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261127b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3898,7 +3898,7 @@
     else query += '&debug=1' + ((extra && extra.q) || '');
     var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../routes/preview/?preview=1' + query });
     if (phone) fr.style.width = '375px';
-    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null, settings: { typo: clone(DATA.settings.typo || {}) } }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.source === fr.contentWindow && e.data && e.data.m13journeyReady) send(); }
     window.addEventListener('message', onMsg);
     function reopen(tall, options) {
@@ -4127,7 +4127,7 @@
     var picking = false, active = true;
     var h = Math.max(460, Math.min(800, window.innerHeight - 130)), w = Math.round(h * 9 / 16);
     var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, allow: 'autoplay', style: 'width:' + w + 'px;height:' + h + 'px' });
-    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null }, location.origin); } catch (e) { console.error(e); } }
+    function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null, settings: { typo: clone(DATA.settings.typo || {}) } }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady && e.source === fr.contentWindow) send(); }
     function filmMusic() {
       if (st.sound && isR() && r.stageMusic) {
@@ -11766,7 +11766,7 @@
   function viewTypo() {
     return [
       el('div', {}, [el('h1', { class: 'a-h1', text: 'Шрифты и надписи' }),
-        el('p', { class: 'a-hint', text: 'Одно место для надписей всего сайта: витрины всех месяцев, «Как устроены маршруты», «Примеры», «События». Настраиваются не страницы, а виды надписей — новая страница сама возьмёт то, что выставлено здесь.' }),
+        el('p', { class: 'a-hint', text: 'Одно место для надписей всего сайта: витрины всех месяцев, «Как устроены маршруты», «Примеры», «События», страницы маршрутов по дням (там — без цвета: у маршрутов тёмный фон). Настраиваются не страницы, а виды надписей — новая страница сама возьмёт то, что выставлено здесь.' }),
         el('p', { class: 'a-hint', text: '«Не менять» и «как у страницы» — надпись остаётся такой, как задано в оформлении месяца или страницы.' }),
         el('p', { class: 'a-hint', text: 'Если какой-то месяц или страница должны выглядеть иначе — там, в оформлении, есть «Шрифты и надписи: Своё».' }),
         el('button', { type: 'button', class: 'a-btn', text: 'Посмотреть на витрине', onclick: function () { openPreview('showcase'); } })]),

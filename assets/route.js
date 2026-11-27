@@ -593,7 +593,7 @@
   }
   // Шрифты для надписей (как на витрине); лежат на самом сайте (assets/fonts), грузятся, только когда выбраны
   var FONTS = { 'Cormorant Garamond': 'cormorant-garamond', 'Playfair Display': 'playfair-display', 'Philosopher': 'philosopher', 'Lora': 'lora',
-    'Montserrat': 'montserrat', 'Comfortaa': 'comfortaa', 'Marck Script': 'marck-script' }, FONT_ON = {};
+    'Montserrat': 'montserrat', 'Comfortaa': 'comfortaa', 'Marck Script': 'marck-script', 'Jost': 'jost' }, FONT_ON = {};
   var FONT_DIR = (function () {
     var sc = document.currentScript, src = sc && sc.src;
     if (!src) { var all = document.getElementsByTagName('script'); for (var i = 0; i < all.length; i++) if (/assets\/route\.js/.test(all[i].src)) src = all[i].src; }
@@ -604,6 +604,32 @@
     FONT_ON[name] = true;
     var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = FONT_DIR + FONTS[name] + '.css';
     document.head.appendChild(l);
+  }
+  /* «Шрифты и надписи» (её решение 20.11; docs/shrifty.md) — те же виды надписей, что на витрине: settings.typo = { title | label | text | btn | glass: {font, size, weight, spacing, color} };
+     поля нет — стартовый набор (как M13.TYPO_DEF в vitrina.js: подписи и кнопки — Philosopher). На <body> страницы — классы ty-<роль>-<свойство> и переменные --ty-…;
+     какие надписи маршрута к какой роли относятся — route.css, раздел «Шрифты и надписи». ЦВЕТ на страницах маршрутов не берём: у маршрутов тёмный фон и свои цвета,
+     цвет для светлой витрины здесь сделал бы надписи невидимыми. «Надписи на стекле» — у маршрута своё стекло (калейдоскоп), не трогаем. */
+  var TYPO_DEF = { label: { font: 'Philosopher', weight: 'normal', spacing: 'wide' }, btn: { font: 'Philosopher', weight: 'normal' } };
+  var TYPO_KEY = { title: 'tt', label: 'lb', text: 'tx', btn: 'bt' };
+  var TYPO_W = { light: 300, normal: 400, medium: 500, semi: 600, bold: 700 };
+  var FONT_W = { 'Cormorant Garamond': [300, 400, 600, 700], 'Playfair Display': [400, 600, 700], 'Philosopher': [400, 700], 'Lora': [400, 600, 700],
+    'Montserrat': [300, 400, 600, 700], 'Comfortaa': [300, 400, 600, 700], 'Marck Script': [400], 'Jost': [400, 500] };
+  var FONT_SANS = { 'Montserrat': 1, 'Comfortaa': 1, 'Jost': 1 };
+  function applyTypo(box, st) {
+    if (!box) return;
+    var t = (st && st.typo) || {};
+    box.className = box.className.replace(/(^|\s)ty-[a-z]{2}-[a-z]{2}(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
+    Object.keys(TYPO_KEY).forEach(function (r) {
+      var k = TYPO_KEY[r], o = t[r] || {}, d = TYPO_DEF[r] || {}, x = {};
+      ['font', 'size', 'weight', 'spacing'].forEach(function (p) { x[p] = o[p] !== undefined ? o[p] : d[p] !== undefined ? d[p] : ''; });
+      function on(p, v) { if (v != null) box.style.setProperty('--ty-' + k + '-' + p, v); box.classList.add('ty-' + k + '-' + p); }
+      var font = FONTS[x.font] ? x.font : '', w = TYPO_W[x.weight];
+      if (font) { ensureFont(font); on('ff', "'" + font + "'," + (FONT_SANS[font] ? 'system-ui,sans-serif' : 'Georgia,serif')); }
+      if (w && font) w = FONT_W[font].reduce(function (a, b) { return Math.abs(b - w) < Math.abs(a - w) ? b : a; });
+      if (w) on('fw', String(w));
+      if (x.spacing === 'wide') on('lw'); else if (x.spacing === 'normal') on('ln');
+      var sz = +x.size; if (sz && sz !== 100) on('fs', String(Math.max(60, Math.min(200, sz)) / 100));
+    });
   }
   // «С чем вы выходите?» — до трёх состояний (можно не выбирать). chosen — уже выбранные (номера), onChange(список)
   // Вид (route.final.exitView): 'balls' — шарики с подписью (как на входе), 'glass' — настоящие стёклышки (вид — «Стёклышки» → «Состояния»).
@@ -4092,13 +4118,16 @@
       window.addEventListener('message', function (e) {
         if (e.origin !== location.origin || !e.data || !e.data.m13journey) return;
         S.base = e.data.base || S.base; if (e.data.logo) S.logo = e.data.logo;
+        if (e.data.settings) applyTypo(document.body, e.data.settings);
         closeLayer(); useRoute(e.data.m13journey);
       });
       try { window.parent.postMessage({ m13journeyReady: true }, location.origin); } catch (e) {}
       return;
     }
-    // Общий логотип витрины (финал): тихо, без него — обычный
-    getJSON(S.base + 'data/settings.json').then(function (st) { if (st && st.logo) S.logo = { src: st.logo, ratio: st.logoRatio }; }, function () {});
+    // Общий логотип витрины (финал): тихо, без него — обычный;
+    // и «Шрифты и надписи» (без них — стартовый набор: подписи и кнопки Philosopher)
+    applyTypo(document.body, null);
+    getJSON(S.base + 'data/settings.json').then(function (st) { if (st && st.logo) S.logo = { src: st.logo, ratio: st.logoRatio }; applyTypo(document.body, st); }, function () {});
     getJSON(S.base + 'data/journeys.json').then(function (j) {
       var route = (j.items || []).filter(function (x) { return x.id === id; })[0];
       if (!route) throw new Error();
