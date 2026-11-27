@@ -4525,8 +4525,30 @@
         d.body.appendChild(t); setTimeout(function () { t.remove(); }, 700);
       }, true);
     });
-    var logo = null;
-    if (DATA.settings.logo) { logo = new Image(); logo.src = imgSrc(DATA.settings.logo); }
+    // Знак в углу — логотип сайта (свой из «Настроек» или золотой с одуванчиком); заставка — одуванчик, пушинки, название
+    var logo = new Image(), intro = filmIntro();
+    logo.src = DATA.settings.logo ? imgSrc(DATA.settings.logo) : '../assets/logo.png';
+    // «Посмотреть заставку» — без записи, поверх окна (слой панели; в запись не попадает)
+    var introCv = null, introRaf = 0;
+    function introStop() { cancelAnimationFrame(introRaf); introRaf = 0; if (introCv) { introCv.remove(); introCv = null; } }
+    function introPlay() {
+      introStop();
+      intro.ready.then(function () {
+        if (REC || !active) return;
+        introCv = el('canvas', { class: 'a-film-intro' }); introCv.width = FILM_W; introCv.height = FILM_H; fx.appendChild(introCv);
+        var x = introCv.getContext('2d'), t0 = performance.now(), c = introCv;
+        (function loop() {
+          if (introCv !== c) return;
+          var t = (performance.now() - t0) / 1000;
+          x.clearRect(0, 0, FILM_W, FILM_H); intro.draw.apply(null, [x, t].concat(introInfo()));
+          if (t > FI.end) { introStop(); return; }
+          introRaf = requestAnimationFrame(loop);
+        })();
+      });
+    }
+    function introInfo() {
+      return [whatName(), isR() ? [jDateText(r.start), last ? last + ' дней' : ''].filter(Boolean).join(' · ') : '', isR() ? 'Маршрут' : ''];
+    }
     // Окно-телефон во весь холст
     function base(x, v) {
       var vw = v.videoWidth, vh = v.videoHeight;
@@ -4550,17 +4572,8 @@
         var fk2 = Math.max(FILM_W / fr.clientWidth, FILM_H / fr.clientHeight);
         ptrPaint(x, fk2, (FILM_W - fr.clientWidth * fk2) / 2, (FILM_H - fr.clientHeight * fk2) / 2);
       }
+      if (st.title) intro.draw.apply(null, [x, t].concat(introInfo()));
       x.textAlign = 'center'; x.textBaseline = 'middle';
-      if (st.title && t < 3.4) {
-        x.globalAlpha = t < 2.6 ? 1 : 1 - (t - 2.6) / 0.8;
-        shade(x, 0, 640, .62, 0);
-        x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 18; x.fillStyle = '#fff';
-        x.font = '600 76px Georgia, "Times New Roman", serif';
-        filmLines(x, whatName(), 940).forEach(function (l, i) { x.fillText(l, FILM_W / 2, 230 + i * 92); });
-        var dt = isR() ? [jDateText(r.start), last ? last + ' дней' : ''].filter(Boolean).join(' · ') : '';
-        if (dt) { x.font = '400 40px -apple-system, "Segoe UI", Roboto, sans-serif'; x.fillText(dt, FILM_W / 2, 150); }
-        x.shadowBlur = 0; x.globalAlpha = 1;
-      }
       // «День N» — когда автопилот перешёл к новому дню (2,4 секунды, мягко)
       if (R.cap && t >= R.cap.t && t - R.cap.t < 2.4) {
         var ct = t - R.cap.t;
@@ -4578,8 +4591,8 @@
         cl.forEach(function (l, i) { x.fillText(l, FILM_W / 2, y0 + i * 66); });
         x.shadowBlur = 0;
       }
-      if (st.mark) {
-        x.globalAlpha = 0.8;
+      if (st.mark && (!st.title || t > FI.out0)) {
+        x.globalAlpha = 0.8 * (st.title ? Math.min(1, (t - FI.out0) / .8) : 1);
         if (logo && logo.complete && logo.naturalWidth) {
           var lw = 190, lh = lw * logo.naturalHeight / logo.naturalWidth;
           if (lh > 120) { lh = 120; lw = lh * logo.naturalWidth / logo.naturalHeight; }
@@ -4655,6 +4668,7 @@
       }).finally(function () { picking = false; if (active) ui(); });
     }
     function begin(stream, own, withSound, music) {
+      introStop();
       var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
@@ -4668,7 +4682,7 @@
         if (!ok) { fail('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.'); return; }
         try { if (withSound) R.audio = filmAudio(stream.getAudioTracks()[0], music); }
         catch (e) { fail('Не получилось подготовить звук: ' + e.message); return; }
-        Promise.resolve(R.audio && R.audio.ready).then(function () {
+        Promise.all([R.audio && R.audio.ready, st.title ? intro.ready : null]).then(function () {
           if (REC === R) recCodec(FILM_W, FILM_H, 12e6, setup);
         }).catch(function (e) { if (REC === R) fail('Не получилось подготовить звук: ' + e.message); });
         function setup(c) {
@@ -4920,6 +4934,9 @@
         if (!one(d, '.ys-dpoly.is-can, .ys-hit')) { if (now - A.t0 > 20000) apStop('Страница маршрута не загрузилась — попробуйте ещё раз.'); return; }
         A.stage = 'go';
         idle(1100, function () {
+          // Первый день под заставкой: участник начинает, когда она тает
+          var wait = A.P.calm ? 2200 : 600;
+          if (REC && st.title && REC.slot < 0) wait = Math.max(wait, FI.out0 * REC.speed * 1000);
           if (REC) {
             if (REC.cut) {
               REC.cut = false; REC.last = performance.now();
@@ -4927,10 +4944,10 @@
               if (REC.slot >= 0) REC.fade = REC.t;
             }
             // Первый день идёт под названием маршрута; если название ещё видно — «День N» сразу после него
-            if (st.dayCap && !(st.title && REC.slot < 0)) REC.cap = { t: Math.max(REC.t, st.title ? 3.4 : 0), a: A.fin ? 'Финал' : 'День ' + A.day, b: dateOf(A.day) };
+            if (st.dayCap && !(st.title && REC.slot < 0)) REC.cap = { t: Math.max(REC.t, st.title ? FI.out1 : 0), a: A.fin ? 'Финал' : 'День ' + A.day, b: dateOf(A.day) };
             ui();
           }
-          idle(A.P.calm ? 2200 : 600);
+          idle(wait);
         });
         return;
       }
@@ -5007,6 +5024,7 @@
     function close() {
       if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
       active = false;
+      introStop();
       if (REC) abort(REC);
       apStop(); drop(); dropFilmMusic();
       window.removeEventListener('message', onMsg); document.removeEventListener('keydown', inkKey, true); document.removeEventListener('keyup', inkKey, true); closePreview(); pv.classList.remove('is-rec');
@@ -5078,7 +5096,9 @@
       field('Указатель', selF(FILM_PTR_OPTS, 'ptr', function () { ptrLook(); }), 'Что видно вместо мышки в окне и в ролике.'),
       el('div', { class: 'a-film-opts' }, [chk('ink', 'Рисовать: зажмите Пробел и ведите мышкой', function () { inkBox.hidden = !st.ink; })]),
       inkBox,
-      el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
+      el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Заставка в начале: одуванчик, пушинки, логотип и название (~4 секунды)'),
+        el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: '✨ Посмотреть заставку', onclick: introPlay })]),
+        chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
       el('div', { class: 'a-film-opts' }, [sound = chk('sound', 'Записывать звук вкладки', function () { if (isR()) { playFilmMusic(); reload(); } })]),
       el('p', { class: 'a-hint', text: 'Если у спирали настроена музыка, она берётся из проигрывателя маршрута. Для остальных страниц включите «Поделиться звуком вкладки» в окне браузера.' }),
@@ -5091,6 +5111,168 @@
     pv.replaceChildren(el('div', { class: 'a-film' }, [el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, [el('div', { class: 'a-film-win' }, [fr, fx])])]), side]), bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
     reload();
+  }
+  /* Заставка ролика (её решение 27.11): одуванчик из логотипа распускается крупно в середине кадра, из него разлетаются пушинки,
+     потом он уменьшается и встаёт на своё место в слове MIRRORS, проявляются буквы логотипа, под ними — «МАРШРУТ», название, даты;
+     затем дымка уходит и идёт сам маршрут (пушинки ещё летят поверх). Время — время ролика в секундах, кадр 1080 × 1920.
+     Шрифты — из «Шрифтов и надписей»: название — «Заголовки» (пусто — Cormorant Garamond, как на маршрутах), строчки — «Строчки-подписи».
+     Длинное название переносится по словам и уменьшается, чтобы встать по центру (не больше трёх строк). */
+  var FI = { stem0: .15, stem1: .7, bloom0: .45, bloom1: 1.45, fly0: 1.05, fly1: 2.6, move0: 1.95, move1: 2.85, letters0: 2.25, txt0: 2.6, out0: 4.3, out1: 5.0, end: 6.8 };
+  // Где одуванчик на картинке assets/logo.png (2454 × 545): середина, радиус головки, стебель (x, y, ширина, высота)
+  var FI_LOGO = { src: '../assets/logo.png', cx: 997, cy: 180, r: 140, stem: [988, 248, 22, 150] };
+  function filmIntro() {
+    var I = { ok: false, FI: FI }, img = new Image(), L, Hd, St, seedImg, seeds = [], lay = null;
+    var M = window.M13 || {}, ty = M.typoOf ? M.typoOf(DATA.settings) : {}, tt = ty.title || {}, lb = ty.label || {};
+    var has = function (f) { return f && (M.FONTS || []).indexOf(f) >= 0; };
+    var tf = has(tt.font) ? tt.font : 'Cormorant Garamond', lf = has(lb.font) ? lb.font : 'Philosopher';
+    var FWN = { light: 300, normal: 400, medium: 500, semi: 600, bold: 700 };
+    var tw = FWN[tt.weight] || 500, lw = FWN[lb.weight] || 400, tit = M.fontCaps ? M.fontCaps(tf).it : true;
+    var tk = Math.max(.6, Math.min(1.6, (+tt.size || 100) / 100)), lk = Math.max(.6, Math.min(1.6, (+lb.size || 100) / 100));
+    function tFont(px) { return (tit ? 'italic ' : '') + tw + ' ' + Math.round(px) + 'px "' + tf + '", Georgia, serif'; }
+    function lFont(px) { return lw + ' ' + Math.round(px * lk) + 'px "' + lf + '", Georgia, serif'; }
+    if (M.ensureFont) { M.ensureFont(tf); M.ensureFont(lf); }
+    var fonts = document.fonts && document.fonts.load ? Promise.all([document.fonts.load(tFont(100), 'Жёлтый Человек'), document.fonts.load(lFont(40), 'МАРШРУТ 26 ноября')]).catch(function () {}) : null;
+    var pic = new Promise(function (ok) { img.onload = function () { build(); ok(); }; img.onerror = function () { ok(); }; img.src = FI_LOGO.src; });
+    // Не дольше 5 секунд: шрифт не пришёл — рисуем запасным
+    I.ready = Promise.race([Promise.all([pic, fonts]), new Promise(function (ok) { setTimeout(ok, 5000); })]);
+    function cv(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+    function build() {
+      var W = img.naturalWidth, H = img.naturalHeight, g = FI_LOGO, s = g.stem, x;
+      // Буквы — логотип без одуванчика; головка и стебель — отдельно
+      L = cv(W, H); x = L.getContext('2d'); x.drawImage(img, 0, 0);
+      x.globalCompositeOperation = 'destination-out'; x.beginPath(); x.arc(g.cx, g.cy, g.r, 0, 7); x.fill(); x.fillRect(s[0] - 2, s[1] - 4, s[2] + 4, s[3] + 8);
+      Hd = cv(g.r * 2, g.r * 2); x = Hd.getContext('2d'); x.drawImage(img, g.r - g.cx, g.r - g.cy);
+      x.globalCompositeOperation = 'destination-in'; x.beginPath(); x.arc(g.r, g.r, g.r, 0, 7); x.fill();
+      x.globalCompositeOperation = 'destination-out'; x.fillRect(s[0] - 1 - g.cx + g.r, s[1] - g.cy + g.r, s[2] + 2, s[3]);
+      St = cv(s[2], s[3]); St.getContext('2d').drawImage(img, -s[0], -s[1]);
+      I.lw = 640; I.lh = I.lw * H / W; I.k = I.lw / W;
+      // Пушинка: зонтик тонких волосков с точками на концах (как лучи одуванчика в логотипе), носик и семечко
+      seedImg = cv(128, 168); x = seedImg.getContext('2d');
+      var hz = x.createRadialGradient(64, 58, 0, 64, 58, 50); hz.addColorStop(0, 'rgba(255,240,210,.32)'); hz.addColorStop(1, 'rgba(255,240,210,0)');
+      x.fillStyle = hz; x.beginPath(); x.arc(64, 58, 50, 0, 7); x.fill();
+      x.shadowColor = 'rgba(255,205,130,.9)'; x.shadowBlur = 6; x.strokeStyle = 'rgba(255,246,226,.92)'; x.fillStyle = '#fff6e2'; x.lineCap = 'round';
+      for (var i = 0; i < 15; i++) {
+        var a = -Math.PI / 2 + (i / 14 - .5) * 2.9, len = 40 + (i % 3) * 4, ex = 64 + Math.cos(a) * len, ey = 58 + Math.sin(a) * len;
+        x.lineWidth = 1.7; x.beginPath(); x.moveTo(64, 58);
+        x.quadraticCurveTo(64 + Math.cos(a - .25) * len * .55, 58 + Math.sin(a - .25) * len * .55, ex, ey); x.stroke();
+        x.beginPath(); x.arc(ex, ey, 2.4, 0, 7); x.fill();
+      }
+      x.lineWidth = 2; x.beginPath(); x.moveTo(64, 58); x.lineTo(64, 132); x.stroke();
+      x.beginPath(); x.ellipse(64, 145, 4.2, 13, 0, 0, 7); x.fill();
+      // Пушинки — всегда одни и те же (ролик повторяемый)
+      var sd = 13; function rnd() { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; }
+      for (i = 0; i < 30; i++) {
+        var u = i / 29;
+        seeds.push({ t0: FI.fly0 + Math.pow(u, 1.25) * (FI.fly1 - FI.fly0) + rnd() * .12, a: -Math.PI / 2 + (rnd() - .5) * 4.4,
+          v: 260 + rnd() * 420, k: 1.3 + rnd() * .9, wind: 50 + rnd() * 120, rise: 40 + rnd() * 70,
+          A: 10 + rnd() * 26, w: 1.5 + rnd() * 1.9, ph: rnd() * 6.28, s: .5 + rnd() * .62, life: 3.6 + rnd() * 1.8 });
+      }
+      I.ok = true;
+    }
+    function cl(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+    function sm(v) { v = cl(v); return v * v * (3 - 2 * v); }
+    function back(v) { v = cl(v); var c = 1.5; return 1 + (c + 1) * Math.pow(v - 1, 3) + c * Math.pow(v - 1, 2); }
+    // Раскладка по высоте: логотип, «МАРШРУТ», название (по словам, по центру), даты — блок по середине кадра
+    function layout(x, name, dates, label) {
+      var key = name + '|' + dates + '|' + label;
+      if (lay && lay.key === key) return lay;
+      var fs = 104 * tk, lines, max = 900;
+      for (;;) {
+        x.font = tFont(fs); lines = filmLines(x, name, max);
+        // Две строки — делим поровну по ширине («Белый / Соединитель Миров», а не «Белый Соединитель / Миров»)
+        if (lines.length === 2) {
+          var wd = String(name).split(/\s+/), best = null;
+          for (var i = 1; i < wd.length; i++) {
+            var a = wd.slice(0, i).join(' '), c = wd.slice(i).join(' '), m = Math.max(x.measureText(a).width, x.measureText(c).width);
+            if (!best || m < best[0]) best = [m, a, c];
+          }
+          if (best && best[0] <= max) lines = [best[1], best[2]];
+        }
+        var wide = lines.some(function (l) { return x.measureText(l).width > max; }), more = String(name).split(/\s+/).join(' ') !== lines.join(' ');
+        if ((!wide && !more && lines.length <= 2) || fs <= 56) break;
+        fs -= 6;
+      }
+      var lh = fs * 1.12, y = 0, o = { key: key, fs: fs, lines: lines };
+      o.logo = y; y += I.lh + 64;
+      o.rule = y - 30;
+      if (label) { o.label = y + 20; y += 64; }
+      o.name = y + lh / 2; y += lines.length * lh;
+      if (dates) { o.dates = y + 34; y += 70; }
+      var top = 880 - y / 2;
+      ['logo', 'rule', 'label', 'name', 'dates'].forEach(function (k) { if (o[k] != null) o[k] += top; });
+      return (lay = o);
+    }
+    // Где головка одуванчика в момент t: середина и масштаб (крупно в середине → на месте в логотипе)
+    function head(t, Y) {
+      var g = FI_LOGO, m = sm((t - FI.move0) / (FI.move1 - FI.move0)), big = 1.05, k = I.k;
+      var lx = (FILM_W - I.lw) / 2, fx = lx + g.cx * k, fy = Y.logo + g.cy * k;
+      return { x: 540 + (fx - 540) * m, y: 760 + (fy - 760) * m, s: big * Math.pow(k / big, m) };
+    }
+    // name — название, dates — строка дат, label — «Маршрут» (пусто — без строки)
+    I.draw = function (x, t, name, dates, label) {
+      if (!I.ok || t > FI.end) return;
+      var out = sm((t - FI.out0) / (FI.out1 - FI.out0)), vis = 1 - out, Y = layout(x, name, dates, label), g = FI_LOGO, h = head(t, Y);
+      x.save(); x.textAlign = 'center'; x.textBaseline = 'middle'; x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+      if (vis > 0) {
+        // Дымка: из темноты — в притемнённую сцену; тёплый свет за одуванчиком
+        x.fillStyle = 'rgba(8,6,4,' + (t < .5 ? 1 - .3 * sm(t / .5) : .7) * vis + ')'; x.fillRect(0, 0, FILM_W, FILM_H);
+        var b = sm((t - FI.bloom0) / (FI.bloom1 - FI.bloom0)), gr = 300 + 260 * (1 - sm((t - FI.move0) / (FI.move1 - FI.move0)));
+        var gl = x.createRadialGradient(h.x, h.y, 0, h.x, h.y, gr);
+        gl.addColorStop(0, 'rgba(255,214,150,' + (.3 * b * vis) + ')'); gl.addColorStop(1, 'rgba(255,214,150,0)');
+        x.fillStyle = gl; x.fillRect(0, 0, FILM_W, FILM_H);
+        // Стебель растёт снизу вверх, потом раскрывается головка (с разворотом)
+        var sg = sm((t - FI.stem0) / (FI.stem1 - FI.stem0)), s = g.stem, sx = h.x + (s[0] - g.cx) * h.s, sy = h.y + (s[1] - g.cy) * h.s;
+        x.shadowColor = 'rgba(255,205,130,.6)'; x.shadowBlur = 22;
+        x.globalAlpha = vis;
+        if (sg > 0) x.drawImage(St, 0, s[3] * (1 - sg), s[2], s[3] * sg, sx, sy + s[3] * h.s * (1 - sg), s[2] * h.s, s[3] * h.s * sg);
+        var hb = back((t - FI.bloom0) / (FI.bloom1 - FI.bloom0));
+        if (hb > 0) {
+          x.save(); x.translate(h.x, h.y); x.rotate(-.7 * (1 - b)); x.globalAlpha = vis * cl(b * 2.2);
+          var hs = h.s * hb; x.drawImage(Hd, -g.r * hs, -g.r * hs, g.r * 2 * hs, g.r * 2 * hs); x.restore();
+        }
+        // Буквы логотипа
+        var la = sm((t - FI.letters0) / .7);
+        if (la > 0) { x.globalAlpha = la * vis; x.drawImage(L, (FILM_W - I.lw) / 2, Y.logo + 12 * (1 - la), I.lw, I.lh); }
+        x.shadowBlur = 0;
+        // Черта, «МАРШРУТ», название, даты — по очереди, чуть поднимаясь
+        var ra = sm((t - FI.letters0 - .3) / .6);
+        if (ra > 0) { x.globalAlpha = ra * vis; x.strokeStyle = 'rgba(239,212,154,.6)'; x.lineWidth = 2; x.beginPath(); x.moveTo(540 - 150 * ra, Y.rule); x.lineTo(540 + 150 * ra, Y.rule); x.stroke(); }
+        x.shadowColor = 'rgba(0,0,0,.55)'; x.shadowBlur = 14;
+        var a1 = sm((t - FI.txt0) / .6), a2 = sm((t - FI.txt0 - .2) / .6), a3 = sm((t - FI.txt0 - .45) / .6);
+        if (label && a1 > 0) {
+          x.globalAlpha = a1 * vis; x.font = lFont(36); x.fillStyle = 'rgba(241,222,180,.9)';
+          if ('letterSpacing' in x) x.letterSpacing = '.34em';
+          x.fillText(String(label).toUpperCase(), FILM_W / 2 + 6, Y.label + 14 * (1 - a1));
+          if ('letterSpacing' in x) x.letterSpacing = '0px';
+        }
+        if (a2 > 0) {
+          x.globalAlpha = a2 * vis; x.font = tFont(Y.fs);
+          var lh = Y.fs * 1.12;
+          Y.lines.forEach(function (l, i) {
+            var ly = Y.name + i * lh + 16 * (1 - a2), gd = x.createLinearGradient(0, ly - Y.fs / 2, 0, ly + Y.fs / 2);
+            gd.addColorStop(0, '#fff4d6'); gd.addColorStop(.5, '#efd49a'); gd.addColorStop(1, '#d6ad66'); x.fillStyle = gd;
+            x.fillText(l, FILM_W / 2, ly);
+          });
+        }
+        if (dates && a3 > 0) { x.globalAlpha = a3 * vis; x.font = lFont(40); x.fillStyle = 'rgba(241,222,180,.92)'; x.fillText(dates, FILM_W / 2, Y.dates + 14 * (1 - a3)); }
+        x.shadowBlur = 0;
+      }
+      // Пушинки — от кончиков лучей, разлетаются вверх и по ветру; летят и поверх маршрута, потом тают
+      seeds.forEach(function (p) {
+        var tau = t - p.t0; if (tau < 0) return;
+        var tEnd = Math.min(p.t0 + p.life, FI.end), al = Math.min(cl(tau / .25), cl((tEnd - t) / 1.1));
+        if (al <= 0) return;
+        var h0 = head(p.t0, Y), rr = g.r * .9 * h0.s * back((p.t0 - FI.bloom0) / (FI.bloom1 - FI.bloom0));
+        var e = (1 - Math.exp(-p.k * tau)) / p.k, vx = Math.cos(p.a) * p.v, vy = Math.sin(p.a) * p.v - 110;
+        var px = h0.x + Math.cos(p.a) * rr + vx * e + p.wind * tau + p.A * (Math.sin(p.w * tau + p.ph) - Math.sin(p.ph));
+        var py = h0.y + Math.sin(p.a) * rr + vy * e - p.rise * tau + .3 * p.A * (Math.cos(p.w * .8 * tau + p.ph) - Math.cos(p.ph));
+        var sc = p.s * .62 * (.55 + .45 * cl(tau / .5));
+        x.save(); x.globalAlpha = al * .95; x.translate(px, py); x.rotate(.22 + .32 * Math.sin(p.w * tau + p.ph));
+        x.drawImage(seedImg, -64 * sc, -58 * sc, 128 * sc, 168 * sc); x.restore();
+      });
+      x.restore();
+    };
+    return I;
   }
   // Строки подписи по ширине холста (не больше трёх)
   function filmLines(x, text, max, font) {
