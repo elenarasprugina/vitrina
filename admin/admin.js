@@ -4016,14 +4016,15 @@
       (q[7] ? ' class="tw" style="--a:' + q[3].toFixed(2) + ';animation-duration:' + q[5].toFixed(2) + 's;animation-delay:-' + (q[4] * q[5]).toFixed(2) + 's"' : ' opacity="' + q[3].toFixed(2) + '"') + '/>';
   }).join('') + '</svg>';
   // В кадр ролика: (x0, y0) — где кончик, k — масштаб, now — мс. Мерцание — как на экране (яркость от 100 % до 30 %).
-  function filmLightPaint(x, x0, y0, k, now) {
+  function filmLightPaint(x, x0, y0, k, now, f) {
+    if (f == null) f = 1;
     x.save(); x.globalCompositeOperation = 'lighter';
     FILM_LIGHT.forEach(function (q) {
       var tw = q[7] ? .5 + .5 * Math.cos(2 * Math.PI * (now / 1000 / q[5] + q[4])) : 1, a = q[3] * (q[7] ? .3 + .7 * tw : 1);
       var cx = x0 + (q[0] - 2) * k, cy = y0 + (q[1] - 46) * k, r = Math.max(.6, q[2] * k * .85);
-      x.globalAlpha = a * .3; x.fillStyle = q[6] ? '#ffc864' : '#ffe8b8';
+      x.globalAlpha = a * .3 * f; x.fillStyle = q[6] ? '#ffc864' : '#ffe8b8';
       x.beginPath(); x.arc(cx, cy, r * 2.2 + .6, 0, 6.283); x.fill();
-      x.globalAlpha = a; x.fillStyle = q[6] ? '#ffd98a' : '#fffaf0';
+      x.globalAlpha = a * f; x.fillStyle = q[6] ? '#ffd98a' : '#fffaf0';
       x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fill();
     });
     x.restore();
@@ -4137,7 +4138,7 @@
       while (A.next < end) {
         if (!finish && A.cursor >= available) return;
         while (A.blocks.length && A.blocks[0].end <= A.cursor) A.blocks.shift();
-        var b = A.blocks[0], k = b && A.cursor >= b.start ? A.cursor - b.start : -1, g = A.fade < FADE ? A.fade++ / FADE : 1;
+        var b = A.blocks[0], k = b && A.cursor >= b.start ? A.cursor - b.start : -1, g = (A.fade < FADE ? A.fade++ / FADE : 1) * filmAudioEnv(R, A);
         A.buffer[A.used] = k >= 0 ? b.left[k] * g : 0;
         A.buffer[A.size + A.used] = k >= 0 ? b.right[k] * g : 0;
         A.used++; A.next++; A.cursor++;
@@ -4147,6 +4148,14 @@
       A.spans.shift();
     }
     if (finish) filmAudioFlush(A);
+  }
+  // Её просьба 27.11: музыка в ролике входит плавно (1,2 с от начала) и гаснет вместе с затемнением в конце (0,8 с от R.out).
+  // Время отсчёта звука совпадает со временем ролика (R.t): отсчёт A.next / частота — секунда ролика.
+  function filmAudioEnv(R, A) {
+    var t = A.next / A.rate, a = (A.next - A.first) / A.rate, e = 1;
+    if (a < 1.2) { a /= 1.2; e = a * a * (3 - 2 * a); }
+    if (R.out != null && t > R.out) e *= Math.max(0, 1 - (t - R.out) / .8);
+    return e;
   }
   function filmAudioFinish(R) {
     var A = R.audio;
@@ -4217,6 +4226,20 @@
       window.M13R.stopStageMusic(fr.m13StageMusic);
       fr.m13StageMusic = null;
     }
+    // Запись началась (пошло время ролика): трек — с самого начала (её жалоба 27.11: подхватывался с середины, обрыв).
+    // Пока трек перематывается, живой звук приглушён, чтобы в ролик не попал кусочек старого места; плавный вход — filmAudioEnv.
+    function filmMusicRestart() {
+      var m = fr.m13StageMusic, a = m && m.audio, g = m && m.gain, done = false;
+      if (!a) return;
+      if (g) { var t = m.context.currentTime; g.cancelScheduledValues(t); g.setValueAtTime(0, t); }
+      function back() {
+        if (done) return; done = true;
+        a.removeEventListener('seeked', back);
+        if (g && m.target != null) { var t2 = m.context.currentTime; g.cancelScheduledValues(t2); g.setValueAtTime(0, t2); g.linearRampToValueAtTime(m.target, t2 + .05); }
+      }
+      a.addEventListener('seeked', back); setTimeout(back, 800);
+      try { a.currentTime = 0; } catch (e) { back(); }
+    }
     function playFilmMusic() {
       filmMusic();
       if (fr.m13StageMusic) window.M13R.playStageMusic(fr.m13StageMusic);
@@ -4282,8 +4305,31 @@
         if (rgb) t.style.boxShadow = '0 0 1px 1px rgba(0,0,0,.18),0 0 6px 2px rgba(' + rgb + ',.95)';
         d.body.appendChild(t); setTimeout(function () { t.remove(); }, 900);
       }
+      // Автопилот (её выбор 27.11, «А»): касание панели — перо проявляется у места касания, касается и через полсекунды
+      // рассыпается огоньками, чтобы не стоять на тексте карты. Настоящая мышка (e.isTrusted) — перо как прежде, за рукой.
+      var tapT = 0, tapGone = false;
+      function tapA(now) {
+        if (!tapT) return 1;
+        var t = (now - tapT) / sp();
+        return t < 120 ? t / 120 : t < 650 ? 1 : Math.max(0, 1 - (t - 650) / 450);
+      }
+      function tapRun() {
+        if (!tapT) return;
+        var now = Date.now(), a = tapA(now);
+        if (!tapGone && (now - tapT) / sp() >= 650) {
+          tapGone = true;
+          var k = kind(), dx = 1, dy = k === 'wand' ? 1 : -1, L = k === 'dot' ? 0 : k === 'light' ? 60 : 40;
+          if (st.ptr !== 'mouse' && k) for (var i = 0; i < 10; i++) { var q = Math.random() * L; spark(mx + dx * q * .72 + (Math.random() - .5) * 8, my + dy * q * .72 + (Math.random() - .5) * 8, true); }
+        }
+        p.style.opacity = a < 1 ? a.toFixed(3) : '';
+        if (a <= 0 && tapGone) { tapT = 0; p.hidden = true; p.style.opacity = ''; return; }
+        requestAnimationFrame(tapRun);
+      }
       function at(e, down) {
         p.style.left = e.clientX + 'px'; p.style.top = e.clientY + 'px'; p.hidden = !kind();
+        var was = tapT;
+        tapT = down && !e.isTrusted ? Date.now() : 0; tapGone = false; p.style.opacity = '';
+        if (tapT && !was) tapRun();
         mx = e.clientX; my = e.clientY; inside = true;
         if (drawing && !down) {
           // все промежуточные положения мышки, даже если страница не успевала, — линия точно по руке
@@ -4428,15 +4474,15 @@
       // В кадр ролика: огоньки и перо; k — во сколько раз ролик крупнее окна, ox/oy — где в кадре левый верхний угол окна
       ptrPaint = function (x, k, ox, oy) {
         if (S.length) { x.save(); x.setTransform(k, 0, 0, k, ox, oy); draw(x, Date.now()); x.restore(); }
-        var kk = kind();
-        if (!kk || p.hidden) return;
-        if (kk === 'light') { filmLightPaint(x, ox + mx * k, oy + my * k, k, Date.now()); return; }
+        var kk = kind(), pa = tapA(Date.now());
+        if (!kk || p.hidden || pa <= 0) return;
+        if (kk === 'light') { filmLightPaint(x, ox + mx * k, oy + my * k, k, Date.now(), pa); return; }
         var z = penSprite(kk, Math.round(k * 4) / 4);
-        if (z) x.drawImage(z, ox + mx * k + z.ox, oy + my * k + z.oy);
+        if (z) { x.globalAlpha = pa; x.drawImage(z, ox + mx * k + z.ox, oy + my * k + z.oy); x.globalAlpha = 1; }
       };
       // Каждая новая страница в окне: свои слушатели мышки и Пробела
       ptrHook = function (dd) {
-        d = dd; p.hidden = true; inside = false; inkUp(); look();
+        d = dd; p.hidden = true; inside = false; tapT = 0; p.style.opacity = ''; inkUp(); look();
         d.addEventListener('pointermove', function (e) { at(e); }, true);
         d.addEventListener('pointerdown', function (e) { at(e, true); }, true);
         d.documentElement.addEventListener('mouseleave', function () { p.hidden = true; inside = false; });
@@ -4563,7 +4609,10 @@
     var bRec = el('button', { type: 'button', class: 'a-btn a-btn--dark', text: '● Записать', onclick: function () { start(); } });
     var bTry = el('button', { type: 'button', class: 'a-btn', text: '▶ Прогнать без записи', onclick: function () { if (AP) apStop('Прогон остановлен.'); else apStart(); } });
     var bPause = el('button', { type: 'button', class: 'a-btn', text: '⏸ Пауза', disabled: true, onclick: function () { pause(); } });
-    var bStop = el('button', { type: 'button', class: 'a-btn', text: '■ Стоп', disabled: true, onclick: function () { stop(); } });
+    // «■ Стоп» — мягко: ролик гаснет за 0,8 с вместе с музыкой, как в конце автопилота (на паузе или второе нажатие — сразу)
+    var bStop = el('button', { type: 'button', class: 'a-btn', text: '■ Стоп', disabled: true, onclick: function () {
+      if (REC && !REC.paused && !REC.cut && REC.slot >= 0 && REC.out == null) { REC.out = REC.t; if (AP) AP.busy = true; } else stop();
+    } });
     var clock = el('span', { class: 'a-film-clock', text: '0:00' }), auto = isR() && st.how !== 'hand';
     function ui() {
       auto = isR() && st.how !== 'hand';
@@ -4677,6 +4726,7 @@
             if (REC !== R || R.finishing) return;
             var now = performance.now(), elapsed = (now - R.last) / 1000, dt = Math.min(.25, elapsed), from = R.t;
             R.last = now;
+            if (!R.paused && !R.cut && !R.began) { R.began = true; filmMusicRestart(); }
             if (!R.paused && !R.cut) R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
             filmAudioSpan(R.audio, from, R.t, R.speed);
             if (!R.paused && !R.cut) {
