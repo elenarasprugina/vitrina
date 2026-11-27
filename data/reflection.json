@@ -86,7 +86,6 @@
     "panelBg": "#0d0a07",
     "glass": 25,
     "glassBlur": 8,
-    "textSize": "lg",
     "imgGlass": {
       "mark1": {},
       "mark2": {}

@@ -48,7 +48,7 @@
         }
       ],
       "cover": "media/33775564c97b1749cc77.webp",
-      "shareImage": "media/67fedf9dd96267ad5a57.jpg"
+      "shareImage": "media/56f13f73b2856383d287.jpg"
     },
     {
       "id": "d-white-wizard-7",
@@ -95,7 +95,7 @@
         }
       ],
       "cover": "media/fc02ad728ab05b4c6490.webp",
-      "shareImage": "media/aafd58567c7cab137e2f.jpg"
+      "shareImage": "media/92a1c54b28292cf180c3.jpg"
     },
     {
       "id": "d-red-dragon-1",
@@ -138,7 +138,7 @@
         }
       ],
       "cover": "media/a8a178b0984740eec714.webp",
-      "shareImage": "media/9222669b6ca585dd8916.jpg"
+      "shareImage": "media/51bdc9916c1ceb8afabc.jpg"
     },
     {
       "id": "d-03gd9",
@@ -181,7 +181,7 @@
         }
       ],
       "cover": "media/89d3a6a5da24c36da7ee.webp",
-      "shareImage": "media/64096b7e22b460afed5a.jpg"
+      "shareImage": "media/cb31dac077534d283410.jpg"
     },
     {
       "id": "d-3bp34",
@@ -209,7 +209,7 @@
       ],
       "order": 5,
       "cover": "media/8392362a0783ab1c601e.webp",
-      "shareImage": "media/1355d3e7e72af2440d45.jpg"
+      "shareImage": "media/c9cf89ae3ecb2e58be6d.jpg"
     },
     {
       "id": "d-zpdr9",
@@ -236,7 +236,107 @@
       ],
       "order": 6,
       "cover": "media/f961aa3d7fa1990e9bd9.webp",
-      "shareImage": "media/151565631da8ea9820f8.jpg"
+      "shareImage": "media/392ab4f1b7e7b73cc14b.jpg"
+    },
+    {
+      "id": "d-yellow-sun-5",
+      "visible": true,
+      "order": 7,
+      "routeId": "yellow-sun",
+      "day": 5,
+      "tone": {
+        "value": "Обертонный тон",
+        "show": true
+      },
+      "title": "Жёлтое Обертонное Семя",
+      "blocks": [
+        {
+          "id": "sb-ys5a",
+          "kind": "text",
+          "visible": true,
+          "title": "Контур дня",
+          "text": "**Сила роста**\n\nСемя уже знает, чем станет, а Обертонный тон добавляет ему силы. Сегодня день заметить, что в вас уже набралось сил и готово выйти на свет. Новые цели тут ни при чём. Речь о том, что уже есть: умение, желание, решение, к которому вы давно подходите. Ему нужно только место.",
+          "collapse": true
+        },
+        {
+          "id": "sb-ys5b",
+          "kind": "text",
+          "visible": true,
+          "title": "Главный вопрос",
+          "text": "**Что во мне уже готово прорасти?**"
+        },
+        {
+          "id": "sb-ys5c",
+          "kind": "text",
+          "visible": true,
+          "title": "След дня",
+          "text": "**Что сегодня дало вам силу?**"
+        }
+      ],
+      "cover": "media/8312b04c18e3ee77e1e7.webp",
+      "shareImage": "media/6fbd55ec4d4cd1069b34.jpg"
+    },
+    {
+      "id": "d-red-skywalker-1",
+      "visible": true,
+      "order": 8,
+      "routeId": "red-skywalker",
+      "day": 1,
+      "tone": {
+        "value": "Магнитный тон",
+        "show": true
+      },
+      "title": "",
+      "blocks": [
+        {
+          "id": "sb-rs1a",
+          "kind": "text",
+          "visible": true,
+          "title": "Контур дня",
+          "text": "**Порог неизвестного**\n\nПервый день волны. Странник зовёт за пределы привычного маршрута, Магнитный тон собирает внимание.\nСрываться никуда не нужно: сегодня достаточно заметить, где жизнь пошла по кругу — те же дороги, те же разговоры, те же мысли. А рядом почти всегда есть неизведанный поворот: улица, по которой вы не ходили, вопрос, который давно не задавали себе.",
+          "collapse": true
+        },
+        {
+          "id": "sb-rs1b",
+          "kind": "text",
+          "visible": true,
+          "title": "Главный вопрос",
+          "text": "**Куда меня тянет за пределы привычного?**"
+        }
+      ],
+      "cover": "media/022417f9acb3aa338394.webp",
+      "shareImage": "media/ba2ac25286d61200accb.jpg"
+    },
+    {
+      "id": "d-white-worldbridger-1",
+      "visible": true,
+      "order": 9,
+      "routeId": "white-worldbridger",
+      "day": 1,
+      "tone": {
+        "value": "Магнитный тон",
+        "show": true
+      },
+      "title": "Белый Магнитный Соединитель Миров",
+      "blocks": [
+        {
+          "id": "sb-ww1a",
+          "kind": "text",
+          "visible": true,
+          "title": "Костёр Самайна",
+          "text": "**Что в твоей жизни уже закончилось, а ты всё ещё не можешь отпустить?**"
+        },
+        {
+          "id": "sb-ww1b",
+          "kind": "text",
+          "visible": true,
+          "title": "Пожелание огня",
+          "text": "Пусть получится отпустить то, что уже закончилось, — и заметить, что появляется в освободившемся пространстве.",
+          "look": "thought"
+        }
+      ],
+      "cover": "media/6c129ecfa7061cfda1dd.webp",
+      "shareImage": "media/9d00a65b814671b4ba3d.jpg"
     }
   ],
   "chronicles": [
@@ -256,7 +356,7 @@
           "collapse": true
         }
       ],
-      "shareImage": "media/0f3f24f71e41ce9e4654.jpg"
+      "shareImage": "media/35fef6fd96a9b9363647.jpg"
     },
     {
       "id": "c-white-wizard-2",
@@ -274,7 +374,7 @@
           "collapse": true
         }
       ],
-      "shareImage": "media/003394f3de6719ccb6ca.jpg"
+      "shareImage": "media/7c5d7b42ae337d0b4daa.jpg"
     },
     {
       "id": "c-qv86w",
@@ -292,7 +392,7 @@
         }
       ],
       "order": 3,
-      "shareImage": "media/db6ebeea31e75025a419.jpg"
+      "shareImage": "media/c69e4981c44b22dbaba4.jpg"
     }
   ],
   "reviews": [
@@ -351,26 +451,25 @@
   },
   "look": {
     "background": {
-      "color": "#0d0a07",
-      "image": "media/ca0291e4004398d55e93.webp",
-      "dim": 50,
-      "blur": 0,
-      "imageTall": "media/4ab75352b39b4748cc9a.webp",
-      "contrast": 110,
-      "sat": 95,
-      "bright": 110
+      "color": "#f9f5f5",
+      "contrast": 125,
+      "sat": 100,
+      "bright": 95,
+      "image": "media/06c49b30b3282d8a9899.webp",
+      "imageTall": "media/228a3201407a5619044d.webp",
+      "dim": 5
     },
     "font": "Cormorant Garamond",
-    "textColor": "",
-    "headColor": "#ecd3a3",
-    "accent": "#ecd3a3",
-    "panelBg": "#0d0a07",
+    "textColor": "#573a05",
+    "headColor": "#452e02",
+    "accent": "#7a0a12",
+    "panelBg": "#f7f1f1",
     "glass": 25,
     "glassBlur": 8,
-    "textSize": "lg",
     "imgGlass": {
       "mark1": {},
-      "mark2": {}
+      "mark2": {},
+      "fit": "even"
     },
     "tabs": {},
     "win": {}

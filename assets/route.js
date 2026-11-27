@@ -803,15 +803,29 @@
       root.setAttribute('data-back-blur', numIn(L.backBlur, 24, 0, 60));
     }
   }
+  function dayCardPreset(route) {
+    var preset = (route.dayCard || {}).preset;
+    return preset == null ? (route.id === 'yellow-human' ? 'clear' : 'route') : preset;
+  }
   function card(route, n, mode, kind, perm, o) {
     o = o || {};
     var cfg = (kind === 'personal' ? route.personalCard : route.dayCard) || {}, list = cfg.blocks || [];
     var ctx = ctxOf(route, n, kind === 'personal' ? perm : null), fin = kind === 'day' && n === daysCount(route);
     var root = el('article', 'ys-card ys-card--' + kind + (n === daysCount(route) ? ' ys-card--center' : '') + (fin ? ' ys-card--final' : ''));
-    cardLook(route, n, root, o.base);
+    var clear = kind === 'day' && dayCardPreset(route) === 'clear';
+    if (clear) {
+      var look = route.cardLook || {};
+      root.classList.add('ys-card--clear');
+      root.classList.toggle('ys-card--no-rim', look.rim === 'none');
+      if (look.rim === 'own') {
+        var rim = hexOk(look.rimColor) ? look.rimColor : '#ffd68c';
+        root.style.setProperty('--ys-clear-rim', hexRgb(rim).join(','));
+      }
+      root.setAttribute('data-scene', '0.16');
+    } else cardLook(route, n, root, o.base);
     var inner = el('div', 'ys-card-in');
     list.forEach(function (b) {
-      if (!b || b.visible === false) return;
+      if (!b || b.visible === false || (clear && b.kind === 'image')) return;
       if (b.who && b.who[mode] === false) return;
       if (fin && !finBlock(route, b)) return;
       var node = blockNode(b, route, n, perm, ctx, o), al = blockAlign(b, cfg.align);
@@ -847,6 +861,12 @@
       b.addEventListener('click', function () { o.onKey(); });
       box.appendChild(b);
       foot.appendChild(box);
+    }
+    if (fin && o.finalDone) {
+      var result = el('button', 'ys-key-go', (route.texts || {}).finResult || 'Посмотреть итог'); result.type = 'button';
+      result.addEventListener('click', o.onFinalResult);
+      foot.appendChild(result); inner.appendChild(foot); root.appendChild(inner);
+      return root;
     }
     if (fin) {
       var exit = (o.exit || []).slice(), gb;
@@ -981,6 +1001,38 @@
     for (d = 1; d <= last; d++) lv[d] = n > last ? T : d < n ? D : d > n ? F : opened ? (T + D) / 2 : T;
     return { lv: lv, today: n >= 1 && n <= last ? n : 0, calling: n >= 1 && n <= last && !opened, after: n > last, last: last };
   }
+  function spiralGlowStyle(route) {
+    var style = (route.glow || {}).style;
+    return style || (route.id === 'yellow-human' ? 'points' : 'ribbon');
+  }
+  function mirrorGlint(id, x, y, unit, glow, strength, calling) {
+    var rx = unit * 6 * numIn(glow.mirrorSize, 100, 50, 150) / 100, ry = rx * .225;
+    return '<defs><radialGradient id="' + id + '"><stop stop-color="#fff9dd"/>' +
+      '<stop offset=".25" stop-color="#fff2bd" stop-opacity=".91"/>' +
+      '<stop offset=".62" stop-color="#ffdd87" stop-opacity=".4"/>' +
+      '<stop offset="1" stop-color="#ffc068" stop-opacity="0"/></radialGradient></defs>' +
+      '<g class="ys-mirror-glint" transform="rotate(-16 ' + r1(x) + ' ' + r1(y) + ')" opacity="' + Math.min(1, strength).toFixed(2) + '">' +
+      '<ellipse' + (calling ? ' class="ys-mirror-breath" style="animation-duration:' + numIn(glow.mirrorBreath, 2.8, 1.5, 6) + 's"' : '') +
+      ' cx="' + r1(x) + '" cy="' + r1(y) + '" rx="' + r1(rx) + '" ry="' + r1(ry) + '" fill="url(#' + id + ')"/></g>';
+  }
+  function dustColor(route, d, fallback) {
+    return sealColor((route.days || [])[d - 1]) || dayColor(route, d, fallback);
+  }
+  // Отблески лежат в серединах дней и вытянуты по касательной к пути.
+  // Размер ограничен ближайшим огнём, чтобы даже у больших отблесков оставались промежутки.
+  function reflections(tr, last, iw, ih, size, small, center) {
+    var points = [], d, base = small ? Math.min(iw * .021, ih * .012) : Math.min(iw * .11, ih * .085);
+    for (d = 1; d < last; d++) points.push(tr[(2 * d - 1) * SPAN]);
+    if (small) points.push({ x: center.cx, y: center.cy });
+    return points.map(function (p, i) {
+      var index = (2 * i + 1) * SPAN, a = tr[index - 2], b = tr[index + 2];
+      var angle = i === last - 1 ? 0 : Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      var nearest = points.reduce(function (min, q) { return q === p ? min : Math.min(min, dist(p, q)); }, Infinity);
+      var diameter = Math.min(Math.min(base, nearest * .82) * size, nearest * .94);
+      return 'cx="' + r1(p.x) + '" cy="' + r1(p.y) + '" rx="' + r1(diameter / 2) + '" ry="' + r1(diameter * (small ? .38 : .28)) +
+        '" transform="rotate(' + r1(angle) + ' ' + r1(p.x) + ' ' + r1(p.y) + ')"';
+    });
+  }
   // Слои света поверх картинки (все — в пикселях картинки, тянутся вместе с ней):
   // сумрак с «окнами» на светящихся кирпичах; мягкое свечение (screen); сегодняшний — отдельным слоем, он дышит; импульс; разметка (проверка).
   // o: { color, dusk 0…1, zones — показать контуры и номера ('outline' — только контуры) }
@@ -989,16 +1041,27 @@
     var B = { id: id, iw: iw, ih: ih, trace: tr, color: hexOk(o.color) ? o.color : '#ffcf5a', center: { cx: c.x * iw, cy: c.y * ih, rx: c.rx * iw, ry: c.ry * ih } };
     var vb = ' viewBox="0 0 ' + iw + ' ' + ih + '" preserveAspectRatio="none" aria-hidden="true"';
     var soft = r1(iw * .006), halo = r1(iw * .012), last = daysCount(route), shapes = [];
+    var g = route.glow || {}, style = spiralGlowStyle(route), small = style === 'points', mirror = style === 'mirror';
+    var size = small ? numIn(g.pointSize, 100, 50, 150) : numIn(g.reflectionSize, 100, 40, 160);
+    var marks = small || style === 'reflection' ? reflections(tr, last, iw, ih, size / 100, small, B.center) : null;
+    var shimmer = small ? numIn(g.pointShimmer, 35, 0, 100) / 100 : 0;
     var box = el('div', 'ys-bricks');
     var svgs = ['ys-l-dusk', 'ys-l-glow', 'ys-l-today', 'ys-l-pulse', 'ys-l-zones'].map(function (cls) {
       box.insertAdjacentHTML('beforeend', '<svg class="' + cls + '"' + vb + '></svg>');
       return box.lastChild;
     });
-    for (var d = 1; d <= last; d++) shapes[d] = d === last ? null : ribbonPath(daySlice(tr, d), 1);
+    var d, mirrorUnit = Math.min(iw / 430, ih / 480);
+    if (!mirror || o.zones) for (d = 1; d < last; d++) shapes[d] = ribbonPath(daySlice(tr, d), 1);
+    svgs[2].classList.toggle('ys-l-mirror', mirror);
     var NS = neonOf(route, 'spiral');
-    B.colorOf = function (d) { return neonHex(dayColor(route, d, B.color), NS); };
+    B.colorOf = function (d) {
+      var base = small ? sealColor((route.days || [])[d - 1]) || B.color : B.color;
+      return neonHex(dayColor(route, d, base), NS);
+    };
     if (NS) { halo = r1(iw * .012 * (1 + NS * .7)); }
     var P = (o.power == null ? glowPower(route) : o.power) * (1 + NS * .35), bloom = r1(iw * .03 * (1 + NS * .5));
+    var reflectionLight = (numIn(P, 1.5, .5, 3) - .5) / 2.5;
+    var mirrorStrength = Math.sqrt(numIn(g.today, 100, 0, 100) / 100) * (.32 + .68 * reflectionLight);
     function shape(d, attrs, grow) {
       var C = B.center, g = grow || 1;
       return d === last ? '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * g) + '" ry="' + r1(C.ry * g) + '" ' + attrs + '/>' : '<path d="' + shapes[d] + '" ' + attrs + '/>';
@@ -1011,8 +1074,58 @@
     function op(x) { return Math.min(1, x).toFixed(2); }
     B.paint = function (st) {
       var holes = '', glow = '', wide = '', today = '', todayWide = '', col, d, lv, pb = Math.max(0, P - 1);
+      var reflectionsGlow = '', reflectionDefs = '', reflectionToday = '', reflectionHoles = '', maskStops = '';
       for (d = 1; d <= last; d++) {
+        if (mirror) {
+          if (d === st.today && mirrorStrength > 0) {
+            var at = d === last ? { x: B.center.cx, y: B.center.cy } : tr[(2 * d - 1) * SPAN];
+            reflectionToday = mirrorGlint(id + 'mirror', at.x, at.y, mirrorUnit, g, mirrorStrength, st.calling);
+          }
+          continue;
+        }
         lv = st.lv[d] || 0; col = B.colorOf(d);
+        if (marks && (d < last || small && !st.after)) {
+          if (lv > 0) {
+            var mark = marks[d - 1], gid = id + 'r' + d, core = rgbHex(toWhite(hexRgb(col), .58));
+            var calling = d === st.today && st.calling, innerColor = small ? col : core;
+            var gradient = '<radialGradient id="' + gid + '"><stop stop-color="' + innerColor + '"/>';
+            if (small) {
+              gradient += '<stop offset=".19" stop-color="' + col + '" stop-opacity=".84"/>' +
+                '<stop offset=".46" stop-color="' + col + '" stop-opacity=".24"/><stop offset=".72" stop-color="' + col + '" stop-opacity=".07"/>';
+            } else {
+              gradient += '<stop offset=".28" stop-color="' + innerColor + '" stop-opacity="' + op(.45 + .55 * reflectionLight) + '"/>' +
+                '<stop offset=".64" stop-color="' + col + '" stop-opacity="' + op(.08 + .55 * reflectionLight) + '"/>';
+            }
+            gradient += '<stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
+            var ellipse = '<ellipse ' + mark + ' fill="url(#' + gid + ')" opacity="' + op(Math.sqrt(lv) * (.14 + .86 * reflectionLight)) + '"/>';
+            reflectionHoles += '<ellipse ' + mark + ' fill="url(#' + id + 'rm)" opacity="' + op(lv * (small ? .22 : .64) * reflectionLight) + '"/>';
+            if (shimmer) {
+              // Сдвинутый от светлой сердцевины блик виден и на белой точке, но остаётся внутри неё.
+              var shineId = gid + 's', peak = Math.sqrt(lv) * shimmer * (calling ? .94 : .78);
+              gradient += '<radialGradient id="' + shineId + '" cx="67%" cy="36%" r="21%">' +
+                '<stop stop-color="#fff9e6"/><stop offset=".38" stop-color="#fff6da" stop-opacity=".75"/>' +
+                '<stop offset="1" stop-color="#fff3d0" stop-opacity="0"/></radialGradient>';
+              ellipse += '<ellipse class="ys-point-shine" ' + mark + ' fill="url(#' + shineId + ')" opacity="' +
+                (calling ? (peak * .45).toFixed(3) : '0') + '" style="--ys-shine:' + peak.toFixed(3) + ';animation-duration:' +
+                (calling ? 5.2 : 7 + d % 4) + 's;animation-delay:-' + (calling ? '3.2' : (d * 1.31 % 7).toFixed(2)) + 's"/>';
+            }
+            var beacon = small && d === st.today;
+            if (beacon) {
+              var spot = d === last ? { x: B.center.cx, y: B.center.cy } : tr[(2 * d - 1) * SPAN];
+              var radius = r1(Math.min(iw * .035, ih * .021)), beaconId = gid + 'b';
+              gradient += '<radialGradient id="' + beaconId + '"><stop stop-color="' + core + '" stop-opacity="' + op(calling ? .88 : .55) +
+                '"/><stop offset=".27" stop-color="' + col + '" stop-opacity="' + op(calling ? .75 : .4) +
+                '"/><stop offset=".63" stop-color="' + col + '" stop-opacity="' + op(calling ? .32 : .16) +
+                '"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient>';
+              ellipse = '<circle class="ys-today-beacon" cx="' + r1(spot.x) + '" cy="' + r1(spot.y) + '" r="' + radius +
+                '" fill="url(#' + beaconId + ')" opacity="' + op(Math.sqrt(lv)) + '"/>' + ellipse;
+            }
+            if (d === last) ellipse = '<g class="ys-center-point">' + ellipse + '</g>';
+            if (calling || beacon) reflectionToday = '<defs>' + gradient + '</defs>' + ellipse;
+            else { reflectionDefs += gradient; reflectionsGlow += ellipse; }
+          }
+          continue;
+        }
         holes += shape(d, 'fill="#000" fill-opacity="' + Math.min(1, lv * 1.5).toFixed(2) + '"');
         if (d === st.today && st.calling) {
           today += shape(d, 'fill="' + col + '"' + (P < 1 ? ' fill-opacity="' + op(P) + '"' : '')) + shape(d, 'fill="#fff4cf" fill-opacity="' + op(.55 * Math.sqrt(P)) + '"', .6);
@@ -1024,12 +1137,16 @@
       }
       // После конца маршрута в центре — Солнце (заглушка): большой мягкий диск
       if (st.after) glow += shape(last, 'fill="' + B.color + '" fill-opacity=".55"', 1.9) + shape(last, 'fill="#fff4cf" fill-opacity=".7"', .9);
-      svgs[0].innerHTML = '<defs>' + filt('s', soft) + '<mask id="' + id + 'm" maskUnits="userSpaceOnUse" x="0" y="0" width="' + iw + '" height="' + ih + '">' +
-        '<rect width="' + iw + '" height="' + ih + '" fill="#fff"/><g filter="url(#' + id + 's)">' + holes + '</g></mask></defs>' +
+      if (reflectionHoles) maskStops = '<radialGradient id="' + id + 'rm"><stop stop-color="#000"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>';
+      svgs[0].innerHTML = '<defs>' + filt('s', soft) + maskStops + '<mask id="' + id + 'm" maskUnits="userSpaceOnUse" x="0" y="0" width="' + iw + '" height="' + ih + '">' +
+        '<rect width="' + iw + '" height="' + ih + '" fill="#fff"/><g filter="url(#' + id + 's)">' + holes + '</g>' + reflectionHoles + '</mask></defs>' +
         '<rect width="' + iw + '" height="' + ih + '" fill="#070402" fill-opacity="' + (o.dusk == null ? .35 : o.dusk) + '" mask="url(#' + id + 'm)"/>';
-      svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') + '<g filter="url(#' + id + 'h)">' + glow + '</g>';
+      svgs[1].innerHTML = '<defs>' + filt('h', halo) + filt('w', bloom, 1) + reflectionDefs + '</defs>' + (wide ? '<g filter="url(#' + id + 'w)">' + wide + '</g>' : '') +
+        '<g filter="url(#' + id + 'h)">' + glow + '</g>' + reflectionsGlow;
       // Центр (день 13): плоский эллипс — область фильтра на всю картинку, иначе свечение обрезается квадратом
-      svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : '';
+      svgs[2].classList.toggle('ys-l-reflection', !!reflectionToday && !small && !mirror);
+      svgs[2].classList.toggle('ys-l-points', !!reflectionToday && small);
+      svgs[2].innerHTML = today ? '<defs>' + filt('t', halo, st.today === last) + filt('tw', bloom, 1) + '</defs>' + (todayWide ? '<g filter="url(#' + id + 'tw)">' + todayWide + '</g>' : '') + '<g filter="url(#' + id + 't)">' + today + '</g>' : reflectionToday;
     };
     if (o.zones) {
       var zs = '', fs = r1(iw * .02);
@@ -1041,7 +1158,29 @@
       svgs[4].innerHTML = zs;
     }
     B.node = box; B.pulse = svgs[3]; B.today = svgs[2]; B.spark = sparkPower(route); B.sparkSpd = sparkSpeed(route);
-    B.run = function (d, done) { pulse(B, d, done || function () {}); };
+    B.thinTrail = !!marks;
+    B.dustTrail = g.sparkTrail === 'dust';
+    if (mirror) {
+      B.mirrorFlight = numIn(g.mirrorFlight, 2.2, 1, 5);
+      B.mirrorUnit = mirrorUnit;
+      B.dustColor = function (d) { return dustColor(route, d, B.color); };
+    }
+    if (small || mirror) {
+      var sunId = id + 'cs';
+      box.insertAdjacentHTML('beforeend', '<svg class="ys-l-center-sun"' + vb + '><defs><radialGradient id="' + sunId +
+        '"><stop stop-color="#fff4cf"/><stop offset=".36" stop-color="' + B.colorOf(last) +
+        '" stop-opacity=".91"/><stop offset=".72" stop-color="' + B.colorOf(last) +
+        '" stop-opacity=".32"/><stop offset="1" stop-color="' + B.colorOf(last) + '" stop-opacity="0"/></radialGradient></defs><g>' +
+        shape(last, 'fill="url(#' + sunId + ')"', 1.32) + '</g></svg>');
+      B.centerShine = function (on) { box.classList.toggle('ys-center-awake', on); };
+    }
+    var previewSun;
+    B.run = function (d, done) {
+      if (d !== last || !B.centerShine) { pulse(B, d, done || function () {}); return; }
+      B.centerShine(true);
+      clearTimeout(previewSun);
+      previewSun = setTimeout(function () { B.centerShine(false); if (done) done(); }, 1550);
+    };
     return B;
   }
   // Какой кирпич под точкой (x, y в пикселях картинки). tol — запас вокруг полосы; у сегодняшнего (prefer) — запас больше (big).
@@ -1059,9 +1198,125 @@
   function sparkPower(route) { var g = route.glow || {}; return Math.max(20, Math.min(200, g.spark == null || g.spark === '' ? 100 : +g.spark)) / 100; }
   // Огонёк к центру — скорость (glow.sparkSpeed, 30–250 %, по умолчанию 100 %: от последнего камня ~0,65 с, от первого ~1,9 с)
   function sparkSpeed(route) { var g = route.glow || {}, v = g.sparkSpeed; return Math.max(30, Math.min(250, v == null || v === '' || isNaN(+v) ? 100 : +v)) / 100; }
+  // Крупинки распределяются по пройденной части пути, расходятся в стороны и затухают.
+  function dustTrail(group, iw, opacity) {
+    var step = iw * .0038, grains = [], colors = ['#eab34f', '#ffd681', '#ffedb9'];
+    for (var i = 0; i < 42; i++) {
+      var grain = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      grain.setAttribute('opacity', '0');
+      group.appendChild(grain);
+      grains.push(grain);
+    }
+    function noise(n, salt) {
+      var v = Math.sin(n * 17.13 + salt * 47.7) * 43758.5453;
+      return v - Math.floor(v);
+    }
+    return function (pts, acc, distance, end) {
+      var last = Math.floor(distance / step), j = end;
+      grains.forEach(function (grain, i) {
+        var n = last - i, s = (n + .12 + .68 * noise(n, 1)) * step;
+        if (n < 0 || s > distance) { grain.setAttribute('opacity', '0'); return; }
+        while (j > 1 && acc[j - 1] > s) j--;
+        var a = pts[j - 1], b = pts[j], span = acc[j] - acc[j - 1] || 1;
+        var f = (s - acc[j - 1]) / span, age = (distance - s) / (step * grains.length);
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var spread = iw * (.0025 + .018 * age) * (noise(n, 2) - .5);
+        grain.setAttribute('cx', r1(a.x + dx * f - dy / span * spread));
+        grain.setAttribute('cy', r1(a.y + dy * f + dx / span * spread + iw * .007 * age));
+        grain.setAttribute('r', r1(iw * (.00075 + .0014 * noise(n, 3))));
+        grain.setAttribute('fill', colors[Math.floor(noise(n, 4) * colors.length)]);
+        grain.setAttribute('opacity', opacity((1 - age) * (1 - age) * (.36 + .64 * noise(n, 5))));
+      });
+    };
+  }
+  // Песчинки рождаются в воздухе, расходятся и недолго держатся после пролёта.
+  var DUST_RATE = 115, DUST_LIFE = .31, DUST_COUNT = Math.ceil(DUST_RATE * DUST_LIFE) + 1;
+  var DUST_STOPS = [[0, 1], [.32, .96], [.59, .48], [1, 0]];
+  var DUST_GLINT_STOPS = [[0, '#fff5cd', 1], [.19, '#ffe3a4', .95], [.41, '#ffc272', .45], [1, '#ec8239', 0]];
+  var DUST_GRAINS = (function () {
+    var grains = [];
+    for (var i = 0; i < 127; i++) {
+      grains.push({ x: (Math.random() + Math.random() - 1) * 4.4, y: (Math.random() + Math.random() - 1) * 3.5,
+        r: .48 + Math.random() * .47, a: .66 + Math.random() * .34,
+        flash: Math.random() < .28 ? .04 + Math.random() * .22 : -1 });
+    }
+    return grains;
+  })();
+  function dustOpacity(alpha, power) {
+    return 1 - Math.pow(1 - alpha * .96, power * 1.45);
+  }
+  function flightDust(t, duration, unit, seed, at, draw) {
+    var n = Math.floor(Math.min(duration, t) * DUST_RATE);
+    for (var i = 0; i < DUST_COUNT && n >= 0; i++, n--) {
+      var emitted = n / DUST_RATE, age = t - emitted;
+      if (age >= DUST_LIFE) break;
+      var grain = DUST_GRAINS[(n + seed) % DUST_GRAINS.length], p = at(emitted / duration), drift = 1 + 6.5 * age;
+      var glint = Math.max(0, 1 - Math.abs(age - grain.flash) / .045);
+      draw(i, p.x + unit * grain.x * drift, p.y + unit * (grain.y * drift + 24 * age * age), grain.r * unit,
+        Math.pow(Math.min(1, (DUST_LIFE - age) / .16), 1.6) * grain.a, glint * glint);
+    }
+  }
+  function mirrorDust(B, d, done) {
+    if (REDUCED) { done(); return; }
+    var c = B.center, svg = B.pulse;
+    var unit = B.mirrorUnit, duration = B.mirrorFlight, first, col = B.dustColor(d), id = B.id + 'dust';
+    var path = { pts: B.trace.slice((2 * d - 1) * SPAN).concat([{ x: c.cx, y: c.cy, w: 0 }]), L: [0], Lt: 0 };
+    for (var j = 1; j < path.pts.length; j++) {
+      path.Lt += dist(path.pts[j - 1], path.pts[j]);
+      path.L.push(path.Lt);
+    }
+    function gradient(name, stops) {
+      return '<radialGradient id="' + name + '">' + stops.map(function (stop) {
+        return '<stop offset="' + stop[0] + '" stop-color="' + stop[1] + '" stop-opacity="' + stop[2] + '"/>';
+      }).join('') + '</radialGradient>';
+    }
+    var grains = new Array(DUST_COUNT + 1).join('<ellipse opacity="0"/>');
+    svg.classList.remove('is-fade');
+    svg.innerHTML = '<defs>' + gradient(id, DUST_STOPS.map(function (stop) { return [stop[0], col, stop[1]]; })) +
+      gradient(id + 's', DUST_GLINT_STOPS) + '</defs><g class="ys-mirror-dust">' +
+      '<g fill="url(#' + id + ')">' + grains + '</g><g class="ys-dust-glints" fill="url(#' + id + 's)">' + grains + '</g></g>';
+    var group = svg.lastChild, particles = group.firstChild.children, glints = group.lastChild.children;
+    B.today.classList.add('is-mirror-flying');
+    function at(k) {
+      return finAt(path, path.Lt * (k + .029 * Math.sin(2 * Math.PI * k)));
+    }
+    function setGrain(grain, x, y, rx, ry, alpha) {
+      grain.setAttribute('opacity', alpha.toFixed(2));
+      if (alpha < .005) return;
+      grain.setAttribute('cx', r1(x)); grain.setAttribute('cy', r1(y));
+      grain.setAttribute('rx', r1(rx)); grain.setAttribute('ry', r1(ry));
+    }
+    function draw(i, x, y, r, alpha, flash) {
+      var strength = dustOpacity(alpha, B.spark);
+      setGrain(particles[i], x, y, r * 1.8, r * 1.45, strength);
+      setGrain(glints[i], x, y, r * 3.1, r * 2.5, Math.min(1, strength * flash * 1.25));
+      visible = i + 1;
+    }
+    var visible;
+    function step(ts) {
+      if (group.parentNode !== svg) return;
+      if (first == null) first = ts;
+      var time = (ts - first) / 1000, i;
+      if (time >= duration + DUST_LIFE) {
+        svg.innerHTML = '';
+        B.today.classList.remove('is-mirror-flying');
+        done();
+        return;
+      }
+      visible = 0;
+      flightDust(time, duration, unit, d * 7, at, draw);
+      for (i = visible; i < DUST_COUNT; i++) {
+        particles[i].setAttribute('opacity', '0');
+        glints[i].setAttribute('opacity', '0');
+      }
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
   // Световой импульс: от середины кирпича дня d по спирали к центру, вспышка в центре, затем done().
   // Огонёк — цветом дня, прозрачный и насыщенный, без белой серединки (как огоньки финала); в центре — мягкая цветная вспышка.
   function pulse(B, d, done) {
+    if (B.mirrorFlight) { mirrorDust(B, d, done); return; }
     var tr = B.trace, C = B.center, svg = B.pulse, iw = B.iw, col = B.colorOf ? B.colorOf(d) : B.color, fid = B.id + 'p', k1 = B.spark || 1;
     var pts = (d <= PATH_DAYS ? tr.slice((2 * d - 1) * SPAN) : []).concat([{ x: C.cx, y: C.cy, w: C.ry * 1.4 }]);
     var acc = [0], L = 0, i, t0 = 0;
@@ -1069,32 +1324,39 @@
     var dur = pts.length > 1 ? (650 + 1250 * Math.min(1, (pts.length - 1) / (tr.length - SPAN))) / (B.sparkSpd || 1) : 0;
     function op(x) { return Math.min(1, x * k1).toFixed(2); }
     svg.classList.remove('is-fade');
-    svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * .005) + '"/></filter>' +
+    svg.innerHTML = '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + r1(iw * (B.thinTrail ? .0009 : .005)) + '"/></filter>' +
       '<radialGradient id="' + fid + 'g"><stop offset="0" stop-color="' + col + '" stop-opacity="' + op(1) + '"/><stop offset=".35" stop-color="' + col + '" stop-opacity="' + op(.62) + '"/>' +
       '<stop offset=".7" stop-color="' + col + '" stop-opacity="' + op(.2) + '"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></radialGradient></defs>' +
-      '<path fill="none" stroke="' + col + '" stroke-opacity="' + op(.6) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>' +
+      (B.dustTrail ? '<g class="ys-pulse-dust"></g>' : '<path fill="none" stroke="' + col + '" stroke-opacity="' + op(.6) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + fid + ')"/>') +
       '<ellipse cx="' + r1(C.cx) + '" cy="' + r1(C.cy) + '" rx="' + r1(C.rx * 1.35) + '" ry="' + r1(C.ry * 1.35) + '" fill="url(#' + fid + 'g)" opacity="0"/>' +
       '<circle fill="url(#' + fid + 'g)"/>';
     var trail = svg.childNodes[1], flash = svg.childNodes[2], halo = svg.childNodes[3];
+    var paintDust = B.dustTrail ? dustTrail(trail, iw, op) : null;
     function step(ts) {
+      if (trail.parentNode !== svg) return;
       if (!t0) t0 = ts;
       var k = dur ? Math.min(1, (ts - t0) / dur) : 1, e = k < .5 ? 2 * k * k : 1 - Math.pow(2 - 2 * k, 2) / 2, s = e * L, j = 1;
       while (j < pts.length - 1 && acc[j] < s) j++;
       var a = pts[j - 1] || pts[0], b = pts[j] || pts[0], f = acc[j] > acc[j - 1] ? (s - acc[j - 1]) / (acc[j] - acc[j - 1]) : 1;
       var h = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }, w = a.w + (b.w - a.w) * f;
-      trail.setAttribute('d', 'M' + pts.slice(0, j).map(xy).join('L') + 'L' + xy(h));
-      trail.setAttribute('stroke-width', r1(Math.max(w * .22, iw * .004)));
+      if (paintDust && L) paintDust(pts, acc, s, j);
+      if (!paintDust) {
+        trail.setAttribute('d', 'M' + pts.slice(0, j).map(xy).join('L') + 'L' + xy(h));
+        trail.setAttribute('stroke-width', r1(B.thinTrail ? iw * .0014 : Math.max(w * .22, iw * .004)));
+      }
       halo.setAttribute('cx', r1(h.x)); halo.setAttribute('cy', r1(h.y)); halo.setAttribute('r', r1(Math.max(w * .5, iw * .016)));
       if (k < 1) { requestAnimationFrame(step); return; }
       var f0 = 0;
       (function fl(ts2) {
+        if (trail.parentNode !== svg) return;
         if (!f0) f0 = ts2;
         var q = Math.min(1, (ts2 - f0) / 320);
+        if (paintDust) trail.setAttribute('opacity', (1 - q).toFixed(2));
         flash.setAttribute('opacity', q.toFixed(2)); halo.setAttribute('opacity', (1 - q).toFixed(2));
         if (q < 1) { requestAnimationFrame(fl); return; }
         done();
         svg.classList.add('is-fade');
-        setTimeout(function () { if (svg.classList.contains('is-fade')) { svg.innerHTML = ''; svg.classList.remove('is-fade'); } }, 1100);
+        setTimeout(function () { if (trail.parentNode === svg && svg.classList.contains('is-fade')) { svg.innerHTML = ''; svg.classList.remove('is-fade'); } }, 1100);
       })(ts);
     }
     requestAnimationFrame(step);
@@ -1507,7 +1769,10 @@
     try { localStorage.setItem(giftKey(c), JSON.stringify(l)); } catch (e) {}
     return true;
   }
-  function resetGlass() { try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); localStorage.removeItem(markKey(S.code)); } catch (e) {} }
+  function resetGlass() {
+    delete gatheredFinals[finKey()];
+    try { localStorage.removeItem(seenKey()); localStorage.removeItem(giftKey(S.code)); localStorage.removeItem(exitKey(S.code)); localStorage.removeItem(finKey()); localStorage.removeItem(markKey(S.code)); } catch (e) {}
+  }
   // Отметки на диске личной карты: [[день, зона], …] — у каждого кода свои, только на этом устройстве (в код не входят)
   function markKey(c) { return storeKey() + '-mark-' + (c ? c.code : ''); }
   function markList(c) { return c ? listOf(markKey(c)).filter(function (m) { return Array.isArray(m) && m.length === 2 && DISK_FAMILY[m[1]]; }) : []; }
@@ -1521,9 +1786,21 @@
   function exitKey(c) { return storeKey() + '-exit-' + (c ? c.code : ''); }
   function exitList(c) { return c ? listOf(exitKey(c)).filter(function (i) { return i === +i && i >= 0 && i < 12; }).slice(0, 3) : []; }
   function saveExit(c, l) { if (c) try { localStorage.setItem(exitKey(c), JSON.stringify(l || [])); } catch (e) {} }
-  function finKey() { return storeKey() + '-final-' + (S.code && S.mode !== 'observation' ? S.code.code : 'obs'); }
-  function finDone() { try { return localStorage.getItem(finKey()) === '1'; } catch (e) { return false; } }
-  function markFin() { try { localStorage.setItem(finKey(), '1'); } catch (e) {} }
+  var gatheredFinals = {};
+  function finKey() {
+    var suffix = S.preview && !S.film ? '-preview-final-' : '-final-';
+    return storeKey() + suffix + (S.code && S.mode !== 'observation' ? S.code.code : 'obs');
+  }
+  function finDone() {
+    var key = finKey();
+    if (gatheredFinals[key]) return true;
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+  }
+  function markFin() {
+    var key = finKey();
+    gatheredFinals[key] = true;
+    try { localStorage.setItem(key, '1'); } catch (e) {}
+  }
   function seenKey() { return storeKey() + '-glass-' + (S.code ? S.code.code : ''); }
   function markSeen(n) { var l = listOf(seenKey()); if (l.indexOf(n) < 0) { l.push(n); try { localStorage.setItem(seenKey(), JSON.stringify(l)); } catch (e) {} } }
   // Узор человека сейчас: состояния + стёклышки наступивших дней + подарки на этом устройстве. upto — узор «до дня» (без его стёклышка)
@@ -1540,9 +1817,25 @@
      zoom — на компьютере картинка меньше экрана, % (по умолчанию 100 — во весь экран, её решение 02.10; меньше — вокруг темно, края растворяются),
      shiftX / shiftXMobile — подвинуть ещё, % ширины картинки (+ вправо). */
   function stageCfg(route) { return route.stage || {}; }
+  // Держим в кадре середины дней и центр, сохраняя их положение на самой картинке.
+  function fitReflectionPath(zone, iw, width, scale, shift) {
+    var lo = zone.center.x * iw, hi = lo;
+    for (var i = 1; i < PATH_DAYS * 2; i += 2) {
+      var x = zone.path[i][0] * iw;
+      lo = Math.min(lo, x); hi = Math.max(hi, x);
+    }
+    var margin = Math.min(32, width * .06);
+    var s = Math.min(scale, (width - 2 * margin) / Math.max(1, hi - lo));
+    var minX = margin - lo * s, maxX = Math.max(minX, width - margin - hi * s);
+    var left = Math.max(minX, Math.min(0, width - iw * s));
+    var right = Math.min(maxX, Math.max(0, width - iw * s));
+    if (left <= right) { minX = left; maxX = right; }
+    var preferred = width / 2 + (shift / 100 - zone.center.x) * iw * s;
+    return { s: s, x: Math.max(minX, Math.min(maxX, preferred)) };
+  }
   function stageFit(stage, img, zone) {
     var W = window.innerWidth, H = window.innerHeight, iw = img.naturalWidth || 16, ih = img.naturalHeight || 9;
-    var tall = H / W > 1.25, sc = stageCfg(S.route || {}), s, x, y, soft = false;
+    var tall = H / W > 1.25, sc = stageCfg(S.route || {}), s, x, y, soft = false, pathFit = false;
     var cx = (zone && zone.center ? zone.center.x : .5) * iw;
     function num(v, def, lo, hi) { v = v == null || v === '' || isNaN(+v) ? def : +v; return Math.max(lo, Math.min(hi, v)); }
     if (tall && W / H < iw / ih) {
@@ -1555,14 +1848,23 @@
     } else {
       var z = tall ? 100 : num(sc.zoom, 100, 50, 100);
       s = Math.max(W / iw, H / ih) * z / 100;
-      x = W / 2 - cx * s + num(sc.shiftX, 0, -15, 15) / 100 * iw * s;
-      // Во весь экран — без тёмных полос по краям; меньше экрана — вокруг темнота, края картинки растворяются
-      if (z >= 100) x = Math.min(0, Math.max(W - iw * s, x)); else soft = true;
+      var shift = num(sc.shiftX, 0, -15, 15);
+      var lightStyle = spiralGlowStyle(S.route);
+      if (!tall && zoneOk(zone) && (lightStyle === 'reflection' || lightStyle === 'points' || lightStyle === 'mirror')) {
+        var fit = fitReflectionPath(zone, iw, W, s, shift);
+        s = fit.s; x = fit.x;
+        pathFit = z >= 100 && H > ih * s;
+      } else {
+        x = W / 2 - cx * s + shift / 100 * iw * s;
+        if (z >= 100) x = Math.min(0, Math.max(W - iw * s, x));
+      }
+      soft = z < 100;
       y = H > ih * s ? (H - ih * s) * .7 : (H - ih * s) / 2;
     }
     stage.style.width = iw * s + 'px'; stage.style.height = ih * s + 'px';
     stage.style.left = x + 'px'; stage.style.top = y + 'px';
-    stage.classList.toggle('is-gap', y > 1 && !soft);
+    stage.classList.toggle('is-gap', y > 1 && !soft && !pathFit);
+    stage.classList.toggle('is-path-fit', pathFit);
     stage.classList.toggle('is-soft', soft);
   }
   // Центр спирали на экране — относительно середины окна (из него появляется Карта дня).
@@ -1581,11 +1883,13 @@
     if (sc) ov.style.background = 'rgba(5,3,1,' + sc + ')';
     var bk = node.getAttribute && node.getAttribute('data-back');
     if (bk) ov.appendChild(backNode(node, sc));
+    if (node.classList.contains('ys-card--clear')) ov.classList.add('ys-layer--clear');
     ov.appendChild(node);
     ov.addEventListener('click', function (e) { if (e.target === ov && !sticky) closeLayer(ov); });
     document.body.appendChild(ov);
+    if (ov.classList.contains('ys-layer--day')) syncStageMusic();
     document.body.classList.add('ys-locked');
-    slideCalm(750);
+    slideCalm(ov.classList.contains('ys-layer--day') && !REDUCED ? 1100 : 750);
     requestAnimationFrame(function () { requestAnimationFrame(function () { ov.classList.add('is-in'); }); });
     return ov;
   }
@@ -1612,6 +1916,7 @@
     if (!ov) return;
     if (ov.onclose) { ov.onclose(); ov.onclose = null; }
     ov.classList.remove('is-in'); ov.classList.add('is-out');
+    if (ov.classList.contains('ys-layer--day')) syncStageMusic();
     setTimeout(function () { ov.remove(); if (!document.querySelector('.ys-layer')) document.body.classList.remove('ys-locked'); }, 380);
   }
   function note(text) {
@@ -1621,15 +1926,19 @@
     requestAnimationFrame(function () { t.classList.add('is-in'); });
     setTimeout(function () { t.classList.remove('is-in'); setTimeout(function () { t.remove(); }, 400); }, 3200);
   }
-  function openDay(n, mode, from) {
-    var r = S.route;
+  function openDay(n, mode, from, centerLit) {
+    var r = S.route, doors = isDoors(r);
     closeLayer();
-    var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), onGather: function (exit) {
+    var c = card(r, n, mode, 'day', null, { base: S.base, exit: exitList(S.code), finalDone: !doors && n === daysCount(r) && finDone(),
+      onFinalResult: showCollectedFinal, onGather: function (exit) {
+      if (!doors && finDone()) { showCollectedFinal(); return; }
+      if (S.busy) return;
       // «Собрать маршрут»: состояния выхода — на устройство, дальше финал на спирали
       if (mode !== 'observation' && S.code) saveExit(S.code, exit);
-      if (isDoors(r)) { openDoorsFinal(); return; }
+      if (doors) { openDoorsFinal(); return; }
+      S.busy = true;
       var m = musicStart();
-      closeLayer(); setTimeout(function () { finalScene({ music: m }); }, 300);
+      closeLayer(); setTimeout(function () { S.busy = false; finalScene({ music: m }); }, 300);
     }, onKey: deepKey(r) ? function () { goDeep(n); } : doorsCard(r) && !S.code ? function () { openKey(S.mode); } : null,
       keyText: fill(deepKey(r) ? (S.code ? (r.texts || {}).doorKeyIn || 'Поднимайся' : (r.texts || {}).doorKey || 'Есть ключ? Поднимайся') : (r.texts || {}).doorKey || 'Есть ключ? Введи ключ', ctxOf(r, n)),
       backText: deepKey(r) ? (r.texts || {}).doorCardBack || 'К дверям' : null, spiralLabel: doorsCard(r) ? 'Дальше' : null, onSpiral: function () {
@@ -1641,7 +1950,11 @@
       if (pickedList().indexOf(n) >= 0) openPersonal(n, mode, cardFor(r, S.code, n));
       else openFan(n, mode);
     } });
-    layer(c, 'ys-layer--day', from || centerOffset());
+    var ov = layer(c, 'ys-layer--day' + (centerLit ? ' ys-layer--center-lit' : ''), from || centerOffset());
+    if (centerLit) {
+      if (S.B && S.B.centerShine) S.B.centerShine(true);
+      ov.onclose = function () { if (S.B && S.B.centerShine) S.B.centerShine(false); };
+    }
   }
   function openPersonal(n, mode, perm) {
     closeLayer();
@@ -2015,13 +2328,162 @@
   function sm(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
   function toWhite(c, k) { return [c[0] + (255 - c[0]) * k, c[1] + (255 - c[1]) * k, c[2] + (255 - c[2]) * k]; }
   // Музыка финала — только её файл; запускается прямо в нажатии (иначе телефон не даст играть)
-  function soundPref() { try { return localStorage.getItem('m13ys-sound') !== '0'; } catch (e) { return true; } }
+  var stageSoundPref = null;
+  function soundPref() {
+    if (S.filmSound && S.stageMusic && S.stageMusic.shared) return S.stageMusic.enabled !== false;
+    if (stageSoundPref !== null) return stageSoundPref;
+    try { return localStorage.getItem('m13ys-sound') !== '0'; } catch (e) { return true; }
+  }
+  function stageMusicPlayer(src, volume, recording) {
+    var audio = new Audio(src);
+    audio.loop = true;
+    audio.preload = 'none';
+    volume = volume == null || volume === '' || !isFinite(+volume) ? 35 : +volume;
+    var music = { audio: audio, volume: Math.max(0, Math.min(100, volume)) / 100, owner: window };
+    // Web Audio регулирует громкость и на телефонах, где audio.volume доступна только для чтения.
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      try {
+        music.context = new AudioContext();
+        var gain = music.context.createGain();
+        gain.gain.value = 0;
+        music.context.createMediaElementSource(audio).connect(gain);
+        gain.connect(music.context.destination);
+        if (recording) {
+          music.recordBus = music.context.createGain();
+          gain.connect(music.recordBus);
+        }
+        music.gain = gain.gain;
+      } catch (e) {
+        if (music.context) music.context.close().catch(function () {});
+        music.context = music.recordBus = null;
+      }
+    }
+    if (!music.gain) audio.volume = 0;
+    return music;
+  }
+  function playStageMusic(music) {
+    if (!music || music.enabled === false) return;
+    if (music.context && music.context.state !== 'running') music.context.resume().catch(function () {});
+    if (music.audio.paused) {
+      var playing = music.audio.play();
+      if (playing && playing.catch) playing.catch(function () {});
+    }
+  }
+  function stopStageMusic(music) {
+    if (!music) return;
+    music.owner.clearInterval(music.fade);
+    music.audio.pause();
+    stopRecordedFinal(music);
+    if (music.context) music.context.close().catch(function () {});
+  }
+  // В ролике проигрыватель принадлежит панели: окно дня может перезагрузиться, а музыка продолжает играть.
+  function initStageMusic(route) {
+    if (S.stageMusic) {
+      document.removeEventListener('click', stageMusicGesture, true);
+      if (!S.stageMusic.shared) stopStageMusic(S.stageMusic);
+      S.stageMusic = null;
+    }
+    if (!route.stageMusic || (S.film && !S.filmSound)) return;
+    var shared = S.filmSound && window.frameElement && window.frameElement.m13StageMusic;
+    S.stageMusic = shared || stageMusicPlayer(imgSrc(S.base, route.stageMusic), route.stageVolume);
+    if (shared) stopRecordedFinal(shared);
+    S.stageMusic.final = null;
+    document.addEventListener('click', stageMusicGesture, true);
+  }
+  function stageMusicGesture(e) {
+    if (!e.target.closest || e.target.closest('.ys-stage-snd')) return;
+    if (e.target.closest('.ys-page,.ys-layer--day,.ys-fin')) syncStageMusic(true);
+  }
+  function syncStageMusic(start) {
+    var music = S.stageMusic;
+    if (!music) return;
+    var audio = music.audio, enabled = soundPref(), gain = music.gain, owner = music.owner;
+    var cardOpen = document.querySelector('.ys-layer--day:not(.is-out)');
+    var target = !enabled || music.final === 'quiet' || S.spaceDay === 'final' ? 0 : music.volume * (cardOpen ? .6 : 1);
+    if (target !== music.target) {
+      music.target = target;
+      if (gain) {
+        var t = music.context.currentTime;
+        if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(t);
+        else { var from = gain.value; gain.cancelScheduledValues(t); gain.setValueAtTime(from, t); }
+        gain.linearRampToValueAtTime(target, t + .25);
+      } else {
+        owner.clearInterval(music.fade);
+        if (target) audio.muted = false;
+        var initial = audio.volume, since = Date.now();
+        music.fade = owner.setInterval(function () {
+          var k = Math.min(1, (Date.now() - since) / 250);
+          audio.volume = initial + (target - initial) * k;
+          if (k === 1) { owner.clearInterval(music.fade); audio.muted = target === 0; }
+        }, 30);
+      }
+    }
+    if (!enabled) audio.pause();
+    else if (start && target) playStageMusic(music);
+    [].forEach.call(document.querySelectorAll('.ys-stage-snd'), updateStageSoundButton);
+  }
+  function updateStageSoundButton(button) {
+    var on = soundPref(), label = on ? 'Выключить музыку' : 'Включить музыку';
+    button.classList.toggle('is-on', on);
+    button.setAttribute('aria-pressed', String(on));
+    button.setAttribute('aria-label', button.classList.contains('ys-ic') ? 'Фоновая музыка' : 'Музыка');
+    button.title = label;
+    putText(button, button.classList.contains('ys-ic') ? '♪' : '♪ ' + label);
+  }
+  function stageSoundButton(compact) {
+    var b = el('button', (compact ? 'ys-me ys-ic' : 'ys-fin-snd') + ' ys-stage-snd');
+    b.type = 'button';
+    b.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var enabled = !soundPref();
+      if (S.stageMusic.shared) S.stageMusic.enabled = enabled;
+      else try { localStorage.setItem('m13ys-sound', enabled ? '1' : '0'); } catch (err) { stageSoundPref = enabled; }
+      syncStageMusic(enabled);
+    });
+    updateStageSoundButton(b);
+    return b;
+  }
+  function stageMusicFinal(f) {
+    if (!S.stageMusic) return;
+    var different = Boolean(f.music);
+    if (different) {
+      try { different = new URL(imgSrc(S.base, f.music), location.href).href !== S.stageMusic.audio.src; } catch (e) {}
+    }
+    S.stageMusic.final = f.sound === false || different ? 'quiet' : 'continue';
+    syncStageMusic();
+  }
   function musicStart() {
     var f = finCfg();
+    stageMusicFinal(f);
+    if (S.stageMusic && S.stageMusic.final === 'continue') return null;
     if (!f.music || f.sound === false) return null;
-    var a = new Audio(imgSrc(S.base, f.music)), vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100;
-    a.preload = 'auto'; a.m13vol = vol;
-    if (soundPref()) fadeAudio(a, vol, 1800);
+    var a = finalAudio(f);
+    if (soundPref()) fadeAudio(a, a.m13vol, 1800);
+    return a;
+  }
+  function stopRecordedFinal(music) {
+    if (!music.finalAudio) return;
+    music.finalAudio.pause();
+    music.finalSource.disconnect();
+    music.finalAudio = music.finalSource = null;
+  }
+  function finalAudio(f) {
+    var music = S.stageMusic, src = imgSrc(S.base, f.music), a;
+    if (music && music.recordBus) {
+      stopRecordedFinal(music);
+      try {
+        a = new music.owner.Audio(new URL(src, location.href).href);
+        var source = music.context.createMediaElementSource(a);
+        source.connect(music.context.destination);
+        source.connect(music.recordBus);
+        music.finalAudio = a;
+        music.finalSource = source;
+      } catch (e) { a = null; }
+    }
+    if (!a) a = new Audio(src);
+    a.preload = 'auto';
+    a.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100;
     return a;
   }
   function fadeAudio(a, to, ms, done) {
@@ -2300,7 +2762,9 @@
     o = o || {};
     var r = S.route, tx = r.texts || {}, f = finCfg(), last = daysCount(r), per = finPersonal();
     if (FIN) FIN.kill();
-    if (!o.instant) markFin();
+    stageMusicFinal(f);
+    var instant = o.instant || finDone();
+    if (!instant) markFin();
     var G = finGeo(), dpr = Math.min(2, window.devicePixelRatio || 1), C = G.C;
     var root = el('div', 'ys-fin'), cv = el('canvas', 'ys-fin-fx'), x = cv.getContext('2d');
     var ui = el('div', 'ys-fin-ui'), sun = el('div', 'ys-fin-sun'), kc = el('canvas', 'ys-fin-kal'), end = el('div', 'ys-fin-end');
@@ -2337,7 +2801,8 @@
     root.appendChild(cv); root.appendChild(ui);
     // Музыка: кнопка «звук», если есть её файл
     var mus = o.music || null, sb = null;
-    if (!mus && f.music && f.sound !== false) { mus = new Audio(imgSrc(S.base, f.music)); mus.preload = 'auto'; mus.m13vol = Math.max(0, Math.min(100, f.volume == null || f.volume === '' ? 70 : +f.volume)) / 100; }
+    if (S.stageMusic && S.stageMusic.final === 'continue') root.appendChild(stageSoundButton(false));
+    else if (!mus && f.music && f.sound !== false) mus = finalAudio(f);
     if (mus) {
       sb = el('button', 'ys-fin-snd'); sb.type = 'button';
       mus.m13upd = function () { var on = !mus.paused; putText(sb, '♪ ' + (on ? tx.soundOff || 'Выключить звук' : tx.soundOn || 'Включить звук')); sb.classList.toggle('is-on', on); };
@@ -2375,7 +2840,7 @@
     sun.classList.toggle('is-fili', sunSt !== 'kaleido');
 
     // Сгустки света: { c, s0 — откуда по пути, t0 — когда, k — вид }
-    var lights = [], d, i, GOLD0 = [255, 214, 140];
+    var lights = [], d, i, GOLD0 = [255, 214, 140], flyDust = f.flightStyle === 'dust', sprC = {};
     function at(ix) { return G.L[Math.max(0, Math.min(G.L.length - 2, ix))]; }
     if (G.pts.length > 2) {
       if (per) S.code.states.forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(j * 3), t0: 1.3 + j * .38, k: 'state' }); });
@@ -2387,30 +2852,61 @@
       if (per) exitList(S.code).forEach(function (n, j) { var g = stateGlass(r, n); if (g) lights.push({ c: g.c, s0: at(22 * SPAN + j * 4), t0: 7.1 + j * .34, k: 'state' }); });
     }
     var TA = 2;
-    // Огоньки — неоновым цветом своего стёклышка (route.neon.lights), яркость — final.lightsPower (%), свет камней — final.stoneLight (%)
+    // Сгустки берут цвет стёклышка и неон; пыль дней — цвет печати. Яркость полёта — final.lightsPower (%).
     var NL = neonOf(r, 'lights'), ND = neonOf(r, 'disk'), LP = numIn(f.lightsPower, 100, 20, 200) / 100, SP = numIn(f.stoneLight, 100, 0, 200) / 100;
-    lights.forEach(function (L) { L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr); L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; L.c = neonRgb(L.c, NL); });
+    lights.forEach(function (L, index) {
+      L.dur = 1.1 + 2.5 * (G.Lt - L.s0) / (G.Lt || 1); L.arr = L.t0 + L.dur; TA = Math.max(TA, L.arr);
+      L.a = Math.random() * 6.283; L.rr = .3 + Math.random() * .55; L.c = neonRgb(L.c, NL);
+      if (flyDust) {
+        var color = L.k === 'day' ? hexRgb(dustColor(r, L.d, rgbHex(L.c))) : L.c;
+        L.dust = sparkSprite(color, true);
+        L.dustSeed = index * 17;
+      }
+    });
     /* Сбор света (final.gather): 'fire' — «Костёр» (по умолчанию): огни тихо кружат по диску и гаснут, над печатью поднимаются искры
        (их цветами и тёплые; размер — final.sparkSize, %) и складываются в луч; 'swirl' — «Медленный водоворот»: ровно, без разгона,
        огни по спирали тают к центру. Потом луч; Солнце рождается из печати (sunT), тёплый свет заливает экран (fl0). */
     var mode = f.gather === 'swirl' ? 'swirl' : 'fire';
     var tw0 = TA + .3, tw1 = tw0 + (mode === 'fire' ? 2.6 : 3), b0 = tw1, sunT = b0 + 1.7, fl0 = sunT + 1.7, txtT = sunT + 4.4, btnT = txtT + .9, endT = btnT + .7;
     // Искры «Костра»: рождаются над печатью, поднимаются, покачиваясь, и стягиваются к середине — в луч
-    var sparks = [], SK = numIn(f.sparkSize, 100, 40, 250) / 100, sprC = {};
+    var sparks = [], SK = numIn(f.sparkSize, 100, 40, 250) / 100;
     if (mode === 'fire') for (i = 0; i < 230; i++) {
       var u = (Math.random() + Math.random() - 1), Lc = lights.length ? lights[Math.floor(Math.random() * lights.length)].c : GOLD0;
       sparks.push({ tb: tw0 - .3 + (b0 + 1.3 - tw0) * Math.pow(Math.random(), .8), u: u, v: Math.random() * 2 - 1, vy: .22 + Math.random() * .3, ac: .1 + Math.random() * .25,
         life: 1.5 + Math.random() * 1.7, s: (.8 + Math.random() * 1.5), p: Math.random() * 6.283, fw: 5 + Math.random() * 9, sw: .6 + Math.random() * 1.2,
         c: Math.random() < .45 ? [255, 206 + Math.random() * 30, 130 + Math.random() * 50] : [Lc[0] + (255 - Lc[0]) * .25, Lc[1] + (220 - Lc[1]) * .25, Lc[2] + (170 - Lc[2]) * .25] });
     }
-    function sparkSprite(c) {
-      var k = Math.round(c[0] / 16) + ',' + Math.round(c[1] / 16) + ',' + Math.round(c[2] / 16);
+    function sparkSprite(c, isDust) {
+      var k = !c ? 'dustGlint' : isDust ? 'dust' + rgbHex(c) : Math.round(c[0] / 16) + ',' + Math.round(c[1] / 16) + ',' + Math.round(c[2] / 16);
       if (sprC[k]) return sprC[k];
       var q = document.createElement('canvas'), z = 32, y = q.getContext('2d'), g = y.createRadialGradient(z / 2, z / 2, 0, z / 2, z / 2, z / 2);
       q.width = q.height = z;
-      g.addColorStop(0, rgba(toWhite(c, .55), 1)); g.addColorStop(.18, rgba(c, .75)); g.addColorStop(.5, rgba(c, .16)); g.addColorStop(1, rgba(c, 0));
+      if (!c) DUST_GLINT_STOPS.forEach(function (stop) { g.addColorStop(stop[0], rgba(hexRgb(stop[1]), stop[2])); });
+      else if (isDust) DUST_STOPS.forEach(function (stop) { g.addColorStop(stop[0], rgba(c, stop[1])); });
+      else {
+        g.addColorStop(0, rgba(toWhite(c, .55), 1)); g.addColorStop(.18, rgba(c, .75)); g.addColorStop(.5, rgba(c, .16)); g.addColorStop(1, rgba(c, 0));
+      }
       y.fillStyle = g; y.fillRect(0, 0, z, z);
       return (sprC[k] = q);
+    }
+    var dustUnit = Math.max(.85, Math.min(1.85, Math.min(G.W / 430, G.H / 480)));
+    var dustGlint = flyDust ? sparkSprite(null) : null;
+    function drawFinalDust(L, t) {
+      function at(k) {
+        var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        return finAt(G, L.s0 + (G.Lt - L.s0) * e);
+      }
+      function draw(i, px, py, rad, alpha, flash) {
+        var size = rad * 5.2, strength = dustOpacity(alpha, LP);
+        x.globalAlpha = strength;
+        x.drawImage(L.dust, px - size / 2, py - size / 2, size, size);
+        if (flash > .02) {
+          x.globalAlpha = Math.min(1, strength * flash * 1.25);
+          x.drawImage(dustGlint, px - size * .75, py - size * .75, size * 1.5, size * 1.5);
+        }
+      }
+      flightDust(t, L.dur, dustUnit, L.dustSeed, at, draw);
+      x.globalAlpha = 1;
     }
     // Свет на камнях дней
     var stones = [];
@@ -2421,7 +2917,7 @@
 
     // Видео из генератора (необязательно): своё у компьютерной и телефонной картинки, камера неподвижна — ложится ровно на спираль
     var tall = pickMaster(r, window.innerHeight / window.innerWidth > 1.25).tall, vsrc = tall ? f.videoMobile : f.videoDesktop, V = null, vT = 0;
-    if (vsrc && !o.instant && !REDUCED) {
+    if (vsrc && !instant && !REDUCED) {
       var stage = document.querySelector('.ys-stage');
       if (stage) {
         V = el('video', 'ys-fin-video'); V.muted = true; V.setAttribute('muted', ''); V.playsInline = true; V.setAttribute('playsinline', ''); V.preload = 'auto';
@@ -2496,14 +2992,21 @@
         g0.addColorStop(0, rgba(toWhite(cg, .3), .55 * cm)); g0.addColorStop(.35, rgba(cg, .3 * cm)); g0.addColorStop(1, rgba(cg, 0));
         x.fillStyle = g0; x.fillRect(C.x - cr, C.y - C.ry * .3 - cr, cr * 2, cr * 2);
       }
-      // Летящие сгустки — по камням к центру, с мягким следом
+      // Пыль перекрывает фон обычным наложением, чтобы на пересечении песчинки сохраняли цвет.
+      if (flyDust) x.globalCompositeOperation = 'source-over';
       lights.forEach(function (L) {
-        if (T < L.t0 || T >= L.arr) return;
+        if (T < L.t0) return;
+        if (flyDust) {
+          if (T < L.arr + DUST_LIFE) drawFinalDust(L, T - L.t0);
+          return;
+        }
+        if (T >= L.arr) return;
         var k = (T - L.t0) / L.dur, e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, s = L.s0 + (G.Lt - L.s0) * e, p = finAt(G, s);
         var rad = Math.max(4, Math.min(26, p.w * (L.k === 'day' ? .3 : .22))), a = sm(k / .1) * (1 - sm((k - .9) / .1) * .5), j;
         for (j = 6; j >= 1; j--) { var qq = finAt(G, s - j * rad * .5); blob(qq.x, qq.y, rad * (1 - j * .08), L.c, a * (.42 - j * .055)); }
         blob(p.x, p.y, rad, L.c, a);
       });
+      if (flyDust) x.globalCompositeOperation = 'lighter';
       // Искры «Костра»: поднимаются над печатью, покачиваются и стягиваются к середине — складываются в луч
       if (sparks.length && vfade > .01 && T > tw0 - .4 && T < b0 + 4.6) {
         var top = Math.max(40, C.y), bh = beam.w * .22;
@@ -2599,6 +3102,7 @@
       if (mus) fadeAudio(mus, 0, 700);
       window.removeEventListener('resize', onResize);
       root.remove(); FIN = null;
+      if (S.stageMusic) { S.stageMusic.final = null; syncStageMusic(true); }
     }
     function close() {
       root.classList.add('is-out');
@@ -2610,14 +3114,20 @@
     root.addEventListener('click', function () { if (!done) finish(); });
     window.addEventListener('resize', onResize);
     FIN = { kill: kill, finish: finish };
-    if (o.instant || REDUCED) { requestAnimationFrame(function () { root.classList.add('is-in'); finish(); }); return; }
+    if (instant || REDUCED) { requestAnimationFrame(function () { root.classList.add('is-in'); finish(); }); return; }
     requestAnimationFrame(function () { root.classList.add('is-in'); raf = requestAnimationFrame(step); });
   }
-  // Нажали на центр после конца маршрута (или «Финал Солнца» в проверке): финал уже собирали — сразу финал; нет — Карта дня 13
+  function showCollectedFinal() {
+    if (FIN || S.busy) return;
+    closeLayer();
+    finalScene({ instant: true });
+  }
+  // После сбора центр ведёт на готовый итог. Без отметки доступна Карта дня 13.
   function openFinal() {
     var r = S.route, last = daysCount(r);
+    if (FIN || S.busy) return;
     if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
-    if (finDone()) { var m = musicStart(); closeLayer(); finalScene({ music: m }); return; }
+    if (finDone()) { showCollectedFinal(); return; }
     openDay(last, S.mode);
   }
 
@@ -2827,11 +3337,27 @@
     if (n < 1) return;
     if (d < n) { note(fill(tx.past || 'День {день} пройден', ctx)); return; }
     if (d > n) { note(fill(tx.future || 'День {день} откроется {дата}', ctx)); return; }
-    if (S.busy) return;
+    if (S.busy || FIN) return;
     if (S.mode !== 'observation' && !S.code) { openKey(S.mode); return; }
+    if (d === last && finDone()) { showCollectedFinal(); return; }
     var first = openedList().indexOf(d) < 0, B = S.B;
     markOpened(d);
     var hint = document.querySelector('.ys-tap'); if (hint) hint.classList.add('is-gone');
+    if (d === last && B && B.centerShine) {
+      S.busy = true;
+      B.centerShine(true);
+      var openCenterCard = function () {
+        S.busy = false;
+        if (S.route !== r || curDay() !== d || FIN || document.querySelector('.ys-layer:not(.is-out)')) {
+          B.centerShine(false);
+          return;
+        }
+        if (S.B) S.B.paint(lights(r, n, true));
+        openDay(d, S.mode, null, true);
+      };
+      if (REDUCED) openCenterCard(); else setTimeout(openCenterCard, 930);
+      return;
+    }
     if (!B || !first || REDUCED) { if (B) B.paint(lights(r, n, true)); openDay(d, S.mode); return; }
     S.busy = true;
     B.today.classList.add('is-go');
@@ -3092,6 +3618,7 @@
       rb.addEventListener('click', openReview);
       tools.appendChild(rb);
     }
+    if (S.stageMusic) tools.appendChild(stageSoundButton(true));
     tools.appendChild(me);
     page.appendChild(tools);
   }
@@ -3140,7 +3667,7 @@
     dim.style.setProperty('--ys-dim', Math.max(0, Math.min(95, D.dim == null || D.dim === '' ? 45 : +D.dim)) / 100);
     page.appendChild(dim);
     topLinks(page);
-    var hud = el('div', 'ys-hud'), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
+    var hud = stageHud(r, n), ctx = ctxOf(r, Math.max(1, Math.min(last, n))), fin = D.final && D.final.on;
     if (n === 0) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
       if (tx.beforeNote) hud.appendChild(el('p', 'ys-sub', fill(tx.beforeNote, ctx)));
@@ -3327,6 +3854,7 @@
     var sp = spaceNode('final');
     S.busy = true; S.space = sp; S.spaceN = null;
     S.spaceDay = 'final';
+    syncStageMusic();
     window.M13D.go(null, null, sp, { base: S.base }, function () { S.busy = false; });
   }
   function leaveSpace() {
@@ -3336,6 +3864,7 @@
     var day = S.spaceDay;
     M.back(S.spaceN ? S.DS : null, d, sp, { open: d ? M.doorOf(S.route, d).open : null }, function () {
       S.busy = false; S.space = null; S.spaceN = null; S.spaceDay = null;
+      syncStageMusic(true);
       if (S.redraw || (S.sim == null && curDay() !== S.doorDay)) { S.redraw = false; render(); return; }
       // Выбор двери: личный след дня проступает, когда человек возвращается к дверям (если «сразу»; по умолчанию — после конца дня)
       if (isChoice(S.route) && d && S.DS && typeof day === 'number') {
@@ -3365,6 +3894,15 @@
     } else if (kind === 'final') openDoorsFinal();
     else if (kind === 'figure') saveFigure();
   }
+  function stageHud(r, n, hud) {
+    var stage = r.stage || {}, day = (r.days || [])[n - 1] || {};
+    function offset(key) { return numIn(day[key], numIn(stage[key], 0, -5, 45), -5, 45) + '%'; }
+    hud = hud || el('div', 'ys-hud');
+    hud.style.setProperty('--ys-hud-desktop', offset('hudOffsetDesktop'));
+    hud.style.setProperty('--ys-hud-mobile', offset('hudOffsetMobile'));
+    if (S.hudDevice) hud.style.setProperty('--ys-hud-offset', 'var(--ys-hud-' + S.hudDevice + ')');
+    return hud;
+  }
   function render() {
     if (isDoors(S.route) && window.M13D) { renderDoors(); return; }
     var r = S.route, app = document.getElementById('ys'), tx = r.texts || {};
@@ -3384,10 +3922,11 @@
     topLinks(page);
 
     var n = curDay(), last = daysCount(r), opened = openedList().indexOf(n) >= 0;
-    // Финал собран (день 13) — спираль уже золотая, как после конца маршрута
-    var lit = n === last && finDone() ? last + 1 : n;
+    // Точка или блик остаются в центре весь день 13, даже после просмотра финала.
+    var lightStyle = spiralGlowStyle(r), mirror = lightStyle === 'mirror';
+    var lit = n === last && lightStyle !== 'points' && !mirror && finDone() ? last + 1 : n;
     var bricks = !!M.zone && n >= 1;
-    var hud = el('div', 'ys-hud');
+    var hud = stageHud(r, n);
     var ctx = ctxOf(r, Math.max(1, Math.min(last, n)));
     if (n === 0) {
       hud.appendChild(el('h1', 'ys-h', fill(tx.before || 'Маршрут скоро начнётся', ctx)));
@@ -3397,8 +3936,11 @@
       if (tx.afterNote) hud.appendChild(el('p', 'ys-sub', fill(tx.afterNote, ctx)));
     } else {
       hud.appendChild(el('p', 'ys-sub', fill(tx.today || 'Сегодня — день {день}', ctx)));
-      if (bricks) { if (!opened) hud.appendChild(el('p', 'ys-tap', fill(n === last ? tx.tapLast || 'Коснитесь центра спирали' : tx.tap || 'Коснитесь светящегося камня', ctx))); }
-      else {
+      if (bricks) {
+        var tap = n === last ? tx.tapLast || (mirror ? 'Коснитесь блика в центре' : 'Коснитесь центра спирали') :
+          tx.tap || (mirror ? 'Коснитесь блика на песке' : 'Коснитесь светящегося камня');
+        if (!opened) hud.appendChild(el('p', 'ys-tap', fill(tap, ctx)));
+      } else {
         // Нет разметки кирпичей для этой картинки — Карта дня открывается кнопкой
         var go = el('button', 'ys-go', tx.openDay || 'Карта дня');
         go.type = 'button';
@@ -3417,6 +3959,7 @@
       var iw = img.naturalWidth, ih = img.naturalHeight, g = r.glow || {};
       var B = S.B = bricksLayer(r, M.zone, iw, ih, { color: g.color, dusk: Math.max(0, Math.min(90, g.dusk == null || g.dusk === '' ? 35 : +g.dusk)) / 100, zones: S.zonesOn });
       B.paint(lights(r, lit, opened));
+      if (B.centerShine && document.querySelector('.ys-layer--center-lit:not(.is-out)')) B.centerShine(true);
       stage.appendChild(B.node);
       // Большая невидимая кнопка на сегодняшнем кирпиче (на телефоне плиты внутренних витков маленькие), после конца — на центре
       var hd = n <= last ? n : last;
@@ -3525,6 +4068,7 @@
     else S.mode = S.code ? S.code.mode : 'observation';
     if (route.title) document.title = '13 MIRRORS · ' + route.title;
     if (FIN) FIN.kill();
+    initStageMusic(route);
     // Предпросмотр из панели: Путешествие без кода — временный код (только в памяти), чтобы увидеть личное
     // (и «Посмотреть финал» — спираль в 13-й день без карты: она сама касается центра)
     if (S.preview && (/^final/.test(q('card') || '') || S.sim === daysCount(route)) && S.mode !== 'observation' && !S.code) { S.code = newCode(route, S.mode); gate = false; }
@@ -3546,6 +4090,7 @@
     else if (gate) openKey(m);
     // После конца маршрута страница открывается сразу на последнем кадре финала
     else if (curDay() > last && !isDoors(route)) finalScene({ instant: true });
+    syncStageMusic(true);
     if (q('gift') && !S.code) setTimeout(function () { note((route.texts || {}).giftNeed || 'Чтобы положить подарок в узор, сначала войдите своим кодом.'); }, 600);
   }
   // Сцена «Двери» — отдельный файл, грузится только у маршрутов с дверями
@@ -3562,6 +4107,9 @@
     var app = document.getElementById('ys'); if (!app) return;
     S.base = app.getAttribute('data-base') || '../../';
     S.debug = q('debug') === '1'; S.debugNow = q('debugNow'); S.preview = q('preview') === '1'; S.film = S.preview && q('film') === '1';
+    S.filmSound = S.film && q('filmSound') === '1';
+    var hudDevice = S.preview && q('hudDevice');
+    S.hudDevice = hudDevice === 'mobile' || hudDevice === 'desktop' ? hudDevice : '';
     var sim = q('sim'); if (sim != null && sim !== '' && !isNaN(+sim)) S.sim = +sim;
     S.zonesOn = q('zones') === '1';
     var id = app.getAttribute('data-route');
@@ -3590,9 +4138,10 @@
   }
 
   window.M13R = { howto: howtoBoot, howtoNode: howtoNode, howtoOf: howtoOf, howtoUrl: howtoUrl, reviewOf: reviewOf, reviewTg: reviewTg, reviewText: reviewText,
-    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
+    putText: putText, isDoors: isDoors, dayClock: dayClock, card: card, dayCardPreset: dayCardPreset, stageHud: stageHud, fill: fill, ctxOf: ctxOf, tokens: tokens, wordsOf: wordsOf, defText: defText, dateOf: dateOf, dayNumber: dayNumber, nowMsk: nowMsk,
     spiralSVG: spiralSVG, MODES: MODES, MODE_NAMES: MODE_NAMES, boot: boot,
-    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
+    stageMusicPlayer: stageMusicPlayer, playStageMusic: playStageMusic, stopStageMusic: stopStageMusic,
+    trace: trace, bricksLayer: bricksLayer, lights: lights, dayColor: dayColor, sealColor: sealColor, glowPower: glowPower, spiralGlowStyle: spiralGlowStyle, sparkPower: sparkPower, sparkSpeed: sparkSpeed, PATH_DAYS: PATH_DAYS, SPAN: SPAN, finalScene: finalScene, datesText: datesText,
     untag: untag, lineAlign: lineAlign, readCode: readCode, makeCode: makeCode, newCode: newCode, deckOf: deckOf, cardFor: cardFor, cardsOf: cardsOf, keyNorm: keyNorm,
     kaleido: Kaleido, kalSeed: kalSeed, kalEx: kalEx, kalShow: kalShow, kalStyle: kalStyle, kalLook: kalLook, routeSeed: routeSeed, statesOf: statesOf, statesText: statesText,
     wheelNode: wheelNode, zoneName: zoneName, diskNode: diskNode, DISK_ZONES: DISK_ZONES, DISK_DEF: DISK_DEF, DISK_FAMILY: DISK_FAMILY, DISK_AREAS_DEF: DISK_AREAS_DEF, ovalOf: ovalOf, ovalFix: ovalFix, ovalPt: ovalPt, ovalAreas: ovalAreas, spiralPts: spiralPts, OVAL_DEF: OVAL_DEF,

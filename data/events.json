@@ -189,7 +189,6 @@
     "panelBg": "#0d0a07",
     "glass": 25,
     "glassBlur": 8,
-    "textSize": "lg",
     "tabs": {
       "active": "glass",
       "glass": 70,

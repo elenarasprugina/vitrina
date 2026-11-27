@@ -7,6 +7,7 @@
 .ys-stage.is-gap::before{content:"";position:absolute;left:0;right:0;top:-1px;height:22%;background:linear-gradient(#0a0604,rgba(10,6,4,0))}
 /* Компьютер: картинка меньше экрана — края растворяются в темноте */
 .ys-stage.is-soft{-webkit-mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 12%,#000 90%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 9%,#000 91%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 12%,#000 90%,transparent 100%);mask-composite:intersect}
+.ys-stage.is-path-fit{-webkit-mask-image:linear-gradient(transparent,#000 4%,#000 97%,transparent);mask-image:linear-gradient(transparent,#000 4%,#000 97%,transparent)}
 .ys-master{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 /* Светящиеся растения: холст ровно поверх картинки спирали (координаты — её) */
 .ys-plants{position:absolute;pointer-events:none;mix-blend-mode:screen}
@@ -15,8 +16,9 @@
 .ys-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(6,4,2,var(--ys-dim,.6)) 0%,rgba(6,4,2,calc(var(--ys-dim,.6)*.55)) 22%,rgba(6,4,2,0) 50%)}
 .ys-back{position:absolute;left:max(16px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));z-index:3;color:#f6ead2;text-decoration:none;font-size:14px;letter-spacing:.02em;padding:8px 14px;border-radius:999px;background:rgba(12,8,4,.38);border:1px solid rgba(255,214,140,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .ys-back:hover{background:rgba(12,8,4,.55)}
-.ys-hud{position:absolute;left:0;right:0;top:clamp(64px,13vh,140px);z-index:2;text-align:center;padding:0 20px;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
-.ys-hud > *{pointer-events:auto}
+.ys-hud{position:absolute;left:0;right:0;top:max(38px,calc(clamp(64px,13vh,140px) + var(--ys-hud-offset,var(--ys-hud-desktop,0%))));z-index:2;text-align:center;padding:0 20px;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
+@media (max-aspect-ratio:4/5){.ys-hud{--ys-hud-offset:var(--ys-hud-mobile,0%)}}
+.ys-hud > button{pointer-events:auto}
 .ys-hud{transition:opacity .35s}
 .ys-locked .ys-hud{opacity:0}
 .ys-h{margin:0;text-wrap:balance;font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;font-size:clamp(30px,4.4vw,54px);line-height:1.08;letter-spacing:.01em;color:#fff3d6;text-shadow:0 2px 24px rgba(0,0,0,.7)}
@@ -30,10 +32,32 @@
 
 /* ---------- Кирпичи на спирали (слои света в пикселях картинки) ---------- */
 .ys-bricks,.ys-bricks svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.ys-l-glow,.ys-l-today,.ys-l-pulse{mix-blend-mode:screen}
+.ys-l-glow,.ys-l-today,.ys-l-today.ys-l-points{animation:none;opacity:1}
+@media (prefers-reduced-motion:no-preference){.ys-point-shine{animation:ys-point-shine 8s ease-in-out infinite}}
+@keyframes ys-point-shine{0%,62%,89%,100%{opacity:0}72%,78%{opacity:var(--ys-shine,0)}}
+.ys-l-today.is-go .ys-today-beacon{visibility:hidden}
+.ys-l-today.ys-l-mirror{animation:none;opacity:1;mix-blend-mode:screen}
+.ys-l-today.is-mirror-flying .ys-mirror-glint,.ys-center-awake .ys-mirror-glint{visibility:hidden}
+.ys-mirror-breath{transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:no-preference){.ys-mirror-breath{animation:ys-mirror-breath 2.8s ease-in-out infinite}}
+@keyframes ys-mirror-breath{0%,100%{opacity:.48;transform:scaleX(.86)}50%{opacity:1;transform:scaleX(1)}}
+.ys-l-mirror + .ys-l-pulse{mix-blend-mode:normal}
+@media (prefers-reduced-motion:no-preference){.ys-today-beacon{animation:ys-day-beacon 2.8s ease-in-out infinite}}
+@keyframes ys-day-beacon{0%,100%{filter:brightness(.56)}50%{filter:brightness(1.18)}}
+.ys-l-center-sun{mix-blend-mode:screen;opacity:0;transition:opacity .38s ease}
+.ys-center-awake .ys-l-center-sun{opacity:1}
+.ys-center-awake .ys-center-point{opacity:0}
+.ys-l-center-sun > g{transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:no-preference){
+  .ys-center-awake .ys-l-center-sun > g{animation:ys-center-breathe .93s ease-in-out both}
+}
+@keyframes ys-center-breathe{0%{transform:scale(.1);opacity:0}65%{transform:scale(1.07);opacity:1}100%{transform:scale(1);opacity:.84}}
+.ys-l-pulse{mix-blend-mode:screen}
 .ys-l-today{animation:ys-brick 3.2s ease-in-out infinite;will-change:opacity}
 .ys-l-today.is-go{animation:none;opacity:1}
 @keyframes ys-brick{0%,100%{opacity:.4}50%{opacity:1}}
+@media (prefers-reduced-motion:no-preference){.ys-l-reflection:not(.is-go){animation-name:ys-reflection}}
+@keyframes ys-reflection{0%,100%{opacity:.72}50%{opacity:1}}
 .ys-l-pulse{transition:opacity 1s ease}
 .ys-l-pulse.is-fade{opacity:0}
 .ys-hit{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;border:0;padding:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -161,6 +185,9 @@ canvas.ys-gd{width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:0;bac
 /* Карта появляется из центра спирали: --ys-ox / --ys-oy — где центр относительно середины экрана */
 .ys-layer .ys-card{transform:translate(var(--ys-ox,0px),var(--ys-oy,0px)) scale(.18);opacity:0;transition:transform .6s cubic-bezier(.2,.8,.2,1),opacity .45s ease}
 .ys-layer.is-in .ys-card{transform:none;opacity:1}
+@media (prefers-reduced-motion:no-preference){
+  .ys-layer--day.is-in .ys-card{transition-duration:1.05s,.78s;transition-timing-function:cubic-bezier(.3,.62,.26,1),ease}
+}
 .ys-layer.is-out .ys-card{transform:scale(.9);opacity:0;transition-duration:.3s}
 
 /* ---------- Карта дня и личная карта ---------- */
@@ -313,6 +340,8 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 @media (max-width:560px){
   .ys-layer{padding:0;align-items:stretch;background:#0d0804}
   .ys-layer .ys-card{width:100%;min-height:100%;border-radius:0;box-shadow:none;display:flex}
+  .ys-layer.ys-layer--clear{padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+  .ys-layer--clear .ys-card--clear{min-height:0}
   .ys-layer .ys-card-in{flex:1}
   .ys-layer .ys-c-foot{margin-top:auto;padding-top:10px}
   .ys-card-in{padding:0 20px calc(26px + env(safe-area-inset-bottom))}
@@ -328,12 +357,23 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
   .ys-layer .ys-card{transition:opacity .2s}
 }
 
+/* Прозрачная Карта дня — стекло, лёгкое размытие и тонкий контур из «Глаза бури». */
+.ys-card.ys-card--clear{width:min(360px,100%);border-radius:28px;border:1px solid rgba(var(--ys-clear-rim,170,204,255),.30);box-sizing:border-box;
+  background:rgba(8,18,44,.30);-webkit-backdrop-filter:blur(1.5px);backdrop-filter:blur(1.5px);
+  box-shadow:0 0 70px rgba(var(--ys-clear-rim,95,157,255),.22),inset 0 0 40px rgba(var(--ys-clear-rim,140,185,255),.08);
+  text-shadow:0 0 12px rgba(5,9,22,.95),0 0 3px rgba(5,9,22,.9)}
+.ys-card.ys-card--clear.ys-card--no-rim{border-color:transparent;box-shadow:none}
+.ys-card--clear.ys-card--no-rim::before{box-shadow:none}
+.ys-card--clear .ys-c-q{background:rgba(5,9,22,.22)}
+
 /* ---------- «Мой код» (справа сверху) ---------- */
 .ys-me{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:3;font:inherit;color:#f6ead2;font-size:14px;letter-spacing:.02em;padding:8px 14px;border-radius:999px;cursor:pointer;background:rgba(12,8,4,.38);border:1px solid rgba(255,214,140,.22);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .ys-me:hover{background:rgba(12,8,4,.55)}
 /* Справа сверху: «?» (как идти по маршруту), ✎ (отзыв), «Мой код» */
 .ys-tools{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));z-index:3;display:flex;align-items:center;gap:7px}
 .ys-tools .ys-me{position:static}
+.ys-tools .ys-stage-snd.is-on{border-color:rgba(255,214,140,.65)}
+.ys-tools .ys-stage-snd:not(.is-on){opacity:.65}
 .ys-ic{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;text-decoration:none;font-family:"Cormorant Garamond",Georgia,serif;font-size:21px;font-weight:600;line-height:1}
 .ys-ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .ys-fin-on .ys-tools{opacity:0;pointer-events:none;transition:opacity .6s}
@@ -501,7 +541,7 @@ body.ys-sliding .ys-d-wave,body.ys-sliding .ys-d-ring{animation-play-state:pause
 .ys-glass .ys-key-t{font-size:clamp(25px,3.6vw,34px)}
 @media (prefers-reduced-motion:reduce){.ys-drop{transition:none}}
 /* Пока карта выезжает — анимации на спирали и в карте замирают (без рывков) */
-.ys-sliding .ys-l-today,.ys-sliding .ys-gd,.ys-sliding .ys-tap{animation-play-state:paused}
+.ys-sliding .ys-l-today,.ys-sliding .ys-mirror-breath,.ys-sliding .ys-point-shine,.ys-sliding .ys-gd,.ys-sliding .ys-tap{animation-play-state:paused}
 
 /* Сцена «Двери» (слои, движения, мир, след, блик) — в assets/doors.css: её грузят и страница маршрута, и витрина (живая обложка). */
 /* «Есть ключ? Введи ключ» на Карте дня (двери, сначала Карта дня): живой вход — маленькая спираль вращается */

@@ -240,10 +240,11 @@
   function rangeIn(obj, key, label, o) {
     function show(x) { return String(x).replace('.', ',') + (o.unit || ''); }
     o = o || {};
-    var v = obj[key] == null || obj[key] === '' ? (o.def || 0) : +obj[key];
-    var out = el('span', { class: 'a-range-val', text: show(v) });
+    function value() { return obj[key] == null || obj[key] === '' ? (o.def || 0) : +obj[key]; }
+    var v = value(), out = el('span', { class: 'a-range-val', text: show(v) });
     var r = el('input', { type: 'range', class: 'a-range', min: o.min || 0, max: o.max || 100, step: o.step || 1, value: v });
     r.addEventListener('input', function () { obj[key] = +r.value; out.textContent = show(r.value); changed(); if (o.onChange) o.onChange(+r.value); });
+    if (o.sync) LIVE.push({ node: r, run: function () { r.value = value(); out.textContent = show(r.value); } });
     return field(label, el('div', { class: 'a-range-row' }, [r, out]), o.hint);
   }
   function selectIn(obj, key, label, options, o) {
@@ -1051,14 +1052,20 @@
     o = o || {};
     var box = el('div', { class: 'a-field' });
     function draw() {
-      var v = obj[key] || '', isData = /^data:/.test(v), file = el('input', { type: 'file', accept: o.kind + '/*', style: 'display:none' });
+      var v = obj[key] || '', isData = /^data:/.test(v), file = el('input', { type: 'file', accept: o.uploadOnly ? '.mp3,.m4a' : o.kind + '/*', style: 'display:none' });
       file.addEventListener('change', function () {
         var f = file.files && file.files[0]; if (!f) return;
         if (f.size > (o.maxMB || 8) * 1048576) { toast('Файл ' + (f.size / 1048576).toFixed(1).replace('.', ',') + ' МБ — это много для страницы. Нужно до ' + (o.maxMB || 8) + ' МБ: сожмите или укоротите его.', true); return; }
+        var audioType;
+        if (o.uploadOnly) {
+          var ext = /[.](mp3|m4a)$/i.exec(f.name);
+          if (!ext) { toast('Выберите файл MP3 или M4A.', true); return; }
+          audioType = ext[1].toLowerCase() === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
+        }
         var rd = new FileReader();
         rd.onload = function () { obj[key] = rd.result; obj[key + 'Name'] = f.name; changed(); draw(); };
         rd.onerror = function () { toast('Не получилось прочитать файл.', true); };
-        rd.readAsDataURL(f);
+        rd.readAsDataURL(audioType ? new Blob([f], { type: audioType }) : f);
       });
       var url = el('input', { class: 'a-input', type: 'text', placeholder: 'https://… — или загрузите файл' });
       url.value = isData ? '' : v;
@@ -1068,7 +1075,7 @@
       if (play && o.kind === 'video') { play.muted = true; play.playsInline = true; }
       box.replaceChildren();
       add(box, [label ? el('span', { class: 'a-label', text: label }) : null,
-        isData ? el('p', { class: 'a-hint', text: 'Загружен файл' + (obj[key + 'Name'] ? ' «' + obj[key + 'Name'] + '»' : '') + ' · ' + (v.length * .75 / 1048576).toFixed(1).replace('.', ',') + ' МБ' }) : url,
+        isData ? el('p', { class: 'a-hint', text: 'Загружен файл' + (obj[key + 'Name'] ? ' «' + obj[key + 'Name'] + '»' : '') + ' · ' + (v.length * .75 / 1048576).toFixed(1).replace('.', ',') + ' МБ' }) : o.uploadOnly ? null : url,
         play,
         el('div', { class: 'a-img' }, [
           el('button', { type: 'button', class: 'a-btn a-btn--small', text: v ? 'Заменить файл' : 'Загрузить файл', onclick: function () { file.click(); } }),
@@ -3304,7 +3311,7 @@
      Новый маршрут «готовится» (r.visible === false): на сайт не попадает, пока она не включит «Показывать на сайте».
      Страницу routes/<id>/ создаёт публикация (routePageHTML); r.autoPage — страница из панели, пересобирается при каждой публикации
      (у Жёлтого Солнца страница своя, её публикация не трогает). Кины — assets/kin.js (M13KIN), слова финала — M13R.wordsOf. */
-  var ROUTE_V = '20261120a';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
+  var ROUTE_V = '20261127b';   // = window.M13RV в routes/yellow-sun/index.html: правишь route.js/css, kaleido.js, sun.js — поднять оба
   var J_KIND = [['wave', 'Волна Dreamspell — 13 дней, кины по календарю'], ['theme', 'Тематический — без кинов (как «Сладкоежка»)']];
   function jIsoAdd(iso, n) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]) + n * 864e5).toISOString().slice(0, 10) : ''; }
   function jDateText(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? +m[3] + ' ' + MON_GEN[+m[2] - 1] : ''; }
@@ -3754,11 +3761,17 @@
   // Оформление карты (её решение 14.10): фон, текст, каёмка, сцена за картой — одно на Карту дня и личную карту (route.cardLook; устройство — в route.js, cardLook)
   function jCardLook(r) {
     var L = r.cardLook = r.cardLook || {}, bg = L.bg || '';
+    var clear = window.M13R && window.M13R.dayCardPreset(r) === 'clear';
     function again() { renderMain(); }
     var others = DATA.journeys.items.filter(function (x) { return x !== r && x.cardLook && x.cardLook.bg !== undefined; });
     var from = el('select', { class: 'a-input' }, others.map(function (x, i) { return el('option', { value: String(i), text: x.title || x.id }); }));
     var out = [
-      el('p', { class: 'a-hint', text: 'Одно на Карту дня и личную карту. Сразу видно в предпросмотре справа; на сайте — после «Опубликовать».' }),
+      selectIn(r.dayCard, 'preset', 'Вид Карты дня', [['clear', 'Прозрачная — как в «Глазе бури»'], ['route', 'Оформление маршрута — как у личной карты']], {
+        def: window.M13R ? window.M13R.dayCardPreset(r) : 'route', onChange: again,
+        hint: 'На прозрачной карте видна сцена, картинка дня скрыта. Оформление маршрута и картинку можно вернуть в любой момент.'
+      }),
+      el('p', { class: 'a-hint', text: clear ? 'Каёмка и свечение применяются к прозрачной Карте дня и личной карте. Остальные параметры здесь относятся к оформлению маршрута.' :
+        'Настройки ниже действуют на оформление маршрута. Сразу видно в предпросмотре справа; на сайте — после «Опубликовать».' }),
       selectIn(L, 'bg', 'Фон карты', [['', 'Как задумано — тёплый коричневый'], ['color', 'Цвет — один или переход из двух'], ['glass', 'Стекло — сквозь карту видна сцена'], ['texture', 'Фактура — картинка']], { def: '', onChange: again })];
     if (bg) out.push(el('div', { class: 'a-row' }, [
       colorOptIn(L, 'c1', bg === 'texture' ? 'Цвет приглушения' : bg === 'glass' ? 'Цвет стекла — сверху' : 'Цвет — сверху', { base: bg === 'glass' ? '#140c05' : '#2e1e0a', none: 'тёмно-коричневый' }),
@@ -3774,8 +3787,9 @@
     if (L.melt) out.push(rangeIn(L, 'meltDepth', 'Насколько глубоко тает', { def: 55, min: 20, max: 90, unit: ' %', hint: 'Доля картинки, которая растворяется.' }));
     out.push(
       selectIn(L, 'text', 'Цвет текста', [['', 'Сам по фону — светлый на тёмном, тёмный на светлом'], ['light', 'Светлый'], ['dark', 'Тёмный']], { def: '' }),
-      selectIn(L, 'rim', 'Каёмка и свечение вокруг карты', [['', 'Как задумано — золотые'], ['own', 'Свой цвет'], ['none', 'Без каёмки и свечения']], { def: '', onChange: again,
-        hint: 'Свой цвет красит и мелкие подписи, линии на карте. На телефоне карта во весь экран — свечения там не видно.' }));
+      selectIn(L, 'rim', 'Каёмка и свечение вокруг карты', [['', clear ? 'Как задумано — голубые на прозрачной карте, золотые на личной' : 'Как задумано — золотые'], ['own', 'Свой цвет'], ['none', 'Без каёмки и свечения']], { def: '', onChange: again,
+        hint: clear ? 'У прозрачной карты цвет меняет каёмку и свечение. У личной карты он также меняет мелкие подписи и линии.' :
+          'Свой цвет красит и мелкие подписи, линии на карте. На телефоне карта во весь экран — свечения там не видно.' }));
     if (L.rim === 'own') out.push(colorOptIn(L, 'rimColor', 'Цвет каёмки', { base: '#ffd68c', none: 'золотой' }));
     out.push(selectIn(L, 'back', 'Что за картой', [['', 'Сцена маршрута — спираль или двери'], ['day', 'Картинка дня — во весь экран, размытая']], { def: '', onChange: again,
       hint: 'Картинка дня — своя у каждого дня (вкладка «13 дней»). У дня без картинки за картой остаётся сцена.' }));
@@ -3873,17 +3887,56 @@
     }));
     dialog({ title: 'День ' + n + ' со всеми картами', body: body });
   }
-  // extra — что открыть сразу: { mode, q: '&sim=13&card=final' }
+  function jHudRange(obj, key, label, onChange, sync) {
+    return rangeIn(obj, key, label, { min: -5, max: 45, step: .5, def: 0, unit: ' %', onChange: onChange, sync: sync });
+  }
+  // extra — что открыть сразу: { mode, q: '&sim=13&card=final' } или { mode, hudDay: номер дня для настройки надписей }
   function openJourneyPage(r, phone, extra) {
-    var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' };
-    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../routes/preview/?preview=1&debug=1&mode=' + (extra ? extra.mode : st.mode) + (extra ? extra.q : '') });
+    var pv = document.getElementById('a-preview'), st = ST.jpv || { day: 1, mode: 'observation' }, n = extra && extra.hudDay;
+    var query = '&mode=' + (extra ? extra.mode : st.mode);
+    if (n) query += '&sim=' + n + '&hudDevice=' + (phone ? 'mobile' : 'desktop');
+    else query += '&debug=1' + ((extra && extra.q) || '');
+    var fr = el('iframe', { class: phone ? 'a-phone-screen' : 'a-home-frame', title: r.title, src: '../routes/preview/?preview=1' + query });
     if (phone) fr.style.width = '375px';
     function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null, settings: { typo: clone(DATA.settings.typo || {}) } }, location.origin); } catch (e) { console.error(e); } }
-    function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady) send(); }
+    function onMsg(e) { if (e.origin === location.origin && e.source === fr.contentWindow && e.data && e.data.m13journeyReady) send(); }
     window.addEventListener('message', onMsg);
-    var bar = el('div', { class: 'a-pbar' }, [
+    function reopen(tall, options) {
+      window.removeEventListener('message', onMsg);
+      openJourneyPage(r, tall, options);
+    }
+    var bar = el('div', { class: 'a-pbar' + (n ? ' a-pbar--hud' : '') }, [
       el('button', { type: 'button', class: 'a-pclose', text: '← В панель', onclick: function () { window.removeEventListener('message', onMsg); closePreview(); } }),
-      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { window.removeEventListener('message', onMsg); openJourneyPage(r, !phone, extra); } })]);
+      el('button', { type: 'button', class: 'a-pphone', text: phone ? '🖥 Как на компьютере' : '📱 Как на телефоне', onclick: function () { reopen(!phone, extra); } })]);
+    if (n) {
+      var day = r.days[n - 1], key = phone ? 'hudOffsetMobile' : 'hudOffsetDesktop';
+      var slot = el('div', { class: 'a-hud-range' });
+      function updateStage() {
+        var doc = fr.contentDocument, node = doc && doc.querySelector('.ys-hud');
+        if (node) fr.contentWindow.M13R.stageHud(r, n, node);
+      }
+      function updateRange() {
+        var own = day && day[key] != null && day[key] !== '';
+        var label = own ? 'Сдвиг для дня ' + n : 'Общий сдвиг надписей';
+        slot.replaceChildren(jHudRange(own ? day : r.stage, key, label, updateStage));
+      }
+      if (day) {
+        var select = el('select', { class: 'a-input' }, r.days.map(function (_, i) { return el('option', { value: i + 1, text: 'День ' + (i + 1) }); }));
+        select.value = n;
+        select.addEventListener('change', function () { reopen(phone, { mode: extra.mode, hudDay: +select.value }); });
+        var scope = el('select', { class: 'a-input' }, [
+          el('option', { value: 'common', text: 'Общее положение' }), el('option', { value: 'own', text: 'Своё для этого дня' })]);
+        scope.value = day[key] == null || day[key] === '' ? 'common' : 'own';
+        scope.addEventListener('change', function () {
+          if (scope.value === 'common') delete day[key];
+          else if (day[key] == null || day[key] === '') day[key] = +r.stage[key] || 0;
+          changed(); updateRange(); updateStage();
+        });
+        add(bar, [field('День маршрута', select), field('Положение надписей', scope)]);
+      }
+      updateRange();
+      bar.appendChild(slot);
+    }
     pv.classList.toggle('is-phone', phone);
     pv.replaceChildren(phone ? el('div', { class: 'a-phone' }, [el('div', { class: 'a-phone-body' }, fr)]) : fr, bar);
     pv.classList.add('is-open'); document.body.style.overflow = 'hidden';
@@ -3893,7 +3946,7 @@
   // с подписями поверх и сжимаются в MP4 (VideoEncoder + mp4-muxer, как «● Записать» узора). У ролика своё время:
   // ускорение, пауза, смена дня без загрузки страницы в кадре (последний кадр плавно перетекает в новый день).
   // Автопилот (её «панель ведёт сама», 19.10): сам касается в окне по сценарию — дверь/камень → Карта дня → глубже → следующий день.
-  // Звук не пишем, файл никуда не уходит.
+  // По выбору записывает звук вкладки. Файл никуда не уходит.
   var FILM_W = 1080, FILM_H = 1920, FILM_MAX = 300;
   // Указатель в окне ролика (её выбор 30.10): кончик пера / звёздочка палочки / центр точки — там, где мышка
   var FILM_PTR_OPTS = [['pen', 'Перо'], ['wand', 'Волшебная палочка'], ['dot', 'Светлая точка'], ['none', 'Не показывать (только касания)'], ['mouse', 'Обычная мышка']];
@@ -3924,6 +3977,115 @@
   var FILM_INK_PAL = { gold: ['#fff6dc', 'rgba(255,190,90,.95)', '255,205,120'], white: ['#ffffff', 'rgba(255,255,255,.95)', '255,255,255'], pink: ['#fff0f6', 'rgba(255,120,180,.95)', '255,150,200'], blue: ['#eef8ff', 'rgba(110,180,255,.95)', '140,195,255'] };
   function filmCan() { return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.CropTarget && window.VideoEncoder && window.VideoFrame); }
   // Забыть придуманного участника: двери, карты, код, стёклышки — всё с приставкой m13film- (настоящие m13ys- не трогаем)
+  function filmAudio(track, music) {
+    var C = music ? music.context : new window.AudioContext({ sampleRate: 48000 });
+    var source = music ? music.recordBus : C.createMediaStreamSource(new MediaStream([track]));
+    var A = { context: C, source: source, shared: !!music, rate: C.sampleRate, blocks: [], recent: [], spans: [], size: 1024, used: 0 };
+    A.buffer = new Float32Array(A.size * 2);
+    var codecs = ['mp4a.40.2', 'opus'];
+    function codec(i) {
+      if (i >= codecs.length) throw new Error('Браузер не умеет сохранять звук в MP4.');
+      var c = { codec: codecs[i], sampleRate: A.rate, numberOfChannels: 2, bitrate: 160000 };
+      return AudioEncoder.isConfigSupported(c).then(function (s) { return s.supported ? c : codec(i + 1); }, function () { return codec(i + 1); });
+    }
+    A.ready = Promise.all([C.resume(), C.audioWorklet.addModule('film-audio-worklet.js?v=' + (window.M13V || 1)), codec(0)]).then(function (results) {
+      if (A.closed) return;
+      A.config = results[2];
+      var node = A.node = new AudioWorkletNode(C, 'm13-film-audio', { numberOfOutputs: 0 });
+      node.port.onmessage = function (e) {
+        var b = e.data;
+        if (b.flushed) { if (A.tailReady) A.tailReady(); return; }
+        b.end = b.start + b.left.length;
+        // Пока время ролика стоит, держим лишь короткий хвост для возобновления.
+        if (A.clock == null || (A.idleSince != null && b.start >= A.idleSince)) {
+          A.recent.push(b);
+          if (A.recent.length > 4) A.recent.shift();
+        } else A.blocks.push(b);
+        if (A.onBlock) A.onBlock();
+      };
+      source.connect(node);
+    });
+    return A;
+  }
+  function filmAudioClose(A) {
+    if (!A || A.closed) return;
+    A.closed = true;
+    if (A.tailReady) A.tailReady();
+    if (A.node) {
+      A.node.port.postMessage('stop');
+      A.node.port.onmessage = null; A.node.port.close();
+      try { A.source.disconnect(A.node); } catch (e) {}
+    }
+    if (!A.shared) A.context.close().catch(function () {});
+  }
+  function filmAudioSpan(A, from, to, portion) {
+    if (!A) return;
+    var end = A.context.currentTime * A.rate;
+    var start = A.clock == null ? end : A.clock;
+    A.clock = end;
+    if (from === to) { if (A.idleSince == null) A.idleSince = end; return; }
+    A.idleSince = null;
+    if (A.recent.length) {
+      A.blocks = A.blocks.concat(A.recent);
+      A.recent = [];
+    }
+    A.spans.push({ start: end - (end - start) * portion, end: end,
+      from: Math.round(from * A.rate), to: Math.round(to * A.rate) });
+  }
+  function filmAudioFlush(A) {
+    if (!A.used) return;
+    var data = A.buffer;
+    if (A.used < A.size) {
+      data = new Float32Array(A.used * 2);
+      data.set(A.buffer.subarray(0, A.used));
+      data.set(A.buffer.subarray(A.size, A.size + A.used), A.used);
+    }
+    var d = new AudioData({ format: 'f32-planar', sampleRate: A.rate, numberOfFrames: A.used,
+      numberOfChannels: 2, timestamp: Math.round((A.next - A.used - A.first) * 1e6 / A.rate), data: data });
+    try { A.enc.encode(d); } finally { d.close(); }
+    A.used = 0;
+  }
+  // Временная шкала звука та же, что у кадров: в паузах и при загрузке дня интервалов нет.
+  function filmAudioDrain(R, finish) {
+    var A = R.audio;
+    if (!A || R.firstTs == null) return;
+    if (A.first == null) A.first = A.next = Math.round(R.firstTs * A.rate / 1e6);
+    var limit = Math.round((R.firstTs / 1e6 + R.duration) * A.rate);
+    // Ждём настоящие отсчёты даже при задержке видео или занятом основном потоке.
+    var available = A.blocks.length ? A.blocks[A.blocks.length - 1].end : 0;
+    while (A.spans.length) {
+      var s = A.spans[0];
+      if (s.to <= A.next) { A.spans.shift(); continue; }
+      if (!finish && (s.from >= limit || s.end > available)) break;
+      var end = Math.min(s.to, limit), width = s.to - s.from || 1;
+      if (A.next >= end) break;
+      for (; A.next < end;) {
+        var at = s.start + (A.next - s.from) * (s.end - s.start) / width;
+        while (A.blocks.length && A.blocks[0].end <= at) A.blocks.shift();
+        var b = A.blocks[0], index = b ? Math.floor(at - b.start) : -1;
+        A.buffer[A.used] = index >= 0 ? b.left[index] : 0;
+        A.buffer[A.size + A.used] = index >= 0 ? b.right[index] : 0;
+        A.used++; A.next++;
+        if (A.used === A.size) filmAudioFlush(A);
+      }
+      if (end < s.to) break;
+      A.spans.shift();
+    }
+    if (finish) filmAudioFlush(A);
+  }
+  function filmAudioFinish(R) {
+    var A = R.audio;
+    return new Promise(function (resolve) {
+      var timer = setTimeout(ready, 500);
+      function ready() { clearTimeout(timer); A.tailReady = null; resolve(); }
+      A.tailReady = ready;
+      A.node.port.postMessage('flush');
+    }).then(function () {
+      if (A.closed) return;
+      filmAudioDrain(R, true);
+      return A.enc.flush();
+    });
+  }
   function filmForget() {
     try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf('m13film-') === 0) localStorage.removeItem(k); }); } catch (e) {}
   }
@@ -3951,7 +4113,7 @@
   }
   function openFilm(r) {
     var pv = document.getElementById('a-preview'), last = r.days.length;
-    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '' };
+    var st = ST.film = ST.film || {}, D0 = { what: 'route', mode: 'observation', day: '', how: 'hand', days: [1], deep: true, fin: false, pace: 'calm', speed: '1', tap: true, ptr: 'pen', spark: true, ink: true, inkHold: '2.5', inkMelt: 'trail', inkCol: 'auto', inkW: '1', title: true, mark: true, dayCap: true, caption: '', sound: false };
     Object.keys(D0).forEach(function (k) { if (st[k] === undefined) st[k] = D0[k]; });
     var WHAT = filmWhat(r);
     if (!WHAT.some(function (o) { return o[0] === st.what; })) st.what = 'route';
@@ -3961,15 +4123,34 @@
       var o = WHAT.filter(function (x) { return x[0] === st.what; })[0], t = o ? o[1] : '';
       return t.replace(/^(Месяц|Сад) · /, '').replace(/^Витрина — /, '').replace(/ — список$/, '');
     }
-    var REC = null, AP = null, nonce = 0, res = el('div', { class: 'a-film-res' });
+    var REC = null, AP = null, nonce = 0, res = el('div', { class: 'a-film-res' }), sound;
+    var picking = false, active = true;
     var h = Math.max(460, Math.min(800, window.innerHeight - 130)), w = Math.round(h * 9 / 16);
-    var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, style: 'width:' + w + 'px;height:' + h + 'px' });
+    var fr = el('iframe', { class: 'a-phone-screen a-film-screen', title: r.title, allow: 'autoplay', style: 'width:' + w + 'px;height:' + h + 'px' });
     function send() { try { fr.contentWindow.postMessage({ m13journey: clone(r), base: '../../', logo: DATA.settings.logo ? { src: DATA.settings.logo, ratio: DATA.settings.logoRatio } : null, settings: { typo: clone(DATA.settings.typo || {}) } }, location.origin); } catch (e) { console.error(e); } }
     function onMsg(e) { if (e.origin === location.origin && e.data && e.data.m13journeyReady && e.source === fr.contentWindow) send(); }
+    function filmMusic() {
+      if (st.sound && isR() && r.stageMusic) {
+        if (!fr.m13StageMusic && window.M13R && window.M13R.stageMusicPlayer) {
+          fr.m13StageMusic = window.M13R.stageMusicPlayer(imgSrc(r.stageMusic), r.stageVolume, r.scene !== 'doors');
+          fr.m13StageMusic.shared = true;
+        }
+      } else dropFilmMusic();
+    }
+    function dropFilmMusic() {
+      if (!fr.m13StageMusic) return;
+      window.M13R.stopStageMusic(fr.m13StageMusic);
+      fr.m13StageMusic = null;
+    }
+    function playFilmMusic() {
+      filmMusic();
+      if (fr.m13StageMusic) window.M13R.playStageMusic(fr.m13StageMusic);
+    }
     function load(day) {
+      filmMusic();
       if (isR() || /^uz:/.test(st.what)) {
         fr.removeAttribute('srcdoc');
-        fr.src = isR() ? '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (day ? '&sim=' + day : '') + '&f=' + (++nonce)
+        fr.src = isR() ? '../routes/preview/?preview=1&debug=1&film=1&mode=' + st.mode + (st.sound ? '&filmSound=1' : '') + (day ? '&sim=' + day : '') + '&f=' + (++nonce)
           : '../uzory/' + (st.what.slice(3) ? encodeURIComponent(st.what.slice(3)) + '/' : '') + '?draft=1&f=' + (++nonce);
       } else fr.srcdoc = phoneHTML() + '<!--' + (++nonce) + '-->';   // витрина, месяц, кин… — черновик из панели, как «Посмотреть»
     }
@@ -4297,7 +4478,8 @@
     var clock = el('span', { class: 'a-film-clock', text: '0:00' }), auto = isR() && st.how !== 'hand';
     function ui() {
       auto = isR() && st.how !== 'hand';
-      bRec.disabled = !!(REC || AP); bPause.disabled = bStop.disabled = !REC || !!REC.finishing;
+      bRec.disabled = !!(REC || AP || picking); bPause.disabled = bStop.disabled = !REC || !!REC.finishing;
+      if (sound) sound.querySelector('input').disabled = !!(REC || AP || picking);
       bTry.hidden = !auto; bTry.disabled = !!REC;
       if (whatSel) whatSel.disabled = !!REC; bTry.textContent = AP && !REC ? '■ Остановить прогон' : '▶ Прогнать без записи';
       bPause.textContent = REC && REC.paused ? '▶ Дальше' : '⏸ Пауза';
@@ -4308,12 +4490,25 @@
     function start() {
       if (!filmCan()) { toast('Запись ролика работает в Chrome (или Edge) на компьютере. В этом браузере её нет.', true); return; }
       if (auto && !st.days.length && !st.fin) { toast('Отметьте хотя бы один день или финал.', true); return; }
-      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false,
+      var withSound = !!st.sound;
+      if (withSound && !(window.AudioContext && window.AudioWorkletNode && window.AudioEncoder && window.AudioData)) {
+        toast('Запись звука вкладки доступна в свежем Chrome или Edge на компьютере.', true); return;
+      }
+      if (withSound) playFilmMusic();
+      var music = withSound && fr.m13StageMusic;
+      if (!music || !music.recordBus) music = null;
+      picking = true; ui();
+      navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30, width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: withSound && !music,
         preferCurrentTab: true, selfBrowserSurface: 'include', surfaceSwitching: 'exclude' }).then(function (stream) {
+        if (!active) { stream.getTracks().forEach(function (k) { k.stop(); }); return; }
         var tr = stream.getVideoTracks()[0], ss = tr.getSettings ? tr.getSettings() : {};
         if (ss.displaySurface && ss.displaySurface !== 'browser') {
           stream.getTracks().forEach(function (k) { k.stop(); });
           toast('Нужно выбрать «Эта вкладка» — тогда в ролик попадёт только окно-телефон.', true); return;
+        }
+        if (withSound && !music && !stream.getAudioTracks().length) {
+          stream.getTracks().forEach(function (k) { k.stop(); });
+          toast('Chrome не передал звук. При выборе «Эта вкладка» включите «Поделиться звуком вкладки».', true); return;
         }
         // Снимаем только само окно, без слоя пера над ним (Element Capture) — перо и рисунок ролик дорисует сам.
         // Браузер так не умеет — обрезаем вкладку до окна (CropTarget), слой пера снимается вместе с окном, как раньше.
@@ -4322,15 +4517,19 @@
         return (window.RestrictionTarget && tr.restrictTo ? RestrictionTarget.fromElement(fr).then(function (rt) { return tr.restrictTo(rt); }).then(function () { own = true; })
           : Promise.reject()).catch(function () {
           return CropTarget.fromElement(fr).then(function (ct) { return tr.cropTo(ct); });
-        }).then(function () { begin(stream, own); }, function (e) {
+        }).then(function () {
+          if (active) begin(stream, own, withSound, music);
+          else stream.getTracks().forEach(function (k) { k.stop(); });
+        }, function (e) {
           stream.getTracks().forEach(function (k) { k.stop(); }); throw e;
         });
       }).catch(function (e) {
+        if (!active) return;
         if (e && e.name === 'NotAllowedError') toast('Запись не началась: браузер не дал доступ к вкладке.');
         else { console.error(e); toast('Не получилось начать запись: ' + (e && e.message || e), true); }
-      });
+      }).finally(function () { picking = false; if (active) ui(); });
     }
-    function begin(stream, own) {
+    function begin(stream, own, withSound, music) {
       var v = el('video'); v.muted = true; v.playsInline = true; v.srcObject = stream; v.play();
       var cv = el('canvas'); cv.width = FILM_W; cv.height = FILM_H;
       // Автопилот: время ролика стоит, пока грузится первый день (cut)
@@ -4342,31 +4541,68 @@
       vidMuxer(function (ok) {
         if (REC !== R) return;
         if (!ok) { fail('Не загрузилась часть панели для видео. Обновите страницу и попробуйте ещё раз.'); return; }
-        recCodec(FILM_W, FILM_H, 12e6, function (c) {
+        try { if (withSound) R.audio = filmAudio(stream.getAudioTracks()[0], music); }
+        catch (e) { fail('Не получилось подготовить звук: ' + e.message); return; }
+        Promise.resolve(R.audio && R.audio.ready).then(function () {
+          if (REC === R) recCodec(FILM_W, FILM_H, 12e6, setup);
+        }).catch(function (e) { if (REC === R) fail('Не получилось подготовить звук: ' + e.message); });
+        function setup(c) {
           if (REC !== R) return;
           if (!c) { fail('Этот браузер не умеет сжимать видео в MP4. Попробуйте свежий Chrome.'); return; }
           var X = window.Mp4Muxer;
-          R.mux = new X.Muxer({ target: new X.ArrayBufferTarget(), video: { codec: c.avc ? 'avc' : 'vp9', width: FILM_W, height: FILM_H, frameRate: VID_FPS }, fastStart: 'in-memory' });
-          R.enc = new VideoEncoder({ output: function (ch, meta) { try { R.mux.addVideoChunk(ch, meta); } catch (e) { R.bad = e; } }, error: function (e) { R.bad = e; } });
+          // Первый полученный кадр может прийти позже нулевого слота. От него и начинается время MP4.
+          var opts = { target: new X.ArrayBufferTarget(), video: { codec: c.avc ? 'avc' : 'vp9', width: FILM_W, height: FILM_H, frameRate: VID_FPS },
+            fastStart: 'in-memory', firstTimestampBehavior: 'offset' };
+          if (R.audio) opts.audio = { codec: R.audio.config.codec === 'opus' ? 'opus' : 'aac', numberOfChannels: 2, sampleRate: R.audio.rate };
+          R.mux = new X.Muxer(opts);
+          if (R.audio) {
+            R.audio.enc = new AudioEncoder({
+              output: function (ch, meta) {
+                if (R.bad) return;
+                try { R.mux.addAudioChunk(ch, meta); } catch (e) { R.bad = e; }
+              },
+              error: function (e) { R.bad = e; }
+            });
+            R.audio.enc.configure(R.audio.config);
+            R.audio.onBlock = function () {
+              if (REC !== R || R.finishing || R.bad) return;
+              try { filmAudioDrain(R, false); } catch (e) { R.bad = e; }
+            };
+          }
+          R.enc = new VideoEncoder({
+            output: function (ch, meta) {
+              if (R.bad) return;
+              try {
+                R.mux.addVideoChunk(ch, meta);
+                if (R.firstTs == null) R.firstTs = ch.timestamp;
+                R.duration = (ch.timestamp - R.firstTs + (ch.duration || 1e6 / VID_FPS)) / 1e6;
+                filmAudioDrain(R, false);
+              } catch (e) { R.bad = e; }
+            },
+            error: function (e) { R.bad = e; }
+          });
           R.enc.configure(c); R.vp9 = !c.avc;
           R.last = performance.now(); clock.textContent = '0:00';
           (function loop() {
             if (REC !== R || R.finishing) return;
-            var now = performance.now(), dt = Math.min(.25, (now - R.last) / 1000);
+            var now = performance.now(), elapsed = (now - R.last) / 1000, dt = Math.min(.25, elapsed), from = R.t;
             R.last = now;
+            if (!R.paused && !R.cut) R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
+            // Часы аудиоустройства могут идти иначе, чем часы анимации, особенно под нагрузкой.
+            filmAudioSpan(R.audio, from, R.t, elapsed ? dt / elapsed : 1);
             if (!R.paused && !R.cut) {
-              R.t += dt / R.speed;   // × 2: две секунды прохода — секунда ролика
               var slot = Math.floor(R.t * VID_FPS);
               if (slot > R.slot) { R.slot = slot; paint(R.x, R, R.t); push(R, Math.round(slot * 1e6 / VID_FPS)); }
               clock.textContent = filmTime(R.t);
               if (R.out != null && R.t - R.out > .9) { stop(); return; }
               if (R.t >= FILM_MAX) { toast('Ролик дошёл до 5 минут — запись остановлена.'); stop(); return; }
             }
+            if (R.bad) { stop(); return; }
             R.raf = requestAnimationFrame(loop);
           })();
           ui();
           if (auto) apStart(true);
-        });
+        }
       });
     }
     function push(R, ts) {
@@ -4380,13 +4616,16 @@
     function pause() {
       if (!REC) return;
       REC.paused = !REC.paused; REC.last = performance.now();
+      filmAudioSpan(REC.audio, REC.t, REC.t, 1);
       ui();
     }
     // Запись прервана (выход, ошибка): ничего не сохраняем
     function abort(R) {
       if (!R) return;
       R.finishing = true; cancelAnimationFrame(R.raf);
+      filmAudioClose(R.audio);
       R.stream.getTracks().forEach(function (k) { k.stop(); });
+      if (R.audio && R.audio.enc && R.audio.enc.state !== 'closed') R.audio.enc.close();
       try { if (R.enc && R.enc.state !== 'closed') R.enc.close(); } catch (e) {}
       if (REC === R) REC = null;
       apStop(); ui();
@@ -4396,20 +4635,33 @@
       if (!R.enc || !R.n) { abort(R); toast('Ролик пустой — запись не успела начаться.', true); return; }
       if (R.bad) { abort(R); toast('Не получилось записать ролик: ' + (R.bad.message || R.bad), true); return; }
       R.finishing = true; cancelAnimationFrame(R.raf);
-      R.stream.getTracks().forEach(function (k) { k.stop(); });
+      R.stream.getVideoTracks().forEach(function (k) { k.stop(); });
       apStop(); clock.textContent = 'Сохраняю…'; ui();
       R.enc.flush().then(function () {
+        if (REC !== R) return;
+        if (R.bad) throw R.bad;
+        if (R.firstTs == null) { abort(R); toast('Ролик пустой — запись не успела начаться.', true); return; }
+        if (R.audio) return filmAudioFinish(R);
+      }).then(function () {
+        if (REC !== R) return;
+        if (R.bad) throw R.bad;
         R.mux.finalize();
-        try { R.enc.close(); } catch (e) {}
-        if (REC === R) REC = null; ui();
+        R.enc.close();
+        if (R.audio) R.audio.enc.close();
+        filmAudioClose(R.audio);
+        R.stream.getAudioTracks().forEach(function (k) { k.stop(); });
         done(R, new Blob([R.mux.target.buffer], { type: 'video/mp4' }));
-      }, function (e) { abort(R); toast('Не получилось записать ролик: ' + (e && e.message || e), true); });
+        REC = null; ui();
+      }).catch(function (e) {
+        if (REC !== R) return;
+        abort(R); toast('Не получилось записать ролик: ' + (e && e.message || e), true);
+      });
     }
     // Готовый ролик живёт только в памяти этой вкладки; «Удалить», новая запись или выход — память освобождается
     var made = '';
     function drop() { if (made) URL.revokeObjectURL(made); made = ''; res.replaceChildren(); }
     function done(R, blob) {
-      var url = made = URL.createObjectURL(blob), dur = (R.slot + 1) / VID_FPS;
+      var url = made = URL.createObjectURL(blob), dur = R.duration;
       clock.textContent = filmTime(dur);
       var name = '13mirrors-' + (isR() ? r.id || 'route' : st.what.replace(':', '-').replace(/-$/, '') || 'site') + '-' + new Date().toISOString().slice(0, 10) + '-' + filmTime(dur).replace(':', 'm') + 's.mp4';
       var vid = el('video', { class: 'a-film-vid', src: url, controls: true, playsinline: true });
@@ -4544,7 +4796,11 @@
         A.stage = 'go';
         idle(1100, function () {
           if (REC) {
-            if (REC.cut) { REC.cut = false; REC.last = performance.now(); if (REC.slot >= 0) REC.fade = REC.t; }
+            if (REC.cut) {
+              REC.cut = false; REC.last = performance.now();
+              filmAudioSpan(REC.audio, REC.t, REC.t, 1);
+              if (REC.slot >= 0) REC.fade = REC.t;
+            }
             // Первый день идёт под названием маршрута; если название ещё видно — «День N» сразу после него
             if (st.dayCap && !(st.title && REC.slot < 0)) REC.cap = { t: Math.max(REC.t, st.title ? 3.4 : 0), a: A.fin ? 'Финал' : 'День ' + A.day, b: dateOf(A.day) };
             ui();
@@ -4625,8 +4881,9 @@
 
     function close() {
       if (REC && !confirm('Идёт запись. Остановить и выйти? Ролик не сохранится.')) return;
+      active = false;
       if (REC) abort(REC);
-      apStop(); drop();
+      apStop(); drop(); dropFilmMusic();
       window.removeEventListener('message', onMsg); document.removeEventListener('keydown', inkKey, true); document.removeEventListener('keyup', inkKey, true); closePreview(); pv.classList.remove('is-rec');
     }
     function selF(opts, key, after) {
@@ -4686,7 +4943,7 @@
     inkBox.hidden = !st.ink;
     var spSel = null, whatSel = null, side = el('div', { class: 'a-film-side' }, [
       el('h2', { class: 'a-film-h', text: '🎬 Ролик' }),
-      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome на компьютере; звук не записывается. После «● Записать» Chrome спросит, можно ли показать эту вкладку, — выберите «Эта вкладка» и «Поделиться».' }),
+      el('p', { class: 'a-hint', text: 'Вертикальный ролик 1080 × 1920 из того, что видно в окне-телефоне. Работает в Chrome или Edge на компьютере. Для записи выберите «Эта вкладка» и «Поделиться».' }),
       field('Что снимать', whatSel = selF(WHAT, 'what', function () { if (AP) apStop(); reload(); how(); }), 'Страница маршрута или любая страница сайта: витрина, месяц, кин, сад «Узоров».'),
       routeBox,
       howBox,
@@ -4698,6 +4955,8 @@
       inkBox,
       el('div', { class: 'a-film-opts' }, [chk('spark', 'Искорки за указателем и при касании'), chk('tap', 'Кружок там, где касаетесь'), chk('title', 'Название в начале (3 секунды)'), chk('dayCap', '«День N» при смене дня (маршрут, автопилот)'), chk('mark', 'Знак 13 MIRRORS в углу')]),
       field('Подпись внизу ролика', cap, 'Пусто — без подписи.'),
+      el('div', { class: 'a-film-opts' }, [sound = chk('sound', 'Записывать звук вкладки', function () { if (isR()) { playFilmMusic(); reload(); } })]),
+      el('p', { class: 'a-hint', text: 'Если у спирали настроена музыка, она берётся из проигрывателя маршрута. Для остальных страниц включите «Поделиться звуком вкладки» в окне браузера.' }),
       el('div', { class: 'a-film-rec' }, [bTry, bRec, bPause, bStop, clock]),
       res]);
     how();
@@ -4763,7 +5022,9 @@
     // «Пустить огонёк»: импульс от сегодняшнего камня к центру, как при нажатии на сайте
     var go = el('button', { type: 'button', class: 'a-btn', text: '✨ Пустить огонёк' });
     go.addEventListener('click', function () { ovs.forEach(function (o) { if (o.run) o.run(Math.min(st.day, last)); }); });
-    return el('div', { class: 'a-jgl-box' }, [field('Как светится', pick, 'Сегодняшний камень «дышит», до него — пройденные дни, после — будущие. Двигайте ползунки ниже — свет меняется сразу.'), el('div', null, [go]),
+    return el('div', { class: 'a-jgl-box' }, [field('Как светится', pick, window.M13R.spiralGlowStyle(r) === 'mirror' ?
+      'Виден только блик текущего дня. Нажмите «Пустить огонёк», чтобы увидеть полёт пыли.' :
+      'Сегодняшний камень «дышит», до него — пройденные дни, после — будущие. Двигайте ползунки ниже — свет меняется сразу.'), el('div', null, [go]),
       el('div', { class: 'a-bgpvs' }, frames)]);
   }
   // Свой цвет свечения у каждого дня (days[i].glowColor); пусто — общий цвет. Пройденный день светится своим цветом, только спокойнее.
@@ -4829,6 +5090,7 @@
     }
     showWhen();
     var linked = {}; DATA.journeys.items.forEach(function (x) { if (x.routeId && x !== r) linked[x.routeId] = x.title; });
+    var glowStyle = window.M13R.spiralGlowStyle(r), reflection = glowStyle === 'reflection', points = glowStyle === 'points', mirror = glowStyle === 'mirror';
     return [
       jTodoBox(r),
       block('Маршрут', [
@@ -4850,6 +5112,11 @@
         r.kind === 'theme' ? null : el('div', { class: 'a-backup-btns' }, [el('button', { type: 'button', class: 'a-btn a-btn--small', text: 'Заполнить кины по календарю', onclick: function () { jKinFill(r, true, function () { renderMain(); }); },
           title: 'Kin, имя кина, печать и тон каждого дня — по первому дню' })])]),
       block('Слова маршрута', jWords(r), { open: false }),
+      block('Фоновая музыка', [
+        mediaIn(r, 'stageMusic', 'Музыка на основной сцене', { kind: 'audio', uploadOnly: true, maxMB: 10,
+          hint: 'MP3 или M4A до 10 МБ. Играет по кругу, при открытии Карты дня становится тише. Участник может выключить звук.' }),
+        rangeIn(r, 'stageVolume', 'Громкость', { min: 5, max: 100, step: 5, def: 35, unit: ' %' })
+      ], { open: false }),
       r.scene === 'doors' ? null : block('Спираль (фон страницы)', [
         el('div', { class: 'a-row' }, [
           imageIn(r, 'masterDesktop', 'Для компьютера — горизонтальная', { noFrame: true, max: 2400, size: { w: 2400, h: 1350, note: '16:9' }, onChange: liveSoon }),
@@ -4882,16 +5149,34 @@
       r.scene === 'doors' ? null : block('Свет кирпичей', [
         el('p', { class: 'a-hint', text: 'Кирпичи — это время маршрута, не личный путь: сегодняшний «дышит» и зовёт, после нажатия светится ровно; пройденные светятся спокойно, будущие — в тени. Где лежат кирпичи — вкладка «Кирпичи на спирали», там же видно, как светится каждый день.' }),
         jGlowLive(r),
-        colorIn(r.glow, 'color', 'Цвет свечения — общий'),
-        rangeIn(r.glow, 'power', 'Сила свечения', { min: 50, max: 300, step: 10, def: 150, unit: ' %', hint: 'Насколько ярко и широко светятся камни. 100 % — как было в первом варианте; больше — ярче, вокруг камня появляется широкий ореол.' }),
-        rangeIn(r.glow, 'spark', 'Огонёк к центру — яркость', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: 'Огонёк бежит от камня дня в центр, когда человек нажимает на сегодняшний камень. Он цветом дня, прозрачный, без белой серединки. Посмотреть — кнопка «Пустить огонёк» над картинками.' }),
-        rangeIn(r.glow, 'sparkSpeed', 'Огонёк к центру — скорость', { min: 30, max: 250, step: 10, def: 100, unit: ' %', hint: '100 % — как было: от последнего камня огонёк долетает за 0,7 с, от первого — за 2 с. Меньше — медленнее и спокойнее (50 % — вдвое дольше), больше — быстрее. Посмотреть — кнопка «Пустить огонёк» над картинками.' }),
-        rangeIn(r.glow, 'today', 'Сегодняшний кирпич', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }),
-        rangeIn(r.glow, 'done', 'Прошедшие дни', { min: 0, max: 100, step: 5, def: 55, unit: ' %' }),
-        rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' }),
+        selectIn(r.glow, 'style', 'Вид подсветки пути', [['ribbon', 'По разметке'], ['reflection', 'Мягкий отблеск'], ['points', 'Точки в песке'], ['mirror', 'Зеркало в песке']],
+          { def: glowStyle, onChange: function () { renderMain(); } }),
+        reflection ? rangeIn(r.glow, 'reflectionSize', 'Размер отблесков', { min: 40, max: 160, step: 5, def: 100, unit: ' %',
+          hint: 'Размер светового пятна. Там, где дни близко друг к другу, между отблесками остаётся промежуток.' }) : null,
+        points ? rangeIn(r.glow, 'pointSize', 'Размер точек', { min: 50, max: 150, step: 5, def: 100, unit: ' %' }) : null,
+        points ? rangeIn(r.glow, 'pointShimmer', 'Перелив', { min: 0, max: 100, step: 5, def: 35, unit: ' %',
+          hint: '0 % — без блика. При изменении первым переливается сегодняшний день. Крупно видно через «Посмотреть страницу».' }) : null,
+        points ? el('p', { class: 'a-hint', text: 'Точки берут цвет печати. Свой цвет для каждого дня можно задать ниже.' }) : null,
+        mirror ? el('div', { class: 'a-row' }, [
+          rangeIn(r.glow, 'mirrorSize', 'Размер блика', { min: 50, max: 150, step: 5, def: 100, unit: ' %' }),
+          rangeIn(r.glow, 'mirrorBreath', 'Дыхание блика', { min: 1.5, max: 6, step: .1, def: 2.8, unit: ' с',
+            hint: 'Длительность одного цикла. Блик остаётся на месте.' })
+        ]) : null,
+        colorIn(r.glow, 'color', points ? 'Цвет центра и запасной цвет точек' : mirror ? 'Общий цвет Солнца и пыли' : 'Цвет свечения — общий'),
+        rangeIn(r.glow, 'power', 'Сила свечения', { min: 50, max: 300, step: 10, def: 150, unit: ' %',
+          hint: mirror ? 'Яркость блика. Размер и дыхание регулируются отдельно.' : points ? 'Яркость точек. Размер и перелив меняются отдельно.' : reflection ? 'Яркость отблесков. Размер меняется отдельно.' : 'Насколько ярко и широко светятся камни. 100 % — как было в первом варианте; больше — ярче, вокруг камня появляется широкий ореол.' }),
+        mirror ? null : selectIn(r.glow, 'sparkTrail', 'След огонька к центру', [['line', 'Световая линия'], ['dust', 'Золотая пыль']],
+          { def: 'line', hint: 'Песчинки разлетаются за огоньком и затухают. Посмотреть — «Пустить огонёк» над картинками.' }),
+        rangeIn(r.glow, 'spark', 'Огонёк к центру — яркость', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: mirror ? 'Яркость летящих песчинок. Цвет берётся из печати дня, если она задана.' : 'Огонёк бежит от камня дня в центр, когда человек нажимает на сегодняшний камень. Он цветом дня, прозрачный, без белой серединки. Посмотреть — кнопка «Пустить огонёк» над картинками.' }),
+        mirror ? rangeIn(r.glow, 'mirrorFlight', 'Длительность полёта пыли', { min: 1, max: 5, step: .1, def: 2.2, unit: ' с',
+          hint: 'Время от блика до центра. Последние песчинки плавно гаснут у центра.' }) :
+          rangeIn(r.glow, 'sparkSpeed', 'Огонёк к центру — скорость', { min: 30, max: 250, step: 10, def: 100, unit: ' %', hint: '100 % — как было: от последнего камня огонёк долетает за 0,7 с, от первого — за 2 с. Меньше — медленнее и спокойнее (50 % — вдвое дольше), больше — быстрее. Посмотреть — кнопка «Пустить огонёк» над картинками.' }),
+        rangeIn(r.glow, 'today', mirror ? 'Яркость сегодняшнего блика' : 'Сегодняшний кирпич', { min: 0, max: 100, step: 5, def: 100, unit: ' %' }),
+        mirror ? null : rangeIn(r.glow, 'done', 'Прошедшие дни', { min: 0, max: 100, step: 5, def: 55, unit: ' %' }),
+        mirror ? null : rangeIn(r.glow, 'future', 'Будущие дни', { min: 0, max: 100, step: 5, def: 12, unit: ' %' }),
         rangeIn(r.glow, 'dusk', 'Сумрак на спирали', { min: 0, max: 80, step: 5, def: 35, unit: ' %', hint: 'Насколько притушить камни, которые не светятся: чем больше, тем ярче на их фоне путь. 0 — картинка как есть. До 5 октября спираль показывается без сумрака и без света.' }),
-        sub('Свой цвет у каждого дня'),
-        jDayColors(r)
+        mirror ? null : sub('Свой цвет у каждого дня'),
+        mirror ? null : jDayColors(r)
       ], { open: false }),
       block('Ключи Путешествия и Погружения', [
         el('p', { class: 'a-hint', text: 'Ключ — слово, которое вы даёте в группе (для Погружения — свой). На странице маршрута человек вводит ключ → выбирает три состояния → калейдоскоп поворачивается → у него личный узор и код (например, ИСКРА-7ЖК-4Б2; состояния зашиты в код). Код помнит его телефон; на другом устройстве он вводит код, а не ключ. Код сам определяет формат и порядок его карт. Большие/маленькие буквы, пробелы и «ё» в ключе не важны.' }),
@@ -4906,6 +5191,13 @@
         textIn(tx, 'trace', 'Надпись на кнопке', { ph: 'Оставить след' })
       ], { open: false }),
       block('Надписи на странице', [
+        el('p', { class: 'a-hint', text: 'Задайте общее положение надписей для всех дней. Для отдельного дня откройте предпросмотр и выберите «Своё для этого дня». Ноль возвращает исходную высоту, а «Общее положение» возвращает день к настройке маршрута.' }),
+        el('div', { class: 'a-row' }, [
+          jHudRange(r.stage, 'hudOffsetDesktop', 'Общий сдвиг · Компьютер', null, true),
+          jHudRange(r.stage, 'hudOffsetMobile', 'Общий сдвиг · Телефон', null, true)]),
+        el('div', { class: 'a-tabs' }, [
+          el('button', { type: 'button', text: 'Расположить надписи · По дням', onclick: function () { openJourneyPage(r, false, { mode: 'observation', hudDay: 1 }); } }),
+          el('button', { type: 'button', text: 'После завершения', onclick: function () { openJourneyPage(r, false, { mode: 'observation', hudDay: r.days.length + 1 }); } })]),
         textIn(tx, 'back', 'Ссылка назад', { ph: '← Вернуться на витрину' }),
         el('div', { class: 'a-row' }, [textIn(tx, 'before', 'До начала — крупно', { ph: 'Маршрут скоро начнётся' }), textIn(tx, 'beforeNote', 'До начала — строка ниже')]),
         el('div', { class: 'a-row' }, [textIn(tx, 'after', 'После конца — крупно', { ph: 'Маршрут пройден' }), textIn(tx, 'afterNote', 'После конца — строка ниже')]),
@@ -5570,7 +5862,7 @@
     var ms = el('select', { class: 'a-input' }, J_MODES.map(function (m) { return el('option', { value: m[0], text: m[1] }); }));
     ms.value = st.mode; ms.addEventListener('change', function () { st.mode = ms.value; liveSoon(); });
     return [
-      el('p', { class: 'a-hint', text: 'День 13: нажатие на центр → урезанная Карта дня 13 (у Путешествия и Погружения — «С чем вы выходите?», можно не выбирать) → кнопка-спираль «Собрать маршрут» (огоньки сбегаются в центр) → на спирали темнеет, камни мягко загораются по очереди, из каждого выходит сгусток света его стёклышка и плывёт по камням в центр (состояния входа — из начала пути, подарки — со своим днём, состояния выхода — с последнего витка) → огни тихо кружат по диску; «Костёр»: над печатью поднимаются искры и складываются в луч (или «Медленный водоворот») → Солнце рождается из печати: лежит на диске, раскрывается, поднимается и встаёт лицом к вам → тёплый свет заливает экран → надписи и кнопки. Около 20 секунд, нажатие — сразу к концу. После 17 октября страница открывается сразу на последнем кадре; нажатие на центр — финал ещё раз.' }),
+      el('p', { class: 'a-hint', text: 'День 13: нажатие на центр → урезанная Карта дня 13 (у Путешествия и Погружения — «С чем вы выходите?», можно не выбирать) → кнопка-спираль «Собрать маршрут» (огоньки сбегаются в центр) → на спирали темнеет, камни мягко загораются по очереди, от каждого к центру летит сгусток света или горстка цветной пыли (состояния входа — из начала пути, подарки — со своим днём, состояния выхода — с последнего витка) → огни тихо кружат по диску; «Костёр»: над печатью поднимаются искры и складываются в луч (или «Медленный водоворот») → Солнце рождается из печати: лежит на диске, раскрывается, поднимается и встаёт лицом к вам → тёплый свет заливает экран → надписи и кнопки. Около 20 секунд, нажатие — сразу к концу. После сбора маршрута нажатие на центр открывает готовый итог.' }),
       el('div', { class: 'a-tabs' }, [
         el('button', { type: 'button', text: 'Посмотреть финал · Путешествие', onclick: function () { look('journey', false, '&sim=13'); } }),
         el('button', { type: 'button', text: '· Наблюдение', onclick: function () { look('observation', false, '&sim=13'); } }),
@@ -5615,7 +5907,7 @@
         el('p', { class: 'a-hint', text: 'Под кнопками — кнопка-спираль: назад на спираль (она уже золотая, с Солнцем в центре).' })
       ], { open: false }),
       block('Музыка', [
-        el('p', { class: 'a-hint', text: 'Только ваша музыка — с правом использования (или свой фрагмент 15–30 секунд). Без файла финал идёт в тишине. Музыка начинается с нажатия «Собрать маршрут»; справа сверху — кнопка «Выключить звук» (браузер запомнит выбор). Лучше MP3 до 2–3 МБ.' }),
+        el('p', { class: 'a-hint', text: 'Только ваша музыка — с правом использования (или свой фрагмент 15–30 секунд). При включённом звуке без отдельного файла в финале продолжается музыка сцены, если она задана. Если у финала другой файл, он начинается с нажатия «Собрать маршрут». Справа сверху — кнопка звука (браузер запомнит выбор). Лучше MP3 до 2–3 МБ.' }),
         switchIn(F, 'sound', 'Музыка в финале', { defTrue: true }),
         mediaIn(F, 'music', 'Файл музыки', { kind: 'audio', maxMB: 6 }),
         rangeIn(F, 'volume', 'Громкость', { min: 10, max: 100, step: 5, def: 70, unit: ' %', hint: 'На iPhone громкость задаёт сам телефон.' }),
@@ -5627,13 +5919,15 @@
         el('div', { class: 'a-row' }, [mediaIn(F, 'videoDesktop', 'Для компьютера — 16:9', { kind: 'video', maxMB: 12 }), mediaIn(F, 'videoMobile', 'Для телефона — 9:16', { kind: 'video', maxMB: 12 })])
       ], { open: false }),
       block('Как собирается свет', [
+        selectIn(F, 'flightStyle', 'Полёт огоньков в финале', [['glow', 'Сгустки света'], ['dust', 'Цветная пыль']], { def: 'glow',
+          hint: '«Цветная пыль» летит к центру отдельными песчинками. У каждого дня свой цвет печати.' }),
         el('p', { class: 'a-hint', text: 'Когда огоньки дней пришли в центр, они тихо кружат по диску печати — ровно, без разгона. Дальше — на выбор.' }),
         selectIn(F, 'gather', 'Как свет уходит в луч', [['fire', '«Костёр» — над печатью поднимаются искры и складываются в луч'], ['swirl', '«Медленный водоворот» — огни ровно, по спирали тают к центру']], { def: 'fire' }),
         rangeIn(F, 'sparkSize', 'Размер искр («Костёр»)', { min: 40, max: 250, step: 10, def: 100, unit: ' %' }),
         el('div', { class: 'a-row' }, [
-          rangeIn(F, 'lightsPower', 'Яркость огоньков', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: 'Сгустки света, которые плывут по камням к центру.' }),
+          rangeIn(F, 'lightsPower', 'Яркость огоньков', { min: 20, max: 200, step: 10, def: 100, unit: ' %', hint: 'Яркость сгустков света или песчинок, летящих к центру.' }),
           rangeIn(F, 'stoneLight', 'Свет на камнях', { min: 0, max: 200, step: 10, def: 100, unit: ' %', hint: 'Как загораются сами камни дней. 0 — не загораются.' })]),
-        el('p', { class: 'a-hint', text: 'Цвет огоньков — неон: «Основное» → «Неон» → «Огоньки финала», «Свет камней в финале».' })
+        el('p', { class: 'a-hint', text: 'Неон сгустков света и камней настраивается в «Основное» → «Неон».' })
       ], { open: false }),
       block('Солнце в финале', [
         el('p', { class: 'a-hint', text: '12 делений — 12 дней, у каждого цвет его стёклышка. В центре — стёклышки самого человека: в середине — первое «С чем вы выходите?» (ничего не выбрал — золото), вокруг — состояния входа, подарки, остальные выхода. Узор (кольца, завитки, вязь) у каждого свой — по коду. Рядом — пример; «Другой узор» — как выйдет у другого участника.' }),
