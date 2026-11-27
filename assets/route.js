@@ -573,7 +573,7 @@
     if (b.kind === 'small' || b.kind === 'title' || b.kind === 'note') {
       t = fill(b.text, ctx).trim(); if (!t) return null;
       if (b.kind === 'title') return el('h2', 'ys-c-title', t);
-      return b.kind === 'small' ? el('p', 'ys-c-small', t) : textNode('ys-c-note', t);
+      return b.kind === 'small' ? smallNode(t) : textNode('ys-c-note', t);
     }
     // text / question — у каждого дня свой текст (day.texts[b.id]); в нём тоже можно ставить метки.
     // Своё название дня под подписью блока (day.texts[b.id + 'Title'], «Фокус дня» → «Свет, который зовёт»)
@@ -583,6 +583,24 @@
     if (tt) box.appendChild(el('h3', 'ys-c-sub', tt));
     box.appendChild(textNode('ys-c-body', t));
     return box;
+  }
+  // Строчка Карты «Печать Белый Волшебник · тон Электрический» (её жалоба 27.11: «тон» оставался висеть в конце строки):
+  // части между « · » переносятся только целиком; перенос пришёлся на точку — точки нет, вторая часть с новой строки.
+  function smallNode(t) {
+    var parts = t.indexOf('\n') < 0 ? t.split(/\s+·\s+/) : [t];
+    if (parts.length < 2) return el('p', 'ys-c-small', t);
+    var p = el('p', 'ys-c-small ys-c-parts'), w0 = -1;
+    parts.forEach(function (s, i) {
+      if (i) p.appendChild(el('span', 'ys-c-dot', ' · '));
+      p.appendChild(el('span', 'ys-c-part', s));
+    });
+    function fit() {
+      var k = p.children, i;
+      for (i = 1; i < k.length; i += 2) k[i].classList.remove('is-br');
+      for (i = 1; i < k.length; i += 2) if (k[i + 1].offsetTop > k[i - 1].offsetTop + 2) k[i].classList.add('is-br');
+    }
+    if (window.ResizeObserver) new ResizeObserver(function () { var w = p.clientWidth; if (w && w !== w0) { w0 = w; fit(); } }).observe(p);
+    return p;
   }
   // Карта дня 13 — урезанная: какие блоки Карты дня на ней видны (route.final.blocks: { id блока: да/нет });
   // не задано — строки и заголовок (кин, печать, тон) и вопрос, без картинки и текстов.
