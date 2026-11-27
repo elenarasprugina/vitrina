@@ -3949,18 +3949,66 @@
   // По выбору записывает звук вкладки. Файл никуда не уходит.
   var FILM_W = 1080, FILM_H = 1920, FILM_MAX = 300;
   // Указатель в окне ролика (её выбор 30.10): кончик пера / звёздочка палочки / центр точки — там, где мышка
-  var FILM_PTR_OPTS = [['pen', 'Перо'], ['wand', 'Волшебная палочка'], ['dot', 'Светлая точка'], ['none', 'Не показывать (только касания)'], ['mouse', 'Обычная мышка']];
+  var FILM_PTR_OPTS = [['pen', 'Перо'], ['quill', 'Перо-волосок'], ['light', 'Перо из света (мерцает)'], ['wand', 'Волшебная палочка'], ['dot', 'Светлая точка'], ['none', 'Не показывать (только касания)'], ['mouse', 'Обычная мышка']];
   var FILM_PTR = {
     pen: '<svg width="46" height="48" viewBox="0 0 46 48"><path d="M2 46C10 34 18 22 30 10C34 6 40 3 44 2C43 8 40 14 36 18C30 24 22 28 14 33C10 36 6 40 2 46Z" fill="rgba(255,255,255,.94)"/>' +
       '<path d="M2 46L36 12" stroke="rgba(150,118,66,.85)" stroke-width="1.3" fill="none"/><path d="M20 28l6 1M24 23l6 1M28 18l6 1" stroke="rgba(150,118,66,.45)" stroke-width="1"/></svg>',
-    wand: '<svg width="48" height="48" viewBox="0 0 48 48"><path d="M8 8L44 44" stroke="#2b1d10" stroke-width="4.5" stroke-linecap="round"/><path d="M8 8L16 16" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>' +
-      '<path d="M4 -1L5.4 2.6L9 4L5.4 5.4L4 9L2.6 5.4L-1 4L2.6 2.6Z" fill="#fff6d8"/></svg>',
+    // Палочка тоньше (её просьба 27.11: «утончённой»): тонкий тёмный стержень, сужается к кончику, золотая искра-звёздочка с тонкими лучами
+    wand: '<svg width="48" height="48" viewBox="0 0 48 48"><path d="M44.6 43.4L8.6 7.4L7.4 8.6L43.4 44.6Z" fill="#2b1d10"/><path d="M44.6 43.4L9.6 8.4" stroke="#e9c77e" stroke-opacity=".7" stroke-width=".45"/>' +
+      '<path d="M7.4 8.6L8.6 7.4L13 11.8L11.8 13Z" fill="#fff6dc"/><circle cx="4" cy="4" r="2.2" fill="#fff6d8" fill-opacity=".35"/>' +
+      '<path d="M4 -2.5L4.45 3.55L10.5 4L4.45 4.45L4 10.5L3.55 4.45L-2.5 4L3.55 3.55Z" fill="#fff6d8"/><circle cx="4" cy="4" r=".9" fill="#fff"/></svg>',
+    // Перо-волосок (её выбор 27.11, «Б2»): стержень дугой, кончик загибается, неровный край, отделившиеся бородки у основания
+    quill: '<svg width="46" height="48" viewBox="0 0 46 48"><defs><linearGradient id="m13fq" x1="0" y1="1" x2="1" y2="0"><stop offset=".25" stop-color="#fff" stop-opacity="0"/>' +
+      '<stop offset=".65" stop-color="#fff" stop-opacity=".72"/><stop offset="1" stop-color="#fff" stop-opacity=".95"/></linearGradient></defs>' +
+      '<path d="M14 34C18 26 26 16 36 8C39 5.5 42 3.5 45 3C44 8 41 13 37 17.5L34.6 18L35.6 19.4C32 22.8 28 25.6 24 28L22 27.8L22.8 29.4C19.8 31.2 16.8 32.8 14 34Z" fill="url(#m13fq)"/>' +
+      '<path d="M14 34C20 28 28 20 35 12C38.5 8 41.5 5 45 3" stroke="#fff" stroke-opacity=".4" stroke-width="1.2" fill="none"/>' +
+      '<path d="M2 46C4.5 42 8 37.5 12 33.5C20 25 30 13 38 7C40.5 5 43 3.6 45 3" stroke="#fff6dc" stroke-width=".7" fill="none" stroke-linecap="round"/>' +
+      '<path d="M2 46C4.5 42 8 37.5 12 33.5C20 25 30 13 38 7C40.5 5 43 3.6 45 3" stroke="#c9a25a" stroke-opacity=".55" stroke-width=".3" fill="none"/>' +
+      '<path d="M10.5 35.5l-2.6-.4M12 34l2.8 1.2M9.4 37l-2-.9" stroke="#fff" stroke-opacity=".55" stroke-width=".35" stroke-linecap="round"/></svg>',
+    light: '',
     dot: '<i></i>'
   };
+  /* Перо из света (её выбор 27.11): сотни мелких частичек по форме пера — гуще у стержня, реже к краю, часть золотые;
+     каждая мерцает в своём ритме, как пыль в луче. FILM_LIGHT — частички [x, y, радиус, яркость, фаза, период с, золотая];
+     на экране — SVG с мерцанием (admin.css, .m13f-ptr--light), в кадре ролика — рисуется заново каждый кадр (filmLightPaint). Кончик — (2, 46), как у пера. */
+  var FILM_LIGHT = (function () {
+    var seed = 13, out = [], i, t, u, w, d, px, py;
+    function rnd() { seed = seed * 16807 % 2147483647; return seed / 2147483647; }
+    function at(t) { return [2 + 43 * t - 3 * Math.sin(Math.PI * t), 46 - 43 * t - 3 * Math.sin(Math.PI * t)]; }   // стержень дугой
+    function add(x, y, r, a, gold) { out.push([x, y, r, a, rnd(), 1.2 + rnd() * 1.8, gold ? 1 : 0]); }
+    for (i = 0; i < 64; i++) { t = i / 64; px = at(t); add(px[0], px[1], .32 + rnd() * .22, .55 + .45 * t, rnd() < .15); }
+    for (i = 0; i < 380; i++) {
+      t = .2 + rnd() * .8; u = (t - .2) / .8; px = at(t);
+      w = 11.5 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.08)), .8) * (u > .92 ? .7 : 1);
+      var side = rnd() < .62 ? 1 : -.6; d = Math.pow(rnd(), 1.5) * w;
+      // бородки чуть наклонены к кончику
+      px = [px[0] + .707 * d * side + .3 * d, px[1] + .707 * d * side - .3 * d];
+      add(px[0], px[1], .22 + rnd() * .42, (.35 + rnd() * .65) * (1 - .6 * d / (w + .01)), rnd() < .22);
+    }
+    for (i = 0; i < 7; i++) { t = .45 + rnd() * .5; px = at(t); d = (rnd() - .3) * 6; add(px[0] + .707 * d, px[1] + .707 * d, .75 + rnd() * .3, .95, true); }
+    return out;
+  })();
+  FILM_PTR.light = '<svg width="46" height="48" viewBox="0 0 46 48" overflow="visible">' + FILM_LIGHT.map(function (q) {
+    return '<circle cx="' + q[0].toFixed(2) + '" cy="' + q[1].toFixed(2) + '" r="' + q[2].toFixed(2) + '" fill="' + (q[6] ? '#ffd98a' : '#fffaf0') +
+      '" style="--a:' + q[3].toFixed(2) + ';animation-duration:' + q[5].toFixed(2) + 's;animation-delay:-' + (q[4] * q[5]).toFixed(2) + 's"/>';
+  }).join('') + '</svg>';
+  // В кадр ролика: (x0, y0) — где кончик, k — масштаб, now — мс. Мерцание — как на экране (яркость от 100 % до 25 %).
+  function filmLightPaint(x, x0, y0, k, now) {
+    x.save(); x.globalCompositeOperation = 'lighter';
+    FILM_LIGHT.forEach(function (q) {
+      var tw = .5 + .5 * Math.cos(2 * Math.PI * (now / 1000 / q[5] + q[4])), a = q[3] * (.25 + .75 * tw);
+      var cx = x0 + (q[0] - 2) * k, cy = y0 + (q[1] - 46) * k, r = Math.max(.8, q[2] * k * .8);
+      x.globalAlpha = a * .12; x.fillStyle = q[6] ? '#ffc864' : '#ffe8b8';
+      x.beginPath(); x.arc(cx, cy, r * 2.4, 0, 6.283); x.fill();
+      x.globalAlpha = a; x.fillStyle = q[6] ? '#ffd98a' : '#fffaf0';
+      x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fill();
+    });
+    x.restore();
+  }
   var FILM_PTR_CSS = 'html.m13f-nocur,html.m13f-nocur *{cursor:none!important}' +
     '.m13f-ptr{position:fixed;z-index:2147483647;left:-99px;top:-99px;width:0;height:0;pointer-events:none}' +
     '.m13f-ptr svg,.m13f-ptr i{position:absolute;display:block;filter:drop-shadow(0 0 1px rgba(0,0,0,.6)) drop-shadow(0 1px 3px rgba(0,0,0,.25)) drop-shadow(0 0 6px rgba(255,255,255,.6))}' +
-    '.m13f-ptr--pen svg{left:-2px;top:-46px}.m13f-ptr--wand svg{left:-4px;top:-4px}' +
+    '.m13f-ptr--pen svg,.m13f-ptr--quill svg,.m13f-ptr--light svg{left:-2px;top:-46px}.m13f-ptr--wand svg{left:-4px;top:-4px}' +
     '.m13f-ptr--dot i{left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.92);filter:none;box-shadow:0 0 0 1.5px rgba(0,0,0,.3),0 1px 4px rgba(0,0,0,.25),0 0 14px 4px rgba(255,255,255,.55)}' +
     '.m13f-sp{position:fixed;z-index:2147483646;margin:-2px 0 0 -2px;border-radius:50%;background:#fff;box-shadow:0 0 1px 1px rgba(150,100,30,.55),0 0 6px 2px rgba(255,205,120,.95);pointer-events:none;animation:m13fSp .9s ease-out forwards}' +
     '@keyframes m13fSp{from{opacity:1;transform:none}to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}' +
@@ -4232,7 +4280,7 @@
       function sp() { return parseFloat(st.speed) || 1; }
       function hold() { return (parseFloat(st.inkHold) || 2.5) * 1000 * sp(); }
       function melt() { return (st.inkMelt === 'seq' ? 2200 : st.inkMelt === 'trail' ? 900 : st.inkMelt === 'fade' ? 1300 : 1500) * sp(); }
-      function pal() { var c = st.inkCol; if (!FILM_INK_PAL[c]) c = st.ptr === 'pen' || st.ptr === 'wand' ? 'gold' : 'white'; return FILM_INK_PAL[c]; }
+      function pal() { var c = st.inkCol; if (!FILM_INK_PAL[c]) c = /^(pen|quill|light|wand)$/.test(st.ptr) ? 'gold' : 'white'; return FILM_INK_PAL[c]; }
       // Линия — из точек: по пути пера через несколько пикселей ставится светящаяся точка, чуть в сторону, разного размера.
       // Путь сглажен (среднее последних касаний) — дрожь руки на тачпаде не видна, рисунок читается контуром из огоньков.
       function addPt() {
@@ -4327,13 +4375,13 @@
       // Перо в кадре ролика: та же картинка, что на экране, заранее нарисованная в размер ролика (с тенью и светлым ореолом)
       var PEN = {}, PIMG = {};
       Object.keys(FILM_PTR).forEach(function (k) {
-        if (k === 'dot') return;
+        if (k === 'dot' || k === 'light') return;
         var im = new Image();
         im.src = 'data:image/svg+xml,' + encodeURIComponent(FILM_PTR[k].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
         PIMG[k] = im;
       });
       function penSprite(k, q) {
-        var id = k + q, pad = 12, box = k === 'pen' ? [-2, -46, 46, 48] : k === 'wand' ? [-4, -4, 48, 48] : [-8, -8, 16, 16];
+        var id = k + q, pad = 12, box = k === 'pen' || k === 'quill' ? [-2, -46, 46, 48] : k === 'wand' ? [-4, -4, 48, 48] : [-8, -8, 16, 16];
         if (PEN[id]) return PEN[id];
         var im = PIMG[k];
         if (k !== 'dot' && !(im && im.complete && im.naturalWidth)) return null;
@@ -4359,6 +4407,7 @@
         if (S.length) { x.save(); x.setTransform(k, 0, 0, k, ox, oy); draw(x, Date.now()); x.restore(); }
         var kk = kind();
         if (!kk || p.hidden) return;
+        if (kk === 'light') { filmLightPaint(x, ox + mx * k, oy + my * k, k, Date.now()); return; }
         var z = penSprite(kk, Math.round(k * 4) / 4);
         if (z) x.drawImage(z, ox + mx * k + z.ox, oy + my * k + z.oy);
       };
