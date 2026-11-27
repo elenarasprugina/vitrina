@@ -3968,38 +3968,61 @@
     light: '',
     dot: '<i></i>'
   };
-  /* Перо из света (её выбор 27.11): сотни мелких частичек по форме пера — гуще у стержня, реже к краю, часть золотые;
-     каждая мерцает в своём ритме, как пыль в луче. FILM_LIGHT — частички [x, y, радиус, яркость, фаза, период с, золотая];
-     на экране — SVG с мерцанием (admin.css, .m13f-ptr--light), в кадре ролика — рисуется заново каждый кадр (filmLightPaint). Кончик — (2, 46), как у пера. */
+  /* Перо из света (её выбор 27.11, вторая проба — «чтобы угадывались линии пера, а не пузырь»): строение настоящего пера из частичек —
+     плотный стержень дугой, от него наискосок к кончику бородки цепочками частичек, край опахала ярче, два расщепа, пух у основания.
+     Перо в 1,5 раза крупнее обычного (иначе частички сливаются в белое пятно). Мерцает ~треть частичек, каждая в своём ритме, как пыль в луче.
+     FILM_LIGHT — частички [x, y, радиус, яркость, фаза, период с, золотая, мерцает]; кончик — (2, 46), как у пера.
+     На экране — SVG (admin.css, .m13f-ptr--light), в кадре ролика — рисуется заново каждый кадр (filmLightPaint). */
   var FILM_LIGHT = (function () {
-    var seed = 13, out = [], i, t, u, w, d, px, py;
+    var opt = { wa: 5, wb: 3, barbs: 42, gap: .56 }, K = 1.5;
+    var seed = 13, out = [];
     function rnd() { seed = seed * 16807 % 2147483647; return seed / 2147483647; }
-    function at(t) { return [2 + 43 * t - 3 * Math.sin(Math.PI * t), 46 - 43 * t - 3 * Math.sin(Math.PI * t)]; }   // стержень дугой
-    function add(x, y, r, a, gold) { out.push([x, y, r, a, rnd(), 1.2 + rnd() * 1.8, gold ? 1 : 0]); }
-    for (i = 0; i < 64; i++) { t = i / 64; px = at(t); add(px[0], px[1], .32 + rnd() * .22, .55 + .45 * t, rnd() < .15); }
-    for (i = 0; i < 380; i++) {
-      t = .2 + rnd() * .8; u = (t - .2) / .8; px = at(t);
-      w = 11.5 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.08)), .8) * (u > .92 ? .7 : 1);
-      var side = rnd() < .62 ? 1 : -.6; d = Math.pow(rnd(), 1.5) * w;
-      // бородки чуть наклонены к кончику
-      px = [px[0] + .707 * d * side + .3 * d, px[1] + .707 * d * side - .3 * d];
-      add(px[0], px[1], .22 + rnd() * .42, (.35 + rnd() * .65) * (1 - .6 * d / (w + .01)), rnd() < .22);
+    function at(t) { return [2 + 43 * t - 2.6 * Math.sin(Math.PI * t), 46 - 43 * t - 2.6 * Math.sin(Math.PI * t) + 1.2 * t * t]; }
+    function tan(t) { var a = at(Math.max(0, t - .01)), b = at(Math.min(1, t + .01)), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.sqrt(dx * dx + dy * dy); return [dx / l, dy / l]; }
+    function add(x, y, r, a, gold, tw) { out.push([x, y, r, a, rnd(), 1.2 + rnd() * 1.8, gold ? 1 : 0, tw ? 1 : 0]); }
+    // стержень — плотная цепочка, к основанию светлее и толще (очин)
+    for (var i = 0; i <= 110; i++) { var t = i / 110, p = at(t); add(p[0] + (rnd() - .5) * .15, p[1] + (rnd() - .5) * .15, .34 - .14 * t, .95, rnd() < .1, rnd() < .25); }
+    var TH = opt.th || 0.95, U0 = .2;
+    function shape(u) { return Math.pow(Math.sin(Math.PI * Math.min(1, Math.pow(u, .72))), .65); }
+    [[1, opt.wa || 6.2], [-1, opt.wb || 3.6]].forEach(function (sd) {
+      var side = sd[0], W = sd[1], n = opt.barbs || 44, gapAt = side > 0 ? [.47, .71] : [.6];
+      for (var b = 0; b < n; b++) {
+        var u = b / (n - 1), t = U0 + u * (1 - U0) * .985;
+        if (gapAt.some(function (g) { return Math.abs(u - g) < .006; })) continue;   // расщеп опахала
+        var T = tan(t), N = [-T[1] * side, T[0] * side], w = W * shape(u) * (.9 + rnd() * .2);
+        if (w < .4) continue;
+        var d = [Math.cos(TH) * T[0] + Math.sin(TH) * N[0], Math.cos(TH) * T[1] + Math.sin(TH) * N[1]], L = w / Math.sin(TH);
+        var S0 = at(t), steps = Math.max(3, Math.round(L / (opt.gap || .5)));
+        for (var k = 1; k <= steps; k++) {
+          var s = k / steps, bend = L * .18 * s * s;
+          var x = S0[0] + d[0] * L * s + T[0] * bend + (rnd() - .5) * .14, y = S0[1] + d[1] * L * s + T[1] * bend + (rnd() - .5) * .14;
+          var edge = s > .86, a = (edge ? .95 : .95 - .3 * s) * (.7 + rnd() * .3);
+          if (!edge && rnd() < .08) continue;   // пропуски — бородки не «бусы»
+          add(x, y, edge ? .26 + rnd() * .08 : .14 + rnd() * .16, a, rnd() < (edge ? .3 : .12), rnd() < .35);
+        }
+      }
+    });
+    // пух у основания: короткие мягкие бородки во все стороны
+    for (var f = 0; f < 14; f++) {
+      var tf = .06 + rnd() * .14, Pf = at(tf), Tf = tan(tf), sd2 = rnd() < .5 ? 1 : -1, ang = .5 + rnd() * .9, Lf = 1.5 + rnd() * 2.6;
+      var Nf = [-Tf[1] * sd2, Tf[0] * sd2], df = [Math.cos(ang) * Tf[0] + Math.sin(ang) * Nf[0], Math.cos(ang) * Tf[1] + Math.sin(ang) * Nf[1]];
+      for (var m = 1; m <= 5; m++) add(Pf[0] + df[0] * Lf * m / 5 + (rnd() - .5) * .3, Pf[1] + df[1] * Lf * m / 5 + (rnd() - .5) * .3, .16 + rnd() * .1, .55 - m * .07, false, true);
     }
-    for (i = 0; i < 7; i++) { t = .45 + rnd() * .5; px = at(t); d = (rnd() - .3) * 6; add(px[0] + .707 * d, px[1] + .707 * d, .75 + rnd() * .3, .95, true); }
-    return out;
+    
+    return out.map(function (q) { return [2 + (q[0] - 2) * K, 46 + (q[1] - 46) * K, q[2] * K].concat(q.slice(3)); });
   })();
   FILM_PTR.light = '<svg width="46" height="48" viewBox="0 0 46 48" overflow="visible">' + FILM_LIGHT.map(function (q) {
-    return '<circle cx="' + q[0].toFixed(2) + '" cy="' + q[1].toFixed(2) + '" r="' + q[2].toFixed(2) + '" fill="' + (q[6] ? '#ffd98a' : '#fffaf0') +
-      '" style="--a:' + q[3].toFixed(2) + ';animation-duration:' + q[5].toFixed(2) + 's;animation-delay:-' + (q[4] * q[5]).toFixed(2) + 's"/>';
+    return '<circle cx="' + q[0].toFixed(2) + '" cy="' + q[1].toFixed(2) + '" r="' + Math.max(.35, q[2] * .9).toFixed(2) + '" fill="' + (q[6] ? '#ffd98a' : '#fffaf0') + '"' +
+      (q[7] ? ' class="tw" style="--a:' + q[3].toFixed(2) + ';animation-duration:' + q[5].toFixed(2) + 's;animation-delay:-' + (q[4] * q[5]).toFixed(2) + 's"' : ' opacity="' + q[3].toFixed(2) + '"') + '/>';
   }).join('') + '</svg>';
-  // В кадр ролика: (x0, y0) — где кончик, k — масштаб, now — мс. Мерцание — как на экране (яркость от 100 % до 25 %).
+  // В кадр ролика: (x0, y0) — где кончик, k — масштаб, now — мс. Мерцание — как на экране (яркость от 100 % до 30 %).
   function filmLightPaint(x, x0, y0, k, now) {
     x.save(); x.globalCompositeOperation = 'lighter';
     FILM_LIGHT.forEach(function (q) {
-      var tw = .5 + .5 * Math.cos(2 * Math.PI * (now / 1000 / q[5] + q[4])), a = q[3] * (.25 + .75 * tw);
-      var cx = x0 + (q[0] - 2) * k, cy = y0 + (q[1] - 46) * k, r = Math.max(.8, q[2] * k * .8);
-      x.globalAlpha = a * .12; x.fillStyle = q[6] ? '#ffc864' : '#ffe8b8';
-      x.beginPath(); x.arc(cx, cy, r * 2.4, 0, 6.283); x.fill();
+      var tw = q[7] ? .5 + .5 * Math.cos(2 * Math.PI * (now / 1000 / q[5] + q[4])) : 1, a = q[3] * (q[7] ? .3 + .7 * tw : 1);
+      var cx = x0 + (q[0] - 2) * k, cy = y0 + (q[1] - 46) * k, r = Math.max(.6, q[2] * k * .85);
+      x.globalAlpha = a * .3; x.fillStyle = q[6] ? '#ffc864' : '#ffe8b8';
+      x.beginPath(); x.arc(cx, cy, r * 2.2 + .6, 0, 6.283); x.fill();
       x.globalAlpha = a; x.fillStyle = q[6] ? '#ffd98a' : '#fffaf0';
       x.beginPath(); x.arc(cx, cy, r, 0, 6.283); x.fill();
     });
